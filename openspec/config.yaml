@@ -1,0 +1,83 @@
+project: project-builder-sdk
+detected_at: "2026-06-19T00:00:00Z"
+polyglot: false
+strict_tdd: true
+visibility: public   # PUBLIC npm package — the engine and CLI are private; only the SDK is published
+
+stack:
+  - language: TypeScript
+    version: null          # pinned by foundations-skeleton (tsconfig + package.json engines)
+    package_manager: bun
+    runtime: bun           # Bun-native: runs TS without a Node transpile step
+    framework: null        # this IS the library; no app framework
+    root: "."
+    npm_namespace: "@pbuilder/sdk"
+    external_deps: []      # none yet — AST dialect libs (ts-morph/postcss/cheerio) arrive on the Modify track
+
+testing:
+  test_runner:
+    framework: "bun test"
+    command: "bun test"
+  build:
+    tool: "bun build"
+    command: null          # foundations-skeleton defines the build/bundle + .d.ts emit
+  typecheck:
+    tool: tsc
+    command: "tsc --noEmit"
+  linter:
+    tool: null             # candidate: biome (Bun-friendly, single binary). Decided in foundations-skeleton.
+    command: null
+  formatter:
+    tool: null             # candidate: biome. Decided in foundations-skeleton.
+    command: null
+  coverage:
+    tool: "bun test --coverage"
+    command: null
+    threshold: null        # foundations-skeleton sets and enforces the threshold in CI
+  mutation_testing:
+    tool: null
+    command: null
+  e2e:
+    framework: null
+    command: null
+  integration:
+    framework: "bun test"
+    notes: >
+      The SDK's integration boundary is the JSON-RPC wire to the Go engine sidecar.
+      Cross-process contract tests against the engine land with the walking skeleton.
+
+architecture:
+  style: null              # authored with ROADMAP.md + foundations-skeleton; mirrors the engine's IR-seam boundary
+  baseline: "openspec/architecture.md"   # not yet written
+  note: >
+    The SDK sits ABOVE the IR seam — the IR is the SDK<->Engine contract (engine ADR-0010).
+    AST-agnostic: ts-morph/postcss/cheerio live in SDK dialect packages, never in the engine core.
+    Authoring vocabulary is richer than the IR: SDK verbs (e.g. rename) lower to the 3 IR ops
+    (OpCreate/OpDelete/OpMove). Surface != contract.
+
+foundational_decisions:
+  # Locked 2026-06-19 with the user — promote to ADRs in foundations-skeleton.
+  license: MIT                       # same as Engram; engine/CLI stay private
+  package_structure: single-package-subpath-exports   # @pbuilder/sdk + /commons, /angular, ...
+  package_structure_debt: >
+    Third-party community dialects (@acme/pbuilder-sdk-*) will need the dialect contract
+    extracted to its own public surface. Conscious debt — revisit when the first dialect lands
+    (Modify level). Migrating to a monorepo later is possible but costly.
+  openspec_visibility: committed     # full openspec/ is public (transparency), mirrors the engine
+
+conventions:
+  - "Bun-native: TypeScript runs directly, no Node transpile step in dev/test"
+  - "Public API is the package.json#exports map + emitted .d.ts — every export is a semver contract"
+  - "Import model: commons (file-type-agnostic ops) vs dialect modules (library-specific AST ops + L1 named ops)"
+  - "L2 .raw(ast => ...) is the escape hatch; only final []byte crosses the IR seam, never AST objects or closures"
+  - "Fluent chains coalesce: a chain on one AST lowers to one Modify IR op"
+  - "PUBLIC repo — LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY all required (land in foundations-skeleton)"
+
+in_flight_changes:
+  - name: foundations-skeleton
+    status: "Not triaged"
+    priority: P0
+    note: >
+      First change. Publishable npm package skeleton + public-repo standards + the walking
+      skeleton (a minimal TS schematic lowered to IR, over the existing bun-ipc wire, applied
+      by the engine). Scope decided at /plan triage.

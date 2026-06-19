@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Bun
+.bun/
+
+# Test / coverage
+coverage/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+*.log
+
+# CodeGraph local index (machine-local daemon state, regenerated from source)
+.codegraph/
+
+# Claude Code worktrees (embedded repos, never committable)
+.claude/worktrees/

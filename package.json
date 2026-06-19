@@ -1,0 +1,35 @@
+{
+  "name": "@pbuilder/sdk",
+  "version": "0.0.0",
+  "description": "The public TypeScript/Bun authoring layer for Project Builder schematics. Authors file mutations (create, delete, move, rename, modify), lowers them to IR, and talks to the Project Builder engine over JSON-RPC.",
+  "license": "MIT",
+  "type": "module",
+  "private": false,
+  "author": "Project Builder Schematics",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Project-Builder-Schematics/project-builder-sdk.git"
+  },
+  "homepage": "https://github.com/Project-Builder-Schematics/project-builder-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/Project-Builder-Schematics/project-builder-sdk/issues"
+  },
+  "keywords": [
+    "project-builder",
+    "schematics",
+    "code-generation",
+    "scaffolding",
+    "ast",
+    "codemod"
+  ],
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  }
+}

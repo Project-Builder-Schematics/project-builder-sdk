@@ -1,0 +1,6 @@
+{
+  "project": "project-builder-sdk",
+  "artifact_store": "hybrid",
+  "spec_source": "internal",
+  "write_mode": "sync"
+}
