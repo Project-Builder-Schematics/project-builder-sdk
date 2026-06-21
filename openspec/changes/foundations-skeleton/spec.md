@@ -47,6 +47,8 @@ CI on **`main`** (the protected ref) MUST publish with `--provenance` via npm **
 `find`/`create` MUST resolve `Session`/`DirectiveFactory` from an ALS `RunContext = { session, factory }` activated by `defineFactory`; `currentContext()` MUST throw outside a run. `defineFactory<O>(fn)` MUST return a runner `(o, deps:{client: EngineClient}) => Promise<void>` that builds `RunContext` from `new Session(deps.client)` + a `DirectiveFactory` and runs `fn(o)` inside the ALS — the `EngineClient` is **injected by the caller** (the test passes the fake), never a module global.
 - GIVEN a verb called outside a run, THEN it throws a clear error.
 - GIVEN the runner invoked with the fake as `deps.client`, THEN the verb uses the fake (no global).
+- **Run-end flush (NOT read-coupled)**: the runner MUST flush the session after `fn` resolves (in a `finally`-safe path). A **write-only factory** — `create`/`modify`/`remove`/… with NO `read` — MUST still emit its batch. `read`-triggered flush (REQ-KIT-02) is an ADDITIONAL trigger, never the only one; a buffered write is never silently dropped at run end.
+- GIVEN a factory that only `create`s `P` (never reads), WHEN the runner resolves, THEN `emit` fired with `P`'s directive (a subsequent `read(P)` returns the written content).
 
 ---
 
