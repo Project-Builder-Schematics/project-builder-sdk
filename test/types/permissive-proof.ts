@@ -21,6 +21,7 @@
 //   or tsc's @ts-expect-error detection regressed).
 
 import type { ReadOps, WriteOps } from "../../src/core/base-handle.ts";
+import { create } from "../../src/commons/index.ts";
 
 // PermissiveWritableHandle: WritableHandle + remove() — the mutation that real WritableHandle forbids.
 interface PermissiveWritableHandle extends ReadOps, WriteOps {
@@ -45,3 +46,15 @@ type _PermissiveAssignable = PermissiveWritableHandle extends FoundHandle ? true
 // Asserting it: if this becomes false, the proof fixture is broken.
 const _assertAssignable: _PermissiveAssignable = true;
 void _assertAssignable;
+
+// REQ-01.2 — excess-field NEGATIVE proof for the create<S> generic overload (SEAM-01).
+// When create<S> narrows `options` to the mapped type { [K in keyof S]: S[K] }, an EXTRA
+// field is rejected by excess-property checking. The @ts-expect-error below is then USED
+// (a real error is suppressed), so it does NOT raise TS2578. If the overload ever stops
+// narrowing (the excess field becomes legal again), the directive becomes unused and tsc
+// raises TS2578 here — the proof catches the regression.
+const _excessFieldRejected = () => {
+  // @ts-expect-error — `extra` is not a key of S = { name: string }; the mapped-type narrowing must reject it.
+  create<{ name: string }>("dst.ts", { template: "t", options: { name: "x", extra: 1 } });
+};
+void _excessFieldRejected;

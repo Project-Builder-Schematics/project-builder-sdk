@@ -24,9 +24,55 @@ function makeOrderedClient(responses: Record<string, string>): {
       order.push("read");
       return responses[path] ?? `content:${path}`;
     },
+    async commit(): Promise<void> {},
+    async discard(): Promise<void> {},
   };
   return { client, order, get lastBatch() { return lastBatch; } };
 }
+
+describe("Session — pendingSnapshot (REQ-03)", () => {
+  it("REQ-03.1 — pendingSnapshot() reflects two buffered directives in order", () => {
+    const client: EngineClient = {
+      async emit() {},
+      async read() { return ""; },
+      async commit() {},
+      async discard() {},
+    };
+    const session = new Session(client);
+    const factory = new DirectiveFactory();
+
+    session.buffer(factory.create({ pathTemplate: "src/a.ts", template: "a", options: {} }));
+    session.buffer(factory.create({ pathTemplate: "src/b.ts", template: "b", options: {} }));
+
+    const snapshot = session.pendingSnapshot();
+
+    expect(snapshot).toHaveLength(2);
+    expect(snapshot[0]!.op).toEqual("create");
+    expect((snapshot[0] as Extract<typeof snapshot[0], { op: "create" }>).create.pathTemplate).toEqual("src/a.ts");
+    expect(snapshot[1]!.op).toEqual("create");
+    expect((snapshot[1] as Extract<typeof snapshot[1], { op: "create" }>).create.pathTemplate).toEqual("src/b.ts");
+  });
+
+  it("REQ-03.2 — snapshot is isolated from later buffer mutation", () => {
+    const client: EngineClient = {
+      async emit() {},
+      async read() { return ""; },
+      async commit() {},
+      async discard() {},
+    };
+    const session = new Session(client);
+    const factory = new DirectiveFactory();
+
+    session.buffer(factory.create({ pathTemplate: "src/a.ts", template: "a", options: {} }));
+    const snapshot = session.pendingSnapshot();
+
+    // Buffer a second directive AFTER the snapshot was taken.
+    session.buffer(factory.create({ pathTemplate: "src/b.ts", template: "b", options: {} }));
+
+    // The snapshot still reflects only the one directive from before.
+    expect(snapshot).toHaveLength(1);
+  });
+});
 
 describe("Session", () => {
   it("flushes pending directives before delegating read", async () => {
@@ -45,6 +91,8 @@ describe("Session", () => {
     const client: EngineClient = {
       async emit(batch) { capturedBatch = batch; },
       async read() { return ""; },
+      async commit() {},
+      async discard() {},
     };
     const session = new Session(client);
     const factory = new DirectiveFactory();

@@ -58,9 +58,10 @@ describe("defineFactory / RunContext", () => {
       run("beta", { client: fake2 }),
     ]);
 
-    expect(await fake1.read("alpha.ts")).toEqual("body-alpha");
-    expect(await fake2.read("beta.ts")).toEqual("body-beta");
+    // ADR-01: content is committed on success; staging is cleared, so assert via committed tree.
+    expect(fake1.committedTree().get("alpha.ts")).toEqual("body-alpha");
+    expect(fake2.committedTree().get("beta.ts")).toEqual("body-beta");
     // Cross-contamination check: beta content must not be in fake1
-    await expect(fake1.read("beta.ts")).rejects.toThrow("not found");
+    expect(fake1.committedTree().has("beta.ts")).toBe(false);
   });
 });

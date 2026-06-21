@@ -22,6 +22,12 @@ function observeCallOrder(inner: EngineClient): { client: EngineClient; order: s
       order.push("read");
       return inner.read(path);
     },
+    async commit(): Promise<void> {
+      return inner.commit();
+    },
+    async discard(): Promise<void> {
+      return inner.discard();
+    },
   };
   return { client, order };
 }

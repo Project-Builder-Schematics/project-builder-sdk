@@ -87,7 +87,20 @@ function extractPublicExports(source: string): Array<{ name: string; hasExample:
     }
   }
 
-  return results;
+  // Overload signatures appear as multiple `export function NAME` declarations for one
+  // logical export; the JSDoc (with @example) sits on the first signature only. Collapse
+  // same-name declarations into one entry — documented/internal if ANY declaration is.
+  const merged = new Map<string, { name: string; hasExample: boolean; isInternal: boolean }>();
+  for (const entry of results) {
+    const existing = merged.get(entry.name);
+    if (existing) {
+      existing.hasExample ||= entry.hasExample;
+      existing.isInternal ||= entry.isInternal;
+    } else {
+      merged.set(entry.name, { ...entry });
+    }
+  }
+  return [...merged.values()];
 }
 
 /**
