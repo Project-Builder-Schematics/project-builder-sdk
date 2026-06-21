@@ -8,16 +8,72 @@
  * from the current .d.ts counts as a breaking removal. Additive changes (new exports)
  * are allowed without a bump.
  *
+ * Self-freshness: if dist/ is missing or any dist .d.ts is older than its src/
+ * counterpart, the test runs `bun run build` before diffing. This ensures a renamed
+ * public export is caught even when the test runs before a manual build step.
+ *
  * Red-proof: simulating a baseline drift (a removed export) triggers the gate.
  * Activates in S-004 (build pipeline produces .d.ts; baseline committed here).
  */
-import { describe, it, expect } from "bun:test";
-import { readFileSync } from "node:fs";
+import { describe, it, expect, beforeAll } from "bun:test";
+import { readFileSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const BASELINE_DIR = join(PROJECT_ROOT, "test/fitness/dts-baseline");
 const DIST_DIR = join(PROJECT_ROOT, "dist");
+
+/**
+ * Returns the mtime (ms) of a path, or 0 if it does not exist.
+ */
+function mtime(p: string): number {
+  try {
+    return statSync(p).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Checks whether the dist/ .d.ts outputs are present and newer than the key src/ files.
+ * Returns true when dist is fresh enough to diff against.
+ */
+function isDistFresh(): boolean {
+  const dtsFiles = [
+    join(DIST_DIR, "commons/index.d.ts"),
+    join(DIST_DIR, "index.d.ts"),
+    join(DIST_DIR, "conformance/index.d.ts"),
+  ];
+  const srcFiles = [
+    join(PROJECT_ROOT, "src/commons/index.ts"),
+    join(PROJECT_ROOT, "src/index.ts"),
+    join(PROJECT_ROOT, "src/conformance/index.ts"),
+    join(PROJECT_ROOT, "src/core/handle-state.ts"),
+    join(PROJECT_ROOT, "src/core/base-handle.ts"),
+  ];
+
+  if (dtsFiles.some((f) => !existsSync(f))) return false;
+
+  const latestSrc = Math.max(...srcFiles.map(mtime));
+  const oldestDts = Math.min(...dtsFiles.map(mtime));
+  return oldestDts >= latestSrc;
+}
+
+beforeAll(() => {
+  if (!isDistFresh()) {
+    const result = spawnSync("bun", ["run", "build"], {
+      cwd: PROJECT_ROOT,
+      encoding: "utf-8",
+    });
+    if (result.status !== 0) {
+      throw new Error(
+        `FIT-04: bun run build failed — cannot diff .d.ts without a fresh build.\n` +
+        `stdout: ${result.stdout}\nstderr: ${result.stderr}`
+      );
+    }
+  }
+});
 
 /**
  * Strips comment lines (// ... and /** ... *\/) and blank lines from a .d.ts string,

@@ -53,7 +53,8 @@ export interface OpPackFixture {
  * });
  */
 export function testDialect(_fixture: DialectFixture): void {
-  throw new Error("testDialect: full conformance impl deferred to T-M2 (no dialect exists yet)");
+  // Full implementation arrives when the first dialect exists (deferred — see T-M2 milestone).
+  throw new Error("testDialect: full conformance implementation is not yet available — no dialect exists yet");
 }
 
 /**
@@ -70,5 +71,6 @@ export function testDialect(_fixture: DialectFixture): void {
  * });
  */
 export function testOpPack(_fixture: OpPackFixture): void {
-  throw new Error("testOpPack: full conformance impl deferred to T-M2 (no dialect exists yet)");
+  // Full implementation arrives when the first dialect exists (deferred — see T-M2 milestone).
+  throw new Error("testOpPack: full conformance implementation is not yet available — no dialect exists yet");
 }

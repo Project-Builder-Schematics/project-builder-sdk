@@ -18,8 +18,9 @@ export function currentContext(): RunContext {
   const ctx = als.getStore();
   if (ctx === undefined) {
     throw new Error(
-      "currentContext() called outside a defineFactory run. " +
-      "Ensure verbs are called inside the function passed to defineFactory."
+      "@pbuilder/sdk: file verbs (create, find, modify, remove, rename, move, copy) " +
+      "can only be used while a schematic is running — " +
+      "call them inside your factory function, not at module load time."
     );
   }
   return ctx;

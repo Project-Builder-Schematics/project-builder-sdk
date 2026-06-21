@@ -60,9 +60,8 @@ describe("FIT-05 — only serializable bytes cross the seam", () => {
     expect(roundtripped).toEqual(directive);
   });
 
-  // RED-PROOF: a directive carrying a non-serializable value fails the check.
+  // RED-PROOF (isSerializable helper): a directive with a function value fails the serializable check.
   it("[red-proof] a directive with a function value fails the serializable check", () => {
-    // Deliberately inject a non-serializable value into an options-shaped object
     const badDirective = {
       op: "create" as const,
       create: {
@@ -73,5 +72,26 @@ describe("FIT-05 — only serializable bytes cross the seam", () => {
     } satisfies Directive;
 
     expect(isSerializable(badDirective)).toEqual(false);
+  });
+
+  // RED-PROOF (roundtrip toEqual path): a directive that mutates across JSON roundtrip
+  // fails the same toEqual assertion the green tests use.
+  it("[red-proof] a directive that mutates across JSON roundtrip fails the toEqual check", () => {
+    // NaN serializes to null in JSON — JSON.parse(JSON.stringify(NaN)) === null.
+    // So a directive with options: { count: NaN } becomes { count: null } after roundtrip,
+    // which does NOT deep-equal the original. This exercises the exact toEqual path the
+    // green tests assert ("roundtripped equals original").
+    const mutatingDirective = {
+      op: "create" as const,
+      create: {
+        pathTemplate: "a.ts",
+        template: "",
+        options: { count: NaN } as unknown as import("../../src/core/wire.ts").JsonValue,
+      },
+    } satisfies Directive;
+
+    const roundtripped = JSON.parse(JSON.stringify(mutatingDirective)) as Directive;
+    // After roundtrip: count is null (NaN → null), not NaN.
+    expect(roundtripped).not.toEqual(mutatingDirective);
   });
 });

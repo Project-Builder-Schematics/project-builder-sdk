@@ -9,7 +9,7 @@ import { create, find } from "../../src/commons/index.ts";
 
 describe("defineFactory / RunContext", () => {
   it("throws when currentContext() is called outside a run", () => {
-    expect(() => currentContext()).toThrow("outside a defineFactory run");
+    expect(() => currentContext()).toThrow("can only be used while a schematic is running");
   });
 
   it("provides session and factory inside the run", async () => {

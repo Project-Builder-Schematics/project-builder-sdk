@@ -72,12 +72,12 @@ describe("FIT-03 — /commons payload budget < 50 KB + no AST-lib specifier", ()
     expect(sizeBytes).toBeLessThan(BUDGET_BYTES);
   });
 
-  // RED-PROOF: a fixture entry that imports an AST lib is over budget / contains specifier.
+  // RED-PROOF (AST-lib specifier check): a fixture containing the "ts-morph" specifier string triggers the scan.
   it("[red-proof] a fixture importing ts-morph triggers the AST-lib specifier check", () => {
     const fixtureEntry = join(PROJECT_ROOT, ".tmp-fit-03-fixture.ts");
     writeFileSync(fixtureEntry, `
-// Deliberate violation: import a non-existent AST lib specifier string to trigger the check.
-// We use a dynamic string rather than a real import so the test doesn't require ts-morph installed.
+// Deliberate violation: embed a banned AST lib specifier string in the bundle output.
+// We use a string literal (not a real import) so the test works without ts-morph installed.
 // The scanner checks the BUNDLE OUTPUT for the specifier string.
 const astLibName = "ts-morph";
 export { astLibName };
@@ -85,9 +85,24 @@ export { astLibName };
 
     try {
       const { output } = buildAndMeasure(fixtureEntry);
-      // The bundle contains the literal string "ts-morph" — the specifier check fires.
       const found = containsAstLibSpecifier(output);
       expect(found).toBe("ts-morph");
+    } finally {
+      if (existsSync(fixtureEntry)) unlinkSync(fixtureEntry);
+    }
+  });
+
+  // RED-PROOF (budget dimension): a fixture that produces output > 50 KB triggers the budget check.
+  it("[red-proof] a fixture with output > 50 KB triggers the budget size check", () => {
+    const fixtureEntry = join(PROJECT_ROOT, ".tmp-fit-03-budget.ts");
+    // Generate a module whose bundled output reliably exceeds 50 KB.
+    // 60 KB of string literal content bundled as a single export easily exceeds the threshold.
+    const padding = "x".repeat(60 * 1024);
+    writeFileSync(fixtureEntry, `export const bigPayload = ${JSON.stringify(padding)};\n`);
+
+    try {
+      const { sizeBytes } = buildAndMeasure(fixtureEntry);
+      expect(sizeBytes).toBeGreaterThanOrEqual(BUDGET_BYTES);
     } finally {
       if (existsSync(fixtureEntry)) unlinkSync(fixtureEntry);
     }
