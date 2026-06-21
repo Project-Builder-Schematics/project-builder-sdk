@@ -1,7 +1,9 @@
 {
   "change": "foundations-skeleton",
   "triage": "L",
-  "phase": "verify-final",
+  "phase": "archived",
+  "archived_at": "2026-06-21",
+  "archive_location": "openspec/changes/archive/2026-06-21-foundations-skeleton",
   "verify_final": "pass-with-followups",
   "judgment_day": "round3-accepted-with-followups-0-criticals",
   "judgment_day_note3": "Round3: both judges 0 CRITICAL; rename/move criticals confirmed closed + genuinely tested. Remaining = real-but-non-critical hardening (W1 pkg-01 live-resolution, W2 fit-01 import-graph, W3 publish repo-owner guard, W5 std-01 test, W6 finally-flush error-mask, W7 fit-04 mtime) + suggestions. User DECISION: accept now + archive with followups (logged in followups.md). W4 partial-flush: keep + documented in defineFactory JSDoc. judgment-day terminal = ACCEPTED (human override of remaining non-critical warnings).",
