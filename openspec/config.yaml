@@ -48,7 +48,7 @@ testing:
 
 architecture:
   style: null              # authored with ROADMAP.md + foundations-skeleton; mirrors the engine's IR-seam boundary
-  baseline: "openspec/architecture.md"   # not yet written
+  baseline: "openspec/architecture.md"   # scanned 2026-06-21 (engram obs 652)
   note: >
     The SDK sits ABOVE the IR seam — the IR is the SDK<->Engine contract (engine ADR-0010).
     AST-agnostic: ts-morph/postcss/cheerio live in SDK dialect packages, never in the engine core.
