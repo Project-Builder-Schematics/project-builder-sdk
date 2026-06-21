@@ -1,0 +1,19 @@
+{
+  "change": "foundations-skeleton",
+  "triage": "L",
+  "phase": "apply-complete",
+  "spec_status": "signed",
+  "spec_version": "v4",
+  "slices": true,
+  "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005", "S-006"],
+  "applied": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005", "S-006"],
+  "build_complete": true,
+  "build_result": "all 7 slices done; 109 tests green, tsc --noEmit clean, build emits ESM+.d.ts, permissive-proof exits 2. Feature-complete, UNCOMMITTED. adversarial_review=required (L+sensitive). Next: /evaluate.",
+  "s005_note": "S-005 sub-agent died on a content-filter 400 mid-run; workflows (ci.yml fork-isolated no-id-token + permissive-proof inversion; publish.yml main-only OIDC no-token dry-run --provenance) were correct. Orchestrator wrote the remaining standards (CODE_OF_CONDUCT, SECURITY w/ verbatim explicit-trust posture, PR + 2 issue templates). GateGuard cleared SECURITY.md after stating facts. Suite green 105.",
+  "apply_note": "S-000(28)+S-001(golden-IR,38)+S-002(fake fidelity,61)+S-003(handle types+chaining, 81 tests) complete; tsc clean; permissive-proof exits 2 (type-negatives load-bearing, orchestrator-verified). NOTE: typecheck:permissive-proof uses exit-2 as success -> CI must invert (S-004/S-005). expect-type devDep added.",
+  "plan_verify": "converged-judgeA-clean-judgeB-5-gaps-closed-author-api-frozen-ready-for-build",
+  "verify_final": "pending",
+  "arch_audit": "n/a",
+  "personas": ["business-analyst", "pm", "architect", "qa-engineer", "security-engineer", "tech-writer", "ux-designer"],
+  "updated_at": "2026-06-21"
+}
