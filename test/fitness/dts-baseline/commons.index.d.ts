@@ -25,7 +25,9 @@ export interface CreateOptions {
 export declare function find(path: string): FoundHandle;
 /**
  * Schedules a file-creation directive and returns a `WritableHandle` for chaining.
- * The file is written when the session flushes (on the next `read` or at run end).
+ * The file is written when the session flushes — on the next `read()` call (REQ-KIT-02)
+ * or at run end (REQ-KIT-05). A factory that never calls `read()` still emits all
+ * buffered directives when the runner resolves.
  *
  * @example
  * create("src/index.ts", {

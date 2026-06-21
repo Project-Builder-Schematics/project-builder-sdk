@@ -17,7 +17,7 @@ export interface WritableHandle extends ReadOps, WriteOps {
  *
  * @example
  * const h = find("src/legacy.ts");
- * await h.remove();
+ * h.remove();
  */
 export interface FoundHandle extends ReadOps, WriteOps {
     remove(): void;

@@ -24,7 +24,7 @@ export interface WritableHandle extends ReadOps, WriteOps {}
  *
  * @example
  * const h = find("src/legacy.ts");
- * await h.remove();
+ * h.remove();
  */
 // FoundHandle: returned exclusively by find().
 // Has `remove()` because an unmodified found file may be deleted.

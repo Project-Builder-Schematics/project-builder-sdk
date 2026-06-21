@@ -209,4 +209,63 @@ describe("handle chaining — verb dispatch (S-003 / KIT-04)", () => {
       expect(modifyDirs[1].modify.path).toBe("src/foo.ts");
     }
   });
+
+  // C3 / C4 chained-read round-trips (ADR-0004 contract). These tests MUST fail
+  // before the path-fix and pass after.
+  test("rename().read() returns the content at the renamed destination (C3 chained-read)", async () => {
+    const { spy } = makeSpy({ "src/foo.ts": "hello rename" });
+
+    const factory = defineFactory(async () => {
+      const { rename } = await import("../../src/commons/index.ts");
+      // rename is basename-only: destination is src/bar.ts, not bar.ts
+      const content = await rename("src/foo.ts", "bar.ts").read();
+      expect(content).toBe("hello rename");
+    });
+    await factory({}, { client: spy });
+  });
+
+  test("find().rename().read() returns the content at the renamed destination (C3 FoundHandle)", async () => {
+    const { spy } = makeSpy({ "src/foo.ts": "found rename" });
+
+    const factory = defineFactory(async () => {
+      const { find } = await import("../../src/commons/index.ts");
+      const content = await find("src/foo.ts").rename("bar.ts").read();
+      expect(content).toBe("found rename");
+    });
+    await factory({}, { client: spy });
+  });
+
+  test("move().read() returns the content at the move destination (C4 chained-read)", async () => {
+    const { spy } = makeSpy({ "src/foo.ts": "hello move" });
+
+    const factory = defineFactory(async () => {
+      const { move } = await import("../../src/commons/index.ts");
+      // destination is lib/foo.ts
+      const content = await move("src/foo.ts", "lib/").read();
+      expect(content).toBe("hello move");
+    });
+    await factory({}, { client: spy });
+  });
+
+  test("find().move().read() returns the content at the move destination (C4 FoundHandle)", async () => {
+    const { spy } = makeSpy({ "src/foo.ts": "found move" });
+
+    const factory = defineFactory(async () => {
+      const { find } = await import("../../src/commons/index.ts");
+      const content = await find("src/foo.ts").move("lib/").read();
+      expect(content).toBe("found move");
+    });
+    await factory({}, { client: spy });
+  });
+
+  test("copy().read() returns the content at the copy destination (symmetry check)", async () => {
+    const { spy } = makeSpy({ "src/foo.ts": "hello copy" });
+
+    const factory = defineFactory(async () => {
+      const { copy } = await import("../../src/commons/index.ts");
+      const content = await copy("src/foo.ts", "src/bar.ts").read();
+      expect(content).toBe("hello copy");
+    });
+    await factory({}, { client: spy });
+  });
 });

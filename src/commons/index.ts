@@ -1,6 +1,7 @@
 // Author surface: positional + trailing options, frozen public API (KIT-03/SKEL-01/KIT-04).
 // No AST imports. All handle write-ops wired (S-003).
 
+import { posix } from "node:path";
 import type { JsonValue } from "../core/wire.ts";
 import { currentContext } from "../core/context.ts";
 import type { FoundHandle, WritableHandle } from "../core/handle-state.ts";
@@ -37,12 +38,13 @@ function buildWritableHandle(path: string): WritableHandle {
     rename(newName: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
       session.buffer(factory.rename({ path, newName, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
-      return buildWritableHandle(newName);
+      const dir = posix.dirname(path);
+      return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
     },
     move(toDir: string): WritableHandle {
       const { session, factory } = currentContext();
       session.buffer(factory.move({ path, toDir }));
-      return buildWritableHandle(path);
+      return buildWritableHandle(posix.join(toDir, posix.basename(path)));
     },
     copy(to: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
@@ -67,12 +69,13 @@ function buildFoundHandle(path: string): FoundHandle {
     rename(newName: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
       session.buffer(factory.rename({ path, newName, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
-      return buildWritableHandle(newName);
+      const dir = posix.dirname(path);
+      return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
     },
     move(toDir: string): WritableHandle {
       const { session, factory } = currentContext();
       session.buffer(factory.move({ path, toDir }));
-      return buildWritableHandle(path);
+      return buildWritableHandle(posix.join(toDir, posix.basename(path)));
     },
     copy(to: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
@@ -152,7 +155,8 @@ export function remove(path: string): void {
 export function rename(path: string, newName: string, opts?: { force?: boolean }): WritableHandle {
   const { session, factory } = currentContext();
   session.buffer(factory.rename({ path, newName, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
-  return buildWritableHandle(newName);
+  const dir = posix.dirname(path);
+  return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
 }
 
 /**
@@ -164,7 +168,7 @@ export function rename(path: string, newName: string, opts?: { force?: boolean }
 export function move(path: string, toDir: string): WritableHandle {
   const { session, factory } = currentContext();
   session.buffer(factory.move({ path, toDir }));
-  return buildWritableHandle(path);
+  return buildWritableHandle(posix.join(toDir, posix.basename(path)));
 }
 
 /**
