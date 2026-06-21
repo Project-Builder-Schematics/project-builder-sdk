@@ -26,6 +26,16 @@ export function currentContext(): RunContext {
   return ctx;
 }
 
+/**
+ * Builds a run-context and runs the factory inside it, flushing buffered
+ * directives at run end (REQ-KIT-05) — a write-only factory still emits.
+ *
+ * Partial-write contract (v1): the flush runs in a `finally`, so if `fn` throws
+ * after buffering some directives, those directives are STILL emitted — the
+ * engine applies eagerly and there is no rollback at the seam. A factory that
+ * throws mid-run may leave a partial set of file mutations applied; the original
+ * error propagates. Authors who need all-or-nothing must guard inside `fn`.
+ */
 export function defineFactory<O>(
   fn: (o: O) => void | Promise<void>
 ): (o: O, deps: { client: EngineClient }) => Promise<void> {
