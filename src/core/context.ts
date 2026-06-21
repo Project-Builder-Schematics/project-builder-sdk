@@ -30,11 +30,10 @@ export function currentContext(): RunContext {
  * Builds a run-context and runs the factory inside it, flushing buffered
  * directives at run end (REQ-KIT-05) — a write-only factory still emits.
  *
- * Partial-write contract (v1): the flush runs in a `finally`, so if `fn` throws
- * after buffering some directives, those directives are STILL emitted — the
- * engine applies eagerly and there is no rollback at the seam. A factory that
- * throws mid-run may leave a partial set of file mutations applied; the original
- * error propagates. Authors who need all-or-nothing must guard inside `fn`.
+ * All-or-nothing contract (ADR-01): on success the full directive batch is committed;
+ * if `fn` throws (or the run-end flush rejects), the staged set is discarded and the
+ * engine commits NOTHING. The original (or attributed) error propagates to the caller —
+ * a thrown factory never leaves a partial set of mutations committed.
  */
 export function defineFactory<O>(
   fn: (o: O) => void | Promise<void>
@@ -44,12 +43,16 @@ export function defineFactory<O>(
       session: new Session(client),
       factory: new DirectiveFactory(),
     };
-    // REQ-KIT-05: flush in finally so write-only factories (no read call) still emit.
-    // The flush in Session#read (REQ-KIT-02) remains as an additional trigger.
+    // ADR-01: no `finally` — success (commit) and failure (discard) are distinct paths.
+    // The final flush is INSIDE the try, so a flush-time emit rejection (already an
+    // AuthoringError via Session.flush) skips commit() and routes to discard + re-throw.
     try {
       await als.run(ctx, () => fn(o));
-    } finally {
       await ctx.session.flush();
+      await ctx.session.commit();
+    } catch (err) {
+      await ctx.session.discard();
+      throw err;
     }
   };
 }

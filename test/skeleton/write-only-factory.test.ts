@@ -21,8 +21,8 @@ describe("REQ-KIT-05 — run-end flush (write-only factory)", () => {
 
     // The emit spy must have been called at least once with the create directive.
     expect(emitSpy).toHaveBeenCalled();
-    // The file must be readable from the fake (the batch was actually applied).
-    expect(await fake.read("src/generated.ts")).toEqual("export const x = 1;");
+    // ADR-01: on success the batch is committed — staging is cleared, content lives in committed.
+    expect(fake.committedTree().get("src/generated.ts")).toEqual("export const x = 1;");
   });
 
   it("a factory that only modify()s (no read) emits its directive to the client", async () => {
@@ -34,10 +34,10 @@ describe("REQ-KIT-05 — run-end flush (write-only factory)", () => {
 
     await run(undefined, { client: fake });
 
-    expect(await fake.read("src/existing.ts")).toEqual("new content");
+    expect(fake.committedTree().get("src/existing.ts")).toEqual("new content");
   });
 
-  it("run-end flush fires even when fn throws (finally semantics)", async () => {
+  it("all-or-nothing: a throwing factory commits nothing (ADR-01 contract reversal)", async () => {
     const fake = new ContractFake({ seed: {} });
 
     const run = defineFactory<void>(() => {
@@ -46,8 +46,8 @@ describe("REQ-KIT-05 — run-end flush (write-only factory)", () => {
     });
 
     await expect(run(undefined, { client: fake })).rejects.toThrow("factory error");
-    // Directives buffered before the throw MUST be flushed.
-    expect(await fake.read("src/partial.ts")).toEqual("partial");
+    // ADR-01: directives buffered before the throw are discarded — the committed tree is empty.
+    expect(fake.committedTree().size).toEqual(0);
   });
 
   it("read-triggered flush (REQ-KIT-02) still works alongside run-end flush", async () => {
@@ -64,8 +64,9 @@ describe("REQ-KIT-05 — run-end flush (write-only factory)", () => {
 
     await run(undefined, { client: fake });
 
-    expect(await fake.read("src/a.ts")).toEqual("content-a");
-    // src/b.ts must also be flushed by run-end flush.
-    expect(await fake.read("src/b.ts")).toEqual("derived:content-a");
+    // ADR-01: both files are committed on success (mid-run read still works on staging during the run).
+    expect(fake.committedTree().get("src/a.ts")).toEqual("content-a");
+    // src/b.ts must also be flushed by run-end flush, then committed.
+    expect(fake.committedTree().get("src/b.ts")).toEqual("derived:content-a");
   });
 });

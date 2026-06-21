@@ -18,6 +18,9 @@ export interface ContractFakeOptions {
 export class ContractFake implements EngineClient {
   readonly #seed: Record<string, string>;
   readonly #tree: Map<string, string> = new Map();
+  // ADR-01 two-phase model: #committed is empty until commit() promotes staging into it.
+  // read() NEVER consults #committed — read-your-own-writes stays bound to #tree (staging).
+  readonly #committed: Map<string, string> = new Map();
   // Tracks paths that have been explicitly deleted (so deleted seed paths stay absent).
   readonly #deleted: Set<string> = new Set();
   lastServed: ServedFrom | null = null;
@@ -30,6 +33,35 @@ export class ContractFake implements EngineClient {
     for (const directive of batch.instructions) {
       this.#apply(directive, batch.force);
     }
+  }
+
+  // ADR-01: promote the staging tree into the committed tree atomically, then clear staging.
+  // Staged deletions remove the path from committed. All-or-nothing: a single call promotes
+  // the whole staged set.
+  async commit(): Promise<void> {
+    for (const [p, content] of this.#tree) {
+      this.#committed.set(p, content);
+    }
+    for (const p of this.#deleted) {
+      this.#committed.delete(p);
+    }
+    this.#tree.clear();
+    this.#deleted.clear();
+  }
+
+  // ADR-01: drop the staging tree; the committed tree is untouched.
+  async discard(): Promise<void> {
+    this.#tree.clear();
+    this.#deleted.clear();
+  }
+
+  // Test-only assertion accessors (NOT on the EngineClient port).
+  committedTree(): ReadonlyMap<string, string> {
+    return new Map(this.#committed);
+  }
+
+  stagingTree(): ReadonlyMap<string, string> {
+    return new Map(this.#tree);
   }
 
   async read(filePath: string): Promise<string> {

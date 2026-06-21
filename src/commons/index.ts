@@ -106,12 +106,20 @@ export function find(path: string): FoundHandle {
  * or at run end (REQ-KIT-05). A factory that never calls `read()` still emits all
  * buffered directives when the runner resolves.
  *
+ * SEAM-01 (REQ-01): a generic type parameter `S` narrows `options` from the bare
+ * `JsonValue` to the schema's keys at the type level only — the runtime body is unchanged.
+ *
  * @example
  * create("src/index.ts", {
  *   template: "export const version = '{{version}}';",
  *   options: { version: "1.0.0" },
  * });
  */
+export function create<S>(
+  path: string,
+  opts: { template: string; options: { [K in keyof S]: S[K] }; force?: boolean }
+): WritableHandle;
+export function create(path: string, opts: CreateOptions): WritableHandle;
 export function create(path: string, opts: CreateOptions): WritableHandle {
   const { session, factory } = currentContext();
   session.buffer(factory.create({

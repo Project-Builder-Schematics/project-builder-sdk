@@ -248,6 +248,16 @@ Sequenced value-vs-risk, evidence-first. The first move proves the riskiest assu
                       → T-M3 smart-refactor (last).
 ```
 
+**Where we are (2026-06-21):** Step 1 `foundations-skeleton` ✅ shipped (archived). Step 2 **L1 is
+underway** — re-triaged to an XL **program** (`l1-author-surface`, 4 sub-changes behind a 6-seam table,
+`openspec/changes/l1-author-surface/`). Sub-change **#1 — the walking skeleton** threading typed
+`create` → directive buffer → minimal dry-run → commit/discard → attributed error is **complete and
+integration-clean** (all four seams exercised by real cross-boundary tests). Remaining: **#2**
+`typed-options-and-read` (full `schema.json`→options derivation + read-disk; the §9.0 sync-vs-async spike
+rides here), **#3** `error-and-commit-contract` (full attribution + all-or-nothing commit; blind
+judgment-day pass), **#4** `dry-run-and-release-shape` (full renderer + 4 MiB frame-cap + `dist/core`
+tarball strip). `read-staged` and any *engine-backed* release stay gated on §6.
+
 **The demo moment:** an author writes a ~10-line `factory.ts` that `create`s a file from a typed
 `schema.json` option and `addImport`s a module into `app.module.ts`, runs it, sees a **dry-run plan
 rendered from the SDK's own coalesced-IR view** (author-side, AST-blind — no engine plan channel

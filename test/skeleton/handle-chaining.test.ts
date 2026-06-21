@@ -21,6 +21,8 @@ function makeSpy(seed: Record<string, string> = {}): { spy: EngineClient; emitte
   const spy: EngineClient = {
     async emit(b) { emitted.push(b); await fake.emit(b); },
     async read(p) { return fake.read(p); },
+    async commit() { return fake.commit(); },
+    async discard() { return fake.discard(); },
   };
   return { spy, emitted };
 }
