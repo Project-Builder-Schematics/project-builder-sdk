@@ -9,7 +9,7 @@
  * Must NOT assert engine internals (tombstones, opLog, commit pass, ConflictError taxonomy).
  */
 import { describe, it, expect } from "bun:test";
-import { ContractFake } from "../../src/core/contract-fake.ts";
+import { ContractFake } from "../support/contract-fake.ts";
 import type { Batch, Directive } from "../../src/core/wire.ts";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

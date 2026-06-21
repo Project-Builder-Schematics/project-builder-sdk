@@ -3,8 +3,7 @@
 // These stubs establish the public type surface and compile-time contracts.
 
 // An op is a function over an AST value and optional args.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type Op = (...args: any[]) => void;
+export type Op = (...args: unknown[]) => void;
 
 // An op-pack is a named record of ops over a shared AST type (ADR-0010).
 export type OpPack = Record<string, Op>;

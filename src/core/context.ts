@@ -34,6 +34,12 @@ export function defineFactory<O>(
       session: new Session(client),
       factory: new DirectiveFactory(),
     };
-    await als.run(ctx, () => fn(o));
+    // REQ-KIT-05: flush in finally so write-only factories (no read call) still emit.
+    // The flush in Session#read (REQ-KIT-02) remains as an additional trigger.
+    try {
+      await als.run(ctx, () => fn(o));
+    } finally {
+      await ctx.session.flush();
+    }
   };
 }

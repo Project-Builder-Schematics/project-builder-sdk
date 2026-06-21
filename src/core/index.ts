@@ -7,7 +7,6 @@ export { Session } from "./session.ts";
 export { DirectiveFactory } from "./directive-factory.ts";
 export type { RunContext } from "./context.ts";
 export { defineFactory, currentContext } from "./context.ts";
-export { ContractFake } from "./contract-fake.ts";
 export type { ReadOps, WriteOps, WritableHandleRef } from "./base-handle.ts";
 export type { FoundHandle, WritableHandle } from "./handle-state.ts";
 export { defineDialect, defineOpPack, withOps } from "./define-dialect.ts";

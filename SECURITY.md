@@ -14,9 +14,9 @@ if possible.
 `@pbuilder/sdk` is an extensible authoring layer: the community publishes **dialects** and
 **op-packs** as separate npm packages that you import into your schematics.
 
-**Importing a dialect or op-pack executes its code with the full privileges of your process.**
-There is no sandbox, no capability isolation, and no package signing in v1. A dialect you import
-can read your environment, your filesystem, and the network exactly as your own code can.
+Importing any dialect or op-pack runs its code with full process privilege; there is no sandbox or signing in v1; vet before importing.
+
+A dialect you import can read your environment, your filesystem, and the network exactly as your own code can.
 
 Treat third-party dialects and op-packs the way you treat any other npm dependency that runs at
 author time:

@@ -3,7 +3,7 @@
  * flush-before-read round-trip.
  */
 import { describe, it, expect } from "bun:test";
-import { ContractFake } from "../../src/core/contract-fake.ts";
+import { ContractFake } from "../support/contract-fake.ts";
 
 describe("ContractFake (S-000 minimal)", () => {
   describe("FAKE-01 — eager apply in array order", () => {

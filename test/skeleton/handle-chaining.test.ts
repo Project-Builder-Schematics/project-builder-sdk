@@ -13,7 +13,7 @@ import { describe, expect, test } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import type { EngineClient } from "../../src/core/engine-client.ts";
 import type { Batch, Directive } from "../../src/core/wire.ts";
-import { ContractFake } from "../../src/core/contract-fake.ts";
+import { ContractFake } from "../support/contract-fake.ts";
 
 function makeSpy(seed: Record<string, string> = {}): { spy: EngineClient; emitted: Batch[] } {
   const fake = new ContractFake({ seed });
@@ -149,7 +149,7 @@ describe("handle chaining — verb dispatch (S-003 / KIT-04)", () => {
   });
 
   test("rename with force passes force:true to directive payload", async () => {
-    const { spy, emitted } = makeSpy({ "dummy": "x" });
+    const { spy, emitted } = makeSpy({ "src/foo.ts": "content", "dummy": "x" });
 
     const factory = defineFactory(async () => {
       const { rename, find } = await import("../../src/commons/index.ts");
@@ -169,7 +169,7 @@ describe("handle chaining — verb dispatch (S-003 / KIT-04)", () => {
   });
 
   test("copy with force passes force:true to directive payload", async () => {
-    const { spy, emitted } = makeSpy({ "dummy": "x" });
+    const { spy, emitted } = makeSpy({ "src/foo.ts": "content", "dummy": "x" });
 
     const factory = defineFactory(async () => {
       const { copy, find } = await import("../../src/commons/index.ts");

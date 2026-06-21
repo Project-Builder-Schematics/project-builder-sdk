@@ -72,7 +72,10 @@ function copy(from: string, to: string, opts?: { force?: boolean }): WritableHan
 // runs fn inside the ALS. The test injects the fake as deps.client → no global.
 type RunContext = { session: Session; factory: DirectiveFactory };
 function defineFactory<O>(fn:(o:O)=>void|Promise<void>): (o:O, deps:{ client: EngineClient })=>Promise<void>;
-//   runner(o, {client}) = als.run({ session: new Session(client), factory: new DirectiveFactory() }, () => fn(o))
+//   runner(o, {client}) = als.run(ctx, () => fn(o)), then ctx.session.flush() in a finally (REQ-KIT-05).
+// NOTE (B5 / envelope.force): Batch.force is part of the engine wire contract the fake honors (FAKE-04 Row 3).
+// In v1 the author surface exposes only op-level force; Session hard-codes envelope.force=false.
+// The fake's Row-3 test exercises the engine-contract path, not a dead code path.
 
 // Author→factory mapping (KIT-03): create(path, {template, options, force?}) → factory.create({pathTemplate: path, template, options, force});
 //   modify(path, content) → factory.modify({path, content}); remove(path) → factory.remove({path}) → op:"delete";

@@ -2,9 +2,8 @@
  * FIT-07: No Map<path,*>/tree field in core (ADR-0008).
  * Globs all of src/core/** and scans for prohibited path-keyed collection patterns.
  *
- * Exclusion: contract-fake.ts is the test double; it intentionally holds a Map (its purpose
- * is to be the in-memory tree). We exclude it explicitly so the fitness function polices
- * only production core types.
+ * ContractFake has been moved to test/support/contract-fake.ts (not compiled into dist/).
+ * All files in src/core/ are production types — no exclusions needed.
  *
  * Prohibited patterns:
  *   Map<string, ...>  — path-keyed map in production core (ADR-0008 violation)
@@ -19,14 +18,9 @@ import { join } from "node:path";
 
 const CORE_DIR = new URL("../../src/core", import.meta.url).pathname;
 
-// contract-fake.ts is the test double: it intentionally holds a flat Map<string, string>
-// that mirrors the fake in-memory tree. Excluding it is correct — the fitness function
-// guards production types, not the oracle used to test them.
-const EXCLUDED_FILES = new Set(["contract-fake.ts"]);
-
 function getProductionCoreFiles(): string[] {
   return readdirSync(CORE_DIR)
-    .filter((name) => name.endsWith(".ts") && !EXCLUDED_FILES.has(name));
+    .filter((name) => name.endsWith(".ts"));
 }
 
 function readCoreFile(name: string): string {

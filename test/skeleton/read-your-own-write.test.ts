@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
-import { ContractFake } from "../../src/core/contract-fake.ts";
+import { ContractFake } from "../support/contract-fake.ts";
 import type { EngineClient } from "../../src/core/engine-client.ts";
 import type { Batch } from "../../src/core/wire.ts";
 import { create, find } from "../../src/commons/index.ts";

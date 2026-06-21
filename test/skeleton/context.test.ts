@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { defineFactory, currentContext } from "../../src/core/context.ts";
-import { ContractFake } from "../../src/core/contract-fake.ts";
+import { ContractFake } from "../support/contract-fake.ts";
 import { create, find } from "../../src/commons/index.ts";
 
 describe("defineFactory / RunContext", () => {

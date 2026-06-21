@@ -6,8 +6,8 @@
 // Idempotent delete (FAKE-05): absent target → succeed (no error).
 
 import { posix as path } from "node:path";
-import type { EngineClient } from "./engine-client.ts";
-import type { Batch, Directive } from "./wire.ts";
+import type { EngineClient } from "../../src/core/engine-client.ts";
+import type { Batch, Directive } from "../../src/core/wire.ts";
 
 export type ServedFrom = "tree" | "disk";
 
@@ -32,19 +32,19 @@ export class ContractFake implements EngineClient {
     }
   }
 
-  async read(path: string): Promise<string> {
-    if (this.#deleted.has(path)) {
-      throw new Error(`ContractFake: path not found: ${path}`);
+  async read(filePath: string): Promise<string> {
+    if (this.#deleted.has(filePath)) {
+      throw new Error(`ContractFake: path not found: ${filePath}`);
     }
-    if (this.#tree.has(path)) {
+    if (this.#tree.has(filePath)) {
       this.lastServed = "tree";
-      return this.#tree.get(path)!;
+      return this.#tree.get(filePath)!;
     }
-    if (path in this.#seed) {
+    if (filePath in this.#seed) {
       this.lastServed = "disk";
-      return this.#seed[path]!;
+      return this.#seed[filePath]!;
     }
-    throw new Error(`ContractFake: path not found: ${path}`);
+    throw new Error(`ContractFake: path not found: ${filePath}`);
   }
 
   #exists(p: string): boolean {
@@ -89,15 +89,19 @@ export class ContractFake implements EngineClient {
 
     if (directive.op === "rename") {
       const { path: src, newName, force: opForce } = directive.rename;
+      // The real engine cannot rename a non-existent file (FAKE-06 fidelity).
+      if (!this.#exists(src)) {
+        throw new Error(`ContractFake: rename source not found: "${src}"`);
+      }
       const dir = path.dirname(src);
-      const dst = dir === "." ? newName : `${dir}/${newName}`;
+      const dst = dir === "." ? newName : path.join(dir, newName);
       const effective = envelopeForce || (opForce ?? false);
       if (this.#exists(dst) && !effective) {
         throw new Error(
           `ContractFake: rename collision — destination "${dst}" already exists (use force to overwrite)`
         );
       }
-      const content = this.#exists(src) ? this.#getContent(src) : "";
+      const content = this.#getContent(src);
       // Remove source, write destination.
       this.#tree.delete(src);
       this.#deleted.add(src);
@@ -108,13 +112,17 @@ export class ContractFake implements EngineClient {
 
     if (directive.op === "copy") {
       const { from, to, force: opForce } = directive.copy;
+      // The real engine cannot copy a non-existent source (FAKE-06 fidelity).
+      if (!this.#exists(from)) {
+        throw new Error(`ContractFake: copy source not found: "${from}"`);
+      }
       const effective = envelopeForce || (opForce ?? false);
       if (this.#exists(to) && !effective) {
         throw new Error(
           `ContractFake: copy collision — destination "${to}" already exists (use force to overwrite)`
         );
       }
-      const content = this.#exists(from) ? this.#getContent(from) : "";
+      const content = this.#getContent(from);
       this.#deleted.delete(to);
       this.#tree.set(to, content);
       return;
@@ -122,9 +130,14 @@ export class ContractFake implements EngineClient {
 
     if (directive.op === "move") {
       const { path: src, toDir } = directive.move;
+      // The real engine cannot move a non-existent source (FAKE-06 fidelity).
+      if (!this.#exists(src)) {
+        throw new Error(`ContractFake: move source not found: "${src}"`);
+      }
       const base = path.basename(src);
-      const dst = `${toDir}/${base}`;
-      const content = this.#exists(src) ? this.#getContent(src) : "";
+      // Use path.join to normalize trailing-slash toDir (e.g. "lib/" → "lib/foo.ts").
+      const dst = path.join(toDir, base);
+      const content = this.#getContent(src);
       this.#tree.delete(src);
       this.#deleted.add(src);
       this.#deleted.delete(dst);

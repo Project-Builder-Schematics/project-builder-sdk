@@ -44,6 +44,8 @@ function isDistFresh(): boolean {
     join(DIST_DIR, "commons/index.d.ts"),
     join(DIST_DIR, "index.d.ts"),
     join(DIST_DIR, "conformance/index.d.ts"),
+    join(DIST_DIR, "core/handle-state.d.ts"),
+    join(DIST_DIR, "core/base-handle.d.ts"),
   ];
   const srcFiles = [
     join(PROJECT_ROOT, "src/commons/index.ts"),
@@ -75,16 +77,21 @@ beforeAll(() => {
   }
 });
 
-/**
- * Strips comment lines (// ... and /** ... *\/) and blank lines from a .d.ts string,
- * returning a stable set of declaration lines for diffing.
- * Also strips sourcemap comments.
- */
+// Strips comment lines and blank lines from a .d.ts string, returning only
+// declaration lines for diffing. Strips single-line comments (// ...), JSDoc block
+// comment lines (lines starting with * or /**), and sourcemap comments.
+// This ensures @example or prose edits do not trip the semver gate (A2).
 function normalizeDeclarations(dts: string): string[] {
   return dts
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l.length > 0 && !l.startsWith("//"));
+    .filter((l) => {
+      if (l.length === 0) return false;
+      if (l.startsWith("//")) return false;
+      if (l.startsWith("*")) return false;
+      if (l.startsWith("/**")) return false;
+      return true;
+    });
 }
 
 /**
@@ -95,7 +102,10 @@ function findBreakingRemovals(baseline: string[], current: string[]): string[] {
   return baseline.filter((line) => !currentSet.has(line));
 }
 
-// Pairs of (baseline file, dist file) for the public subpaths
+// Pairs of (baseline file, dist file) for the public subpaths.
+// Includes core/handle-state and core/base-handle because FoundHandle/WritableHandle
+// appear by bare name in dist/commons/index.d.ts but their method signatures live in
+// these core .d.ts files — A1: handle method signature changes must be caught.
 const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }> = [
   {
     baselineFile: join(BASELINE_DIR, "commons.index.d.ts"),
@@ -111,6 +121,16 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     baselineFile: join(BASELINE_DIR, "conformance.index.d.ts"),
     distFile: join(DIST_DIR, "conformance/index.d.ts"),
     label: "conformance",
+  },
+  {
+    baselineFile: join(BASELINE_DIR, "core.handle-state.d.ts"),
+    distFile: join(DIST_DIR, "core/handle-state.d.ts"),
+    label: "core/handle-state",
+  },
+  {
+    baselineFile: join(BASELINE_DIR, "core.base-handle.d.ts"),
+    distFile: join(DIST_DIR, "core/base-handle.d.ts"),
+    label: "core/base-handle",
   },
 ];
 
@@ -147,6 +167,54 @@ export declare function vanishedExport(path: string): void;`;
     const simulatedBaseline = `export declare function find(path: string): FoundHandle;`;
     const simulatedCurrent = `export declare function find(path: string): FoundHandle;
 export declare function newHelper(path: string): void;`;
+
+    const baseline = normalizeDeclarations(simulatedBaseline);
+    const current = normalizeDeclarations(simulatedCurrent);
+    const removals = findBreakingRemovals(baseline, current);
+
+    expect(removals).toEqual([]);
+  });
+
+  // RED-PROOF (A1): a breaking handle write-op signature change is detected.
+  it("[red-proof] a removed handle method signature is detected as a breaking change", () => {
+    const simulatedBaseline = `export interface WriteOps {
+    modify(content: string): WritableHandleRef;
+    rename(newName: string, opts?: {
+        force?: boolean;
+    }): WritableHandleRef;
+    move(toDir: string): WritableHandleRef;
+    copy(to: string, opts?: {
+        force?: boolean;
+    }): WritableHandleRef;
+}`;
+    // Simulate removing the rename method.
+    const simulatedCurrent = `export interface WriteOps {
+    modify(content: string): WritableHandleRef;
+    move(toDir: string): WritableHandleRef;
+    copy(to: string, opts?: {
+        force?: boolean;
+    }): WritableHandleRef;
+}`;
+
+    const baseline = normalizeDeclarations(simulatedBaseline);
+    const current = normalizeDeclarations(simulatedCurrent);
+    const removals = findBreakingRemovals(baseline, current);
+
+    expect(removals.some((l) => l.includes("rename"))).toBe(true);
+  });
+
+  // RED-PROOF (A2): a doc-only @example edit does NOT trip the gate.
+  it("[red-proof] a JSDoc @example change does NOT trigger the gate", () => {
+    const simulatedBaseline = `/**
+ * @example
+ * const h = modify("src/config.ts", "v2");
+ */
+export declare function modify(path: string, content: string): WritableHandle;`;
+    const simulatedCurrent = `/**
+ * @example
+ * const h = modify("src/new.ts", "v3"); // updated example
+ */
+export declare function modify(path: string, content: string): WritableHandle;`;
 
     const baseline = normalizeDeclarations(simulatedBaseline);
     const current = normalizeDeclarations(simulatedCurrent);
