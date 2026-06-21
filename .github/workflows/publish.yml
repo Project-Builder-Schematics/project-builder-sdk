@@ -1,0 +1,59 @@
+name: Publish (dev prerelease)
+
+# Runs ONLY on push to main — not on pull_request, not on workflow_dispatch from forks.
+# Fork PRs can never trigger this job and never see the id-token permission.
+on:
+  push:
+    branches:
+      - main
+
+# id-token: write is required for npm trusted publishing (OIDC provenance).
+# No NPM_TOKEN secret is used — the registry validates identity via the OIDC token.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish dev prerelease
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      # Compute the short SHA (7 chars) and stamp it into the version field.
+      # The version is 0.0.0-dev.<short-sha> on the `dev` dist-tag.
+      - name: Set dev version
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          npm version "0.0.0-dev.${SHORT_SHA}" --no-git-tag-version
+
+      # Publish dry-run with provenance assertion.
+      #
+      # WHY dry-run: npm trusted publishing (OIDC) is a registry-side precondition —
+      # the npm team must configure the package to trust this repository's GitHub
+      # Actions OIDC issuer before a live publish will succeed.  Until that is done,
+      # the dry-run validates the workflow config (version, dist-tag, provenance flag)
+      # without touching the registry.
+      #
+      # TO ENABLE LIVE PUBLISH: once npm trusted-publishing is configured for
+      # @pbuilder/sdk in the npmjs.com package settings, remove `--dry-run` from
+      # the command below.  Everything else (OIDC, provenance, dist-tag) stays the
+      # same.
+      - name: Publish (dry-run — awaiting registry trust)
+        run: npm publish --tag dev --provenance --access public --dry-run

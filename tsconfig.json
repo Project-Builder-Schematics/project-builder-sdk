@@ -16,6 +16,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
 
-    "skipLibCheck": true
-  }
+    "skipLibCheck": true,
+    "types": ["bun-types"]
+  },
+  "exclude": [
+    "test/types/permissive-proof.ts"
+  ]
 }

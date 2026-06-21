@@ -1,0 +1,135 @@
+// FAKE-01..06 (S-002 full fidelity): seeded flat in-memory tree, single-phase eager apply.
+// Tree-first read: staged content takes precedence over the seed.
+// served:"tree"|"disk" is fake-internal test state (lastServed), never in the EngineClient.read return.
+// Force semantics (FAKE-04): effective = envelope.force OR op.force.
+// create/rename/copy over an existing target → error unless effective.
+// Idempotent delete (FAKE-05): absent target → succeed (no error).
+
+import { posix as path } from "node:path";
+import type { EngineClient } from "./engine-client.ts";
+import type { Batch, Directive } from "./wire.ts";
+
+export type ServedFrom = "tree" | "disk";
+
+export interface ContractFakeOptions {
+  seed: Record<string, string>;
+}
+
+export class ContractFake implements EngineClient {
+  readonly #seed: Record<string, string>;
+  readonly #tree: Map<string, string> = new Map();
+  // Tracks paths that have been explicitly deleted (so deleted seed paths stay absent).
+  readonly #deleted: Set<string> = new Set();
+  lastServed: ServedFrom | null = null;
+
+  constructor({ seed }: ContractFakeOptions) {
+    this.#seed = { ...seed };
+  }
+
+  async emit(batch: Batch): Promise<void> {
+    for (const directive of batch.instructions) {
+      this.#apply(directive, batch.force);
+    }
+  }
+
+  async read(path: string): Promise<string> {
+    if (this.#deleted.has(path)) {
+      throw new Error(`ContractFake: path not found: ${path}`);
+    }
+    if (this.#tree.has(path)) {
+      this.lastServed = "tree";
+      return this.#tree.get(path)!;
+    }
+    if (path in this.#seed) {
+      this.lastServed = "disk";
+      return this.#seed[path]!;
+    }
+    throw new Error(`ContractFake: path not found: ${path}`);
+  }
+
+  #exists(p: string): boolean {
+    if (this.#deleted.has(p)) return false;
+    return this.#tree.has(p) || p in this.#seed;
+  }
+
+  #getContent(p: string): string {
+    if (this.#tree.has(p)) return this.#tree.get(p)!;
+    return this.#seed[p]!;
+  }
+
+  #apply(directive: Directive, envelopeForce: boolean): void {
+    if (directive.op === "create") {
+      const { pathTemplate, template, force: opForce } = directive.create;
+      const effective = envelopeForce || (opForce ?? false);
+      if (this.#exists(pathTemplate) && !effective) {
+        throw new Error(
+          `ContractFake: create collision — "${pathTemplate}" already exists (use force to overwrite)`
+        );
+      }
+      // The fake stores the template as content; rendering is the engine's concern.
+      this.#deleted.delete(pathTemplate);
+      this.#tree.set(pathTemplate, template);
+      return;
+    }
+
+    if (directive.op === "modify") {
+      const { path: p, content } = directive.modify;
+      this.#deleted.delete(p);
+      this.#tree.set(p, content);
+      return;
+    }
+
+    if (directive.op === "delete") {
+      const { path: p } = directive.delete;
+      // Idempotent: absent target is not an error.
+      this.#tree.delete(p);
+      this.#deleted.add(p);
+      return;
+    }
+
+    if (directive.op === "rename") {
+      const { path: src, newName, force: opForce } = directive.rename;
+      const dir = path.dirname(src);
+      const dst = dir === "." ? newName : `${dir}/${newName}`;
+      const effective = envelopeForce || (opForce ?? false);
+      if (this.#exists(dst) && !effective) {
+        throw new Error(
+          `ContractFake: rename collision — destination "${dst}" already exists (use force to overwrite)`
+        );
+      }
+      const content = this.#exists(src) ? this.#getContent(src) : "";
+      // Remove source, write destination.
+      this.#tree.delete(src);
+      this.#deleted.add(src);
+      this.#deleted.delete(dst);
+      this.#tree.set(dst, content);
+      return;
+    }
+
+    if (directive.op === "copy") {
+      const { from, to, force: opForce } = directive.copy;
+      const effective = envelopeForce || (opForce ?? false);
+      if (this.#exists(to) && !effective) {
+        throw new Error(
+          `ContractFake: copy collision — destination "${to}" already exists (use force to overwrite)`
+        );
+      }
+      const content = this.#exists(from) ? this.#getContent(from) : "";
+      this.#deleted.delete(to);
+      this.#tree.set(to, content);
+      return;
+    }
+
+    if (directive.op === "move") {
+      const { path: src, toDir } = directive.move;
+      const base = path.basename(src);
+      const dst = `${toDir}/${base}`;
+      const content = this.#exists(src) ? this.#getContent(src) : "";
+      this.#tree.delete(src);
+      this.#deleted.add(src);
+      this.#deleted.delete(dst);
+      this.#tree.set(dst, content);
+      return;
+    }
+  }
+}
