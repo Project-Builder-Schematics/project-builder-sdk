@@ -1,0 +1,225 @@
+/**
+ * FIT-04: Public .d.ts semver gate.
+ * Diffs the current built .d.ts surface against the committed baseline in
+ * test/fitness/dts-baseline/. A breaking export change (removed export, changed
+ * signature) without a version bump → fail.
+ *
+ * "Breaking" is defined conservatively: any line present in the baseline but absent
+ * from the current .d.ts counts as a breaking removal. Additive changes (new exports)
+ * are allowed without a bump.
+ *
+ * Self-freshness: if dist/ is missing or any dist .d.ts is older than its src/
+ * counterpart, the test runs `bun run build` before diffing. This ensures a renamed
+ * public export is caught even when the test runs before a manual build step.
+ *
+ * Red-proof: simulating a baseline drift (a removed export) triggers the gate.
+ * Activates in S-004 (build pipeline produces .d.ts; baseline committed here).
+ */
+import { describe, it, expect, beforeAll } from "bun:test";
+import { readFileSync, statSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+
+const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
+const BASELINE_DIR = join(PROJECT_ROOT, "test/fitness/dts-baseline");
+const DIST_DIR = join(PROJECT_ROOT, "dist");
+
+/**
+ * Returns the mtime (ms) of a path, or 0 if it does not exist.
+ */
+function mtime(p: string): number {
+  try {
+    return statSync(p).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Checks whether the dist/ .d.ts outputs are present and newer than the key src/ files.
+ * Returns true when dist is fresh enough to diff against.
+ */
+function isDistFresh(): boolean {
+  const dtsFiles = [
+    join(DIST_DIR, "commons/index.d.ts"),
+    join(DIST_DIR, "index.d.ts"),
+    join(DIST_DIR, "conformance/index.d.ts"),
+    join(DIST_DIR, "core/handle-state.d.ts"),
+    join(DIST_DIR, "core/base-handle.d.ts"),
+  ];
+  const srcFiles = [
+    join(PROJECT_ROOT, "src/commons/index.ts"),
+    join(PROJECT_ROOT, "src/index.ts"),
+    join(PROJECT_ROOT, "src/conformance/index.ts"),
+    join(PROJECT_ROOT, "src/core/handle-state.ts"),
+    join(PROJECT_ROOT, "src/core/base-handle.ts"),
+  ];
+
+  if (dtsFiles.some((f) => !existsSync(f))) return false;
+
+  const latestSrc = Math.max(...srcFiles.map(mtime));
+  const oldestDts = Math.min(...dtsFiles.map(mtime));
+  return oldestDts >= latestSrc;
+}
+
+beforeAll(() => {
+  if (!isDistFresh()) {
+    const result = spawnSync("bun", ["run", "build"], {
+      cwd: PROJECT_ROOT,
+      encoding: "utf-8",
+    });
+    if (result.status !== 0) {
+      throw new Error(
+        `FIT-04: bun run build failed — cannot diff .d.ts without a fresh build.\n` +
+        `stdout: ${result.stdout}\nstderr: ${result.stderr}`
+      );
+    }
+  }
+});
+
+// Strips comment lines and blank lines from a .d.ts string, returning only
+// declaration lines for diffing. Strips single-line comments (// ...), JSDoc block
+// comment lines (lines starting with * or /**), and sourcemap comments.
+// This ensures @example or prose edits do not trip the semver gate (A2).
+function normalizeDeclarations(dts: string): string[] {
+  return dts
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => {
+      if (l.length === 0) return false;
+      if (l.startsWith("//")) return false;
+      if (l.startsWith("*")) return false;
+      if (l.startsWith("/**")) return false;
+      return true;
+    });
+}
+
+/**
+ * Returns lines present in baseline but absent in current (broken removals).
+ */
+function findBreakingRemovals(baseline: string[], current: string[]): string[] {
+  const currentSet = new Set(current);
+  return baseline.filter((line) => !currentSet.has(line));
+}
+
+// Pairs of (baseline file, dist file) for the public subpaths.
+// Includes core/handle-state and core/base-handle because FoundHandle/WritableHandle
+// appear by bare name in dist/commons/index.d.ts but their method signatures live in
+// these core .d.ts files — A1: handle method signature changes must be caught.
+const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }> = [
+  {
+    baselineFile: join(BASELINE_DIR, "commons.index.d.ts"),
+    distFile: join(DIST_DIR, "commons/index.d.ts"),
+    label: "commons",
+  },
+  {
+    baselineFile: join(BASELINE_DIR, "index.d.ts"),
+    distFile: join(DIST_DIR, "index.d.ts"),
+    label: "umbrella",
+  },
+  {
+    baselineFile: join(BASELINE_DIR, "conformance.index.d.ts"),
+    distFile: join(DIST_DIR, "conformance/index.d.ts"),
+    label: "conformance",
+  },
+  {
+    baselineFile: join(BASELINE_DIR, "core.handle-state.d.ts"),
+    distFile: join(DIST_DIR, "core/handle-state.d.ts"),
+    label: "core/handle-state",
+  },
+  {
+    baselineFile: join(BASELINE_DIR, "core.base-handle.d.ts"),
+    distFile: join(DIST_DIR, "core/base-handle.d.ts"),
+    label: "core/base-handle",
+  },
+];
+
+describe("FIT-04 — public .d.ts semver gate (baseline diff)", () => {
+  for (const { baselineFile, distFile, label } of DTS_PAIRS) {
+    it(`${label}: no breaking removals vs committed baseline`, () => {
+      const baseline = normalizeDeclarations(readFileSync(baselineFile, "utf-8"));
+      const current = normalizeDeclarations(readFileSync(distFile, "utf-8"));
+
+      const removals = findBreakingRemovals(baseline, current);
+
+      expect(removals).toEqual([]);
+    });
+  }
+
+  // RED-PROOF: simulating a baseline with an export the current dist does not have → violation detected.
+  it("[red-proof] a removed export is detected as a breaking change", () => {
+    // Simulate: baseline has `export declare function vanishedExport(path: string): void;`
+    // but current dist does not.
+    const simulatedBaseline = `export declare function find(path: string): FoundHandle;
+export declare function vanishedExport(path: string): void;`;
+
+    const simulatedCurrent = `export declare function find(path: string): FoundHandle;`;
+
+    const baseline = normalizeDeclarations(simulatedBaseline);
+    const current = normalizeDeclarations(simulatedCurrent);
+    const removals = findBreakingRemovals(baseline, current);
+
+    expect(removals).toContain("export declare function vanishedExport(path: string): void;");
+  });
+
+  // RED-PROOF: additive changes (new exports in current) are NOT flagged.
+  it("[red-proof] an additive export in current does NOT trigger the gate", () => {
+    const simulatedBaseline = `export declare function find(path: string): FoundHandle;`;
+    const simulatedCurrent = `export declare function find(path: string): FoundHandle;
+export declare function newHelper(path: string): void;`;
+
+    const baseline = normalizeDeclarations(simulatedBaseline);
+    const current = normalizeDeclarations(simulatedCurrent);
+    const removals = findBreakingRemovals(baseline, current);
+
+    expect(removals).toEqual([]);
+  });
+
+  // RED-PROOF (A1): a breaking handle write-op signature change is detected.
+  it("[red-proof] a removed handle method signature is detected as a breaking change", () => {
+    const simulatedBaseline = `export interface WriteOps {
+    modify(content: string): WritableHandleRef;
+    rename(newName: string, opts?: {
+        force?: boolean;
+    }): WritableHandleRef;
+    move(toDir: string): WritableHandleRef;
+    copy(to: string, opts?: {
+        force?: boolean;
+    }): WritableHandleRef;
+}`;
+    // Simulate removing the rename method.
+    const simulatedCurrent = `export interface WriteOps {
+    modify(content: string): WritableHandleRef;
+    move(toDir: string): WritableHandleRef;
+    copy(to: string, opts?: {
+        force?: boolean;
+    }): WritableHandleRef;
+}`;
+
+    const baseline = normalizeDeclarations(simulatedBaseline);
+    const current = normalizeDeclarations(simulatedCurrent);
+    const removals = findBreakingRemovals(baseline, current);
+
+    expect(removals.some((l) => l.includes("rename"))).toBe(true);
+  });
+
+  // RED-PROOF (A2): a doc-only @example edit does NOT trip the gate.
+  it("[red-proof] a JSDoc @example change does NOT trigger the gate", () => {
+    const simulatedBaseline = `/**
+ * @example
+ * const h = modify("src/config.ts", "v2");
+ */
+export declare function modify(path: string, content: string): WritableHandle;`;
+    const simulatedCurrent = `/**
+ * @example
+ * const h = modify("src/new.ts", "v3"); // updated example
+ */
+export declare function modify(path: string, content: string): WritableHandle;`;
+
+    const baseline = normalizeDeclarations(simulatedBaseline);
+    const current = normalizeDeclarations(simulatedCurrent);
+    const removals = findBreakingRemovals(baseline, current);
+
+    expect(removals).toEqual([]);
+  });
+});
