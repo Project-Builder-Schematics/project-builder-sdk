@@ -2,6 +2,12 @@
 
 Followups registered from archived changes. Visible to future `/plan` grooming.
 
+## From `l1-author-surface-skeleton` (2026-06-22) — accepted as non-blocking at archive
+
+| Description | Type | Size | Gating? |
+|---|---|---|---|
+| `typecheck:permissive-proof` bun wrapper masks tsc exit-2 (reports exit 0) — CI must invert via raw `tsc`/`npx tsc` (exit-2-as-success), else a regression that makes the negative proof compile clean reads as success | other | XS | Before CI relies on the permissive proof |
+
 ## From `foundations-skeleton` (2026-06-21) — accepted as non-blocking at archive
 
 | Description | Type | Size | Gating? |

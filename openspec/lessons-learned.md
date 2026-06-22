@@ -2,6 +2,41 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `l1-author-surface-skeleton` (2026-06-22)
+
+### The plan-verify "zero Judge-B questions" bar is asymptotic for complex changes
+**What**: Treat plan-verify Judge B (the slices-only simulated executor, "ANY open question → gaps")
+as a residue detector, not a pass/fail gate. Judge A (problem/scope fit) is the meaningful signal.
+**Why**: Judge B reads slices in isolation — the design that answers its questions is deliberately
+withheld. For any non-trivial change it will always surface questions a design-aware executor wouldn't
+ask, so the formal "ready needs zero findings" bar is never cleanly reachable. This skeleton took 4
+iterations and a human override; iters 2–4 each resolved a *real* gap, but the tail was isolation
+artefacts, not defects.
+**Where**: Every M/L change's plan-verify gate.
+**Learned**: Budget the 3-iteration limit for Judge A's substance; when the residue is Judge-B
+isolation noise the design already answers, override with the rationale logged — don't loop chasing zero.
+
+### A migration plan's "which tests break" prediction must be apply-verified, not trusted
+**What**: When a design predicts which existing tests a contract change will break, re-run the suite at
+apply time — the prediction is a hypothesis, not a fact.
+**Why**: The design's Fake Migration Plan claimed read-your-own-write tests would break under the new
+commit boundary. The opposite held: mid-run reads stayed green, but four *post-run* `fake.read()`
+assertions broke because `commit()` clears staging before a post-run read can observe it. The
+prediction was confidently wrong; only the apply run found the truth.
+**Where**: Any change that reverses a behavioural contract a test suite already pins.
+**Learned**: Design predicts, apply verifies. Never carry a migration prediction into archive as fact
+without a green run behind it.
+
+### Read-your-own-writes precludes rollback-by-withholding — roll back transactionally downstream
+**What**: An API that flushes buffered writes mid-run to serve its own reads cannot implement
+all-or-nothing by "deciding not to emit on error" — the writes are already gone downstream.
+**Why**: `read()` flushed `#pending` to engine staging before every read, so a later throw had nothing
+left to suppress. Rollback had to become a staging→commit/discard boundary owned by the engine (see
+ADR 0015), not an SDK-side emit suppression.
+**Where**: Any fluent/buffered surface with read-your-own-writes semantics.
+**Learned**: If reads flush, rollback is a downstream transaction concern. Model the boundary on the
+transport port; don't try to win it in the buffer.
+
 ## From `foundations-skeleton` (2026-06-21)
 
 ### Blind adversarial review escapes pipeline anchoring
