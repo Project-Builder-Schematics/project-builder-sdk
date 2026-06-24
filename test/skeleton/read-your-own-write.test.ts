@@ -18,7 +18,7 @@ function observeCallOrder(inner: EngineClient): { client: EngineClient; order: s
       order.push("emit");
       return inner.emit(batch);
     },
-    async read(path: string): Promise<string> {
+    async read(path: string): Promise<string | undefined> {
       order.push("read");
       return inner.read(path);
     },

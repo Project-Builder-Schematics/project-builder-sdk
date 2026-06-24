@@ -64,9 +64,11 @@ export class ContractFake implements EngineClient {
     return new Map(this.#tree);
   }
 
-  async read(filePath: string): Promise<string> {
+  // ADR-01: not-found returns `undefined` (NOT a throw). Absence is detected by KEY MEMBERSHIP
+  // (#deleted.has / !#tree.has / !(in #seed)) — never truthiness — so a seeded "" returns "".
+  async read(filePath: string): Promise<string | undefined> {
     if (this.#deleted.has(filePath)) {
-      throw new Error(`ContractFake: path not found: ${filePath}`);
+      return undefined;
     }
     if (this.#tree.has(filePath)) {
       this.lastServed = "tree";
@@ -76,7 +78,7 @@ export class ContractFake implements EngineClient {
       this.lastServed = "disk";
       return this.#seed[filePath]!;
     }
-    throw new Error(`ContractFake: path not found: ${filePath}`);
+    return undefined;
   }
 
   #exists(p: string): boolean {

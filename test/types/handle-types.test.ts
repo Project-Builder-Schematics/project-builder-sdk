@@ -21,16 +21,17 @@ describe("handle type-state machine (KIT-04)", () => {
     expectTypeOf<RemoveReturnType>().toEqualTypeOf<void>();
   });
 
-  test("WritableHandle has read(): Promise<string>", () => {
+  // ADR-01: read widened to Promise<string | undefined> — undefined is the not-found sentinel.
+  test("WritableHandle has read(): Promise<string | undefined>", () => {
     expectTypeOf<WritableHandle>().toHaveProperty("read");
     type ReadReturnType = ReturnType<WritableHandle["read"]>;
-    expectTypeOf<ReadReturnType>().toEqualTypeOf<Promise<string>>();
+    expectTypeOf<ReadReturnType>().toEqualTypeOf<Promise<string | undefined>>();
   });
 
-  test("FoundHandle has read(): Promise<string>", () => {
+  test("FoundHandle has read(): Promise<string | undefined>", () => {
     expectTypeOf<FoundHandle>().toHaveProperty("read");
     type ReadReturnType = ReturnType<FoundHandle["read"]>;
-    expectTypeOf<ReadReturnType>().toEqualTypeOf<Promise<string>>();
+    expectTypeOf<ReadReturnType>().toEqualTypeOf<Promise<string | undefined>>();
   });
 
   test("WritableHandle does NOT have remove — enforced by @ts-expect-error", () => {
@@ -49,7 +50,7 @@ describe("handle type-state machine (KIT-04)", () => {
   });
 
   test("FoundHandle is assignable to itself (shape sanity)", () => {
-    type _Check = FoundHandle extends { read(): Promise<string>; remove(): void } ? true : false;
+    type _Check = FoundHandle extends { read(): Promise<string | undefined>; remove(): void } ? true : false;
     expectTypeOf<_Check>().toEqualTypeOf<true>();
   });
 

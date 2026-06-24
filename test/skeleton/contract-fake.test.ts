@@ -43,9 +43,10 @@ describe("ContractFake (S-000 minimal)", () => {
       expect(fake.lastServed).toEqual("disk");
     });
 
-    it("throws when path is not in tree or seed", async () => {
+    // ADR-01: not-found resolves undefined (not a throw) — absence is by key membership.
+    it("returns undefined when path is not in tree or seed", async () => {
       const fake = new ContractFake({ seed: {} });
-      await expect(fake.read("missing.ts")).rejects.toThrow("not found");
+      expect(await fake.read("missing.ts")).toBeUndefined();
     });
   });
 

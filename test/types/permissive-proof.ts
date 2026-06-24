@@ -4,21 +4,21 @@
 // not vacuous. If the type-negative tests used @ts-expect-error on code that was
 // already invalid for a different reason, the tests would give false confidence.
 //
-// PROOF MECHANISM:
-//   1. Define `PermissiveWritableHandle` — identical to WritableHandle but WITH `remove()`.
-//   2. Re-run the same negative assertions against PermissiveWritableHandle.
-//   3. Because PermissiveWritableHandle has `remove`, the @ts-expect-error directives below
-//      become UNUSED — tsc would fail here if this file were included in the normal tsconfig.
-//   4. This file is therefore excluded from tsconfig.json (see `exclude` or is not in src/).
-//      To run the proof: `bunx tsc --noEmit -p tsconfig.permissive-proof.json`
-//      Expected output: error TS2578 (unused @ts-expect-error) on each annotated line.
-//      That error means: "the negative we guard in the real suite is reachable and real."
+// TWO IDIOMS share this file, distinguished by an inline marker on each directive:
+//   - [idiom-1]  @ts-expect-error on VALID code (`PermissiveWritableHandle` HAS `remove`).
+//                tsc raises TS2578 (unused directive) — its PRESENCE is the proof.
+//   - [idiom-2]  @ts-expect-error suppressing a REAL error (excess / missing-required / wrong-type
+//                rejected by the homomorphic mapped type). The directive is USED, so TS2578 is
+//                ABSENT on its line. If the create<S> overload regresses (the negative becomes
+//                legal), the directive turns unused → TS2578 appears → the regression is caught.
 //
-// HOW TO VERIFY (from repo root):
-//   bun run typecheck:permissive-proof
-//   → Should EXIT NON-ZERO with: "Unused '@ts-expect-error' directive" on the lines below.
-//   If it exits 0: the proof is broken (either PermissiveWritableHandle lost `remove`,
-//   or tsc's @ts-expect-error detection regressed).
+// CI ASSERTION lives in `permissive-proof.guard.test.ts` (a `bun test`), which pins the EXACT
+// expected diagnostic set by error code + directive region (it scans the [idiom-1]/[idiom-2]
+// markers below — never hard-coded line numbers). The old inverted-exit `ci.yml` step that only
+// asserted "exited non-zero" is retired (it was blind to WHICH negative held).
+//
+// DEV CONVENIENCE: `bun run typecheck:permissive-proof` still runs tsc against
+// `tsconfig.permissive-proof.json`; expect TS2578 on the [idiom-1] line and none on [idiom-2] lines.
 
 import type { ReadOps, WriteOps } from "../../src/core/base-handle.ts";
 import { create } from "../../src/commons/index.ts";
@@ -32,7 +32,7 @@ interface PermissiveWritableHandle extends ReadOps, WriteOps {
 // has `remove`. tsc reports TS2578 for each — that is the expected proof output.
 
 const _negativeWouldBeUnused = (_h: PermissiveWritableHandle) => {
-  // @ts-expect-error — this line is expected to be FLAGGED by tsc as "unused @ts-expect-error"
+  // @ts-expect-error [idiom-1] — this line is expected to be FLAGGED by tsc as "unused @ts-expect-error"
   // because PermissiveWritableHandle DOES have `remove`. That is the proof.
   _h.remove();
 };
@@ -54,7 +54,25 @@ void _assertAssignable;
 // narrowing (the excess field becomes legal again), the directive becomes unused and tsc
 // raises TS2578 here — the proof catches the regression.
 const _excessFieldRejected = () => {
-  // @ts-expect-error — `extra` is not a key of S = { name: string }; the mapped-type narrowing must reject it.
+  // @ts-expect-error [idiom-2] — `extra` is not a key of S = { name: string }; the mapped-type narrowing must reject it.
   create<{ name: string }>("dst.ts", { template: "t", options: { name: "x", extra: 1 } });
 };
 void _excessFieldRejected;
+
+// REQ-01.6 — missing-required NEGATIVE proof. The homomorphic mapped type preserves required-ness,
+// so omitting a non-`?` key is rejected (TS2741). The @ts-expect-error below is USED (a real error is
+// suppressed) → no TS2578 here. If the overload ever stops requiring `count`, the directive becomes
+// unused and tsc raises TS2578 — the guard (S-03) catches the regression.
+const _missingRequiredRejected = () => {
+  // @ts-expect-error [idiom-2] — `count` is a required key of S; omitting it must be rejected (TS2741).
+  create<{ name: string; count: number }>("dst.ts", { template: "t", options: { name: "x" } });
+};
+void _missingRequiredRejected;
+
+// REQ-01.7 — wrong-type NEGATIVE proof. The homomorphic mapped type preserves per-key value types,
+// so a string where `number` is required is rejected (TS2322). USED directive → no TS2578 here.
+const _wrongTypeRejected = () => {
+  // @ts-expect-error [idiom-2] — `count` must be a number; a string value must be rejected (TS2322).
+  create<{ count: number }>("dst.ts", { template: "t", options: { count: "five" } });
+};
+void _wrongTypeRejected;

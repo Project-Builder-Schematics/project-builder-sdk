@@ -2,11 +2,16 @@
 
 Followups registered from archived changes. Visible to future `/plan` grooming.
 
-## From `l1-author-surface-skeleton` (2026-06-22) — accepted as non-blocking at archive
+## From `typed-options-and-read` (2026-06-24) — accepted as non-blocking at archive
 
 | Description | Type | Size | Gating? |
 |---|---|---|---|
-| `typecheck:permissive-proof` bun wrapper masks tsc exit-2 (reports exit 0) — CI must invert via raw `tsc`/`npx tsc` (exit-2-as-success), else a regression that makes the negative proof compile clean reads as success | other | XS | Before CI relies on the permissive proof |
+| **#3 forward note**: `EngineClient.read` no longer throws on not-found — it returns `undefined` (ADR-01). Sub-change #3 (`error-and-commit-contract`) error-attribution design MUST treat not-found as a return value, NOT an attributable error | other | — | **Design input for #3** |
+| JD test-hardening (low): `permissive-proof.guard.test.ts` — derive the red-proof simulated line from `idiom2Lines[0]` instead of hardcoded 57; tighten `parseDiagnostics` regex / `fileMatch` for path-collision robustness (theoretical) | refactor | XS | — |
+| CQ-1: read trichotomy affordance — lint rule or named result helper for `=== undefined` to prevent callers from using truthiness-coalescing accidentally | refactor | S | — |
+| CQ-2: real end-to-end typed-factory example (actual schema type, real options object, real file) vs synthetic matrix in `typed-create.test.ts` | docs | S | — |
+
+> Note: `typecheck:permissive-proof` masked-exit followup (from #1 skeleton archive) is DONE — resolved by `permissive-proof.guard.test.ts` in this change. Removed from pending.
 
 ## From `foundations-skeleton` (2026-06-21) — accepted as non-blocking at archive
 

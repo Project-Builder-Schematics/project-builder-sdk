@@ -1,5 +1,5 @@
 # Architecture — project-builder-sdk
-Updated: 2026-06-21
+Updated: 2026-06-24
 
 ## Layers
 - @pbuilder/sdk [lib • TypeScript • Bun (no app framework)] — repo root (single-layer library)
@@ -32,7 +32,7 @@ Updated: 2026-06-21
   Conformance:   conformance/index.ts (testDialect / testOpPack — frozen signatures, throw until first dialect exists)
 
 ## Build / Deploy
-npm package (`@pbuilder/sdk`, public, subpath exports) built by `tsc -p tsconfig.build.json` (emits `dist/` .js + .d.ts). • CI: GitHub Actions — `ci.yml` (build + `bun test` + strict typecheck + inverted permissive-proof gate) on non-main/PR; `publish.yml` on push to `main` (dev prerelease `0.0.0-dev.<sha>`, npm trusted publishing via OIDC, currently `--dry-run` awaiting registry trust).
+npm package (`@pbuilder/sdk`, public, subpath exports) built by `tsc -p tsconfig.build.json` (emits `dist/` .js + .d.ts). • CI: GitHub Actions — `ci.yml` (build + `bun test` + strict typecheck; the negative-type-proof guard now runs inside `bun test` as `test/types/permissive-proof.guard.test.ts`, replacing the old inverted-exit gate — typed-options-and-read REQ-03) on non-main/PR; `publish.yml` on push to `main` (dev prerelease `0.0.0-dev.<sha>`, npm trusted publishing via OIDC, currently `--dry-run` awaiting registry trust).
 
 ## Public API
 COMPACT: 0 REST, 0 GraphQL, 0 WS events, 0 gRPC — public surface is the `package.json#exports` subpath map (3 entries)
@@ -50,7 +50,7 @@ EXTENDED:
 
 ## Data flow
 - Author verb (`create`/`modify`/…) → `DirectiveFactory.{op}` → `Session.buffer(directive)` → (on `read()` or run-end `finally`) `Session.flush()` → `EngineClient.emit(Batch)` → engine.
-- Read path: handle `read()` → `Session.read(path)` → `Session.flush()` (flush-before-read, read-your-own-writes) → `EngineClient.read(path)`.
+- Read path: handle `read()` → `Session.read(path)` → `Session.flush()` (flush-before-read, read-your-own-writes) → `EngineClient.read(path): Promise<string | undefined>`. Trichotomy translated at the TS boundary: content → `string`, not-found (wire null/absent) → `undefined`, empty file → `""`; callers branch with strict `=== undefined` / `=== ""`, never truthiness. The wire→`undefined` translation is owned by the port (typed-options-and-read ADR-01).
 - Run lifecycle: `defineFactory(fn)` builds `RunContext` (Session + DirectiveFactory) in an `AsyncLocalStorage`, runs `fn`, then `flush()` + `commit()` on success / `discard()` on throw (`try { run; flush; commit } catch { discard; throw }` — no `finally`). All-or-nothing contract: a throw mid-run discards staged directives — committed state stays empty, no partial write at the seam (`src/core/context.ts`). The transactional staging→commit boundary is owned by the engine (`EngineClient.commit`/`discard`), modeled in the contract fake; real engine §6 (l1-author-surface-skeleton ADR-01, reversing the prior partial-write contract).
 - Dry-run path (SEAM-02): `Session.pendingSnapshot()` exposes a read-only `Directive[]` copy → `src/dry-run/plan.ts` `dryRunPlan(snapshot)` renders author-vocabulary `{verb, path}` entries. AST-blind / core-blind: imports ONLY `type Directive` from `wire.ts` (fitness-scanned).
 - Error attribution (SEAM-04): `Session.flush` wraps the `EngineClient.emit` call site, translating a raw engine rejection to an `AuthoringError{verb, path}` (author vocabulary, no engine text) via `src/core/authoring-error.ts` before it reaches `defineFactory`.
@@ -59,12 +59,12 @@ EXTENDED:
 - unit/contract: `bun test` @ `test/skeleton/*.test.ts` (Session, context, directive-factory, handle-chaining, read-your-own-write), `test/fake/*.test.ts` (contract-fake fidelity), `test/conformance/meta.test.ts`
 - golden: `bun test` @ `test/golden-ir/golden-ir.test.ts` (+ `fixtures.ts`) — IR wire-shape snapshots
 - fitness: `bun test` @ `test/fitness/fit-01..09-*.test.ts` (9 functions: commons-no-AST, dialect-leaf-rule, commons-bundle-budget, .d.ts semver gate, serializable-bytes, example-jsdoc, no-tree-in-core, no-kit-bleed, pkg-exports-resolution)
-- type-level: `expect-type` @ `test/types/*.test.ts`; negative type proofs @ `test/types/permissive-proof.ts` via `tsconfig.permissive-proof.json` (non-zero exit IS success, inverted in CI)
+- type-level: `expect-type` @ `test/types/*.test.ts`; negative type proofs @ `test/types/permissive-proof.ts` via `tsconfig.permissive-proof.json`, pinned by `test/types/permissive-proof.guard.test.ts` (parses tsc diagnostics by code+region: TS2578 present on idiom-1 / absent on idiom-2, no unexpected codes — runs in `bun test`, replaces the old inverted-exit CI gate, REQ-03)
 - coverage: `bun test --coverage` (threshold not yet enforced)
 
 ## Notes
 - `package.json#files: ["dist"]` ships the WHOLE `dist/` tree — including `dist/core/**` (`base-handle`, `context`, `define-dialect`, `directive-factory`, `engine-client`, `handle-state`, `session`, `wire`, `index`) — into the published tarball, despite `src/core/index.ts` declaring the core kit an internal boundary (ADR-0009) and the umbrella `src/index.ts` deliberately NOT re-exporting it. The subpath `exports` map exposes only `.`, `./commons`, `./conformance`; `./core` is unmapped but the files are present in the tarball.
-- The `EngineClient` port (`src/core/engine-client.ts`) surface is `emit` / `read` / `commit` / `discard` (`commit`/`discard` added by l1-author-surface-skeleton for the all-or-nothing transaction boundary — ADDITIVE; `emit`/`read` signatures unchanged). It has NO production implementation in `src/`. The sole implementation is the contract fake `test/support/contract-fake.ts` (two-phase staging/committed model). The real JSON-RPC transport is unbuilt — `ir.emit` / `tree.read` (and the real transactional commit) are not yet on the engine wire (ROADMAP §6, lines 168–169).
+- The `EngineClient` port (`src/core/engine-client.ts`) surface is `emit` / `read` / `commit` / `discard` (`commit`/`discard` added by l1-author-surface-skeleton for the all-or-nothing transaction boundary — ADDITIVE; `read` widened to `Promise<string | undefined>` by typed-options-and-read for the not-found→`undefined` trichotomy — ADR-01; `emit` signature unchanged). It has NO production implementation in `src/`. The sole implementation is the contract fake `test/support/contract-fake.ts` (two-phase staging/committed model). The real JSON-RPC transport is unbuilt — `ir.emit` / `tree.read` (and the real transactional commit) are not yet on the engine wire (ROADMAP §6, lines 168–169).
 - `conformance/index.ts` exports `testDialect` / `testOpPack` whose bodies `throw` ("full conformance implementation is not yet available — no dialect exists yet"); the surface is frozen but unimplemented (deferred to T-M2).
 - `core/define-dialect.ts` (`defineDialect` / `defineOpPack` / `withOps`) are thin stubs — real generics (AST type param, op-pack intersection, handle factory) deferred to T-M2.
 - `publish.yml` provisions Node 22 (`actions/setup-node`) for the npm CLI/OIDC publish step while `package.json#engines` declares `bun >=1.0.0` only and no `engines.node` — Node is the publish tooling, Bun the runtime; not a runtime-version mismatch.

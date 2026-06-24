@@ -3,7 +3,7 @@
 // Both FoundHandle and WritableHandle compose from these via handle-state.ts.
 
 export interface ReadOps {
-  read(): Promise<string>;
+  read(): Promise<string | undefined>;
 }
 
 export interface WriteOps {

@@ -11,7 +11,7 @@ import type { ReadOps, WriteOps } from "./base-handle.ts";
  *
  * @example
  * const h = modify("src/config.ts", "export const version = '2.0.0';");
- * const content = await h.read();
+ * const c = await h.read(); // string | undefined — branch with === undefined / === ""
  */
 // WritableHandle: returned by every write op (create, modify, rename, move, copy).
 // No `remove` — a write makes remove incoherent (ADR-0004 chaining table).
