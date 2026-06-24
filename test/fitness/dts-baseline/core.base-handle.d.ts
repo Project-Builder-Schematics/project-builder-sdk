@@ -1,5 +1,5 @@
 export interface ReadOps {
-    read(): Promise<string>;
+    read(): Promise<string | undefined>;
 }
 export interface WriteOps {
     modify(content: string): WritableHandleRef;

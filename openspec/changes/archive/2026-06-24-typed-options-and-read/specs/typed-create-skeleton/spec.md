@@ -1,18 +1,11 @@
-# Typed Create Skeleton Specification
+# Typed Create — Full Options Derivation (delta)
 
-**Spec version**: V2
-**Status**: signed (orchestrator 2026-06-22); amended 2026-06-22 (#2 typed-options-and-read: REQ-01 proven & frozen, REQ-03 added; OptionsOf<S> dropped as structural no-op — homomorphic map preserves full contract)
-**Change**: `l1-author-surface-skeleton` (V1), `typed-options-and-read` (V2)
-**Seam**: SEAM-01
+**Spec version**: V2 (delta over typed-create-skeleton V1)
+**Status**: signed (orchestrator 2026-06-22)
+**Change**: `typed-options-and-read` (#2 of l1-author-surface)
+**Seam**: SEAM-01 (produced by #2; archived #1 consumes the stable `create<S>(path, opts): WritableHandle` shape)
 
-## Purpose
-
-Provides a generic overload of `create<S>` that narrows `options`
-from bare `JsonValue` to the homomorphic mapped type `{ [K in keyof S]: S[K] }` at the
-type level. This is a type-level contract only — no runtime behaviour changes; it is the
-SEAM-01 shape on which the rest of the L1 author surface builds.
-
-## Requirements
+## MODIFIED Requirements
 
 ### REQ-01: Full Options Structural Typing — Proven & Frozen
 
@@ -23,12 +16,18 @@ TypeScript PRESERVES `S`'s optionality, required-ness, and per-key value types �
 (a) requires every required (non-`?`) key of `S`, (b) allows every optional (`?`) key to be omitted,
 (c) matches each key's value type to `S[K]`, and (d) rejects excess properties not in `S`. The narrowing
 is **type-level only** (no runtime schema read — FIT-01 must stay green). The runtime implementation is
-unchanged (see REQ-02).
+unchanged (see REQ-02, unchanged from V1).
 
-This contract introduces **no derivation type alias** — the homomorphic map already delivers the full
-structural typing. The deliverable is to PROVE and FREEZE that contract before the L1 semver lock: the
+This sub-change introduces **no new derivation type** — the skeleton's mapped type already delivers the
+structural typing. #2's deliverable is to PROVE and FREEZE that contract before the L1 semver lock: the
 full positive matrix (REQ-01.1/.3/.4/.5), the full negative matrix (REQ-01.2/.6/.7), and the CI regression
-guard (REQ-03).
+guard (REQ-03). The matrix is what distinguishes a proven, semver-frozen typed surface from one that holds
+only by happy accident.
+
+(Previously V1: narrowed `{ [K in keyof S]: S[K] }` for a single key as a type-level stub. Verified at
+apply, 2026-06-22: the homomorphic map already enforces the full required/optional/type/excess contract
+for all of REQ-01.1–01.7 — a separate `OptionsOf<S>` derivation was found to be a structural no-op and is
+NOT introduced.)
 
 #### Scenario REQ-01.1: Typed create compiles for a matching single-field schema
 - GIVEN `S = { name: string }` and `create<S>("dst.ts", { template: "…", options: { name: "x" } })`
@@ -65,41 +64,27 @@ guard (REQ-03).
 - WHEN the compiler checks the call
 - THEN the call is rejected — proving per-key value-type enforcement, not mere key-presence
 
-### REQ-02: Runtime Behaviour Unchanged
-
-The generic overload MUST NOT alter the runtime shape of the directive buffered into
-`Session.#pending`. The `create` directive's `options` field MUST still carry the
-author-supplied value as-is.
-
-#### Scenario REQ-02.1: Write-only typed factory buffers the create directive
-
-- GIVEN a `defineFactory`-wrapped function that calls `create<S>("dst.ts", { template: "t", options: { name: "x" } })` and returns without calling `.read()`
-- WHEN the runner executes the factory
-- THEN a single `create` directive is present in the batch flushed to the engine client
-- AND the directive's `options` field equals `{ name: "x" }`
-- AND no type error was reported at compile time
-
-#### Scenario REQ-02.2: Write-only path holds — no trailing read required
-
-- GIVEN a factory that calls `create<S>` without any trailing `.read()` call
-- WHEN the runner executes the factory
-- THEN the directive batch is emitted (flush fires at run-end on factory success)
-- AND the committed tree contains the created path (SEAM-03 integration via ContractFake)
+## ADDED Requirements
 
 ### REQ-03: Negative Options Proof Is CI-Verifiable
 
 The negative type proofs (REQ-01.2 / REQ-01.6 / REQ-01.7) MUST be machine-verifiable in CI such that a
-REGRESSION making the `options` derivation over-permissive (a negative case starts compiling clean)
+REGRESSION making the `OptionsOf<S>` derivation over-permissive (a negative case starts compiling clean)
 flips CI RED. The CI check MUST be pinned to the expected TypeScript error semantics (the intended
 `@ts-expect-error` directives doing their job), NOT a bare "any non-zero exit = pass" rule — an unrelated
 compile failure MUST NOT be read as the negative proof passing.
 
 #### Scenario REQ-03.1: A deliberate over-permissive regression flips CI red
 - GIVEN the `permissive-proof` fixture asserting the negative options cases
-- WHEN the overload is deliberately widened so a negative case (e.g. excess field) compiles clean
+- WHEN `OptionsOf<S>` is deliberately widened so a negative case (e.g. excess field) compiles clean
 - THEN the CI permissive-proof step reports FAILURE (the now-unused `@ts-expect-error` is detected)
 
 #### Scenario REQ-03.2: An unrelated compile error is not counted as the proof passing
 - GIVEN the `permissive-proof` fixture
 - WHEN the fixture fails to compile for a reason unrelated to the options narrowing (e.g. a bad import)
 - THEN the CI step does NOT report the negative proof as passing (it is distinguishable from the intended error)
+
+## Notes
+- REQ-02 (Runtime Behaviour Unchanged) is carried verbatim from V1 — not modified by this change.
+- Seam stability: the `create<S>(path, opts): WritableHandle` SIGNATURE SHAPE is unchanged; only the
+  `OptionsOf<S>` derivation behind it grows (additive-safe for archived #1).

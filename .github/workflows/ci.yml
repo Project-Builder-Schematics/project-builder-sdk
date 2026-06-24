@@ -34,13 +34,8 @@ jobs:
       - name: Typecheck (strict)
         run: bun run typecheck
 
-      # The permissive-proof tsconfig is EXPECTED to exit non-zero (TS2578 errors
-      # are its success signal). Invert the exit code so CI fails when the proof
-      # does NOT error — a zero exit here means the type constraints were lost.
-      - name: Permissive-proof (must fail)
-        run: |
-          if bun run typecheck:permissive-proof; then
-            echo "ERROR: typecheck:permissive-proof exited 0 — the negative type proofs are no longer failing as required."
-            exit 1
-          fi
-          echo "OK: typecheck:permissive-proof exited non-zero as expected."
+      # The permissive-proof negative type matrix is now guarded by a real `bun test`
+      # (test/types/permissive-proof.guard.test.ts), which pins the exact expected tsc
+      # diagnostics by error code + directive region — strictly stronger than the old
+      # inverted-exit step (which was blind to WHICH negative held). It runs above under
+      # `bun test`, so no separate CI step is needed here.

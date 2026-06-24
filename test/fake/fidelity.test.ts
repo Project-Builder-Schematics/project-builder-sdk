@@ -218,19 +218,20 @@ describe("FAKE-05 — idempotent delete", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("delete of an existing tree path removes it so subsequent reads throw", async () => {
+  // ADR-01: not-found is undefined, not a throw — a deleted path reads as absent.
+  it("delete of an existing tree path removes it so subsequent reads return undefined", async () => {
     const fake = new ContractFake({ seed: {} });
     await fake.emit(batch(false, createOp("file.ts", "content")));
     await fake.emit(batch(false, deleteOp("file.ts")));
 
-    await expect(fake.read("file.ts")).rejects.toThrow("not found");
+    expect(await fake.read("file.ts")).toBeUndefined();
   });
 
-  it("delete of an existing seed path removes it so subsequent reads throw", async () => {
+  it("delete of an existing seed path removes it so subsequent reads return undefined", async () => {
     const fake = new ContractFake({ seed: { "seeded.ts": "original" } });
     await fake.emit(batch(false, deleteOp("seeded.ts")));
 
-    await expect(fake.read("seeded.ts")).rejects.toThrow("not found");
+    expect(await fake.read("seeded.ts")).toBeUndefined();
   });
 
   it("double-delete of an existing path: first succeeds, second also succeeds (idempotent)", async () => {

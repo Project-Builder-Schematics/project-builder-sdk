@@ -30,7 +30,7 @@ export class Session {
     return this.#pending.slice();
   }
 
-  async read(path: string): Promise<string> {
+  async read(path: string): Promise<string | undefined> {
     await this.flush();
     return this.#client.read(path);
   }

@@ -2,6 +2,47 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `typed-options-and-read` (2026-06-24)
+
+### A named derivation alias can be a structural no-op — prove the existing contract, don't add one
+**What**: When a mapped type is homomorphic (`{ [K in keyof S]: S[K] }`), TypeScript already preserves
+optionality, required-ness, and per-key value types. A named alias (`OptionsOf<S>`) that re-derives the
+same structure is a no-op — it adds a public name without adding behaviour.
+**Why**: The design assumed the skeleton's identity map needed a richer derivation for required/optional
+split. Standalone `tsc` verification at apply time proved it was wrong — the map was already correct for
+every signed scenario. Introducing `OptionsOf<S>` would have frozen a name whose only observable
+difference (a `T | undefined` key without `?` becoming omittable) was unwanted.
+**Where**: Any change that adds a type derivation over an existing mapped type before freeze.
+**Learned**: Before adding a derivation alias, run the full negative matrix against the existing type.
+If every scenario already holds, the deliverable is to PROVE and FREEZE the current contract (characterization
+matrix + CI guard), not to add a new name. Reframe "add derivation" as "prove + freeze".
+
+Source: change `typed-options-and-read` (2026-06-24)
+
+### FIT-04 dts-baseline regen is the intentional-freeze proof — keep the diff to one line
+**What**: When a public `.d.ts` surface changes intentionally, the baseline regen should be a 1-line
+diff (the signature line only). A multi-line regen diff is a signal that unintended surface has shifted.
+**Why**: The `core.base-handle.d.ts` baseline regen from `Promise<string>` to `Promise<string | undefined>`
+was exactly one line. Restoring the trailing newline to match `echo`-vs-`write` differences was the only
+noise. The 1-line expectation is the easiest way to sanity-check that the gate is green for the right reason.
+**Where**: `test/fitness/dts-baseline/` regen after any public signature change.
+**Learned**: Run `git diff` over the baseline file after regen. If more than the intended signature line
+changed, investigate before claiming FIT-04 is correctly frozen.
+
+Source: change `typed-options-and-read` (2026-06-24)
+
+### Two blind judges independently rediscovering the same edge validates it as a real tracked boundary
+**What**: When two independent judges (from different review passes, receiving no shared context) both
+surface the same architectural concern, treat it as a confirmed design edge — not a defect, not noise.
+**Why**: Both judgment-day judges independently identified the walking-skeleton port boundary (read-staged
+/ read-your-own-writes vs read-disk) and the real-engine divergence risk. Neither had seen the other's
+review. Their convergence is Bayesian evidence that the boundary is load-bearing and needs explicit tracking.
+**Where**: Any L/sensitive change with multiple blind review passes.
+**Learned**: When two blind judges agree on the same concern, log it as a tracked design boundary
+(not a finding to suppress). The convergence is the signal.
+
+Source: change `typed-options-and-read` (2026-06-24)
+
 ## From `l1-author-surface-skeleton` (2026-06-22)
 
 ### The plan-verify "zero Judge-B questions" bar is asymptotic for complex changes

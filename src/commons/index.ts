@@ -26,7 +26,7 @@ export interface CreateOptions {
 // Pure factory for WritableHandle. Returned by every write verb.
 function buildWritableHandle(path: string): WritableHandle {
   return {
-    read(): Promise<string> {
+    read(): Promise<string | undefined> {
       const { session } = currentContext();
       return session.read(path);
     },
@@ -57,7 +57,7 @@ function buildWritableHandle(path: string): WritableHandle {
 // FoundHandle factory. Returned exclusively by find(). Has remove().
 function buildFoundHandle(path: string): FoundHandle {
   return {
-    read(): Promise<string> {
+    read(): Promise<string | undefined> {
       const { session } = currentContext();
       return session.read(path);
     },
@@ -92,9 +92,16 @@ function buildFoundHandle(path: string): FoundHandle {
 /**
  * Locates an existing file and returns a `FoundHandle` for reading or removing it.
  *
+ * `read()` resolves `string | undefined`: the content, `undefined` when the path does not
+ * exist, or `""` when the file exists but is empty. Branch on the three outcomes with strict
+ * `=== undefined` / `=== ""` — NEVER `if (!content)`, which would merge `undefined`, `""`,
+ * `"0"` and `"false"` and reintroduce the absent-vs-empty bug.
+ *
  * @example
- * const handle = find("src/config.ts");
- * const content = await handle.read();
+ * const c = await find("src/config.ts").read();
+ * if (c === undefined) create("src/config.ts", { template, options });
+ * else if (c === "") modify("src/config.ts", seedContent);
+ * else modify("src/config.ts", patch(c));
  */
 export function find(path: string): FoundHandle {
   return buildFoundHandle(path);
