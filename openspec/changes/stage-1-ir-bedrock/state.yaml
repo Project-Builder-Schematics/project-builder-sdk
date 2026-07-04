@@ -1,0 +1,23 @@
+# Orchestrator-owned DAG state — stage-1-ir-bedrock
+change: stage-1-ir-bedrock
+triage: L
+completed_phases: [triage, explore]
+current_phase: explore
+current_phase_status: complete
+in_loop_iteration: 0
+next_phase: propose (blocked on D8 owner ratification — product open question surfaced to user)
+execution_mode: interactive
+artifact_store: hybrid
+explore:
+  ready_for_proposal: yes
+  artifacts: [openspec/changes/stage-1-ir-bedrock/explore.md, "engram sdd/stage-1-ir-bedrock/explore (obs 688)"]
+  open_questions: {product: 1 (D8 cap unit + encoding/binary posture), technical: 2 (cap-enforcement site vs ADR-0018; FIT-10 allow-list for fake's legitimate port import)}
+notes:
+  - "Ordering validated in code: 1.3 -> 1.4 -> 1.7 -> 1.1; contract-fake.ts is the shared bottleneck (sequence, don't parallelize)"
+  - "QA: suite is GREEN asserting wrong things — fake move silently overwrites (no fail-closed), modify-nonexistent silently materializes, Batch envelope key order never asserted (comment only); W6 double-fault live at context.ts:53-56"
+  - "Architect: 1.4 flush-enforcement DEVIATES from ADR-0018 (SDK never validates) — the one architectural fork; FIT-10 must target the PORT symbol + method calls (FIT-08 naming-scan pattern), NOT shared wire types (dry-run legitimately imports type Directive); JSON.stringify silent-drop (function/undefined) vs throw (circular) asymmetry must be specced per family; determinism already sound by construction (1.1 = formalization)"
+  - "QA killer payloads for spec: emoji multi-byte straddling cap (UTF-16 passes / UTF-8 rejects — ASCII-only cap tests are worthless); function-valued option must REJECT (forces pre/post round-trip compare, kills silent-drop impl); exactly-at-cap pass + one-byte-over reject; move-to-same-path file-preserving no-op; empty-batch reaches commit() (pin before someone breaks it)"
+  - "Determinism + envelope-order = the SAME byte-equal assertion; must be byte-identical serialized Batch + golden byte pin, NEVER toEqual"
+  - "Phantom ADR-0028 citations confirmed (wire.ts:1, directive-factory.ts:55,75, golden-ir) — real cites ADR-0013/0017 (1.6)"
+  - "Dual-handle trap: force? on BOTH WritableHandle.move and FoundHandle.move"
+updated_at: 2026-07-04

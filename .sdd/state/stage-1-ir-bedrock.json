@@ -1,0 +1,147 @@
+{
+  "change": "stage-1-ir-bedrock",
+  "parent_plan": "openspec/objectives-plan.md Stage 1",
+  "triage": "L",
+  "triage_note": "Unanimous L (triage executor + architect + pm, blind). Top of L band (~18-22 files, ~900-1400 lines); XL escalation trigger: >8 slices at sdd-slice OR explore finds file-touch materially above ~22.",
+  "phase": "verify-plan",
+  "phase_status": "READY (owner override at iteration 4, authorized past 3-limit; verify-plan-4.md carries rationale)",
+  "completed_phases": [
+    "triage",
+    "explore",
+    "propose",
+    "spec",
+    "design",
+    "steward-foresight",
+    "slice",
+    "verify-plan"
+  ],
+  "next_phase": "build (/build): S-1.3 first (irreversible: move.force? wire), chain S-1.3->S-1.4->S-1.7->S-1.1; S-1.5/1.6 + S-1.8 parallel; S-1.9 after S-1.3. Verify in-loop per batch, max 3 iters.",
+  "scope_note": "Items 1.1, 1.3, 1.4, 1.5, 1.6, 1.7-impl, 1.8, 1.9 (1.2/D1 and D6 decisions already ratified \u2014 implementation only). ONE change (2-of-3 council + executor); PM dissent on 1.9 (split-out candidate) carried into slicing: if slices > 7, 1.9 is first out.",
+  "council_convergence": "ALL THREE blind lenses flagged 1.4's cap unit (bytes vs UTF-16) + modify.content encoding posture as a hidden unratified decision \u2014 surface as D8 for owner ratification before 1.4 builds; do NOT let a build agent decide it.",
+  "ordering_constraint": "Contract-freeze BEFORE pinning: 1.3 (move force? wire) -> 1.4 (cap ADR) -> 1.7 (fake wire-modeling) precede 1.1 (golden fixtures + determinism). 1.1 is a LATE item despite its number. 1.5/1.6/1.8/1.9 hang off.",
+  "design_risks_forward": [
+    "FIT-10 predicate must distinguish 'names port/encoding' from 'imports type Directive' (dry-run legitimately imports the type, SEAM-02)",
+    "Stage 1 fake-fidelity tests must NOT pin instructions[0]-attribution as correct \u2014 applied-boundary is Stage 2 (2.1)",
+    "1.3 force-threading parity must cover BOTH free-function move() and handle .move",
+    "move force? non-breaking proven via FIT-04 .d.ts gate"
+  ],
+  "pending_changes_retired_at_archive": [
+    "W6 (1.5)",
+    "W7 (1.6)",
+    "permissive-proof guard hardening (1.6)",
+    "meta.test.ts red-proof label (1.6)",
+    "fake move-overwrite question (1.3)",
+    "fake modify-nonexistent question (1.3)"
+  ],
+  "sensitive_areas": "none triggered (publish.yml is Stage 6; no new deps; verified against registry)",
+  "spec_status": "signed",
+  "slices": true,
+  "slice_target": "6-7 (batch 1.5+1.6)",
+  "plan_verify": "ready (HUMAN OVERRIDE iter 4, 2026-07-04). Judge A clean 3x consecutive; Judge B asymptote confirmed (4 disjoint question sets, 22/22 answered by existing artefacts). 1.6-no-REQ override at iter 1. Mirrors #1 precedent.",
+  "verify_final": "pending",
+  "arch_audit": "n/a",
+  "in_loop_iteration": 0,
+  "personas": [
+    "architect",
+    "pm"
+  ],
+  "personas_downstream": "qa-engineer (always L, load-bearing), tech-writer (1.9 doc + public API force?); NO security/dba/ux",
+  "execution_mode": "interactive",
+  "artifact_store": "hybrid",
+  "spec_source": "internal",
+  "write_mode": "sync",
+  "problem_statement_ref": "openspec/problem-statement.md + objectives-plan.md Stage 1 (echoed verbatim in triage artefact)",
+  "triage_artifacts": [
+    "openspec/changes/stage-1-ir-bedrock/triage.md",
+    "engram obs 686 (sdd/stage-1-ir-bedrock/triage)"
+  ],
+  "updated_at": "2026-07-04",
+  "explore_verdict": "ready_for_proposal: yes",
+  "explore_artifacts": [
+    "openspec/changes/stage-1-ir-bedrock/explore.md",
+    "engram sdd/stage-1-ir-bedrock/explore obs 688"
+  ],
+  "open_questions_product": [],
+  "open_questions_technical": [
+    "FIT-10 allow-list: path allow-list vs 'implements EngineClient' structural exception (design)"
+  ],
+  "explore_findings_key": "fake move/modify silently wrong today (green suite hides unimplemented ADR-0017); envelope order never asserted; W6 live at context.ts:53-56; determinism sound by construction; empty-batch already reaches commit (pin only); FIT-10 = FIT-08 naming-scan on PORT symbol not wire types; JSON silent-drop vs throw asymmetry needs per-family spec",
+  "d8_ratified": "2026-07-04 (obs 689): (a) UTF-8 bytes of serialized Batch via Buffer.byteLength(JSON.stringify(batch),'utf8'); (b) modify.content UTF-8 text only v1, binary out-of-scope documented; (c) fake/engine enforces at emit, SDK never validates (ADR-0018-consistent) \u2014 NO Session.flush check; objectives-plan 1.4 'enforced at Session.flush' OVERRIDDEN, reconcile at land; formalize as ADR-0019 at design",
+  "proposal_artifacts": [
+    "openspec/changes/stage-1-ir-bedrock/proposal.md",
+    "engram sdd/stage-1-ir-bedrock/proposal obs 690"
+  ],
+  "proposal_capabilities": "NEW: batch-cap-contract (D8->ADR-0019), boundary-pass-through (ADR-0018), test-pyramid-codification; MODIFIED: foundations-skeleton (golden-IR six-verb+-force + chained + determinism; fake fail-closed + move force?; FIT-10), commit-discard-contract (double-fault). 1.6 + objectives-plan D8 reconciliation = housekeeping OUTSIDE the REQ set.",
+  "spec_constraints_from_council": [
+    "Stage-boundary EXPLICIT in every rejection scenario: Stage 1 = raw seam rejection, NO AuthoringError/attribution vocabulary (Stage 2.1)",
+    "Strike 1.7's 'Stage 2.1 attribution covers...' from any DONE criterion \u2014 Stage 1 cannot gate on a criterion it doesn't own",
+    "1.4 REQ must pin the exact predicate Buffer.byteLength(JSON.stringify(batch),'utf8') + decide > vs >= at exactly 4 MiB + empty-batch reaches commit() scenario + multi-byte payload mandatory (ASCII tests worthless)",
+    "1.5 REQ must specify E2 disposition (cause-attached, not swallowed) + red-proof with rejecting discard()",
+    "1.9 criteria must be checkable artefacts: decision table verb/dialect->layer, CI runs 4 dirs, >=1 named e2e test; value = O2 row 11 CONTRIBUTOR half only (author half = Stage 4.5/D7)",
+    "Coverage row 10 rescoped: existing seam-invariant fitness stays GREEN (regression guard), NOT delivered here",
+    "1.3 scenarios: collision-no-force REJECTS (the whole ADR-0017 point), collision+force succeeds, force absent AND present golden fixtures, modify-nonexistent rejects + never materializes",
+    "Determinism REQ: byte-identical serialized Batch (JSON.stringify equality) + golden byte pin \u2014 NEVER toEqual"
+  ],
+  "priority_rank": "1.3 > 1.7 > 1.1 > 1.4 > 1.5 > 1.8 > 1.9 > 1.6; the ONE invalidating absence = 1.3 move force? on the wire",
+  "spec_version": "v2",
+  "spec_reqs": 19,
+  "spec_scenarios": 40,
+  "spec_artifacts": [
+    "openspec/changes/stage-1-ir-bedrock/spec.md",
+    "openspec/changes/stage-1-ir-bedrock/specs/* (5 domains)",
+    "engram sdd/stage-1-ir-bedrock/spec obs 691 (V1 history preserved)"
+  ],
+  "spec_iteration": "V1 -> council review (BA: needs-iteration 2 fixes; QA: needs-iteration 4 fixes + 6 fold-ins) -> V2 all 13 applied, IDs stable, scenarios 33->40",
+  "spec_notable": "REQ-FIT-09 is the stable ID for the port guard (FIT seq ends at 08; file stays fit-10-*.test.ts). Self-move pinned: dst===src NOT a collision (REQ-FAKE-04.m4) \u2014 NEW contract surface beyond ADR-0017 text, design MUST formalize in ADR-0019 or amendment. Four-posture RED taxonomy (must-fail-first / characterization / RED-phase gate / permanent fixture). At-cap fixture needs a builder helper (fiddly: serialized+escaping+multi-byte).",
+  "spec_signed": "V2, owner, 2026-07-04 (self-move no-op pin accepted)",
+  "design_artifacts": [
+    "openspec/changes/stage-1-ir-bedrock/design.md (rev 3)",
+    "engram sdd/stage-1-ir-bedrock/design obs 692 rev 3"
+  ],
+  "architecture_impact": "modifying (7 touchpoints, 0 deviations; wire move.force? additive; contract-fake behavior modify)",
+  "arch_refresh_post_verify": "required (modifying): add test/e2e + pyramid + FIT-10/REQ-FIT-09 to Testing section; update move wire note",
+  "design_adrs": [
+    "ADR-0019 batch-cap contract (unit UTF-8 serialized bytes, >cap rejects, fake enforces, text-only v1)",
+    "ADR-0017 Amendment: self-move identity exclusion"
+  ],
+  "design_decisions": [
+    "FIT-09: path allow-list (test/support/contract-fake.ts) + reachable-from-EngineClient predicate",
+    "batchOfSerializedBytes(target) deterministic fixture builder",
+    "5 rejection messages bound to ContractFake: prefix + RAW-UNTIL-STAGE-2.1 markers"
+  ],
+  "design_file_changes": "12 create / 18 modify / 0 delete; FIT-04 dts-baseline regen x3 captured",
+  "design_council": "tech-writer: design-ready (3 refinements applied, rev 2); architect lens: PENDING (watcher armed) \u2014 fold in when it lands",
+  "steward_foresight": "ALIGNED + CQs answered (obs 693/694): 4MiB = SDK-chosen placeholder (provenance clause in ADR-0019 rev 3, BATCH_CAP_BYTES single constant); fake-counterpart commitment affirmed",
+  "slice_ids": [
+    "S-1.3",
+    "S-1.4",
+    "S-1.7",
+    "S-1.1",
+    "S-1.5/1.6",
+    "S-1.8",
+    "S-1.9"
+  ],
+  "slices_artifacts": [
+    "openspec/changes/stage-1-ir-bedrock/slices.md",
+    "engram sdd/stage-1-ir-bedrock/slices obs 695"
+  ],
+  "slice_dag": "hard chain S-1.3->S-1.4->S-1.7->S-1.1 (contract-fake single-writer); independent S-1.5/1.6 + S-1.8; soft S-1.9->S-1.3",
+  "walking_skeleton_slice": null,
+  "skeleton_justification": "spine exists (foundations-skeleton + #2); change hardens an existing thread; #2 precedent",
+  "plan_verify_artifacts": [
+    "verify-plan-1.md",
+    "verify-plan-2.md",
+    "verify-plan-3.md",
+    "verify-plan-4.md"
+  ],
+  "slices_rev": 4,
+  "apply_launch_notes": [
+    "e2e = factory -> defineFactory -> FAKE virtual tree (no engine anywhere; 'Runs without engine?' = yes all 4 layers)",
+    "self-move identity: compare src vs fake-computed dst = posix.join(toDir, basename(path)) \u2014 normalized inside fake bookkeeping (ADR-0018 exemption)",
+    "staging existence model EXISTS: contract-fake #tree + #deleted; 'exists now' = staging view (seed + in-batch mutations)",
+    "pyramid-codification.test.ts PARSES ci.yml programmatically (asserts invocation excludes no mapped dir); ci.yml stays read-only",
+    "phantom ADR-0028 mapping rule: lowering/wire-shape sites -> ADR-0013; fail-closed/D1-semantics sites -> ADR-0017",
+    "test invocation: bun test <path> (single), bun test (suite), bunx tsc --noEmit; KIT-03 scenarios -> test/skeleton/directive-factory.test.ts + test/skeleton/handle-chaining.test.ts"
+  ],
+  "publish": "skipped (spec_source=internal)"
+}
