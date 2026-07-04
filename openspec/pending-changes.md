@@ -36,10 +36,10 @@ Followups registered from archived changes. Visible to future `/plan` grooming.
 ### Fake-semantics questions (REFRAMED 2026-07-04 — was "resolve against the real engine")
 
 The problem statement makes the contract fake the **legitimate counterpart**, so these can no
-longer defer to a real engine. They are **★ DECISION D1** (objectives-plan Stage 1.2): the owner
-ratifies the normative semantics, an ADR records them, and Stage 1.3 closes the fake to match.
+longer defer to a real engine. **★ DECISION D1 is RATIFIED — ADR-0017** (fail-closed; `move`
+gains `force?`; `modify` requires existence). Stage 1.3 closes the fake to match.
 
 | Question | Stage |
 |---|---|
-| Fake `move` silently overwrites an existing destination (no fail-closed / `force`), unlike create/rename/copy | **1.2 (D1) → 1.3** |
-| Fake `modify` of a non-existent path materializes the file rather than erroring | **1.2 (D1) → 1.3** |
+| Fake `move` silently overwrites an existing destination — ratified fail-closed + `force` (ADR-0017) | **1.3 (implement)** |
+| Fake `modify` of a non-existent path materializes the file — ratified as ERROR (ADR-0017) | **1.3 (implement)** |

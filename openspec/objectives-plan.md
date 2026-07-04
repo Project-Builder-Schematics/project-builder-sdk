@@ -38,35 +38,61 @@ items start.
 - **1.1 Golden-IR completeness for all six mutations** [O1] — every verb ± `force`, plus
   chained-handle programs (rename-then-move, create-then-modify), pinned exactly. EXTENSION of
   `test/golden-ir/` (exists). *Exists when* each `Directive` variant has ≥1 golden fixture and
-  ≥1 chained fixture, and envelope key order is asserted.
-- **1.2 ★ DECISION D1 — ratify fake semantics as normative** [O1] — the two "engine-fidelity
-  questions" (fake `move` silently overwrites; fake `modify` of a nonexistent path materializes
-  the file) can no longer defer to a real engine: the fake IS the counterpart. Owner ratifies
-  fail-closed vs `force` semantics. *Exists when* an ADR records them. Sits before 1.3.
-- **1.3 Contract-fake fidelity closure** [O1] — the fake implements D1 semantics; `test/fake/`
-  pins them unmocked.
+  ≥1 chained fixture, envelope key order is asserted, and a **determinism proof** exists (same
+  factory + same inputs run twice → byte-identical `Batch`).
+- **1.2 ★ DECISION D1 — ratify fake semantics as normative** [O1] — ✅ **RATIFIED 2026-07-04,
+  ADR-0017**: `move` onto an existing destination fails unless `force: true` (the `move` wire
+  directive gains `force?`, symmetric with create/rename/copy); `modify` of a nonexistent path
+  is an ERROR (never materializes). Remaining work is implementation — see 1.3.
+- **1.3 D1 closure — production surface + fake fidelity** [O1] — BOTH halves of ADR-0017:
+  (a) production: `move` directive gains `force?` in `src/core/wire.ts`, threaded through
+  `src/core/directive-factory.ts`, and the author surface `move(path, toDir, opts?)` + handle
+  `.move` grow the trailing `{ force? }` their sibling verbs already have; (b) the fake
+  implements both fail-closed rules. *Exists when* `test/fake/` pins both rules unmocked and
+  golden fixtures (1.1) pin `move` ± `force` on the new wire shape.
 - **1.4 Frame-cap enforcement at flush** (absorbed from superseded #4) [O1] — the 4 MiB batch
   cap, owned by the `Batch` wire contract, enforced at `Session.flush` (`src/core/session.ts`),
-  modeled by the fake. *Exists when* an oversized batch is rejected at the flush boundary with a
-  fake-fidelity test.
+  modeled by the fake. The cap's **measurement unit must be defined** (bytes vs UTF-16 code
+  units — today no constant or unit exists anywhere in `src/`) together with the **content
+  encoding / binary-file posture** of `modify.content: string`; ADR-recorded. Run-end
+  **empty-batch behavior** (a factory that buffers nothing still reaches `commit()`) is
+  specified and tested here too. *Exists when* an oversized batch is rejected at the flush
+  boundary with a fake-fidelity test, the unit/encoding ADR exists, and the empty-factory
+  run-end path is pinned.
 - **1.5 Double-fault preservation** (debt W6) [O1] — `defineFactory` (`src/core/context.ts`)
   preserves the factory's original error when `discard()` also rejects.
 - **1.6 Small test debt (batchable)** [O1, XS] — FIT-04 unconditional rebuild (W7);
   permissive-proof guard hardening; drop the tautological red-proof label in
-  `test/conformance/meta.test.ts`.
+  `test/conformance/meta.test.ts`; fix the **phantom "ADR-0028" references** (`src/core/wire.ts`,
+  `src/core/directive-factory.ts`, `test/golden-ir/`) — no ADR-0028 exists; the real citations
+  are ADR-0013 (lowering) and ADR-0017 (D1).
+- **1.7 ★ DECISION D6 — IR emission contract hardening** [O1] — one ratification covering the
+  three edges where "correct IR" is undefined today (nothing on the write path validates any of
+  them; verified against `src/commons/index.ts` + `src/core/directive-factory.ts`):
+  (a) **path contract** — what is a legal author path (absolute? `../` traversal? empty string?
+  `\` separators? trailing slashes?) and whether the SDK rejects or normalizes;
+  (b) **runtime serializability posture** — types promise `JsonValue`, but plain-JS authors can
+  pass `undefined`/functions/`Date`/circular objects at runtime: guard at the seam, or ratify
+  "trust the type" explicitly;
+  (c) **intra-batch conflict posture** — create-then-remove same path, modify-after-remove, two
+  creates on one path: ratify "emit in author order; the engine judges" (or SDK-side validation).
+  *Exists when* an ADR records all three, enforcement (or the ratified non-enforcement) is
+  implemented and tested, and Stage 2.1's attribution covers the rejections it introduces.
+  Sits before Stage 2 freezes the error contract.
 
 ## Stage 2 — The failure half: error-to-author attribution (O1 correctness, O2 vocabulary)
 
-Re-absorbs superseded #3. Depends on Stage 1 (fake semantics ratified before attribution over
-them freezes).
+Re-absorbs superseded #3. Depends on Stage 1 (fake semantics — ADR-0017 — and the D6 emission
+contract must be ratified before attribution over them freezes).
 
 - **2.1 Full attribution coverage — every verb, mid-chain** [O1+O2] — builds on
-  `src/core/authoring-error.ts`. Covers: every op kind rejected by the unmocked fake; mid-chain
-  rejection reporting the applied boundary (which directives the eager fake already applied);
-  flush-time vs commit-time rejection. Read not-found stays a VALUE (`undefined`, ADR-0016),
-  never an error. *Exists when* every verb's rejection surfaces `AuthoringError` with verb +
-  primary path + applied-boundary info, and a whole-object scan proves zero engine/fake
-  vocabulary leaks.
+  `src/core/authoring-error.ts`. Covers: every op kind rejected by the unmocked fake (including
+  the ADR-0017 rejections — move-collision without `force`, modify-nonexistent — and any D6
+  path/conflict rejections); mid-chain rejection reporting the applied boundary (which
+  directives the eager fake already applied); flush-time vs commit-time rejection. Read
+  not-found stays a VALUE (`undefined`, ADR-0016), never an error. *Exists when* every verb's
+  rejection surfaces `AuthoringError` with verb + primary path + applied-boundary info, and a
+  whole-object scan proves zero engine/fake vocabulary leaks.
 - **2.2 ★ DECISION D2 — structured cause access** [O2] — the skeleton discards the raw engine
   message; owner ratifies whether/what structured cause detail authors get. Sits at 2.1's
   start; ADR-recorded.
@@ -109,6 +135,14 @@ generic only; no `schema.json` is read anywhere in `src/`.
   end-to-end against the fake.
 - **4.4 End-to-end typed-factory example** (debt CQ-2) [O2] — real schema, real options, real
   chained factory as the canonical example, executed by a test.
+- **4.5 ★ DECISION D7 + schematic-author testing story** [O2] — today a schematic author has NO
+  public way to run their `factory.ts` against a fake engine: the contract fake lives in
+  `test/support/` (unexported), `defineFactory` is internal (guarded by FIT-08), and the
+  conformance kit targets dialect/op-pack authors, not schematic authors. Owner ratifies the
+  exposure: a public testing subpath (e.g. `./testing` exporting a fake-backed harness) vs a
+  documented hand-rolled pattern. *Exists when* the ADR records the choice and a schematic
+  author can, per that choice, execute their factory and assert its emitted IR / resulting
+  virtual tree without cloning this repo.
 
 ## Stage 5 — First dialect: `modify` becomes real (O1+O2 converge; highest risk)
 
@@ -178,16 +212,85 @@ Stage 0 ──► Stage 1 ──► Stage 2 ──► Stage 5 ──► Stage 6
 
 ## Decision points needing owner ratification
 
-| ID | Decision | Sits before | Stage |
-|----|----------|-------------|-------|
-| D1 | Fake semantics normative: move-overwrite + modify-nonexistent | 1.3 | 1 |
-| D2 | Structured cause access on `AuthoringError` | 2.1 freeze | 2 |
-| D3 | Dry-run exposure shape + author vocabulary (`remove` vs wire `delete`) | 3.2 | 3 |
-| D4 | Typed options: hand-supplied `create<S>` v1 vs schema.json derivation | 4.2 | 4 |
-| D5 | First dialect + AST-dependency policy | 5.2 | 5 |
+| ID | Decision | Sits before | Stage | Status |
+|----|----------|-------------|-------|--------|
+| D1 | Fake semantics normative: move-overwrite + modify-nonexistent | 1.3 | 1 | ✅ RATIFIED — ADR-0017 |
+| D2 | Structured cause access on `AuthoringError` | 2.1 freeze | 2 | open |
+| D3 | Dry-run exposure shape + author vocabulary (`remove` vs wire `delete`) | 3.2 | 3 | open |
+| D4 | Typed options: hand-supplied `create<S>` v1 vs schema.json derivation | 4.2 | 4 | open |
+| D5 | First dialect + AST-dependency policy | 5.2 | 5 | open |
+| D6 | IR emission contract hardening: path contract · runtime serializability posture · intra-batch conflict posture | Stage 2 freeze | 1.7 | open |
+| D7 | Schematic-author testing exposure: public `./testing` harness vs documented pattern | 4.5 close | 4 | open |
 
 ## Out of scope (guard rails)
 
 Engine execution/disk · real wire (`ir.emit`/`tree.read`, engine repo) · prompt UX from
 `schema.json` · L2 composition (`invoke`/`extends`) · cross-collection · external
 collections/trust · monorepo extraction.
+
+---
+
+## Coverage — what fulfilling each objective means (gap-reviewed 2026-07-04)
+
+The checklist an objective must satisfy to be called DONE, with the stage items that deliver
+each line. Produced by an adversarial gap review of the plan against the actual tree; the review
+added 1.7 (D6), 4.5 (D7), and the amendments to 1.1/1.3/1.4/1.6/2.1.
+
+### O1 — IR generation is fulfilled when:
+
+| # | Required capability | Delivered by |
+|---|---|---|
+| 1 | Every one of the six verbs lowers to its exact, pinned wire directive (± `force` where the shape allows) | 1.1 |
+| 2 | Emission is deterministic: same factory + same inputs → byte-identical `Batch` | 1.1 |
+| 3 | The fake's semantics are ratified and normative — no "ask the real engine later" left | 1.2 ✅ (ADR-0017) + 1.3 |
+| 4 | `move`'s `force` exists on the wire, the factory, and the author surface — before semver freezes it absent | 1.3 |
+| 5 | "Correct IR" is defined at the edges: legal paths, runtime serializability posture, intra-batch conflict posture | 1.7 (D6) |
+| 6 | The batch cap has a defined unit + encoding/binary posture and is enforced at flush; empty-batch run-end is specified | 1.4 |
+| 7 | A failed run never half-commits (all-or-nothing, double-fault preserved) | 1.5 (+ ADR-0015) |
+| 8 | Every engine rejection is attributable to the authoring action, in author vocabulary, with the applied boundary observable | 2.1/2.2 |
+| 9 | N AST edits on one file coalesce to exactly ONE `modify` carrying final bytes only | 5.4 |
+| 10 | The seam invariants hold structurally (commons-no-AST, serializable-bytes, no-tree) and conformance makes them checkable for third parties | fitness (exists) + 5.0 + 5.6 |
+
+### O2 — Developer experience is fulfilled when:
+
+| # | Required capability | Delivered by |
+|---|---|---|
+| 1 | An author writes `factory.ts` + `schema.json` and nothing else — no Tree/Rule/chain plumbing | 4.3 |
+| 2 | `options` is typed from one source with parity enforced (or the v1 mechanism is deliberately ratified) | 4.1 (D4) + 4.2 |
+| 3 | The six verbs are direct calls with fluent chaining; read is the trichotomy with a pit-of-success affordance | exists + 2.3 |
+| 4 | Errors speak the author's vocabulary — never `ContractFake:`/`OpMove` — with ratified cause access | 2.1 + 2.2 (D2) |
+| 5 | The author can see the plan of what they are about to emit (dry-run) before it happens | 3.1 (D3) + 3.2/3.3 |
+| 6 | A schematic author can TEST their factory against a fake engine without cloning this repo | 4.5 (D7) |
+| 7 | Importing a dialect IS selecting it: `@pbuilder/sdk/<dialect>` brings a ready AST + named ops that chain and coalesce | 5.1 (D5) + 5.2/5.5 |
+| 8 | Dialect/op-pack contributors have a real contract: composable op-packs, collision diagnostics, an executable conformance kit, and a doc | 5.3/5.6/5.7 |
+| 9 | The published package resolves every public subpath (and only those) from a real install, with a hardened publish pipeline | 6.1/6.2 |
+| 10 | A new author goes install → passing typed factory using only the docs | 6.3 + 4.4 |
+
+## End state — what exists when the whole plan is complete
+
+The day Stage 6 closes, **@pbuilder/sdk is a publishable, engine-independent authoring product**:
+
+A schematic author installs one package and writes a `factory.ts` next to a `schema.json`. Their
+`options` are typed from the schema (per D4's ratified mechanism) — drift breaks the build, not
+production. Inside the factory they call the six verbs directly and chain them; they `read()`
+existing content through the trichotomy; they import `@pbuilder/sdk/<dialect>` and apply named
+AST ops that coalesce into single `modify` directives. Before anything is emitted they can see
+the dry-run plan in their own vocabulary; when something is rejected they get an
+`AuthoringError` naming their verb, their path, and what had already applied — never engine
+internals. They test all of it against the fake engine from their own repo (per D7), and they
+learned all of it from the docs alone.
+
+What that author's run produces — the product itself — is a **deterministic, byte-pinned,
+semver-frozen IR batch**: six directive shapes whose semantics are ratified by ADR (fail-closed
+collisions, existence-required modify, defined path/serializability/conflict/cap contracts),
+proven correct against a normative contract fake, and guarded structurally by fitness functions
+and an executable conformance kit that any third-party dialect author can self-run.
+
+What does NOT exist — by design — is any disk execution, template rendering, or AST crossing
+the seam. The engine, whenever it arrives at the wire, receives a contract that is already
+frozen, documented, and exhaustively pinned — integration becomes the engine's conformance
+problem, not a renegotiation of the SDK.
+
+**The demo moment:** a ~10-line typed factory that creates a file from a schema option, adds an
+import to an existing module via the dialect, shows its dry-run plan, and emits one clean batch
+— IR generation (O1) and the authoring experience (O2), both real, no engine required.
