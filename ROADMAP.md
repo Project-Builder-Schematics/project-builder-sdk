@@ -12,9 +12,20 @@ JSON-RPC. The engine owns execution and the disk; the SDK owns the authoring exp
 > *why* behind decisions lives in `openspec/decisions/` (ADRs). We do not pull design detail up into
 > this roadmap.
 
+> **⚠ Reconciliation notice (2026-07-04, first pass).** The ratified problem statement
+> (`openspec/problem-statement.md`) is now the canonical frame and **wins over this document
+> wherever they conflict**. The near goal is the **two objectives** — (O1) IR generation for the
+> six mutations with the **contract fake as the legitimate counterpart, not a stopgap**, and
+> (O2) the authoring developer experience — delivered per the WHAT-level plan in
+> `openspec/objectives-plan.md`. An **engine-backed release is NOT the near goal**; §6 remains
+> real cross-repo context for a *later* engine-backed milestone, but it gates nothing in the
+> current plan. The L1–L4 / T-M2–T-M3 level language below is retained as direction and will be
+> fully reconciled at the plan's final pass (objectives-plan Stage 6.4).
+
 The build mirrors the engine's discipline: **two independent axes** — the **authoring surface**
-(rides the IR wire) and the **orthogonal Modify track** (the AST-dependent part). One dependency is
-**not** assumed away: the conversation the SDK needs is not yet built on the engine side — see §6.
+(rides the IR wire) and the **orthogonal Modify track** (the AST-dependent part). These map onto
+the two objectives (the surface serves O2; both lower into O1's IR). The engine-side conversation
+(§6) is context for a later engine-backed milestone, not a gate on the objectives.
 
 ---
 
@@ -248,15 +259,15 @@ Sequenced value-vs-risk, evidence-first. The first move proves the riskiest assu
                       → T-M3 smart-refactor (last).
 ```
 
-**Where we are (2026-06-21):** Step 1 `foundations-skeleton` ✅ shipped (archived). Step 2 **L1 is
-underway** — re-triaged to an XL **program** (`l1-author-surface`, 4 sub-changes behind a 6-seam table,
-`openspec/changes/l1-author-surface/`). Sub-change **#1 — the walking skeleton** threading typed
-`create` → directive buffer → minimal dry-run → commit/discard → attributed error is **complete and
-integration-clean** (all four seams exercised by real cross-boundary tests). Remaining: **#2**
-`typed-options-and-read` (full `schema.json`→options derivation + read-disk; the §9.0 sync-vs-async spike
-rides here), **#3** `error-and-commit-contract` (full attribution + all-or-nothing commit; blind
-judgment-day pass), **#4** `dry-run-and-release-shape` (full renderer + 4 MiB frame-cap + `dist/core`
-tarball strip). `read-staged` and any *engine-backed* release stay gated on §6.
+**Where we are (2026-07-04):** Step 1 `foundations-skeleton` ✅ shipped (archived). The XL program
+`l1-author-surface` delivered **#1 (walking skeleton)** and **#2 (`typed-options-and-read`)** — both
+archived and merged (188 tests green). Its pending **#3/#4 are SUPERSEDED** (owner decision,
+2026-07-04): execution now follows the ratified problem statement
+(`openspec/problem-statement.md`) and the WHAT-level delivery plan
+(`openspec/objectives-plan.md`), which re-absorbs their valuable pieces (error attribution →
+Stage 2, dry-run exposure → Stage 3, frame-cap/tarball hardening → Stages 1.4/6). The contract
+fake is the legitimate counterpart; `read-staged` and any *engine-backed* release remain later
+milestones gated on §6, outside the current plan.
 
 **The demo moment:** an author writes a ~10-line `factory.ts` that `create`s a file from a typed
 `schema.json` option and `addImport`s a module into `app.module.ts`, runs it, sees a **dry-run plan
