@@ -41,6 +41,27 @@ The engine owns execution but has no developer-facing half. This repo is that ha
 - **The AST never crosses the seam.** `modify` is where the SDK has its greatest impact (the
   per-file-type AST dialect libraries), but only final bytes travel in the IR. The engine stays
   AST-blind.
+- **The engine boundary is ONE abstraction.** The engine owns all file control — reading,
+  mutating, and validating (including paths: the SDK never reads, validates, or normalizes
+  author paths; they travel verbatim, and validity is engine judgment). The SDK only sends and
+  receives: every input from the engine and every output to the engine crosses the single
+  `EngineClient` port (`src/core/engine-client.ts`), so any counterpart — the contract fake or
+  a future real client — plugs in with zero SDK changes.
+
+## Quality attribute — testability (first-class)
+
+The SDK must stay EASY to test at four layers, for two audiences — this repo's contributors AND
+schematic/dialect authors:
+
+1. **Unit** — pure pieces (directive factory, renderers, type-level proofs) testable with no
+   engine at all.
+2. **Fitness** — the architectural invariants above enforced structurally in CI (the FIT-*
+   suite).
+3. **Integration** — cross-boundary behavior against the unmocked contract fake.
+4. **End-to-end** — a whole factory run: `factory.ts` → emitted batch → fake virtual tree.
+
+The single engine port + the in-memory contract fake are the enabling design: swapping the
+counterpart is what makes every layer cheap.
 
 ## Definition of IR correctness (without a real engine)
 

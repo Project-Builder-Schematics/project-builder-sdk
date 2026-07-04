@@ -66,19 +66,34 @@ items start.
   `test/conformance/meta.test.ts`; fix the **phantom "ADR-0028" references** (`src/core/wire.ts`,
   `src/core/directive-factory.ts`, `test/golden-ir/`) — no ADR-0028 exists; the real citations
   are ADR-0013 (lowering) and ADR-0017 (D1).
-- **1.7 ★ DECISION D6 — IR emission contract hardening** [O1] — one ratification covering the
-  three edges where "correct IR" is undefined today (nothing on the write path validates any of
-  them; verified against `src/commons/index.ts` + `src/core/directive-factory.ts`):
-  (a) **path contract** — what is a legal author path (absolute? `../` traversal? empty string?
-  `\` separators? trailing slashes?) and whether the SDK rejects or normalizes;
-  (b) **runtime serializability posture** — types promise `JsonValue`, but plain-JS authors can
-  pass `undefined`/functions/`Date`/circular objects at runtime: guard at the seam, or ratify
-  "trust the type" explicitly;
-  (c) **intra-batch conflict posture** — create-then-remove same path, modify-after-remove, two
-  creates on one path: ratify "emit in author order; the engine judges" (or SDK-side validation).
-  *Exists when* an ADR records all three, enforcement (or the ratified non-enforcement) is
-  implemented and tested, and Stage 2.1's attribution covers the rejections it introduces.
-  Sits before Stage 2 freezes the error contract.
+- **1.7 ★ DECISION D6 — boundary pass-through + fake wire-modeling** [O1] — ✅ **RATIFIED
+  2026-07-04, ADR-0018** (owner ruling: the engine owns all file control; the SDK only sends
+  and receives). The SDK is a verbatim conduit: (a) **paths pass through untouched** — zero SDK
+  validation/normalization; the fake owns path-acceptance semantics; (b) **no runtime
+  serializability guard in verbs** — the fake's `emit` performs a JSON round-trip, so
+  non-serializable options fail at the seam as engine-judged errors; (c) **intra-batch
+  conflicts emit in author order; the engine judges**. Remaining work is fake wire-modeling
+  implementation: *exists when* the fake round-trips batches through JSON on emit, its
+  path-acceptance and conflict-sequence semantics are pinned by `test/fake/` tests, and Stage
+  2.1's attribution covers the three new rejection families. Sits before Stage 2 freezes the
+  error contract.
+- **1.8 Engine-boundary abstraction hardening** [O1] — ratify the `EngineClient` port
+  (`src/core/engine-client.ts`, already the self-described "sole transport seam") as the ONLY
+  engine I/O crossing — every input from the engine (read results, rejections) and every output
+  to it (batch, commit, discard) — and guard it structurally: a new fitness test (FIT-10)
+  proves no module outside `src/core` names the port or wire encoding, and that swapping the
+  fake for a future real client requires zero SDK changes (the whole suite runs against the
+  port interface only). Mostly ratification + guard — the port exists; the item makes bypassing
+  it impossible, not possible-but-discouraged. *Exists when* FIT-10 is green with a planted
+  bypass red-proof.
+- **1.9 Test-pyramid codification** [O1+O2] — testability at four layers is a first-class
+  quality attribute (problem statement). Name the layers over the existing tree: **unit**
+  (`test/skeleton`, `test/types`, pure units — no engine), **fitness** (`test/fitness`
+  FIT-01..09 + planned FIT-10), **integration** (`test/fake` cross-boundary, unmocked),
+  **e2e** (factory → `defineFactory` → fake virtual tree + golden batch); document the map in a
+  testing doc/CONTRIBUTING and add an explicit e2e suite where that layer is thin today.
+  *Exists when* the doc maps each layer to its directory, CI runs all four, and a contributor
+  adding a verb or dialect has an obvious home per layer.
 
 ## Stage 2 — The failure half: error-to-author attribution (O1 correctness, O2 vocabulary)
 
@@ -99,6 +114,20 @@ contract must be ratified before attribution over them freezes).
 - **2.3 Read-trichotomy affordance helper** (debt CQ-1) [O2] — a named helper making
   `=== undefined` / `=== ""` branching the pit of success, exported from `./commons`; JSDoc
   examples use it.
+- **2.4 Error-origin taxonomy: engine-origin vs SDK-origin** [O1+O2] — errors reach the author
+  from TWO distinct origins and the contract must name both (owner input, 2026-07-04):
+  (a) **engine-origin** — rejections returned through the port: collisions (ADR-0017), path
+  acceptance / serialization / conflict judgments (ADR-0018), template rendering failures (the
+  SDK never processes templates, so a corrupt `create` template fails engine-side at render);
+  (b) **SDK-origin** — errors born inside the SDK before anything reaches the wire: dialect/AST
+  failures (parsing corrupt or unparseable content in a `modify` chain, a named op failing on
+  the live AST, print/serialize failures) and authoring misuse (verbs outside a factory —
+  already a `currentContext()` throw). Both families surface as `AuthoringError` in author
+  vocabulary, distinguishable by origin, each attributed to the authoring action; D2's
+  structured-cause ruling covers both. The dialect side is later exercised by the conformance
+  kit's error-attribution property (ADR-0012) when Stage 5 lands. *Exists when* the taxonomy is
+  ADR-recorded with the attribution contract per origin, and a test proves an author can tell
+  an engine rejection from an SDK-side dialect failure without reading internals.
 
 ## Stage 3 — Dry-run exposure (O2; renderer EXISTS — the work is EXPOSURE)
 
@@ -140,9 +169,12 @@ generic only; no `schema.json` is read anywhere in `src/`.
   `test/support/` (unexported), `defineFactory` is internal (guarded by FIT-08), and the
   conformance kit targets dialect/op-pack authors, not schematic authors. Owner ratifies the
   exposure: a public testing subpath (e.g. `./testing` exporting a fake-backed harness) vs a
-  documented hand-rolled pattern. *Exists when* the ADR records the choice and a schematic
-  author can, per that choice, execute their factory and assert its emitted IR / resulting
-  virtual tree without cloning this repo.
+  documented hand-rolled pattern. Per the testability quality attribute (problem statement),
+  the ratified story must make the author's two key layers TRIVIAL: unit tests of pure factory
+  logic (no engine) and e2e tests (run the factory, assert emitted IR + resulting virtual
+  tree); dialect authors' layers are owned by the conformance kit (5.6). *Exists when* the ADR
+  records the choice and a schematic author can, per that choice, execute their factory and
+  assert its emitted IR / resulting virtual tree without cloning this repo.
 
 ## Stage 5 — First dialect: `modify` becomes real (O1+O2 converge; highest risk)
 
@@ -219,7 +251,7 @@ Stage 0 ──► Stage 1 ──► Stage 2 ──► Stage 5 ──► Stage 6
 | D3 | Dry-run exposure shape + author vocabulary (`remove` vs wire `delete`) | 3.2 | 3 | open |
 | D4 | Typed options: hand-supplied `create<S>` v1 vs schema.json derivation | 4.2 | 4 | open |
 | D5 | First dialect + AST-dependency policy | 5.2 | 5 | open |
-| D6 | IR emission contract hardening: path contract · runtime serializability posture · intra-batch conflict posture | Stage 2 freeze | 1.7 | open |
+| D6 | Boundary pass-through: paths verbatim · no verb-level serializability guard (fake JSON round-trip at the seam) · conflicts emitted in author order, engine judges | Stage 2 freeze | 1.7 | ✅ RATIFIED — ADR-0018 |
 | D7 | Schematic-author testing exposure: public `./testing` harness vs documented pattern | 4.5 close | 4 | open |
 
 ## Out of scope (guard rails)
@@ -244,12 +276,13 @@ added 1.7 (D6), 4.5 (D7), and the amendments to 1.1/1.3/1.4/1.6/2.1.
 | 2 | Emission is deterministic: same factory + same inputs → byte-identical `Batch` | 1.1 |
 | 3 | The fake's semantics are ratified and normative — no "ask the real engine later" left | 1.2 ✅ (ADR-0017) + 1.3 |
 | 4 | `move`'s `force` exists on the wire, the factory, and the author surface — before semver freezes it absent | 1.3 |
-| 5 | "Correct IR" is defined at the edges: legal paths, runtime serializability posture, intra-batch conflict posture | 1.7 (D6) |
+| 5 | The SDK is a verbatim conduit at the edges: paths pass through untouched, serializability is judged at the seam (fake JSON round-trip), conflicts emit in author order — the engine judges all three | 1.7 (D6 ✅ ADR-0018) |
 | 6 | The batch cap has a defined unit + encoding/binary posture and is enforced at flush; empty-batch run-end is specified | 1.4 |
 | 7 | A failed run never half-commits (all-or-nothing, double-fault preserved) | 1.5 (+ ADR-0015) |
-| 8 | Every engine rejection is attributable to the authoring action, in author vocabulary, with the applied boundary observable | 2.1/2.2 |
+| 8 | Every error is attributable to the authoring action, in author vocabulary, distinguishable by origin (engine-returned rejection vs SDK-born AST/dialect failure), with the applied boundary observable | 2.1/2.2/2.4 |
 | 9 | N AST edits on one file coalesce to exactly ONE `modify` carrying final bytes only | 5.4 |
 | 10 | The seam invariants hold structurally (commons-no-AST, serializable-bytes, no-tree) and conformance makes them checkable for third parties | fitness (exists) + 5.0 + 5.6 |
+| 11 | ALL engine I/O crosses the single `EngineClient` port — bypassing it is structurally impossible; fake ↔ real client swap needs zero SDK changes | 1.8 (FIT-10) |
 
 ### O2 — Developer experience is fulfilled when:
 
@@ -258,13 +291,14 @@ added 1.7 (D6), 4.5 (D7), and the amendments to 1.1/1.3/1.4/1.6/2.1.
 | 1 | An author writes `factory.ts` + `schema.json` and nothing else — no Tree/Rule/chain plumbing | 4.3 |
 | 2 | `options` is typed from one source with parity enforced (or the v1 mechanism is deliberately ratified) | 4.1 (D4) + 4.2 |
 | 3 | The six verbs are direct calls with fluent chaining; read is the trichotomy with a pit-of-success affordance | exists + 2.3 |
-| 4 | Errors speak the author's vocabulary — never `ContractFake:`/`OpMove` — with ratified cause access | 2.1 + 2.2 (D2) |
+| 4 | Errors speak the author's vocabulary — never `ContractFake:`/`OpMove` — with ratified cause access, whether returned by the engine or born in the SDK (AST/corrupt content) | 2.1 + 2.2 (D2) + 2.4 |
 | 5 | The author can see the plan of what they are about to emit (dry-run) before it happens | 3.1 (D3) + 3.2/3.3 |
 | 6 | A schematic author can TEST their factory against a fake engine without cloning this repo | 4.5 (D7) |
 | 7 | Importing a dialect IS selecting it: `@pbuilder/sdk/<dialect>` brings a ready AST + named ops that chain and coalesce | 5.1 (D5) + 5.2/5.5 |
 | 8 | Dialect/op-pack contributors have a real contract: composable op-packs, collision diagnostics, an executable conformance kit, and a doc | 5.3/5.6/5.7 |
 | 9 | The published package resolves every public subpath (and only those) from a real install, with a hardened publish pipeline | 6.1/6.2 |
 | 10 | A new author goes install → passing typed factory using only the docs | 6.3 + 4.4 |
+| 11 | All four test layers (unit, fitness, integration, e2e) stay easy — for SDK contributors and for schematic/dialect authors | 1.9 + 4.5 (D7) + 5.6 |
 
 ## End state — what exists when the whole plan is complete
 
@@ -275,16 +309,21 @@ A schematic author installs one package and writes a `factory.ts` next to a `sch
 production. Inside the factory they call the six verbs directly and chain them; they `read()`
 existing content through the trichotomy; they import `@pbuilder/sdk/<dialect>` and apply named
 AST ops that coalesce into single `modify` directives. Before anything is emitted they can see
-the dry-run plan in their own vocabulary; when something is rejected they get an
-`AuthoringError` naming their verb, their path, and what had already applied — never engine
-internals. They test all of it against the fake engine from their own repo (per D7), and they
-learned all of it from the docs alone.
+the dry-run plan in their own vocabulary; when something fails they get an `AuthoringError`
+naming their verb, their path, and what had already applied — never engine internals — and they
+can tell whether it was the engine rejecting (collision, path, render) or the SDK itself
+(corrupt content an AST could not parse, a failing dialect op). They test all of it against the
+fake engine from their own repo (per D7) — unit tests of pure factory logic and e2e runs
+asserting the emitted IR and virtual tree are both trivial — and they learned all of it from
+the docs alone.
 
 What that author's run produces — the product itself — is a **deterministic, byte-pinned,
 semver-frozen IR batch**: six directive shapes whose semantics are ratified by ADR (fail-closed
 collisions, existence-required modify, defined path/serializability/conflict/cap contracts),
-proven correct against a normative contract fake, and guarded structurally by fitness functions
-and an executable conformance kit that any third-party dialect author can self-run.
+proven correct against a normative contract fake, carried across ONE abstracted engine boundary
+(the `EngineClient` port — the SDK never reads, validates, or judges; it sends and receives),
+and guarded structurally by a four-layer test pyramid (unit, fitness, integration, e2e) plus an
+executable conformance kit that any third-party dialect author can self-run.
 
 What does NOT exist — by design — is any disk execution, template rendering, or AST crossing
 the seam. The engine, whenever it arrives at the wire, receives a contract that is already
