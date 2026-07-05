@@ -6,7 +6,9 @@ export interface WriteOps {
     rename(newName: string, opts?: {
         force?: boolean;
     }): WritableHandleRef;
-    move(toDir: string): WritableHandleRef;
+    move(toDir: string, opts?: {
+        force?: boolean;
+    }): WritableHandleRef;
     copy(to: string, opts?: {
         force?: boolean;
     }): WritableHandleRef;

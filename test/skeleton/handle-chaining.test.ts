@@ -260,6 +260,120 @@ describe("handle chaining — verb dispatch (S-003 / KIT-04)", () => {
     await factory({}, { client: spy });
   });
 
+  test("move with force passes force:true to directive payload (REQ-KIT-03.1 — free function)", async () => {
+    const { spy, emitted } = makeSpy({ "src/foo.ts": "content", "dummy": "x" });
+
+    const factory = defineFactory(async () => {
+      const { move, find } = await import("../../src/commons/index.ts");
+      move("src/foo.ts", "lib/", { force: true });
+      await find("dummy").read();
+    });
+    await factory({}, { client: spy });
+
+    const dirs = collectDirectives(emitted);
+    const dir = dirs.find((d) => d.op === "move");
+    expect(dir).toBeDefined();
+    if (dir?.op === "move") {
+      expect(dir.move.path).toBe("src/foo.ts");
+      expect(dir.move.toDir).toBe("lib/");
+      expect(dir.move.force).toBe(true);
+    }
+  });
+
+  test("move omits force key when opts not provided (REQ-KIT-03.3 — free function)", async () => {
+    const { spy, emitted } = makeSpy({ "src/foo.ts": "content", "dummy": "x" });
+
+    const factory = defineFactory(async () => {
+      const { move, find } = await import("../../src/commons/index.ts");
+      move("src/foo.ts", "lib/");
+      await find("dummy").read();
+    });
+    await factory({}, { client: spy });
+
+    const dirs = collectDirectives(emitted);
+    const dir = dirs.find((d) => d.op === "move");
+    expect(dir).toBeDefined();
+    if (dir?.op === "move") {
+      expect(dir.move.force).toBeUndefined();
+    }
+  });
+
+  test("WritableHandle.move with force passes force:true to directive payload (REQ-KIT-03.2)", async () => {
+    const { spy, emitted } = makeSpy({ "src/foo.ts": "v1", "dummy": "x" });
+
+    const factory = defineFactory(async () => {
+      const { modify, find } = await import("../../src/commons/index.ts");
+      modify("src/foo.ts", "v2").move("lib", { force: true });
+      await find("dummy").read();
+    });
+    await factory({}, { client: spy });
+
+    const dirs = collectDirectives(emitted);
+    const dir = dirs.find((d) => d.op === "move");
+    expect(dir).toBeDefined();
+    if (dir?.op === "move") {
+      expect(dir.move.toDir).toBe("lib");
+      expect(dir.move.force).toBe(true);
+    }
+  });
+
+  test("FoundHandle.move with force passes force:true to directive payload (REQ-KIT-03.2)", async () => {
+    const { spy, emitted } = makeSpy({ "src/foo.ts": "content", "dummy": "x" });
+
+    const factory = defineFactory(async () => {
+      const { find } = await import("../../src/commons/index.ts");
+      find("src/foo.ts").move("lib", { force: true });
+      await find("dummy").read();
+    });
+    await factory({}, { client: spy });
+
+    const dirs = collectDirectives(emitted);
+    const dir = dirs.find((d) => d.op === "move");
+    expect(dir).toBeDefined();
+    if (dir?.op === "move") {
+      expect(dir.move.toDir).toBe("lib");
+      expect(dir.move.force).toBe(true);
+    }
+  });
+
+  test("WritableHandle.move omits force key when opts not provided (REQ-KIT-03.3 — handle form)", async () => {
+    const { spy, emitted } = makeSpy({ "src/foo.ts": "v1", "dummy": "x" });
+
+    const factory = defineFactory(async () => {
+      const { modify, find } = await import("../../src/commons/index.ts");
+      modify("src/foo.ts", "v2").move("lib");
+      await find("dummy").read();
+    });
+    await factory({}, { client: spy });
+
+    const dirs = collectDirectives(emitted);
+    const dir = dirs.find((d) => d.op === "move");
+    expect(dir).toBeDefined();
+    if (dir?.op === "move") {
+      expect(dir.move.toDir).toBe("lib");
+      expect(dir.move.force).toBeUndefined();
+    }
+  });
+
+  test("FoundHandle.move omits force key when opts not provided (REQ-KIT-03.3 — handle form)", async () => {
+    const { spy, emitted } = makeSpy({ "src/foo.ts": "content", "dummy": "x" });
+
+    const factory = defineFactory(async () => {
+      const { find } = await import("../../src/commons/index.ts");
+      find("src/foo.ts").move("lib");
+      await find("dummy").read();
+    });
+    await factory({}, { client: spy });
+
+    const dirs = collectDirectives(emitted);
+    const dir = dirs.find((d) => d.op === "move");
+    expect(dir).toBeDefined();
+    if (dir?.op === "move") {
+      expect(dir.move.toDir).toBe("lib");
+      expect(dir.move.force).toBeUndefined();
+    }
+  });
+
   test("copy().read() returns the content at the copy destination (symmetry check)", async () => {
     const { spy } = makeSpy({ "src/foo.ts": "hello copy" });
 

@@ -61,3 +61,24 @@ describe("DirectiveFactory.create", () => {
     }
   });
 });
+
+describe("DirectiveFactory.move (REQ-KIT-03.1 — force threading)", () => {
+  it("threads force:true from MoveArgs to the wire directive", () => {
+    const factory = new DirectiveFactory();
+    const directive = factory.move({ path: "src/foo.ts", toDir: "lib", force: true });
+
+    expect(directive).toEqual({
+      op: "move",
+      move: { path: "src/foo.ts", toDir: "lib", force: true },
+    });
+  });
+
+  it("omits force key when not provided (REQ-KIT-03.3)", () => {
+    const factory = new DirectiveFactory();
+    const directive = factory.move({ path: "src/foo.ts", toDir: "lib" });
+
+    if (directive.op === "move") {
+      expect("force" in directive.move).toEqual(false);
+    }
+  });
+});

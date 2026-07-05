@@ -27,6 +27,7 @@ export interface RenameArgs {
 export interface MoveArgs {
   path: string;
   toDir: string;
+  force?: boolean;
 }
 
 export interface CopyArgs {
@@ -52,7 +53,7 @@ export class DirectiveFactory {
     return { op: "modify", modify: { path: a.path, content: a.content } };
   }
 
-  // Author verb `remove` lowers to wire op `delete` — ADR-0028 vocabulary; they deliberately differ.
+  // Author verb `remove` lowers to wire op `delete` — ADR-0013 vocabulary; they deliberately differ.
   remove(a: RemoveArgs): Directive {
     return { op: "delete", delete: { path: a.path } };
   }
@@ -69,10 +70,17 @@ export class DirectiveFactory {
   }
 
   move(a: MoveArgs): Directive {
-    return { op: "move", move: { path: a.path, toDir: a.toDir } };
+    return {
+      op: "move",
+      move: {
+        path: a.path,
+        toDir: a.toDir,
+        ...(a.force !== undefined ? { force: a.force } : {}),
+      },
+    };
   }
 
-  // `copy` emits the ADR-0028 shape only — apply behaviour is deferred to vNext.
+  // `copy` emits the ADR-0013 shape only — apply behaviour is deferred to vNext.
   copy(a: CopyArgs): Directive {
     return {
       op: "copy",

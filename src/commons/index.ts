@@ -41,9 +41,9 @@ function buildWritableHandle(path: string): WritableHandle {
       const dir = posix.dirname(path);
       return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
     },
-    move(toDir: string): WritableHandle {
+    move(toDir: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.move({ path, toDir }));
+      session.buffer(factory.move({ path, toDir, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
       return buildWritableHandle(posix.join(toDir, posix.basename(path)));
     },
     copy(to: string, opts?: { force?: boolean }): WritableHandle {
@@ -72,9 +72,9 @@ function buildFoundHandle(path: string): FoundHandle {
       const dir = posix.dirname(path);
       return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
     },
-    move(toDir: string): WritableHandle {
+    move(toDir: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.move({ path, toDir }));
+      session.buffer(factory.move({ path, toDir, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
       return buildWritableHandle(posix.join(toDir, posix.basename(path)));
     },
     copy(to: string, opts?: { force?: boolean }): WritableHandle {
@@ -180,9 +180,9 @@ export function rename(path: string, newName: string, opts?: { force?: boolean }
  * @example
  * move("src/utils/helper.ts", "src/shared");
  */
-export function move(path: string, toDir: string): WritableHandle {
+export function move(path: string, toDir: string, opts?: { force?: boolean }): WritableHandle {
   const { session, factory } = currentContext();
-  session.buffer(factory.move({ path, toDir }));
+  session.buffer(factory.move({ path, toDir, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
   return buildWritableHandle(posix.join(toDir, posix.basename(path)));
 }
 

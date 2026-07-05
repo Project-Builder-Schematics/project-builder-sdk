@@ -108,6 +108,13 @@ export class ContractFake implements EngineClient {
 
     if (directive.op === "modify") {
       const { path: p, content } = directive.modify;
+      // ADR-0017 rule 2: modify never materializes a new file — the target must already
+      // exist (staging counts: eager array-order apply means an earlier create/modify in
+      // the same batch is visible here).
+      // RAW-UNTIL-STAGE-2.1
+      if (!this.#exists(p)) {
+        throw new Error(`ContractFake: modify target not found: "${p}"`);
+      }
       this.#deleted.delete(p);
       this.#tree.set(p, content);
       return;
@@ -163,7 +170,7 @@ export class ContractFake implements EngineClient {
     }
 
     if (directive.op === "move") {
-      const { path: src, toDir } = directive.move;
+      const { path: src, toDir, force: opForce } = directive.move;
       // The real engine cannot move a non-existent source (FAKE-06 fidelity).
       if (!this.#exists(src)) {
         throw new Error(`ContractFake: move source not found: "${src}"`);
@@ -171,6 +178,16 @@ export class ContractFake implements EngineClient {
       const base = path.basename(src);
       // Use path.join to normalize trailing-slash toDir (e.g. "lib/" → "lib/foo.ts").
       const dst = path.join(toDir, base);
+      const effective = envelopeForce || (opForce ?? false);
+      // ADR-0017 self-move identity amendment: dst === src is not a collision — a
+      // self-move is a file-preserving success, no force required.
+      const isSelfMove = dst === src;
+      // RAW-UNTIL-STAGE-2.1
+      if (!isSelfMove && this.#exists(dst) && !effective) {
+        throw new Error(
+          `ContractFake: move collision — destination "${dst}" already exists (use force to overwrite)`
+        );
+      }
       const content = this.#getContent(src);
       this.#tree.delete(src);
       this.#deleted.add(src);
