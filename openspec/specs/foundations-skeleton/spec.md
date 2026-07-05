@@ -77,6 +77,29 @@ A read after buffered writes MUST observe them via flush; the SDK MUST hold no c
 ### REQ-FAKE-06: Fidelity to the engine's OBSERVABLE contract (not its internals)
 The fake's conformance suite MUST assert the engine's **observable wire/conversation contract** — REQ-FAKE-01..05 (eager array-order apply, Tree-first read, flush-before-read, fail-closed + force per ADR-0028, idempotent delete) — via an **independent** suite (not the SDK tests that consume the fake). It MUST NOT model engine-internal staging (`StatusMovedAway`/`MovedHere` tombstones, `opLog`, the commit pass, the `*ConflictError{RuleID}` taxonomy) — those never cross the seam and are outside the SDK's observation. The oracle is the conversation contract (ADR-0028 + engine design.md §4), NOT a 1:1 port of the engine's two-phase internals.
 
+### REQ-FAKE-07: `modify` of a non-existent path errors — but staging counts as existence
+
+> RED posture: **must-fail-first** for the rejection scenario — today's fake silently
+> materializes `modify` of a missing path, so REQ-FAKE-07.1 fails red against the current
+> fake before the fix lands. REQ-FAKE-07.2/07.3 are green-path guards that must survive the
+> fix (07.3 kills the seed-only existence-check mutant).
+
+`modify` MUST require the target path to already exist (in `#tree` staging or `#seed`, and
+not `#deleted`) — `modify` never materializes a new file; creating content at a new path is
+`create`'s job (ADR-0017 rule 2). Existence includes paths created EARLIER IN THE SAME
+BATCH: the fake applies eagerly in array order, so a `modify` after a `create` of the same
+path in one batch sees the staged entry.
+
+- GIVEN a `ContractFake` with an empty seed and tree, WHEN `emit` is called with a `modify`
+  directive targeting an untouched path, THEN `emit(batch)` rejects AND the path is not
+  present in the tree afterward.
+- GIVEN a `ContractFake` seeded with path P, WHEN `emit` is called with `modify` on P,
+  THEN it succeeds (existing behavior unchanged).
+- GIVEN a `ContractFake` with an EMPTY seed, WHEN `emit` is called with a single batch
+  `[create("X", content1), modify("X", content2)]`, THEN it succeeds AND a subsequent read
+  of `X` returns `content2` — the existence check consults staging, not only the seed (kills
+  the seed-only existence-check mutant).
+
 ---
 
 ## SKEL — the walking skeleton
@@ -92,6 +115,46 @@ A `defineFactory` that `create`s `P` with content `X`, run against the fake, the
 ### REQ-GIR-01: Golden-IR per op, exact-key
 Each `DirectiveFactory` op MUST deep-equal (exact keys, no extras) a committed, hand-written fixture. `create` proves the template unrendered. `remove`→`{op:"delete", delete:{path}}`; `rename`={path,newName}; `move`={path,toDir}; `copy`={from,to} (shape-only — apply deferred). Envelope={protocolVersion:1, force, instructions[]} ordered. Never auto-recorded snapshots.
 
+### REQ-GIR-02: Chained-handle Batch fixtures
+
+> RED posture: **must-fail-first** for the fixture-comparison tests as tests of NEW fixture
+> shape (no multi-directive Batch fixture exists today — the test file/fixtures don't exist
+> until written).
+
+Golden-IR extends beyond single directives: ≥1 hand-written, committed **Batch** fixture (not
+a bare `Directive`) exists per named chained-handle program. The SUT is the
+FACTORY-PRODUCED batch captured (via `emit` spy) from a REAL `defineFactory` run — the
+comparison is run-output vs. the hand-written fixture, never fixture vs. itself. The full
+`instructions[]` array deep-equals the fixture, exact keys, in author order.
+
+- GIVEN a real `defineFactory` run that calls `rename(path, newName)` then chains
+  `.move(toDir)` on the returned handle, WHEN the emitted batch (captured by spy) is
+  compared to the hand-written `rename-then-move` fixture, THEN `instructions` deep-equals
+  `[{op:"rename",...}, {op:"move",...}]` in order.
+- GIVEN a real `defineFactory` run that calls `create(path, opts)` then chains
+  `.modify(content)` on the returned handle, WHEN the emitted batch is compared to the
+  hand-written `create-then-modify` fixture, THEN `instructions` deep-equals
+  `[{op:"create",...}, {op:"modify",...}]` in order.
+
+### REQ-GIR-03: Emission determinism proof + envelope key-order golden pin
+
+> RED posture: **characterization / RED-waived** — determinism is a property of TODAY'S
+> factory/session code; the proof pins pre-existing behavior (prove+freeze precedent from
+> `typed-options-and-read` #2). The committed golden byte-string is new but freezes what
+> already holds.
+
+Running the same `defineFactory` body with the same inputs twice against a fresh
+`ContractFake` each time MUST produce byte-identical serialized `Batch` output
+(`JSON.stringify` string equality, not `toEqual`). Self-consistency alone is insufficient —
+the serialized output ALSO MUST equal one committed golden byte-string, which fixes the
+envelope key order `protocolVersion, force, instructions` literally in the pinned string.
+
+- GIVEN a factory buffering ≥2 directives, WHEN run twice (spy on `emit`) with fresh fakes,
+  THEN `JSON.stringify(batch1) === JSON.stringify(batch2)`.
+- GIVEN the same run, WHEN its serialized `Batch` is compared to a committed golden string
+  constant, THEN it matches exactly, including key order `protocolVersion` before `force`
+  before `instructions`.
+
 ---
 
 ## FIT — fitness functions (each with a red-proof)
@@ -104,8 +167,30 @@ Each `DirectiveFactory` op MUST deep-equal (exact keys, no extras) a committed, 
 ### REQ-FIT-06: every public export carries a JSDoc `@example`.
 ### REQ-FIT-07: no `Map<path,*>`/tree field in `core` (ADR-0008).
 ### REQ-FIT-08: no author subpath re-exports a kit symbol (ADR-0009).
+
+### REQ-FIT-09: Structural `EngineClient` port guard
+
+> Naming note: the test FILE follows the existing file-count convention —
+> `test/fitness/fit-10-*.test.ts` (the 10th fitness test file; `fit-09` is already
+> `fit-09-pkg-exports-resolution.test.ts`, which tests REQ-PKG-01, not a `REQ-FIT-*`). The
+> FIT domain's own REQ-ID sequence stops at REQ-FIT-08, so THIS requirement is **REQ-FIT-09**
+> — not "FIT-10" as informally referenced in explore/proposal. Design/apply MUST use
+> REQ-FIT-09 as the stable ID; the file name staying `fit-10-*` is not an ID mismatch.
+>
+> RED posture: the planted-bypass red-proof is a **PERMANENT string-fixture test** (like
+> FIT-01/FIT-08's red-proofs — a fixture SOURCE STRING scanned in-test, never a committed
+> poisoned module). It stays in the suite forever, NOT a transient red-phase gate.
+
+No module under `src/**` OUTSIDE `src/core` MUST name the `EngineClient` symbol (type or
+value import) or call a `.emit(`/`.commit(`/`.discard(` site reachable from it — a static
+scan (mirroring FIT-01/FIT-08's regex approach) enforces this. ALLOW-LISTED:
+`test/support/contract-fake.ts`'s single legitimate `import type { EngineClient }` (the
+downstream oracle implementing the port). `Directive`/`JsonValue` (shared wire types from
+`wire.ts`) are exempt everywhere — they are data shapes, not the port. The allow-list
+MECHANISM (path list vs. structural exception) is a design decision, not specified here.
+
 - EVERY FIT REQ: a meta-test MUST demonstrate the function fails RED against a deliberate violation.
-- **Activation is per-slice**: a fitness function wires into CI when the surface it polices first lands (FIT-01/05/07 from S-000; FIT-04/06 with the build at S-004; FIT-08 once subpaths exist) — NOT all at commit one, so the suite stays green under Strict TDD.
+- **Activation is per-slice**: a fitness function wires into CI when the surface it polices first lands (FIT-01/05/07 from S-000; FIT-04/06 with the build at S-004; FIT-08 once subpaths exist; FIT-09 at S-1.8) — NOT all at commit one, so the suite stays green under Strict TDD.
 
 ---
 
