@@ -3,8 +3,8 @@
   "parent_plan": "openspec/objectives-plan.md Stage 1",
   "triage": "L",
   "triage_note": "Unanimous L (triage executor + architect + pm, blind). Top of L band (~18-22 files, ~900-1400 lines); XL escalation trigger: >8 slices at sdd-slice OR explore finds file-touch materially above ~22.",
-  "phase": "apply",
-  "phase_status": "COMPLETE — all 7 slices built + verified in-loop; batch 1 pass iter 2 @ 5ecc04f (203); batch 2 pass iter 1 @ 27f01bf (223); batch 3 pass iter 1 @ 325cc83 (232); batch 4 (S-1.1) pass iter 1, zero findings (237); next = verify final (/evaluate); branch feat/stage-1-ir-bedrock",
+  "phase": "verify-final",
+  "phase_status": "in-progress — verify final (opus) + council architect/qa/tech-writer launched blind in parallel; apply COMPLETE (7/7 slices, suite 237 @ 5abfc10); branch feat/stage-1-ir-bedrock",
   "build_branch": "feat/stage-1-ir-bedrock",
   "build_batches": "B1: S-1.3 | B2: S-1.4 + S-1.5/1.6 + S-1.8 + S-1.9 (parallel, disjoint files) | B3: S-1.7 | B4: S-1.1; verify in-loop per batch, orchestrator commits per verified batch",
   "completed_phases": [

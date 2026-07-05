@@ -116,6 +116,9 @@ export function find(path: string): FoundHandle {
  * SEAM-01 (REQ-01): a generic type parameter `S` narrows `options` from the bare
  * `JsonValue` to the schema's keys at the type level only — the runtime body is unchanged.
  *
+ * Creating over an existing file is rejected at the engine seam unless
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ *
  * @example
  * create("src/index.ts", {
  *   template: "export const version = '{{version}}';",
@@ -163,6 +166,8 @@ export function remove(path: string): void {
 
 /**
  * Schedules a file rename (basename only) and returns a `WritableHandle` for the new path.
+ * Renaming onto an existing path is rejected at the engine seam unless
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
  *
  * @example
  * rename("src/foo.ts", "bar.ts");
@@ -176,6 +181,10 @@ export function rename(path: string, newName: string, opts?: { force?: boolean }
 
 /**
  * Schedules a file move to a different directory and returns a `WritableHandle`.
+ * Moving onto an existing destination is rejected at the engine seam unless
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ * A move whose destination equals its source is a no-op, never a collision
+ * (ADR-0017 self-move amendment).
  *
  * @example
  * move("src/utils/helper.ts", "src/shared");
@@ -188,6 +197,8 @@ export function move(path: string, toDir: string, opts?: { force?: boolean }): W
 
 /**
  * Schedules a file copy to a new path and returns a `WritableHandle` for the destination.
+ * Copying onto an existing destination is rejected at the engine seam unless
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
  *
  * @example
  * copy("src/template.ts", "src/generated/output.ts");

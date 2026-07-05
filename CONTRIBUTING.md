@@ -40,6 +40,11 @@ enforces this table structurally, so keep it in sync with the directories it nam
 Every layer runs against `ContractFake` (`test/support/contract-fake.ts`) — a real engine is
 never required to exercise any of them.
 
+The table lists each layer's canonical home; two additional directories belong to the
+integration layer without being its canonical home: `test/skeleton` (cross-module and handle
+behavior through `defineFactory`) and `test/types` (compile-time contract pins). CI's bare
+`bun test` runs every directory regardless.
+
 ### Where does my change belong?
 
 | Contribution type | Layer(s) | Home |

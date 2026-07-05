@@ -99,4 +99,11 @@ describe("DirectiveFactory optional force key — triangulation", () => {
       expect("force" in directive.copy).toEqual(false);
     }
   });
+
+  it("move omits force key when not provided", () => {
+    const directive = factory.move({ path: "src/a.ts", toDir: "lib/" });
+    if (directive.op === "move") {
+      expect("force" in directive.move).toEqual(false);
+    }
+  });
 });
