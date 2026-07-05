@@ -1,0 +1,155 @@
+{
+  "change": "stage-2-error-attribution",
+  "parent_plan": "openspec/objectives-plan.md Stage 2",
+  "triage": "L",
+  "triage_note": "Unanimous L (triage executor via cross-cutting override + size band ~10-14 files; architect + pm blind lenses: L on merits — public semver-locked error-contract freeze, 2 gating ADRs). Not XL: one coherent seam (SEAM-04), no program seams. WATCH: architect explore counts 4 ADR candidates — top of the healthy L band; if 2.3/2.4 spawn sub-decisions, re-triage.",
+  "phase": "verify-plan",
+  "phase_status": "COMPLETE — verdict READY iteration 3/3 (2026-07-05). PLAN CLOSED: /plan for stage-2-error-attribution is complete; publish skipped (spec_source internal). Next: /build — S-000 walking skeleton first, then S-001→S-002 chain ∥ S-003 ∥ S-004 (droppable) per slices Build Order.",
+  "steward_foresight": "ALIGNED (obs 726) — 4 CQs owner-affirmed 2026-07-05: CQ-1 partition frozen (MAJOR-on-growth bet); CQ-2 switch(reason) IS the contract; CQ-3 outside-run substitution re-affirmed; CQ-4 2.3 bundled + droppable",
+  "slice_ids": [
+    "S-000 (walking skeleton: EmitRejection→translation→./commons export, 24 scenarios, S1+S2 merged with justification)",
+    "S-001 (origin taxonomy: outside-run vs engine contrast, 2)",
+    "S-002 (full attribution: every verb, multi-flush, e2e switch, 6)",
+    "S-003 (FIT-11 no-leak + doc discoverability, 8)",
+    "S-004 (classifyContent — DROPPABLE, 9)"
+  ],
+  "slices_artifacts": [
+    "openspec/changes/stage-2-error-attribution/slices.md",
+    "engram sdd/stage-2-error-attribution/slices obs 727"
+  ],
+  "slice_dag": "S-000 blocks all; S-001→S-002 sequenced (shared error-attribution.test.ts, soft dep); S-003 parallel with S-001/S-002 chain (disjoint files); S-004 fully independent + droppable",
+  "walking_skeleton_slice": "S-000",
+  "skeleton_justification": "S1-alone had zero observable author-facing behavior (plumbing anti-pattern); merged S1+S2 crosses port→core→author surface with demoable instanceof + templated message; design §4.8 sanctioned the merge",
+  "slices_known_deviations": "S-000/S-004 slice-block word budget exceeded (146/167 vs ≤80 guideline; total 798/800 honored) — inherent to spec's consolidation, flagged for plan-verify not hidden",
+  "completed_phases": [
+    "triage",
+    "explore",
+    "propose",
+    "spec",
+    "design"
+  ],
+  "next_phase": "steward_foresight gate → sdd-slice (binding sequencing constraints in design §4.8; target 4-6; 2.3 droppable final slice)",
+  "design_artifacts": [
+    "openspec/changes/stage-2-error-attribution/design.md (rev 2)",
+    "engram sdd/stage-2-error-attribution/design obs 725 rev 2"
+  ],
+  "architecture_impact": "modifying (SEAM-04 behavior + baseline-documented AuthoringError shape change + new EmitRejection port convention; public surface additive per FIT-04 + out-of-band additivity argument)",
+  "arch_refresh_post_verify": "required (modifying): architecture.md SEAM-04 description, AuthoringError shape, EmitRejection convention, FIT-11 in Testing section",
+  "design_adrs": [
+    "ADR-0020 closed reason enum (D2, option b owner-ratified; enum growth = MAJOR, flag-and-classify via FIT-04 line-diff + never-arm pins)",
+    "ADR-0021 error-origin taxonomy (origin DERIVED from reason via exhaustive originFor switch with never arm + test/types pin; unknown→write-rejected deliberate; Stage-5 slot reserved)",
+    "ADR-0022 EmitRejection port contract ({code, failedIndex?, appliedCount}, port-internal, FIT-10 extended, core/index.ts kit-barrel deviation recorded, Stage-6 revisit)",
+    "ADR-0023 AuthoringError public promotion (two-step ./commons re-export per FoundHandle precedent, ADR-0009 data-vs-machinery distinction, FIT-08 characterization pin)"
+  ],
+  "design_decisions": [
+    "Message template selected BY REASON three-way (directive/batch/outside-run) — never by verb/path presence; outside-run prose moves INTO the AuthoringError constructor from context.ts",
+    "test/support/rejection-messages.ts shared fragments module — contract-fake composes messages from it, FIT-11 imports it (tracked by construction)",
+    "originFor exhaustive switch + never arm + test/types/authoring-reason.test.ts pin",
+    "Droppability enforced: REQ-RT-03 assertions live in classify-content.test.ts (droppable); doc-discoverability.test.ts holds only non-droppable REQs; commons re-export split in two clusters",
+    "S1 = port metadata only (suite stays green); S2 = walking-skeleton crossing port→core→author surface incl. pins + thin e2e (pins co-located with format change, unsplittable)"
+  ],
+  "design_file_changes": "11 create / 13 modify / 3 explicit read-only; 4 ADRs + pending-changes.md at archive; FIT-06 gate covered via defining-site @examples for all 6 new public exports",
+  "design_council": "rev 1 → architect needs-iteration (3 major + 4 minor) + tech-writer needs-iteration (1 blocker FIT-06 + 2 major + 4 minor) → rev 2 all 14 dispositioned fixed",
+  "proposal_artifacts": [
+    "openspec/changes/stage-2-error-attribution/proposal.md",
+    "engram sdd/stage-2-error-attribution/proposal obs 723"
+  ],
+  "proposal_capabilities": "NEW: authoring-error-contract (frozen public AuthoringError: closed reason enum, origin discriminant + reserved SDK-origin slot, applied-boundary, author verbs, ./commons re-export, FIT-11), emit-rejection-metadata (structured rejection at EngineClient.emit seam, {failedIndex, appliedCount}, PORT vocabulary stays in src/core), read-trichotomy-helper (CQ-1, droppable by construction); MODIFIED: error-attribution-skeleton (full coverage, REQ-10 author verbs, REQ-12.1 wording superseded). Deviation accepted: contract-fake.ts read-only → Modify (consequence of mechanism #2 — throw sites attach metadata).",
+  "spec_constraints_from_council": [
+    "2.1 exists-when MUST require >=3-directive batch failing at NON-FIRST index with exact verb+path+non-zero boundary toEqual — single-directive tests cannot see the instructions[0] bug (BA halt-worthy)",
+    "reason enum MUST discriminate the known rejection families — a one-value closed enum passes the letter and delivers nothing (BA)",
+    "Every reason/origin VALUE gated by tech-writer: author vocabulary only — reject serialization/round-trip/protocol/directive/batch/emit; origin values in author mental-model terms, not 'SDK-origin' jargon (BA)",
+    "Applied boundary expressed in author-action terms OR explicitly scoped 'directive-level 1:1 with verbs in v1, revisited at Stage 5' — coalescing (ADR-0006) will silently misreport otherwise (BA freeze-now defect)",
+    "Flush-time vs commit-time: give an author-actionable discriminant or fold into origin/reason — don't freeze a distinction the author can't perceive (BA)",
+    "Add one e2e author-reads-the-error scenario (zero e2e rejection coverage exists) (BA)",
+    "FIT-11 leak scan = THE invalidating absence: all families incl. the 3 RAW-UNTIL-STAGE-2.1, dictionary seeded from the fake's actual strings, red-proof fixture mandatory (PM+QA)",
+    "2.4 constrained: origin discriminant lands in the frozen type; proof breadth = ONE concrete case (currentContext misuse vs engine rejection); dialect-family proof deferred to Stage 5 ADR-0012 (PM tripwire)",
+    "context.ts double-fault row = DOCUMENT-ONLY, re-register as still-open; any design touching E1/E2 handling is out of scope — halt (PM tripwire)",
+    "Literal-message pins updated in the SAME slice that changes the format (PM sequencing)",
+    "Type freezes FIRST (reason enum + origin discriminant + boundary field + verb fix = ONE type-shape decision) before any attribution wiring (PM sequencing)",
+    "Enum growth semantics vs exhaustive author switches: semver stance recorded in the D2 ADR",
+    "2.3 formally droppable slice, never entangled with 2.1 slices; helper + case names author-friendly (absent/empty/present)"
+  ],
+  "priority_rank": "2.1 > 2.2 (fused with 2.1 — one contract) > 2.4-minimum (discriminant in type) > 2.3 (severable); ONE invalidating absence = FIT-11 all-family leak scan; runner-up = origin discriminant missing from frozen type (Stage 5 would reopen the contract)",
+  "d2_ratified": "2026-07-05 (owner): OPTION (b) — closed SDK reason enum. AuthoringError.reason drawn from a closed SDK-owned vocabulary (collision | not-found | cap-exceeded | serialization | ...exact set fixed at spec). NO engine string anywhere in the error object — no-engine-text guarantee (REQ-11/12.2/13.1) held by construction; FIT-11 whole-object scan stays as safety net. Formalize as ADR at design.",
+  "api_promotion_ratified": "2026-07-05 (owner): AuthoringError (+ field types) promoted to PUBLIC via ./commons re-export (single author surface, no new subpath). Verb vocabulary corrected to AUTHOR verbs — verb: 'remove', never wire 'delete' (resolves ADR-0013 conflict). ADR at design documents the ADR-0009 boundary crossing + semver-frozen field set. FIT-04 baseline regen deliberate.",
+  "scope_note": "Items 2.1 (full attribution, mid-chain applied boundary, structured rejection replacing string-parsing), 2.2 (D2 structured cause — owner decision, gates spec sign), 2.3 (read-trichotomy helper CQ-1 — PM bracket: droppable final slice), 2.4 (origin taxonomy engine vs SDK — ADR). Out: Stages 3/4/5/6, real engine.",
+  "council_convergence": "Triage: tech-writer joins spec/design; D2 + 2.4 ratify BEFORE spec signs; structured rejection is PORT vocabulary (born src/core, never crosses to ./commons); NEW FIT-11 whole-object leak scan = freeze witness. PM dissent carried: 2.3 droppable last slice.",
+  "explore_verdict": "ready_for_proposal: yes",
+  "explore_artifacts": [
+    "openspec/changes/stage-2-error-attribution/explore.md",
+    "engram sdd/stage-2-error-attribution/explore obs 721"
+  ],
+  "open_questions_product": [
+    "D2 structured-cause shape: option space (a) no cause / (b) closed SDK reason enum [architect-recommended] / (c) structured SDK-vocabulary cause object / (d) raw engine text [violates no-engine-text guarantee, needs explicit owner trade]",
+    "AuthoringError public promotion: verb vocabulary correction (wire 'delete' → author 'remove', ADR-0013 conflict) + which public subpath re-exports the type (./commons vs dedicated) — crosses ADR-0009 boundary, needs ADR"
+  ],
+  "open_questions_technical": [
+    "Mechanism for failedIndex + applied-boundary metadata on emit rejection (3 approaches evaluated by explore; #2 recommended: extend rejection error object, not port signature)",
+    "2.4 origin-taxonomy mechanism given SDK-origin dialect family doesn't exist yet (reserve forward-compat slot without implementing)"
+  ],
+  "explore_findings_key": "session.ts:62 instructions[0] hardcode has ZERO red-proof (no multi-directive mid-chain test exists — REQ-11 test is single-directive, cannot distinguish fix from hack); AuthoringError/AuthoringVerb NOT exported publicly (promotion = new API decision, ADR-0009 crossing); AuthoringError.verb leaks wire vocabulary ('delete' not 'remove', contradicts ADR-0013); applied boundary exists only transiently in fake emit loop — discard() erases it, MUST travel in structured rejection; 11 rejection sites: 3 batch-level (B1 serialization, B2 cap — NO offending verb, B3 round-trip) vs 8 directive-level (D1-D8) — different attribution contracts; multi-flush cross-batch boundary undecided (cumulative run-level vs per-batch); commit-time rejection UNREACHABLE with fake (theatre risk — spec must declare non-site or wrap+test); remove/delete never rejects (intentional non-site); existing leak scan weak (message+stack only, dead OpMove assertion) — replace not extend; context.ts frozen-E1 + non-Error-E1 branches untested (mutation leaks); batch-cap.test.ts:67 literal-message pins break under structured rejection unless carried forward",
+  "d2_option_space": "(a) no cause — rejected by problem statement; (b) closed SDK reason enum (collision|not-found|cap-exceeded|serialization|conflict...) — no engine string anywhere, guarantee held by construction [architect default]; (c) structured cause object SDK-vocabulary fields (richer, e.g. collidingPath; scan must recurse cause); (d) raw engine text as cause — violates REQ-11/12.2/13.1, only if owner explicitly trades the guarantee",
+  "design_risks_forward": [
+    "D2 vs no-engine-text guarantee: likeliest subtle regression site",
+    "Batch-level (cap) attribution must NOT be forced onto a verb — aggregate contract",
+    "Applied boundary must span prior successful flushes in the run OR be explicitly per-batch (decide at spec)",
+    "SDK-origin errors born at specific throw sites (currentContext), NEVER blanket-wrapped — E1 may be author's own throw (double-fault test pins toBe(e1))",
+    "currentContext() has no verb/path — AuthoringError needs origin-tagged discriminated shape or optional fields",
+    "FIT-11 = NEW fitness (runtime value-content deep-walk + red-proof), not FIT-10 extension; FIT-10 stays structural guard",
+    "FIT-04 baseline regen deliberate, additivity argued out-of-band",
+    "context.test.ts currentContext plain-Error pin legitimately breaks under 2.4 — plan it, don't loosen it",
+    "Non-Error rejection values: structured-cause read must degrade gracefully (throw 'string'/42/undefined)"
+  ],
+  "pending_changes_rows_in_scope": [
+    "stage-1 2.1 attribution granularity (M) — retires",
+    "stage-1 2.1 non-Error E1 E2-swallow (S) — fix-or-re-register, never prose-only",
+    "stage-1 2.1 rejection-message locators (S, nice-to-have) — likely re-deferred, keep in ledger",
+    "typed-options forward note: read not-found is a VALUE (ADR-0016) — honored, retires",
+    "CQ-1 read-trichotomy (2.3) — retires only if 2.3 ships"
+  ],
+  "sensitive_areas": "none triggered",
+  "spec_status": "signed",
+  "spec_version": "v2",
+  "spec_reqs": 18,
+  "spec_scenarios": 49,
+  "spec_signed": "V2, owner, 2026-07-05 (2.4 proof-substitution ratified: outside-run as v1 SDK-origin proof, dialect deferred to Stage 5)",
+  "spec_iteration": "V1 (16 REQ/31 scen) -> blind council review (QA: needs-iteration 1 blocker+6 major+3 minor; BA: needs-iteration 2 major+5 minor; TW: needs-iteration 2 blocker+4 major+4 minor) -> V2 all 22 deduped findings applied, IDs stable, +REQ-AEC-06 (message contract) +REQ-RT-03 (doc discoverability), scenarios 31->49",
+  "spec_notable": "Frozen vocabulary: reason = path-collision|path-not-found|unrepresentable-content|changes-too-large|outside-run|unknown; origin = write-rejected|authoring-rejected; helper = classifyContent + exported ContentState union. EmitRejection {code, failedIndex?, appliedCount} port-internal, code closed set (collision|not-found|unrepresentable|cap) set at fake throw sites, message-text classification BANNED (decoy scenario ERM-01.3). Message contract = REQ-AEC-06 3-row table (never interpolates undefined). Enum growth = MAJOR semver. appliedCount = per-batch diagnostic, JSDoc anti-comprehension-trap obligated. 5 non-sites: commit-time, remove, read-transport, double-fault, template-render. Design must name: message embeds reason value (rename breaks both pins — intentional); code set coarse by design (4 codes), Stage-6 port-convention revisit noted in ADR.",
+  "slices": true,
+  "slices_rev": 2,
+  "design_rev": 3,
+  "plan_verify": "ready (iteration 3/3, 2026-07-05). Iter 1: Judge A clean, Judge B 15 questions (slices index-by-reference) → slices rev 2 Executor Context appendix. Iter 2: Judge A clean, Judge B 1 question (per-verb primaryPath) → design rev 3 primaryPath table (existing convention at authoring-error.ts:26 pinned, source-side path both failure forms). Iter 3: Judge A clean 3x, Judge B READY TO EXECUTE explicit. Protocol note: from iter 2, Judge B follows the artefact's own mandatory reading list (mirrors real /build executor surface) — resolved the stage-1 slices-only asymptote structurally.",
+  "plan_verify_artifacts": [
+    "verify-plan-1.md",
+    "verify-plan-2.md",
+    "verify-plan-3.md"
+  ],
+  "publish": "skipped (spec_source=internal)",
+  "apply_launch_notes": [
+    "Executor Context appendix in slices.md rev 2 is the mandatory preamble for every apply agent: reading list (absolute paths), 6 binding constraints verbatim, RED taxonomy, load-bearing literals",
+    "primaryPath = author-declared source-side path for BOTH failure forms (design rev 3 §4.3 table) — copy.from, move.path, rename.path; message string and REQ-14.2 toEqual assertions resolve against it",
+    "Two sanctioned executor-discretion points (Judge B iter 3): toAuthoringError direct-export vs Session.flush double for translation tests; outside-run verbatim prose copied from context.ts",
+    "S-001/S-002 share error-attribution.test.ts — sequence, never parallel; S-003 parallel-safe with that chain; S-004 fully independent + droppable (drop → re-register CQ-1)",
+    "Every slice boundary: suite GREEN + tsc clean; FIT-04 regen = bun run build + cp dist→test/fitness/dts-baseline (both commons.index and index baselines)"
+  ],
+  "verify_final": null,
+  "arch_audit": null,
+  "in_loop_iteration": 0,
+  "personas": [
+    "architect",
+    "pm",
+    "qa-engineer"
+  ],
+  "personas_downstream": "business-analyst + pm + architect (propose); business-analyst + qa-engineer + tech-writer (spec); architect + tech-writer (design); qa-engineer owns mid-chain boundary + FIT-11 leak scan; NO security/dba/ux",
+  "execution_mode": "interactive",
+  "artifact_store": "hybrid",
+  "spec_source": "internal",
+  "write_mode": "sync",
+  "problem_statement_ref": "echoed verbatim (English) in openspec/changes/stage-2-error-attribution/triage.md",
+  "triage_artifacts": [
+    "openspec/changes/stage-2-error-attribution/triage.md",
+    "engram obs 719 (sdd/stage-2-error-attribution/triage)"
+  ],
+  "updated_at": "2026-07-05"
+}

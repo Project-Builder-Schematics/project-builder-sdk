@@ -1,0 +1,24 @@
+change: stage-2-error-attribution
+parent_plan: openspec/objectives-plan.md Stage 2
+triage: L
+phase: verify-plan
+phase_status: COMPLETE — verdict READY 3/3 (2026-07-05); /plan closed, publish skipped (internal)
+completed_phases:
+  - triage
+  - explore
+  - propose
+  - spec
+  - design
+  - steward-foresight
+  - slice
+  - verify-plan
+next_phase: /build — S-000 walking skeleton first, then S-001→S-002 ∥ S-003 ∥ S-004 (droppable)
+spec_status: signed (V2, owner, 2026-07-05)
+slices: true (rev 2; design rev 3)
+plan_verify: ready (iter 3/3; A clean 3x, B ready-to-execute explicit)
+in_loop_iteration: 0
+execution_mode: interactive
+artifact_store: hybrid
+spec_source: internal
+write_mode: sync
+updated_at: "2026-07-05"
