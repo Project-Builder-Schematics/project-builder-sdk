@@ -1,7 +1,7 @@
 /**
  * GIR-01 / KIT-03: Golden-IR — each DirectiveFactory op deep-equals a hand-written fixture.
  * Exact keys, no extras. `create` proves template is byte-identical (unrendered DSL survives verbatim).
- * `remove` asserts op:"delete" (author verb ≠ wire op — ADR-0028 vocabulary).
+ * `remove` asserts op:"delete" (author verb ≠ wire op — ADR-0013 vocabulary).
  * `copy` is shape-only; no apply logic.
  */
 import { describe, it, expect } from "bun:test";
@@ -12,6 +12,7 @@ import {
   GOLDEN_DELETE,
   GOLDEN_RENAME,
   GOLDEN_MOVE,
+  GOLDEN_MOVE_FORCE,
   GOLDEN_COPY,
 } from "./fixtures.ts";
 
@@ -35,7 +36,7 @@ describe("DirectiveFactory golden-IR", () => {
     expect(directive).toEqual(GOLDEN_MODIFY);
   });
 
-  it("remove — author verb maps to wire op:\"delete\" (ADR-0028 vocabulary)", () => {
+  it("remove — author verb maps to wire op:\"delete\" (ADR-0013 vocabulary)", () => {
     const directive = factory.remove({ path: GOLDEN_DELETE.delete.path });
     expect(directive).toEqual(GOLDEN_DELETE);
   });
@@ -54,6 +55,15 @@ describe("DirectiveFactory golden-IR", () => {
       toDir: GOLDEN_MOVE.move.toDir,
     });
     expect(directive).toEqual(GOLDEN_MOVE);
+  });
+
+  it("move with force — exact keys { op:\"move\", move:{ path, toDir, force } } (ADR-0017 closure — new fixture)", () => {
+    const directive = factory.move({
+      path: GOLDEN_MOVE_FORCE.move.path,
+      toDir: GOLDEN_MOVE_FORCE.move.toDir,
+      force: true,
+    });
+    expect(directive).toEqual(GOLDEN_MOVE_FORCE);
   });
 
   it("copy — shape-only { op:\"copy\", copy:{ from, to } } (apply deferred to vNext)", () => {

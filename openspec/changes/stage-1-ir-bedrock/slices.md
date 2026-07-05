@@ -77,9 +77,9 @@ finalized wire) · **Test layers**: unit + integration
 **Acceptance**: REQ-GIR-01, REQ-GIR-02, REQ-GIR-03.
 
 ### Tasks
-- [ ] RED [must-fail-first]: move force-present fixture in `fixtures.ts`/`golden-ir.test.ts` (GIR-01 — cannot pass until force lands); `test/golden-ir/chained-batch.test.ts` (GIR-02, new fixture shape). GIR-01 force-absent fixtures are [characterization-RED-waived] pins of existing shapes
-- [ ] [characterization-RED-waived]: `test/golden-ir/determinism.test.ts` (GIR-03) — byte-equal double-run + committed golden string; determinism pre-exists, prove+freeze
-- [ ] Fix phantom ADR-0028 → ADR-0013/0017 citations in `fixtures.ts`/`golden-ir.test.ts`
+- [x] RED [must-fail-first]: move force-present fixture in `fixtures.ts`/`golden-ir.test.ts` (GIR-01 — cannot pass until force lands); `test/golden-ir/chained-batch.test.ts` (GIR-02, new fixture shape). GIR-01 force-absent fixtures are [characterization-RED-waived] pins of existing shapes
+- [x] [characterization-RED-waived]: `test/golden-ir/determinism.test.ts` (GIR-03) — byte-equal double-run + committed golden string; determinism pre-exists, prove+freeze
+- [x] Fix phantom ADR-0028 → ADR-0013/0017 citations in `fixtures.ts`/`golden-ir.test.ts`
 
 ---
 
