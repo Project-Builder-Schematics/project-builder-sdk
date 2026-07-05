@@ -61,10 +61,10 @@ REQ-03.1, REQ-04.1–.2 · **Requires**: S-1.4 · **Test layers**: integration
 **Acceptance**: boundary REQ-01.1, REQ-02.1–.3, REQ-03.1, REQ-04.1–.2.
 
 ### Tasks
-- [ ] RED [must-fail-first]: `test/fake/boundary-pass-through.test.ts` — REQ-01.1 + REQ-02.1–.3: round-trip mismatch reject, silent-drop family (function/undefined/Symbol), stringify-throw family (BigInt/circular). No round-trip exists in today's fake
-- [ ] [characterization-RED-waived]: same file — REQ-03.1 path-verbatim (pins today's pass-through, scoped to the emitted wire directive) + REQ-04.1–.2 conflict-order (pins today's eager array-order apply)
-- [ ] GREEN: `contract-fake.ts` part (c) — `emit` JSON round-trip compare
-- [ ] Verify REQ-01.1 false-rejection guard + REQ-03/04 characterization rows pass unchanged
+- [x] RED [must-fail-first]: `test/fake/boundary-pass-through.test.ts` — REQ-01.1 + REQ-02.1–.3: round-trip mismatch reject, silent-drop family (function/undefined/Symbol), stringify-throw family (BigInt/circular). No round-trip exists in today's fake
+- [x] [characterization-RED-waived]: same file — REQ-03.1 path-verbatim (pins today's pass-through, scoped to the emitted wire directive) + REQ-04.1–.2 conflict-order (pins today's eager array-order apply)
+- [x] GREEN: `contract-fake.ts` part (c) — `emit` JSON round-trip compare
+- [x] Verify REQ-01.1 false-rejection guard + REQ-03/04 characterization rows pass unchanged
 
 ---
 

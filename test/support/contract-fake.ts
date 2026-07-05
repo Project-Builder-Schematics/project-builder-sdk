@@ -10,6 +10,28 @@ import type { EngineClient } from "../../src/core/engine-client.ts";
 import type { Batch, Directive } from "../../src/core/wire.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 
+// boundary REQ-01/02: structural equality for the round-trip fidelity check. Plain `===`
+// is not enough — JSON.stringify silently OMITS object keys (function/undefined/Symbol
+// values) and nulls array elements holding those same values, so a mismatch shows up as
+// a missing key (Object.keys length differs) or a null-vs-non-null array element, never
+// as a thrown error.
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((value, index) => deepEqual(value, b[index]));
+  }
+  if (a !== null && typeof a === "object" && b !== null && typeof b === "object") {
+    const aRecord = a as Record<string, unknown>;
+    const bRecord = b as Record<string, unknown>;
+    const aKeys = Object.keys(aRecord);
+    const bKeys = Object.keys(bRecord);
+    if (aKeys.length !== bKeys.length) return false;
+    return aKeys.every((key) => key in bRecord && deepEqual(aRecord[key], bRecord[key]));
+  }
+  return false;
+}
+
 export type ServedFrom = "tree" | "disk";
 
 export interface ContractFakeOptions {
@@ -31,15 +53,39 @@ export class ContractFake implements EngineClient {
   }
 
   async emit(batch: Batch): Promise<void> {
+    // boundary REQ-02 (stringify-throw family): BigInt/circular values make
+    // JSON.stringify itself throw. Guarded here — once, shared with the cap check below
+    // and the round-trip compare — so the throw surfaces as an `emit` rejection instead
+    // of an uncaught crash. RAW-UNTIL-STAGE-2.1
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(batch);
+    } catch (err) {
+      throw new Error(
+        `ContractFake: batch failed JSON serialization: "${err instanceof Error ? err.message : String(err)}"`
+      );
+    }
+
     // ADR-0019: cap enforced HERE — the fake is the engine stand-in and the sole judge
     // of size (ADR-0018); Session.flush calls emit unconditionally, no SDK-side branch.
     // RAW-UNTIL-STAGE-2.1
-    const size = Buffer.byteLength(JSON.stringify(batch), "utf8");
+    const size = Buffer.byteLength(serialized, "utf8");
     if (size > BATCH_CAP_BYTES) {
       throw new Error(
         `ContractFake: batch exceeds size cap — ${size} bytes serialized, cap is ${BATCH_CAP_BYTES} bytes`
       );
     }
+
+    // boundary REQ-01/02 (silent-drop family): stringify can SUCCEED while quietly
+    // dropping function/undefined/Symbol values — only a structural compare against the
+    // original catches that. RAW-UNTIL-STAGE-2.1
+    const roundTripped = JSON.parse(serialized) as unknown;
+    if (!deepEqual(batch, roundTripped)) {
+      throw new Error(
+        "ContractFake: batch failed round-trip fidelity check: non-JSON-safe value detected"
+      );
+    }
+
     for (const directive of batch.instructions) {
       this.#apply(directive, batch.force);
     }
