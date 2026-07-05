@@ -1,5 +1,5 @@
 /**
- * KIT-03: DirectiveFactory.create — pure, ADR-0028 shapes, template unrendered.
+ * KIT-03: DirectiveFactory.create — pure, ADR-0013 shapes, template unrendered.
  */
 import { describe, it, expect } from "bun:test";
 import { DirectiveFactory } from "../../src/core/directive-factory.ts";

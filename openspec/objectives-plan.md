@@ -50,15 +50,18 @@ items start.
   `.move` grow the trailing `{ force? }` their sibling verbs already have; (b) the fake
   implements both fail-closed rules. *Exists when* `test/fake/` pins both rules unmocked and
   golden fixtures (1.1) pin `move` ± `force` on the new wire shape.
-- **1.4 Frame-cap enforcement at flush** (absorbed from superseded #4) [O1] — the 4 MiB batch
-  cap, owned by the `Batch` wire contract, enforced at `Session.flush` (`src/core/session.ts`),
-  modeled by the fake. The cap's **measurement unit must be defined** (bytes vs UTF-16 code
-  units — today no constant or unit exists anywhere in `src/`) together with the **content
-  encoding / binary-file posture** of `modify.content: string`; ADR-recorded. Run-end
-  **empty-batch behavior** (a factory that buffers nothing still reaches `commit()`) is
-  specified and tested here too. *Exists when* an oversized batch is rejected at the flush
-  boundary with a fake-fidelity test, the unit/encoding ADR exists, and the empty-factory
-  run-end path is pinned.
+- **1.4 Frame-cap enforcement at emit** (absorbed from superseded #4) [O1] — ✅ **RATIFIED
+  2026-07-04, D8/ADR-0019**: the 4 MiB batch cap, owned by the `Batch` wire contract, is
+  enforced ONLY at the fake's `emit` (the engine stand-in) — never at `Session.flush`
+  (`src/core/session.ts`), which calls `emit` unconditionally with no SDK-side size branch
+  (ADR-0018: the engine, not the SDK, owns validation). The cap's **measurement unit** is
+  `Buffer.byteLength(JSON.stringify(batch), 'utf8')` — UTF-8 bytes of the serialized envelope,
+  exactly-at-cap passes, one byte over rejects — together with the **content encoding /
+  binary-file posture**: `modify.content`/`create.template` are exactly `string` in v1
+  (text-only; binary is an additive future wire change). Run-end **empty-batch behavior** (a
+  factory that buffers nothing still reaches `commit()`) is specified and tested here too.
+  *Exists when* an oversized batch is rejected at the `emit` boundary with a fake-fidelity
+  test, the unit/encoding ADR exists, and the empty-factory run-end path is pinned.
 - **1.5 Double-fault preservation** (debt W6) [O1] — `defineFactory` (`src/core/context.ts`)
   preserves the factory's original error when `discard()` also rejects.
 - **1.6 Small test debt (batchable)** [O1, XS] — FIT-04 unconditional rebuild (W7);
@@ -253,6 +256,7 @@ Stage 0 ──► Stage 1 ──► Stage 2 ──► Stage 5 ──► Stage 6
 | D5 | First dialect + AST-dependency policy | 5.2 | 5 | open |
 | D6 | Boundary pass-through: paths verbatim · no verb-level serializability guard (fake JSON round-trip at the seam) · conflicts emitted in author order, engine judges | Stage 2 freeze | 1.7 | ✅ RATIFIED — ADR-0018 |
 | D7 | Schematic-author testing exposure: public `./testing` harness vs documented pattern | 4.5 close | 4 | open |
+| D8 | Batch cap: measurement unit (UTF-8 bytes of serialized envelope), enforcement site (fake's `emit`, never `Session.flush`), exactly-at-cap-passes boundary, text-only wire content | 1.4 | 1 | ✅ RATIFIED — ADR-0019 |
 
 ## Out of scope (guard rails)
 
@@ -277,7 +281,7 @@ added 1.7 (D6), 4.5 (D7), and the amendments to 1.1/1.3/1.4/1.6/2.1.
 | 3 | The fake's semantics are ratified and normative — no "ask the real engine later" left | 1.2 ✅ (ADR-0017) + 1.3 |
 | 4 | `move`'s `force` exists on the wire, the factory, and the author surface — before semver freezes it absent | 1.3 |
 | 5 | The SDK is a verbatim conduit at the edges: paths pass through untouched, serializability is judged at the seam (fake JSON round-trip), conflicts emit in author order — the engine judges all three | 1.7 (D6 ✅ ADR-0018) |
-| 6 | The batch cap has a defined unit + encoding/binary posture and is enforced at flush; empty-batch run-end is specified | 1.4 |
+| 6 | The batch cap has a defined unit + encoding/binary posture and is enforced at emit (fake/engine boundary, never `Session.flush`); empty-batch run-end is specified | 1.4 |
 | 7 | A failed run never half-commits (all-or-nothing, double-fault preserved) | 1.5 (+ ADR-0015) |
 | 8 | Every error is attributable to the authoring action, in author vocabulary, distinguishable by origin (engine-returned rejection vs SDK-born AST/dialect failure), with the applied boundary observable | 2.1/2.2/2.4 |
 | 9 | N AST edits on one file coalesce to exactly ONE `modify` carrying final bytes only | 5.4 |

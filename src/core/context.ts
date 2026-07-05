@@ -51,7 +51,15 @@ export function defineFactory<O>(
       await ctx.session.flush();
       await ctx.session.commit();
     } catch (err) {
-      await ctx.session.discard();
+      // REQ-10: double-fault preservation. A discard() rejection (E2) must never replace
+      // or swallow the factory's original error (E1) — attach it as cause and re-throw E1.
+      try {
+        await ctx.session.discard();
+      } catch (discardErr) {
+        if (err instanceof Error) {
+          err.cause = discardErr;
+        }
+      }
       throw err;
     }
   };

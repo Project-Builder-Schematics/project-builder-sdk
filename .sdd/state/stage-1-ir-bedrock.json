@@ -4,7 +4,7 @@
   "triage": "L",
   "triage_note": "Unanimous L (triage executor + architect + pm, blind). Top of L band (~18-22 files, ~900-1400 lines); XL escalation trigger: >8 slices at sdd-slice OR explore finds file-touch materially above ~22.",
   "phase": "apply",
-  "phase_status": "in-progress — batch 1 (S-1.3); execution automatic; branch feat/stage-1-ir-bedrock",
+  "phase_status": "in-progress — batch 2 (S-1.4 + S-1.5/1.6 + S-1.8 + S-1.9 parallel); batch 1 (S-1.3) VERIFIED (in-loop pass iter 2/3) + committed 5ecc04f, suite 203; execution automatic; branch feat/stage-1-ir-bedrock",
   "build_branch": "feat/stage-1-ir-bedrock",
   "build_batches": "B1: S-1.3 | B2: S-1.4 + S-1.5/1.6 + S-1.8 + S-1.9 (parallel, disjoint files) | B3: S-1.7 | B4: S-1.1; verify in-loop per batch, orchestrator commits per verified batch",
   "completed_phases": [

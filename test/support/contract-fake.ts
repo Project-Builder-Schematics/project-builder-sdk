@@ -8,6 +8,7 @@
 import { posix as path } from "node:path";
 import type { EngineClient } from "../../src/core/engine-client.ts";
 import type { Batch, Directive } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 
 export type ServedFrom = "tree" | "disk";
 
@@ -30,6 +31,15 @@ export class ContractFake implements EngineClient {
   }
 
   async emit(batch: Batch): Promise<void> {
+    // ADR-0019: cap enforced HERE — the fake is the engine stand-in and the sole judge
+    // of size (ADR-0018); Session.flush calls emit unconditionally, no SDK-side branch.
+    // RAW-UNTIL-STAGE-2.1
+    const size = Buffer.byteLength(JSON.stringify(batch), "utf8");
+    if (size > BATCH_CAP_BYTES) {
+      throw new Error(
+        `ContractFake: batch exceeds size cap — ${size} bytes serialized, cap is ${BATCH_CAP_BYTES} bytes`
+      );
+    }
     for (const directive of batch.instructions) {
       this.#apply(directive, batch.force);
     }

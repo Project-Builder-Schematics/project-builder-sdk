@@ -40,9 +40,12 @@ interface Diagnostic {
 // Parses tsc `--pretty false` output: lines of the form
 //   path/to/file.ts(LINE,COL): error TSxxxx: message
 // Lines that are continuations of a multi-line message (no leading `file(line,col):`) are ignored.
+// The file group is anchored to end in `.ts(` specifically (not just the nearest paren) so a
+// file path that itself contains a literal `(digit,digit):`-shaped substring cannot shift where
+// the location group starts.
 function parseDiagnostics(blob: string): Diagnostic[] {
   const out: Diagnostic[] = [];
-  const pattern = /^(.+?)\((\d+),(\d+)\): error (TS\d+):/;
+  const pattern = /^(.+\.ts)\((\d+),(\d+)\): error (TS\d+):/;
   for (const raw of blob.split("\n")) {
     const m = pattern.exec(raw);
     if (m === null) continue;
@@ -114,8 +117,15 @@ function evaluateGuard(args: {
 const proofSource = readFileSync(PROOF_FILE, "utf-8");
 const idiom1Lines = findDirectiveLines(proofSource, "idiom-1");
 const idiom2Lines = findDirectiveLines(proofSource, "idiom-2");
-// Match by basename so absolute/relative tsc paths both resolve to the proof fixture.
-const fileMatch = (file: string): boolean => file.replace(/\\/g, "/").endsWith(PROOF_FILE_REL);
+// Match by path suffix so absolute/relative tsc paths both resolve to the proof fixture —
+// but require a real path-segment boundary (start-of-string or a preceding `/`), not a bare
+// `endsWith`, so a different file whose name merely SHARES that trailing substring (e.g.
+// `vendor/xtest/types/permissive-proof.ts`) cannot collide with the real fixture path
+// (theoretical, but cheap to close).
+const fileMatch = (file: string): boolean => {
+  const normalized = file.replace(/\\/g, "/");
+  return normalized === PROOF_FILE_REL || normalized.endsWith(`/${PROOF_FILE_REL}`);
+};
 
 describe("S-03 — permissive-proof CI guard (REQ-03)", () => {
   it("the fixture exposes the expected idiom markers", () => {
@@ -144,16 +154,20 @@ describe("S-03 — permissive-proof CI guard (REQ-03)", () => {
 
   // REQ-03.1 — a deliberate over-permissive regression flips the guard RED.
   // Simulate: the create<S> overload relaxed so excess is legal → the [idiom-2] excess directive
-  // (line 57) becomes UNUSED → tsc emits TS2578 on it. The idiom-1 TS2578 (line 35) still fires.
+  // becomes UNUSED → tsc emits TS2578 on it. The idiom-1 TS2578 still fires. Both simulated lines
+  // are derived from the real fixture's directive positions (idiom1Lines[0]/idiom2Lines[0]), not
+  // hardcoded — a fixture edit that shifts these lines can't silently stale this proof.
   it("[red-proof] REQ-03.1 — an over-permissive regression (idiom-2 directive gone unused) is REJECTED", () => {
     const regressedBlob = [
-      `${PROOF_FILE_REL}(35,3): error TS2578: Unused '@ts-expect-error' directive.`,
-      `${PROOF_FILE_REL}(57,3): error TS2578: Unused '@ts-expect-error' directive.`,
+      `${PROOF_FILE_REL}(${idiom1Lines[0]},3): error TS2578: Unused '@ts-expect-error' directive.`,
+      `${PROOF_FILE_REL}(${idiom2Lines[0]},3): error TS2578: Unused '@ts-expect-error' directive.`,
     ].join("\n");
     const diagnostics = parseDiagnostics(regressedBlob);
     const verdict = evaluateGuard({ diagnostics, idiom1Lines, idiom2Lines, fileMatch });
     expect(verdict.ok).toBe(false);
-    expect(verdict.reasons.some((r) => r.includes("line 57") && r.includes("regressed"))).toBe(true);
+    expect(
+      verdict.reasons.some((r) => r.includes(`line ${idiom2Lines[0]}`) && r.includes("regressed"))
+    ).toBe(true);
   });
 
   // REQ-03.2 — an unrelated compile error is NOT counted as the proof passing.
@@ -161,7 +175,7 @@ describe("S-03 — permissive-proof CI guard (REQ-03)", () => {
   // in src/. The old "any non-zero exit = pass" rule would green this; the guard rejects it.
   it("[red-proof] REQ-03.2 — an unrelated src/** compile error is NOT counted as passing", () => {
     const unrelatedBlob = [
-      `${PROOF_FILE_REL}(35,3): error TS2578: Unused '@ts-expect-error' directive.`,
+      `${PROOF_FILE_REL}(${idiom1Lines[0]},3): error TS2578: Unused '@ts-expect-error' directive.`,
       `src/commons/index.ts(10,5): error TS2304: Cannot find name 'Frobnicate'.`,
     ].join("\n");
     const diagnostics = parseDiagnostics(unrelatedBlob);
@@ -172,7 +186,7 @@ describe("S-03 — permissive-proof CI guard (REQ-03)", () => {
 
   // Positive control: the exact clean diagnostic set (idiom-1 TS2578 only) is ACCEPTED.
   it("[red-proof] the clean expected diagnostic set (idiom-1 TS2578 only) is ACCEPTED", () => {
-    const cleanBlob = `${PROOF_FILE_REL}(35,3): error TS2578: Unused '@ts-expect-error' directive.`;
+    const cleanBlob = `${PROOF_FILE_REL}(${idiom1Lines[0]},3): error TS2578: Unused '@ts-expect-error' directive.`;
     const diagnostics = parseDiagnostics(cleanBlob);
     const verdict = evaluateGuard({ diagnostics, idiom1Lines, idiom2Lines, fileMatch });
     expect(verdict.reasons).toEqual([]);
