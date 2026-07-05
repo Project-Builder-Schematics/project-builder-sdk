@@ -36,6 +36,12 @@ export interface CopyArgs {
   force?: boolean;
 }
 
+// Key-omission semantics are spec-pinned: `"force" in directive === false` when undefined —
+// never emit `force: undefined`.
+export function forceEntry(force: boolean | undefined): { force?: boolean } {
+  return force !== undefined ? { force } : {};
+}
+
 export class DirectiveFactory {
   create(a: CreateArgs): Directive {
     return {
@@ -44,7 +50,7 @@ export class DirectiveFactory {
         pathTemplate: a.pathTemplate,
         template: a.template,
         options: a.options,
-        ...(a.force !== undefined ? { force: a.force } : {}),
+        ...forceEntry(a.force),
       },
     };
   }
@@ -64,7 +70,7 @@ export class DirectiveFactory {
       rename: {
         path: a.path,
         newName: a.newName,
-        ...(a.force !== undefined ? { force: a.force } : {}),
+        ...forceEntry(a.force),
       },
     };
   }
@@ -75,7 +81,7 @@ export class DirectiveFactory {
       move: {
         path: a.path,
         toDir: a.toDir,
-        ...(a.force !== undefined ? { force: a.force } : {}),
+        ...forceEntry(a.force),
       },
     };
   }
@@ -87,7 +93,7 @@ export class DirectiveFactory {
       copy: {
         from: a.from,
         to: a.to,
-        ...(a.force !== undefined ? { force: a.force } : {}),
+        ...forceEntry(a.force),
       },
     };
   }

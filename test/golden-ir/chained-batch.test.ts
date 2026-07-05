@@ -6,35 +6,12 @@
  */
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
-import type { EngineClient } from "../../src/core/engine-client.ts";
-import type { Batch } from "../../src/core/wire.ts";
-import { ContractFake } from "../support/contract-fake.ts";
+import { makeSpyClient } from "../support/spy-client.ts";
 import { RENAME_THEN_MOVE, CREATE_THEN_MODIFY } from "./fixtures.ts";
-
-function makeSpy(seed: Record<string, string> = {}): { client: EngineClient; emitted: Batch[] } {
-  const fake = new ContractFake({ seed });
-  const emitted: Batch[] = [];
-  const client: EngineClient = {
-    async emit(b) {
-      emitted.push(b);
-      await fake.emit(b);
-    },
-    async read(p) {
-      return fake.read(p);
-    },
-    async commit() {
-      return fake.commit();
-    },
-    async discard() {
-      return fake.discard();
-    },
-  };
-  return { client, emitted };
-}
 
 describe("Chained-handle Batch fixtures (GIR-02)", () => {
   it("rename(path, newName).move(toDir) — emitted batch matches the rename-then-move fixture", async () => {
-    const { client, emitted } = makeSpy({ "src/foo.ts": "content" });
+    const { client, emitted } = makeSpyClient({ "src/foo.ts": "content" });
 
     const factory = defineFactory(async () => {
       const { rename } = await import("../../src/commons/index.ts");
@@ -47,7 +24,7 @@ describe("Chained-handle Batch fixtures (GIR-02)", () => {
   });
 
   it("create(path, opts).modify(content) — emitted batch matches the create-then-modify fixture", async () => {
-    const { client, emitted } = makeSpy();
+    const { client, emitted } = makeSpyClient();
 
     const factory = defineFactory(async () => {
       const { create } = await import("../../src/commons/index.ts");

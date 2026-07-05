@@ -11,19 +11,8 @@ import { describe, it, expect, spyOn } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { create } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import type { Batch, Directive, JsonValue } from "../../src/core/wire.ts";
-
-function batch(...instructions: Directive[]): Batch {
-  return { protocolVersion: 1, force: false, instructions };
-}
-
-function createOp(pathTemplate: string, template: string, options: JsonValue): Directive {
-  return { op: "create", create: { pathTemplate, template, options } };
-}
-
-function deleteOp(path: string): Directive {
-  return { op: "delete", delete: { path } };
-}
+import type { Batch, JsonValue } from "../../src/core/wire.ts";
+import { batchOf as batch, createOp, deleteOp } from "./directive-builders.ts";
 
 // Smuggles a non-JsonValue past the type system — REQ-02's scenarios are values an author
 // could only reach via `any`, matching the spec's "typed past JsonValue via any" framing.

@@ -8,31 +8,14 @@
  */
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
-import type { EngineClient } from "../../src/core/engine-client.ts";
 import type { Batch } from "../../src/core/wire.ts";
-import { ContractFake } from "../support/contract-fake.ts";
+import { makeSpyClient } from "../support/spy-client.ts";
 import { GOLDEN_DETERMINISM_STRING } from "./fixtures.ts";
 
 // Fresh fake + fresh client each call — determinism must hold across independent runs,
 // not merely within one shared instance.
 async function runTwoDirectiveFactory(): Promise<Batch> {
-  const fake = new ContractFake({ seed: { "src/foo.ts": "content" } });
-  let captured: Batch | undefined;
-  const client: EngineClient = {
-    async emit(b) {
-      captured = b;
-      await fake.emit(b);
-    },
-    async read(p) {
-      return fake.read(p);
-    },
-    async commit() {
-      return fake.commit();
-    },
-    async discard() {
-      return fake.discard();
-    },
-  };
+  const { client, emitted } = makeSpyClient({ "src/foo.ts": "content" });
 
   const factory = defineFactory(async () => {
     const { rename } = await import("../../src/commons/index.ts");
@@ -40,6 +23,7 @@ async function runTwoDirectiveFactory(): Promise<Batch> {
   });
   await factory({}, { client });
 
+  const captured = emitted[emitted.length - 1];
   if (captured === undefined) throw new Error("no batch captured — emit was never called");
   return captured;
 }

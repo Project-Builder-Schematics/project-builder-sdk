@@ -13,18 +13,11 @@ import { describe, expect, test } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import type { EngineClient } from "../../src/core/engine-client.ts";
 import type { Batch, Directive } from "../../src/core/wire.ts";
-import { ContractFake } from "../support/contract-fake.ts";
+import { makeSpyClient } from "../support/spy-client.ts";
 
 function makeSpy(seed: Record<string, string> = {}): { spy: EngineClient; emitted: Batch[] } {
-  const fake = new ContractFake({ seed });
-  const emitted: Batch[] = [];
-  const spy: EngineClient = {
-    async emit(b) { emitted.push(b); await fake.emit(b); },
-    async read(p) { return fake.read(p); },
-    async commit() { return fake.commit(); },
-    async discard() { return fake.discard(); },
-  };
-  return { spy, emitted };
+  const { client, emitted } = makeSpyClient(seed);
+  return { spy: client, emitted };
 }
 
 function collectDirectives(emitted: Batch[]): Directive[] {

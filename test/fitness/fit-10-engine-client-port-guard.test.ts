@@ -126,10 +126,12 @@ export function describe(directive: Directive): JsonValue {
   });
 
   describe("production scan — src/** outside src/core", () => {
+    // Single tree walk, shared by both tests below.
+    const files = collectTsOutsideCore(SRC_ROOT);
+
     // Characterization: today's production sources hold no EngineClient reference at all
     // outside src/core, so this passes without further production code.
     it("every file is free of EngineClient port bleed", () => {
-      const files = collectTsOutsideCore(SRC_ROOT);
       const violations = files.flatMap((filePath) => {
         const relPath = toRelPath(filePath);
         const source = readFileSync(filePath, "utf-8");
@@ -141,15 +143,11 @@ export function describe(directive: Directive): JsonValue {
     it("src/commons/index.ts and src/conformance/index.ts are included in the scan and pass clean", () => {
       const commonsPath = join(SRC_ROOT, "commons", "index.ts");
       const conformancePath = join(SRC_ROOT, "conformance", "index.ts");
-      const scanned = collectTsOutsideCore(SRC_ROOT);
 
-      expect(scanned).toContain(commonsPath);
-      expect(scanned).toContain(conformancePath);
-
-      for (const filePath of [commonsPath, conformancePath]) {
-        const source = readFileSync(filePath, "utf-8");
-        expect(scanPortBleed(source, toRelPath(filePath))).toEqual([]);
-      }
+      // Cleanliness for these two paths is already proven above (they're members of
+      // `files`, which the prior test scanned in full) — this test only pins membership.
+      expect(files).toContain(commonsPath);
+      expect(files).toContain(conformancePath);
     });
   });
 });

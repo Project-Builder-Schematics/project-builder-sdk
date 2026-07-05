@@ -7,17 +7,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { ContractFake } from "../support/contract-fake.ts";
-import type { Batch, Directive } from "../../src/core/wire.ts";
-
-function batch(force: boolean, ...instructions: Directive[]): Batch {
-  return { protocolVersion: 1, force, instructions };
-}
-
-function moveOp(path: string, toDir: string, force?: boolean): Directive {
-  const move: { path: string; toDir: string; force?: boolean } = { path, toDir };
-  if (force !== undefined) move.force = force;
-  return { op: "move", move };
-}
+import { batch, moveOp } from "./directive-builders.ts";
 
 describe("REQ-FAKE-04.m1 — move onto an existing destination rejects without force", () => {
   it("rejects and leaves both source and destination content untouched", async () => {

@@ -4,6 +4,7 @@
 import { posix } from "node:path";
 import type { JsonValue } from "../core/wire.ts";
 import { currentContext } from "../core/context.ts";
+import { forceEntry } from "../core/directive-factory.ts";
 import type { FoundHandle, WritableHandle } from "../core/handle-state.ts";
 
 export type { FoundHandle, WritableHandle };
@@ -37,18 +38,18 @@ function buildWritableHandle(path: string): WritableHandle {
     },
     rename(newName: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.rename({ path, newName, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+      session.buffer(factory.rename({ path, newName, ...forceEntry(opts?.force) }));
       const dir = posix.dirname(path);
       return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
     },
     move(toDir: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.move({ path, toDir, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+      session.buffer(factory.move({ path, toDir, ...forceEntry(opts?.force) }));
       return buildWritableHandle(posix.join(toDir, posix.basename(path)));
     },
     copy(to: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.copy({ from: path, to, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+      session.buffer(factory.copy({ from: path, to, ...forceEntry(opts?.force) }));
       return buildWritableHandle(to);
     },
   };
@@ -68,18 +69,18 @@ function buildFoundHandle(path: string): FoundHandle {
     },
     rename(newName: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.rename({ path, newName, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+      session.buffer(factory.rename({ path, newName, ...forceEntry(opts?.force) }));
       const dir = posix.dirname(path);
       return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
     },
     move(toDir: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.move({ path, toDir, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+      session.buffer(factory.move({ path, toDir, ...forceEntry(opts?.force) }));
       return buildWritableHandle(posix.join(toDir, posix.basename(path)));
     },
     copy(to: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.copy({ from: path, to, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+      session.buffer(factory.copy({ from: path, to, ...forceEntry(opts?.force) }));
       return buildWritableHandle(to);
     },
     remove(): void {
@@ -136,7 +137,7 @@ export function create(path: string, opts: CreateOptions): WritableHandle {
     pathTemplate: path,
     template: opts.template,
     options: opts.options,
-    ...(opts.force !== undefined ? { force: opts.force } : {}),
+    ...forceEntry(opts.force),
   }));
   return buildWritableHandle(path);
 }
@@ -174,7 +175,7 @@ export function remove(path: string): void {
  */
 export function rename(path: string, newName: string, opts?: { force?: boolean }): WritableHandle {
   const { session, factory } = currentContext();
-  session.buffer(factory.rename({ path, newName, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+  session.buffer(factory.rename({ path, newName, ...forceEntry(opts?.force) }));
   const dir = posix.dirname(path);
   return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
 }
@@ -191,7 +192,7 @@ export function rename(path: string, newName: string, opts?: { force?: boolean }
  */
 export function move(path: string, toDir: string, opts?: { force?: boolean }): WritableHandle {
   const { session, factory } = currentContext();
-  session.buffer(factory.move({ path, toDir, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+  session.buffer(factory.move({ path, toDir, ...forceEntry(opts?.force) }));
   return buildWritableHandle(posix.join(toDir, posix.basename(path)));
 }
 
@@ -205,6 +206,6 @@ export function move(path: string, toDir: string, opts?: { force?: boolean }): W
  */
 export function copy(from: string, to: string, opts?: { force?: boolean }): WritableHandle {
   const { session, factory } = currentContext();
-  session.buffer(factory.copy({ from, to, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+  session.buffer(factory.copy({ from, to, ...forceEntry(opts?.force) }));
   return buildWritableHandle(to);
 }

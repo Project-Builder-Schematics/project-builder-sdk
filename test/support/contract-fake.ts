@@ -149,10 +149,15 @@ export class ContractFake implements EngineClient {
     return this.#seed[p]!;
   }
 
+  // FAKE-04: envelope force wins over an absent/false op-level force.
+  #effectiveForce(envelopeForce: boolean, opForce: boolean | undefined): boolean {
+    return envelopeForce || (opForce ?? false);
+  }
+
   #apply(directive: Directive, envelopeForce: boolean): void {
     if (directive.op === "create") {
       const { pathTemplate, template, force: opForce } = directive.create;
-      const effective = envelopeForce || (opForce ?? false);
+      const effective = this.#effectiveForce(envelopeForce, opForce);
       if (this.#exists(pathTemplate) && !effective) {
         throw new Error(
           `ContractFake: create collision — "${pathTemplate}" already exists (use force to overwrite)`
@@ -194,7 +199,7 @@ export class ContractFake implements EngineClient {
       }
       const dir = path.dirname(src);
       const dst = dir === "." ? newName : path.join(dir, newName);
-      const effective = envelopeForce || (opForce ?? false);
+      const effective = this.#effectiveForce(envelopeForce, opForce);
       if (this.#exists(dst) && !effective) {
         throw new Error(
           `ContractFake: rename collision — destination "${dst}" already exists (use force to overwrite)`
@@ -215,7 +220,7 @@ export class ContractFake implements EngineClient {
       if (!this.#exists(from)) {
         throw new Error(`ContractFake: copy source not found: "${from}"`);
       }
-      const effective = envelopeForce || (opForce ?? false);
+      const effective = this.#effectiveForce(envelopeForce, opForce);
       if (this.#exists(to) && !effective) {
         throw new Error(
           `ContractFake: copy collision — destination "${to}" already exists (use force to overwrite)`
@@ -236,7 +241,7 @@ export class ContractFake implements EngineClient {
       const base = path.basename(src);
       // Use path.join to normalize trailing-slash toDir (e.g. "lib/" → "lib/foo.ts").
       const dst = path.join(toDir, base);
-      const effective = envelopeForce || (opForce ?? false);
+      const effective = this.#effectiveForce(envelopeForce, opForce);
       // ADR-0017 self-move identity amendment: dst === src is not a collision — a
       // self-move is a file-preserving success, no force required.
       const isSelfMove = dst === src;

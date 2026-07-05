@@ -9,27 +9,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { ContractFake } from "../support/contract-fake.ts";
-import type { Batch, Directive } from "../../src/core/wire.ts";
-
-function batch(force: boolean, ...instructions: Directive[]): Batch {
-  return { protocolVersion: 1, force, instructions };
-}
-
-function renameOp(path: string, newName: string, force?: boolean): Directive {
-  const op: { path: string; newName: string; force?: boolean } = { path, newName };
-  if (force !== undefined) op.force = force;
-  return { op: "rename", rename: op };
-}
-
-function copyOp(from: string, to: string, force?: boolean): Directive {
-  const op: { from: string; to: string; force?: boolean } = { from, to };
-  if (force !== undefined) op.force = force;
-  return { op: "copy", copy: op };
-}
-
-function moveOp(path: string, toDir: string): Directive {
-  return { op: "move", move: { path, toDir } };
-}
+import { batch, renameOp, copyOp, moveOp } from "./directive-builders.ts";
 
 // ─── C2: missing-source errors ───────────────────────────────────────────────
 

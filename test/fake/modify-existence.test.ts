@@ -7,19 +7,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { ContractFake } from "../support/contract-fake.ts";
-import type { Batch, Directive } from "../../src/core/wire.ts";
-
-function batch(...instructions: Directive[]): Batch {
-  return { protocolVersion: 1, force: false, instructions };
-}
-
-function modifyOp(path: string, content: string): Directive {
-  return { op: "modify", modify: { path, content } };
-}
-
-function createOp(pathTemplate: string, template: string): Directive {
-  return { op: "create", create: { pathTemplate, template, options: {} } };
-}
+import { batchOf as batch, modifyOp, createOp } from "./directive-builders.ts";
 
 describe("REQ-FAKE-07.1 — modify of an untouched path rejects and never materializes", () => {
   it("rejects and leaves the path absent afterward", async () => {
