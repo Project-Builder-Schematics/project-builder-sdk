@@ -43,3 +43,15 @@ gains `force?`; `modify` requires existence). Stage 1.3 closes the fake to match
 |---|---|
 | Fake `move` silently overwrites an existing destination — ratified fail-closed + `force` (ADR-0017) | **1.3 (implement)** |
 | Fake `modify` of a non-existent path materializes the file — ratified as ERROR (ADR-0017) | **1.3 (implement)** |
+
+## From `stage-1-ir-bedrock` (2026-07-05) — accepted as non-blocking at archive
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| (1.4 verify follow-up) Stage 2.1 — attribution granularity: `session.ts` attributes every emit rejection to `instructions[0]` and `authoring-error.ts` discards the raw offender string; Stage 2.1 must carry offending directive/index in a structured rejection and treat `authoring-error.ts` as in-scope | refactor | M | Stage 2.1 design gate | **2.1** |
+| (1.4 verify follow-up) Stage 2.1 — non-Error E1 + rejecting `discard()` silently drops E2; context-ts guard limitation; verify-pass with caveat in design/apply notes | edge-case | S | Non-blocking, document in 2.1 | **2.1** |
+| (1.4 verify follow-up) Stage 2.1 — round-trip/cap rejection messages could name the offending directive/field and non-finite value family | docs | S | — | **2.1 (nice-to-have)** |
+| (1.2 verify follow-up) Extract shared `EngineClient` spy helper — duplicated across `test/golden-ir/chained-batch.test.ts` (`makeSpy`) and `test/golden-ir/determinism.test.ts` (inline) — create `test/support` helper | refactor | XS | — | **1.7 (backlog)** |
+| (1.1 verify follow-up) Test-support: extract shared `EngineClient` spy helper (duplicated across chained-batch/determinism tests) | refactor | XS | — | **1.7 (backlog)** |
+| (1.6 verify follow-up) Stage 6 — confirm `BATCH_CAP_BYTES` against the real engine frame limit before freeze + consider structural no-consumer-outside-wire.ts scan | edge-case | S | Before Stage 6 freeze | **6** |
+| (1.9 verify follow-up) Doc note: FIT-04 gate is blind to intentional-surface slices that regen baselines in the same change — additivity must be argued out-of-band | docs | XS | — | **1.6 (design note)** |

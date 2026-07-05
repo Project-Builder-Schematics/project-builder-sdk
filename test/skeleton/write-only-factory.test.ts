@@ -70,3 +70,20 @@ describe("REQ-KIT-05 — run-end flush (write-only factory)", () => {
     expect(fake.committedTree().get("src/b.ts")).toEqual("derived:content-a");
   });
 });
+
+describe("batch-cap-contract REQ-03.1 — empty-batch run-end still reaches commit()", () => {
+  it("a zero-directive factory never calls emit but invokes commit() exactly once", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const emitSpy = spyOn(fake, "emit");
+    const commitSpy = spyOn(fake, "commit");
+
+    const run = defineFactory<void>(() => {
+      // Calls no verbs at all — pending buffer stays empty.
+    });
+
+    await expect(run(undefined, { client: fake })).resolves.toBeUndefined();
+
+    expect(emitSpy).toHaveBeenCalledTimes(0);
+    expect(commitSpy).toHaveBeenCalledTimes(1);
+  });
+});

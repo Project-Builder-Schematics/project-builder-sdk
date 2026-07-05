@@ -4,6 +4,7 @@
 import { posix } from "node:path";
 import type { JsonValue } from "../core/wire.ts";
 import { currentContext } from "../core/context.ts";
+import { forceEntry } from "../core/directive-factory.ts";
 import type { FoundHandle, WritableHandle } from "../core/handle-state.ts";
 
 export type { FoundHandle, WritableHandle };
@@ -37,18 +38,18 @@ function buildWritableHandle(path: string): WritableHandle {
     },
     rename(newName: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.rename({ path, newName, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+      session.buffer(factory.rename({ path, newName, ...forceEntry(opts?.force) }));
       const dir = posix.dirname(path);
       return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
     },
-    move(toDir: string): WritableHandle {
+    move(toDir: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.move({ path, toDir }));
+      session.buffer(factory.move({ path, toDir, ...forceEntry(opts?.force) }));
       return buildWritableHandle(posix.join(toDir, posix.basename(path)));
     },
     copy(to: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.copy({ from: path, to, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+      session.buffer(factory.copy({ from: path, to, ...forceEntry(opts?.force) }));
       return buildWritableHandle(to);
     },
   };
@@ -68,18 +69,18 @@ function buildFoundHandle(path: string): FoundHandle {
     },
     rename(newName: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.rename({ path, newName, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+      session.buffer(factory.rename({ path, newName, ...forceEntry(opts?.force) }));
       const dir = posix.dirname(path);
       return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
     },
-    move(toDir: string): WritableHandle {
+    move(toDir: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.move({ path, toDir }));
+      session.buffer(factory.move({ path, toDir, ...forceEntry(opts?.force) }));
       return buildWritableHandle(posix.join(toDir, posix.basename(path)));
     },
     copy(to: string, opts?: { force?: boolean }): WritableHandle {
       const { session, factory } = currentContext();
-      session.buffer(factory.copy({ from: path, to, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+      session.buffer(factory.copy({ from: path, to, ...forceEntry(opts?.force) }));
       return buildWritableHandle(to);
     },
     remove(): void {
@@ -116,6 +117,9 @@ export function find(path: string): FoundHandle {
  * SEAM-01 (REQ-01): a generic type parameter `S` narrows `options` from the bare
  * `JsonValue` to the schema's keys at the type level only — the runtime body is unchanged.
  *
+ * Creating over an existing file is rejected at the engine seam unless
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ *
  * @example
  * create("src/index.ts", {
  *   template: "export const version = '{{version}}';",
@@ -133,7 +137,7 @@ export function create(path: string, opts: CreateOptions): WritableHandle {
     pathTemplate: path,
     template: opts.template,
     options: opts.options,
-    ...(opts.force !== undefined ? { force: opts.force } : {}),
+    ...forceEntry(opts.force),
   }));
   return buildWritableHandle(path);
 }
@@ -163,37 +167,45 @@ export function remove(path: string): void {
 
 /**
  * Schedules a file rename (basename only) and returns a `WritableHandle` for the new path.
+ * Renaming onto an existing path is rejected at the engine seam unless
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
  *
  * @example
  * rename("src/foo.ts", "bar.ts");
  */
 export function rename(path: string, newName: string, opts?: { force?: boolean }): WritableHandle {
   const { session, factory } = currentContext();
-  session.buffer(factory.rename({ path, newName, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+  session.buffer(factory.rename({ path, newName, ...forceEntry(opts?.force) }));
   const dir = posix.dirname(path);
   return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
 }
 
 /**
  * Schedules a file move to a different directory and returns a `WritableHandle`.
+ * Moving onto an existing destination is rejected at the engine seam unless
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ * A move whose destination equals its source is a no-op, never a collision
+ * (ADR-0017 self-move amendment).
  *
  * @example
  * move("src/utils/helper.ts", "src/shared");
  */
-export function move(path: string, toDir: string): WritableHandle {
+export function move(path: string, toDir: string, opts?: { force?: boolean }): WritableHandle {
   const { session, factory } = currentContext();
-  session.buffer(factory.move({ path, toDir }));
+  session.buffer(factory.move({ path, toDir, ...forceEntry(opts?.force) }));
   return buildWritableHandle(posix.join(toDir, posix.basename(path)));
 }
 
 /**
  * Schedules a file copy to a new path and returns a `WritableHandle` for the destination.
+ * Copying onto an existing destination is rejected at the engine seam unless
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
  *
  * @example
  * copy("src/template.ts", "src/generated/output.ts");
  */
 export function copy(from: string, to: string, opts?: { force?: boolean }): WritableHandle {
   const { session, factory } = currentContext();
-  session.buffer(factory.copy({ from, to, ...(opts?.force !== undefined ? { force: opts.force } : {}) }));
+  session.buffer(factory.copy({ from, to, ...forceEntry(opts?.force) }));
   return buildWritableHandle(to);
 }

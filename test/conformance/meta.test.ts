@@ -22,7 +22,7 @@ describe("conformance — meta-test: public surface is intact", () => {
 
   // Red-proof: delete testDialect from a copy of the real conformance surface →
   // the property check fails. This proves the live check would catch a real export removal.
-  it("[red-proof] the real surface missing testDialect fails the property check", () => {
+  it("the real surface missing testDialect fails the property check", () => {
     const stripped = { ...conformance } as Record<string, unknown>;
     delete stripped["testDialect"];
     expect(stripped).not.toHaveProperty("testDialect");
@@ -32,7 +32,7 @@ describe("conformance — meta-test: public surface is intact", () => {
 
   // Red-proof: delete testOpPack from a copy of the real conformance surface →
   // the property check fails.
-  it("[red-proof] the real surface missing testOpPack fails the property check", () => {
+  it("the real surface missing testOpPack fails the property check", () => {
     const stripped = { ...conformance } as Record<string, unknown>;
     delete stripped["testOpPack"];
     expect(stripped).not.toHaveProperty("testOpPack");

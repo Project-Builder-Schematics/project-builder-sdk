@@ -50,3 +50,23 @@ which stays a value (ADR-0016).
 - The "engine-fidelity questions" section of `pending-changes.md` is resolved by this ADR; if a
   real engine later disagrees, reconciling is an engine-board conversation against this
   ratified contract, not a silent SDK change.
+
+## Amendment (2026-07-04b): self-move identity exclusion
+
+- Status: Accepted (amends the Decision above)
+- Closes: objectives-plan Stage 1 gap review (cross-cutting note 8, spec V2 feedback item 3)
+
+The fail-closed destination check in rule 1 excludes identity: when a `move`'s resolved
+destination equals its source (`dst === src`), it is **not** a collision — a self-move is a
+file-preserving success, no `force` required.
+
+**Rationale**: colliding with yourself is not data loss; matches fs `rename` semantics.
+
+**Alternative rejected**: *treat self-move as a normal collision (require force)* — rejected:
+forces authors to pass `force` for a no-op, and a bare identity self-move would destroy the
+file it names.
+
+**Implementation**: `test/support/contract-fake.ts`'s `move` branch computes
+`isSelfMove = dst === src` and excludes it from the collision check
+(`!isSelfMove && this.#exists(dst) && !effective`) — landed in Stage 1's S-1.3 slice, pinned
+by `REQ-FAKE-04.m4` in `test/fake/move-fail-closed.test.ts`.

@@ -106,7 +106,7 @@ to attributed errors without archaeology. `EngineClient` port surface unchanged.
 
 ### ADR-0019: Batch size cap, UTF-8 measurement, text-only wire content
 
-**Status**: Proposed. **Closes**: D8 (2026-07-04), objectives-plan 1.4.
+**Status**: Accepted. **Closes**: D8 (2026-07-04), objectives-plan 1.4.
 
 **Context**: The `Batch` needs a size cap, but no unit/encoding/enforcement-site existed. Two
 axes were open: measurement unit and where the check runs. ADR-0018 forbids SDK-side validation.
@@ -140,7 +140,7 @@ under-counts the real wire size (the REQ-01.2 fixture proves the flip). *Measure
 
 ### ADR-0017 Amendment (2026-07-04b): self-move identity exclusion
 
-**Status**: Proposed (amends Accepted ADR-0017). The fail-closed destination check excludes
+**Status**: Accepted (amends Accepted ADR-0017). The fail-closed destination check excludes
 identity: when a `move`'s resolved destination equals its source (`dst === src`), it is **not**
 a collision — a self-move is a file-preserving success, no `force` required. **Rationale**:
 colliding with yourself is not data loss; matches fs `rename` semantics. **Alternative rejected**:

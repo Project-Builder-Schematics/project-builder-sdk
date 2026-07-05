@@ -3,8 +3,10 @@
   "parent_plan": "openspec/objectives-plan.md Stage 1",
   "triage": "L",
   "triage_note": "Unanimous L (triage executor + architect + pm, blind). Top of L band (~18-22 files, ~900-1400 lines); XL escalation trigger: >8 slices at sdd-slice OR explore finds file-touch materially above ~22.",
-  "phase": "verify-plan",
-  "phase_status": "READY (owner override at iteration 4, authorized past 3-limit; verify-plan-4.md carries rationale)",
+  "phase": "archived",
+  "phase_status": "COMPLETE 2026-07-05 @ 141da2d — full cycle closed: build (4 batches, suite 188->243), verify final pass-with-followups, council 3x approve-with-notes, judgment-day APPROVED, steward DELIVERED (CQs affirmed), arch audit CLEAN, archived to openspec/changes/archive/2026-07-05-stage-1-ir-bedrock; ADR-0019 + ADR-0017 amendment promoted; branch feat/stage-1-ir-bedrock ready for PR after /simplify",
+  "build_branch": "feat/stage-1-ir-bedrock",
+  "build_batches": "B1: S-1.3 | B2: S-1.4 + S-1.5/1.6 + S-1.8 + S-1.9 (parallel, disjoint files) | B3: S-1.7 | B4: S-1.1; verify in-loop per batch, orchestrator commits per verified batch",
   "completed_phases": [
     "triage",
     "explore",
@@ -15,7 +17,7 @@
     "slice",
     "verify-plan"
   ],
-  "next_phase": "build (/build): S-1.3 first (irreversible: move.force? wire), chain S-1.3->S-1.4->S-1.7->S-1.1; S-1.5/1.6 + S-1.8 parallel; S-1.9 after S-1.3. Verify in-loop per batch, max 3 iters.",
+  "next_phase": "verify final (/evaluate): sdd-verify --mode=final (opus, architect+qa+tech-writer per personas_downstream) -> adversarial_review decision -> arch_refresh_post_verify (impact modifying, REQUIRED) -> steward reckoning -> arch audit gate -> archive. Note carried from apply: sub-agents flagged architecture-baseline consultation for final-verify.",
   "scope_note": "Items 1.1, 1.3, 1.4, 1.5, 1.6, 1.7-impl, 1.8, 1.9 (1.2/D1 and D6 decisions already ratified \u2014 implementation only). ONE change (2-of-3 council + executor); PM dissent on 1.9 (split-out candidate) carried into slicing: if slices > 7, 1.9 is first out.",
   "council_convergence": "ALL THREE blind lenses flagged 1.4's cap unit (bytes vs UTF-16) + modify.content encoding posture as a hidden unratified decision \u2014 surface as D8 for owner ratification before 1.4 builds; do NOT let a build agent decide it.",
   "ordering_constraint": "Contract-freeze BEFORE pinning: 1.3 (move force? wire) -> 1.4 (cap ADR) -> 1.7 (fake wire-modeling) precede 1.1 (golden fixtures + determinism). 1.1 is a LATE item despite its number. 1.5/1.6/1.8/1.9 hang off.",
@@ -38,8 +40,8 @@
   "slices": true,
   "slice_target": "6-7 (batch 1.5+1.6)",
   "plan_verify": "ready (HUMAN OVERRIDE iter 4, 2026-07-04). Judge A clean 3x consecutive; Judge B asymptote confirmed (4 disjoint question sets, 22/22 answered by existing artefacts). 1.6-no-REQ override at iter 1. Mirrors #1 precedent.",
-  "verify_final": "pending",
-  "arch_audit": "n/a",
+  "verify_final": "pass-with-followups",
+  "arch_audit": "clean",
   "in_loop_iteration": 0,
   "personas": [
     "architect",

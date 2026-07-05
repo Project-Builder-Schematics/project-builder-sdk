@@ -117,3 +117,50 @@ carve-out. Moving it to `test/support/` removed both problems.
 the write-only-factory bug. Making it REQ-KIT-05 with a GIVEN/WHEN/THEN closed it.
 **Where**: Any API with lifecycle/flush/cleanup semantics.
 **Learned**: If a guarantee isn't in the spec, it isn't tested.
+
+## From `stage-1-ir-bedrock` (2026-07-05)
+
+### Identity exclusion proved load-bearing via triangulation regression
+**What**: When implementing fail-closed collision detection for `move`, the naive `#exists(dst)` check
+without self-move identity exclusion initially passed but went RED during apply verification — proving
+the identity exclusion (`dst === src` → success, no-op) kills a real mutation.
+**Why**: The check was initially implemented without the identity guard, passing all green-path tests.
+Only during apply triangulation (REQ-FAKE-04.m4: "self-move succeeds") did the fixture expose that
+the naive check incorrectly rejected a file moving to itself. Adding the identity exclusion flipped
+the test from RED → GREEN, proving the exclusion is not defensive but load-bearing.
+**Where**: Any seam rule involving collision detection or identity-like comparisons (move/rename/copy
+with forced overwrites, cache invalidation, dedup logic).
+**Learned**: Triangulation regression (test goes RED after naive implementation, then GREEN after
+adding the subtle rule) is the strongest signal that a requirement is load-bearing, not just defensive.
+Budget time for triangulation during apply.
+
+Source: change `stage-1-ir-bedrock` (2026-07-05)
+
+### Stage-boundary markers guide cross-stage collaboration
+**What**: Mark raw seam rejections with `// RAW-UNTIL-STAGE-N` comments so the next stage locates
+upgrade sites without archaeology or grepping the whole change.
+**Why**: This stage's five emit-seam rejections (cap-exceeded, round-trip-mismatch, move-collision,
+modify-existence, stringify-throw) all carry `// RAW-UNTIL-STAGE-2.1` markers. Stage 2.1's design
+can search for these markers to find exactly which raw `ContractFake:` throws need to become attributed
+`AuthoringError` instances, without reading the full apply history or design.
+**Where**: Multi-stage work where one stage's boundary code feeds into another stage's error handling
+(e.g., seam validation → error attribution, fake behaviours → real engine mapping).
+**Learned**: Explicit stage-boundary markers in code are a process pattern, not a code smell. They
+close handoffs cleanly and scale with parallelism.
+
+Source: change `stage-1-ir-bedrock` (2026-07-05)
+
+### Seam contracts need fixture adversarialism to kill encoding mutants
+**What**: Boundary fixtures for encoding/serialization logic must include multi-byte and escape-character
+content specifically sized to distinguish mutants (raw-vs-serialized measurement, UTF-8 vs UTF-16).
+**Why**: REQ-01 (batch cap) and REQ-02 (boundary pass-through) both require fixtures that are
+intentionally constructed to fail under plausible wrong implementations. The at-cap and over-cap
+fixtures have raw-content-bytes < cap < serialized-bytes, so a raw-measurement mutant passes the
+over-cap boundary when it should reject. Plain-ASCII fixtures cannot distinguish this from a correct
+UTF-8 implementation. Multi-byte content adds another axis (UTF-16 code-unit mutant vs byte mutant).
+**Where**: Any seam test involving measurement, encoding, or serialization (JSON boundary, wire size cap,
+path normalization, content type pins).
+**Learned**: Fixture design for seam tests is not about happy paths — it's about killing mutants.
+Adversarially construct fixtures to be wrong under plausible mutations. ASCII fixtures are never enough.
+
+Source: change `stage-1-ir-bedrock` (2026-07-05)

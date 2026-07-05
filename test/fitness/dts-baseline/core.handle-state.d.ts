@@ -6,7 +6,7 @@ import type { ReadOps, WriteOps } from "./base-handle.ts";
  *
  * @example
  * const h = modify("src/config.ts", "export const version = '2.0.0';");
- * const content = await h.read();
+ * const c = await h.read(); // string | undefined — branch with === undefined / === ""
  */
 export interface WritableHandle extends ReadOps, WriteOps {
 }

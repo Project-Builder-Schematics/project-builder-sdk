@@ -9,7 +9,7 @@ export interface ReadOps {
 export interface WriteOps {
   modify(content: string): WritableHandleRef;
   rename(newName: string, opts?: { force?: boolean }): WritableHandleRef;
-  move(toDir: string): WritableHandleRef;
+  move(toDir: string, opts?: { force?: boolean }): WritableHandleRef;
   copy(to: string, opts?: { force?: boolean }): WritableHandleRef;
 }
 

@@ -1,5 +1,5 @@
 /**
- * KIT-03: DirectiveFactory.create — pure, ADR-0028 shapes, template unrendered.
+ * KIT-03: DirectiveFactory.create — pure, ADR-0013 shapes, template unrendered.
  */
 import { describe, it, expect } from "bun:test";
 import { DirectiveFactory } from "../../src/core/directive-factory.ts";
@@ -58,6 +58,27 @@ describe("DirectiveFactory.create", () => {
 
     if (directive.op === "create") {
       expect("force" in directive.create).toEqual(false);
+    }
+  });
+});
+
+describe("DirectiveFactory.move (REQ-KIT-03.1 — force threading)", () => {
+  it("threads force:true from MoveArgs to the wire directive", () => {
+    const factory = new DirectiveFactory();
+    const directive = factory.move({ path: "src/foo.ts", toDir: "lib", force: true });
+
+    expect(directive).toEqual({
+      op: "move",
+      move: { path: "src/foo.ts", toDir: "lib", force: true },
+    });
+  });
+
+  it("omits force key when not provided (REQ-KIT-03.3)", () => {
+    const factory = new DirectiveFactory();
+    const directive = factory.move({ path: "src/foo.ts", toDir: "lib" });
+
+    if (directive.op === "move") {
+      expect("force" in directive.move).toEqual(false);
     }
   });
 });

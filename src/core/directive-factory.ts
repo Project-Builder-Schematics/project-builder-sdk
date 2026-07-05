@@ -27,12 +27,19 @@ export interface RenameArgs {
 export interface MoveArgs {
   path: string;
   toDir: string;
+  force?: boolean;
 }
 
 export interface CopyArgs {
   from: string;
   to: string;
   force?: boolean;
+}
+
+// Key-omission semantics are spec-pinned: `"force" in directive === false` when undefined —
+// never emit `force: undefined`.
+export function forceEntry(force: boolean | undefined): { force?: boolean } {
+  return force !== undefined ? { force } : {};
 }
 
 export class DirectiveFactory {
@@ -43,7 +50,7 @@ export class DirectiveFactory {
         pathTemplate: a.pathTemplate,
         template: a.template,
         options: a.options,
-        ...(a.force !== undefined ? { force: a.force } : {}),
+        ...forceEntry(a.force),
       },
     };
   }
@@ -52,7 +59,7 @@ export class DirectiveFactory {
     return { op: "modify", modify: { path: a.path, content: a.content } };
   }
 
-  // Author verb `remove` lowers to wire op `delete` — ADR-0028 vocabulary; they deliberately differ.
+  // Author verb `remove` lowers to wire op `delete` — ADR-0013 vocabulary; they deliberately differ.
   remove(a: RemoveArgs): Directive {
     return { op: "delete", delete: { path: a.path } };
   }
@@ -63,23 +70,30 @@ export class DirectiveFactory {
       rename: {
         path: a.path,
         newName: a.newName,
-        ...(a.force !== undefined ? { force: a.force } : {}),
+        ...forceEntry(a.force),
       },
     };
   }
 
   move(a: MoveArgs): Directive {
-    return { op: "move", move: { path: a.path, toDir: a.toDir } };
+    return {
+      op: "move",
+      move: {
+        path: a.path,
+        toDir: a.toDir,
+        ...forceEntry(a.force),
+      },
+    };
   }
 
-  // `copy` emits the ADR-0028 shape only — apply behaviour is deferred to vNext.
+  // `copy` emits the ADR-0013 shape only — apply behaviour is deferred to vNext.
   copy(a: CopyArgs): Directive {
     return {
       op: "copy",
       copy: {
         from: a.from,
         to: a.to,
-        ...(a.force !== undefined ? { force: a.force } : {}),
+        ...forceEntry(a.force),
       },
     };
   }

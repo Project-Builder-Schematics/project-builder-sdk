@@ -10,43 +10,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { ContractFake } from "../support/contract-fake.ts";
-import type { Batch, Directive } from "../../src/core/wire.ts";
-
-// ─── helpers ─────────────────────────────────────────────────────────────────
-
-function batch(force: boolean, ...instructions: Directive[]): Batch {
-  return { protocolVersion: 1, force, instructions };
-}
-
-function createOp(path: string, content: string, force?: boolean): Directive {
-  const op: { pathTemplate: string; template: string; options: Record<string, never>; force?: boolean } = {
-    pathTemplate: path,
-    template: content,
-    options: {},
-  };
-  if (force !== undefined) op.force = force;
-  return { op: "create", create: op };
-}
-
-function modifyOp(path: string, content: string): Directive {
-  return { op: "modify", modify: { path, content } };
-}
-
-function deleteOp(path: string): Directive {
-  return { op: "delete", delete: { path } };
-}
-
-function renameOp(path: string, newName: string, force?: boolean): Directive {
-  const op: { path: string; newName: string; force?: boolean } = { path, newName };
-  if (force !== undefined) op.force = force;
-  return { op: "rename", rename: op };
-}
-
-function copyOp(from: string, to: string, force?: boolean): Directive {
-  const op: { from: string; to: string; force?: boolean } = { from, to };
-  if (force !== undefined) op.force = force;
-  return { op: "copy", copy: op };
-}
+import { batch, createOp, modifyOp, deleteOp, renameOp, copyOp } from "./directive-builders.ts";
 
 // ─── FAKE-01: eager batch apply in array order ────────────────────────────────
 
