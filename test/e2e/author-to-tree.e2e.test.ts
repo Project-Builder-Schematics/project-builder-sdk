@@ -11,7 +11,7 @@
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, modify, move } from "../../src/commons/index.ts";
+import { create, find, modify, move } from "../../src/commons/index.ts";
 
 describe("e2e — author-to-tree (pyramid REQ-04.1)", () => {
   it("create then modify commits a golden end-state tree", async () => {
@@ -39,8 +39,13 @@ describe("e2e — author-to-tree (pyramid REQ-04.1)", () => {
       },
     });
 
-    const run = defineFactory<void>(() => {
-      move("src/utils/helper.ts", "src/shared", { force: true });
+    const run = defineFactory<void>(async () => {
+      const moved = move("src/utils/helper.ts", "src/shared", { force: true });
+      // Observable via the public read surface, not just the committed golden below:
+      // the destination carries the moved source's content, and the source no longer
+      // resolves (read() flushes the pending move directive before delegating).
+      expect(await moved.read()).toEqual("export const helper = 1;");
+      expect(await find("src/utils/helper.ts").read()).toBeUndefined();
     });
 
     await run(undefined, { client: fake });

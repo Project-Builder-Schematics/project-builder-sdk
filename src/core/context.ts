@@ -56,8 +56,14 @@ export function defineFactory<O>(
       try {
         await ctx.session.discard();
       } catch (discardErr) {
-        if (err instanceof Error) {
-          err.cause = discardErr;
+        // Never clobber a pre-existing cause chain on E1, and never let a frozen/sealed
+        // E1 throw on assignment replace E1 itself — either way E1 must survive unchanged.
+        if (err instanceof Error && err.cause === undefined) {
+          try {
+            err.cause = discardErr;
+          } catch {
+            // E1 rejected the assignment (frozen/sealed) — propagate E1 unchanged.
+          }
         }
       }
       throw err;

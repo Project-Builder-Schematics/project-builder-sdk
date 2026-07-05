@@ -69,4 +69,19 @@ describe("REQ-10 — double-fault error preservation", () => {
     await expect(run(undefined, { client: fake })).rejects.toBe(e1);
     expect(e1.cause).toBeUndefined();
   });
+
+  it("REQ-10.4 (no-clobber) — E1 arrives with a pre-set cause: a discard() rejection must not replace it", async () => {
+    const preExistingCause = new Error("original cause, set before the factory ran");
+    const e1 = new Error("factory error E1", { cause: preExistingCause });
+    const e2 = new Error("discard rejection E2");
+    const client = new DiscardRejectingClient(new ContractFake({ seed: {} }), e2);
+
+    const run = defineFactory<void>(() => {
+      create("src/buffered.ts", { template: "buffered", options: {} });
+      throw e1;
+    });
+
+    await expect(run(undefined, { client })).rejects.toBe(e1);
+    expect(e1.cause).toBe(preExistingCause);
+  });
 });

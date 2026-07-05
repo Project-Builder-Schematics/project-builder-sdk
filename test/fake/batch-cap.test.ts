@@ -61,7 +61,10 @@ describe("REQ-01.3 — SDK never pre-validates; the rejection originates from th
       modify(path, content);
     });
 
-    await expect(run(undefined, { client: fake })).rejects.toThrow();
+    // Goes through defineFactory → Session.flush → toAuthoringError (ADR-02 gap-#2): the
+    // raw fake message ("...exceeds...") is intentionally discarded, so the tightened
+    // matcher targets the AuthoringError's fixed verb+path format, not the fake's text.
+    await expect(run(undefined, { client: fake })).rejects.toThrow(`modify failed at ${FIXTURE_PATH}`);
     // The fake's emit was actually invoked — Session.flush carries no SDK-side size
     // branch that would short-circuit before reaching the engine seam.
     expect(emitSpy).toHaveBeenCalledTimes(1);

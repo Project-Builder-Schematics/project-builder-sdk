@@ -98,6 +98,48 @@ describe("boundary REQ-02.3 — BigInt and circular references reject (stringify
   });
 });
 
+describe("boundary REQ-01/02 — non-finite numbers and negative zero mutate silently through JSON, caught only by the round-trip comparison [characterization]", () => {
+  it("rejects when an option value is NaN (author-reachable via a 0/0 division; round-trips to null)", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const options = { ratio: 0 / 0 };
+
+    await expect(fake.emit(batch(createOp("src/nan.ts", "content", options)))).rejects.toThrow(
+      /round-trip fidelity/
+    );
+    expect(await fake.read("src/nan.ts")).toBeUndefined();
+  });
+
+  it("rejects when an option value is Infinity (author-reachable via a 1/0 division; round-trips to null)", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const options = { limit: 1 / 0 };
+
+    await expect(fake.emit(batch(createOp("src/infinity.ts", "content", options)))).rejects.toThrow(
+      /round-trip fidelity/
+    );
+    expect(await fake.read("src/infinity.ts")).toBeUndefined();
+  });
+
+  it("rejects when an option value is -Infinity (author-reachable via a -1/0 division; round-trips to null)", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const options = { limit: -1 / 0 };
+
+    await expect(fake.emit(batch(createOp("src/neg-infinity.ts", "content", options)))).rejects.toThrow(
+      /round-trip fidelity/
+    );
+    expect(await fake.read("src/neg-infinity.ts")).toBeUndefined();
+  });
+
+  it("rejects when an option value is -0 (round-trips to 0 — RED-first pin for the Object.is comparator fix)", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const options = { offset: -0 };
+
+    await expect(fake.emit(batch(createOp("src/neg-zero.ts", "content", options)))).rejects.toThrow(
+      /round-trip fidelity/
+    );
+    expect(await fake.read("src/neg-zero.ts")).toBeUndefined();
+  });
+});
+
 describe("boundary REQ-03.1 — an odd path crosses the seam unmodified [characterization]", () => {
   it("the emitted directive carries the exact literal path, unresolved, and a read of that literal key returns the content", async () => {
     const fake = new ContractFake({ seed: {} });

@@ -16,7 +16,9 @@ import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 // a missing key (Object.keys length differs) or a null-vs-non-null array element, never
 // as a thrown error.
 function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
+  // Object.is, not `===`: `-0 === 0` is true but JSON round-trips -0 to 0, so `===`
+  // would silently pass a fidelity-breaking mutation (fail-closed posture, REQ-01/02).
+  if (Object.is(a, b)) return true;
   if (Array.isArray(a) || Array.isArray(b)) {
     if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
     return a.every((value, index) => deepEqual(value, b[index]));
