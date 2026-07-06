@@ -17,7 +17,21 @@ import { describe, it, expect } from "bun:test";
 import { defineFactory, currentContext } from "../../src/core/context.ts";
 import { AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, modify } from "../../src/commons/index.ts";
+import { create, modify, find, rename, move, copy } from "../../src/commons/index.ts";
+import type { JsonValue } from "../../src/core/wire.ts";
+
+// Shared boilerplate for the REQ-14/15 cases below: run a factory against a fresh fake,
+// return whatever it threw. The real cross-boundary path (defineFactory → Session →
+// ContractFake), no mocks — same posture as the file's original three tests.
+async function rejectedRun(fake: ContractFake, fn: () => void | Promise<void>): Promise<unknown> {
+  const run = defineFactory<void>(fn);
+  try {
+    await run(undefined, { client: fake });
+    return undefined;
+  } catch (err) {
+    return err;
+  }
+}
 
 describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () => {
   it("REQ-10.1 / REQ-11.2 / REQ-12.1 / REQ-12.2 / REQ-13.1 / REQ-AEC-04.1 — forced collision rejects with a public AuthoringError{verb,path,reason}, discard fires", async () => {
@@ -109,5 +123,156 @@ describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () 
     expect(engineError.origin).toEqual("write-rejected");
     expect(misuseError.origin).toEqual("authoring-rejected");
     expect(engineError.origin).not.toEqual(misuseError.origin);
+  });
+});
+
+describe("REQ-14.2 — every directive-level verb + failure form attributes correctly, cross-boundary", () => {
+  it("create-collision: verb create, path is the pathTemplate", async () => {
+    const fake = new ContractFake({ seed: { "a.ts": "old" } });
+    const caught = await rejectedRun(fake, () => {
+      create("a.ts", { template: "new", options: {} });
+    });
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const err = caught as AuthoringError;
+    expect(err.verb).toEqual("create");
+    expect(err.path).toEqual("a.ts");
+    expect(err.reason).toEqual("path-collision");
+  });
+
+  it("modify-not-found: verb modify, path is the missing target", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const caught = await rejectedRun(fake, () => {
+      modify("missing.ts", "patched");
+    });
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const err = caught as AuthoringError;
+    expect(err.verb).toEqual("modify");
+    expect(err.path).toEqual("missing.ts");
+    expect(err.reason).toEqual("path-not-found");
+  });
+
+  it("rename-collision: verb rename, path is the SOURCE — not the computed destination", async () => {
+    // rename("a.ts", "b.ts") collides at destination "b.ts"; primaryPath (design §4.3)
+    // attributes to the source "a.ts", never the computed dirname(path)/newName target.
+    const fake = new ContractFake({ seed: { "a.ts": "A", "b.ts": "B" } });
+    const caught = await rejectedRun(fake, () => {
+      rename("a.ts", "b.ts");
+    });
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const err = caught as AuthoringError;
+    expect(err.verb).toEqual("rename");
+    expect(err.path).toEqual("a.ts");
+    expect(err.reason).toEqual("path-collision");
+  });
+
+  it("rename-source-not-found: verb rename, path is the missing source", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const caught = await rejectedRun(fake, () => {
+      rename("missing.ts", "renamed.ts");
+    });
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const err = caught as AuthoringError;
+    expect(err.verb).toEqual("rename");
+    expect(err.path).toEqual("missing.ts");
+    expect(err.reason).toEqual("path-not-found");
+  });
+
+  it("move-collision: verb move, path is the SOURCE — not the computed destination", async () => {
+    // move("src/a.ts", "lib") collides at destination "lib/a.ts"; primaryPath attributes
+    // to the source "src/a.ts", never the computed toDir/basename target.
+    const fake = new ContractFake({ seed: { "src/a.ts": "A", "lib/a.ts": "B" } });
+    const caught = await rejectedRun(fake, () => {
+      move("src/a.ts", "lib");
+    });
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const err = caught as AuthoringError;
+    expect(err.verb).toEqual("move");
+    expect(err.path).toEqual("src/a.ts");
+    expect(err.reason).toEqual("path-collision");
+  });
+
+  it("move-source-not-found: verb move, path is the missing source", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const caught = await rejectedRun(fake, () => {
+      move("missing.ts", "lib");
+    });
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const err = caught as AuthoringError;
+    expect(err.verb).toEqual("move");
+    expect(err.path).toEqual("missing.ts");
+    expect(err.reason).toEqual("path-not-found");
+  });
+
+  it("copy-collision: verb copy, path is the SOURCE (from) — not the destination (to)", async () => {
+    // The design §4.3 worked example: copy("a.ts","b.ts") collides at "b.ts", attribution
+    // names "a.ts" — the exact case the spec calls out.
+    const fake = new ContractFake({ seed: { "a.ts": "A", "b.ts": "B" } });
+    const caught = await rejectedRun(fake, () => {
+      copy("a.ts", "b.ts");
+    });
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const err = caught as AuthoringError;
+    expect(err.verb).toEqual("copy");
+    expect(err.path).toEqual("a.ts");
+    expect(err.reason).toEqual("path-collision");
+    expect(err.message).toEqual("copy failed at a.ts: path-collision");
+  });
+
+  it("copy-source-not-found: verb copy, path is the missing source (from)", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const caught = await rejectedRun(fake, () => {
+      copy("missing.ts", "dest.ts");
+    });
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const err = caught as AuthoringError;
+    expect(err.verb).toEqual("copy");
+    expect(err.path).toEqual("missing.ts");
+    expect(err.reason).toEqual("path-not-found");
+  });
+});
+
+describe("REQ-14.3 — batch-level rejections never fabricate a verb or path", () => {
+  it("unrepresentable-content (round-trip-drop): reason set, verb/path undefined, appliedCount 0", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const caught = await rejectedRun(fake, () => {
+      // A function value survives JSON.stringify's own throw but is silently DROPPED by
+      // it — the round-trip-drop family (contract-fake.ts's deepEqual guard), distinct
+      // from the BigInt stringify-throw family already pinned in batch-cap.test.ts.
+      create("a.ts", { template: "A", options: { fn: () => {} } as unknown as JsonValue });
+    });
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const err = caught as AuthoringError;
+    expect(err.reason).toEqual("unrepresentable-content");
+    expect(err.verb).toBeUndefined();
+    expect(err.path).toBeUndefined();
+    expect(err.appliedCount).toEqual(0);
+  });
+});
+
+describe("REQ-15.1 / REQ-15.2 — appliedCount is per-flush, and a later-flush failure discards the whole run", () => {
+  it("a later flush's failure reports only its OWN flush's applied directives and wipes the earlier flush's staged writes", async () => {
+    // Precondition (REQ-15.1): B must be seeded so `modify B` APPLIES in the failing
+    // flush — without it, `modify B` itself would reject at index 0 and appliedCount:1
+    // would be unreachable.
+    const fake = new ContractFake({ seed: { "B.ts": "seed-B" } });
+
+    const caught = await rejectedRun(fake, async () => {
+      create("A.ts", { template: "A", options: {} });
+      await find("A.ts").read(); // flush #1 — A applies and succeeds, already staged
+      modify("B.ts", "patched-B");
+      modify("C.ts", "patched-C"); // C has no target → flush #2 rejects at index 1
+    });
+
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const err = caught as AuthoringError;
+    // REQ-15.1 — only B (index 0 of the FAILING batch) counts, not A from the earlier,
+    // already-succeeded flush.
+    expect(err.verb).toEqual("modify");
+    expect(err.path).toEqual("C.ts");
+    expect(err.reason).toEqual("path-not-found");
+    expect(err.appliedCount).toEqual(1);
+    // REQ-15.2 — run-level discard (ADR-01) wiped A's earlier successful flush too; the
+    // committed tree is empty on any failed run regardless, so staging is the proof.
+    expect(fake.stagingTree().size).toEqual(0);
   });
 });
