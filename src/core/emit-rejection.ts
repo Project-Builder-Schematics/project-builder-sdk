@@ -8,6 +8,15 @@
 
 export type EmitRejectionCode = "collision" | "not-found" | "unrepresentable" | "cap";
 
+/**
+ * Port-contract precondition (ADR-0022 — binding on every EngineClient implementation,
+ * including the Stage 6 real engine): a DIRECTIVE-level rejection (`code: "collision" |
+ * "not-found"`) MUST carry a `failedIndex` in range of the emitted batch's instructions.
+ * A thrower that violates this yields `verb`/`path` `undefined` on the translated
+ * `AuthoringError` BY CONTRACT — the translation does not guess an offender, and the
+ * message template is selected BY REASON (REQ-AEC-06), never by verb/path presence, so
+ * no fallback masks the violation.
+ */
 export class EmitRejection extends Error {
   readonly code: EmitRejectionCode;
   // Directive-level only — absent for a batch-level rejection (no directive to blame).

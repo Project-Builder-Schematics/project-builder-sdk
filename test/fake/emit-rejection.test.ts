@@ -6,6 +6,7 @@
 import { describe, it, expect } from "bun:test";
 import { ContractFake } from "../support/contract-fake.ts";
 import { EmitRejection } from "../../src/core/emit-rejection.ts";
+import { toAuthoringError } from "../../src/core/authoring-error.ts";
 import type { JsonValue } from "../../src/core/wire.ts";
 import { batchOf, createOp, modifyOp } from "./directive-builders.ts";
 import { batchOverSerializedBytes, FIXTURE_PATH } from "./batch-cap-fixtures.ts";
@@ -131,5 +132,28 @@ describe("REQ-ERM-01.3 — classification uses the code, never message text", ()
     const rejection = caught as EmitRejection;
     expect(rejection.code).toEqual("collision");
     expect(rejection.message).not.toContain("not found");
+  });
+
+  // TRANSLATION-layer decoys (mutation-tight half of the scenario): the fake-side test
+  // above never exercises toAuthoringError, so a message-text classifier smuggled into
+  // the translation would survive it. Feeding a well-formed EmitRejection whose message
+  // actively LIES about the family proves the mapping reads `code`, not text — a
+  // text-classifier mutant resolves the decoy words and fails both toEqual pins.
+  it("code:collision with a decoy 'not found' MESSAGE still translates to path-collision", () => {
+    const decoy = new EmitRejection("collision", 'ContractFake: target not found: "a.ts"', {
+      failedIndex: 0,
+      appliedCount: 0,
+    });
+    const err = toAuthoringError(decoy, batchOf(createOp("a.ts", "x")));
+    expect(err.reason).toEqual("path-collision");
+  });
+
+  it("code:not-found with a decoy 'already exists' MESSAGE still translates to path-not-found", () => {
+    const decoy = new EmitRejection("not-found", 'ContractFake: "a.ts" already exists (use force to overwrite)', {
+      failedIndex: 0,
+      appliedCount: 0,
+    });
+    const err = toAuthoringError(decoy, batchOf(createOp("a.ts", "x")));
+    expect(err.reason).toEqual("path-not-found");
   });
 });

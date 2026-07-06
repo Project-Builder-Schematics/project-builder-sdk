@@ -143,6 +143,12 @@ function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, pa
       return `changes could not be applied: ${reason}`;
     case "unknown":
       return `changes could not be applied: ${reason} — the SDK could not classify this failure`;
+    // Parity with originFor: noImplicitReturns is off, so without this arm a 7th reason
+    // would fall through to an implicit `undefined` return instead of a build break.
+    default: {
+      const _exhaustive: never = reason;
+      throw new Error(`messageFor: unhandled reason ${String(_exhaustive)}`);
+    }
   }
 }
 
@@ -152,6 +158,8 @@ function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, pa
  * `switch` on `.reason`, and recover.
  *
  * @example
+ * import { AuthoringError } from "@pbuilder/sdk/commons";
+ *
  * try {
  *   await run(options, { client });
  * } catch (err) {
@@ -201,7 +209,10 @@ export class AuthoringError extends Error {
 // (REQ-ERM-01 ban).
 export function toAuthoringError(raw: unknown, batch: Batch): AuthoringError {
   if (raw instanceof EmitRejection) {
-    const reason = CODE_TO_REASON[raw.code];
+    // REQ-ERM-01 totality: an absent/unrecognized code (a buggy or future engine client
+    // is not compile-checked at the throw site) degrades to "unknown" — the map lookup
+    // alone would yield undefined and crash originFor downstream.
+    const reason = CODE_TO_REASON[raw.code] ?? "unknown";
     const offender = raw.failedIndex !== undefined ? batch.instructions[raw.failedIndex] : undefined;
     return new AuthoringError({
       verb: offender ? verbFor(offender.op) : undefined,

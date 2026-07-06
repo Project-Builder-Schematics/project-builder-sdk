@@ -157,6 +157,26 @@ describe("REQ-ERM-03 — non-Error / malformed rejection degrades to reason:unkn
     expect(err.reason).toEqual("unknown");
     expect(err.appliedCount).toEqual(0);
   });
+
+  // REQ-ERM-01 code→reason map totality: "absent/unrecognized code → unknown". An
+  // EmitRejection whose `code` is off the closed union (a buggy/future engine client is
+  // not compile-checked at the throw site) must degrade like any malformed rejection —
+  // never crash inside the translation.
+  it("REQ-ERM-01 — an EmitRejection with an unrecognized (off-union) code degrades to unknown, not a crash", () => {
+    const rogue = new EmitRejection("quota-exceeded" as EmitRejectionCode, "engine grew a new code");
+    const err = toAuthoringError(rogue, batchOf());
+    expect(err.reason).toEqual("unknown");
+    expect(err.origin).toEqual("write-rejected");
+    expect(err.message).toEqual("changes could not be applied: unknown — the SDK could not classify this failure");
+  });
+
+  it("REQ-ERM-01 — an EmitRejection with an ABSENT code degrades to unknown, not a crash", () => {
+    const codeless = new EmitRejection(undefined as unknown as EmitRejectionCode, "no code at all");
+    const err = toAuthoringError(codeless, batchOf());
+    expect(err.reason).toEqual("unknown");
+    expect(err.origin).toEqual("write-rejected");
+    expect(err.message).toEqual("changes could not be applied: unknown — the SDK could not classify this failure");
+  });
 });
 
 describe("REQ-10.1 — AuthoringError carries verb and path", () => {

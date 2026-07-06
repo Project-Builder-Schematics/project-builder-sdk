@@ -26,6 +26,7 @@ import { toAuthoringError, type AuthoringError } from "../../src/core/authoring-
 import { EmitRejection } from "../../src/core/emit-rejection.ts";
 import { currentContext } from "../../src/core/context.ts";
 import { batchOf, createOp } from "../fake/directive-builders.ts";
+import * as rejectionMessages from "../support/rejection-messages.ts";
 import {
   CONTRACT_FAKE_PREFIX,
   ALREADY_EXISTS,
@@ -36,18 +37,14 @@ import {
   JSON_SERIALIZATION,
 } from "../support/rejection-messages.ts";
 
-// The same dictionary FIT-11 is specified against (REQ-AEC-05) — every literal string
-// `test/support/contract-fake.ts` actually throws, read from the one shared module so a
-// reworded fake message can never silently false-green this scan.
-const LEAK_DICTIONARY: readonly string[] = [
-  CONTRACT_FAKE_PREFIX,
-  ALREADY_EXISTS,
-  USE_FORCE_TO_OVERWRITE,
-  NOT_FOUND,
-  EXCEEDS_SIZE_CAP,
-  ROUND_TRIP_FIDELITY_CHECK,
-  JSON_SERIALIZATION,
-];
+// The dictionary FIT-11 is specified against (REQ-AEC-05): every literal string
+// `test/support/contract-fake.ts` actually throws. Derived STRUCTURALLY from the shared
+// module (not a hand-maintained list) so a NEW fragment constant added to
+// rejection-messages.ts joins the scan automatically — completeness by construction,
+// matching the design §4.7 tracked-by-construction intent.
+const LEAK_DICTIONARY: readonly string[] = Object.values(rejectionMessages).filter(
+  (value) => typeof value === "string"
+);
 
 // Bounds a runaway/legitimately-deep `.cause` chain independently of the cycle guard.
 const MAX_CAUSE_DEPTH = 20;
@@ -110,6 +107,14 @@ function outsideRunRejection(): AuthoringError {
   }
   throw new Error("currentContext() did not throw outside a run — fixture assumption broken");
 }
+
+describe("REQ-AEC-05 — dictionary derivation sanity", () => {
+  it("the structurally-derived dictionary is non-empty and contains the known fragments (an empty dictionary would false-green every scan)", () => {
+    expect(LEAK_DICTIONARY.length).toBeGreaterThanOrEqual(7);
+    expect(LEAK_DICTIONARY).toContain(CONTRACT_FAKE_PREFIX);
+    expect(LEAK_DICTIONARY).toContain(EXCEEDS_SIZE_CAP);
+  });
+});
 
 describe("REQ-AEC-05.1 — no leak across any rejection family", () => {
   const cases: Array<{ label: string; build: () => AuthoringError }> = [
