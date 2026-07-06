@@ -116,4 +116,14 @@ export { defineFactory as runFactory } from "../core/context.ts";
     expect(KIT_SYMBOL_NAMES).not.toContain("FoundHandle");
     expect(KIT_SYMBOL_NAMES).not.toContain("WritableHandle");
   });
+
+  // Boundary (ADR-0023): AuthoringError + its supporting types are author-facing DATA
+  // types crossing core → commons, NOT kit MACHINERY (EngineClient/Session/
+  // DirectiveFactory stay unexported) — mirrors the FoundHandle/WritableHandle pin above.
+  it("AuthoringError/AuthoringVerb/AuthoringReason/AuthoringOrigin are NOT in the kit symbol list", () => {
+    expect(KIT_SYMBOL_NAMES).not.toContain("AuthoringError");
+    expect(KIT_SYMBOL_NAMES).not.toContain("AuthoringVerb");
+    expect(KIT_SYMBOL_NAMES).not.toContain("AuthoringReason");
+    expect(KIT_SYMBOL_NAMES).not.toContain("AuthoringOrigin");
+  });
 });
