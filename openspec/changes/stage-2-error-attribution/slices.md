@@ -160,9 +160,9 @@ flush fails THEN `appliedCount` is per-batch and the run discards; GIVEN the e2e
 the author's `switch(reason)` reaches the correct arm.
 
 ### Tasks
-- [ ] [must-fail-first] Extend `error-attribution.test.ts` — REQ-14 every-verb +
+- [x] [must-fail-first] Extend `error-attribution.test.ts` — REQ-14 every-verb +
   non-first-index scenarios; REQ-15 multi-flush `appliedCount` + staging-discard proof
-- [ ] [must-fail-first] `test/e2e/error-attribution.e2e.test.ts` — REQ-17 full journey +
+- [x] [must-fail-first] `test/e2e/error-attribution.e2e.test.ts` — REQ-17 full journey +
   switch-branch assertion
 
 ---
@@ -201,9 +201,9 @@ WHEN classified THEN `"absent"`/`"empty"`/`"present"` per trichotomy; falsy-trio
 `"present"`.
 
 ### Tasks
-- [ ] [characterization] `classify-content.ts` (+ `ContentState`), `classify-content.test.ts`,
+- [x] [characterization] `classify-content.ts` (+ `ContentState`), `classify-content.test.ts`,
   `content-state.test.ts` (never-arm pin)
-- [ ] `commons/index.ts` — droppable re-export + `find()` JSDoc pointer; regen FIT-04
+- [x] `commons/index.ts` — droppable re-export + `find()` JSDoc pointer; regen FIT-04
   baselines again (new exports, additive)
 
 ---
