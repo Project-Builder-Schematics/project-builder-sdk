@@ -179,10 +179,10 @@ documents `appliedCount`, `@example`s, and the 5 verbs' cross-refs; GIVEN review
 non-sites are named.
 
 ### Tasks
-- [ ] [permanent-fixture] `test/fitness/fit-11-*.test.ts` (3 planted-leak red-proofs; imports
+- [x] [permanent-fixture] `test/fitness/fit-11-*.test.ts` (3 planted-leak red-proofs; imports
   `rejection-messages.ts`, constraint 5)
-- [ ] [characterization] Pin `AuthoringError` family as not-kit in `fit-08-*.test.ts`
-- [ ] [characterization] `doc-discoverability.test.ts` (AEC-03.2/-04.3/-04.4/REQ-16.1 — JSDoc
+- [x] [characterization] Pin `AuthoringError` family as not-kit in `fit-08-*.test.ts`
+- [x] [characterization] `doc-discoverability.test.ts` (AEC-03.2/-04.3/-04.4/REQ-16.1 — JSDoc
   already in S-000, RED taxonomy (d))
 
 ---
