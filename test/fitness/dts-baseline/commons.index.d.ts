@@ -5,6 +5,8 @@ import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../core/au
 export type { FoundHandle, WritableHandle };
 export { AuthoringError };
 export type { AuthoringVerb, AuthoringReason, AuthoringOrigin };
+export { classifyContent } from "./classify-content.ts";
+export type { ContentState } from "./classify-content.ts";
 /**
  * Options for the `create` author verb.
  *
@@ -25,7 +27,8 @@ export interface CreateOptions {
  * `read()` resolves `string | undefined`: the content, `undefined` when the path does not
  * exist, or `""` when the file exists but is empty. Branch on the three outcomes with strict
  * `=== undefined` / `=== ""` — NEVER `if (!content)`, which would merge `undefined`, `""`,
- * `"0"` and `"false"` and reintroduce the absent-vs-empty bug.
+ * `"0"` and `"false"` and reintroduce the absent-vs-empty bug. Prefer `classifyContent()`
+ * over manual comparisons — it names the trichotomy and gives exhaustive-switch parity.
  *
  * @example
  * const c = await find("src/config.ts").read();

@@ -17,6 +17,12 @@ export type { FoundHandle, WritableHandle };
 export { AuthoringError };
 export type { AuthoringVerb, AuthoringReason, AuthoringOrigin };
 
+// 2.3 (CQ-1, droppable): classifyContent + ContentState give authors a named,
+// branchable read-result classification (see find()'s JSDoc pointer below). Severable
+// from the AuthoringError cluster above — no other component references it.
+export { classifyContent } from "./classify-content.ts";
+export type { ContentState } from "./classify-content.ts";
+
 /**
  * Options for the `create` author verb.
  *
@@ -104,7 +110,8 @@ function buildFoundHandle(path: string): FoundHandle {
  * `read()` resolves `string | undefined`: the content, `undefined` when the path does not
  * exist, or `""` when the file exists but is empty. Branch on the three outcomes with strict
  * `=== undefined` / `=== ""` — NEVER `if (!content)`, which would merge `undefined`, `""`,
- * `"0"` and `"false"` and reintroduce the absent-vs-empty bug.
+ * `"0"` and `"false"` and reintroduce the absent-vs-empty bug. Prefer `classifyContent()`
+ * over manual comparisons — it names the trichotomy and gives exhaustive-switch parity.
  *
  * @example
  * const c = await find("src/config.ts").read();
