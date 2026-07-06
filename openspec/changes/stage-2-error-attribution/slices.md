@@ -114,17 +114,17 @@ from `@pbuilder/sdk/commons` THEN `instanceof` holds, fields are correct, messag
 template.
 
 ### Tasks
-- [ ] [must-fail-first] `emit-rejection.ts` + `rejection-messages.ts`; wire 11 fake throw
+- [x] [must-fail-first] `emit-rejection.ts` + `rejection-messages.ts`; wire 11 fake throw
   sites; extend FIT-10; `test/fake/emit-rejection.test.ts`
-- [ ] [must-fail-first] Rewrite `authoring-error.ts` (shape, code→reason, exhaustive
+- [x] [must-fail-first] Rewrite `authoring-error.ts` (shape, code→reason, exhaustive
   `originFor` + never-arm pin per constraint 4, 3-template messages, ERM-03 degradation,
   delete→remove map, `@example`s per FIT-06); `test/skeleton/authoring-error.test.ts`
-- [ ] `session.ts` flush — pass whole batch + `failedIndex`; SEAM-04 comment
-- [ ] `engine-client.ts` — docs-only rejection-convention note
-- [ ] `commons/index.ts` — two-step re-export + 5-verb JSDoc cross-refs
-- [ ] Replace `error-attribution.test.ts` (thin cross-boundary run) + rewrite
+- [x] `session.ts` flush — pass whole batch + `failedIndex`; SEAM-04 comment
+- [x] `engine-client.ts` — docs-only rejection-convention note
+- [x] `commons/index.ts` — two-step re-export + 5-verb JSDoc cross-refs
+- [x] Replace `error-attribution.test.ts` (thin cross-boundary run) + rewrite
   `batch-cap.test.ts:67` pin (constraint 2)
-- [ ] Regen FIT-04 baselines (`commons.index`, `index`) — additive, keeps FIT-04 green
+- [x] Regen FIT-04 baselines (`commons.index`, `index`) — additive, keeps FIT-04 green
   immediately (stage-1 lesson)
 
 ---
