@@ -17,7 +17,7 @@ import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create } from "../../src/commons/index.ts";
+import { create, modify } from "../../src/commons/index.ts";
 
 describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () => {
   it("REQ-10.1 / REQ-11.2 / REQ-12.1 / REQ-12.2 / REQ-13.1 / REQ-AEC-04.1 — forced collision rejects with a public AuthoringError{verb,path,reason}, discard fires", async () => {
@@ -47,5 +47,36 @@ describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () 
     // REQ-12.2 / REQ-13.1 — discard fired; committed AND staging trees are empty.
     expect(fake.committedTree().size).toEqual(0);
     expect(fake.stagingTree().size).toEqual(0);
+  });
+
+  it("REQ-12.1 — a 3-directive batch failing at index 2 attributes verb+path to the TRUE offender, not instructions[0]", async () => {
+    // Mixed verbs by construction: index 0/1 are `create`, the offender at index 2 is a
+    // `modify` of a non-existent path — an `instructions[0]` mutant yields wrong verb AND
+    // wrong path, not just wrong path. Mutation-guarded: reverting authoring-error.ts to
+    // `batch.instructions[0]` makes every attribution toEqual below fail.
+    const fake = new ContractFake({ seed: {} });
+
+    const run = defineFactory<void>(() => {
+      create("a.ts", { template: "A", options: {} });
+      create("b.ts", { template: "B", options: {} });
+      modify("missing.ts", "patched"); // no such target → rejects at index 2
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client: fake });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const authoringError = caught as AuthoringError;
+    // The true offender per the structured rejection's failedIndex — source-side
+    // primaryPath (design §4.3): modify.path.
+    expect(authoringError.verb).toEqual("modify");
+    expect(authoringError.path).toEqual("missing.ts");
+    expect(authoringError.reason).toEqual("path-not-found");
+    // Non-zero applied boundary: both creates before the offender applied (toEqual, not truthy).
+    expect(authoringError.appliedCount).toEqual(2);
   });
 });
