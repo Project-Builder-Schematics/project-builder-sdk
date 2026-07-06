@@ -140,10 +140,10 @@ template.
 preserved, AND one test contrasts it against an engine-origin case (origins differ).
 
 ### Tasks
-- [ ] [must-fail-first] `context.ts` — `currentContext()` throws `AuthoringError` (prose
+- [x] [must-fail-first] `context.ts` — `currentContext()` throws `AuthoringError` (prose
   moves to the 3rd template); double-fault block untouched (constraint 6)
-- [ ] Add `instanceof`/`origin`/`reason` assertion beside the `:12` pin in `context.test.ts`
-- [ ] Add origin-contrast test in `error-attribution.test.ts` (shared file with S-002 —
+- [x] Add `instanceof`/`origin`/`reason` assertion beside the `:12` pin in `context.test.ts`
+- [x] Add origin-contrast test in `error-attribution.test.ts` (shared file with S-002 —
   sequence, no logical coupling)
 
 ---

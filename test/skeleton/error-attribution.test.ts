@@ -14,7 +14,7 @@
  * logical coupling to this scenario.
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory, currentContext } from "../../src/core/context.ts";
 import { AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, modify } from "../../src/commons/index.ts";
@@ -78,5 +78,36 @@ describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () 
     expect(authoringError.reason).toEqual("path-not-found");
     // Non-zero applied boundary: both creates before the offender applied (toEqual, not truthy).
     expect(authoringError.appliedCount).toEqual(2);
+  });
+
+  it("REQ-AEC-02.3 — an engine rejection and an outside-run misuse are distinguishable by origin, in one assertion", async () => {
+    const fake = new ContractFake({ seed: { "src/existing.ts": "old" } });
+
+    const run = defineFactory<void>(() => {
+      create("src/existing.ts", { template: "new", options: {} });
+    });
+
+    let engineCaught: unknown;
+    try {
+      await run(undefined, { client: fake });
+    } catch (err) {
+      engineCaught = err;
+    }
+
+    let misuseCaught: unknown;
+    try {
+      currentContext();
+    } catch (err) {
+      misuseCaught = err;
+    }
+
+    expect(engineCaught).toBeInstanceOf(AuthoringError);
+    expect(misuseCaught).toBeInstanceOf(AuthoringError);
+    const engineError = engineCaught as AuthoringError;
+    const misuseError = misuseCaught as AuthoringError;
+
+    expect(engineError.origin).toEqual("write-rejected");
+    expect(misuseError.origin).toEqual("authoring-rejected");
+    expect(engineError.origin).not.toEqual(misuseError.origin);
   });
 });
