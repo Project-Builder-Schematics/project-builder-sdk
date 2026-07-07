@@ -164,3 +164,63 @@ path normalization, content type pins).
 Adversarially construct fixtures to be wrong under plausible mutations. ASCII fixtures are never enough.
 
 Source: change `stage-1-ir-bedrock` (2026-07-05)
+
+## From `stage-2-error-attribution` (2026-07-06)
+
+### Mutation-probe verification is evaluator discipline, not a nice-to-have
+**What**: A verifier must run hand-mutation probes against the claims under review — mutate the
+arm a test allegedly guards, watch the suite, revert — instead of trusting coverage claims.
+**Why**: It caught what coverage claims missed TWICE in this change: in-loop #1 found REQ-12.1's
+`instructions[0]` unguarded (the mutant survived a "covered" scenario), and final verify's
+rogue-code probe exposed a degradation crash. Single-directive and same-verb fixtures pass
+attribution claims while proving nothing — they are theatre for "attributes to the actual offender".
+**Where**: Any verify pass over attribution, classification, or mapping logic — anywhere a wrong
+implementation can pass a weak fixture.
+**Learned**: For every "REQ-X is covered" claim over a mapping/attribution arm, mutate that arm and
+demand a failure. Fixtures must be shaped so the lazy implementation is distinguishable (multi-
+directive, mixed-verb, non-first offender).
+
+Source: change `stage-2-error-attribution` (2026-07-06)
+
+### Data-variant slices over a generalized mechanism are characterization, not must-fail-first
+**What**: When a walking-skeleton slice has already generalized a mechanism (metadata-driven
+translation), later slices that add DATA variants (more verbs, more flush counts) over it should be
+tagged `characterization` in the design's Test Derivation table — the mechanism's must-fail-first
+RED lives in the skeleton slice.
+**Why**: S-002's REQ-14/15/17 rows were tagged `must-fail-first` but every case ran green on first
+execution — S-000 had already killed the hardcode generically. The deviation was declared and the
+tests were independently proven mutation-meaningful, but the wrong tag cost an audit cycle.
+**Where**: Design §Test Derivation for any sliced change with a walking skeleton followed by
+coverage-widening slices.
+**Learned**: Ask per row: "does the mechanism this exercises already exist by the time this slice
+runs?" If yes, tag `characterization` and point the RED obligation at the slice that built it.
+
+Source: change `stage-2-error-attribution` (2026-07-06)
+
+### Parallel slice-apply agents clobber a shared apply-progress topic key
+**What**: Two apply agents running slices in parallel and upserting the same
+`sdd/{change}/apply-progress` engram topic silently overwrite each other's progress records.
+**Why**: Observed during this change's parallel batch (engram obs 754): the second agent's upsert
+replaced the first's slice log. Recovery needed manual reconstruction from git history.
+**Where**: SDD harness — any change whose slice DAG sanctions parallel apply agents; candidate
+amendment to `sdd-phase-common.md` Section C.
+**Learned**: Parallel apply agents need per-slice topic keys (`apply-progress-{slice-id}`, the
+stage-1 file precedent) or orchestrator-consolidated saves — never a shared mutable topic.
+
+Source: change `stage-2-error-attribution` (2026-07-06)
+
+### Blind-council review catches unimplemented spec clauses that mode-final verification marks compliant
+**What**: A blind persona reviewing the diff against the signed spec (no verify-report in context)
+finds clauses that verification — reading the same tests the builder wrote — accepted as covered.
+**Why**: The QA persona found the rogue-code degradation clause of the signed spec unimplemented
+(non-`EmitRejection` codes crashed the translation) after mode-final verification had marked the
+REQ compliant; the checkmark traced to a test that never exercised the clause. Evidence beats
+checkmarks.
+**Where**: Any L/sensitive change; complements the existing "blind adversarial review escapes
+pipeline anchoring" lesson (foundations-skeleton) — this one is specifically about spec-clause
+completeness, not shared happy-path shape.
+**Learned**: Budget at least one blind spec-vs-diff pass per L change. A verify matrix row is a
+claim about a test's existence, not about the clause's implementation — only an adversarial reader
+who re-derives the obligation from the spec text catches the difference.
+
+Source: change `stage-2-error-attribution` (2026-07-06)

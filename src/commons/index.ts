@@ -6,8 +6,22 @@ import type { JsonValue } from "../core/wire.ts";
 import { currentContext } from "../core/context.ts";
 import { forceEntry } from "../core/directive-factory.ts";
 import type { FoundHandle, WritableHandle } from "../core/handle-state.ts";
+import { AuthoringError } from "../core/authoring-error.ts";
+import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../core/authoring-error.ts";
 
 export type { FoundHandle, WritableHandle };
+// ADR-0023: AuthoringError (+ its supporting types) is an author-facing DATA type, not
+// kit MACHINERY (the port, the session, the directive factory stay unexported) — it
+// legitimately crosses the ADR-0009 boundary via the same two-step pattern
+// FoundHandle/WritableHandle already use.
+export { AuthoringError };
+export type { AuthoringVerb, AuthoringReason, AuthoringOrigin };
+
+// 2.3 (CQ-1, droppable): classifyContent + ContentState give authors a named,
+// branchable read-result classification (see find()'s JSDoc pointer below). Severable
+// from the AuthoringError cluster above — no other component references it.
+export { classifyContent } from "./classify-content.ts";
+export type { ContentState } from "./classify-content.ts";
 
 /**
  * Options for the `create` author verb.
@@ -96,7 +110,8 @@ function buildFoundHandle(path: string): FoundHandle {
  * `read()` resolves `string | undefined`: the content, `undefined` when the path does not
  * exist, or `""` when the file exists but is empty. Branch on the three outcomes with strict
  * `=== undefined` / `=== ""` — NEVER `if (!content)`, which would merge `undefined`, `""`,
- * `"0"` and `"false"` and reintroduce the absent-vs-empty bug.
+ * `"0"` and `"false"` and reintroduce the absent-vs-empty bug. Prefer `classifyContent()`
+ * over manual comparisons — it names the trichotomy and gives exhaustive-switch parity.
  *
  * @example
  * const c = await find("src/config.ts").read();
@@ -118,7 +133,8 @@ export function find(path: string): FoundHandle {
  * `JsonValue` to the schema's keys at the type level only — the runtime body is unchanged.
  *
  * Creating over an existing file is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
+ * rejected run throws `AuthoringError`.
  *
  * @example
  * create("src/index.ts", {
@@ -144,6 +160,7 @@ export function create(path: string, opts: CreateOptions): WritableHandle {
 
 /**
  * Schedules an in-place content replacement for an existing file and returns a `WritableHandle`.
+ * A rejected run (e.g. the target does not exist) throws `AuthoringError`.
  *
  * @example
  * modify("src/config.json", '{ "version": "2.0.0" }');
@@ -168,7 +185,8 @@ export function remove(path: string): void {
 /**
  * Schedules a file rename (basename only) and returns a `WritableHandle` for the new path.
  * Renaming onto an existing path is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
+ * rejected run throws `AuthoringError`.
  *
  * @example
  * rename("src/foo.ts", "bar.ts");
@@ -183,7 +201,8 @@ export function rename(path: string, newName: string, opts?: { force?: boolean }
 /**
  * Schedules a file move to a different directory and returns a `WritableHandle`.
  * Moving onto an existing destination is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
+ * rejected run throws `AuthoringError`.
  * A move whose destination equals its source is a no-op, never a collision
  * (ADR-0017 self-move amendment).
  *
@@ -199,7 +218,8 @@ export function move(path: string, toDir: string, opts?: { force?: boolean }): W
 /**
  * Schedules a file copy to a new path and returns a `WritableHandle` for the destination.
  * Copying onto an existing destination is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
+ * rejected run throws `AuthoringError`.
  *
  * @example
  * copy("src/template.ts", "src/generated/output.ts");

@@ -3,8 +3,8 @@
   "parent_plan": "openspec/objectives-plan.md Stage 2",
   "triage": "L",
   "triage_note": "Unanimous L (triage executor via cross-cutting override + size band ~10-14 files; architect + pm blind lenses: L on merits — public semver-locked error-contract freeze, 2 gating ADRs). Not XL: one coherent seam (SEAM-04), no program seams. WATCH: architect explore counts 4 ADR candidates — top of the healthy L band; if 2.3/2.4 spawn sub-decisions, re-triage.",
-  "phase": "verify-plan",
-  "phase_status": "COMPLETE — verdict READY iteration 3/3 (2026-07-05). PLAN CLOSED: /plan for stage-2-error-attribution is complete; publish skipped (spec_source internal). Next: /build — S-000 walking skeleton first, then S-001→S-002 chain ∥ S-003 ∥ S-004 (droppable) per slices Build Order.",
+  "phase": "archived",
+  "phase_status": "BUILD IN PROGRESS (automatic mode, worktree feat/stage-2-error-attribution). Batch 1 (S-000) applied: commit 0384950, suite 243→284 green, tsc clean, 24/49 scenarios, AuthoringError public via ./commons. BATCH 1 CLOSED: verify in-loop 1 NEEDS_FIX (REQ-12.1 mutation-unguarded) → fix commit 4738496 (mixed-verb 3-directive mid-batch offender test, mutation red-proof) → verify in-loop 2 PASS (verifier re-ran mutation probe independently: 284/1 fail right-reason, then green 285). Suite 285, tsc clean. 2/3 in-loop iterations used, counter resets per batch. Carried to verify-final: FIT-04 DTS_PAIRS lacks core/authoring-error.d.ts baseline pair. Reports: verify-in-loop-{1,2}.md + engram obs 743/746 (topic keys need re-key to canonical — classifier outage blocked mem_update). BATCHES 2+3 PIPELINED (parallel apply, disjoint-file contract): S-001 DONE 5b75692 (origin taxonomy, outside-run onto AuthoringError, suite 287); S-003 DONE d52a498 (FIT-11 whole-object leak scan w/ 3 permanent red-proof fixtures, fit-08 no-kit-bleed pin, doc-discoverability; REQ-16 non-sites pinned against signed spec w/ archive-glob fallback — future cleanup: promote REQ-16 tags into 4 untagged source comments); S-004 DONE fb9e3f5 (classifyContent + ContentState, droppable cluster, FIT-04 commons baseline additive regen). Suite 323/0, tsc clean. S-002 IN FLIGHT (full attribution, REQ-14 mixed-verb non-first-index constraint injected). Harness lesson logged: parallel agents clobbered shared apply-progress topic (self-corrected; per-slice keys recommended). Pending at S-002 close: single verify in-loop over S-001..S-004 delta, slices.md checkbox sync for S-002/S-004. Executor discovery routed to verify-final: FIT-04 DTS_PAIRS does not monitor dist/core/authoring-error.d.ts (shape invisible to baseline diff — undercuts REQ-AEC-04.2 automation; mirrors stage-1 precedent, not in design File Changes table). Next: batch 2 = S-001 ∥ S-003, batch 3 = S-002 + S-004.",
   "steward_foresight": "ALIGNED (obs 726) — 4 CQs owner-affirmed 2026-07-05: CQ-1 partition frozen (MAJOR-on-growth bet); CQ-2 switch(reason) IS the contract; CQ-3 outside-run substitution re-affirmed; CQ-4 2.3 bundled + droppable",
   "slice_ids": [
     "S-000 (walking skeleton: EmitRejection→translation→./commons export, 24 scenarios, S1+S2 merged with justification)",
@@ -28,7 +28,7 @@
     "spec",
     "design"
   ],
-  "next_phase": "steward_foresight gate → sdd-slice (binding sequencing constraints in design §4.8; target 4-6; 2.3 droppable final slice)",
+  "next_phase": "NONE — CYCLE CLOSED 2026-07-07 (archive date-stamped 2026-07-06). Archived to openspec/changes/archive/2026-07-06-stage-2-error-attribution (23 files) via commits 2ab1848 (spec sync: 3 NEW + 1 MODIFIED non-destructive) → 00fa581 (git mv, 22/22 verified) → 3e1981d (ADRs 0020-0023 Accepted, pending-changes 5 new + 2 re-carried + 3 retired + 1 closed-in-change, 4 lessons, archive-report obs 779). Suite 341/341 at close. Branch feat/stage-2-error-attribution READY FOR PR (13 commits). Recovery note: archive agent died on session quota mid-sync 2026-07-06 and overwrote this mirror with stale data; orchestrator restored + resumed 2026-07-07 — clean close.",
   "design_artifacts": [
     "openspec/changes/stage-2-error-attribution/design.md (rev 2)",
     "engram sdd/stage-2-error-attribution/design obs 725 rev 2"
@@ -133,8 +133,13 @@
     "S-001/S-002 share error-attribution.test.ts — sequence, never parallel; S-003 parallel-safe with that chain; S-004 fully independent + droppable (drop → re-register CQ-1)",
     "Every slice boundary: suite GREEN + tsc clean; FIT-04 regen = bun run build + cp dist→test/fitness/dts-baseline (both commons.index and index baselines)"
   ],
-  "verify_final": null,
-  "arch_audit": null,
+  "verify_final": "pass-with-followups",
+  "verify_final_detail": "2026-07-06, verify-report.md + engram obs 759: 18/18 REQs, 49/49 scenarios, audit 11b clean, adversarial_review REQUIRED. Council blind 3x approve-with-notes. QA crash finding (REQ-ERM-01 rogue-code) contradicted the compliant call — evidence won; consolidated 6-item quality fix landed as 6c136aa, delta re-verified PASS (verify-in-loop-4, engram obs 764).",
+  "judgment_day": "APPROVED (2026-07-06, round 1): Judge A + Judge B blind, 0 CRITICAL / 0 real WARNING. Theoretical (→ followups): directive-code-without-failedIndex malformed message + spurious-index REQ-14.3 contradiction (Stage-6 trap, both judges); FIT-04 in-change regen additivity + missing |undefined type pins (convergent). Suggestions: primaryPath collision DX wart (ratified, Stage-5 note), public constructor freeze, MAX_CAUSE_DEPTH boundary.",
+  "steward_reckoning": "DELIVERED (2026-07-06, engram obs 767 + outcome-verdict.md): 26/26 own-journey checks vs public surface; zero north-star drift; verify followup 1 closed in-change. Owner affirmed both conscience questions 2026-07-06: freeze consummation CONFIRMED (growth = MAJOR); usable-at-contract-level ACCEPTED (public runner staged to Stage 6). Telemetry followup: defineFactory silently drops factory return values.",
+  "arch_refresh": "DONE (2026-07-06): baseline engram obs 652 rev 3 + openspec/architecture.md commit ff70089 — SEAM-04 reshape, EmitRejection port convention, frozen AuthoringError shape, FIT-11.",
+  "arch_audit": "clean",
+  "arch_audit_detail": "2026-07-06 amended (engram obs 768, commits 14381b6 + eb8c06a): 9 categories clean, 0 warnings, 0 violations. Stale FIT-04 warning withdrawn (pairs landed pre-audit in 6c136aa); stale sentence purged from architecture.md.",
   "in_loop_iteration": 0,
   "personas": [
     "architect",
