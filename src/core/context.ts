@@ -6,6 +6,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { EngineClient } from "./engine-client.ts";
 import { DirectiveFactory } from "./directive-factory.ts";
 import { Session } from "./session.ts";
+import { AuthoringError } from "./authoring-error.ts";
 
 export interface RunContext {
   session: Session;
@@ -14,14 +15,19 @@ export interface RunContext {
 
 const als = new AsyncLocalStorage<RunContext>();
 
+// REQ-AEC-02.1 (2.4): a verb called outside any defineFactory run is SDK-side misuse,
+// independent of any engine round-trip — an AuthoringError{authoring-rejected,outside-run},
+// not a plain Error. The prose lives in authoring-error.ts's outside-run message template
+// (the third template, REQ-AEC-06); this is the one call site that reaches it.
 export function currentContext(): RunContext {
   const ctx = als.getStore();
   if (ctx === undefined) {
-    throw new Error(
-      "@pbuilder/sdk: file verbs (create, find, modify, remove, rename, move, copy) " +
-      "can only be used while a schematic is running — " +
-      "call them inside your factory function, not at module load time."
-    );
+    throw new AuthoringError({
+      verb: undefined,
+      path: undefined,
+      reason: "outside-run",
+      appliedCount: 0,
+    });
   }
   return ctx;
 }

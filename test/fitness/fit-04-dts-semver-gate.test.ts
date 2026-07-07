@@ -73,6 +73,10 @@ function findBreakingRemovals(baseline: string[], current: string[]): string[] {
 // Includes core/handle-state and core/base-handle because FoundHandle/WritableHandle
 // appear by bare name in dist/commons/index.d.ts but their method signatures live in
 // these core .d.ts files — A1: handle method signature changes must be caught.
+// Same rationale for core/authoring-error (AuthoringError's field shape + the
+// reason/origin/verb union literals live there, re-exported by bare name from commons —
+// the union-growth flag ADR-0020/spec note 4 assigns to FIT-04 only works if this file
+// is diffed) and commons/classify-content (ContentState + the helper's signature).
 const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }> = [
   {
     baselineFile: join(BASELINE_DIR, "commons.index.d.ts"),
@@ -98,6 +102,16 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     baselineFile: join(BASELINE_DIR, "core.base-handle.d.ts"),
     distFile: join(DIST_DIR, "core/base-handle.d.ts"),
     label: "core/base-handle",
+  },
+  {
+    baselineFile: join(BASELINE_DIR, "core.authoring-error.d.ts"),
+    distFile: join(DIST_DIR, "core/authoring-error.d.ts"),
+    label: "core/authoring-error",
+  },
+  {
+    baselineFile: join(BASELINE_DIR, "commons.classify-content.d.ts"),
+    distFile: join(DIST_DIR, "commons/classify-content.d.ts"),
+    label: "commons/classify-content",
   },
 ];
 

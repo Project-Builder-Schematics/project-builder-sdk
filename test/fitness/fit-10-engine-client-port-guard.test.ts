@@ -5,6 +5,9 @@
  *
  * No module under src/** OUTSIDE src/core may name `EngineClient` or call a
  * `.emit(`/`.commit(`/`.discard(` site reachable from it — the port stays behind src/core.
+ * emit-rejection-metadata REQ-ERM-02 extends the same structural guard to the
+ * `EmitRejection` identifier: it is port-internal (ADR-0022), so no module outside
+ * src/core may name it either, except the allow-listed fake's import.
  *
  * Reachability gate: a file's `.emit(`/`.commit(`/`.discard(` call sites are only scanned
  * when the file textually references the `EngineClient` symbol first. This is what kills
@@ -12,8 +15,9 @@
  * with the port.
  *
  * Allow-list = exactly `test/support/contract-fake.ts` (the one legitimate EngineClient
- * implementer). A structural `implements EngineClient` exception was rejected at design time
- * (spoofable by a planted bypass); a path allow-list cannot be spoofed.
+ * implementer, and the one legitimate `EmitRejection` thrower). A structural
+ * `implements EngineClient` exception was rejected at design time (spoofable by a planted
+ * bypass); a path allow-list cannot be spoofed.
  *
  * `Directive`/`JsonValue` are data shapes, not the port — the scan never matches them.
  *
@@ -30,11 +34,11 @@ const CORE_DIR = join(SRC_ROOT, "core");
 
 const ALLOW_LISTED_PATH = "test/support/contract-fake.ts";
 
-const ENGINE_CLIENT_PATTERN = /\bEngineClient\b/;
+const PORT_SYMBOL_PATTERN = /\b(?:EngineClient|EmitRejection)\b/;
 const PORT_CALL_PATTERN = /\.(emit|commit|discard)\(/g;
 
 /**
- * Flags EngineClient port bleed in a single source file.
+ * Flags port-symbol bleed (EngineClient or EmitRejection) in a single source file.
  * relPath is project-root-relative, forward-slash (e.g. "src/commons/index.ts").
  */
 function scanPortBleed(source: string, relPath: string): string[] {
@@ -42,11 +46,11 @@ function scanPortBleed(source: string, relPath: string): string[] {
     return [];
   }
 
-  if (!ENGINE_CLIENT_PATTERN.test(source)) {
+  if (!PORT_SYMBOL_PATTERN.test(source)) {
     return [];
   }
 
-  const violations: string[] = [`names EngineClient port symbol outside src/core: ${relPath}`];
+  const violations: string[] = [`names port symbol (EngineClient/EmitRejection) outside src/core: ${relPath}`];
 
   for (const match of source.matchAll(PORT_CALL_PATTERN)) {
     violations.push(`port call site: ${match[0]} (${relPath})`);
@@ -90,6 +94,22 @@ export async function bypass(client: EngineClient) {
     expect(violations.length).toBeGreaterThan(0);
     expect(violations.some((v) => v.includes("EngineClient"))).toBe(true);
     expect(violations.some((v) => v.includes(".emit("))).toBe(true);
+  });
+
+  // RED-PROOF (REQ-ERM-02.1): a planted-bypass fixture importing EmitRejection outside
+  // src/core is flagged too — the guard extends to the port-internal rejection type, not
+  // just EngineClient. [permanent-fixture]
+  it("[permanent-fixture] planted-bypass fixture importing EmitRejection outside src/core is flagged", () => {
+    const fixtureSource = `
+import { EmitRejection } from "../core/emit-rejection.ts";
+
+export function bypass(): never {
+  throw new EmitRejection("collision", "boom");
+}
+`;
+    const violations = scanPortBleed(fixtureSource, "src/sneaky/emit-rejection-bypass.ts");
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations.some((v) => v.includes("EmitRejection"))).toBe(true);
   });
 
   it("test/support/contract-fake.ts (real source) is allow-listed clean", () => {

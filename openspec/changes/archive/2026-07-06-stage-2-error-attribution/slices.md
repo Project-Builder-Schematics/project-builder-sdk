@@ -114,17 +114,17 @@ from `@pbuilder/sdk/commons` THEN `instanceof` holds, fields are correct, messag
 template.
 
 ### Tasks
-- [ ] [must-fail-first] `emit-rejection.ts` + `rejection-messages.ts`; wire 11 fake throw
+- [x] [must-fail-first] `emit-rejection.ts` + `rejection-messages.ts`; wire 11 fake throw
   sites; extend FIT-10; `test/fake/emit-rejection.test.ts`
-- [ ] [must-fail-first] Rewrite `authoring-error.ts` (shape, code→reason, exhaustive
+- [x] [must-fail-first] Rewrite `authoring-error.ts` (shape, code→reason, exhaustive
   `originFor` + never-arm pin per constraint 4, 3-template messages, ERM-03 degradation,
   delete→remove map, `@example`s per FIT-06); `test/skeleton/authoring-error.test.ts`
-- [ ] `session.ts` flush — pass whole batch + `failedIndex`; SEAM-04 comment
-- [ ] `engine-client.ts` — docs-only rejection-convention note
-- [ ] `commons/index.ts` — two-step re-export + 5-verb JSDoc cross-refs
-- [ ] Replace `error-attribution.test.ts` (thin cross-boundary run) + rewrite
+- [x] `session.ts` flush — pass whole batch + `failedIndex`; SEAM-04 comment
+- [x] `engine-client.ts` — docs-only rejection-convention note
+- [x] `commons/index.ts` — two-step re-export + 5-verb JSDoc cross-refs
+- [x] Replace `error-attribution.test.ts` (thin cross-boundary run) + rewrite
   `batch-cap.test.ts:67` pin (constraint 2)
-- [ ] Regen FIT-04 baselines (`commons.index`, `index`) — additive, keeps FIT-04 green
+- [x] Regen FIT-04 baselines (`commons.index`, `index`) — additive, keeps FIT-04 green
   immediately (stage-1 lesson)
 
 ---
@@ -140,10 +140,10 @@ template.
 preserved, AND one test contrasts it against an engine-origin case (origins differ).
 
 ### Tasks
-- [ ] [must-fail-first] `context.ts` — `currentContext()` throws `AuthoringError` (prose
+- [x] [must-fail-first] `context.ts` — `currentContext()` throws `AuthoringError` (prose
   moves to the 3rd template); double-fault block untouched (constraint 6)
-- [ ] Add `instanceof`/`origin`/`reason` assertion beside the `:12` pin in `context.test.ts`
-- [ ] Add origin-contrast test in `error-attribution.test.ts` (shared file with S-002 —
+- [x] Add `instanceof`/`origin`/`reason` assertion beside the `:12` pin in `context.test.ts`
+- [x] Add origin-contrast test in `error-attribution.test.ts` (shared file with S-002 —
   sequence, no logical coupling)
 
 ---
@@ -160,9 +160,9 @@ flush fails THEN `appliedCount` is per-batch and the run discards; GIVEN the e2e
 the author's `switch(reason)` reaches the correct arm.
 
 ### Tasks
-- [ ] [must-fail-first] Extend `error-attribution.test.ts` — REQ-14 every-verb +
+- [x] [must-fail-first] Extend `error-attribution.test.ts` — REQ-14 every-verb +
   non-first-index scenarios; REQ-15 multi-flush `appliedCount` + staging-discard proof
-- [ ] [must-fail-first] `test/e2e/error-attribution.e2e.test.ts` — REQ-17 full journey +
+- [x] [must-fail-first] `test/e2e/error-attribution.e2e.test.ts` — REQ-17 full journey +
   switch-branch assertion
 
 ---
@@ -179,10 +179,10 @@ documents `appliedCount`, `@example`s, and the 5 verbs' cross-refs; GIVEN review
 non-sites are named.
 
 ### Tasks
-- [ ] [permanent-fixture] `test/fitness/fit-11-*.test.ts` (3 planted-leak red-proofs; imports
+- [x] [permanent-fixture] `test/fitness/fit-11-*.test.ts` (3 planted-leak red-proofs; imports
   `rejection-messages.ts`, constraint 5)
-- [ ] [characterization] Pin `AuthoringError` family as not-kit in `fit-08-*.test.ts`
-- [ ] [characterization] `doc-discoverability.test.ts` (AEC-03.2/-04.3/-04.4/REQ-16.1 — JSDoc
+- [x] [characterization] Pin `AuthoringError` family as not-kit in `fit-08-*.test.ts`
+- [x] [characterization] `doc-discoverability.test.ts` (AEC-03.2/-04.3/-04.4/REQ-16.1 — JSDoc
   already in S-000, RED taxonomy (d))
 
 ---
@@ -201,9 +201,9 @@ WHEN classified THEN `"absent"`/`"empty"`/`"present"` per trichotomy; falsy-trio
 `"present"`.
 
 ### Tasks
-- [ ] [characterization] `classify-content.ts` (+ `ContentState`), `classify-content.test.ts`,
+- [x] [characterization] `classify-content.ts` (+ `ContentState`), `classify-content.test.ts`,
   `content-state.test.ts` (never-arm pin)
-- [ ] `commons/index.ts` — droppable re-export + `find()` JSDoc pointer; regen FIT-04
+- [x] `commons/index.ts` — droppable re-export + `find()` JSDoc pointer; regen FIT-04
   baselines again (new exports, additive)
 
 ---

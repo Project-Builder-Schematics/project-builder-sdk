@@ -1,6 +1,12 @@
 import type { JsonValue } from "../core/wire.ts";
 import type { FoundHandle, WritableHandle } from "../core/handle-state.ts";
+import { AuthoringError } from "../core/authoring-error.ts";
+import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../core/authoring-error.ts";
 export type { FoundHandle, WritableHandle };
+export { AuthoringError };
+export type { AuthoringVerb, AuthoringReason, AuthoringOrigin };
+export { classifyContent } from "./classify-content.ts";
+export type { ContentState } from "./classify-content.ts";
 /**
  * Options for the `create` author verb.
  *
@@ -21,7 +27,8 @@ export interface CreateOptions {
  * `read()` resolves `string | undefined`: the content, `undefined` when the path does not
  * exist, or `""` when the file exists but is empty. Branch on the three outcomes with strict
  * `=== undefined` / `=== ""` — NEVER `if (!content)`, which would merge `undefined`, `""`,
- * `"0"` and `"false"` and reintroduce the absent-vs-empty bug.
+ * `"0"` and `"false"` and reintroduce the absent-vs-empty bug. Prefer `classifyContent()`
+ * over manual comparisons — it names the trichotomy and gives exhaustive-switch parity.
  *
  * @example
  * const c = await find("src/config.ts").read();
@@ -40,7 +47,8 @@ export declare function find(path: string): FoundHandle;
  * `JsonValue` to the schema's keys at the type level only — the runtime body is unchanged.
  *
  * Creating over an existing file is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
+ * rejected run throws `AuthoringError`.
  *
  * @example
  * create("src/index.ts", {
@@ -58,6 +66,7 @@ export declare function create<S>(path: string, opts: {
 export declare function create(path: string, opts: CreateOptions): WritableHandle;
 /**
  * Schedules an in-place content replacement for an existing file and returns a `WritableHandle`.
+ * A rejected run (e.g. the target does not exist) throws `AuthoringError`.
  *
  * @example
  * modify("src/config.json", '{ "version": "2.0.0" }');
@@ -73,7 +82,8 @@ export declare function remove(path: string): void;
 /**
  * Schedules a file rename (basename only) and returns a `WritableHandle` for the new path.
  * Renaming onto an existing path is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
+ * rejected run throws `AuthoringError`.
  *
  * @example
  * rename("src/foo.ts", "bar.ts");
@@ -84,7 +94,8 @@ export declare function rename(path: string, newName: string, opts?: {
 /**
  * Schedules a file move to a different directory and returns a `WritableHandle`.
  * Moving onto an existing destination is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
+ * rejected run throws `AuthoringError`.
  * A move whose destination equals its source is a no-op, never a collision
  * (ADR-0017 self-move amendment).
  *
@@ -97,7 +108,8 @@ export declare function move(path: string, toDir: string, opts?: {
 /**
  * Schedules a file copy to a new path and returns a `WritableHandle` for the destination.
  * Copying onto an existing destination is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed).
+ * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
+ * rejected run throws `AuthoringError`.
  *
  * @example
  * copy("src/template.ts", "src/generated/output.ts");

@@ -48,7 +48,8 @@ export class Session {
   // Called by defineFactory after fn resolves (REQ-KIT-05). Also called by read() before
   // delegating to the client (REQ-KIT-02). SEAM-04 (ADR-02): the #client.emit call site is
   // wrapped so a raw engine rejection surfaces as an AuthoringError in author vocabulary,
-  // attributed to the first instruction of the flushed batch.
+  // attributed to the ACTUAL offending directive via the rejection's structured metadata
+  // (emit-rejection-metadata REQ-ERM-01) — not instructions[0].
   async flush(): Promise<void> {
     if (this.#pending.length === 0) return;
     const batch: Batch = {
@@ -59,7 +60,7 @@ export class Session {
     try {
       await this.#client.emit(batch);
     } catch (raw) {
-      throw toAuthoringError(raw, batch.instructions[0]!);
+      throw toAuthoringError(raw, batch);
     }
   }
 }

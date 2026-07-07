@@ -5,11 +5,25 @@
 import { describe, it, expect } from "bun:test";
 import { defineFactory, currentContext } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, find } from "../../src/commons/index.ts";
+import { create, find, AuthoringError } from "../../src/commons/index.ts";
 
 describe("defineFactory / RunContext", () => {
   it("throws when currentContext() is called outside a run", () => {
     expect(() => currentContext()).toThrow("can only be used while a schematic is running");
+  });
+
+  it("REQ-AEC-02.1 — the outside-run throw is an AuthoringError{origin:authoring-rejected,reason:outside-run}", () => {
+    let caught: unknown;
+    try {
+      currentContext();
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const authoringError = caught as AuthoringError;
+    expect(authoringError.origin).toEqual("authoring-rejected");
+    expect(authoringError.reason).toEqual("outside-run");
   });
 
   it("provides session and factory inside the run", async () => {

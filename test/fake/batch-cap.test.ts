@@ -5,7 +5,7 @@
  * (engine stand-in) judges size, matching ADR-0018.
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { AuthoringError } from "../../src/core/authoring-error.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 import { modify } from "../../src/commons/index.ts";
@@ -15,6 +15,7 @@ import {
   rawContentBytes,
   FIXTURE_PATH,
 } from "./batch-cap-fixtures.ts";
+import { rejectedRun } from "../support/rejection-capture.ts";
 
 // `modify` requires an existing target (ADR-0017 rule 2) — these fixtures exercise the
 // size cap, not modify-existence, so every fake here is seeded with FIXTURE_PATH present.
@@ -57,14 +58,20 @@ describe("REQ-01.3 — SDK never pre-validates; the rejection originates from th
     if (directive.op !== "modify") throw new Error("fixture invariant broken: expected a modify directive");
     const { path, content } = directive.modify;
 
-    const run = defineFactory<void>(() => {
+    // Goes through defineFactory → Session.flush → toAuthoringError: cap-exceeded is a
+    // BATCH-level rejection (emit-rejection-metadata REQ-ERM-01.2) — no verb/path is
+    // fabricated (REQ-14.3), reason is the closed value, appliedCount is 0, and the
+    // message follows the batch-level template (REQ-AEC-06.2), never the fake's text.
+    const caught = await rejectedRun(fake, () => {
       modify(path, content);
     });
-
-    // Goes through defineFactory → Session.flush → toAuthoringError (ADR-02 gap-#2): the
-    // raw fake message ("...exceeds...") is intentionally discarded, so the tightened
-    // matcher targets the AuthoringError's fixed verb+path format, not the fake's text.
-    await expect(run(undefined, { client: fake })).rejects.toThrow(`modify failed at ${FIXTURE_PATH}`);
+    expect(caught).toBeInstanceOf(AuthoringError);
+    const authoringError = caught as AuthoringError;
+    expect(authoringError.reason).toEqual("changes-too-large");
+    expect(authoringError.verb).toBeUndefined();
+    expect(authoringError.path).toBeUndefined();
+    expect(authoringError.appliedCount).toEqual(0);
+    expect(authoringError.message).toEqual("changes could not be applied: changes-too-large");
     // The fake's emit was actually invoked — Session.flush carries no SDK-side size
     // branch that would short-circuit before reaching the engine seam.
     expect(emitSpy).toHaveBeenCalledTimes(1);
