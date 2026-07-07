@@ -12,6 +12,7 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { classifyContent } from "../../src/commons/classify-content.ts";
+import { jsDocBefore, PROJECT_ROOT } from "../support/jsdoc-scan.ts";
 
 describe("classifyContent — trichotomy classification (REQ-RT-01)", () => {
   it("classifies undefined as absent (REQ-RT-01.1)", () => {
@@ -41,35 +42,6 @@ describe("classifyContent — falsy-trio mutant killers (REQ-RT-02)", () => {
   });
 });
 
-/**
- * Returns the JSDoc block (`/** ... *\/`) immediately preceding the first line matching
- * `anchorPattern`, or "" if no JSDoc directly precedes it (a blank line breaks the chain).
- * Mirrors the convention already used by FIT-06/FIT-08/FIT-09 and doc-discoverability.test.ts.
- */
-function jsDocBefore(source: string, anchorPattern: RegExp): string {
-  const lines = source.split("\n");
-  const anchorIdx = lines.findIndex((line) => anchorPattern.test(line));
-  if (anchorIdx === -1) {
-    throw new Error(`anchor not found: ${anchorPattern}`);
-  }
-
-  let end = -1;
-  for (let i = anchorIdx - 1; i >= 0; i--) {
-    const trimmed = lines[i]!.trim();
-    if (trimmed === "") continue;
-    if (trimmed.endsWith("*/")) end = i;
-    break;
-  }
-  if (end === -1) return "";
-
-  let start = end;
-  for (; start >= 0; start--) {
-    if (lines[start]!.trim().startsWith("/**")) break;
-  }
-  return lines.slice(start, end + 1).join("\n");
-}
-
-const PROJECT_ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 const CLASSIFY_CONTENT_SOURCE = readFileSync(
   join(PROJECT_ROOT, "src", "commons", "classify-content.ts"),
   "utf-8"

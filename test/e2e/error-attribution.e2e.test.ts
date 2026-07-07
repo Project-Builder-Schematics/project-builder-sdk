@@ -5,27 +5,20 @@
  * `switch`ing on `reason` to reach a distinct branch. No mock anywhere in this path.
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError, create } from "../../src/commons/index.ts";
 import type { AuthoringReason } from "../../src/commons/index.ts";
+import { rejectedRun } from "../support/rejection-capture.ts";
 
 describe("e2e — author reads a fully-attributed error and branches on it (REQ-17.1)", () => {
   it("a collision after two successful directives is caught, fully read, and switched on", async () => {
     const fake = new ContractFake({ seed: { "c.ts": "existing" } });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       create("a.ts", { template: "A", options: {} });
       create("b.ts", { template: "B", options: {} });
       create("c.ts", { template: "collides", options: {} }); // rejects at index 2
     });
-
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
 
     expect(caught).toBeInstanceOf(AuthoringError);
     const err = caught as AuthoringError;

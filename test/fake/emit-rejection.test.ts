@@ -10,6 +10,7 @@ import { toAuthoringError } from "../../src/core/authoring-error.ts";
 import type { JsonValue } from "../../src/core/wire.ts";
 import { batchOf, createOp, modifyOp } from "./directive-builders.ts";
 import { batchOverSerializedBytes, FIXTURE_PATH } from "./batch-cap-fixtures.ts";
+import { rejectedEmit } from "../support/rejection-capture.ts";
 
 describe("REQ-ERM-01.1 — directive-level rejection carries code + failedIndex", () => {
   it("a collision at index 2 of a 3-directive batch carries code:collision, failedIndex:2, appliedCount:2", async () => {
@@ -20,12 +21,7 @@ describe("REQ-ERM-01.1 — directive-level rejection carries code + failedIndex"
       createOp("c.ts", "C") // collides with the seed
     );
 
-    let caught: unknown;
-    try {
-      await fake.emit(batch);
-    } catch (err) {
-      caught = err;
-    }
+    const caught = await rejectedEmit(fake, batch);
 
     expect(caught).toBeInstanceOf(EmitRejection);
     const rejection = caught as EmitRejection;
@@ -42,12 +38,7 @@ describe("REQ-ERM-01.1 — directive-level rejection carries code + failedIndex"
       modifyOp("missing.ts", "new content") // no such target
     );
 
-    let caught: unknown;
-    try {
-      await fake.emit(batch);
-    } catch (err) {
-      caught = err;
-    }
+    const caught = await rejectedEmit(fake, batch);
 
     expect(caught).toBeInstanceOf(EmitRejection);
     const rejection = caught as EmitRejection;
@@ -62,12 +53,7 @@ describe("REQ-ERM-01.2 — batch-level rejection carries code, no failedIndex", 
     const fake = new ContractFake({ seed: { [FIXTURE_PATH]: "" } });
     const overCap = batchOverSerializedBytes(4 * 1024 * 1024);
 
-    let caught: unknown;
-    try {
-      await fake.emit(overCap);
-    } catch (err) {
-      caught = err;
-    }
+    const caught = await rejectedEmit(fake, overCap);
 
     expect(caught).toBeInstanceOf(EmitRejection);
     const rejection = caught as EmitRejection;
@@ -80,12 +66,7 @@ describe("REQ-ERM-01.2 — batch-level rejection carries code, no failedIndex", 
     const fake = new ContractFake({ seed: {} });
     const batch = batchOf(createOp("a.ts", "A", { n: 1n } as unknown as JsonValue));
 
-    let caught: unknown;
-    try {
-      await fake.emit(batch);
-    } catch (err) {
-      caught = err;
-    }
+    const caught = await rejectedEmit(fake, batch);
 
     expect(caught).toBeInstanceOf(EmitRejection);
     const rejection = caught as EmitRejection;
@@ -98,12 +79,7 @@ describe("REQ-ERM-01.2 — batch-level rejection carries code, no failedIndex", 
     const fake = new ContractFake({ seed: {} });
     const batch = batchOf(createOp("a.ts", "A", { fn: (() => {}) } as unknown as JsonValue));
 
-    let caught: unknown;
-    try {
-      await fake.emit(batch);
-    } catch (err) {
-      caught = err;
-    }
+    const caught = await rejectedEmit(fake, batch);
 
     expect(caught).toBeInstanceOf(EmitRejection);
     const rejection = caught as EmitRejection;
@@ -118,12 +94,7 @@ describe("REQ-ERM-01.3 — classification uses the code, never message text", ()
     const fake = new ContractFake({ seed: { "existing.ts": "old" } });
     const batch = batchOf(createOp("existing.ts", "new"));
 
-    let caught: unknown;
-    try {
-      await fake.emit(batch);
-    } catch (err) {
-      caught = err;
-    }
+    const caught = await rejectedEmit(fake, batch);
 
     // The fake's own collision message never contains "not found" — this proves the
     // scenario's decoy premise structurally: code is what carries classification, and

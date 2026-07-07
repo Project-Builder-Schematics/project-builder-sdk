@@ -13,39 +13,12 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { jsDocBefore, PROJECT_ROOT } from "../support/jsdoc-scan.ts";
 
-const PROJECT_ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 const SRC_ROOT = join(PROJECT_ROOT, "src");
 
 const AUTHORING_ERROR_SOURCE = readFileSync(join(SRC_ROOT, "core", "authoring-error.ts"), "utf-8");
 const COMMONS_SOURCE = readFileSync(join(SRC_ROOT, "commons", "index.ts"), "utf-8");
-
-/**
- * Returns the JSDoc block (`/** ... *\/`) immediately preceding the first line matching
- * `anchorPattern`, or "" if no JSDoc directly precedes it (a blank line breaks the chain).
- */
-function jsDocBefore(source: string, anchorPattern: RegExp): string {
-  const lines = source.split("\n");
-  const anchorIdx = lines.findIndex((line) => anchorPattern.test(line));
-  if (anchorIdx === -1) {
-    throw new Error(`anchor not found: ${anchorPattern}`);
-  }
-
-  let end = -1;
-  for (let i = anchorIdx - 1; i >= 0; i--) {
-    const trimmed = lines[i]!.trim();
-    if (trimmed === "") continue;
-    if (trimmed.endsWith("*/")) end = i;
-    break;
-  }
-  if (end === -1) return "";
-
-  let start = end;
-  for (; start >= 0; start--) {
-    if (lines[start]!.trim().startsWith("/**")) break;
-  }
-  return lines.slice(start, end + 1).join("\n");
-}
 
 describe("REQ-AEC-03.2 — appliedCount JSDoc states diagnostic-not-persistence", () => {
   it("the emitted JSDoc scopes the count to the failing flush and states a rejected run discards everything", () => {

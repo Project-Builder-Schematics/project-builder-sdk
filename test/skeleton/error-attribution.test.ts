@@ -14,40 +14,22 @@
  * logical coupling to this scenario.
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory, currentContext } from "../../src/core/context.ts";
+import { currentContext } from "../../src/core/context.ts";
 import { AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, modify, find, rename, move, copy } from "../../src/commons/index.ts";
+import type { AuthoringReason, AuthoringVerb } from "../../src/commons/index.ts";
 import type { JsonValue } from "../../src/core/wire.ts";
-
-// Shared boilerplate for the REQ-14/15 cases below: run a factory against a fresh fake,
-// return whatever it threw. The real cross-boundary path (defineFactory → Session →
-// ContractFake), no mocks — same posture as the file's original three tests.
-async function rejectedRun(fake: ContractFake, fn: () => void | Promise<void>): Promise<unknown> {
-  const run = defineFactory<void>(fn);
-  try {
-    await run(undefined, { client: fake });
-    return undefined;
-  } catch (err) {
-    return err;
-  }
-}
+import { rejectedRun } from "../support/rejection-capture.ts";
 
 describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () => {
   it("REQ-10.1 / REQ-11.2 / REQ-12.1 / REQ-12.2 / REQ-13.1 / REQ-AEC-04.1 — forced collision rejects with a public AuthoringError{verb,path,reason}, discard fires", async () => {
     const fake = new ContractFake({ seed: { "src/existing.ts": "old" } });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       // Collides with the seed and no force → ContractFake throws a real EmitRejection.
       create("src/existing.ts", { template: "new", options: {} });
     });
-
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
 
     // REQ-AEC-04.1 — instanceof works across the public ./commons boundary.
     expect(caught).toBeInstanceOf(AuthoringError);
@@ -70,18 +52,11 @@ describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () 
     // `batch.instructions[0]` makes every attribution toEqual below fail.
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       create("a.ts", { template: "A", options: {} });
       create("b.ts", { template: "B", options: {} });
       modify("missing.ts", "patched"); // no such target → rejects at index 2
     });
-
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
 
     expect(caught).toBeInstanceOf(AuthoringError);
     const authoringError = caught as AuthoringError;
@@ -97,16 +72,9 @@ describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () 
   it("REQ-AEC-02.3 — an engine rejection and an outside-run misuse are distinguishable by origin, in one assertion", async () => {
     const fake = new ContractFake({ seed: { "src/existing.ts": "old" } });
 
-    const run = defineFactory<void>(() => {
+    const engineCaught = await rejectedRun(fake, () => {
       create("src/existing.ts", { template: "new", options: {} });
     });
-
-    let engineCaught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      engineCaught = err;
-    }
 
     let misuseCaught: unknown;
     try {
@@ -127,108 +95,103 @@ describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () 
 });
 
 describe("REQ-14.2 — every directive-level verb + failure form attributes correctly, cross-boundary", () => {
-  it("create-collision: verb create, path is the pathTemplate", async () => {
-    const fake = new ContractFake({ seed: { "a.ts": "old" } });
-    const caught = await rejectedRun(fake, () => {
-      create("a.ts", { template: "new", options: {} });
-    });
-    expect(caught).toBeInstanceOf(AuthoringError);
-    const err = caught as AuthoringError;
-    expect(err.verb).toEqual("create");
-    expect(err.path).toEqual("a.ts");
-    expect(err.reason).toEqual("path-collision");
-  });
+  const cases: Array<{
+    label: string;
+    seed: Record<string, string>;
+    run: () => void | Promise<void>;
+    expected: { verb: AuthoringVerb; path: string; reason: AuthoringReason; message?: string };
+  }> = [
+    {
+      label: "create-collision: verb create, path is the pathTemplate",
+      seed: { "a.ts": "old" },
+      run: () => {
+        create("a.ts", { template: "new", options: {} });
+      },
+      expected: { verb: "create", path: "a.ts", reason: "path-collision" },
+    },
+    {
+      label: "modify-not-found: verb modify, path is the missing target",
+      seed: {},
+      run: () => {
+        modify("missing.ts", "patched");
+      },
+      expected: { verb: "modify", path: "missing.ts", reason: "path-not-found" },
+    },
+    {
+      // rename("a.ts", "b.ts") collides at destination "b.ts"; primaryPath (design §4.3)
+      // attributes to the source "a.ts", never the computed dirname(path)/newName target.
+      label: "rename-collision: verb rename, path is the SOURCE — not the computed destination",
+      seed: { "a.ts": "A", "b.ts": "B" },
+      run: () => {
+        rename("a.ts", "b.ts");
+      },
+      expected: { verb: "rename", path: "a.ts", reason: "path-collision" },
+    },
+    {
+      label: "rename-source-not-found: verb rename, path is the missing source",
+      seed: {},
+      run: () => {
+        rename("missing.ts", "renamed.ts");
+      },
+      expected: { verb: "rename", path: "missing.ts", reason: "path-not-found" },
+    },
+    {
+      // move("src/a.ts", "lib") collides at destination "lib/a.ts"; primaryPath attributes
+      // to the source "src/a.ts", never the computed toDir/basename target.
+      label: "move-collision: verb move, path is the SOURCE — not the computed destination",
+      seed: { "src/a.ts": "A", "lib/a.ts": "B" },
+      run: () => {
+        move("src/a.ts", "lib");
+      },
+      expected: { verb: "move", path: "src/a.ts", reason: "path-collision" },
+    },
+    {
+      label: "move-source-not-found: verb move, path is the missing source",
+      seed: {},
+      run: () => {
+        move("missing.ts", "lib");
+      },
+      expected: { verb: "move", path: "missing.ts", reason: "path-not-found" },
+    },
+    {
+      // The design §4.3 worked example: copy("a.ts","b.ts") collides at "b.ts", attribution
+      // names "a.ts" — the exact case the spec calls out.
+      label: "copy-collision: verb copy, path is the SOURCE (from) — not the destination (to)",
+      seed: { "a.ts": "A", "b.ts": "B" },
+      run: () => {
+        copy("a.ts", "b.ts");
+      },
+      expected: {
+        verb: "copy",
+        path: "a.ts",
+        reason: "path-collision",
+        message: "copy failed at a.ts: path-collision",
+      },
+    },
+    {
+      label: "copy-source-not-found: verb copy, path is the missing source (from)",
+      seed: {},
+      run: () => {
+        copy("missing.ts", "dest.ts");
+      },
+      expected: { verb: "copy", path: "missing.ts", reason: "path-not-found" },
+    },
+  ];
 
-  it("modify-not-found: verb modify, path is the missing target", async () => {
-    const fake = new ContractFake({ seed: {} });
-    const caught = await rejectedRun(fake, () => {
-      modify("missing.ts", "patched");
+  for (const c of cases) {
+    it(c.label, async () => {
+      const fake = new ContractFake({ seed: c.seed });
+      const caught = await rejectedRun(fake, c.run);
+      expect(caught).toBeInstanceOf(AuthoringError);
+      const err = caught as AuthoringError;
+      expect(err.verb).toEqual(c.expected.verb);
+      expect(err.path).toEqual(c.expected.path);
+      expect(err.reason).toEqual(c.expected.reason);
+      if (c.expected.message !== undefined) {
+        expect(err.message).toEqual(c.expected.message);
+      }
     });
-    expect(caught).toBeInstanceOf(AuthoringError);
-    const err = caught as AuthoringError;
-    expect(err.verb).toEqual("modify");
-    expect(err.path).toEqual("missing.ts");
-    expect(err.reason).toEqual("path-not-found");
-  });
-
-  it("rename-collision: verb rename, path is the SOURCE — not the computed destination", async () => {
-    // rename("a.ts", "b.ts") collides at destination "b.ts"; primaryPath (design §4.3)
-    // attributes to the source "a.ts", never the computed dirname(path)/newName target.
-    const fake = new ContractFake({ seed: { "a.ts": "A", "b.ts": "B" } });
-    const caught = await rejectedRun(fake, () => {
-      rename("a.ts", "b.ts");
-    });
-    expect(caught).toBeInstanceOf(AuthoringError);
-    const err = caught as AuthoringError;
-    expect(err.verb).toEqual("rename");
-    expect(err.path).toEqual("a.ts");
-    expect(err.reason).toEqual("path-collision");
-  });
-
-  it("rename-source-not-found: verb rename, path is the missing source", async () => {
-    const fake = new ContractFake({ seed: {} });
-    const caught = await rejectedRun(fake, () => {
-      rename("missing.ts", "renamed.ts");
-    });
-    expect(caught).toBeInstanceOf(AuthoringError);
-    const err = caught as AuthoringError;
-    expect(err.verb).toEqual("rename");
-    expect(err.path).toEqual("missing.ts");
-    expect(err.reason).toEqual("path-not-found");
-  });
-
-  it("move-collision: verb move, path is the SOURCE — not the computed destination", async () => {
-    // move("src/a.ts", "lib") collides at destination "lib/a.ts"; primaryPath attributes
-    // to the source "src/a.ts", never the computed toDir/basename target.
-    const fake = new ContractFake({ seed: { "src/a.ts": "A", "lib/a.ts": "B" } });
-    const caught = await rejectedRun(fake, () => {
-      move("src/a.ts", "lib");
-    });
-    expect(caught).toBeInstanceOf(AuthoringError);
-    const err = caught as AuthoringError;
-    expect(err.verb).toEqual("move");
-    expect(err.path).toEqual("src/a.ts");
-    expect(err.reason).toEqual("path-collision");
-  });
-
-  it("move-source-not-found: verb move, path is the missing source", async () => {
-    const fake = new ContractFake({ seed: {} });
-    const caught = await rejectedRun(fake, () => {
-      move("missing.ts", "lib");
-    });
-    expect(caught).toBeInstanceOf(AuthoringError);
-    const err = caught as AuthoringError;
-    expect(err.verb).toEqual("move");
-    expect(err.path).toEqual("missing.ts");
-    expect(err.reason).toEqual("path-not-found");
-  });
-
-  it("copy-collision: verb copy, path is the SOURCE (from) — not the destination (to)", async () => {
-    // The design §4.3 worked example: copy("a.ts","b.ts") collides at "b.ts", attribution
-    // names "a.ts" — the exact case the spec calls out.
-    const fake = new ContractFake({ seed: { "a.ts": "A", "b.ts": "B" } });
-    const caught = await rejectedRun(fake, () => {
-      copy("a.ts", "b.ts");
-    });
-    expect(caught).toBeInstanceOf(AuthoringError);
-    const err = caught as AuthoringError;
-    expect(err.verb).toEqual("copy");
-    expect(err.path).toEqual("a.ts");
-    expect(err.reason).toEqual("path-collision");
-    expect(err.message).toEqual("copy failed at a.ts: path-collision");
-  });
-
-  it("copy-source-not-found: verb copy, path is the missing source (from)", async () => {
-    const fake = new ContractFake({ seed: {} });
-    const caught = await rejectedRun(fake, () => {
-      copy("missing.ts", "dest.ts");
-    });
-    expect(caught).toBeInstanceOf(AuthoringError);
-    const err = caught as AuthoringError;
-    expect(err.verb).toEqual("copy");
-    expect(err.path).toEqual("missing.ts");
-    expect(err.reason).toEqual("path-not-found");
-  });
+  }
 });
 
 describe("REQ-14.3 — batch-level rejections never fabricate a verb or path", () => {

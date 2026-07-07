@@ -167,6 +167,27 @@ export class ContractFake implements EngineClient {
     return envelopeForce || (opForce ?? false);
   }
 
+  #requireExists(target: string, label: string, pos: { failedIndex: number; appliedCount: number }): void {
+    if (!this.#exists(target)) {
+      throw new EmitRejection("not-found", `${CONTRACT_FAKE_PREFIX} ${label} ${NOT_FOUND}: "${target}"`, pos);
+    }
+  }
+
+  #rejectIfCollides(
+    target: string,
+    effective: boolean,
+    label: string,
+    pos: { failedIndex: number; appliedCount: number }
+  ): void {
+    if (this.#exists(target) && !effective) {
+      throw new EmitRejection(
+        "collision",
+        `${CONTRACT_FAKE_PREFIX} ${label} ${ALREADY_EXISTS} (${USE_FORCE_TO_OVERWRITE})`,
+        pos
+      );
+    }
+  }
+
   // `index` is this directive's position in the batch — every earlier directive already
   // applied (eager array-order apply), so a throw HERE means `appliedCount === index`
   // (emit-rejection-metadata REQ-ERM-01).
@@ -176,13 +197,7 @@ export class ContractFake implements EngineClient {
     if (directive.op === "create") {
       const { pathTemplate, template, force: opForce } = directive.create;
       const effective = this.#effectiveForce(envelopeForce, opForce);
-      if (this.#exists(pathTemplate) && !effective) {
-        throw new EmitRejection(
-          "collision",
-          `${CONTRACT_FAKE_PREFIX} create collision — "${pathTemplate}" ${ALREADY_EXISTS} (${USE_FORCE_TO_OVERWRITE})`,
-          pos
-        );
-      }
+      this.#rejectIfCollides(pathTemplate, effective, `create collision — "${pathTemplate}"`, pos);
       // The fake stores the template as content; rendering is the engine's concern.
       this.#deleted.delete(pathTemplate);
       this.#tree.set(pathTemplate, template);
@@ -194,9 +209,7 @@ export class ContractFake implements EngineClient {
       // ADR-0017 rule 2: modify never materializes a new file — the target must already
       // exist (staging counts: eager array-order apply means an earlier create/modify in
       // the same batch is visible here).
-      if (!this.#exists(p)) {
-        throw new EmitRejection("not-found", `${CONTRACT_FAKE_PREFIX} modify target ${NOT_FOUND}: "${p}"`, pos);
-      }
+      this.#requireExists(p, "modify target", pos);
       this.#deleted.delete(p);
       this.#tree.set(p, content);
       return;
@@ -213,19 +226,11 @@ export class ContractFake implements EngineClient {
     if (directive.op === "rename") {
       const { path: src, newName, force: opForce } = directive.rename;
       // The real engine cannot rename a non-existent file (FAKE-06 fidelity).
-      if (!this.#exists(src)) {
-        throw new EmitRejection("not-found", `${CONTRACT_FAKE_PREFIX} rename source ${NOT_FOUND}: "${src}"`, pos);
-      }
+      this.#requireExists(src, "rename source", pos);
       const dir = path.dirname(src);
       const dst = dir === "." ? newName : path.join(dir, newName);
       const effective = this.#effectiveForce(envelopeForce, opForce);
-      if (this.#exists(dst) && !effective) {
-        throw new EmitRejection(
-          "collision",
-          `${CONTRACT_FAKE_PREFIX} rename collision — destination "${dst}" ${ALREADY_EXISTS} (${USE_FORCE_TO_OVERWRITE})`,
-          pos
-        );
-      }
+      this.#rejectIfCollides(dst, effective, `rename collision — destination "${dst}"`, pos);
       const content = this.#getContent(src);
       // Remove source, write destination.
       this.#tree.delete(src);
@@ -238,17 +243,9 @@ export class ContractFake implements EngineClient {
     if (directive.op === "copy") {
       const { from, to, force: opForce } = directive.copy;
       // The real engine cannot copy a non-existent source (FAKE-06 fidelity).
-      if (!this.#exists(from)) {
-        throw new EmitRejection("not-found", `${CONTRACT_FAKE_PREFIX} copy source ${NOT_FOUND}: "${from}"`, pos);
-      }
+      this.#requireExists(from, "copy source", pos);
       const effective = this.#effectiveForce(envelopeForce, opForce);
-      if (this.#exists(to) && !effective) {
-        throw new EmitRejection(
-          "collision",
-          `${CONTRACT_FAKE_PREFIX} copy collision — destination "${to}" ${ALREADY_EXISTS} (${USE_FORCE_TO_OVERWRITE})`,
-          pos
-        );
-      }
+      this.#rejectIfCollides(to, effective, `copy collision — destination "${to}"`, pos);
       const content = this.#getContent(from);
       this.#deleted.delete(to);
       this.#tree.set(to, content);
@@ -258,9 +255,7 @@ export class ContractFake implements EngineClient {
     if (directive.op === "move") {
       const { path: src, toDir, force: opForce } = directive.move;
       // The real engine cannot move a non-existent source (FAKE-06 fidelity).
-      if (!this.#exists(src)) {
-        throw new EmitRejection("not-found", `${CONTRACT_FAKE_PREFIX} move source ${NOT_FOUND}: "${src}"`, pos);
-      }
+      this.#requireExists(src, "move source", pos);
       const base = path.basename(src);
       // Use path.join to normalize trailing-slash toDir (e.g. "lib/" → "lib/foo.ts").
       const dst = path.join(toDir, base);
@@ -268,12 +263,8 @@ export class ContractFake implements EngineClient {
       // ADR-0017 self-move identity amendment: dst === src is not a collision — a
       // self-move is a file-preserving success, no force required.
       const isSelfMove = dst === src;
-      if (!isSelfMove && this.#exists(dst) && !effective) {
-        throw new EmitRejection(
-          "collision",
-          `${CONTRACT_FAKE_PREFIX} move collision — destination "${dst}" ${ALREADY_EXISTS} (${USE_FORCE_TO_OVERWRITE})`,
-          pos
-        );
+      if (!isSelfMove) {
+        this.#rejectIfCollides(dst, effective, `move collision — destination "${dst}"`, pos);
       }
       const content = this.#getContent(src);
       this.#tree.delete(src);

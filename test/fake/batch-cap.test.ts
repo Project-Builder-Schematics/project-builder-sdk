@@ -5,7 +5,6 @@
  * (engine stand-in) judges size, matching ADR-0018.
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
 import { AuthoringError } from "../../src/core/authoring-error.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
@@ -16,6 +15,7 @@ import {
   rawContentBytes,
   FIXTURE_PATH,
 } from "./batch-cap-fixtures.ts";
+import { rejectedRun } from "../support/rejection-capture.ts";
 
 // `modify` requires an existing target (ADR-0017 rule 2) — these fixtures exercise the
 // size cap, not modify-existence, so every fake here is seeded with FIXTURE_PATH present.
@@ -58,20 +58,13 @@ describe("REQ-01.3 — SDK never pre-validates; the rejection originates from th
     if (directive.op !== "modify") throw new Error("fixture invariant broken: expected a modify directive");
     const { path, content } = directive.modify;
 
-    const run = defineFactory<void>(() => {
-      modify(path, content);
-    });
-
     // Goes through defineFactory → Session.flush → toAuthoringError: cap-exceeded is a
     // BATCH-level rejection (emit-rejection-metadata REQ-ERM-01.2) — no verb/path is
     // fabricated (REQ-14.3), reason is the closed value, appliedCount is 0, and the
     // message follows the batch-level template (REQ-AEC-06.2), never the fake's text.
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
+    const caught = await rejectedRun(fake, () => {
+      modify(path, content);
+    });
     expect(caught).toBeInstanceOf(AuthoringError);
     const authoringError = caught as AuthoringError;
     expect(authoringError.reason).toEqual("changes-too-large");

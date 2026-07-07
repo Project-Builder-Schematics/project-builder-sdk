@@ -61,6 +61,12 @@ export function batchOfSerializedBytes(target: number): Batch {
   return batch;
 }
 
+// Every caller for a given `target` (e.g. BATCH_CAP_BYTES, shared by batch-cap.test.ts
+// and emit-rejection.test.ts) wants the identical batch — building it is pure/deterministic,
+// so cache by target instead of re-deriving the same content on every call. Safe to share:
+// no caller mutates the returned Batch.
+const overCache = new Map<number, Batch>();
+
 /**
  * Builds a Batch whose serialized UTF-8 byte length is strictly greater than `target`,
  * while its RAW content byte length (see `rawContentBytes`) stays BELOW `target` —
@@ -71,6 +77,9 @@ export function batchOfSerializedBytes(target: number): Batch {
  * UTF-16 mutant is distinguishable too.
  */
 export function batchOverSerializedBytes(target: number): Batch {
+  const cached = overCache.get(target);
+  if (cached) return cached;
+
   const probeBytes = serializedBytes(envelopeBatch(PREFIX));
   // +1 so the result is strictly over `target`, not merely at it.
   const deficit = target - probeBytes + 1;
@@ -89,5 +98,6 @@ export function batchOverSerializedBytes(target: number): Batch {
   if (actual <= target) {
     throw new Error(`batchOverSerializedBytes: expected > ${target} serialized bytes, built ${actual}`);
   }
+  overCache.set(target, batch);
   return batch;
 }
