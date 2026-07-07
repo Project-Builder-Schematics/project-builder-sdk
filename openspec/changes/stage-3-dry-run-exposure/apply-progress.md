@@ -1,14 +1,14 @@
 # Apply Progress: stage-3-dry-run-exposure
 
 **Change**: stage-3-dry-run-exposure · **Triage**: M · **Mode**: Strict TDD
-**Last run**: 2026-07-07 — scope `skeleton` (S-000)
+**Last run**: 2026-07-07 — scope `slice:S-001`
 
 ## Slice Status
 
 | Slice | Scope tag | Status | Tasks |
 |---|---|---|---|
 | S-000 | walking-skeleton | complete | 10/10 |
-| S-001 | happy-path | not started | 0/1 |
+| S-001 | happy-path | complete | 1/1 |
 | S-002 | happy-path | not started | 0/1 |
 
 ## S-000 — Files Changed
@@ -40,21 +40,78 @@
 | barrel export | `src/dry-run/index.ts` | — | [characterization] — type-only re-export, no runtime observable | yes | n/a | none needed |
 | permanent fixtures | FIT-04 / FIT-06 / FIT-09 / `no-import.test.ts` | architectural | [permanent-fixture] reconfirmed green post-change | yes | n/a | n/a |
 
-## Verification at Slice Boundary
+## Verification at Slice Boundary (S-000)
 
 - `bun test`: 258 pass / 0 fail (was 243 pre-slice; +15)
 - `bun run typecheck`: clean
 - FIT-04 green post-regen; FIT-06 resolves `DryRunEntry`/`DryRunVerb` to `plan.ts` defining-site JSDoc; FIT-09 key set unchanged; `no-import.test.ts` green (map is pure data + type-only import)
 
-## Deviations from Design
+## Deviations from Design (S-000)
 
 None — implementation matches design rev 5 (§4.3 data model, §4.4 JSDoc tokens, §4.6b pinned idioms, §4.8 constraints 1–6 all honored in-slice).
 
-## Notes
+## Notes (S-000)
 
 - Cross-change guard honored: `src/core/context.ts` and `src/core/session.ts` untouched.
 - REQ-04.4 decoy needed an explicit `string` widening (`const verb: string = ...`) because the narrowed `DryRunVerb` type structurally excludes `"delete"` — the negative assertion would not typecheck against the narrowed literal union otherwise.
 
+---
+
+## S-001 — Outside-Run Propagation (REQ-DRE-01.4)
+
+**Files Changed**
+
+| File | Action | What Was Done |
+|---|---|---|
+| `test/skeleton/dry-run-accessor.test.ts` | Created | REQ-DRE-01.4 case only: calls `dryRun()` outside any `defineFactory` run and asserts it throws the standard outside-run substring — no accessor-specific try/catch, no harness |
+
+**TDD Cycle Evidence — S-001**
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| outside-run propagation | `dry-run-accessor.test.ts::throws the standard outside-run error when called with no active run` | unit | [TEETH-DEVIATION, see below] `Expected substring: "this substring does not appear in the real error" / Received message: "@pbuilder/sdk: file verbs (create, find, modify, remove, rename, move, copy) can only be used while a schematic is running — call them inside your factory function, not at module load time."` | yes | n/a — pure pass-through of `currentContext()`'s existing throw, no conditional/iterative/computational logic in scope | none needed |
+
+**RED-posture taxonomy deviation (recorded, not silent)**
+
+The slice's task is tagged `[must-fail-first]` in slices.md, but a genuine pre-implementation
+RED was not possible: `dryRun()` already shipped in S-000 as
+`dryRunPlan(currentContext().session.pendingSnapshot())` — outside-run propagation is
+*inherited* from `currentContext()` (`src/core/context.ts:20-24`, read-only), not new logic
+this slice introduces. There is no code left to write for this task; it pins already-shipped
+behaviour.
+
+Per the strict-TDD honesty guidance, RED evidence was manufactured honestly instead of faked:
+the test was first written asserting a deliberately wrong substring
+(`"this substring does not appear in the real error"`), run, and observed to fail for the
+right reason (an assertion failure quoting the real error verbatim — not an import/syntax
+error). This proves the assertion is discriminating: it does not pass for free. The substring
+was then corrected to the spec's exact wording (`"can only be used while a schematic is
+running"`) and the test went GREEN. No production code changed between RED and GREEN — the
+"implementation" step is a no-op by design (S-000 already did it).
+
+Taxonomy classification: retroactively this task behaves as **[characterization]**, not
+**[must-fail-first]**, despite the slices.md tag inherited from planning. Recorded here per
+the deviation-over-theatre rule rather than silently reclassifying slices.md's tag or
+fabricating a false RED against broken code.
+
+**Verification at Slice Boundary (S-001)**
+
+- `bun test test/skeleton/dry-run-accessor.test.ts`: 1 pass / 0 fail
+- `bun test` (full suite): 259 pass / 0 fail (was 258 pre-slice; +1)
+- `bun run typecheck`: clean
+
+**Deviations from Design (S-001)**
+
+None beyond the RED-posture taxonomy deviation above (a testing-process deviation, not a
+design/implementation deviation — `dryRun()`'s behaviour matches design rev 5 exactly, no
+production code touched this slice).
+
+**Notes (S-001)**
+
+- Cross-change guard honored: `src/core/context.ts` and `src/core/session.ts` untouched.
+- Touched only the new test file + progress/slice artefacts, per assignment constraint.
+
 ## Next
 
-`/build --scope=slice:S-001` (outside-run propagation, REQ-DRE-01.4), then S-002.
+`/build --scope=slice:S-002` (buffer-state variants: empty plan + post-flush temporal
+contract, REQ-DRE-01.2/.3 — extends `test/skeleton/dry-run-accessor.test.ts`).

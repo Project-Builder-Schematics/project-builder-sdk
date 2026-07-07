@@ -200,8 +200,11 @@ THEN it throws the exact same error `currentContext()` raises for any other verb
 `can only be used while a schematic is running`) — no accessor-specific try/catch or fallback.
 
 ### Tasks
-- [must-fail-first] `skeleton/dry-run-accessor.test.ts`: create — REQ-DRE-01.4 case only
-  (§4.6b: `expect(() => dryRun()).toThrow(…substring…)` OUTSIDE any run — no harness needed)
+- [x] [must-fail-first, TEETH-DEVIATION] `skeleton/dry-run-accessor.test.ts`: create — REQ-DRE-01.4
+  case only (§4.6b: `expect(() => dryRun()).toThrow(…substring…)` OUTSIDE any run — no harness
+  needed). Genuine pre-implementation RED is impossible (S-000 already ships the accessor with
+  inherited propagation — nothing left to implement); RED evidence is a discriminating
+  wrong-substring variant instead (see apply-progress S-001).
 
 ---
 
