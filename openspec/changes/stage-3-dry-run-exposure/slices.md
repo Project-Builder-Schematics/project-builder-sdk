@@ -221,7 +221,7 @@ sequencing only, no logical coupling)
 — `src/a.ts` absent (already flushed).
 
 ### Tasks
-- [must-fail-first] `skeleton/dry-run-accessor.test.ts`: extend — REQ-DRE-01.2 + REQ-DRE-01.3
+- [x] [must-fail-first, TEETH-DEVIATION] `skeleton/dry-run-accessor.test.ts`: extend — REQ-DRE-01.2 + REQ-DRE-01.3
   cases (§4.6b (rev 3 + rev 4): 01.3 uses `makeSpyClient({ "src/b.ts": "old" })` and the pinned
   in-fn create → `await read()` flush → modify → assert-single-entry sequence; the run-end
   flush applies the modify against the seeded file and resolves; 01.2 needs no seed)

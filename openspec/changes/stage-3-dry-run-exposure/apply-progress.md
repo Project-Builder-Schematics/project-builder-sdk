@@ -1,7 +1,7 @@
 # Apply Progress: stage-3-dry-run-exposure
 
 **Change**: stage-3-dry-run-exposure · **Triage**: M · **Mode**: Strict TDD
-**Last run**: 2026-07-07 — scope `slice:S-001`
+**Last run**: 2026-07-07 — scope `slice:S-002`
 
 ## Slice Status
 
@@ -9,7 +9,7 @@
 |---|---|---|---|
 | S-000 | walking-skeleton | complete | 10/10 |
 | S-001 | happy-path | complete | 1/1 |
-| S-002 | happy-path | not started | 0/1 |
+| S-002 | happy-path | complete | 1/1 |
 
 ## S-000 — Files Changed
 
@@ -111,7 +111,64 @@ production code touched this slice).
 - Cross-change guard honored: `src/core/context.ts` and `src/core/session.ts` untouched.
 - Touched only the new test file + progress/slice artefacts, per assignment constraint.
 
+---
+
+## S-002 — Buffer-State Variants (REQ-DRE-01.2, REQ-DRE-01.3)
+
+**Files Changed**
+
+| File | Action | What Was Done |
+|---|---|---|
+| `test/skeleton/dry-run-accessor.test.ts` | Modified | Extended with two cases: REQ-DRE-01.2 (empty buffer → `[]`, `makeSpyClient()` no seed) and REQ-DRE-01.3 (post-flush temporal — `makeSpyClient({ "src/b.ts": "old" })`, in-fn `create(a)` → `await find(a).read()` (flush) → `modify(b)` → assert single `modify` entry, `a` absent) |
+
+**TDD Cycle Evidence — S-002**
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| empty buffer | `dry-run-accessor.test.ts::returns an empty array when the run has buffered no directive (REQ-DRE-01.2)` | unit | [TEETH-DEVIATION, see below] deliberately-wrong expectation `[{verb:"create",path:"src/deliberately-wrong.ts"}]` failed with `Received []` (real `Expected - 6 / Received + 1` diff) | yes | n/a — pure pass-through of `dryRunPlan([])`, no conditional/iterative logic in scope | none needed |
+| post-flush temporal | `dry-run-accessor.test.ts::reflects only directives buffered since the last flush (REQ-DRE-01.3)` | unit | [TEETH-DEVIATION, see below] naive both-entries expectation `[{verb:"create",path:"src/a.ts"},{verb:"modify",path:"src/b.ts"}]` failed — `create` entry absent from the real (correct) result, proving the assertion discriminates the post-flush snapshot from the whole-run history | yes | n/a — single sequence pins the temporal contract; no class-of-inputs variation implied by the scenario | none needed |
+
+**RED-posture taxonomy deviation (recorded, not silent)**
+
+Both tasks are tagged `[must-fail-first]` in slices.md, but — same as S-001 — a genuine
+pre-implementation RED was not possible: `dryRun()`'s buffer-reflection behaviour (including
+the empty case and the post-flush snapshot) shipped complete in S-000
+(`dryRunPlan(currentContext().session.pendingSnapshot())`, `Session.flush()`'s splice-to-empty,
+`session.ts:53/56`). There is no production code left to write for either case.
+
+Per the S-001 precedent, RED evidence was manufactured honestly: each test was first written
+with a deliberately wrong expectation, run, and observed to fail for the right reason (an
+assertion-diff failure quoting the real output verbatim — not an import/syntax error). For
+REQ-DRE-01.3 specifically, the wrong-expectation variant asserted BOTH the `create` and
+`modify` entries (the naive "no flush happened" reading) — this is the discriminating mutant
+called out in the assignment: it fails precisely because the real implementation already
+flushed `src/a.ts` out of the buffer, proving the assertion has teeth against a plausible wrong
+implementation, not just against a random wrong literal. Both assertions were then corrected to
+the spec's exact expectations and went GREEN. No production code changed between RED and GREEN.
+
+Taxonomy classification: retroactively both tasks behave as **[characterization]**, not
+**[must-fail-first]**, despite the slices.md tag inherited from planning — recorded per the
+deviation-over-theatre rule rather than silently reclassifying slices.md's tag or fabricating a
+false RED against broken code.
+
+**Verification at Slice Boundary (S-002)**
+
+- `bun test test/skeleton/dry-run-accessor.test.ts`: 3 pass / 0 fail
+- `bun test` (full suite): 261 pass / 0 fail (was 259 pre-slice; +2)
+- `bun run typecheck`: clean
+
+**Deviations from Design (S-002)**
+
+None beyond the RED-posture taxonomy deviation above (a testing-process deviation, not a
+design/implementation deviation — `dryRun()`'s behaviour matches design rev 5 exactly, no
+production code touched this slice).
+
+**Notes (S-002)**
+
+- Cross-change guard honored: `src/core/context.ts` and `src/core/session.ts` untouched.
+- Touched only the existing test file + progress/slice artefacts, per assignment constraint.
+
 ## Next
 
-`/build --scope=slice:S-002` (buffer-state variants: empty plan + post-flush temporal
-contract, REQ-DRE-01.2/.3 — extends `test/skeleton/dry-run-accessor.test.ts`).
+All 3 slices (S-000, S-001, S-002) complete — 19/19 design §4.6 Test Derivation rows covered.
+`/evaluate` (verify final) is the next recommended phase for `stage-3-dry-run-exposure`.
