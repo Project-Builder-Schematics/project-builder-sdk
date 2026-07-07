@@ -162,30 +162,30 @@ returns author-vocabulary entries including `verb:"remove"` (never `"delete"`); 
 `.d.ts` names neither `Directive` nor `pendingSnapshot`; `DryRunVerb`/JSDoc contracts hold.
 
 ### Tasks
-- [must-fail-first] `plan.ts`: EXPORTED `WIRE_TO_AUTHOR_VERB` map (test-only reach, §4.6b),
+- [x] [must-fail-first] `plan.ts`: EXPORTED `WIRE_TO_AUTHOR_VERB` map (test-only reach, §4.6b),
   `export type DryRunVerb`, narrow `DryRunEntry.verb`, defining-site `@example`s (exhaustive
   switch + frozen-growth prose), header rewrite (retire "§4.4 wire-tag")
-- [must-fail-first] `plan.test.ts`: rebaseline delete→remove (REQ-04.2), add REQ-04.4 decoy,
+- [x] [must-fail-first] `plan.test.ts`: rebaseline delete→remove (REQ-04.2), add REQ-04.4 decoy,
   rewrite doc comment (keeps inline `Directive` literals — no `directive-builders.ts`)
-- [must-fail-first] `vocabulary-consistency.test.ts`: create — §4.6b(1) hybrid: runtime
+- [x] [must-fail-first] `vocabulary-consistency.test.ts`: create — §4.6b(1) hybrid: runtime
   `toEqual` on the exported map + `expectTypeOf<DryRunVerb>` + values-bridge, all anchored to
   the test-local `RATIFIED_AUTHOR_VERBS` literal
-- [characterization] `dry-run/index.ts`: barrel `export type { DryRunVerb }`
-- [must-fail-first] `commons/index.ts`: append `dryRun()` accessor + full REQ-DRE-04 JSDoc
+- [x] [characterization] `dry-run/index.ts`: barrel `export type { DryRunVerb }`
+- [x] [must-fail-first] `commons/index.ts`: append `dryRun()` accessor + full REQ-DRE-04 JSDoc
   (all 4 elements incl. outside-run `@throws`) + two-step type re-exports (file END)
-- [must-fail-first] `e2e/dry-run.e2e.test.ts`: create (REQ-DRE-01.1 + REQ-DRE-01.5; §4.6b
+- [x] [must-fail-first] `e2e/dry-run.e2e.test.ts`: create (REQ-DRE-01.1 + REQ-DRE-01.5; §4.6b
   (rev 3 + rev 4) harness — REQ-DRE-01.1 uses the pinned
   `new ContractFake({ seed: { "src/b.ts": "old" } })` (**never seed `src/a.ts`**), in-fn
   `expect`, 01.5 seeds `src/gone.ts`)
-- [per-assertion, design rev 5 §4.6] `skeleton/dry-run-public-contract.test.ts`: create —
+- [x] [per-assertion, design rev 5 §4.6] `skeleton/dry-run-public-contract.test.ts`: create —
   REQ-DRE-03.1 export-presence assertion is [must-fail-first] (genuine RED against the
   pre-regen baseline / missing export); the `.d.ts` scans REQ-DRE-02.1/.2 and the JSDoc token
   scans REQ-DRE-04.1–.3 + (d) stay [characterization]
-- [characterization] `types/dry-run-verb.test.ts`: create (narrowing + never-arm exhaustive
+- [x] [characterization] `types/dry-run-verb.test.ts`: create (narrowing + never-arm exhaustive
   switch; §4.6b(3) idiom — type-only imports from `../../src/commons/index.ts`, RED at
   `bun run typecheck`, not `bun test`)
-- [permanent-fixture] confirm FIT-09 (REQ-DRE-03.2), FIT-06, `no-import.test.ts` stay green
-- regen `dts-baseline/{commons.index,index}.d.ts` (`bun run build` + cp, constraint 2)
+- [x] [permanent-fixture] confirm FIT-09 (REQ-DRE-03.2), FIT-06, `no-import.test.ts` stay green
+- [x] regen `dts-baseline/{commons.index,index}.d.ts` (`bun run build` + cp, constraint 2)
 
 ---
 
