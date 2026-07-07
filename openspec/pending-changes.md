@@ -56,6 +56,14 @@ gains `force?`; `modify` requires existence). Stage 1.3 closes the fake to match
 | (1.6 verify follow-up) Stage 6 — confirm `BATCH_CAP_BYTES` against the real engine frame limit before freeze + consider structural no-consumer-outside-wire.ts scan. *Engine-side verified 2026-07-06: same seam as `bunipc.MaxMessageBytes` (4 MiB), values coincide; will be named as a contract value in engine PC-PROTO-01 — keep the "not engine-confirmed" flag until then* | edge-case | S | Before Stage 6 freeze (PC-PROTO-01 names it) | **6** |
 | (1.9 verify follow-up) Doc note: FIT-04 gate is blind to intentional-surface slices that regen baselines in the same change — additivity must be argued out-of-band | docs | XS | — | **1.6 (design note)** |
 
+## From `stage-3-dry-run-exposure` planning (2026-07-06) — registered at steward foresight
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| (steward CQ-2, owner-ratified) Demo-moment narrative restructure: the objectives-plan end-state demo interleaves a dialect read BEFORE showing the dry-run plan — under eager-flush that shows a PARTIAL plan. Restructure the demo to call `dryRun()` before any read/dialect-open | docs | XS | When Stage 5/6 materialize the demo | **6.3** |
+| (design ADR-0026) Outside-run error enumeration omits `dryRun` — generalise the `context.ts` message (post-stage-2 shape: `AuthoringError` constructor prose) while preserving the pinned "…can only be used while a schematic is running…" substring | refactor | XS | After stage-2 AND stage-3 merge | **post-merge** |
+| (design ADR-0024/0025) Single-source extraction: wire→author verb map + `DryRunVerb`/`AuthoringVerb` union duplicated across `src/dry-run/plan.ts` and `src/core/authoring-error.ts` by deliberate no-coupling rule — extract to one home once both stages are merged | refactor | S | After stage-2 AND stage-3 merge | **post-merge** |
+
 ## From engine handoff `l1-completion-gaps` (2026-07-06) — cross-repo contract notes
 
 Engine-repo explore + owner decisions, transferred 2026-07-06. Engine references: engine

@@ -1,0 +1,153 @@
+{
+  "change": "stage-3-dry-run-exposure",
+  "parent_plan": "openspec/objectives-plan.md Stage 3",
+  "triage": "M",
+  "triage_note": "Council split 2-1: skill executor L (bounded-contexts + open D3 new-pattern risk); architect + pm blind lenses M on verified code facts (Session.pendingSnapshot() already exists at session.ts:29; src/dry-run/index.ts barrel already re-exports dryRunPlan). Owner ratified M CONDITIONAL 2026-07-06: (1) re-triage to L if D3 ratifies runner-level mode (touches context.ts run lifecycle); (2) tech-writer joins spec/design (public exports + author vocabulary).",
+  "completed_phases": [
+    "triage",
+    "explore",
+    "propose",
+    "spec",
+    "design",
+    "steward-foresight",
+    "slice",
+    "plan-verify"
+  ],
+  "updated_at_final": "2026-07-07",
+  "next_phase": "PLAN CLOSED (plan-verify ready by owner ruling; publish skipped, spec_source internal). Rev-5/rev-4 clerical closures landing in background. NEXT: /build stage-3-dry-run-exposure — S-000 first (blocks all), then S-001 → S-002 (soft-sequenced, shared test file). Build-time cross-change guard: if stage-2 build is in flight, coordinate src/commons/index.ts merge (stage-3 appends at END of file).",
+  "phase": "plan-verify",
+  "phase_status": "COMPLETE — plan-verify CLOSED ready (owner-ruled, option b) after 3 iterations: iter1 gaps(3 tech) → design rev 3 §4.6b + slices rev 2; iter2 gaps(1 tech: run-end flush seed trap) → design rev 4 + slices rev 3; iter3 gaps(2 residual clerical) → plan-verify-failed emitted per protocol → owner ruling 2026-07-06: fixes (design rev 5 umbrella note + per-assertion RED; slices rev 4 mirror) + direct ready. Judge A clean 3×; Judge B iter-3: 'ready to execute' aside from the two clerical items.",
+  "slices_rev": 2,
+  "design_rev4_note": "rev 4 (2026-07-06): §4.6b(2) amended — SEEDING posture over rejects-wrapper (rejects would smuggle error-shape dependency while stage-2 rewrites AuthoringError in parallel + assert behaviour no THEN clause mentions). NEW general flush-safety seed rule: seed every modify target + every remove/rename/move/copy SOURCE not created in-run; NEVER seed create targets or rename/move/copy destinations (fail-closed rejects from the other side). Full sweep: 01.1/01.3 were UNSAFE → seeded src/b.ts; 01.2/01.4/01.5/consistency/type/@example all safe. Verified makeSpyClient constructs a real ContractFake and delegates emit — identical enforcement both harnesses. Lesson for verify record: reference idiom author-to-tree.e2e survives run-end flush only because create+modify share ONE path — precedent-copying without checking fake apply semantics is how the trap entered.",
+  "plan_verify": "gaps (iteration 2/3, 2026-07-06): Judge A clean again; Judge B down to ONE question-technical — run-end flush trap: REQ-DRE-01.1/01.3 pinned sequences modify('src/b.ts') never seeded → unconditional run-end flush (context.ts:50) → ContractFake 'modify target not found' (contract-fake.ts:178) → run rejects despite in-fn assertion passing; reference idiom survives only because create+modify share one path; fix = §4.6b seed pins (design rev 4, incl. sweep for other flush-rejecting sequences). Iteration 1 detail: gaps (iteration 1/3, 2026-07-06). Judge A: no findings (problem-fit affirmed, 3/3 in_scope covered, zero out_of_scope violations; cosmetic note: FIT-09/no-import satisfied as reconfirmed-green fixtures, correct under additive D3 shape). Judge B (followed slices' Executor Context reading list, 11 files — stage-2 lesson adopted from iter 1): 3 question-technical, 0 product: (1) vocabulary-consistency test mechanism (unexported map vs runtime access; DryRunVerb type erasure); (2) run-harness scaffolding for active-run tests (shared spy-client/directive-builders not in reading list); (3) test/types compile-time test convention. All routed to sdd-design rev 3 → slices appendix update → re-verify.",
+  "plan_verify_artifacts": [
+    "openspec/changes/stage-3-dry-run-exposure/verify-plan-1.md (engram sdd/stage-3-dry-run-exposure/verify-plan-1 obs 766)"
+  ],
+  "slices": true,
+  "slice_ids": [
+    "S-000 (walking skeleton: author reaches buffered plan in author vocabulary — dryRun export + vocabulary flip + full JSDoc + doc-tests + dts regen + e2e REQ-DRE-01.5; 16 scenario rows)",
+    "S-001 (outside-run propagation, REQ-DRE-01.4)",
+    "S-002 (buffer-state variants empty/post-flush, REQ-DRE-01.2/.3)"
+  ],
+  "slice_dag": "S-000 blocks all; S-001 → S-002 soft-sequenced (shared test/skeleton/dry-run-accessor.test.ts, sequencing only — stage-2 S-001/S-002 precedent)",
+  "slices_artifacts": [
+    "openspec/changes/stage-3-dry-run-exposure/slices.md",
+    "engram sdd/stage-3-dry-run-exposure/slices"
+  ],
+  "slices_known_deviations": "Walking skeleton S-000 kept despite M (sdd-slice skill mandates unconditionally; also the only cut satisfying binding constraints 1/5/6 simultaneously); 3 slices at low end of 2-4 target (consolidation forced by §4.8 co-landing constraints); S-000 large with no natural mid-slice checkpoint (accepted — no smaller compiling cut exists)",
+  "steward_foresight": "PASSED — aligned + 3 CQs owner-affirmed 2026-07-06: CQ-1 pending-tail-at-call-time IS the ratified fulfillment of O2 line 5 (honest maximum under eager-flush; full-plan view explicitly NOT essential); CQ-2 demo-moment restructure ratified (dryRun() before any read/dialect-open — registered as followup, lands when Stage 5/6 materialize the demo, no stage-3 scope change); CQ-3 shape-level {verb,path} IS the contract (content preview = invariant breach). Original blind analysis: verdict aligned (obs 762, north-star.md written); gate was BLOCKED pending owner answers. Crux: design delivers 'still-pending directives at call time'; O2 line 5 promises 'see what you're about to emit'. Coincide for write-only factories; diverge when read() flushes first (eager-flush ADR-0008 makes full-plan-view architecturally impossible mid-run). CQ-2 flags the canonical demo-moment narrative itself interleaves a dialect read BEFORE dryRun → partial plan; every spec example sidesteps via find().remove() (no read) — interleaving case ships untested by design.",
+  "design_rev": 3,
+  "design_status": "rev 3 COMPLETE — 3 plan-verify executor questions resolved normatively in new §4.6b (Test Mechanics — pinned idioms, repo-investigated): (1) WIRE_TO_AUTHOR_VERB becomes export const from plan.ts, NOT barrel/commons re-exported; FIT-04 impact ZERO (verified: dts-baseline has no dry-run entry); consistency test = hybrid over one RATIFIED_AUTHOR_VERBS as-const literal (runtime toEqual + expectTypeOf + Object.values bridge); (2) harness idioms pinned — e2e mirrors author-to-tree.e2e (ContractFake + expect inside fn), skeleton uses makeSpyClient per handle-chaining; directive-builders deliberately NOT used; (3) test/types = typed-create idiom (bun-test blocks + expectTypeOf in never-invoked arrows, imports from PUBLIC commons surface; RED at typecheck not runtime). Rev 2 history: 6 council findings applied (JSDoc content-contract table §4.4; outside-run @throws compensation; ADR-0026 retitled; §4.8 six binding constraints)",
+  "design_artifacts": [
+    "openspec/changes/stage-3-dry-run-exposure/design.md (rev 2, revision history in header)",
+    "engram sdd/stage-3-dry-run-exposure/design obs 758 (upserted)"
+  ],
+  "architecture_impact": "additive (justified: baseline architecture.md:55 already documents author-vocabulary rendering — the delete→remove flip brings CODE into line with the documented contract; DryRunEntry shape unchanged; new export in existing commons layer; 0 touchpoint deviations. Architect-confirmed; counterargument (runtime output of existing module changes) must ride into post-verify arch_refresh record)",
+  "design_adrs": [
+    "ADR-0024 dry-run exposure shape + author-verb vocabulary (★ D3 formal: commons fold; rejected runner-mode/context.ts cost + subpath/no-import contradiction + wire-tag two-vocabularies)",
+    "ADR-0025 DryRunVerb public LOCAL union (narrow now; additive; intentional duplication with stage-2 AuthoringVerb, never cross-imported)",
+    "ADR-0026 outside-run message omission → coordinate, do NOT edit context.ts (stage-2 rewrites that exact throw; followup = standalone post-merge pending-change)"
+  ],
+  "design_key_decisions": [
+    "dryRun(): DryRunEntry[] in src/commons/index.ts via dryRunPlan(currentContext().session.pendingSnapshot()) — the ambient idiom every verb uses",
+    "Frozen LOCAL 6-row wire→author map in plan.ts (pure data, type-only indexed access keeps core-blindness)",
+    "FIT-06 gotcha: commons must import DryRunEntry/DryRunVerb from ../dry-run/plan.ts DEFINING SITE, never the index.ts barrel — FIT-06 resolver is single-hop and skips re-export-only origins (verified by architect against fit-06 source)",
+    "File changes: 8 create / 6 modify / 4 read-only; commons edit APPENDED at end of file (stage-2 contention mitigation)"
+  ],
+  "design_council": "rev 1 → architect approve-with-notes (2 minor: ADR-0026 followup ownership reword; additive-counterargument into arch_refresh record) + tech-writer approve-with-notes (2 major: outside-run compensating JSDoc @throws/precondition; pin JSDoc content + doc-test assertion tokens per stage-2 bar; 2 minor: DryRunVerb exhaustive-switch @example + frozen note; plan.ts back-pointer to dryRun()) → rev 2 applying all 6",
+  "slice_constraints_from_council": [
+    "REQ-DRE-04 FULL JSDoc content + doc-obligation tests SAME SLICE as dryRun export (no false RED/GREEN window)",
+    "DryRunVerb/DryRunEntry defining-site @examples ride the slice that narrows/exports them",
+    "Defining-site imports from ../dry-run/plan.ts, never the barrel (FIT-06 single-hop)",
+    ".d.ts baseline regen same slice as the export (FIT-04 same-change-regen blindness, stage-1 lesson)",
+    "plan.ts verb flip + plan.test.ts re-baseline + REQ-04.4 decoy together",
+    "commons edit appended at END of file"
+  ],
+  "spec_status": "signed",
+  "spec_signed": "V2, owner, 2026-07-06 — accessor name `dryRun` RATIFIED (TW ruling; fallback dryRunPlan+renderer-rename rejected). Status flipped in all 3 spec files by orchestrator.",
+  "spec_version": "v2",
+  "spec_reqs": 5,
+  "spec_scenarios": 16,
+  "spec_iteration": "V1 (3 new REQ-DRE-01..03 + MODIFIED REQ-04, 12 scenarios, provisional name dryRunPlan) -> blind council (BA: approve-with-notes, 1 major + 3 minor; TW: approve-with-notes, 2 major + 2 minor; zero overlap on majors) -> V2 all 7 deduped findings applied: +REQ-DRE-04 (JSDoc discoverability, 3 scenarios), +REQ-DRE-01.5 (e2e remove->accessor integration), 01.1/01.3 hardened, outside-run coordination point explicit, DryRunVerb union design flag, provisional name -> dryRun (fallback recorded: dryRunPlan + renderer rename to renderDryRunPlan). 16 scenarios total. No ID reuse, none removed.",
+  "spec_open_items_at_signoff": [
+    "Accessor name ratification: dryRun (TW ruling) vs fallback dryRunPlan + renderDryRunPlan rename",
+    "Design-phase non-blocking: outside-run message-omission resolution (extend enumeration / generalise / register to stage-2); DryRunVerb local-union narrowing decision"
+  ],
+  "spec_council_majors": [
+    "BA: missing end-to-end integration scenario remove()->accessor->verb:'remove' — both domains could pass green with integration broken (vacuous-pass risk, provisional name collision makes mis-wiring plausible)",
+    "TW: missing JSDoc/discoverability REQ mirroring stage-2 REQ-AEC-04.3/03.2 — @example + temporal contract prose + shape-level guarantee must be testable obligations",
+    "TW name ruling: dryRunPlan collides at source with internal renderer dryRunPlan(snapshot) — recommend `dryRun` (consistent with DryRunEntry stem, zero collision); owner fallback: keep dryRunPlan + rename renderer to renderDryRunPlan"
+  ],
+  "spec_council_minors": [
+    "REQ-DRE-01.3 pre/post-flush directives must be distinguishable (create a.ts / modify b.ts)",
+    "REQ-DRE-01.1 pin concrete paths, no ellipses",
+    "Outside-run inherited error enumerates 7 verbs, omits the accessor — design coordination point (extend enumeration / generalise message / register to stage-2), never silent",
+    "DryRunEntry.verb typed string hides six-verb guarantee — design considers LOCAL DryRunVerb union in src/dry-run/** (never imported from stage-2 core)"
+  ],
+  "spec_artifacts": [
+    "openspec/changes/stage-3-dry-run-exposure/spec.md",
+    "openspec/changes/stage-3-dry-run-exposure/specs/dry-run-plan-exposure/spec.md",
+    "openspec/changes/stage-3-dry-run-exposure/specs/dry-run-plan-skeleton/spec.md (delta)",
+    "engram sdd/stage-3-dry-run-exposure/spec obs 752"
+  ],
+  "proposal_artifacts": [
+    "openspec/changes/stage-3-dry-run-exposure/proposal.md",
+    "engram sdd/stage-3-dry-run-exposure/proposal obs 750"
+  ],
+  "proposal_capabilities": "NEW: dry-run-plan-exposure (read-only ./commons accessor over pendingSnapshot()→dryRunPlan, DryRunEntry[] in author vocabulary); MODIFIED: dry-run-plan-skeleton (delete→remove reconciliation). Accessor public name UNDECIDED — spec + tech-writer ratify before REQ-IDs freeze.",
+  "proposal_key_finding": "Signed spec dry-run-plan-skeleton REQ-04/04.2 ALREADY mandates author vocabulary — but BA nuance: spec says 'author-vocabulary verb' without naming `remove`, while plan.ts:17,27 + plan.test.ts:13-14 cite 'design §4.4' as authority for the wire tag → live spec-vs-design contradiction, not clean code-violates-spec. Spec phase must decide: MODIFIED block pinning verb:'remove' + retiring §4.4 note, or existing text suffices.",
+  "proposal_council": "BA blind review: approve-with-notes (3 minor: accessor name undecided; spec-vs-design contradiction must be resolved at spec not slice; happy-path-only coverage)",
+  "spec_constraints_from_council": [
+    "Empty-buffer path: accessor before any directive → [] not error (alternate scenario)",
+    "Post-flush temporal path: accessor after read() (which flushes/splices #pending) reflects only directives since flush — spec the temporal semantics explicitly, the O2 promise honesty gap",
+    "No-active-run error path: accessor outside factory run (currentContext() throw path) → define observable behaviour explicitly, never implementation default",
+    "Public-surface: accessor returns DryRunEntry[] only; readonly Directive[] never appears in public .d.ts — REQ + FIT assertion, not checkbox",
+    "Vocabulary consistency: pin the FULL six-row wire→author map as a scenario (remove for delete-op, identity for other five) so future map edits can't silently drift a second op",
+    "Accessor public name ratified (tech-writer) BEFORE REQ-IDs freeze",
+    "Spec-vs-design contradiction (REQ-04.2 vs plan.ts §4.4 wire-tag note) resolved explicitly: MODIFIED block or text-suffices ruling"
+  ],
+  "d3_ratified": "2026-07-06 (owner, direction — formal ADR at design): (1) VOCABULARY = author verbs: dry-run plan renders `remove`, never wire `delete` (consistent with stage-2 AuthoringError precedent; plan.test.ts re-baselines); (2) MAP LOCATION = duplicated local 6-entry map where D3 needs it + consistency test against ratified vocabulary; single-source extraction registered as followup in pending-changes once both stages merge (NOT reuse stage-2's core map — would couple builds; NOT new shared module — would reopen stage-2's frozen design); (3) SHAPE = fold into ./commons: read-only accessor in src/commons/index.ts (currentContext().session.pendingSnapshot() → dryRunPlan), no new subpath, plan.ts core-blindness intact, Session untouched. Re-triage-to-L clause NOT triggered.",
+  "explore_verdict": "ready_for_proposal: yes",
+  "explore_artifacts": [
+    "openspec/changes/stage-3-dry-run-exposure/explore.md",
+    "engram sdd/stage-3-dry-run-exposure/explore obs 747"
+  ],
+  "explore_findings_key": "Exposure-shape half of D3 effectively settled by existing code + ADR-0014 3-subpath shape: only viable M-scoped approach = fold read-only accessor into src/commons/index.ts (currentContext().session.pendingSnapshot() → dryRunPlan); plan.ts untouched. Architecture touchpoints: 3 align, 1 DEVIATES (shared delete→remove concern with stage-2's src/core/authoring-error.ts verb-map — ADR input at design, same ADR as vocabulary question). Risks: vocabulary drift with stage-2 if shipped unchanged; commons/index.ts merge contention; plan.test.ts churn if vocabulary flips; FIT-04 .d.ts baseline must regen in-slice or gate silently misses the new export.",
+  "open_questions_product": [
+    "Dry-run plan vocabulary: keep wire tag `delete` vs render author verb `remove` (stage-2 ratified `remove` for AuthoringError); if translating, map location: reuse stage-2's core map / duplicate locally / neutral shared leaf"
+  ],
+  "open_questions_technical": [],
+  "abstraction_entry": "A2 plus A1 (author-facing flow touched: author sees plan before flush)",
+  "personas": [
+    "architect",
+    "pm"
+  ],
+  "personas_downstream": "M light council = architect + business-analyst; + tech-writer at spec/design (owner condition). Architect blind lens at triage already covered explore-depth architecture reading; its findings injected into sdd-explore as builder context.",
+  "cross_change_constraints": [
+    "stage-3 stays READ-ONLY on Session — consumes existing pendingSnapshot(); editing flush()/attribution = stage-2 lane, drift signal",
+    "src/commons/index.ts = highest-contention merge file with stage-2 (AuthoringError re-export clusters land there)",
+    "delete→remove author-verb mapping gains two runtime consumers (stage-2 authoring-error.ts + stage-3 plan.ts) — cross-change contract, ADR candidate: vocabulary source one-map-or-two; shared map cannot live in src/core (plan.ts is core-blind per no-import fitness)",
+    "stage-2 owner precedent binds D3 vocabulary half: author verbs ratified (verb: 'remove', never wire 'delete', resolves ADR-0013 conflict)",
+    "public surface: authors get DryRunEntry[] only — readonly Directive[] snapshot never crosses to public API",
+    "naive ./dry-run subpath option self-contradictory: ambient wiring needs runtime core import, forbidden in src/dry-run/** by no-import fitness — D3 ADR must place the wiring (commons already imports currentContext)"
+  ],
+  "d3_status": "open — owner decision, sits before 3.2; three shapes with materially different layering cost (in-factory verb in commons = cleanest; runner-level mode = touches context.ts, triggers re-triage to L; ./dry-run subpath = permanent semver surface + wiring contradiction)",
+  "sensitive_areas": "public-api (contract) hit but additive not breaking — surfaced, no L override; deployment/IPC-wire rows clean",
+  "worktree": ".claude/worktrees/plan-stage-3-dry-run-exposure (branch worktree-plan-stage-3-dry-run-exposure, born from origin/main c7c46dd)",
+  "spec_status": null,
+  "slices": false,
+  "plan_verify": null,
+  "verify_final": null,
+  "arch_audit": null,
+  "in_loop_iteration": 0,
+  "execution_mode": "interactive",
+  "artifact_store": "hybrid",
+  "spec_source": "internal",
+  "write_mode": "sync",
+  "problem_statement_ref": "echoed verbatim (English) in openspec/changes/stage-3-dry-run-exposure/triage.md",
+  "triage_artifacts": [
+    "openspec/changes/stage-3-dry-run-exposure/triage.md (+ Owner Ratification section)",
+    "engram sdd/stage-3-dry-run-exposure/triage (obs-97d400c4da6afed7)"
+  ],
+  "updated_at": "2026-07-06"
+}
