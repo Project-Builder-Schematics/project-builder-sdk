@@ -2,7 +2,15 @@
  * S-002.2 — dryRunPlan: all-six-ops mapping, primary-path extraction, write-only-chain equality.
  * Unit: ops → DryRunEntry; Integration: snapshot from real Session equals buffered directives.
  *
- * Primary path per op (from design §4.4 + wire.ts):
+ * Wire→author verb mapping (frozen, six rows — identity for five ops, one translation):
+ *   create  → create
+ *   modify  → modify
+ *   delete  → remove
+ *   rename  → rename
+ *   move    → move
+ *   copy    → copy
+ *
+ * Primary path per op (from wire.ts):
  *   create  → create.pathTemplate
  *   modify  → modify.path
  *   delete  → delete.path
@@ -10,8 +18,8 @@
  *   move    → move.path
  *   copy    → copy.from
  *
- * verb = wire op tag (create/modify/delete/rename/move/copy); "remove" is the AUTHOR verb,
- * "delete" is the WIRE op tag — dryRunPlan uses the wire tag per design §4.4.
+ * verb = author vocabulary (create/modify/remove/rename/move/copy) — dryRunPlan never
+ * emits the wire op tag "delete"; the frozen map above renders it as "remove".
  */
 import { describe, it, expect } from "bun:test";
 import { dryRunPlan } from "../../src/dry-run/index.ts";
@@ -57,11 +65,21 @@ describe("dryRunPlan — unit: op mapping (REQ-04.1, REQ-04.2)", () => {
     expect(result).toEqual([
       { verb: "create", path: "src/a.ts" },
       { verb: "modify", path: "src/b.ts" },
-      { verb: "delete", path: "src/c.ts" },
+      { verb: "remove", path: "src/c.ts" },
       { verb: "rename", path: "src/d.ts" },
       { verb: "move",   path: "src/e.ts" },
       { verb: "copy",   path: "src/f.ts" },
     ] satisfies DryRunEntry[]);
+  });
+
+  it("REQ-04.4 — delete op never emits the wire tag [decoy]", () => {
+    const directive: Directive = { op: "delete", delete: { path: "src/gone.ts" } };
+
+    const result = dryRunPlan([directive]);
+    const verb: string = result[0]?.verb ?? "";
+
+    expect(verb).toBe("remove");
+    expect(verb).not.toBe("delete");
   });
 });
 

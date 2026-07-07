@@ -229,3 +229,38 @@ export function copy(from: string, to: string, opts?: { force?: boolean }): Writ
   session.buffer(factory.copy({ from, to, ...forceEntry(opts?.force) }));
   return buildWritableHandle(to);
 }
+
+// --- Stage 3: dry-run plan exposure (REQ-DRE-01..04) ---
+import { dryRunPlan } from "../dry-run/index.ts";
+import type { DryRunEntry, DryRunVerb } from "../dry-run/plan.ts";
+
+export type { DryRunEntry, DryRunVerb };
+
+/**
+ * Returns the plan of directives still pending in the active run's buffer, rendered
+ * in author vocabulary.
+ *
+ * The plan reflects only what is still pending — the honest answer to "what will this
+ * run still emit", not "what has this run emitted in total." A `read()` (or any flush)
+ * empties the pending buffer, so directives already flushed no longer appear.
+ *
+ * Entries carry `verb` and `path` only — no content or byte preview.
+ *
+ * Call it inside an active `defineFactory` run, like every other `./commons` verb.
+ *
+ * @example
+ * defineFactory(() => {
+ *   create("src/index.ts", { template: "export const version = '1.0.0';", options: {} });
+ *   find("src/legacy.ts").remove();
+ *   for (const entry of dryRun()) {
+ *     console.log(entry.verb, entry.path); // "create src/index.ts", then "remove src/legacy.ts"
+ *   }
+ * });
+ *
+ * @throws When called outside an active `defineFactory` run, propagates the standard
+ * error — file verbs "can only be used while a schematic is running" (the message does
+ * not yet name `dryRun`; see the ADR-0026 followup).
+ */
+export function dryRun(): DryRunEntry[] {
+  return dryRunPlan(currentContext().session.pendingSnapshot());
+}

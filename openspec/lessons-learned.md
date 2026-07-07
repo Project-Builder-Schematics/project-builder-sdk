@@ -2,6 +2,53 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `stage-3-dry-run-exposure` (2026-07-07)
+
+### Tag pinning-only slices [characterization] at plan time — [must-fail-first] over shipped behavior is unachievable
+**What**: A [must-fail-first] tag on a pinning-only slice over behavior a prior skeleton slice already
+shipped is unachievable — the behavior exists, so a spec-correct test can only be born GREEN.
+**Why**: Stage-3's S-000 walking skeleton shipped the entire `dryRun()` capability; S-001/S-002 added
+zero production code (behaviors inherited from `currentContext()`/`pendingSnapshot()`/`Session.flush()`).
+Genuine pre-impl RED was impossible, so the executor manufactured RED honestly — a deliberately-wrong
+assertion failing for the RIGHT reason (assertion diff, not import/syntax error) — proving teeth, then
+corrected to spec. Verify-final adjudicated this TEETH-DEVIATION legitimate: deviation-over-theatre,
+not a violation.
+**Where**: Any multi-slice change whose skeleton slice ships the capability and whose later slices only
+pin inherited behavior.
+**Learned**: At slicing time, tag pinning-only slices [characterization], reserving [must-fail-first]
+for slices that add or change production behavior. When the misclassification is only discovered at
+apply time, TEETH-DEVIATION (deliberately-wrong-expectation RED) is the honest fallback.
+
+Source: change `stage-3-dry-run-exposure` (2026-07-07)
+
+### Commit pipeline artefacts BEFORE launching evaluators with cleanup instructions
+**What**: Blind evaluators instructed to "leave no trace" deleted an UNCOMMITTED pipeline artefact
+(`verify-report.md`), mistaking it for their own residue.
+**Why**: Uncommitted files have ambiguous ownership from an evaluator's perspective — a blanket
+cleanup instruction invites over-zealous garbage collection of anything not in git history. The
+committed artefacts survived untouched.
+**Where**: Any orchestrated flow that launches blind judges/evaluators (judgment-day, council reviews)
+with cleanup or leave-no-trace instructions.
+**Learned**: Commit every pipeline artefact to the branch BEFORE launching evaluators that carry
+cleanup instructions, and scope those instructions to exact paths rather than "clean up after yourself".
+
+Source: change `stage-3-dry-run-exposure` (2026-07-07)
+
+### A worktree-scoped architecture refresh silently drops unmerged sibling surface
+**What**: Refreshing the architecture baseline from inside a change worktree captures only what that
+worktree sees — surface belonging to unmerged sibling branches (parallel changes) silently disappears
+from the refreshed baseline.
+**Why**: Stage-3's post-verify baseline refresh ran in the stage-3 worktree while stage-2 (parallel,
+unmerged, architecture-impact `modifying`) was invisible to it; without a scope note, a future reader
+would take the refreshed baseline as the whole truth.
+**Where**: Projects running parallel changes under worktrees with an architecture baseline
+(`sdd/{project}/architecture`).
+**Learned**: Record the branch-scope in the baseline refresh note ("captured in {branch} worktree
+context only") and re-refresh the baseline after the siblings merge — never treat a worktree-scoped
+refresh as global.
+
+Source: change `stage-3-dry-run-exposure` (2026-07-07)
+
 ## From `typed-options-and-read` (2026-06-24)
 
 ### A named derivation alias can be a structural no-op — prove the existing contract, don't add one

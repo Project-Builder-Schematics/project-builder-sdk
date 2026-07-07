@@ -162,30 +162,30 @@ returns author-vocabulary entries including `verb:"remove"` (never `"delete"`); 
 `.d.ts` names neither `Directive` nor `pendingSnapshot`; `DryRunVerb`/JSDoc contracts hold.
 
 ### Tasks
-- [must-fail-first] `plan.ts`: EXPORTED `WIRE_TO_AUTHOR_VERB` map (test-only reach, §4.6b),
+- [x] [must-fail-first] `plan.ts`: EXPORTED `WIRE_TO_AUTHOR_VERB` map (test-only reach, §4.6b),
   `export type DryRunVerb`, narrow `DryRunEntry.verb`, defining-site `@example`s (exhaustive
   switch + frozen-growth prose), header rewrite (retire "§4.4 wire-tag")
-- [must-fail-first] `plan.test.ts`: rebaseline delete→remove (REQ-04.2), add REQ-04.4 decoy,
+- [x] [must-fail-first] `plan.test.ts`: rebaseline delete→remove (REQ-04.2), add REQ-04.4 decoy,
   rewrite doc comment (keeps inline `Directive` literals — no `directive-builders.ts`)
-- [must-fail-first] `vocabulary-consistency.test.ts`: create — §4.6b(1) hybrid: runtime
+- [x] [must-fail-first] `vocabulary-consistency.test.ts`: create — §4.6b(1) hybrid: runtime
   `toEqual` on the exported map + `expectTypeOf<DryRunVerb>` + values-bridge, all anchored to
   the test-local `RATIFIED_AUTHOR_VERBS` literal
-- [characterization] `dry-run/index.ts`: barrel `export type { DryRunVerb }`
-- [must-fail-first] `commons/index.ts`: append `dryRun()` accessor + full REQ-DRE-04 JSDoc
+- [x] [characterization] `dry-run/index.ts`: barrel `export type { DryRunVerb }`
+- [x] [must-fail-first] `commons/index.ts`: append `dryRun()` accessor + full REQ-DRE-04 JSDoc
   (all 4 elements incl. outside-run `@throws`) + two-step type re-exports (file END)
-- [must-fail-first] `e2e/dry-run.e2e.test.ts`: create (REQ-DRE-01.1 + REQ-DRE-01.5; §4.6b
+- [x] [must-fail-first] `e2e/dry-run.e2e.test.ts`: create (REQ-DRE-01.1 + REQ-DRE-01.5; §4.6b
   (rev 3 + rev 4) harness — REQ-DRE-01.1 uses the pinned
   `new ContractFake({ seed: { "src/b.ts": "old" } })` (**never seed `src/a.ts`**), in-fn
   `expect`, 01.5 seeds `src/gone.ts`)
-- [per-assertion, design rev 5 §4.6] `skeleton/dry-run-public-contract.test.ts`: create —
+- [x] [per-assertion, design rev 5 §4.6] `skeleton/dry-run-public-contract.test.ts`: create —
   REQ-DRE-03.1 export-presence assertion is [must-fail-first] (genuine RED against the
   pre-regen baseline / missing export); the `.d.ts` scans REQ-DRE-02.1/.2 and the JSDoc token
   scans REQ-DRE-04.1–.3 + (d) stay [characterization]
-- [characterization] `types/dry-run-verb.test.ts`: create (narrowing + never-arm exhaustive
+- [x] [characterization] `types/dry-run-verb.test.ts`: create (narrowing + never-arm exhaustive
   switch; §4.6b(3) idiom — type-only imports from `../../src/commons/index.ts`, RED at
   `bun run typecheck`, not `bun test`)
-- [permanent-fixture] confirm FIT-09 (REQ-DRE-03.2), FIT-06, `no-import.test.ts` stay green
-- regen `dts-baseline/{commons.index,index}.d.ts` (`bun run build` + cp, constraint 2)
+- [x] [permanent-fixture] confirm FIT-09 (REQ-DRE-03.2), FIT-06, `no-import.test.ts` stay green
+- [x] regen `dts-baseline/{commons.index,index}.d.ts` (`bun run build` + cp, constraint 2)
 
 ---
 
@@ -200,8 +200,11 @@ THEN it throws the exact same error `currentContext()` raises for any other verb
 `can only be used while a schematic is running`) — no accessor-specific try/catch or fallback.
 
 ### Tasks
-- [must-fail-first] `skeleton/dry-run-accessor.test.ts`: create — REQ-DRE-01.4 case only
-  (§4.6b: `expect(() => dryRun()).toThrow(…substring…)` OUTSIDE any run — no harness needed)
+- [x] [must-fail-first, TEETH-DEVIATION] `skeleton/dry-run-accessor.test.ts`: create — REQ-DRE-01.4
+  case only (§4.6b: `expect(() => dryRun()).toThrow(…substring…)` OUTSIDE any run — no harness
+  needed). Genuine pre-implementation RED is impossible (S-000 already ships the accessor with
+  inherited propagation — nothing left to implement); RED evidence is a discriminating
+  wrong-substring variant instead (see apply-progress S-001).
 
 ---
 
@@ -218,7 +221,7 @@ sequencing only, no logical coupling)
 — `src/a.ts` absent (already flushed).
 
 ### Tasks
-- [must-fail-first] `skeleton/dry-run-accessor.test.ts`: extend — REQ-DRE-01.2 + REQ-DRE-01.3
+- [x] [must-fail-first, TEETH-DEVIATION] `skeleton/dry-run-accessor.test.ts`: extend — REQ-DRE-01.2 + REQ-DRE-01.3
   cases (§4.6b (rev 3 + rev 4): 01.3 uses `makeSpyClient({ "src/b.ts": "old" })` and the pinned
   in-fn create → `await read()` flush → modify → assert-single-entry sequence; the run-end
   flush applies the modify against the seeded file and resolves; 01.2 needs no seed)
