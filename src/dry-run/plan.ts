@@ -43,6 +43,7 @@ export type DryRunVerb = "create" | "modify" | "remove" | "rename" | "move" | "c
  * operation targets. Carries no content or byte preview.
  *
  * @example
+ * const plan = dryRun(); // from "@pbuilder/sdk/commons"
  * for (const entry of plan) {
  *   console.log(entry.verb, entry.path);
  * }
@@ -55,15 +56,17 @@ export interface DryRunEntry {
 // Frozen six-row wire→author verb map — delete→remove, identity elsewhere. EXPORTED
 // for the D3 consistency test (test-only reach, §4.6b): NOT re-exported by
 // src/dry-run/index.ts or ./commons. The Record<Directive["op"], DryRunVerb> annotation
-// itself compile-enforces totality over wire ops and value-membership in DryRunVerb.
-export const WIRE_TO_AUTHOR_VERB: Record<Directive["op"], DryRunVerb> = {
-  create: "create",
-  modify: "modify",
-  delete: "remove",
-  rename: "rename",
-  move: "move",
-  copy: "copy",
-};
+// itself compile-enforces totality over wire ops and value-membership in DryRunVerb;
+// Object.freeze makes the "frozen" claim literal at runtime.
+export const WIRE_TO_AUTHOR_VERB: Readonly<Record<Directive["op"], DryRunVerb>> =
+  Object.freeze({
+    create: "create",
+    modify: "modify",
+    delete: "remove",
+    rename: "rename",
+    move: "move",
+    copy: "copy",
+  });
 
 /**
  * Renders a directive snapshot as an author-vocabulary plan.
@@ -79,13 +82,14 @@ export const WIRE_TO_AUTHOR_VERB: Record<Directive["op"], DryRunVerb> = {
  */
 export function dryRunPlan(snapshot: readonly Directive[]): DryRunEntry[] {
   return snapshot.map((d): DryRunEntry => {
+    const verb = WIRE_TO_AUTHOR_VERB[d.op];
     switch (d.op) {
-      case "create": return { verb: WIRE_TO_AUTHOR_VERB.create, path: d.create.pathTemplate };
-      case "modify": return { verb: WIRE_TO_AUTHOR_VERB.modify, path: d.modify.path };
-      case "delete": return { verb: WIRE_TO_AUTHOR_VERB.delete, path: d.delete.path };
-      case "rename": return { verb: WIRE_TO_AUTHOR_VERB.rename, path: d.rename.path };
-      case "move":   return { verb: WIRE_TO_AUTHOR_VERB.move,   path: d.move.path };
-      case "copy":   return { verb: WIRE_TO_AUTHOR_VERB.copy,   path: d.copy.from };
+      case "create": return { verb, path: d.create.pathTemplate };
+      case "modify": return { verb, path: d.modify.path };
+      case "delete": return { verb, path: d.delete.path };
+      case "rename": return { verb, path: d.rename.path };
+      case "move":   return { verb, path: d.move.path };
+      case "copy":   return { verb, path: d.copy.from };
     }
   });
 }

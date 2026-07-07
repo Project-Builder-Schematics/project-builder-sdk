@@ -34,29 +34,28 @@ function extractDryRunJsDoc(source: string): string {
   return lines.slice(start, fnLineIndex).join("\n");
 }
 
+// Both scan targets are static files — read once for the whole suite.
+const baselineDts = readFileSync(BASELINE_FILE, "utf-8");
+const dryRunJsDoc = extractDryRunJsDoc(readFileSync(COMMONS_SOURCE_FILE, "utf-8"));
+
 describe("dry-run public contract — .d.ts baseline scan", () => {
   it("REQ-DRE-03.1 — dryRun is a named export of the commons .d.ts baseline", () => {
-    const dts = readFileSync(BASELINE_FILE, "utf-8");
-    expect(dts).toMatch(/export declare function dryRun\(/);
+    expect(baselineDts).toMatch(/export declare function dryRun\(/);
   });
 
   it("REQ-DRE-02.1 — no reference to Directive or pendingSnapshot in the commons .d.ts baseline", () => {
-    const dts = readFileSync(BASELINE_FILE, "utf-8");
-    expect(dts).not.toMatch(/\bDirective\b/);
-    expect(dts).not.toMatch(/\bpendingSnapshot\b/);
+    expect(baselineDts).not.toMatch(/\bDirective\b/);
+    expect(baselineDts).not.toMatch(/\bpendingSnapshot\b/);
   });
 
   it("REQ-DRE-02.2 — dryRun's emitted signature is zero-parameter returning DryRunEntry[] only", () => {
-    const dts = readFileSync(BASELINE_FILE, "utf-8");
-    expect(dts).toMatch(/export declare function dryRun\(\):\s*DryRunEntry\[\];/);
+    expect(baselineDts).toMatch(/export declare function dryRun\(\):\s*DryRunEntry\[\];/);
   });
 });
 
 describe("dry-run public contract — JSDoc discoverability scan (REQ-DRE-04)", () => {
   it("REQ-DRE-04.1 — @example block shows in-run usage reading verb and path", () => {
-    const source = readFileSync(COMMONS_SOURCE_FILE, "utf-8");
-    const jsdoc = extractDryRunJsDoc(source);
-    const exampleMatch = jsdoc.match(/@example([\s\S]*?)(?:@throws|\*\/)/);
+    const exampleMatch = dryRunJsDoc.match(/@example([\s\S]*?)(?:@throws|\*\/)/);
     expect(exampleMatch).not.toBeNull();
     const exampleBlock = exampleMatch?.[1] ?? "";
     expect(exampleBlock).toContain("dryRun()");
@@ -66,24 +65,18 @@ describe("dry-run public contract — JSDoc discoverability scan (REQ-DRE-04)", 
   });
 
   it("REQ-DRE-04.2 — prose states the temporal contract (pending AND read())", () => {
-    const source = readFileSync(COMMONS_SOURCE_FILE, "utf-8");
-    const jsdoc = extractDryRunJsDoc(source);
-    expect(jsdoc).toContain("pending");
-    expect(jsdoc).toContain("read()");
+    expect(dryRunJsDoc).toContain("pending");
+    expect(dryRunJsDoc).toContain("read()");
   });
 
   it("REQ-DRE-04.3 — prose states the shape guarantee (verb AND path AND the negation)", () => {
-    const source = readFileSync(COMMONS_SOURCE_FILE, "utf-8");
-    const jsdoc = extractDryRunJsDoc(source);
-    expect(jsdoc).toContain("verb");
-    expect(jsdoc).toContain("path");
-    expect(jsdoc).toContain("no content or byte preview");
+    expect(dryRunJsDoc).toContain("verb");
+    expect(dryRunJsDoc).toContain("path");
+    expect(dryRunJsDoc).toContain("no content or byte preview");
   });
 
   it("REQ-DRE-04(d) — @throws tag present with the outside-run substring", () => {
-    const source = readFileSync(COMMONS_SOURCE_FILE, "utf-8");
-    const jsdoc = extractDryRunJsDoc(source);
-    expect(jsdoc).toContain("@throws");
-    expect(jsdoc).toContain("can only be used while a schematic is running");
+    expect(dryRunJsDoc).toContain("@throws");
+    expect(dryRunJsDoc).toContain("can only be used while a schematic is running");
   });
 });
