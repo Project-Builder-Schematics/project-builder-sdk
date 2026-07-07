@@ -24,7 +24,7 @@ Stage 3 closed the dry-run exposure objective (O2 coverage line 5): the pure `dr
 
 `openspec/changes/archive/2026-07-07-stage-3-dry-run-exposure/` (moved via `git mv` 2026-07-07; 17 files, folder move verified)
 
-Staged in git; awaiting commit.
+Folder move committed as `d041377`; ADR promotions, followup rows, and lessons committed in the archive-completion commit.
 
 ## Lessons Learned Persisted
 
@@ -36,7 +36,7 @@ Three generalizable lessons identified, all meeting the "future engineer would b
 
 3. **Worktree-Scoped Architecture Refresh Silent Failure on Unmerged Sibling Branches** — Running architecture baseline refresh inside a worktree in a parallel-change scenario can silently omit architectural impact from sibling branches visible in main but not the worktree. Document scope ("baseline captured in stage-3-worktree context only") and re-refresh post-merge. (Type: pattern)
 
-**Lessons persisted to**: `project/lessons-learned` (engram, 3 entries); `openspec/lessons-learned.md` (appended)
+**Lessons persisted to**: `openspec/lessons-learned.md` (stage-3 section prepended, newest-first); engram topic `project/lessons-learned` — ONE cumulative observation (#648) carrying all three stage-3 lessons plus stage-2's four (restored: the topic-key upsert had replaced them — itself an instance of stage-2's own shared-topic-clobber lesson)
 
 ## ADRs
 
@@ -44,11 +44,11 @@ Three generalizable lessons identified, all meeting the "future engineer would b
 
 | ADR ID | Title | Rationale | Status |
 |---|---|---|---|
-| ADR-0024 | Dry-run exposure shape + author-verb vocabulary | Establishes the exposure surface and frozen verb-map mechanism; affects how future rendering changes will be designed in this project; cross-cutting ADR-0025/0026 dependencies | Promoted to `openspec/architectural-decisions.md` |
-| ADR-0025 | Public `DryRunVerb` union narrowing | Establishes `DryRunVerb` as a semver-locked type whose growth is MAJOR; future changes to wire ops or author vocabulary must consult this ADR | Promoted to `openspec/architectural-decisions.md` |
-| ADR-0026 | Outside-run message-omission deferral | Establishes the precedent for coordinating cross-stage behavioral divergence at the spec level when one stage cannot own the fix; generalization deferred to post-merge pending-change | Promoted to `openspec/architectural-decisions.md` |
+| ADR-0024 | Dry-run exposure shape + author-verb vocabulary | Establishes the exposure surface and frozen verb-map mechanism; affects how future rendering changes will be designed in this project; cross-cutting ADR-0025/0026 dependencies | Promoted — file in `openspec/decisions/` |
+| ADR-0025 | Public `DryRunVerb` union narrowing | Establishes `DryRunVerb` as a semver-locked type whose growth is MAJOR; future changes to wire ops or author vocabulary must consult this ADR | Promoted — file in `openspec/decisions/` |
+| ADR-0026 | Outside-run message-omission deferral | Establishes the precedent for coordinating cross-stage behavioral divergence at the spec level when one stage cannot own the fix; generalization deferred to post-merge pending-change | Promoted — file in `openspec/decisions/` |
 
-All three ADRs were extracted from the change's `design.md` (§4.5) and promoted as project-level architecture records. Their origin-change reference is recorded.
+All three ADRs were extracted from the change's `design.md` (§4.5) and promoted as project-level architecture records: `openspec/decisions/0024-dry-run-exposure-shape-author-verb-vocabulary.md`, `0025-dryrunverb-public-local-union.md`, `0026-outside-run-message-omission-coordination.md` (Status: Accepted, origin-change reference recorded in each). NOTE: stage-4's in-flight plan drafts ADRs also numbered 0024-0028 in its own worktree — stage-3 signed first and keeps these numbers.
 
 ### Recommended but Not Yet Promoted
 
@@ -56,23 +56,23 @@ None — all three candidate ADRs met promotion criteria.
 
 ## Followups Registered
 
-Verify verdict was `pass-with-followups`. Three followups are pre-registered in the verify-report and are carried forward to `project/pending-changes`:
+Verify verdict was `pass-with-followups`. The `openspec/pending-changes.md` stage-3 section carries five rows: three registered at plan phase (confirmed, not duplicated — the single-source-extraction row was AMENDED with the commons import-hoisting architect note) plus two NEW rows registered at archive:
 
 | Description | Type | Size | Origin | Next |
 |---|---|---|---|---|
-| Single-source wire→author map extraction (once stage-2+3 merge) — eliminates duplicate `WIRE_TO_AUTHOR_VERB` and `DryRunVerb`/`AuthoringVerb` | refactor | S | design ADR-0024/0025 | post-merge (S) |
-| Outside-run message generalization (post-merge) — extend error enumeration or generalise away from verb-list; preserve "…can only be used while a schematic is running…" substring; see ADR-0026 | refactor | XS | design ADR-0026, spec-sanctioned coordination point | post-merge (standalone, not owned by stage-2) |
-| REQ-DRE-02 test hardening — scan fresh `dist/` output instead of committed baseline (test infrastructure improvement) | refactor | XS | verify-report §Adversarial review, Judge A suggestion | post-merge or Stage 4 |
-
-No edge-case or perf-related followups; all are explicitly pre-registered design/coordination items.
+| Single-source wire→author map extraction (once stage-2+3 merge) — eliminates duplicate `WIRE_TO_AUTHOR_VERB` and `DryRunVerb`/`AuthoringVerb`; includes hoisting stage-3's mid-file imports in `src/commons/index.ts` | refactor | S | design ADR-0024/0025 (plan-phase row, amended at archive) | post-merge |
+| Outside-run message generalization — generalise away from the verb enumeration; preserve "…can only be used while a schematic is running…" substring; closing it retires `dryRun`'s compensating `@throws` caveat; see ADR-0026 | refactor | XS | design ADR-0026 (plan-phase row, confirmed) | post-merge (standalone, not owned by stage-2) |
+| Demo-moment narrative restructure (call `dryRun()` before any read/dialect-open) | docs | XS | steward CQ-2 (plan-phase row, confirmed) | Stage 6.3 |
+| REQ-DRE-02 test hardening — `.d.ts` scans in `test/skeleton/dry-run-public-contract.test.ts` should target fresh `dist/` output instead of the committed baseline | test | XS | judgment-day Judge A (NEW at archive) | anytime |
+| /simplify candidates — renderer switch indexes `WIRE_TO_AUTHOR_VERB[d.op]` instead of per-arm hardcoded keys (both judges); `Object.freeze` the map; `@example` runnability polish | refactor | XS | judgment-day round 1 (NEW at archive) | immediate post-archive /simplify pass |
 
 ## Final State
 
 - **Spec status**: signed (archived)
 - **Main specs updated for**: 2 domains (1 new, 1 modified)
-- **Lessons in project memory**: 3 added
-- **ADRs in project memory**: 3 promoted
-- **Pending changes in project memory**: 3 registered
+- **Lessons in project memory**: 3 added (file + engram obs 648)
+- **ADRs promoted**: 3 (`openspec/decisions/0024..0026`)
+- **Pending changes registered**: 2 new at archive + 3 plan-phase rows confirmed (1 amended)
 
 ## Pre-PR Audit (Step 6d)
 
