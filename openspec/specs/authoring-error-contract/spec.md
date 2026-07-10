@@ -1,8 +1,23 @@
 # Authoring Error Contract Specification
 
-**Spec version**: V2
-**Status**: signed (2026-07-06, stage-2-error-attribution)
-**Change**: `stage-2-error-attribution`
+**Spec version**: V3
+**Status**: signed (2026-07-10 — amendment applied via owner-authorized unfreeze, coordinated
+`sdd-spec` call from `stage-4-typed-options`)
+**Change**: `stage-2-error-attribution` (amended by `stage-4-typed-options`, 2026-07-10)
+
+**V2 → V3 delta (owner-authorized unfreeze, 2026-07-10)**: applies the sequenced amendment
+`stage-4-typed-options`'s spec recorded as PROPOSED (its "Domain: authoring-error-contract
+(MODIFIED — DEFERRED)" block) — extends the closed `reason` enum from six to eight values
+(REQ-AEC-07 `invalid-input`, REQ-AEC-08 `reserved-name`) and adds REQ-AEC-09 (the 4th/5th
+message-template rows, needed by `stage-4-typed-options`'s REQ-RBV-02 and REQ-RLN-02). Pure
+ADDED-requirements amendment — no MODIFIED/REMOVED, every V2 REQ-ID and its content preserved
+verbatim. REQ-AEC-01's enum-size wording and REQ-AEC-01.2's scenario text are updated to the
+amended eight-member count (counts only — the scenario ID and its GIVEN/WHEN structure are
+unchanged). Both new reasons map to `origin: "authoring-rejected"` per ADR-0021's
+origin-derives-from-reason rule. Clerical completions inside V3 (same authorization, same
+day): REQ-AEC-02's per-reason origin-mapping enumeration and REQ-AEC-05.1's leak-scan family
+list extended to the eight-member membership — enumeration completeness only, no scenario
+IDs or semantics changed.
 
 ## Purpose
 
@@ -16,18 +31,20 @@ build on — after this stage, growing it is a semver decision, not a free edit.
 
 ### REQ-AEC-01: Closed Reason Enum (★D2)
 
-`AuthoringError.reason` MUST be a closed union of exactly six values, ALL in
+`AuthoringError.reason` MUST be a closed union of exactly eight values, ALL in
 author vocabulary — zero engine/fake strings (`"serialization"`,
 `"round-trip"`, `"protocol"`, `"directive"`, `"batch"`, `"emit"` are
 explicitly BANNED as values):
 
-`"path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown"`
+`"path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown" | "invalid-input" | "reserved-name"`
 
 (Previously: `target-not-found` — renamed to `path-not-found` for parallelism
 with `path-collision` and to kill the target-vs-source ambiguity; and
 `too-many-changes` — renamed to `changes-too-large`: the cap is BYTES, and the
 old name misdirected authors to split batches when they may need smaller
-content.)
+content. V2 → V3 amendment, 2026-07-10, coordinated with `stage-4-typed-options`:
+added `invalid-input` and `reserved-name`, extending the closed union from six
+to eight values — see REQ-AEC-07/08.)
 
 | Value | Covers |
 |---|---|
@@ -37,12 +54,17 @@ content.)
 | `changes-too-large` | serialized batch exceeds `BATCH_CAP_BYTES` (ADR-0019) |
 | `outside-run` | a verb was called outside an active `defineFactory` run (REQ-AEC-02) |
 | `unknown` | the rejection could not be classified (REQ-ERM-03 degradation) |
+| `invalid-input` | a factory run's resolved input fails schema-derived validation at the run boundary (REQ-AEC-07) |
+| `reserved-name` | a factory module declares a reserved lifecycle name (REQ-AEC-08) |
 
-**Semver note**: adding a 7th value later is a MAJOR change, not additive.
+**Semver note**: adding a 9th value later is a MAJOR change, not additive.
 Authors are expected to write exhaustive `switch(reason)` blocks; TypeScript's
 exhaustiveness check breaks such a switch when a new member is added, even
 though nothing breaks at runtime. FIT-04's `.d.ts` gate MUST treat a `reason`
-union growth as breaking. Record this stance verbatim in the D2 ADR.
+union growth as breaking. Record this stance verbatim in the D2 ADR. (The V2 →
+V3 amendment that added `invalid-input`/`reserved-name` was itself such a
+MAJOR change, applied deliberately via owner-authorized unfreeze — not an
+exception to this stance.)
 
 #### Scenario REQ-AEC-01.1: Every directive-level family classifies to its exact reason value — both failure forms of rename/copy/move included
 
@@ -60,7 +82,7 @@ union growth as breaking. Record this stance verbatim in the D2 ADR.
 
 - GIVEN the full set of rejections a `ContractFake` can raise today
 - WHEN each is translated
-- THEN `reason` is always one of the six closed values — never a raw string
+- THEN `reason` is always one of the eight closed values — never a raw string
   copied from the fake's message
 
 #### Scenario REQ-AEC-01.3: Stringify-throw site classifies as unrepresentable-content
@@ -103,8 +125,10 @@ parallelism with `write-rejected`; the name survives the Stage 5 dialect
 family joining this origin without a MAJOR-break rename.)
 
 `path-collision`, `path-not-found`, `unrepresentable-content`, and
-`changes-too-large` are ALWAYS `origin: "write-rejected"`. `outside-run` is
-ALWAYS `origin: "authoring-rejected"`. `unknown` is ALWAYS
+`changes-too-large` are ALWAYS `origin: "write-rejected"`. `outside-run`,
+`invalid-input`, and `reserved-name` are ALWAYS
+`origin: "authoring-rejected"` (`invalid-input`/`reserved-name` added by the
+V2 → V3 amendment — REQ-AEC-07/08). `unknown` is ALWAYS
 `origin: "write-rejected"` — **deliberate, not incidental**: an unclassifiable
 rejection necessarily arrived through the emit/write seam (the only place
 `toAuthoringError` runs), so the write side is the honest attribution; record
@@ -242,7 +266,9 @@ name is not the stable REQ-ID; `REQ-AEC-05` is.
 #### Scenario REQ-AEC-05.1: No leak across any family
 
 - GIVEN every rejection family (path-collision, path-not-found,
-  unrepresentable-content, changes-too-large, outside-run, unknown)
+  unrepresentable-content, changes-too-large, outside-run, unknown,
+  invalid-input, reserved-name — the last two added by the V2 → V3
+  amendment, REQ-AEC-07/08)
 - WHEN each `AuthoringError`'s full object graph is scanned
 - THEN no dictionary string appears anywhere
 
@@ -304,3 +330,87 @@ message MUST additionally state that the SDK could not classify the failure.
 - WHEN the message is inspected
 - THEN it follows the batch-level template AND states the SDK could not
   classify the failure
+
+### REQ-AEC-07: `reason: "invalid-input"` (V2 → V3 amendment, 2026-07-10)
+
+`AuthoringError.reason` MUST include `"invalid-input"` as a closed-enum member
+(REQ-AEC-01, extending the closed union to eight values), representing a
+run-boundary schema-validation rejection: a factory run's resolved input
+fails schema-derived validation before the run begins. Per REQ-AEC-02's
+origin-derivation rule (ADR-0021: `origin` derives from a CLOSED `reason` enum
+via an exhaustive switch), `origin` for this reason is ALWAYS
+`"authoring-rejected"` — the rejection is an SDK-side misuse detection, not an
+engine round-trip refusal.
+
+(Originally drafted as `invalid-options` during `stage-4-typed-options`
+proposal/V1; renamed to `invalid-input` before this amendment applied —
+disambiguates from `create<S>`'s unrelated `options` template-interpolation
+plane and aligns with the run-boundary-input-validation domain naming that
+consumes this reason.)
+
+#### Scenario REQ-AEC-07.1: A run-boundary validation rejection classifies as invalid-input
+
+- GIVEN a factory run whose resolved input fails schema-derived validation at
+  the run boundary
+- WHEN the rejection is translated to an `AuthoringError`
+- THEN `reason` is exactly `"invalid-input"` and `origin` is
+  `"authoring-rejected"`
+
+### REQ-AEC-08: `reason: "reserved-name"` (V2 → V3 amendment, 2026-07-10)
+
+`AuthoringError.reason` MUST include `"reserved-name"` as a closed-enum member
+(REQ-AEC-01, extending the closed union to eight values), representing a
+factory module declaring a reserved lifecycle name (`pre-execute` /
+`post-execute`). Per REQ-AEC-02's origin-derivation rule (ADR-0021), `origin`
+for this reason is ALWAYS `"authoring-rejected"` — same rationale as
+REQ-AEC-07: an SDK-side misuse detection, not an engine round-trip refusal.
+
+#### Scenario REQ-AEC-08.1: A reserved-name rejection classifies as reserved-name
+
+- GIVEN a factory module that declares a reserved lifecycle name
+- WHEN the rejection is translated to an `AuthoringError`
+- THEN `reason` is exactly `"reserved-name"` and `origin` is
+  `"authoring-rejected"`
+
+### REQ-AEC-09: Input-Level & Reserved-Name Message Template Rows (V2 → V3 amendment, 2026-07-10)
+
+REQ-AEC-06 freezes a 3-row message-template table (directive-level,
+batch-level, `outside-run`); none of those three families fit a
+schema-validation or reserved-name rejection: directive-level needs a
+`verb`+`path` these rejections don't have; batch-level MUST NOT name a field,
+but naming the offending field IS the point of the no-echo contract;
+`outside-run`'s template is fixed prose. This requirement adds TWO more rows —
+a 4th, INPUT-LEVEL family (`reason: "invalid-input"`) and a 5th,
+RESERVED-NAME family (`reason: "reserved-name"`) — both greppable, both
+naming the failure concept, NEVER interpolating an undefined field, NEVER
+echoing a raw supplied value:
+
+| Family | Reason | Template |
+|---|---|---|
+| Input-level, type/shape mismatch | `invalid-input` | `"invalid input: {field} must be {expectedType}"` |
+| Input-level, reserved/excess key | `invalid-input` | `"invalid input: {field} is a reserved or disallowed key"` |
+| Reserved-name (module structure) | `reserved-name` | `"reserved lifecycle name: {name} is reserved and cannot be declared by a factory module"` |
+
+`{expectedType}` renders the DECLARED expectation for the field, never the
+received value's kind (no-echo): a primitive typed property renders the
+declared kind (`number`/`string`/`boolean`); a non-JSON value (e.g. a
+function) supplied for a typed property still renders the DECLARED kind, not
+the received kind; `null` supplied for a required typed property renders the
+DECLARED kind (null is wrong-type, not missing — a deliberate trichotomy, not
+folded into a generic "missing" case); an enum property renders
+`one of: <choices joined by ", ">`.
+
+Canary asymmetry: key NAMES may appear on an error surface (as `{field}` or
+`{name}`); VALUES never.
+
+#### Scenario REQ-AEC-09.1: Input-level type-mismatch message
+
+- GIVEN a run-boundary rejection on a `port` field expecting `number`
+- WHEN the message is inspected
+- THEN it is exactly `"invalid input: port must be number"`
+
+#### Scenario REQ-AEC-09.2: Reserved-name message
+
+- GIVEN a reserved-name rejection naming `pre-execute`
+- WHEN the message is inspected
+- THEN it is exactly `"reserved lifecycle name: pre-execute is reserved and cannot be declared by a factory module"`
