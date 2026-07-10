@@ -234,13 +234,13 @@ author-vocabulary + locator, prior output untouched; GIVEN valid input THEN exit
 success line; GIVEN a path-escaping/symlinked output target THEN refused before any write.
 
 ### Tasks
-- [ ] `test/support/canary.ts` — token gen, fixture seeding, subprocess stdout/stderr capture
-- [ ] [must-fail-first] `test/bin/codegen-cli.test.ts` — TFO-04 full matrix + TFO-03.1/.2 + FPS-01.1/FPS-05.1
-- [ ] [must-fail-first] `test/bin/codegen-static-scan.test.ts` — TFO-03.3 (no eval/Function/dynamic-import in `dist/bin`)
-- [ ] [must-fail-first] TFO-05 write-containment + symlink-escape fixture (constraint 3)
-- [ ] [must-fail-first] hostile-schema emitter-inertness red-proof (constraint 2, TFO-01 SEC-1 row)
-- [ ] [must-fail-first] `fit-14-package-surface.test.ts` (exports unchanged, `#bin` added, zero-deps, tarball contents) + committed baseline `test/fitness/pkg-surface-baseline.json` (`{exports, files, tarball, bin, shebang}`, Gap 11); FIT-14 regenerates the actual surface and diffs against it
-- [ ] [must-fail-first] `fit-15-bin-core-direction.test.ts` (no `src/` runtime import of `bin/`)
+- [x] `test/support/canary.ts` — token gen, fixture seeding, subprocess stdout/stderr capture
+- [x] [must-fail-first] `test/bin/codegen-cli.test.ts` — TFO-04 full matrix + TFO-03.1/.2 + FPS-01.1/FPS-05.1
+- [x] [must-fail-first] `test/bin/codegen-static-scan.test.ts` — TFO-03.3 (no eval/Function/dynamic-import in `dist/bin`)
+- [x] [must-fail-first] TFO-05 write-containment + symlink-escape fixture (constraint 3)
+- [x] [must-fail-first] hostile-schema emitter-inertness red-proof (constraint 2, TFO-01 SEC-1 row)
+- [x] [must-fail-first] `fit-14-package-surface.test.ts` (exports unchanged, `#bin` added, zero-deps, tarball contents) + committed baseline `test/fitness/pkg-surface-baseline.json` (`{exports, files, tarball, bin, shebang}`, Gap 11); FIT-14 regenerates the actual surface and diffs against it
+- [x] [must-fail-first] `fit-15-bin-core-direction.test.ts` (no `src/` runtime import of `bin/`)
 
 ---
 
@@ -256,10 +256,10 @@ missing `choices`, a nonsensical `type`, or a `__proto__`/`constructor`/`prototy
 FIT-13 runs THEN it hard-fails, named; advisory-only fields pass.
 
 ### Tasks
-- [ ] [must-fail-first] `fit-12-schema-parity.test.ts` — staled-digest fixture fails; regen restores green
-- [ ] content-only drift (label edit, byte-identical type text) still caught; non-destructive-check proof (SCP-01.3/.4)
-- [ ] [must-fail-first] `schema-sufficiency.ts` + `fit-13-schema-sufficiency.test.ts` — hard-fail matrix (fixtures: missing-type, missing-label, enum-no-choices, nonsensical-type, proto-declaring)
-- [ ] [characterization] advisory-fields-pass positive scenario
+- [x] [must-fail-first] `fit-12-schema-parity.test.ts` — staled-digest fixture fails; regen restores green
+- [x] content-only drift (label edit, byte-identical type text) still caught; non-destructive-check proof (SCP-01.3/.4)
+- [x] [must-fail-first] `schema-sufficiency.ts` + `fit-13-schema-sufficiency.test.ts` — hard-fail matrix (fixtures: missing-type, missing-label, enum-no-choices, nonsensical-type, proto-declaring)
+- [x] [characterization] advisory-fields-pass positive scenario
 
 ---
 

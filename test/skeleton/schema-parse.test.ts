@@ -36,6 +36,9 @@ describe("parseSchema", () => {
     expect(caught).toBeInstanceOf(SchemaParseFailure);
     const failure = caught as SchemaParseFailure;
     expect(failure.problem).toEqual("invalid JSON");
+    // ADR-0032: the hand-rolled locator pins the "INVALID" bareword deviation on line 3.
+    expect(failure.line).toEqual(3);
+    expect(failure.column).toEqual(13);
   });
 
   it("throws SchemaParseFailure with problem 'missing \"properties\" object' when properties is absent", () => {

@@ -1,0 +1,131 @@
+/**
+ * FIT-14: package-surface guard (REQ-FPS-02, Gap 11).
+ *
+ * Baseline-diff mechanism (FIT-04-style): a committed snapshot
+ * `test/fitness/pkg-surface-baseline.json` records `{ exports, files, bin, shebang,
+ * tarball }` as of this change. This test REGENERATES the actual surface (package.json
+ * fields + a real `bun pm pack --dry-run` listing + the shipped bin's first line) and diffs
+ * it against the committed baseline — any drift (a changed export, a lost `files` entry, a
+ * newly-introduced `dependencies` entry, a missing shebang, or an unexpected new tarball
+ * entry) fails, naming the delta.
+ *
+ * Self-building via an unconditional `beforeAll` (FIT-04 precedent, slices constraint 10)
+ * so a bare `bun test` on a fresh checkout stays green.
+ */
+import { describe, it, expect, beforeAll } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+
+const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
+const BASELINE_PATH = join(PROJECT_ROOT, "test/fitness/pkg-surface-baseline.json");
+
+interface PkgSurfaceBaseline {
+  exports: Record<string, { types: string; import: string }>;
+  files: string[];
+  bin: Record<string, string>;
+  shebang: string;
+  tarball: string[];
+}
+
+beforeAll(() => {
+  const result = spawnSync("bun", ["run", "build"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
+  if (result.status !== 0) {
+    throw new Error(
+      `FIT-14: bun run build failed — cannot diff the package surface without a fresh build.\n` +
+      `stdout: ${result.stdout}\nstderr: ${result.stderr}`
+    );
+  }
+});
+
+// Parses `bun pm pack --dry-run`'s "packed <size> <path>" lines into a sorted path list —
+// the actual publishable tarball contents.
+function parsePackedFileList(stdout: string): string[] {
+  return stdout
+    .split("\n")
+    .filter((line) => line.startsWith("packed "))
+    .map((line) => line.replace(/^packed\s+\S+\s+/, "").trim())
+    .sort();
+}
+
+// Returns tarball paths present in `current` but absent from `baseline` — new entries a
+// future change silently introduced (REQ-FPS-02.2: "no OTHER file... has newly entered").
+function findNewTarballEntries(baseline: string[], current: string[]): string[] {
+  const baselineSet = new Set(baseline);
+  return current.filter((path) => !baselineSet.has(path));
+}
+
+// Returns tarball paths present in `baseline` but absent from `current` — entries that
+// silently disappeared (a lost `files` entry is exactly this drift class).
+function findMissingTarballEntries(baseline: string[], current: string[]): string[] {
+  const currentSet = new Set(current);
+  return baseline.filter((path) => !currentSet.has(path));
+}
+
+describe("FIT-14 — package surface guard (baseline diff)", () => {
+  const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as PkgSurfaceBaseline;
+  const pkgJson = JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
+    exports: PkgSurfaceBaseline["exports"];
+    files: string[];
+    bin: Record<string, string>;
+    dependencies?: Record<string, string>;
+  };
+
+  it("exports map is unchanged from the committed baseline (REQ-FPS-02.1)", () => {
+    expect(pkgJson.exports).toEqual(baseline.exports);
+  });
+
+  it("files field is unchanged from the committed baseline", () => {
+    expect(pkgJson.files).toEqual(baseline.files);
+  });
+
+  it("bin field matches the committed baseline (only the codegen bin, REQ-FPS-02.1)", () => {
+    expect(pkgJson.bin).toEqual(baseline.bin);
+  });
+
+  it("dependencies remains absent or empty — zero-runtime-deps preserved (REQ-FPS-02.1)", () => {
+    expect(Object.keys(pkgJson.dependencies ?? {})).toEqual([]);
+  });
+
+  it("the shipped dist/bin artifact's first line is exactly the pinned shebang", () => {
+    const distBin = readFileSync(join(PROJECT_ROOT, "dist/bin/pbuilder-codegen.js"), "utf-8");
+    const firstLine = distBin.split("\n")[0];
+    expect(firstLine).toEqual(baseline.shebang);
+  });
+
+  it("the publishable tarball contains no file beyond the committed baseline (REQ-FPS-02.2)", () => {
+    const result = spawnSync("bun", ["pm", "pack", "--dry-run"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
+    expect(result.status).toEqual(0);
+    const current = parsePackedFileList(result.stdout);
+
+    const newEntries = findNewTarballEntries(baseline.tarball, current);
+    const missingEntries = findMissingTarballEntries(baseline.tarball, current);
+
+    expect(newEntries).toEqual([]);
+    expect(missingEntries).toEqual([]);
+  });
+
+  it("the codegen bin's file is present in the tarball listing", () => {
+    expect(baseline.tarball).toContain("dist/bin/pbuilder-codegen.js");
+  });
+
+  // RED-PROOF: a simulated new tarball entry is detected as drift.
+  it("[red-proof] a simulated new tarball file is flagged as a newly-entered file", () => {
+    const simulatedCurrent = [...baseline.tarball, "dist/unexpected-leak.js"].sort();
+    const newEntries = findNewTarballEntries(baseline.tarball, simulatedCurrent);
+    expect(newEntries).toEqual(["dist/unexpected-leak.js"]);
+  });
+
+  // RED-PROOF: a simulated lost `files`-declared entry is detected as drift.
+  it("[red-proof] a simulated missing tarball file is flagged as a lost entry", () => {
+    const simulatedCurrent = baseline.tarball.filter((p) => p !== "dist/bin/pbuilder-codegen.js");
+    const missingEntries = findMissingTarballEntries(baseline.tarball, simulatedCurrent);
+    expect(missingEntries).toEqual(["dist/bin/pbuilder-codegen.js"]);
+  });
+
+  // RED-PROOF: an identical listing produces no drift.
+  it("[red-proof] an unchanged listing produces no new or missing entries", () => {
+    expect(findNewTarballEntries(baseline.tarball, baseline.tarball)).toEqual([]);
+    expect(findMissingTarballEntries(baseline.tarball, baseline.tarball)).toEqual([]);
+  });
+});

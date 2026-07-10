@@ -3,6 +3,7 @@
 // vocabulary; this module never renders a caller-facing message itself (no-echo, ADR-0027).
 
 import type { Schema, SchemaKind, SchemaProperty } from "./schema-model.ts";
+import { locateFirstJsonSyntaxError } from "./schema-locate.ts";
 
 export interface SchemaParseFailureInfo {
   problem: string;
@@ -24,27 +25,6 @@ export class SchemaParseFailure extends Error {
   }
 }
 
-// Gap 8 (ADR-0027): extract the engine's byte offset when present, convert to a 1-based
-// (line, column) by walking the raw text — engine-independent once the offset is known.
-// No offset in the message -> caller renders the pinned "(position unknown)" fallback.
-function locateFromSyntaxError(raw: string, err: SyntaxError): { line: number | undefined; column: number | undefined } {
-  const match = /at position (\d+)/.exec(err.message);
-  const offsetText = match?.[1];
-  if (offsetText === undefined) {
-    return { line: undefined, column: undefined };
-  }
-  const offset = Number(offsetText);
-  let line = 1;
-  let lastNewlineAt = -1;
-  for (let i = 0; i < offset && i < raw.length; i++) {
-    if (raw[i] === "\n") {
-      line++;
-      lastNewlineAt = i;
-    }
-  }
-  return { line, column: offset - lastNewlineAt };
-}
-
 function isPlainObject(value: unknown): value is { [key: string]: unknown } {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -60,10 +40,12 @@ export function parseSchema(raw: string): Schema {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    const locator = err instanceof SyntaxError
-      ? locateFromSyntaxError(raw, err)
-      : { line: undefined, column: undefined };
-    throw new SchemaParseFailure({ problem: "invalid JSON", ...locator });
+    const locator = err instanceof SyntaxError ? locateFirstJsonSyntaxError(raw) : undefined;
+    throw new SchemaParseFailure({
+      problem: "invalid JSON",
+      line: locator?.line,
+      column: locator?.column,
+    });
   }
 
   if (!isPlainObject(parsed) || !isPlainObject(parsed.properties)) {
