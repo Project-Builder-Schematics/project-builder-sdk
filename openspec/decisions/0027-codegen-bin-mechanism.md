@@ -1,6 +1,6 @@
 # ADR-0027: Codegen bin — hand-rolled zero-dep subset parser + CLI contract
 
-- Status: DRAFT (Proposed; promoted at stage-4-typed-options archive)
+- Status: Accepted (2026-07-11, promoted at stage-4-typed-options archive)
 - Date: 2026-07-06
 - Change: `stage-4-typed-options` (D4)
 - Builds on: ADR-0009 (near-zero runtime deps, supply-chain blast radius); ADR-0014 (subpath shape)

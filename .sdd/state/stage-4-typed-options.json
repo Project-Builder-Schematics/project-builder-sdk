@@ -4,8 +4,8 @@
   "triage": "L",
   "triage_note": "Unanimous L, PROVISIONAL. Re-triage trigger: D4 = derive AND all five items bundled -> XL/program; 6+ ADRs at design confirms XL. D4 front-loaded: ratify at explore/propose, never mid-design.",
   "retriage_trigger": "D4 = derive (codegen bin or Zod-as-source) AND scope keeps all five items bundled -> re-triage (split: 4a differentiator / 4b reserved names / 4c D7 harness).",
-  "phase": "verify-final",
-  "phase_status": "final GAN converged iter 3: security + QA both re-verified approve; council 5/5 cleared; committing fix, next judgment-day (required)",
+  "phase": "archive",
+  "phase_status": "all gates passed; archiving (sync specs, move to archive/, promote ADRs 0027-0032, register followups)",
   "proposal_artifacts": [
     "openspec/changes/stage-4-typed-options/proposal.md",
     "engram obs 755 (sdd/stage-4-typed-options/proposal)"
@@ -97,7 +97,7 @@
   "spec_signed": "V5, owner, 2026-07-10 (amendment applied)",
   "spec_reqs": 25,
   "verify_final": "pass-with-followups",
-  "arch_audit": null,
+  "arch_audit": "clean",
   "in_loop_iteration": 1,
   "execution_mode": "automatic",
   "artifact_store": "hybrid",
@@ -129,7 +129,8 @@
     "2c30485 S-003+S-004",
     "b51020b S-005",
     "1c1188d AEC amendment (spec V3/V5)",
-    "6bbd9f2 S-006+enum extension"
+    "6bbd9f2 S-006+enum extension",
+    "028c7b9 verify-final council hardening (injection+DoS fix)"
   ],
   "carried_to_final": [
     "2 RED-posture reassessments (TDD audit zero-tolerance)",
@@ -146,5 +147,8 @@
   },
   "new_followups": [
     "F-07 primary sufficiency gate lacks independent mutation-guard test (backstop catches injection) \u2014 QA iter3"
-  ]
+  ],
+  "judgment_day": "APPROVED (2 judges, 0 crit/0 major; LOW: numeric-enum-unusable->4b, dir-relativization; risk: authoring-error.ts merge hazard vs stage-2)",
+  "steward_reckoning": "DELIVERED (owner affirmed 2026-07-11: 4a ships in-repo-proven, 4b stays committed-next)",
+  "merge_hazard_note": "RESOLVED by arch refresh: base 413b2aa IS current main w/ stage-1/2/3 merged; authoring-error.ts extends already-present stage-2 surface, no collision"
 }

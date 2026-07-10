@@ -1,6 +1,6 @@
 # ADR-0030: Scoping ADR-0018 — author-input-contract conformance is SDK-owned upstream of the wire
 
-- Status: DRAFT (Proposed; promoted at stage-4-typed-options archive)
+- Status: Accepted (2026-07-11, promoted at stage-4-typed-options archive)
 - Date: 2026-07-06
 - Change: `stage-4-typed-options`
 - Amends/Scopes: ADR-0018 (boundary pass-through — "the SDK never validates")

@@ -1,6 +1,6 @@
 # ADR-0032: Hand-rolled JSON position locator (supersedes ADR-0027 Gap-8 engine-message extraction)
 
-- Status: DRAFT (Proposed; promoted at stage-4-typed-options archive)
+- Status: Accepted (2026-07-11, promoted at stage-4-typed-options archive)
 - Date: 2026-07-10
 - Change: `stage-4-typed-options` (in-loop fix on S-001/S-002)
 - Supersedes: ADR-0027 "Parse-error locator (Gap 8)" — the `at position N` engine-message extraction

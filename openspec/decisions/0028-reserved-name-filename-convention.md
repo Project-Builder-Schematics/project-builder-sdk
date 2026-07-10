@@ -1,6 +1,6 @@
 # ADR-0028: Reserved lifecycle names — kebab filename convention, runtime package-dir scan
 
-- Status: DRAFT (Proposed; promoted at stage-4-typed-options archive)
+- Status: Accepted (2026-07-11, promoted at stage-4-typed-options archive)
 - Date: 2026-07-06
 - Change: `stage-4-typed-options`
 - Un-gates: REQ-RLN-01 Scenario .1 (design-gated declaration mechanism)
