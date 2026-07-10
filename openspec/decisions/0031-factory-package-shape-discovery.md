@@ -1,6 +1,6 @@
 # ADR-0031: Factory package-shape discovery — `packageDir`, fixed adjacent output, opt-out tiers
 
-- Status: DRAFT (Proposed; promoted at stage-4-typed-options archive)
+- Status: Accepted (2026-07-11, promoted at stage-4-typed-options archive)
 - Date: 2026-07-06
 - Change: `stage-4-typed-options`
 - Builds on: ADR-0027 (bin), ADR-0028 (reserved-name scan), ADR-0029 (run-boundary validation)

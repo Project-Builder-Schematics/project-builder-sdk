@@ -1,9 +1,11 @@
 /**
  * FIT-07: No Map<path,*>/tree field in core (ADR-0008).
- * Globs all of src/core/** and scans for prohibited path-keyed collection patterns.
+ * RECURSIVELY globs all of src/core/** (ARCH-1, stage-4-typed-options design §4.7 — a
+ * non-recursive scan would silently exempt the src/core/schema/ subdirectory) and scans
+ * for prohibited path-keyed collection patterns.
  *
  * ContractFake has been moved to test/support/contract-fake.ts (not compiled into dist/).
- * All files in src/core/ are production types — no exclusions needed.
+ * All files in src/core/** are production types — no exclusions needed.
  *
  * Prohibited patterns:
  *   Map<string, ...>  — path-keyed map in production core (ADR-0008 violation)
@@ -18,13 +20,24 @@ import { join } from "node:path";
 
 const CORE_DIR = new URL("../../src/core", import.meta.url).pathname;
 
-function getProductionCoreFiles(): string[] {
-  return readdirSync(CORE_DIR)
-    .filter((name) => name.endsWith(".ts"));
+// Returns every .ts file under CORE_DIR, recursively, as CORE_DIR-relative posix paths
+// (e.g. "schema/schema-model.ts") — never truncated to top-level-only.
+function getProductionCoreFiles(dir: string = CORE_DIR, prefix = ""): string[] {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const relPath = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) {
+      files.push(...getProductionCoreFiles(join(dir, entry.name), relPath));
+    } else if (entry.name.endsWith(".ts")) {
+      files.push(relPath);
+    }
+  }
+  return files;
 }
 
-function readCoreFile(name: string): string {
-  return readFileSync(join(CORE_DIR, name), "utf-8");
+function readCoreFile(relPath: string): string {
+  return readFileSync(join(CORE_DIR, relPath), "utf-8");
 }
 
 // Patterns that indicate a path-keyed stored collection in production core.
@@ -59,6 +72,13 @@ function hasProhibitedPattern(source: string): boolean {
 
 describe("FIT-07 — no Map<path,*>/tree field in production core", () => {
   const files = getProductionCoreFiles();
+
+  // ARCH-1 (stage-4-typed-options design §4.7): a non-recursive scan silently exempts the
+  // whole src/core/schema/ subdirectory from this guard. Recursion must actually reach it.
+  it("recursively covers nested subdirectories (src/core/schema/**), not just top-level files", () => {
+    expect(files).toContain("schema/schema-model.ts");
+    expect(files).toContain("schema/input-rejection.ts");
+  });
 
   for (const filename of files) {
     it(`${filename} contains no path-keyed map or tree field`, () => {

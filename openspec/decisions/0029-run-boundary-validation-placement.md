@@ -1,6 +1,6 @@
 # ADR-0029: Run-boundary validation placement + error-taxonomy wiring
 
-- Status: DRAFT (Proposed; promoted at stage-4-typed-options archive)
+- Status: Accepted (2026-07-11, promoted at stage-4-typed-options archive)
 - Date: 2026-07-06
 - Change: `stage-4-typed-options`
 - Builds on: ADR-0011 (ambient run context); ADR-0030 (ADR-0018 scoping); Stage-2 `authoring-error-contract`

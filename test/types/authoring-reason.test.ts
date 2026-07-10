@@ -1,17 +1,20 @@
 // Type-level exhaustiveness pin (ADR-0021 mechanism, binding constraint 4 — lands with
 // the type shape, not after). `switch(reason)` / `switch(origin)` with a `never` default
-// arm MUST compile today over the CURRENT closed unions. Adding a 7th AuthoringReason
+// arm MUST compile today over the CURRENT closed unions. Adding a 9th AuthoringReason
 // (or a 3rd AuthoringOrigin) breaks THIS FILE at compile time — the type-level half of
 // "growing these unions is a MAJOR change" (ADR-0020/0021), independent of the runtime
 // `originFor()` switch inside authoring-error.ts. Strategy mirrors handle-types.test.ts's
 // never-invoked-arrow precedent: tsc evaluates the body under `bunx tsc --noEmit`;
 // runtime never calls it.
+//
+// V2 → V3 amendment (2026-07-10, coordinated with `stage-4-typed-options`, REQ-AEC-07/08):
+// extended from six to eight values (`invalid-input`, `reserved-name` added).
 import { describe, test } from "bun:test";
 import { expectTypeOf } from "expect-type";
 import type { AuthoringReason, AuthoringOrigin } from "../../src/core/authoring-error.ts";
 
 describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin (ADR-0021)", () => {
-  test("switch(reason) over all six AuthoringReason values reaches an arm; a 7th value fails this compile", () => {
+  test("switch(reason) over all eight AuthoringReason values reaches an arm; a 9th value fails this compile", () => {
     const _proof = (reason: AuthoringReason): string => {
       switch (reason) {
         case "path-collision":
@@ -20,6 +23,8 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
         case "changes-too-large":
         case "outside-run":
         case "unknown":
+        case "invalid-input":
+        case "reserved-name":
           return reason;
         default: {
           const _exhaustive: never = reason;
@@ -45,7 +50,7 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
     void _proof;
   });
 
-  test("AuthoringReason is exactly the six closed values (type-level pin)", () => {
+  test("AuthoringReason is exactly the eight closed values (type-level pin)", () => {
     expectTypeOf<AuthoringReason>().toEqualTypeOf<
       | "path-collision"
       | "path-not-found"
@@ -53,6 +58,8 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
       | "changes-too-large"
       | "outside-run"
       | "unknown"
+      | "invalid-input"
+      | "reserved-name"
     >();
   });
 

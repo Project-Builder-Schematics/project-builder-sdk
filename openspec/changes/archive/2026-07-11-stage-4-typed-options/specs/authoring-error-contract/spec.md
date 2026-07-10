@@ -4,6 +4,12 @@
 **Status**: draft (PROPOSED amendment — NOT an applied delta)
 **Change**: `stage-4-typed-options`
 
+> **Status note (2026-07-10)**: the amendment recorded below was APPLIED to the main spec —
+> `openspec/specs/authoring-error-contract/spec.md` is now V3 (owner-authorized unfreeze,
+> coordinated `sdd-spec` call, 2026-07-10) and carries REQ-AEC-07/08/09 live. The "PROPOSED /
+> NOT an applied delta / blocked" language below is preserved as the historical dependency
+> record; the main spec V3 is now the source of truth for these requirements.
+
 ## Purpose
 
 `stage-2-error-attribution` owns and signs `authoring-error-contract` (V2, signed

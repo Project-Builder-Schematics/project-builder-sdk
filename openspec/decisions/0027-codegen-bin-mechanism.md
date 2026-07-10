@@ -1,6 +1,6 @@
 # ADR-0027: Codegen bin — hand-rolled zero-dep subset parser + CLI contract
 
-- Status: DRAFT (Proposed; promoted at stage-4-typed-options archive)
+- Status: Accepted (2026-07-11, promoted at stage-4-typed-options archive)
 - Date: 2026-07-06
 - Change: `stage-4-typed-options` (D4)
 - Builds on: ADR-0009 (near-zero runtime deps, supply-chain blast radius); ADR-0014 (subpath shape)
@@ -51,7 +51,11 @@ shapes never conflate.
 Hand-roll a **zero-dependency** parser + type emitter (no generator dep, not even dev). Parsing is
 `JSON.parse` (built-in, "parse as data", no `eval`/`new Function`/non-literal dynamic import — REQ-TFO-03.3).
 
-**Parse-error locator (Gap 8) — deterministic extraction + pinned fallback.** On a `JSON.parse`
+**Parse-error locator (Gap 8) — SUPERSEDED by ADR-0032 (2026-07-10).** The `at position N`
+engine-message extraction below is DEAD under Bun/JavaScriptCore (`JSON.parse` emits no byte offset —
+`verify-in-loop-2`); the locator is now a hand-rolled JSON syntax scanner (`src/core/schema/schema-locate.ts`,
+ADR-0032). The `(line L, column C)` message slot and `(position unknown)` fallback token are UNCHANGED — only
+the offset SOURCE changed. Original (superseded) text: On a `JSON.parse`
 `SyntaxError`, the locator is derived as follows: (1) attempt to extract an `at position N` byte offset
 from the engine's `SyntaxError.message` (present on Bun/V8 for most malformed inputs); (2) when present,
 convert `N` to `(line L, column C)` via a byte-offset walk of the RAW file text (count newlines up to `N`,

@@ -27,9 +27,11 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
 
 /**
  * The closed, author-vocabulary cause of an `AuthoringError` (★D2, ADR-0020). Exactly
- * six values — adding a seventh is a MAJOR change: authors are expected to write
+ * eight values — adding a ninth is a MAJOR change: authors are expected to write
  * exhaustive `switch(reason)` blocks, and TypeScript's exhaustiveness check breaks such
- * a switch on a new member even though nothing breaks at runtime.
+ * a switch on a new member even though nothing breaks at runtime. (V2 → V3 amendment,
+ * 2026-07-10, coordinated with `stage-4-typed-options`: extended from six to eight —
+ * `invalid-input` and `reserved-name` added, REQ-AEC-07/08.)
  *
  * @example
  * switch (err.reason) {
@@ -41,6 +43,8 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *   case "changes-too-large":
  *   case "outside-run":
  *   case "unknown":
+ *   case "invalid-input":
+ *   case "reserved-name":
  *     console.error(err.message);
  *     break;
  * }
@@ -51,7 +55,9 @@ export type AuthoringReason =
   | "unrepresentable-content"
   | "changes-too-large"
   | "outside-run"
-  | "unknown";
+  | "unknown"
+  | "invalid-input"
+  | "reserved-name";
 
 /**
  * Distinguishes an engine-refused write from an SDK-side misuse (2.4, ADR-0021) —
@@ -64,12 +70,14 @@ export type AuthoringReason =
 export type AuthoringOrigin = "write-rejected" | "authoring-rejected";
 
 // ADR-0021: origin is DERIVED from reason via an exhaustive switch with a `never`
-// default arm — adding a 7th reason breaks the BUILD here, forcing a deliberate origin
+// default arm — adding a 9th reason breaks the BUILD here, forcing a deliberate origin
 // assignment instead of an accidental default (mirrored by the compile-time pin in
 // test/types/authoring-reason.test.ts). `unknown` maps to "write-rejected" deliberately:
 // an unclassifiable rejection necessarily arrived through the emit/write seam (the only
 // place toAuthoringError runs), so the write side is the honest attribution (spec
-// cross-cutting note 7).
+// cross-cutting note 7). `invalid-input`/`reserved-name` (V2 → V3 amendment, REQ-AEC-07/08)
+// are ALWAYS "authoring-rejected" — same rationale as outside-run: an SDK-side misuse
+// detection, not an engine round-trip refusal.
 function originFor(reason: AuthoringReason): AuthoringOrigin {
   switch (reason) {
     case "path-collision":
@@ -79,6 +87,8 @@ function originFor(reason: AuthoringReason): AuthoringOrigin {
     case "unknown":
       return "write-rejected";
     case "outside-run":
+    case "invalid-input":
+    case "reserved-name":
       return "authoring-rejected";
     default: {
       const _exhaustive: never = reason;
@@ -127,6 +137,13 @@ function primaryPath(directive: Directive): string {
 // REQ-AEC-06: message templates selected BY REASON, three-way — never by verb/path
 // presence. `outside-run` also has verb/path undefined but must NOT get the batch
 // template (the context.test.ts:12 substring pin would break).
+//
+// REQ-AEC-09 (V2 → V3 amendment) adds two MORE families (invalid-input's two variants,
+// reserved-name) whose templates interpolate a `{field}`/`{expectedType}`/`{name}` this
+// function has no locator for — `verb`/`path` cannot carry them without corrupting their
+// existing typed meaning. Those two reasons therefore have NO default template here: the
+// caller (the AuthoringError constructor) MUST supply an explicit `message` for them —
+// see the `default` arm below, which throws rather than silently returning a wrong string.
 function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, path: string | undefined): string {
   switch (reason) {
     case "path-collision":
@@ -143,7 +160,12 @@ function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, pa
       return `changes could not be applied: ${reason}`;
     case "unknown":
       return `changes could not be applied: ${reason} — the SDK could not classify this failure`;
-    // Parity with originFor: noImplicitReturns is off, so without this arm a 7th reason
+    case "invalid-input":
+    case "reserved-name":
+      throw new Error(
+        `messageFor: reason "${reason}" has no default template (REQ-AEC-09) — construct AuthoringError with an explicit \`message\``
+      );
+    // Parity with originFor: noImplicitReturns is off, so without this arm a 9th reason
     // would fall through to an implicit `undefined` return instead of a build break.
     default: {
       const _exhaustive: never = reason;
@@ -191,8 +213,16 @@ export class AuthoringError extends Error {
     path: string | undefined;
     reason: AuthoringReason;
     appliedCount: number;
+    /**
+     * Overrides the derived message. REQUIRED for `reason: "invalid-input"` /
+     * `"reserved-name"` (REQ-AEC-09) — their templates interpolate caller-known data
+     * (`{field}`, `{expectedType}`, `{name}`) `messageFor` cannot derive from `verb`/`path`
+     * alone. Optional for every other reason, which derive their message from `reason` +
+     * `verb` + `path` as before.
+     */
+    message?: string;
   }) {
-    super(messageFor(fields.reason, fields.verb, fields.path));
+    super(fields.message ?? messageFor(fields.reason, fields.verb, fields.path));
     this.name = "AuthoringError";
     this.verb = fields.verb;
     this.path = fields.path;

@@ -2,6 +2,58 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `stage-4-typed-options` (2026-07-11)
+
+### Blind verify-final council catches what its own checklist pass misses
+**What**: A blind adversarial council review run AFTER verify-final's own execution-evidence pass
+found a HIGH codegen-injection vulnerability and a MAJOR deep-nesting RangeError that verify-final's
+own pass had marked clean.
+**Why**: Verify-final read the same code/tests the builder wrote; the security and QA council
+personas approached the change adversarially (hostile schema injection, oversized nested input)
+instead of re-checking the builder's own coverage claims.
+**Where**: Any L/sensitive change with a codegen or parsing surface — complements the stage-2 lesson
+"Blind-council review catches unimplemented spec clauses that mode-final verification marks
+compliant" with a second failure class: unimplemented DEFENSES, not just unimplemented clauses.
+**Learned**: Budget an independent adversarial pass (security + QA) even when verify-final's own
+Step 11b audit reports clean — checklist-style verification and adversarial probing catch different
+failure classes.
+
+### Two-layer defence converges a council fix-review GAN loop in one iteration
+**What**: Pairing a primary refusal gate (a sufficiency check) with an independent allow-list
+backstop closed both a HIGH and a MAJOR blind-council finding in a single fix-and-reverify pass.
+**Why**: stage-4's codegen-injection fix (`checkSufficiency` gate + `RECOGNIZED_KINDS` allow-list)
+and the locator RangeError fix both re-verified clean on the first re-judge, avoiding a second GAN
+iteration.
+**Where**: Any fix responding to a blind adversarial finding on a security-sensitive code-generation
+or parsing surface.
+**Learned**: Favor defence-in-depth (a primary refusal gate PLUS an independent structural backstop)
+over a single-layer patch — it satisfies adversarial re-verification faster.
+
+### A review agent's own git checkout can wipe an uncommitted fix mid-review
+**What**: A council agent running `git checkout -- bin/...` as part of its review wiped an
+UNCOMMITTED fix batch under evaluation; it restored byte-exact once caught, but the risk was real.
+**Why**: Uncommitted fix batches have no git-tracked safety net against a reviewing agent's own
+file-restoring commands.
+**Where**: Any orchestrated flow running adversarial/mutation-probing agents against a fix that
+hasn't been committed yet — extends the stage-3 lesson "commit pipeline artefacts before launching
+evaluators with cleanup instructions" to in-flight fix batches specifically.
+**Learned**: Commit fix batches to the branch BEFORE launching adversarial agents that run mutation
+probes against them — don't rely on the agent noticing and restoring.
+
+### Owner-authorized same-day cross-change spec unfreeze executes cleanly when declared explicitly upfront
+**What**: A same-day owner-authorized unfreeze of a signed sibling spec (Stage-2's
+`authoring-error-contract` V2→V3), coordinated with the dependent change's code extension, landed
+without incident.
+**Why**: The dependency had been declared explicitly at spec time (a "PROPOSED, not applied"
+deferred-amendment block) rather than silently assumed, so when the gate opened the amendment was
+small, well-scoped, and pre-negotiated.
+**Where**: Any change whose REQs depend on an unmerged/frozen sibling spec.
+**Learned**: Declare a cross-change spec dependency explicitly as a deferred/PROPOSED block, then
+execute it as a scoped, owner-authorized coordinated amendment once the gate opens (sibling archives
+or explicit unfreeze) — this sequences dependent changes without blocking the dependent's own build.
+
+Source: change `stage-4-typed-options` (2026-07-11)
+
 ## From `stage-3-dry-run-exposure` (2026-07-07)
 
 ### Tag pinning-only slices [characterization] at plan time — [must-fail-first] over shipped behavior is unachievable

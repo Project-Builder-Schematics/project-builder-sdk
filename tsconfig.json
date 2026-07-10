@@ -20,6 +20,7 @@
     "types": ["bun-types"]
   },
   "exclude": [
-    "test/types/permissive-proof.ts"
+    "test/types/permissive-proof.ts",
+    "test/fixtures/red/**"
   ]
 }

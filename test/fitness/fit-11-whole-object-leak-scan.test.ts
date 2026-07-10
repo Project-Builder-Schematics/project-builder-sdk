@@ -22,7 +22,7 @@
  * traversal / does not infinite-loop on a cycle.
  */
 import { describe, it, expect } from "bun:test";
-import { toAuthoringError, type AuthoringError } from "../../src/core/authoring-error.ts";
+import { toAuthoringError, AuthoringError } from "../../src/core/authoring-error.ts";
 import { EmitRejection } from "../../src/core/emit-rejection.ts";
 import { currentContext } from "../../src/core/context.ts";
 import { batchOf, createOp } from "../fake/directive-builders.ts";
@@ -108,6 +108,30 @@ function outsideRunRejection(): AuthoringError {
   throw new Error("currentContext() did not throw outside a run — fixture assumption broken");
 }
 
+// invalid-input/reserved-name (V2 → V3 amendment, REQ-AEC-07/08) have no EmitRejection
+// path — they are SDK-side, constructed directly against the public API (S-006's eventual
+// call site). Constructed here the same way for the leak-scan's completeness proof
+// (REQ-AEC-05.1's amended eight-family list).
+function invalidInputRejection(): AuthoringError {
+  return new AuthoringError({
+    verb: undefined,
+    path: undefined,
+    reason: "invalid-input",
+    appliedCount: 0,
+    message: "invalid input: port must be number",
+  });
+}
+
+function reservedNameRejection(): AuthoringError {
+  return new AuthoringError({
+    verb: undefined,
+    path: undefined,
+    reason: "reserved-name",
+    appliedCount: 0,
+    message: "reserved lifecycle name: pre-execute is reserved and cannot be declared by a factory module",
+  });
+}
+
 describe("REQ-AEC-05 — dictionary derivation sanity", () => {
   it("the structurally-derived dictionary is non-empty and contains the known fragments (an empty dictionary would false-green every scan)", () => {
     expect(LEAK_DICTIONARY.length).toBeGreaterThanOrEqual(7);
@@ -150,6 +174,8 @@ describe("REQ-AEC-05.1 — no leak across any rejection family", () => {
     },
     { label: "outside-run", build: outsideRunRejection },
     { label: "unknown", build: () => toAuthoringError("a bare string rejection", batchOf()) },
+    { label: "invalid-input", build: invalidInputRejection },
+    { label: "reserved-name", build: reservedNameRejection },
   ];
 
   for (const { label, build } of cases) {

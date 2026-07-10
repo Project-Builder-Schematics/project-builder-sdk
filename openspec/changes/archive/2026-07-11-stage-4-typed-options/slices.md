@@ -9,11 +9,14 @@ Executor Context, and load-bearing literals below). Rev 3 (iteration-2): **Optio
 interim dissolves the Tier-1 whole-build precondition**; FIT-06→dedicated JSDoc test, FIT-14
 baseline, FIT-16 3rd-signal substring, red-fixture tsconfig-exclude, spawn-via-`bun`.
 
-> **/build deliverable = S-000..S-005.** S-006 is explicitly **deferred-blocked** (built later
-> via `/build --scope=slice:S-006` once Stage 2 ARCHIVES + the coordinated amendment lands).
+> **/build deliverable = S-000..S-005.** S-006 was explicitly **deferred-blocked** (built later
+> via `/build --scope=slice:S-006` once Stage 2 ARCHIVES + the coordinated amendment lands) — its
+> gate opened 2026-07-10 (coordinated AEC amendment, commit `1c1188d`, spec V3 signed) and S-006
+> **LANDED** the same day: `input-rejection.ts` upgraded to `AuthoringError{origin,reason}`, full
+> suite green (563), typecheck clean. All 7 slices (S-000..S-006) are now complete.
 > **There is NO whole-build precondition** (Option A, iteration-2 gaps 3/4): every interim rejection
 > throws a plain `Error`, so S-000..S-005 have ZERO Stage-2 dependency and the build may start
-> IMMEDIATELY once plan-verify returns `ready`. The ONLY Stage-2 gate is S-006's.
+> IMMEDIATELY once plan-verify returns `ready`. The ONLY Stage-2 gate was S-006's.
 **Test**: `bun test <path>` · full `bun test` · types `bunx tsc --noEmit` · build
 `bun run build` (needed before `test/bin/codegen-static-scan.test.ts`, which scans the
 built `dist/bin` artifact).
@@ -214,13 +217,13 @@ BEFORE `als.run`/emit, thrown as a plain `Error` whose `.message` is the pinned 
 assertion interim).
 
 ### Tasks
-- [ ] [must-fail-first] `schema/{schema-model,schema-parse,schema-discovery,schema-digest,input-rejection,index}.ts` — `input-rejection.ts` throws a plain `Error` with the pinned REQ-AEC-09 literal (constraint 1; NO `AuthoringError` interim)
-- [ ] [must-fail-first] `bin/{pbuilder-codegen,emit-type}.ts` — escaping emitter (constraint 2) from the start
-- [ ] [must-fail-first] `context.ts` — `defineFactory<O>(fn, {packageDir}?)`; pre-`als.run` schema-validation call (not reserved-name yet — S-004)
-- [ ] `package.json` — `#bin` field + `bun build` step; `tsconfig.json` — add `test/fixtures/red/**` to `exclude` (constraint 11)
-- [ ] `test/fixtures/typed-factory/*` (reference schematic) + `test/e2e/typed-factory.e2e.test.ts` (happy path + one reject variant asserting the pinned plain-`Error` message)
-- [ ] `test/types/typed-factory-options.test.ts` — TFO-01.2 mutation-resistant proof via `@ts-expect-error` (constraint from design §4.6 / Gap 7; string→number, re-run, factory body fails to compile → the missing error reddens `tsc`); file stays in the MAIN tsc set
-- [ ] [must-fail-first] `fit-07-no-tree-in-core.test.ts` Modify — recursive walk (ARCH-1) so `schema/` is covered from day 1
+- [x] [must-fail-first] `schema/{schema-model,schema-parse,schema-discovery,schema-digest,input-rejection,index}.ts` — `input-rejection.ts` throws a plain `Error` with the pinned REQ-AEC-09 literal (constraint 1; NO `AuthoringError` interim). **Executor note**: `schema-validate.ts` also created here (not named in the original directory-group notation) — the run-boundary "missing required key" finding needed to drive `input-rejection.ts`/context.ts had to live somewhere; S-003 triangulates the rest of the RBV-01 matrix into this same file per its own task list.
+- [x] [must-fail-first] `bin/{pbuilder-codegen,emit-type}.ts` — escaping emitter (constraint 2) from the start
+- [x] [must-fail-first] `context.ts` — `defineFactory<O>(fn, {packageDir}?)`; pre-`als.run` schema-validation call (not reserved-name yet — S-004)
+- [x] `package.json` — `#bin` field + `bun build` step; `tsconfig.json` — add `test/fixtures/red/**` to `exclude` (constraint 11)
+- [x] `test/fixtures/typed-factory/*` (reference schematic) + `test/e2e/typed-factory.e2e.test.ts` (happy path + one reject variant asserting the pinned plain-`Error` message)
+- [x] `test/types/typed-factory-options.test.ts` — TFO-01.2 mutation-resistant proof via `@ts-expect-error` (constraint from design §4.6 / Gap 7; string→number, re-run, factory body fails to compile → the missing error reddens `tsc`); file stays in the MAIN tsc set
+- [x] [must-fail-first] `fit-07-no-tree-in-core.test.ts` Modify — recursive walk (ARCH-1) so `schema/` is covered from day 1
 
 ---
 
@@ -234,13 +237,13 @@ author-vocabulary + locator, prior output untouched; GIVEN valid input THEN exit
 success line; GIVEN a path-escaping/symlinked output target THEN refused before any write.
 
 ### Tasks
-- [ ] `test/support/canary.ts` — token gen, fixture seeding, subprocess stdout/stderr capture
-- [ ] [must-fail-first] `test/bin/codegen-cli.test.ts` — TFO-04 full matrix + TFO-03.1/.2 + FPS-01.1/FPS-05.1
-- [ ] [must-fail-first] `test/bin/codegen-static-scan.test.ts` — TFO-03.3 (no eval/Function/dynamic-import in `dist/bin`)
-- [ ] [must-fail-first] TFO-05 write-containment + symlink-escape fixture (constraint 3)
-- [ ] [must-fail-first] hostile-schema emitter-inertness red-proof (constraint 2, TFO-01 SEC-1 row)
-- [ ] [must-fail-first] `fit-14-package-surface.test.ts` (exports unchanged, `#bin` added, zero-deps, tarball contents) + committed baseline `test/fitness/pkg-surface-baseline.json` (`{exports, files, tarball, bin, shebang}`, Gap 11); FIT-14 regenerates the actual surface and diffs against it
-- [ ] [must-fail-first] `fit-15-bin-core-direction.test.ts` (no `src/` runtime import of `bin/`)
+- [x] `test/support/canary.ts` — token gen, fixture seeding, subprocess stdout/stderr capture
+- [x] [must-fail-first] `test/bin/codegen-cli.test.ts` — TFO-04 full matrix + TFO-03.1/.2 + FPS-01.1/FPS-05.1
+- [x] [must-fail-first] `test/bin/codegen-static-scan.test.ts` — TFO-03.3 (no eval/Function/dynamic-import in `dist/bin`)
+- [x] [must-fail-first] TFO-05 write-containment + symlink-escape fixture (constraint 3)
+- [x] [must-fail-first] hostile-schema emitter-inertness red-proof (constraint 2, TFO-01 SEC-1 row)
+- [x] [must-fail-first] `fit-14-package-surface.test.ts` (exports unchanged, `#bin` added, zero-deps, tarball contents) + committed baseline `test/fitness/pkg-surface-baseline.json` (`{exports, files, tarball, bin, shebang}`, Gap 11); FIT-14 regenerates the actual surface and diffs against it
+- [x] [must-fail-first] `fit-15-bin-core-direction.test.ts` (no `src/` runtime import of `bin/`)
 
 ---
 
@@ -256,10 +259,10 @@ missing `choices`, a nonsensical `type`, or a `__proto__`/`constructor`/`prototy
 FIT-13 runs THEN it hard-fails, named; advisory-only fields pass.
 
 ### Tasks
-- [ ] [must-fail-first] `fit-12-schema-parity.test.ts` — staled-digest fixture fails; regen restores green
-- [ ] content-only drift (label edit, byte-identical type text) still caught; non-destructive-check proof (SCP-01.3/.4)
-- [ ] [must-fail-first] `schema-sufficiency.ts` + `fit-13-schema-sufficiency.test.ts` — hard-fail matrix (fixtures: missing-type, missing-label, enum-no-choices, nonsensical-type, proto-declaring)
-- [ ] [characterization] advisory-fields-pass positive scenario
+- [x] [must-fail-first] `fit-12-schema-parity.test.ts` — staled-digest fixture fails; regen restores green
+- [x] content-only drift (label edit, byte-identical type text) still caught; non-destructive-check proof (SCP-01.3/.4)
+- [x] [must-fail-first] `schema-sufficiency.ts` + `fit-13-schema-sufficiency.test.ts` — hard-fail matrix (fixtures: missing-type, missing-label, enum-no-choices, nonsensical-type, proto-declaring)
+- [x] [characterization] advisory-fields-pass positive scenario
 
 ---
 
@@ -276,12 +279,12 @@ per-run STDERR warning; GIVEN a malformed/unreadable (non-ENOENT) schema THEN fa
 GIVEN an empty schema THEN a distinct warning, run proceeds.
 
 ### Tasks
-- [ ] [must-fail-first] `schema-validate.ts` — missing/wrong-type/excess/non-JSON + null-vs-missing trichotomy (constraint 5 safe iteration)
-- [ ] [must-fail-first] reserved-key-in-input (RBV-01.5) + `__proto__`/`constructor`/`prototype`-in-input, canary-clean (RBV-01.6)
-- [ ] template-syntax-opaque scenario (RBV-01.8)
-- [ ] `run-boundary-validation.test.ts` — RBV-02 message-shape (field+type, no value)
-- [ ] RBV-03 opt-out warning (stateless, per-factory, 2nd-run + 2nd-factory proof)
-- [ ] [must-fail-first] RBV-05 non-ENOENT fail-closed (EACCES fixture) + empty-schema distinct-text warning (constraint 4)
+- [x] [must-fail-first] `schema-validate.ts` — missing/wrong-type/excess/non-JSON + null-vs-missing trichotomy (constraint 5 safe iteration)
+- [x] [must-fail-first] reserved-key-in-input (RBV-01.5) + `__proto__`/`constructor`/`prototype`-in-input, canary-clean (RBV-01.6)
+- [x] template-syntax-opaque scenario (RBV-01.8)
+- [x] `run-boundary-validation.test.ts` — RBV-02 message-shape (field+type, no value)
+- [x] RBV-03 opt-out warning (stateless, per-factory, 2nd-run + 2nd-factory proof)
+- [x] [must-fail-first] RBV-05 non-ENOENT fail-closed (EACCES fixture) + empty-schema distinct-text warning (constraint 4)
 
 ---
 
@@ -297,11 +300,11 @@ token is NOT rejected by this REQ. Independent of `packageDir`, FIT-16 always-on
 catches the same violations structurally and flags schema-present-but-untethered packages.
 
 ### Tasks
-- [ ] [must-fail-first] `context.ts` Modify — reserved-name scan step (kebab, case-insensitive, strip-ext, dir-form; ADR-0028)
-- [ ] [must-fail-first] `reserved-lifecycle-names.test.ts` — RLN-01.1-.3 (pre-execute, post-execute, clean) + non-ENOENT unreadable-dir fixture (constraint 4)
-- [ ] [characterization] RLN-01.4 + RLN-03.1/.2 boundary-pin (schema field / `add` / exported `remove` NOT rejected) + FPS-05.3 doc note
-- [ ] RLN-02.1 — rejection thrown as a plain `Error` with the pinned literal `reserved lifecycle name: {name} …`; distinguishable-in-kind from RBV-01 interim VIA the two DISTINCT message literals (`reserved lifecycle name: …` vs `invalid input: …`); no `instanceof`/`origin`/`reason` interim (constraint 1)
-- [ ] [must-fail-first] [permanent-fixture] `fit-16-reserved-name-scan.test.ts` — always-on scan over `ALWAYS_ON_SCAN_ROOTS` only (constraint 9) + 3rd-signal via a SIMPLE substring check (`defineFactory(` call carrying the `packageDir` token) applied ONLY to allowlisted files, no general parsing (Gap 10); red fixtures under `test/fixtures/red/**` (reserved siblings AND a bare-`defineFactory(`-without-`packageDir` file) driven by direct scan-function call, never walked
+- [x] [must-fail-first] `context.ts` Modify — reserved-name scan step (kebab, case-insensitive, strip-ext, dir-form; ADR-0028)
+- [x] [must-fail-first] `reserved-lifecycle-names.test.ts` — RLN-01.1-.3 (pre-execute, post-execute, clean) + non-ENOENT unreadable-dir fixture (constraint 4)
+- [x] [characterization] RLN-01.4 + RLN-03.1/.2 boundary-pin (schema field / `add` / exported `remove` NOT rejected) + FPS-05.3 doc note
+- [x] RLN-02.1 — rejection thrown as a plain `Error` with the pinned literal `reserved lifecycle name: {name} …`; distinguishable-in-kind from RBV-01 interim VIA the two DISTINCT message literals (`reserved lifecycle name: …` vs `invalid input: …`); no `instanceof`/`origin`/`reason` interim (constraint 1)
+- [x] [must-fail-first] [permanent-fixture] `fit-16-reserved-name-scan.test.ts` — always-on scan over `ALWAYS_ON_SCAN_ROOTS` only (constraint 9) + 3rd-signal via a SIMPLE substring check (`defineFactory(` call carrying the `packageDir` token) applied ONLY to allowlisted files, no general parsing (Gap 10); red fixtures under `test/fixtures/red/**` (reserved siblings AND a bare-`defineFactory(`-without-`packageDir` file) driven by direct scan-function call, never walked
 
 ---
 
@@ -320,10 +323,10 @@ nowhere — except a key NAME may legitimately appear. GIVEN `defineFactory`'s J
 `@example` demonstrates bin-invocation → typed call end-to-end (asserted by the dedicated `definefactory-jsdoc.test.ts`, Gap 5).
 
 ### Tasks
-- [ ] [must-fail-first] `canary-no-echo.test.ts` — dictionary-seeded scan across every branch, using `test/support/canary.ts`
-- [ ] key-name-vs-value asymmetry pin (RBV-04.2)
-- [ ] `context.ts` JSDoc — `@example` (bin→typed workflow), `@param packageDir` (two tiers, `import.meta.dir` steer), `@remarks` (reserved names); NEW dedicated `test/fitness/definefactory-jsdoc.test.ts` (Gap 5) reads `src/core/context.ts` and asserts `@example` + `@remarks` naming BOTH reserved tokens — FIT-06 (`fit-06-example-jsdoc.test.ts`) is left UNTOUCHED (its `PUBLIC_PATHS` scans commons+conformance only; `defineFactory` lives in the internal-kit `src/core/index.ts`)
-- [ ] [must-fail-first] README.md — add the REQ-FPS-05.4 qualifying line VERBATIM (see Load-bearing literals) immediately AFTER the CLOSING ``` fence of the "Anatomy" code block that contains the `schema.json # typed inputs` line (iteration-4 pin: the anchor line itself sits INSIDE the fence, where a `>` blockquote cannot render — the line goes right below the block's closing fence, as normal markdown); if that anchor block is absent at build time, place it in the top feature/anatomy section (Gap 13, executor discretion sanctioned — byte-exact literal unchanged either way); a `fit`/test asserts it byte-for-byte greppable; reverted in stage-4b
+- [x] [must-fail-first → characterization, see apply-progress Deviations] `canary-no-echo.test.ts` — dictionary-seeded scan across every branch, using `test/support/canary.ts`
+- [x] key-name-vs-value asymmetry pin (RBV-04.2)
+- [x] `context.ts` JSDoc — `@example` (bin→typed workflow), `@param packageDir` (two tiers, `import.meta.dir` steer), `@remarks` (reserved names); NEW dedicated `test/fitness/definefactory-jsdoc.test.ts` (Gap 5) reads `src/core/context.ts` and asserts `@example` + `@remarks` naming BOTH reserved tokens — FIT-06 (`fit-06-example-jsdoc.test.ts`) is left UNTOUCHED (its `PUBLIC_PATHS` scans commons+conformance only; `defineFactory` lives in the internal-kit `src/core/index.ts`)
+- [x] [must-fail-first] README.md — add the REQ-FPS-05.4 qualifying line VERBATIM (see Load-bearing literals) immediately AFTER the CLOSING ``` fence of the "Anatomy" code block that contains the `schema.json # typed inputs` line (iteration-4 pin: the anchor line itself sits INSIDE the fence, where a `>` blockquote cannot render — the line goes right below the block's closing fence, as normal markdown); if that anchor block is absent at build time, place it in the top feature/anatomy section (Gap 13, executor discretion sanctioned — byte-exact literal unchanged either way); a `fit`/test asserts it byte-for-byte greppable; reverted in stage-4b
 
 ---
 
@@ -341,10 +344,10 @@ run-boundary/reserved-name rejection is thrown THEN the thrown value is an `Auth
 message still matches the AEC-09 literals (unchanged from interim).
 
 ### Tasks
-- [ ] **GATE** — read `src/core/authoring-error.ts` (post Stage-2 archive/rebase) and verify it carries the generalized `origin`/`reason` fields AND the `invalid-input`/`reserved-name` enum members; if NOT, HALT `stage-2-precondition-missing` (Stage-2's signed spec + amendment are the field contract — Gap 2; do NOT edit `authoring-error.ts`)
-- [ ] `input-rejection.ts` — UPGRADE the interim plain-`Error` throw to `AuthoringError{origin:"authoring-rejected", reason:…}` constructed via `authoring-error.ts`'s actual public API (message literals unchanged)
-- [ ] Flip the interim assertions ON — add `instanceof AuthoringError` + `origin` + exact `reason` string-equality in `run-boundary-validation.test.ts`, `reserved-lifecycle-names.test.ts`, `typed-factory.e2e.test.ts` (interim asserted plain-`Error` + message literal only)
-- [ ] Confirm the exact AEC-09 message-template assertions (3 rows) still hold post-upgrade
+- [x] **GATE** — read `src/core/authoring-error.ts` (post Stage-2 archive/rebase) and verify it carries the generalized `origin`/`reason` fields AND the `invalid-input`/`reserved-name` enum members; if NOT, HALT `stage-2-precondition-missing` (Stage-2's signed spec + amendment are the field contract — Gap 2; do NOT edit `authoring-error.ts`)
+- [x] `input-rejection.ts` — UPGRADE the interim plain-`Error` throw to `AuthoringError{origin:"authoring-rejected", reason:…}` constructed via `authoring-error.ts`'s actual public API (message literals unchanged)
+- [x] Flip the interim assertions ON — add `instanceof AuthoringError` + `origin` + exact `reason` string-equality in `run-boundary-validation.test.ts`, `reserved-lifecycle-names.test.ts`, `typed-factory.e2e.test.ts` (interim asserted plain-`Error` + message literal only) — also flipped `input-rejection.test.ts`'s own direct unit assertions on `rejectionFor`/`rejectionForReservedName` (not separately enumerated by this task list, but the exact functions this task upgrades)
+- [x] Confirm the exact AEC-09 message-template assertions (3 rows) still hold post-upgrade — verified byte-identical; `canary-no-echo.test.ts` (task 5) still green unmodified
 
 ---
 
@@ -367,7 +370,7 @@ archive + its coordinated amendment). S-006 is deferred-blocked, never dropped �
 | 1 | S-000 | implicit blocker for all; no precondition — starts immediately |
 | 2 | S-001, S-002, S-003, S-004 | disjoint files — parallelizable (sequential single-pass acceptable), each requires only S-000 |
 | 3 | S-005 | requires S-001 + S-003 + S-004 (cross-domain scan); also carries the README REQ-FPS-05.4 line. **End of the `/build` deliverable — the change does NOT archive until S-006 lands.** |
-| — (deferred-blocked) | S-006 | requires S-003 + S-004; **S-006 gate**: BLOCKED until Stage 2 ARCHIVES + its coordinated `sdd-spec` amendment (REQ-AEC-07/08/09) lands. Built later, out of this `/build`. Not droppable — must eventually land, and the change cannot verify-final/archive before it does. |
+| 4 | S-006 | requires S-003 + S-004; **S-006 gate**: was BLOCKED until Stage 2 ARCHIVES + its coordinated `sdd-spec` amendment (REQ-AEC-07/08/09) landed — gate opened + slice landed 2026-07-10 (commit `1c1188d`). Complete — the change may now proceed to `sdd-verify --mode=final`/archive. |
 
 ## Coverage Check
 

@@ -1,9 +1,18 @@
 # Specs: stage-4-typed-options
 
-**Spec version**: V4
+**Spec version**: V5
 **Status**: signed (owner, 2026-07-07)
 **Change**: `stage-4-typed-options`
 **Triage**: L
+
+**V4 → V5 delta (micro-unfreeze, owner-authorized 2026-07-10)**: the coordinated Stage-2
+amendment applied — `openspec/specs/authoring-error-contract/spec.md` (V2 → V3) now carries
+REQ-AEC-07 (`invalid-input`), REQ-AEC-08 (`reserved-name`), and REQ-AEC-09 (the 4th/5th
+message-template rows), signed 2026-07-10. The "Domain: authoring-error-contract" block below
+flips from PROPOSED to APPLIED accordingly. Nothing else touched: no REQ-ID added/removed/
+renamed, no scenario text edited, all 25 REQ-IDs and their existing scenarios stable — S-006's
+gate (`slices.md`) can now be evaluated against a landed amendment instead of a deferred one.
+The V4 sign-off and all its content carry forward unchanged.
 
 **V3 → V4 delta (micro-unfreeze, owner-authorized 2026-07-07)**: the "Interim Behaviour"
 clause is rewritten from an interim `AuthoringError` to a plain-`Error` interim (Option A —
@@ -174,15 +183,18 @@ S-006's.
 > documentation, reserved-name-namespace distinction note; **V3 adds Scenario .4** — the
 > README incremental-shipping qualifying-line, reverted in stage-4b).
 
-## Domain: authoring-error-contract (MODIFIED — DEFERRED, cross-change dependency)
+## Domain: authoring-error-contract (MODIFIED — APPLIED 2026-07-10)
 
-> Full spec: `specs/authoring-error-contract/spec.md`. NOT an applied delta — Stage 2's
-> signed spec is read-only here. Records REQ-AEC-07 (`reason: "invalid-input"` — renamed
-> from V1's `invalid-options`, TW-F2) and REQ-AEC-08 (`reason: "reserved-name"`) as a
-> PROPOSED, sequenced amendment, plus NEW REQ-AEC-09 (the 4th/5th message-template rows
-> this change's rejections need — TW-F1 blocker) — applied only after
-> `stage-2-error-attribution` archives (or explicit owner unfreeze), via a coordinated
-> `sdd-spec` call against Stage 2's OWN spec — never a silent edit here.
+> Full spec: `openspec/specs/authoring-error-contract/spec.md` (Stage 2's main spec, now
+> V3). NOT an applied delta HERE — this domain block stays a dependency record, never a
+> silent edit of Stage 2's own spec. The coordinated `sdd-spec` amendment landed on Stage
+> 2's OWN signed spec on 2026-07-10 (owner-authorized unfreeze of the archived
+> `stage-2-error-attribution` change's `authoring-error-contract` spec — see that file's
+> V2 → V3 delta note): REQ-AEC-07 (`reason: "invalid-input"` — renamed from V1's
+> `invalid-options`, TW-F2), REQ-AEC-08 (`reason: "reserved-name"`), and REQ-AEC-09 (the
+> 4th/5th message-template rows this change's rejections need — TW-F1 blocker) are now
+> live in Stage 2's spec, exactly as previously recorded here as PROPOSED. S-006
+> (`slices.md`) may now evaluate its GATE task against a landed amendment.
 
 ## Sensitive Areas Coverage
 

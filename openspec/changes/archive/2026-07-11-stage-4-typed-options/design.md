@@ -1,6 +1,6 @@
 # Design: stage-4-typed-options
 
-**Spec version**: V4 (signed, owner 2026-07-07) · **Triage**: L · **Persona lens**: none · **Architecture impact**: modifying · **Design rev**: 5 (plan-verify iteration-3 literal pins applied — see §4.15 delta; iteration-2 fixes in §4.14; iteration-1 in §4.13; rev-2 blind design-council in §4.12)
+**Spec version**: V4 (signed, owner 2026-07-07) · **Triage**: L · **Persona lens**: none · **Architecture impact**: modifying · **Design rev**: 6 (in-loop locator re-design — hand-rolled JSON position locator replaces ADR-0027 Gap-8 engine-message extraction, unsatisfiable under Bun; see §4.16 delta + ADR-0032; rev-5 literal pins in §4.15; iteration-2 fixes in §4.14; iteration-1 in §4.13; rev-2 blind design-council in §4.12)
 
 ## 4.1 Architecture Overview
 
@@ -23,7 +23,8 @@ placement is a scoping amendment to ADR-0018, not a breach of it (ADR-0030).
 | Path | Action | Purpose |
 |---|---|---|
 | `src/core/schema/schema-model.ts` | Create | `Schema`/`SchemaProperty` types, recognized-kind set, reserved-name tokens |
-| `src/core/schema/schema-parse.ts` | Create | Bytes → `Schema`; fail-closed, position locator, no raw echo (shared: bin + runtime + RBV-05) |
+| `src/core/schema/schema-locate.ts` | Create | **(rev 6)** `locateFirstJsonSyntaxError(raw)` — zero-dep hand-rolled JSON syntax scanner returning 1-based `{line,column}` of the first grammar deviation, else `undefined`; replaces the dead engine-message extraction (ADR-0032) |
+| `src/core/schema/schema-parse.ts` | Create | Bytes → `Schema`; fail-closed, no raw echo (shared: bin + runtime + RBV-05). **(rev 6)** catch branch calls `schema-locate.ts` to populate `SchemaParseFailure.line/.column`; the `locateFromSyntaxError` regex-on-`err.message` branch is DELETED (dead under Bun) |
 | `src/core/schema/schema-validate.ts` | Create | Resolved input → findings: missing/wrong-type/excess/non-JSON/reserved/proto keys; null-trichotomy; template-opaque |
 | `src/core/schema/schema-sufficiency.ts` | Create | type/label/enum-choices/nonsensical-type/proto-key hard-fail; advisory fields pass (FIT-13) |
 | `src/core/schema/schema-digest.ts` | Create | SHA-256 of schema bytes via `node:crypto` (bin embeds; FIT-12 recomputes) |
@@ -41,7 +42,8 @@ placement is a scoping amendment to ADR-0018, not a breach of it (ADR-0030).
 | `test/bin/codegen-cli.test.ts` | Create | Bin CLI: TFO-03/04/05, FPS-01/05.1 (spawn, streams, exit, output); hostile-schema emitter-inertness red-proof |
 | `test/bin/codegen-static-scan.test.ts` | Create | TFO-03.3 static parse-as-data scan of the shipped `dist/bin` artifact |
 | `test/types/typed-factory-options.test.ts` | Create | TFO-01/02 compile-time + mutation-resistant negative proof |
-| `test/skeleton/run-boundary-validation.test.ts` | Create | RBV-01/02/03/05 site + fail-closed + warnings |
+| `test/skeleton/schema-locate.test.ts` | Create | **(rev 6)** Unit triangulation of `locateFirstJsonSyntaxError`: position-known (single-line, multi-line, EOF/truncation) exact `{line,column}`; fallback (bad `\u` escape) → `undefined` (REQ-TFO-04.4 both branches, direct-call home) |
+| `test/skeleton/run-boundary-validation.test.ts` | Create | RBV-01/02/03/05 site + fail-closed + warnings. **(rev 6)** RBV-05.1 asserts the runtime literal carries a concrete `(line L, column C)` for a malformed schema.json (position-known) + a `(position unknown)` fallback fixture |
 | `test/skeleton/reserved-lifecycle-names.test.ts` | Create | RLN-01/02/03 |
 | `test/security/canary-no-echo.test.ts` | Create | RBV-04 dictionary-seeded canary scan across all rejection branches |
 | `test/fitness/fit-12-schema-parity.test.ts` | Create | Digest parity/drift gate (non-destructive) |
@@ -156,8 +158,9 @@ The four variants are pinned in the slices load-bearing-literals list.
 present-but-unparseable OR invalid-shape (missing `"properties"`) `schema.json` fails closed with the pinned
 runtime literal (bracketed `[pbuilder]` namespace, `<dir>` locator, author-vocabulary `<problem>`):
 `[pbuilder] factory at <dir>: schema.json could not be read: <problem> (line L, column C)` — with the
-`(position unknown)` fallback branch when the engine `SyntaxError` carries no offset (shared locator machinery
-above). ONE literal covers BOTH cases, `<problem>` distinguishing them (`invalid JSON` vs
+`(position unknown)` fallback branch when the hand-rolled scanner cannot pin a position (rev 6, ADR-0032 —
+shared `schema-locate.ts` machinery, NOT engine-message extraction). ONE literal covers BOTH cases,
+`<problem>` distinguishing them (`invalid JSON` vs
 `missing "properties" object`); it NEVER echoes file content or raw engine/parser text. Pinned in the slices
 load-bearing-literals list. This is the RUNTIME counterpart of the bin's `pbuilder-codegen: <file>: …`
 parse-error template — the prefix split (`[pbuilder]` vs `pbuilder-codegen:`) marks which surface spoke
@@ -165,13 +168,14 @@ parse-error template — the prefix split (`[pbuilder]` vs `pbuilder-codegen:`) 
 
 ## 4.5 ADRs (drafts under `openspec/decisions/`, DRAFT until archive)
 
-Numbered 0024–0028 to avoid collision with Stage 2's concurrently-drafted 0020–0023.
+Numbered 0027–0032 (0027–0031 renumbered off Stage 2/3's claims; 0032 added in rev 6).
 
 - **ADR-0027** — Codegen mechanism: hand-rolled zero-dep parser + **escaping emitter** (SEC-1); bin CLI/semver contract; `bun build` packaging; the bespoke `type`/`label`/`choices` format is the **SDK↔Go-CLI cross-repo wire contract** (ARCH-3), its evolution a two-party change.
 - **ADR-0028** — Reserved-name declaration: kebab **filename convention**, **case-insensitive**, strip-extension + dir-form matching (TW-M2); **hybrid** runtime throw (`packageDir`) **+ always-on FIT-16 structural scan** (SEC-2); read-path fails closed on non-ENOENT (SEC-3).
 - **ADR-0029** — Run-boundary validation placement + error-taxonomy wiring: pre-`als.run`; disk-discovered schema; fail-closed; **only ENOENT → opt-out; EACCES/EISDIR/etc → AuthoringError** (SEC-3); safe schema iteration (SEC-7); Stage-2 coupling isolated to `input-rejection.ts`.
 - **ADR-0030** — ADR-0018 scoping amendment: author-input-contract conformance is SDK-owned upstream of the wire; path/serializability/conflict judgments stay engine-owned.
 - **ADR-0031** — Package-shape discovery: `packageDir` threads schema + reserved-name discovery (**trusted author-authority dev-time input**, SEC-6); **realpathSync write-containment anchor** (SEC-4); fixed adjacent output; two opt-out tiers; relative-path warning placeholders (TW-m9); orphan-schema + **bundled/transpiled** known limitations (ARCH-m5).
+- **ADR-0032** (rev 6) — **Hand-rolled JSON position locator**: SUPERSEDES ADR-0027's Gap-8 `at position N` engine-message extraction (dead under Bun/JavaScriptCore, `verify-in-loop-2`). New zero-dep pure module `src/core/schema/schema-locate.ts` re-scans the raw text with a minimal JSON syntax scanner to pin the first grammar deviation as 1-based `{line,column}`, else `undefined` → `(position unknown)`. Bounded fidelity (no in-string escape validation) keeps both REQ-TFO-04.4 branches live-testable. Serves bin + runtime via the shared `SchemaParseFailure`.
 
 ## 4.6 Test Derivation
 
@@ -181,7 +185,9 @@ Numbered 0024–0028 to avoid collision with Stage 2's concurrently-drafted 0020
 | TFO-01 (emitter-escaping, SEC-1) | contract | `test/bin/codegen-cli.test.ts` (hostile-schema fixture → generated `.ts` inert: compiles, no statement/import executes) | Run bin |
 | TFO-02 (.1) | unit(type) | `test/types/typed-factory-options.test.ts` | — |
 | TFO-03 (.1,.2,.3) | contract | `test/bin/codegen-cli.test.ts`; `test/bin/codegen-static-scan.test.ts` | Run bin |
-| TFO-04 (.1–.6) | e2e | `test/bin/codegen-cli.test.ts` | Run bin |
+| TFO-04 (.1,.2,.3,.5,.6) | e2e | `test/bin/codegen-cli.test.ts` | Run bin |
+| **TFO-04.4 — position-known (rev 6)** | unit + e2e | `test/skeleton/schema-locate.test.ts` (direct: single-line, multi-line, EOF fixtures → exact `{line,column}`); `test/bin/codegen-cli.test.ts` (bin prints concrete `(line L, column C)` for a structurally-malformed `test/fixtures/red/schema/**` fixture) | Run bin |
+| **TFO-04.4 — fallback (rev 6)** | unit + e2e | `test/skeleton/schema-locate.test.ts` (bad `\u` escape fixture → `undefined`); `test/bin/codegen-cli.test.ts` (bin prints `(position unknown)` for that in-string-escape fixture — the branch previously mis-covering ALL inputs, now the bounded fallback class only) | Run bin |
 | TFO-05 (.1,.2,.3 + symlink-escape SEC-4) | e2e | `test/bin/codegen-cli.test.ts` — TFO-05.2 red-proof spawns `bun dist/bin/pbuilder-codegen.js ../../etc` (Gap 9: Bun is the guaranteed CI runtime; it executes the node-target bundle) and asserts REFUSED (exit≠0, nothing written); symlink fixture asserts **post-`realpathSync` containment** against the invoking-process project root (Gap 3, ADR-0027) — a symlink whose real target escapes the anchor is refused | Run bin |
 | SCP-01 (.1–.4) | architectural | `test/fitness/fit-12-schema-parity.test.ts` | — |
 | SCP-02 (.1–.6 + proto-declaring schema SEC-7) | architectural | `test/fitness/fit-13-schema-sufficiency.test.ts` | — |
@@ -391,3 +397,29 @@ across ADR-0027, design §4.4, and slices (Executor Context + reading list + loa
 | 3 | AEC-09 `{expectedType}` rendering per branch unpinned | APPLIED — always the DECLARED expectation (no-echo): primitive → `SchemaKind` string; non-JSON value → declared kind (function-for-number → `port must be number`); `null` for required typed prop → declared kind (wrong-type, not missing); enum → `one of: <choices joined by ", ">` (`mode must be one of: dev, prod`). §4.4 + slices load-bearing literals (four variants, one example each). |
 | 4 | ContractFake/e2e driving contract outside the executor reading surface | APPLIED — `test/support/contract-fake.ts` + `test/e2e/author-to-tree.e2e.test.ts` added to slices MANDATORY READING LIST; driving sketch in Executor Context (verified against the actual files: constructor is `new ContractFake({ seed })`, NOT bare); fixtures execute FROM SOURCE under `bun test` (no bundling) so `import.meta.dir` resolves the fixture's own dir → `schema.json` adjacency holds at test time. |
 | 5 | Warning `<dir>` relativization algorithm unpinned | APPLIED — pinned `path.relative(process.cwd(), packageDir)` for EVERY runtime warning/error `<dir>` token (tests run from repo root → deterministic, no absolute-path leak). Stated once in Executor Context, referenced from the load-bearing literals + §4.4 RBV-05.1. |
+
+## 4.16 Rev 5 → Rev 6 Delta (in-loop locator re-design — ADR-0032)
+
+**Trigger.** During `/build` (S-001/S-002 batch), `sdd-verify --mode=in-loop` HALTED with a SPEC-category
+finding (`verify-in-loop-2.md`): REQ-TFO-04.4 ("parse failure carries a position locator") is empirically
+UNSATISFIABLE via the rev-5 mechanism. ADR-0027 Gap 8 banked the `(line L, column C)` locator on extracting
+`at position N` from `JSON.parse`'s `SyntaxError.message` — a V8-ism. This SDK's guaranteed runtime is Bun
+(JavaScriptCore), whose `JSON.parse` NEVER emits a byte offset (six independent probes, `bun 1.3.11`). So
+`schema-parse.ts`'s `locateFromSyntaxError` regex was DEAD; every malformed input hit `(position unknown)`
+and the position-known branch could never fire. Owner ruling (2026-07-10, binding): RE-DESIGN, keep the
+signed scenario, derive the locator ourselves in the ratified zero-dep hand-rolled style.
+
+| # | Change | Disposition |
+|---|---|---|
+| 1 | Mechanism | APPLIED — **ADR-0032**: new pure module `src/core/schema/schema-locate.ts` exporting `locateFirstJsonSyntaxError(raw): {line,column} | undefined`. A minimal left-to-right JSON syntax scanner (whitespace / structural `{}[]:,` / string / number / `true`/`false`/`null`, tracking legal-next-token state) returns the 0-based offset of the FIRST grammar deviation (or premature EOF), converted to 1-based `{line,column}` via the byte-offset walk ADR-0027 already specified — now fed a scanner-derived offset, engine-independent. The happy path stays native `JSON.parse`; the scanner runs ONLY in the catch branch (no hot path). |
+| 2 | Fidelity boundary ("best-effort", pinned) | APPLIED — **MUST pin** the structural classes `JSON.parse` rejects (all six `verify-in-loop-2` probes): premature EOF/truncation; a char where a value/key/`:`/`,`/closing bracket is expected (unquoted key, stray token, non-string property name); trailing comma; malformed keyword/number. **MAY return `undefined`** (→ `(position unknown)`) for in-string escape-sequence violations (bad `\u` hex / invalid escape) — the scanner consumes strings structurally and deliberately does NOT validate escape internals — plus the defensive scanner↔`JSON.parse` divergence case. The bounded boundary is deliberate: it keeps the scanner small AND gives the fallback branch a REAL malformed fixture. Non-syntax "invalid shape" (valid JSON, missing `"properties"`) is NOT a syntax error — `parseSchema` keeps `line/column: undefined` there → `(position unknown)`; the scanner is not consulted. |
+| 3 | Both surfaces served | APPLIED — YES, one locator serves both. `schema-parse.ts` is the SINGLE wiring point: its catch branch calls `schema-locate.ts` and populates `SchemaParseFailure.line/.column`. The bin CLI's `formatParseError` (S-001, `pbuilder-codegen: <file>: <problem> (line L, column C)`) and the runtime RBV-05.1 formatter (S-003+, `[pbuilder] factory at <dir>: … (line L, column C)`) both read those fields UNCHANGED — no formatter edits; message formats unchanged, the position slot simply populates when the scanner pins one. |
+| 4 | Test derivation | APPLIED — §4.6 splits TFO-04.4 into position-known + fallback rows, each with a real `test/fixtures/red/schema/**` fixture class named; `test/skeleton/schema-locate.test.ts` is the direct-call unit home (single-line, multi-line, EOF → exact `{line,column}`; bad-`\u` → `undefined`); `test/bin/codegen-cli.test.ts`'s existing all-`(position unknown)` assertion (the mis-cover from `verify-in-loop-2`) is REPLACED — concrete locator for the structural fixture, `(position unknown)` only for the bounded in-string-escape fixture. |
+| 5 | Dead code removed | APPLIED — `schema-parse.ts`'s `locateFromSyntaxError` (regex on `err.message`) is DELETED; `err.message` is no longer inspected. |
+
+**Scope containment.** Implementable as an in-loop fix atop the shipped S-000/S-001/S-002 (471 tests green):
+one new module + one new unit test, a re-wire of `schema-parse.ts`'s catch branch, and an update to the two
+TFO-04.4 assertions in `codegen-cli.test.ts`. No other shipped module reworked; no spec change; the RBV-05.1
+runtime path (S-003+) inherits the populated locator for free. **Architecture impact of this amendment:
+none** — a pure sibling module inside the already-planned `src/core/schema/` cluster, no new boundary,
+dependency, or pattern; the design's overall impact stays `modifying` (§4.10, unchanged).
