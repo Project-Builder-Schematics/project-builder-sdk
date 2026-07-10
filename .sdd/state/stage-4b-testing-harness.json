@@ -89,6 +89,7 @@
   "spec_source": "internal",
   "write_mode": "sync",
   "worktree": ".claude/worktrees/plan-stage-4b-testing-harness (branch plan-stage-4b-testing-harness, cut from origin/main 413b2aa)",
+  "adr_renumber_warning": "stage-4's BUILD minted its own ADR-0032 (schema-locate scanner, design rev 6 §4.16, 2026-07-10) AFTER 4b's design claimed 0032-0035. At S-000 (post-stage-4-merge rebase): verify openspec/decisions/ latest and RENUMBER 4b's four ADR drafts (likely 0033-0036) across design.md, slices.md, spec TSD-04 references. The design's own 'verify decisions/ latest at creation' clause is the enforcement hook.",
   "cross_change_coordination": "stage-4-typed-options is IN BUILD (feat/stage-4-typed-options, unmerged). 4b value-coupled (COMMITTED-NEXT per stage-4 steward CQ1) but likely code-independent (defineFactory + ContractFake predate typed options) — explore must confirm. ADR numbering: stage-4 drafts claim 0027-0031; 4b ADRs start after — verify openspec/decisions/ latest at design.",
   "problem_statement_ref": "echoed verbatim (English) in openspec/changes/stage-4b-testing-harness/triage.md; signed by owner 2026-07-10",
   "triage_artifacts": [
