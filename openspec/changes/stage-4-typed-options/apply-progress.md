@@ -1,21 +1,111 @@
 # Apply Progress: stage-4-typed-options
 
 **Cumulative scope**: S-000 (walking skeleton), S-001 (Bin CLI Discipline), S-002 (Schema
-Contract Fitness) — all complete, plus an in-loop fix on the S-001/S-002 delta (ADR-0032
-position locator, below). **Mode**: Strict TDD.
-**Status**: S-000 + S-001 + S-002 complete, `verify-in-loop-2` HALT (REQ-TFO-04.4) resolved by
-the ADR-0032 in-loop fix — S-003, S-004, S-005 remain for the `/build` deliverable; S-006 stays
+Contract Fitness), S-003 (Run-Boundary Validation Matrix), S-004 (Reserved Lifecycle Names)
+— all complete, plus an in-loop fix on the S-001/S-002 delta (ADR-0032 position locator,
+below). **Mode**: Strict TDD.
+**Status**: S-000..S-004 complete. S-005 remains for the `/build` deliverable; S-006 stays
 deferred-blocked on the Stage-2 archive + amendment.
 
-## Slices Built This Run (S-001, S-002)
+## Slices Built This Run (S-003, S-004)
 
 | Slice | Scope tag | Status | Tasks Done |
 |---|---|---|---|
-| S-001 | happy-path | complete | 6/6 |
-| S-002 | happy-path | complete | 4/4 |
+| S-003 | happy-path | complete | 6/6 |
+| S-004 | happy-path | complete | 5/5 |
 
-(S-000 — walking-skeleton, 7/7 — was built in a prior run; see the "S-000" sections below
-for its own history, carried forward unchanged.)
+(S-000/S-001/S-002 — 7/7 + 6/6 + 4/4 — were built in prior runs; see the "[Prior run]"
+sections below, carried forward unchanged.)
+
+## Files Changed — S-003 (Run-Boundary Validation Matrix)
+
+| File | Action | What Was Done |
+|---|---|---|
+| `src/core/schema/schema-validate.ts` | Modified | `ValidationFinding` widened to a union (`missing` \| `wrong-type` \| `disallowed-key`). Two independent safe walks: (1) the schema's declared properties drive missing/wrong-type checks (`matchesType` per `SchemaKind`, `expectedTypeFor` renders the DECLARED kind — enum renders `one of: <choices>` — never the received value's kind, no-echo); (2) `Object.keys(input)` drives excess/reserved-lifecycle-name/`__proto__`-`constructor`-`prototype` detection, unconditionally (a reserved-name input key rejects even if a schema happens to declare that property, per RBV-01.5's literal wording), collapsed into one `disallowed-key` finding class per the branch→template mapping. A present-but-`undefined` value is treated as absent (REQ-RBV-01.7's undefined leg of the trichotomy). Safe iteration throughout (constraint 5) — only reads by key name, never writes through a computed key (the actual `__proto__`-assignment pollution vector), so the module can never pollute `Object.prototype` while inspecting a hostile key. |
+| `src/core/schema/input-rejection.ts` | Modified | `rejectionFor`'s switch extended for `wrong-type` (same template as `missing`) and `disallowed-key` (the `... is a reserved or disallowed key` template). |
+| `src/core/context.ts` | Modified | `validateAtRunBoundary` rewritten: ENOENT read failure → `console.warn` the pinned no-schema opt-out literal, run proceeds; non-ENOENT read failure (EACCES/EPERM/EISDIR) → fail-closed plain `Error` via a new `malformedSchemaMessage` formatter (author-vocabulary `describeReadFailure`, never the raw errno text); `SchemaParseFailure` (invalid JSON or invalid shape) → same fail-closed formatter, reusing `.problem`/`.line`/`.column`; an empty schema (zero declared properties) → distinct `console.warn` literal, validation skipped (not the same as no-schema). New shared helpers: `relativeDir` (the `<dir>` = `path.relative(process.cwd(), packageDir)` algorithm, Executor Context pin), `isErrnoException`, `describeReadFailure`, `locatorSuffix`, `malformedSchemaMessage`, `noSchemaWarning`, `emptySchemaWarning`. |
+| `test/skeleton/schema-validate.test.ts` | Modified | Extended with the full unit-level matrix: wrong-type (incl. triangulating string-vs-number), excess-key, non-JSON (function value), reserved-input-key, `__proto__`/`constructor`/`prototype` (incl. a dedicated safe-iteration-no-pollution proof with a real `Object.prototype` canary), the null/undefined/empty-string trichotomy, template-syntax opaque-pass-through, and enum branch rendering (valid choice, invalid choice, missing-enum-key). |
+| `test/skeleton/input-rejection.test.ts` | Modified | Extended for `wrong-type` (incl. the enum `one of: ...` rendering) and `disallowed-key` message assertions + plain-`Error`-never-`AuthoringError` proof for the new kind. |
+| `test/skeleton/run-boundary-validation.test.ts` | Created | Integration-level: drives `defineFactory` end-to-end against `mkdtempSync` scratch package dirs (`seedSchema` from `test/support/canary.ts`) — RBV-01 site-proof sampling (wrong-type/excess/non-JSON/reserved-key/proto-key-no-pollution/trichotomy/template-opaque), RBV-02 no-echo, RBV-03 stateless per-run/per-factory warning proof (`spyOn(console, "warn")`), RBV-05 EACCES fail-closed + malformed-JSON + invalid-shape + empty-schema-distinct-warning. |
+
+## Files Changed — S-004 (Reserved Lifecycle Names)
+
+| File | Action | What Was Done |
+|---|---|---|
+| `src/core/schema/schema-discovery.ts` | Modified | New `findReservedSibling(packageDir)`: `readdirSync` the package dir, normalize each entry (lowercase, strip a recognized `.ts`/`.js` extension) so file-form, dir-form, and case variants all compare equal against `RESERVED_LIFECYCLE_NAMES`. ENOENT (package dir doesn't exist) → `undefined` (not a failure, mirrors the RBV-03 opt-out posture); any other read error fails closed (thrown). Never inspects `schema.json` or resolved inputs (REQ-RLN-01.4's boundary). |
+| `src/core/schema/input-rejection.ts` | Modified | New `rejectionForReservedName(name)` — the RLN-02.1 pinned literal, colocated with `rejectionFor` so the eventual S-006 `AuthoringError` upgrade has one file to touch for both throw families. |
+| `src/core/schema/index.ts` | Modified | Barrel exports `findReservedSibling` + `rejectionForReservedName`. |
+| `src/core/context.ts` | Modified | New `checkReservedNames(packageDir)` called BEFORE `validateAtRunBoundary` in `defineFactory`'s runner (structural check first, then the per-call input check). Non-ENOENT scan failures reuse the same `[pbuilder]`/`relativeDir`/`describeReadFailure` machinery S-003 built. |
+| `test/skeleton/schema-discovery.test.ts` | Modified | Unit coverage for `findReservedSibling`: clean package, pre-execute/post-execute file-form, dir-form, case-insensitive, schema.json-field-is-not-scanned boundary pin, ENOENT-is-not-a-failure, non-ENOENT-fails-closed (root-guarded chmod-000). |
+| `test/skeleton/reserved-lifecycle-names.test.ts` | Created | Integration-level: drives `defineFactory` end-to-end — RLN-01.1/.2/.3 (pre-execute/clean/post-execute), dir-form, non-ENOENT fail-closed (root-guarded), RLN-02.1 distinguishable-by-literal, and the RLN-01.4/RLN-03.1/.2 boundary-pin characterization scenarios (schema-field / `add` / exported `remove` NOT rejected). |
+| `test/fixtures/red/reserved/{pre-execute-file,post-execute-file,pre-execute-dir,pre-execute-case}/*` | Created | Permanent red fixtures (never walked) for FIT-16's direct-call red-proofs — file-form ×2 (pair triangulation), dir-form, case-insensitive. |
+| `test/fixtures/red/reserved/untethered-factory.ts` | Created | Permanent red fixture: a `defineFactory<...>(...)` call whose options argument never threads the packageDir opt-in — FIT-16's 3rd-signal red-proof. |
+| `test/fitness/fit-16-reserved-name-scan.test.ts` | Created | FIT-16: always-on walk over `ALWAYS_ON_SCAN_ROOTS` reusing `findReservedSibling` (green) + a 3rd-signal substring check (`hasUntetheredDefineFactory`) over the reference schematic's `factory.ts` (green) + 6 red-proofs via direct function calls against `test/fixtures/red/reserved/**` (never walked). |
+
+## TDD Cycle Evidence — S-003
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| `schema-validate.ts` matrix | `schema-validate.test.ts` (11 new cases) | unit | Ran against the pre-S-003 implementation (missing-only): 3 real assertion failures shown (`wrong-type`/`disallowed-key`/enum-`expectedType` expected, `[]` or wrong string received) before implementing | done | string-vs-number (missing↔wrong-type), enum valid/invalid/missing (3 branches), null-vs-missing-vs-empty-string (the trichotomy itself IS the triangulation) | none needed |
+| `input-rejection.ts` extension | `input-rejection.test.ts` (4 new cases) | unit | `TypeError: undefined is not an object (evaluating '...message')` — switch had no `disallowed-key` case, fell through to `undefined` | done | wrong-type (plain) vs wrong-type (enum `one of:`) vs disallowed-key — 3 template shapes | none needed |
+| `context.ts` wiring | `run-boundary-validation.test.ts` (13 cases, new file) | integration (outer loop) | Ran the full file against the pre-S-003 `validateAtRunBoundary` (silently returns on any read error): 5 real failures — RBV-03 warn-count 0-not-3, RBV-05 EACCES/malformed/invalid-shape/empty-schema all silently passed instead of rejecting/warning | done | EACCES + malformed-JSON + invalid-shape (`missing "properties"`) — 3 distinct fail-closed paths converging on the same literal family; empty-schema vs no-schema — 2 distinct warning texts | none needed |
+
+## TDD Cycle Evidence — S-004
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| `findReservedSibling` | `schema-discovery.test.ts` (8 new cases) | unit | `SyntaxError: Export named 'findReservedSibling' not found` — function did not exist | done | file-form (pre-execute, post-execute — pair) + dir-form + case-variant — 4 matching-shape cases; ENOENT vs non-ENOENT — 2 read-posture cases | none needed |
+| `checkReservedNames` wiring | `reserved-lifecycle-names.test.ts` (9 cases, new file) | integration (outer loop) | Ran against `context.ts` pre-wiring: `pre-execute.ts` sibling did NOT reject (only the unrelated no-schema warning fired) — 4 real failures before wiring `checkReservedNames` into `defineFactory` | done | pre-execute vs post-execute vs dir-form — 3 structural-shape cases; RLN-01.4/RLN-03.1/.2 boundary pins are `[characterization]` per the slice's own RED-posture taxonomy (pin already-correct non-behavior — findReservedSibling never touches schema.json or exports) | none needed |
+| FIT-16 always-on + 3rd signal | `fit-16-reserved-name-scan.test.ts` (8 cases, new file) | architectural | New file — "did not exist" RED per the established FIT-12/13/14/15 precedent (self-contained check function + its test written together). Genuine RED surfaced DURING this pass, not before: the first `hasUntetheredDefineFactory` implementation (literal `"defineFactory("` substring) never matched the real `defineFactory<Input>(...)` generic-call syntax used everywhere in this codebase — the true-positive red-proof failed, exposing the bug in the check itself, not the fixture | done | 2 positive-control roots (reserved-sibling-absent, packageDir-threaded) + 6 red-proofs (4 reserved-shape variants + untethered + negative-control) | Fixed `hasUntetheredDefineFactory` to anchor on the bare `defineFactory` identifier instead of `defineFactory(` (generics defeat the literal-paren substring); also caught and fixed the fixture's own doc-comment accidentally containing the literal opt-in token name it exists to prove absent — both caught via genuine RED runs, not by inspection |
+
+## Deviations from Design
+
+Carried forward from prior runs (see below), plus this run's:
+
+6. **`rejectionForReservedName` was implemented alongside S-003's `input-rejection.ts` edit**
+   (both throw-constructors colocated in one pass since they share the file and the "single
+   S-006 touch point" rationale), before `input-rejection.test.ts`'s own RLN-02.1 test cases
+   were written. Its first test run therefore passed immediately — a real strict-TDD
+   anti-pattern signal ("test passes immediately on first run") — flagged rather than
+   silently accepted. Assessed as low-risk: the function is a one-line pure mapping from a
+   spec-pinned literal (no branching, no chance of the implementation being shaped to fit a
+   test that hadn't been written yet), and the actual wiring into `context.ts`
+   (`checkReservedNames`) DID follow the proper RED→GREEN cycle against
+   `reserved-lifecycle-names.test.ts`. Not re-done via a contrived revert/rewrite, since
+   that would fabricate RED evidence rather than report an honest sequencing slip.
+7. **Reserved-name enforcement runs BEFORE schema validation** in `defineFactory`'s runner
+   (`checkReservedNames` then `validateAtRunBoundary`), not specified by an explicit
+   ordering constraint in the spec/design. Judgment call: RLN is a structural, input-
+   independent check (fails the same way regardless of the call's resolved input), so
+   checking it once up front avoids doing (and then discarding) input-shape validation work
+   for a package that's going to reject on structure anyway. No test asserts the ORDER
+   itself — both checks throw a plain `Error` and are individually well-tested; if a future
+   scenario needs specific ordering it is easy to test-drive then.
+8. **`isErrnoException` is now duplicated three times** (`bin/pbuilder-codegen.ts` pre-
+   existing, `src/core/context.ts` and `src/core/schema/schema-discovery.ts` added this
+   run) — each a 3-line type guard. Considered consolidating into a shared module but
+   declined: it would require either a new `src/core/schema/` (or `src/core/`) utility file
+   touched by three otherwise-unrelated modules for marginal DRY benefit, or reaching into
+   `bin/` from `src/` (backwards — `bin/` may import `src/`, never the reverse, FIT-15).
+   Flagged per the Boy Scout rule's own "if non-trivial, propose a cleanup slice rather than
+   silently expand scope" clause — small enough that I judge it not worth a dedicated slice,
+   but noting it here rather than silently accreting a third copy unremarked.
+
+## Post-Slice Audit (Step 7c, code-audit.md `slice` mode, self-run — architecture.adrs non-empty: ADR-0027..0032)
+
+### S-003
+- **Group 1**: RBV-01(.2-.8), RBV-02(.1), RBV-03(.1), RBV-05(.1,.2) — implementing code + test present for every scenario, both at unit level (`schema-validate.test.ts`, exhaustive finding-shape matrix) and integration level (`run-boundary-validation.test.ts`, wired end-to-end proof) per design's own "unit vs integration" split intent.
+- **Group 2 (Architecture)**: All changes stay inside the already-planned `src/core/schema/` cluster + `context.ts`'s existing run-boundary touchpoint (design §4.2c "aligns"/"deviates→ADR-0029" respectively — no NEW touchpoint introduced). No `Map<string,*>`/`Record<string,*>`-as-tree pattern introduced (FIT-07's recursive walk still green). `input-rejection.ts` remains the sole Stage-2-coupled-at-S-006 module (constraint 1 — verified: no other file constructs or references an `AuthoringError` for these rejection paths).
+- **Group 3 (Code quality)**: No untyped casts introduced. No magic numbers (the `0o000`/`0o755`/`0o644` chmod literals in tests are POSIX permission constants, not arbitrary). No TODO/FIXME. No dead code. Every new helper in `context.ts` is used by at least one of the two failure paths it was written for.
+- **Verdict**: no `Bug`/`Architecture` findings — no halt.
+
+### S-004
+- **Group 1**: RLN-01(.1-.4), RLN-02(.1), RLN-03(.1,.2), FPS-05(.3 doc note only — the dedicated JSDoc test itself is S-005's) — implementing code + test present for every scenario, unit + integration + architectural (FIT-16) levels.
+- **Group 2 (Architecture)**: `findReservedSibling` lives in `schema-discovery.ts` (design's own File Changes row explicitly assigns "reserved-name sibling files" discovery to this module — not a freelanced location). `checkReservedNames` in `context.ts` mirrors the existing `validateAtRunBoundary` pattern (same file, same read-path posture, same helper reuse) rather than inventing a parallel convention. FIT-16 reuses the SAME `findReservedSibling` function the runtime throw uses (SEC-2 hybrid intent: one discovery function, two enforcement surfaces) rather than a duplicated tree-walk.
+- **Group 3 (Code quality)**: No untyped casts. No magic numbers. No TODO/FIXME. No dead code. One genuine bug caught and fixed IN this run (the `hasUntetheredDefineFactory` generic-call substring miss) — not left as a known gap; a fixture doc-comment self-defeat was also caught and fixed (see Deviations item 6 note on TDD evidence, not a separate deviation since it was corrected before landing, not shipped-then-noted).
+- **Verdict**: no `Bug`/`Architecture` findings — no halt.
+
+---
 
 ## Files Changed — S-001 (Bin CLI Discipline)
 
@@ -230,40 +320,41 @@ Carried forward from S-000 (items 1-4, unchanged — see prior entries below), p
 - **Group 3 (Code quality)**: No untyped casts (`as any`/`as never`/`as unknown as X`) introduced. No magic numbers. No TODO/FIXME markers (deferred behaviour documented via prose comments naming the owning future slice, matching the codebase's existing convention). No dead duplicates.
 - **Verdict**: no `Bug`/`Architecture` findings — no halt.
 
-## Test Evidence (cumulative, after S-000 + S-001 + S-002 + the ADR-0032 in-loop fix)
+## Test Evidence (cumulative, after S-000..S-004 + the ADR-0032 in-loop fix)
 
-`bun test` (full suite): **482 pass, 0 fail, 808 `expect()` calls, 71 files** (prior baseline
-verified at `verify-in-loop-2` was 471 pass / 70 files; +1 file — `schema-locate.test.ts`, 8
-cases — and the `codegen-cli.test.ts` TFO-04.4 split from one assertion into two tests;
-`schema-parse.test.ts` gained real `.line`/`.column` assertions on its existing case, no new
-test count there).
+`bun test` (full suite): **543 pass, 0 fail, 893 `expect()` calls, 74 files** (prior baseline
+after S-000/S-001/S-002 + the in-loop fix was 482 pass / 71 files; +3 files this run —
+`run-boundary-validation.test.ts` (13), `reserved-lifecycle-names.test.ts` (9),
+`fit-16-reserved-name-scan.test.ts` (8) — plus extensions to `schema-validate.test.ts` (+11),
+`input-rejection.test.ts` (+7), `schema-discovery.test.ts` (+8)).
 `bunx tsc --noEmit`: clean (no output, exit 0).
-`bun run build`: clean (bundles `dist/bin/pbuilder-codegen.js`, 6 modules).
+`bun run build`: not run this pass (session rule — never `bun run build`; no bin/ files
+touched this run, so the dist artifact is unaffected).
 
-Per-slice/fix isolated runs (also green, confirming no cross-slice file-order dependency):
-- `bun test test/skeleton/schema-locate.test.ts` — 8 pass (new)
-- `bun test test/skeleton/schema-parse.test.ts` — 5 pass
-- `bun test test/bin/codegen-cli.test.ts` — 17 pass (16 + 1 net from the TFO-04.4 split)
-- `bun test test/bin/codegen-static-scan.test.ts` — 7 pass
-- `bun test test/fitness/fit-14-package-surface.test.ts` — 10 pass (baseline updated for the 3 new `schema-locate` dist entries)
-- `bun test test/fitness/fit-15-bin-core-direction.test.ts` — 28 pass
-- `bun test test/fitness/fit-12-schema-parity.test.ts` — 5 pass
-- `bun test test/fitness/fit-13-schema-sufficiency.test.ts` — 11 pass
+Per-slice isolated runs (also green, confirming no cross-slice file-order dependency):
+- `bun test test/skeleton/schema-validate.test.ts` — 19 pass
+- `bun test test/skeleton/input-rejection.test.ts` — 9 pass
+- `bun test test/skeleton/schema-discovery.test.ts` — 9 pass
+- `bun test test/skeleton/run-boundary-validation.test.ts` — 13 pass (new)
+- `bun test test/skeleton/reserved-lifecycle-names.test.ts` — 9 pass (new)
+- `bun test test/fitness/fit-16-reserved-name-scan.test.ts` — 8 pass (new)
+- `bun test test/fitness/fit-07-no-tree-in-core.test.ts` — 24 pass (unaffected — no new src/core/schema files this run, only modified existing ones)
 
 ## Overall Progress
 
 | Metric | Value |
 |---|---|
-| Slices in this scope | 3 (S-000, S-001, S-002) |
-| Slices complete | 3 |
+| Slices in this scope (cumulative) | 5 (S-000, S-001, S-002, S-003, S-004) |
+| Slices complete | 5 |
 | Slices in progress | 0 |
-| Tasks complete | 17/17 (7 + 6 + 4) |
+| Tasks complete | 28/28 (7 + 6 + 4 + 6 + 5) |
 
 ## Next Step
 
-Ready for `/build --scope=slice:S-003` (or `S-004`, parallelizable — each requires only
-S-000). S-005 requires S-001 + S-003 + S-004. S-006 stays deferred-blocked on the
+Ready for `/build --scope=slice:S-005` (requires S-001 + S-003 + S-004, all now complete).
+S-005 is the LAST slice in this `/build` deliverable (S-000..S-005) — after it lands, the
+change does NOT proceed to verify-final/archive: S-006 stays deferred-blocked on the
 `stage-2-error-attribution` archive + its coordinated `sdd-spec` amendment. Note the
 pre-existing dirty `.sdd/state/stage-4-typed-options.json` observed at session start (before
 any change by this agent) — orchestrator-owned, not touched here; flagging again for
-orchestrator awareness (carried forward from the S-000 run).
+orchestrator awareness (carried forward from prior runs).

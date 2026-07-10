@@ -5,14 +5,15 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { relative } from "node:path";
 import type { EngineClient } from "./engine-client.ts";
 import { DirectiveFactory } from "./directive-factory.ts";
 import { Session } from "./session.ts";
 import { AuthoringError } from "./authoring-error.ts";
-import { schemaPathFor } from "./schema/schema-discovery.ts";
-import { parseSchema } from "./schema/schema-parse.ts";
+import { schemaPathFor, findReservedSibling } from "./schema/schema-discovery.ts";
+import { parseSchema, SchemaParseFailure } from "./schema/schema-parse.ts";
 import { validateInput } from "./schema/schema-validate.ts";
-import { rejectionFor } from "./schema/input-rejection.ts";
+import { rejectionFor, rejectionForReservedName } from "./schema/input-rejection.ts";
 
 export interface RunContext {
   session: Session;
@@ -44,27 +45,112 @@ function resolvePackageDir(packageDir: string | URL): string {
   return typeof packageDir === "string" ? packageDir : fileURLToPath(packageDir);
 }
 
-// Pre-`als.run` schema-conformance check (ADR-0029, REQ-RBV-01): validates BEFORE
+// `<dir>` token (all runtime warning/error literals, Executor Context pin): project-root-
+// relative, never absolute — tests run from the repo root, so this is deterministic and
+// leaks no absolute path.
+function relativeDir(packageDir: string): string {
+  return relative(process.cwd(), packageDir);
+}
+
+function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
+  return err instanceof Error && "code" in err;
+}
+
+// Author-vocabulary description of a non-ENOENT read failure — never the raw errno
+// message (no-echo). ENOENT is handled by its own opt-out branch and never reaches this.
+function describeReadFailure(err: unknown): string {
+  if (isErrnoException(err)) {
+    if (err.code === "EACCES" || err.code === "EPERM") return "permission denied";
+    if (err.code === "EISDIR") return "is a directory, not a file";
+  }
+  return "unreadable";
+}
+
+function locatorSuffix(line: number | undefined, column: number | undefined): string {
+  return line !== undefined && column !== undefined ? `(line ${line}, column ${column})` : "(position unknown)";
+}
+
+// RBV-05.1 runtime literal (slices load-bearing literals, design §4.4): ONE literal covers
+// both present-but-unparseable AND invalid-shape schemas, `<problem>` distinguishing them;
+// also reused (with no locator) for non-ENOENT read failures (constraint 4) — same
+// "could not be read" vocabulary, since both are "the run boundary could not establish
+// what this factory's schema contract is" failures.
+function malformedSchemaMessage(
+  packageDir: string,
+  problem: string,
+  line: number | undefined,
+  column: number | undefined
+): string {
+  return `[pbuilder] factory at ${relativeDir(packageDir)}: schema.json could not be read: ${problem} ${locatorSuffix(line, column)}`;
+}
+
+function noSchemaWarning(packageDir: string): string {
+  return `[pbuilder] factory at ${relativeDir(packageDir)}: no schema.json found — running WITHOUT schema-derived input validation`;
+}
+
+function emptySchemaWarning(packageDir: string): string {
+  return `[pbuilder] factory at ${relativeDir(packageDir)}: schema.json declares zero properties — no input validation performed`;
+}
+
+// Pre-`als.run` schema-conformance check (ADR-0029, REQ-RBV-01/03/05): validates BEFORE
 // RunContext is built, so a rejection throws with nothing buffered — all-or-nothing holds
 // trivially and the rejection never reaches the emit seam. Bare `defineFactory(fn)` (no
 // `options`) skips this entirely — the untyped opt-out (REQ-TFO-02) stays byte-for-byte
-// unchanged. Reserved-name scanning joins this same site in S-004.
+// unchanged. Read-path posture (SEC-3, constraint 4): ONLY ENOENT maps to the opt-out;
+// every other read/parse failure fails closed as a plain Error (upgraded to AuthoringError
+// in S-006). A parsed-but-empty schema (zero declared properties) is distinct from no
+// schema at all (REQ-RBV-05.2) — it warns and skips validation, it does not opt out.
 function validateAtRunBoundary(packageDir: string, input: unknown): void {
   const schemaPath = schemaPathFor(packageDir);
   let raw: string;
   try {
     raw = readFileSync(schemaPath, "utf-8");
-  } catch {
-    // No schema.json (or any other read error) — S-000 scope covers the happy/reject path
-    // only; the RBV-03 opt-out warning and the RBV-05 non-ENOENT fail-closed distinction
-    // are S-003's triangulation.
+  } catch (err) {
+    if (isErrnoException(err) && err.code === "ENOENT") {
+      console.warn(noSchemaWarning(packageDir));
+      return;
+    }
+    throw new Error(malformedSchemaMessage(packageDir, describeReadFailure(err), undefined, undefined));
+  }
+
+  let schema: ReturnType<typeof parseSchema>;
+  try {
+    schema = parseSchema(raw);
+  } catch (err) {
+    if (err instanceof SchemaParseFailure) {
+      throw new Error(malformedSchemaMessage(packageDir, err.problem, err.line, err.column));
+    }
+    throw err;
+  }
+
+  if (schema.properties.length === 0) {
+    console.warn(emptySchemaWarning(packageDir));
     return;
   }
-  const schema = parseSchema(raw);
+
   const findings = validateInput(schema, input);
   const [firstFinding] = findings;
   if (firstFinding !== undefined) {
     throw rejectionFor(firstFinding);
+  }
+}
+
+// Reserved-lifecycle-name enforcement (S-004, ADR-0028, REQ-RLN-01/02): resolves
+// reserved-name status from the factory package's OWN MODULE STRUCTURE only — never from
+// resolved run-time inputs (that is REQ-RBV-01.5's territory) or from `schema.json` field
+// names (REQ-RLN-01.4). Non-ENOENT scan failures fail closed, same read-path posture as
+// `validateAtRunBoundary` (constraint 4).
+function checkReservedNames(packageDir: string): void {
+  let reserved: string | undefined;
+  try {
+    reserved = findReservedSibling(packageDir);
+  } catch (err) {
+    throw new Error(
+      `[pbuilder] factory at ${relativeDir(packageDir)}: could not scan for reserved lifecycle names: ${describeReadFailure(err)}`
+    );
+  }
+  if (reserved !== undefined) {
+    throw rejectionForReservedName(reserved);
   }
 }
 
@@ -90,7 +176,9 @@ export function defineFactory<O>(
 ): (o: O, deps: { client: EngineClient }) => Promise<void> {
   return async (o, { client }) => {
     if (options?.packageDir !== undefined) {
-      validateAtRunBoundary(resolvePackageDir(options.packageDir), o);
+      const resolvedDir = resolvePackageDir(options.packageDir);
+      checkReservedNames(resolvedDir);
+      validateAtRunBoundary(resolvedDir, o);
     }
     const ctx: RunContext = {
       session: new Session(client),

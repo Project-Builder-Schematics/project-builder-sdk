@@ -276,12 +276,12 @@ per-run STDERR warning; GIVEN a malformed/unreadable (non-ENOENT) schema THEN fa
 GIVEN an empty schema THEN a distinct warning, run proceeds.
 
 ### Tasks
-- [ ] [must-fail-first] `schema-validate.ts` — missing/wrong-type/excess/non-JSON + null-vs-missing trichotomy (constraint 5 safe iteration)
-- [ ] [must-fail-first] reserved-key-in-input (RBV-01.5) + `__proto__`/`constructor`/`prototype`-in-input, canary-clean (RBV-01.6)
-- [ ] template-syntax-opaque scenario (RBV-01.8)
-- [ ] `run-boundary-validation.test.ts` — RBV-02 message-shape (field+type, no value)
-- [ ] RBV-03 opt-out warning (stateless, per-factory, 2nd-run + 2nd-factory proof)
-- [ ] [must-fail-first] RBV-05 non-ENOENT fail-closed (EACCES fixture) + empty-schema distinct-text warning (constraint 4)
+- [x] [must-fail-first] `schema-validate.ts` — missing/wrong-type/excess/non-JSON + null-vs-missing trichotomy (constraint 5 safe iteration)
+- [x] [must-fail-first] reserved-key-in-input (RBV-01.5) + `__proto__`/`constructor`/`prototype`-in-input, canary-clean (RBV-01.6)
+- [x] template-syntax-opaque scenario (RBV-01.8)
+- [x] `run-boundary-validation.test.ts` — RBV-02 message-shape (field+type, no value)
+- [x] RBV-03 opt-out warning (stateless, per-factory, 2nd-run + 2nd-factory proof)
+- [x] [must-fail-first] RBV-05 non-ENOENT fail-closed (EACCES fixture) + empty-schema distinct-text warning (constraint 4)
 
 ---
 
@@ -297,11 +297,11 @@ token is NOT rejected by this REQ. Independent of `packageDir`, FIT-16 always-on
 catches the same violations structurally and flags schema-present-but-untethered packages.
 
 ### Tasks
-- [ ] [must-fail-first] `context.ts` Modify — reserved-name scan step (kebab, case-insensitive, strip-ext, dir-form; ADR-0028)
-- [ ] [must-fail-first] `reserved-lifecycle-names.test.ts` — RLN-01.1-.3 (pre-execute, post-execute, clean) + non-ENOENT unreadable-dir fixture (constraint 4)
-- [ ] [characterization] RLN-01.4 + RLN-03.1/.2 boundary-pin (schema field / `add` / exported `remove` NOT rejected) + FPS-05.3 doc note
-- [ ] RLN-02.1 — rejection thrown as a plain `Error` with the pinned literal `reserved lifecycle name: {name} …`; distinguishable-in-kind from RBV-01 interim VIA the two DISTINCT message literals (`reserved lifecycle name: …` vs `invalid input: …`); no `instanceof`/`origin`/`reason` interim (constraint 1)
-- [ ] [must-fail-first] [permanent-fixture] `fit-16-reserved-name-scan.test.ts` — always-on scan over `ALWAYS_ON_SCAN_ROOTS` only (constraint 9) + 3rd-signal via a SIMPLE substring check (`defineFactory(` call carrying the `packageDir` token) applied ONLY to allowlisted files, no general parsing (Gap 10); red fixtures under `test/fixtures/red/**` (reserved siblings AND a bare-`defineFactory(`-without-`packageDir` file) driven by direct scan-function call, never walked
+- [x] [must-fail-first] `context.ts` Modify — reserved-name scan step (kebab, case-insensitive, strip-ext, dir-form; ADR-0028)
+- [x] [must-fail-first] `reserved-lifecycle-names.test.ts` — RLN-01.1-.3 (pre-execute, post-execute, clean) + non-ENOENT unreadable-dir fixture (constraint 4)
+- [x] [characterization] RLN-01.4 + RLN-03.1/.2 boundary-pin (schema field / `add` / exported `remove` NOT rejected) + FPS-05.3 doc note
+- [x] RLN-02.1 — rejection thrown as a plain `Error` with the pinned literal `reserved lifecycle name: {name} …`; distinguishable-in-kind from RBV-01 interim VIA the two DISTINCT message literals (`reserved lifecycle name: …` vs `invalid input: …`); no `instanceof`/`origin`/`reason` interim (constraint 1)
+- [x] [must-fail-first] [permanent-fixture] `fit-16-reserved-name-scan.test.ts` — always-on scan over `ALWAYS_ON_SCAN_ROOTS` only (constraint 9) + 3rd-signal via a SIMPLE substring check (`defineFactory(` call carrying the `packageDir` token) applied ONLY to allowlisted files, no general parsing (Gap 10); red fixtures under `test/fixtures/red/**` (reserved siblings AND a bare-`defineFactory(`-without-`packageDir` file) driven by direct scan-function call, never walked
 
 ---
 
