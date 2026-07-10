@@ -97,8 +97,10 @@ function emptySchemaWarning(packageDir: string): string {
 // trivially and the rejection never reaches the emit seam. Bare `defineFactory(fn)` (no
 // `options`) skips this entirely — the untyped opt-out (REQ-TFO-02) stays byte-for-byte
 // unchanged. Read-path posture (SEC-3, constraint 4): ONLY ENOENT maps to the opt-out;
-// every other read/parse failure fails closed as a plain Error (upgraded to AuthoringError
-// in S-006). A parsed-but-empty schema (zero declared properties) is distinct from no
+// every other read/parse failure fails closed as a plain Error — deliberately NOT an
+// AuthoringError: the closed reason enum (authoring-error-contract V3) has no member for
+// a corrupt/unreadable schema file, only for author-input rejections (invalid-input /
+// reserved-name). A parsed-but-empty schema (zero declared properties) is distinct from no
 // schema at all (REQ-RBV-05.2) — it warns and skips validation, it does not opt out.
 function validateAtRunBoundary(packageDir: string, input: unknown): void {
   const schemaPath = schemaPathFor(packageDir);

@@ -13,9 +13,11 @@ import type { Batch } from "./wire.ts";
 export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" | "copy";
 /**
  * The closed, author-vocabulary cause of an `AuthoringError` (★D2, ADR-0020). Exactly
- * six values — adding a seventh is a MAJOR change: authors are expected to write
+ * eight values — adding a ninth is a MAJOR change: authors are expected to write
  * exhaustive `switch(reason)` blocks, and TypeScript's exhaustiveness check breaks such
- * a switch on a new member even though nothing breaks at runtime.
+ * a switch on a new member even though nothing breaks at runtime. (V2 → V3 amendment,
+ * 2026-07-10, coordinated with `stage-4-typed-options`: extended from six to eight —
+ * `invalid-input` and `reserved-name` added, REQ-AEC-07/08.)
  *
  * @example
  * switch (err.reason) {
@@ -27,11 +29,13 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *   case "changes-too-large":
  *   case "outside-run":
  *   case "unknown":
+ *   case "invalid-input":
+ *   case "reserved-name":
  *     console.error(err.message);
  *     break;
  * }
  */
-export type AuthoringReason = "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown";
+export type AuthoringReason = "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown" | "invalid-input" | "reserved-name";
 /**
  * Distinguishes an engine-refused write from an SDK-side misuse (2.4, ADR-0021) —
  * DERIVED from `reason`, never producer-set.
@@ -79,6 +83,14 @@ export declare class AuthoringError extends Error {
         path: string | undefined;
         reason: AuthoringReason;
         appliedCount: number;
+        /**
+         * Overrides the derived message. REQUIRED for `reason: "invalid-input"` /
+         * `"reserved-name"` (REQ-AEC-09) — their templates interpolate caller-known data
+         * (`{field}`, `{expectedType}`, `{name}`) `messageFor` cannot derive from `verb`/`path`
+         * alone. Optional for every other reason, which derive their message from `reason` +
+         * `verb` + `path` as before.
+         */
+        message?: string;
     });
 }
 export declare function toAuthoringError(raw: unknown, batch: Batch): AuthoringError;

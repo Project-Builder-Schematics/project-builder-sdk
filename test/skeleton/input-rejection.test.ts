@@ -1,8 +1,10 @@
 /**
  * input-rejection.ts unit coverage — finding -> thrown rejection (design §4.2, constraint 1).
- * INTERIM (S-000..S-005): a plain `Error`, never `AuthoringError` — the origin/reason
- * upgrade is S-006-only (Option A, ADR-0029). Message literal is the REQ-AEC-09 template
- * row, the single source of truth (slices Load-bearing literals).
+ * S-006 (post stage-2-error-attribution archive + coordinated amendment): both functions
+ * construct `AuthoringError{origin:"authoring-rejected", reason:"invalid-input"|"reserved-name"}`
+ * via authoring-error.ts's public API. Message literal is the REQ-AEC-09 template row,
+ * UNCHANGED (the single source of truth, slices Load-bearing literals) — only the thrown
+ * value's shape upgrades from plain `Error`.
  */
 import { describe, it, expect } from "bun:test";
 import { AuthoringError } from "../../src/core/authoring-error.ts";
@@ -18,13 +20,14 @@ describe("rejectionFor", () => {
     expect(rejection.message).toEqual("invalid input: port must be number");
   });
 
-  it("throws a plain Error, never an AuthoringError, interim (constraint 1)", () => {
+  it("throws an AuthoringError{origin:authoring-rejected, reason:invalid-input} (S-006)", () => {
     const finding: ValidationFinding = { kind: "missing", field: "port", expectedType: "number" };
 
     const rejection = rejectionFor(finding);
 
-    expect(rejection).toBeInstanceOf(Error);
-    expect(rejection).not.toBeInstanceOf(AuthoringError);
+    expect(rejection).toBeInstanceOf(AuthoringError);
+    expect(rejection.origin).toEqual("authoring-rejected");
+    expect(rejection.reason).toEqual("invalid-input");
   });
 
   it("renders a 'wrong-type' finding with the SAME template as 'missing' (S-003)", () => {
@@ -45,13 +48,14 @@ describe("rejectionFor", () => {
     expect(rejectionFor(finding).message).toEqual("invalid input: extra is a reserved or disallowed key");
   });
 
-  it("a 'disallowed-key' rejection is a plain Error, never an AuthoringError, interim (constraint 1)", () => {
+  it("a 'disallowed-key' rejection is also an AuthoringError{origin:authoring-rejected, reason:invalid-input} (S-006)", () => {
     const finding: ValidationFinding = { kind: "disallowed-key", field: "extra" };
 
     const rejection = rejectionFor(finding);
 
-    expect(rejection).toBeInstanceOf(Error);
-    expect(rejection).not.toBeInstanceOf(AuthoringError);
+    expect(rejection).toBeInstanceOf(AuthoringError);
+    expect(rejection.origin).toEqual("authoring-rejected");
+    expect(rejection.reason).toEqual("invalid-input");
   });
 });
 
@@ -69,10 +73,11 @@ describe("rejectionForReservedName (S-004, REQ-RLN-02.1)", () => {
     expect(rlnMessage.startsWith("invalid input:")).toBe(false);
   });
 
-  it("throws a plain Error, never an AuthoringError, interim (constraint 1)", () => {
+  it("throws an AuthoringError{origin:authoring-rejected, reason:reserved-name} (S-006)", () => {
     const rejection = rejectionForReservedName("pre-execute");
 
-    expect(rejection).toBeInstanceOf(Error);
-    expect(rejection).not.toBeInstanceOf(AuthoringError);
+    expect(rejection).toBeInstanceOf(AuthoringError);
+    expect(rejection.origin).toEqual("authoring-rejected");
+    expect(rejection.reason).toEqual("reserved-name");
   });
 });

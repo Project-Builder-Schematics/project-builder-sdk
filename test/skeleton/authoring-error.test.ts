@@ -6,7 +6,7 @@
  * `error-attribution.test.ts` (REQ-AEC-04.1, REQ-12).
  */
 import { describe, it, expect } from "bun:test";
-import { toAuthoringError, type AuthoringError, type AuthoringReason, type AuthoringVerb } from "../../src/core/authoring-error.ts";
+import { toAuthoringError, AuthoringError, type AuthoringReason, type AuthoringVerb } from "../../src/core/authoring-error.ts";
 import { EmitRejection, type EmitRejectionCode } from "../../src/core/emit-rejection.ts";
 import type { Batch } from "../../src/core/wire.ts";
 import { batchOf, createOp, modifyOp, deleteOp, renameOp, copyOp, moveOp } from "../fake/directive-builders.ts";
@@ -57,10 +57,12 @@ describe("REQ-AEC-01.2 — no engine string ever appears as a reason value", () 
     "changes-too-large",
     "outside-run",
     "unknown",
+    "invalid-input",
+    "reserved-name",
   ];
 
   for (const code of codes) {
-    it(`code:"${code}" → reason is one of the six closed values, never the raw message text`, () => {
+    it(`code:"${code}" → reason is one of the eight closed values, never the raw message text`, () => {
       const rejection = new EmitRejection(code, "ContractFake: some engine-internal text");
       const err = toAuthoringError(rejection, batchOf());
       expect(closedReasons).toContain(err.reason);
@@ -126,6 +128,72 @@ describe("REQ-AEC-06.3 — unknown message states the SDK could not classify", (
     const err = toAuthoringError("a bare string rejection", batchOf());
     expect(err.reason).toEqual("unknown");
     expect(err.message).toEqual("changes could not be applied: unknown — the SDK could not classify this failure");
+  });
+});
+
+describe("REQ-AEC-07.1 / REQ-AEC-08.1 — the two V2 → V3 amendment reasons classify to origin:authoring-rejected", () => {
+  // invalid-input/reserved-name are never produced via toAuthoringError(EmitRejection) —
+  // they are SDK-side (schema-validation / reserved-lifecycle-name), constructed directly
+  // by input-rejection.ts (S-006). Constructed here directly against the public API.
+  it('reason:"invalid-input" → origin:"authoring-rejected"', () => {
+    const err = new AuthoringError({
+      verb: undefined,
+      path: undefined,
+      reason: "invalid-input",
+      appliedCount: 0,
+      message: "invalid input: port must be number",
+    });
+    expect(err.reason).toEqual("invalid-input");
+    expect(err.origin).toEqual("authoring-rejected");
+  });
+
+  it('reason:"reserved-name" → origin:"authoring-rejected"', () => {
+    const err = new AuthoringError({
+      verb: undefined,
+      path: undefined,
+      reason: "reserved-name",
+      appliedCount: 0,
+      message: "reserved lifecycle name: pre-execute is reserved and cannot be declared by a factory module",
+    });
+    expect(err.reason).toEqual("reserved-name");
+    expect(err.origin).toEqual("authoring-rejected");
+  });
+});
+
+describe("REQ-AEC-09 — invalid-input/reserved-name have no default message template; an explicit message is required", () => {
+  it('an explicit message for reason:"invalid-input" is used verbatim (byte-unchanged from the caller)', () => {
+    const err = new AuthoringError({
+      verb: undefined,
+      path: undefined,
+      reason: "invalid-input",
+      appliedCount: 0,
+      message: "invalid input: mode must be one of: dev, prod",
+    });
+    expect(err.message).toEqual("invalid input: mode must be one of: dev, prod");
+  });
+
+  it('constructing reason:"invalid-input" with no message throws — no default template exists for this reason', () => {
+    expect(
+      () =>
+        new AuthoringError({
+          verb: undefined,
+          path: undefined,
+          reason: "invalid-input",
+          appliedCount: 0,
+        })
+    ).toThrow();
+  });
+
+  it('constructing reason:"reserved-name" with no message throws — no default template exists for this reason', () => {
+    expect(
+      () =>
+        new AuthoringError({
+          verb: undefined,
+          path: undefined,
+          reason: "reserved-name",
+          appliedCount: 0,
+        })
+    ).toThrow();
   });
 });
 

@@ -55,9 +55,10 @@ describe("REQ-RBV-01 — run-boundary validation matrix (site proof samples, wir
 
     const err = await runAgainst(dir, { port: "8080" });
 
-    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(AuthoringError);
     expect((err as Error).message).toEqual("invalid input: port must be number");
-    expect(err).not.toBeInstanceOf(AuthoringError);
+    expect((err as AuthoringError).origin).toEqual("authoring-rejected");
+    expect((err as AuthoringError).reason).toEqual("invalid-input");
   });
 
   it("REQ-RBV-01.3: an excess key rejects, naming the excess key", async () => {

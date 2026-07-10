@@ -53,11 +53,12 @@ describe("REQ-RLN-01 — schematic-level reserved names, enforced from module st
 
     const err = await runAgainst(dir);
 
-    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(AuthoringError);
     expect((err as Error).message).toEqual(
       "reserved lifecycle name: pre-execute is reserved and cannot be declared by a factory module"
     );
-    expect(err).not.toBeInstanceOf(AuthoringError);
+    expect((err as AuthoringError).origin).toEqual("authoring-rejected");
+    expect((err as AuthoringError).reason).toEqual("reserved-name");
   });
 
   it("REQ-RLN-01.2: a clean factory package (no reserved siblings) is accepted", async () => {
@@ -115,6 +116,8 @@ describe("REQ-RLN-02 — reserved-name rejection shape", () => {
 
     expect((err as Error).message.startsWith("reserved lifecycle name:")).toBe(true);
     expect((err as Error).message.startsWith("invalid input:")).toBe(false);
+    // S-006: also distinguishable in-kind via the closed `reason` enum, not just the message.
+    expect((err as AuthoringError).reason).toEqual("reserved-name");
   });
 });
 

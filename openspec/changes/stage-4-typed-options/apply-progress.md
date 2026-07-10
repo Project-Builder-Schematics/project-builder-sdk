@@ -2,13 +2,108 @@
 
 **Cumulative scope**: S-000 (walking skeleton), S-001 (Bin CLI Discipline), S-002 (Schema
 Contract Fitness), S-003 (Run-Boundary Validation Matrix), S-004 (Reserved Lifecycle Names),
-S-005 (Cross-Domain No-Echo Verification + Discoverability) — all complete, plus an in-loop
-fix on the S-001/S-002 delta (ADR-0032 position locator, below). **Mode**: Strict TDD.
-**Status**: S-000..S-005 complete — the FULL `/build` deliverable (S-000..S-005) is done. The
-CHANGE does NOT proceed to `sdd-verify --mode=final`/archive: S-006 stays deferred-blocked on
-the `stage-2-error-attribution` archive + its coordinated `sdd-spec` amendment.
+S-005 (Cross-Domain No-Echo Verification + Discoverability), S-006 (Reason-Literal
+Finalization) — ALL 7 SLICES COMPLETE, plus an in-loop fix on the S-001/S-002 delta (ADR-0032
+position locator, below) and a coordinated Stage-2 amendment-code pass (below). **Mode**:
+Strict TDD.
+**Status**: S-000..S-006 complete. The S-006 gate opened 2026-07-10 (coordinated AEC
+amendment landed, commit `1c1188d`, spec V3 signed) and was built the same run. The change is
+now ready for `sdd-verify --mode=final`/archive.
 
-## Slices Built This Run (S-005)
+## Slices Built This Run (Coordinated AEC Amendment Code + S-006)
+
+| Slice | Scope tag | Status | Tasks Done |
+|---|---|---|---|
+| (amendment code, not a slice) | Stage-2-owned, authorized by spec V3 | complete | n/a |
+| S-006 | edge-case | complete | 4/4 |
+
+### Sub-scope A — Coordinated Stage-2 AEC Amendment Code
+
+Authorized exclusively by `openspec/specs/authoring-error-contract/spec.md` V3 (REQ-AEC-01/07/08/09,
+signed 2026-07-10) — NOT by this change's own slices.md. Extended `src/core/authoring-error.ts`'s
+closed `AuthoringReason` union from six to eight values (`invalid-input`, `reserved-name`),
+`originFor` (both map to `"authoring-rejected"`), and `messageFor`.
+
+**`messageFor` design decision (flagged, not silent)**: REQ-AEC-09's two new template rows need
+`{field}`/`{expectedType}`/`{name}` — data `messageFor` cannot derive from `verb`/`path` alone (unlike
+the six legacy reasons). Rather than corrupt `verb`/`path`'s existing typed meaning, the
+`AuthoringError` constructor gained ONE new optional field, `message?: string`, which overrides the
+derived template when supplied. `messageFor`'s `invalid-input`/`reserved-name` arms exist only to
+satisfy the exhaustive-switch compile-time pin (ADR-0021 mechanism) and throw if reached — these two
+reasons have no default template and MUST be constructed with an explicit `message`. This is a
+deliberate, minimal, purely-additive extension (documented here per the craftsman preamble's
+pushback-not-silent-deviation rule) beyond the literal "add the two enum members" — it is the
+infrastructure S-006 needs to construct byte-identical REQ-AEC-09 messages through the public API,
+and it does not itself trip FIT-04 (an added optional field is a pure line addition, not a removal;
+only the `AuthoringReason` union's single-line growth is what FIT-04 flags, matching REQ-AEC-01's own
+declared stance that reason-union growth is breaking).
+
+**Files changed**:
+| File | Action | What Was Done |
+|---|---|---|
+| `src/core/authoring-error.ts` | Modified | `AuthoringReason` extended to eight values; `originFor` extended (`invalid-input`/`reserved-name` → `"authoring-rejected"`); `messageFor` extended (two `throw`-on-reach arms + doc); constructor gained optional `message?: string` override field. JSDoc updated (six→eight, `@example` switch cases added). |
+| `test/types/authoring-reason.test.ts` | Modified | Exhaustive-switch compile-time pin extended to eight `AuthoringReason` members + the `expectTypeOf` union pin. |
+| `test/skeleton/authoring-error.test.ts` | Modified | `AuthoringError` imported as a value (not type-only). New REQ-AEC-07.1/REQ-AEC-08.1 describe block (origin classification for both new reasons, direct construction — no `EmitRejection` path exists for these SDK-side reasons). New REQ-AEC-09 describe block (explicit-message-override proof + no-message-throws proof for both reasons). `closedReasons` list in the REQ-AEC-01.2 test extended to eight. |
+| `test/fitness/fit-11-whole-object-leak-scan.test.ts` | Modified | `AuthoringError` imported as a value. Two new direct-construction helpers (`invalidInputRejection`, `reservedNameRejection`) added to REQ-AEC-05.1's case list — the amended eight-family leak-scan completeness proof. |
+| `test/fitness/dts-baseline/core.authoring-error.d.ts` | Modified (regenerated) | `bun run build` via FIT-04's own self-building `beforeAll` (never invoked directly — session rule), then `dist/core/authoring-error.d.ts` copied over the baseline. Diffed byte-for-byte against the prior baseline before copying: exactly two deltas — (1) the `AuthoringReason` union line growth (six→eight, the FIT-04-flagged breaking delta, per REQ-AEC-01's own stance) and (2) the new optional `message?: string` constructor field (a pure addition, does not itself trip FIT-04's removal-based gate). Nothing else drifted. |
+
+**TDD Cycle Evidence**:
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| `AuthoringReason` union + exhaustive pin | `test/types/authoring-reason.test.ts` (whole file) | unit(type) | `tsc --noEmit`: `TS2678: Type '"invalid-input"' is not comparable to type 'AuthoringReason'` (×2) + `TS2344` on the `expectTypeOf` union pin | done | n/a — type-level pin, single case | none needed |
+| `originFor`/classification | `authoring-error.test.ts::REQ-AEC-07.1/REQ-AEC-08.1` (2 cases) | unit | `messageFor: unhandled reason invalid-input` / `...reserved-name` (constructor threw — union/message-override not yet implemented) | done | 2 cases (both new reasons) — forces `originFor`'s new arm, not just one | none needed |
+| `messageFor` override mechanism | `authoring-error.test.ts::REQ-AEC-09` (3 cases) | unit | 1 real assertion failure (override didn't exist, `messageFor`'s old default arm threw `unhandled reason`); 2 cases already passed incidentally (the pre-existing default-arm throw already satisfied "no message → throws", now for the RIGHT documented reason) — flagged, not silently accepted, per strict-tdd's "test passes immediately" guidance; verified these 2 continue to test real behavior (my new explicit-message-required error, not the old generic one) | done | invalid-input vs reserved-name — 2 distinct reasons prove the override isn't hardcoded to one | none needed |
+| FIT-11 leak-scan (amended 8-family list) | `fit-11-whole-object-leak-scan.test.ts::REQ-AEC-05.1` (2 new cases) | architectural | `messageFor: unhandled reason invalid-input` / `...reserved-name` (same underlying gap) | done | n/a — completeness-list addition, not a new algorithm | none needed |
+| FIT-04 baseline | `fit-04-dts-semver-gate.test.ts::core/authoring-error` | architectural | `core/authoring-error: no breaking removals vs committed baseline` — the old 6-value union line flagged as a "breaking removal" (matches REQ-AEC-01's declared stance) | done (post baseline regen) | n/a | none needed |
+
+### Sub-scope B — S-006: Reason-Literal Finalization
+
+**GATE task**: read `src/core/authoring-error.ts` (post my own sub-scope A work, verified as
+though I hadn't written it) — confirmed it carries `origin`/`reason` generalized to eight members
+including `invalid-input`/`reserved-name`, both mapping to `origin: "authoring-rejected"`. GATE
+PASSED — proceeded.
+
+**Files changed**:
+| File | Action | What Was Done |
+|---|---|---|
+| `src/core/schema/input-rejection.ts` | Modified | `rejectionFor`/`rejectionForReservedName` upgraded from plain `Error` to `AuthoringError{origin:"authoring-rejected", reason:"invalid-input"\|"reserved-name"}`, constructed via the amended public API's `message` override field. Message literals BYTE-UNCHANGED (verified — see below). Return types narrowed from `Error` to `AuthoringError`. |
+| `test/skeleton/input-rejection.test.ts` | Modified | Flipped the three `.not.toBeInstanceOf(AuthoringError)` interim assertions to `.toBeInstanceOf(AuthoringError)` + `origin`/`reason` equality. NOT separately enumerated in slices.md's task list (which names only the three integration/e2e test files), but this file directly unit-tests the exact two functions S-006 upgrades — its own interim assertions would otherwise contradict the new behavior. Flagged as a discovered gap in the task-list enumeration, not scope creep (the functions under test ARE input-rejection.ts's, explicitly in scope). |
+| `test/skeleton/run-boundary-validation.test.ts` | Modified | REQ-RBV-01.2 (wrong-typed value) flipped: `toBeInstanceOf(AuthoringError)` + `origin`/`reason` equality. REQ-RBV-05's schema-read/parse-failure assertions (`chmod-000`, malformed JSON, invalid-shape) deliberately LEFT UNCHANGED — verified these throw via `context.ts`'s `malformedSchemaMessage`, a DIFFERENT code path than `input-rejection.ts`, and the closed `AuthoringReason` enum has no member for "schema file itself unreadable/malformed" (REQ-AEC-07 scopes `invalid-input` strictly to "resolved input fails schema-derived validation", not schema-file corruption). A stale forward-looking comment in `context.ts` (line ~100, "upgraded to AuthoringError in S-006") suggests broader scope was once anticipated; not acted on — out of S-006's actual authorized scope (input-rejection.ts only) and outside the closed enum's coverage. Flagged for the Planner, not silently resolved either way. |
+| `test/skeleton/reserved-lifecycle-names.test.ts` | Modified | REQ-RLN-01.1 (pre-execute.ts sibling) flipped: `toBeInstanceOf(AuthoringError)` + `origin`/`reason` equality. REQ-RLN-02.1 gained a `reason` equality assertion (in-kind distinguishability, not just message-literal). The "constraint 4: non-ENOENT unreadable package dir" test LEFT UNCHANGED (same rationale as RBV-05 above — a scan-infrastructure failure, not a "declares a reserved name" rejection; still plain `Error` via a different `context.ts` throw site). |
+| `test/e2e/typed-factory.e2e.test.ts` | Modified | The RBV-01.1 site-proof reject case flipped: `toBeInstanceOf(AuthoringError)` + `origin`/`reason` equality, replacing the interim `.not.toBeInstanceOf` assertion. |
+
+**AEC-09 message-template assertions (3 rows) — confirmed byte-identical post-upgrade**:
+`"invalid input: port must be number"` (type-mismatch), `"invalid input: extra is a reserved or
+disallowed key"` (reserved/excess key), `"reserved lifecycle name: pre-execute is reserved and
+cannot be declared by a factory module"` (reserved-name) — all three still assert verbatim in
+`input-rejection.test.ts`, `run-boundary-validation.test.ts`, `reserved-lifecycle-names.test.ts`,
+`typed-factory.e2e.test.ts`. `test/security/canary-no-echo.test.ts` (task 5) — untouched, still
+green: its own header comment noted it was designed to survive S-006 ("once S-006 adds
+`origin`/`reason` string fields") via a generic own-enumerable-string-property scan.
+
+**TDD Cycle Evidence**:
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| `rejectionFor`/`rejectionForReservedName` upgrade | `input-rejection.test.ts` (3 new/flipped cases) | unit | `expect(received).toBeInstanceOf(expected)` — received a plain `Error` (`invalid input: port must be number` / `...extra is a reserved or disallowed key` / `reserved lifecycle name: pre-execute...`), expected `AuthoringError` | done | missing/wrong-type vs disallowed-key vs reserved-name — 3 distinct call sites, same upgrade mechanism | none needed |
+| Wiring proof (integration/e2e) | `run-boundary-validation.test.ts::REQ-RBV-01.2`, `reserved-lifecycle-names.test.ts::REQ-RLN-01.1/REQ-RLN-02.1`, `typed-factory.e2e.test.ts` (4 cases across 3 files) | integration/e2e (outer loop) | Same shape: `toBeInstanceOf(AuthoringError)` failed against the pre-upgrade plain `Error` | done | schema-validation path (RBV) vs reserved-name path (RLN) vs full e2e site-proof (typed-factory) — 3 distinct wiring paths, not just the unit-level function | none needed |
+
+### Post-Slice Audit (Step 7c, code-audit.md `slice` mode, self-run — architecture.adrs non-empty: ADR-0027..0032)
+
+- **Group 1**: AEC-07(.1), AEC-08(.1), AEC-09(.1,.2) — implementing code + test present. RBV-01.2,
+  RLN-01.1, RLN-02.1 wiring re-proven end-to-end post-upgrade.
+- **Group 2 (Architecture)**: `input-rejection.ts` remains the sole Stage-2-coupled module
+  (constraint 1) — verified no other file constructs an `AuthoringError` for these two rejection
+  paths. `authoring-error.ts`'s amendment stays inside its own file (no new cross-module coupling).
+  No `Map<string,*>`/`Record<string,*>`-as-tree pattern introduced. Constraint 6 (only S-006 asserts
+  an exact `reason` string) honored — reason-string assertions added ONLY in this run's files.
+- **Group 3 (Code quality)**: No untyped casts beyond the established `as Error`/`as AuthoringError`
+  narrowing already used elsewhere in these same test files for `catch (err) { ... err as Error }`
+  patterns. No magic numbers. No TODO/FIXME. No dead code — `messageFor`'s two throw-only arms are
+  reachable (proven by the REQ-AEC-09 no-message tests) and documented as intentionally
+  unreachable-in-normal-use.
+- **Verdict**: no `Bug`/`Architecture` findings — no halt.
+
+## Slices Built This Run (S-005) [prior run in this session]
 
 | Slice | Scope tag | Status | Tasks Done |
 |---|---|---|---|
@@ -437,21 +532,47 @@ Per-slice isolated runs (also green, confirming no cross-slice file-order depend
 
 | Metric | Value |
 |---|---|
-| Slices in this scope (cumulative) | 6 (S-000, S-001, S-002, S-003, S-004, S-005) |
-| Slices complete | 6 |
+| Slices in this scope (cumulative) | 7 (S-000, S-001, S-002, S-003, S-004, S-005, S-006) |
+| Slices complete | 7 |
 | Slices in progress | 0 |
-| Tasks complete | 32/32 (7 + 6 + 4 + 6 + 5 + 4) |
+| Tasks complete | 36/36 (7 + 6 + 4 + 6 + 5 + 4 + 4) |
+
+## Test Evidence (cumulative, after S-000..S-006 + coordinated AEC amendment code)
+
+`bun test` (full suite): **563 pass, 0 fail, 940 `expect()` calls, 76 files** (prior baseline
+after S-000..S-005 was 556 pass / 76 files — no new files this run, only extensions to seven
+existing test files: `test/types/authoring-reason.test.ts`, `test/skeleton/authoring-error.test.ts`
+(+5), `test/fitness/fit-11-whole-object-leak-scan.test.ts` (+2), `test/skeleton/input-rejection.test.ts`,
+`test/skeleton/run-boundary-validation.test.ts`, `test/skeleton/reserved-lifecycle-names.test.ts`,
+`test/e2e/typed-factory.e2e.test.ts`).
+`bunx tsc --noEmit`: clean (no output, exit 0).
+`bun run build`: not invoked directly by this agent — `test/fitness/fit-04-dts-semver-gate.test.ts`'s
+own self-building `beforeAll` (session rule respected) produced the fresh `dist/` used to
+regenerate `test/fitness/dts-baseline/core.authoring-error.d.ts`.
+
+Per-file isolated runs (also green):
+- `bun test test/types/authoring-reason.test.ts test/skeleton/authoring-error.test.ts test/fitness/fit-11-whole-object-leak-scan.test.ts` — 54 pass (sub-scope A)
+- `bun test test/skeleton/input-rejection.test.ts test/skeleton/run-boundary-validation.test.ts test/skeleton/reserved-lifecycle-names.test.ts test/e2e/typed-factory.e2e.test.ts test/security/canary-no-echo.test.ts` — 43 pass (sub-scope B)
+- `bun test test/fitness/fit-04-dts-semver-gate.test.ts` — 11 pass (baseline regen confirmation)
 
 ## Next Step
 
-`/build` deliverable (S-000..S-005) is COMPLETE. The change does NOT proceed to
-`sdd-verify --mode=final`/archive: **S-006 stays deferred-blocked** on the
-`stage-2-error-attribution` archive + its coordinated `sdd-spec` amendment (REQ-AEC-07/08/09)
-landing on Stage 2's own signed spec. Per slices.md's own Build Order: "the CHANGE reaches
-`sdd-verify --mode=final` + archive ONLY after S-006 lands." Recommended orchestrator routing:
-hold this change at its current state; re-invoke `/build --scope=slice:S-006` once the S-006
-gate opens (Stage 2 archived + amendment landed) — S-006's own first task is the gate check
-(`stage-2-precondition-missing` halt if the precondition isn't met yet). Note the pre-existing
-dirty `.sdd/state/stage-4-typed-options.json` observed at session start (before any change by
-this agent) — orchestrator-owned, not touched here; flagging again for orchestrator awareness
-(carried forward from prior runs).
+`/build` full deliverable (S-000..S-006) is COMPLETE — all 7 slices, 36/36 tasks. The coordinated
+Stage-2 AEC amendment code (authorized by spec V3, not by this change's own slices.md) is also
+complete and green. The change is ready for `sdd-verify --mode=final` per slices.md's own Build
+Order ("the CHANGE reaches `sdd-verify --mode=final` + archive ONLY after S-006 lands" — S-006 has
+now landed). Two items to flag to the Planner before/at verify-final:
+1. A discovered gap in slices.md's S-006 task-list enumeration: `input-rejection.test.ts`'s own
+   direct unit assertions needed flipping too (not separately named in the task list, but they
+   directly test the two functions S-006 upgrades) — done, not left inconsistent.
+2. A stale forward-looking comment in `src/core/context.ts` (~line 100) suggests the schema-read/
+   parse-failure path (`malformedSchemaMessage`, REQ-RBV-05) was once expected to upgrade to
+   `AuthoringError` in S-006 too. NOT done — the closed `AuthoringReason` enum has no member for
+   "schema file itself unreadable/malformed" (distinct from `invalid-input`, which REQ-AEC-07 scopes
+   strictly to "resolved input fails schema-derived validation"), and neither S-006's task list nor
+   this agent's authorized scope covers it. Left as plain `Error`, matching the closed enum's actual
+   coverage — flagging the stale comment for a future cleanup, not resolving it unilaterally.
+
+Note the pre-existing dirty `.sdd/state/stage-4-typed-options.json` observed at session start
+(before any change by this agent) — orchestrator-owned, not touched here; flagging again for
+orchestrator awareness (carried forward from prior runs).

@@ -9,11 +9,14 @@ Executor Context, and load-bearing literals below). Rev 3 (iteration-2): **Optio
 interim dissolves the Tier-1 whole-build precondition**; FIT-06→dedicated JSDoc test, FIT-14
 baseline, FIT-16 3rd-signal substring, red-fixture tsconfig-exclude, spawn-via-`bun`.
 
-> **/build deliverable = S-000..S-005.** S-006 is explicitly **deferred-blocked** (built later
-> via `/build --scope=slice:S-006` once Stage 2 ARCHIVES + the coordinated amendment lands).
+> **/build deliverable = S-000..S-005.** S-006 was explicitly **deferred-blocked** (built later
+> via `/build --scope=slice:S-006` once Stage 2 ARCHIVES + the coordinated amendment lands) — its
+> gate opened 2026-07-10 (coordinated AEC amendment, commit `1c1188d`, spec V3 signed) and S-006
+> **LANDED** the same day: `input-rejection.ts` upgraded to `AuthoringError{origin,reason}`, full
+> suite green (563), typecheck clean. All 7 slices (S-000..S-006) are now complete.
 > **There is NO whole-build precondition** (Option A, iteration-2 gaps 3/4): every interim rejection
 > throws a plain `Error`, so S-000..S-005 have ZERO Stage-2 dependency and the build may start
-> IMMEDIATELY once plan-verify returns `ready`. The ONLY Stage-2 gate is S-006's.
+> IMMEDIATELY once plan-verify returns `ready`. The ONLY Stage-2 gate was S-006's.
 **Test**: `bun test <path>` · full `bun test` · types `bunx tsc --noEmit` · build
 `bun run build` (needed before `test/bin/codegen-static-scan.test.ts`, which scans the
 built `dist/bin` artifact).
@@ -341,10 +344,10 @@ run-boundary/reserved-name rejection is thrown THEN the thrown value is an `Auth
 message still matches the AEC-09 literals (unchanged from interim).
 
 ### Tasks
-- [ ] **GATE** — read `src/core/authoring-error.ts` (post Stage-2 archive/rebase) and verify it carries the generalized `origin`/`reason` fields AND the `invalid-input`/`reserved-name` enum members; if NOT, HALT `stage-2-precondition-missing` (Stage-2's signed spec + amendment are the field contract — Gap 2; do NOT edit `authoring-error.ts`)
-- [ ] `input-rejection.ts` — UPGRADE the interim plain-`Error` throw to `AuthoringError{origin:"authoring-rejected", reason:…}` constructed via `authoring-error.ts`'s actual public API (message literals unchanged)
-- [ ] Flip the interim assertions ON — add `instanceof AuthoringError` + `origin` + exact `reason` string-equality in `run-boundary-validation.test.ts`, `reserved-lifecycle-names.test.ts`, `typed-factory.e2e.test.ts` (interim asserted plain-`Error` + message literal only)
-- [ ] Confirm the exact AEC-09 message-template assertions (3 rows) still hold post-upgrade
+- [x] **GATE** — read `src/core/authoring-error.ts` (post Stage-2 archive/rebase) and verify it carries the generalized `origin`/`reason` fields AND the `invalid-input`/`reserved-name` enum members; if NOT, HALT `stage-2-precondition-missing` (Stage-2's signed spec + amendment are the field contract — Gap 2; do NOT edit `authoring-error.ts`)
+- [x] `input-rejection.ts` — UPGRADE the interim plain-`Error` throw to `AuthoringError{origin:"authoring-rejected", reason:…}` constructed via `authoring-error.ts`'s actual public API (message literals unchanged)
+- [x] Flip the interim assertions ON — add `instanceof AuthoringError` + `origin` + exact `reason` string-equality in `run-boundary-validation.test.ts`, `reserved-lifecycle-names.test.ts`, `typed-factory.e2e.test.ts` (interim asserted plain-`Error` + message literal only) — also flipped `input-rejection.test.ts`'s own direct unit assertions on `rejectionFor`/`rejectionForReservedName` (not separately enumerated by this task list, but the exact functions this task upgrades)
+- [x] Confirm the exact AEC-09 message-template assertions (3 rows) still hold post-upgrade — verified byte-identical; `canary-no-echo.test.ts` (task 5) still green unmodified
 
 ---
 
@@ -367,7 +370,7 @@ archive + its coordinated amendment). S-006 is deferred-blocked, never dropped �
 | 1 | S-000 | implicit blocker for all; no precondition — starts immediately |
 | 2 | S-001, S-002, S-003, S-004 | disjoint files — parallelizable (sequential single-pass acceptable), each requires only S-000 |
 | 3 | S-005 | requires S-001 + S-003 + S-004 (cross-domain scan); also carries the README REQ-FPS-05.4 line. **End of the `/build` deliverable — the change does NOT archive until S-006 lands.** |
-| — (deferred-blocked) | S-006 | requires S-003 + S-004; **S-006 gate**: BLOCKED until Stage 2 ARCHIVES + its coordinated `sdd-spec` amendment (REQ-AEC-07/08/09) lands. Built later, out of this `/build`. Not droppable — must eventually land, and the change cannot verify-final/archive before it does. |
+| 4 | S-006 | requires S-003 + S-004; **S-006 gate**: was BLOCKED until Stage 2 ARCHIVES + its coordinated `sdd-spec` amendment (REQ-AEC-07/08/09) landed — gate opened + slice landed 2026-07-10 (commit `1c1188d`). Complete — the change may now proceed to `sdd-verify --mode=final`/archive. |
 
 ## Coverage Check
 
