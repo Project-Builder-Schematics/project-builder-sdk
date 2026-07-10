@@ -1,11 +1,87 @@
 # Apply Progress: stage-4-typed-options
 
 **Cumulative scope**: S-000 (walking skeleton), S-001 (Bin CLI Discipline), S-002 (Schema
-Contract Fitness), S-003 (Run-Boundary Validation Matrix), S-004 (Reserved Lifecycle Names)
-— all complete, plus an in-loop fix on the S-001/S-002 delta (ADR-0032 position locator,
-below). **Mode**: Strict TDD.
-**Status**: S-000..S-004 complete. S-005 remains for the `/build` deliverable; S-006 stays
-deferred-blocked on the Stage-2 archive + amendment.
+Contract Fitness), S-003 (Run-Boundary Validation Matrix), S-004 (Reserved Lifecycle Names),
+S-005 (Cross-Domain No-Echo Verification + Discoverability) — all complete, plus an in-loop
+fix on the S-001/S-002 delta (ADR-0032 position locator, below). **Mode**: Strict TDD.
+**Status**: S-000..S-005 complete — the FULL `/build` deliverable (S-000..S-005) is done. The
+CHANGE does NOT proceed to `sdd-verify --mode=final`/archive: S-006 stays deferred-blocked on
+the `stage-2-error-attribution` archive + its coordinated `sdd-spec` amendment.
+
+## Slices Built This Run (S-005)
+
+| Slice | Scope tag | Status | Tasks Done |
+|---|---|---|---|
+| S-005 | edge-case | complete | 4/4 |
+
+(S-000/S-001/S-002/S-003/S-004 — see the sections below, carried forward unchanged.)
+
+## Files Changed — S-005 (Cross-Domain No-Echo Verification + Discoverability)
+
+| File | Action | What Was Done |
+|---|---|---|
+| `test/security/canary-no-echo.test.ts` | Created | REQ-RBV-04.1/.2 dictionary-seeded canary scan (design §4.2/§4.6 File Changes/Test Derivation rows). Drives every rejection branch the change introduces — RBV-01.1 (missing, via a co-resident field's canary value), RBV-01.2 (wrong-type), RBV-01.3 (excess key), RBV-01.4 (non-JSON/function, canary embedded in the function's own source text), RBV-01.5 (reserved-name-as-input-key), RBV-01.6 (`__proto__`), RBV-01.7 (null-vs-missing trichotomy), TFO-04.1 (bin malformed-schema STDOUT/STDERR), RLN-02.1 (reserved-lifecycle-name rejection) — with a fresh, unpredictable `canaryToken()` seeded as the VALUE under test each time, and a generic `surfaceContains` scan over `.message`/`.stack`/every own enumerable string property (so the same scan still holds once S-006 adds `origin`/`reason`). A separate REQ-RBV-04.2 case pins the asymmetry: an excess key literally NAMED the canary token legitimately appears in the message. Self-building `beforeAll` (S-001 `codegen-cli.test.ts` precedent) since this file also spawns the built `dist/bin/pbuilder-codegen.js` for the TFO-04.1 branch. |
+| `test/fitness/definefactory-jsdoc.test.ts` | Created | REQ-FPS-05.2/.3/.4 dedicated doc-assertion (design §4.2 Gap 5). Reads `src/core/context.ts` via the shared `jsDocBefore` helper (`test/support/jsdoc-scan.ts`) and asserts `defineFactory`'s JSDoc carries `@example` naming `pbuilder-codegen`/`schema.json`/a typed `defineFactory<...>` call/`schema.generated`, and `@remarks` naming both `pre-execute` and `post-execute`. Also carries REQ-FPS-05.4 (no dedicated home named by design's Gap-13 resolution; landed here alongside its REQ-FPS-05 siblings): asserts `README.md` contains the qualifying line verbatim, byte-for-byte. `fit-06-example-jsdoc.test.ts` left byte-for-byte UNTOUCHED, as designed (its `PUBLIC_PATHS` never reaches the internal-kit `defineFactory` export). |
+| `src/core/context.ts` | Modified | `defineFactory`'s JSDoc comment expanded with `@param fn`, `@param options.packageDir` (the two opt-out tiers, `import.meta.dir` vs. the `import.meta.url` misuse warning), `@remarks` (naming `pre-execute`/`post-execute` as reserved, `add`/`remove` NOT reserved here), and `@example` (bin invocation → typed `defineFactory<Input>` call, mirroring `test/fixtures/typed-factory/factory.ts`'s actual shape). Doc-comment-only change — zero behavior/signature change (confirmed: full suite green, `tsc --noEmit` clean, no runtime code touched). |
+| `README.md` | Modified | Added the REQ-FPS-05.4 qualifying line VERBATIM immediately after the "Anatomy of a schematic" code block's closing fence (the anchor line `schema.json # typed inputs` lives inside that fence, per the iteration-4 plan-verify pin — the qualifying line goes right below it as normal markdown, not inside the fence). |
+
+## TDD Cycle Evidence — S-005
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| `canary-no-echo.test.ts` (10 cases) | `test/security/canary-no-echo.test.ts` | integration | **Passed immediately on first run (10/10 green, 0 failures)** — see Deviations below for the RED-posture reassessment (`[must-fail-first]` → `[characterization]`, justified) | done (no fix needed — behavior already correct) | n/a — the no-echo property already held generally across every branch; nothing to force | none needed |
+| `definefactory-jsdoc.test.ts` (3 cases) | `test/fitness/definefactory-jsdoc.test.ts` | contract (doc-assertion) | 3 real assertion failures: `expect(DEFINE_FACTORY_DOC).toContain("pbuilder-codegen")` — received the pre-S-005 JSDoc (no `@example`/`@param`/`@remarks`); `expect(DEFINE_FACTORY_DOC).toContain("pre-execute")` — same; `expect(readme).toContain(README_QUALIFYING_LINE)` — README had no qualifying line at all | done | n/a — each is a single fixed-shape pin (the JSDoc content, the README literal), no class of inputs implied by the scenario language | none needed |
+
+## Deviations from Design
+
+Carried forward from prior runs (see below), plus this run's:
+
+9. **`canary-no-echo.test.ts`'s `[must-fail-first]` RED-posture tag did not hold — reassessed
+   as `[characterization]`, not silently accepted.** All 10 cases passed on the very first
+   run (0 failures). Investigated before accepting this, per strict-tdd's Phase-1 halt
+   guidance ("Test passes immediately on first run → HALT... either the behaviour already
+   exists... or the test is asserting nothing real"): read `schema-validate.ts`,
+   `input-rejection.ts`, `schema-parse.ts`, and `bin/pbuilder-codegen.ts` in full — none of
+   them ever call `String()`/`.toString()`/echo raw content anywhere on a rejection path;
+   `expectedTypeFor` always renders the DECLARED kind, never the received value; the bin's
+   `formatParseError`/`malformedSchemaMessage` render only fixed author-vocabulary strings.
+   The no-echo discipline was genuinely built correctly into S-000/S-003/S-004 from the
+   start (mirrors constraint 2's "written correctly in S-000, not bolted on later" framing,
+   applied here to REQ-RBV-02/04 rather than SEC-1). The assertions themselves are real and
+   comprehensive (a fresh, unpredictable canary token per case; a generic surface scan over
+   message/stack/own-properties; 8 distinct branches + a subprocess stdout/stderr scan) — not
+   vacuous, so this is the "behaviour already exists" diagnosis, not the "asserting nothing"
+   one. Same judgment-call shape as S-004's deviation 6 (a prior test-passes-immediately
+   signal in this same change, assessed low-risk and not re-done via a contrived
+   revert/rewrite). Not re-attempted via a fabricated pre-implementation revert, since the
+   PRODUCTION code these tests exercise was never written as part of this task — reverting it
+   would mean reverting S-000/S-003/S-004's own already-verified, already-audited work, which
+   is out of this slice's scope and would fabricate RED evidence for code this slice did not
+   write.
+10. **`test/security/canary-no-echo.test.ts` gained its own self-building `beforeAll`**, not
+    itself listed among the iteration-4 "Self-building artifact tests" pin's two named files
+    (`fit-14-package-surface.test.ts`, `codegen-static-scan.test.ts`). Same reasoning as
+    S-001's deviation 1 (`codegen-cli.test.ts`): this file also spawns the built
+    `dist/bin/pbuilder-codegen.js` (TFO-04.1 branch), so a bare `bun test` on a fresh
+    checkout — or an isolated `bun test test/security/canary-no-echo.test.ts` run — must not
+    depend on `test/bin/codegen-cli.test.ts` having already built the artifact as a side
+    effect of running first.
+11. **REQ-FPS-05.4's dedicated `fit`/test assertion has no fixed home named by the design**
+    (Gap 13 says only "a fit/test asserts it byte-for-byte greppable," not which file).
+    Landed it in the NEW `test/fitness/definefactory-jsdoc.test.ts` alongside its REQ-FPS-05
+    siblings (.2/.3) rather than in `doc-discoverability.test.ts` (that file's own docstring
+    scopes it to `authoring-error-contract`/`error-attribution-skeleton` REQs specifically) —
+    same REQ family, same slice, one file for all three discoverability scenarios.
+
+## Post-Slice Audit (Step 7c, code-audit.md `slice` mode, self-run — architecture.adrs non-empty: ADR-0027..0032)
+
+### S-005
+- **Group 1**: RBV-04(.1,.2) — `canary-no-echo.test.ts` drives all 8 named branches (RBV-01.1-.7, TFO-04.1, RLN-02.1 — 9 sub-cases across 8 branches, RBV-01.7 folding missing+null into one test per its own trichotomy shape) plus the RBV-04.2 asymmetry pin. FPS-05(.2,.3,.4) — `definefactory-jsdoc.test.ts` asserts all three.
+- **Group 2 (Architecture)**: No new `src/` production modules — `context.ts`'s only change is a JSDoc comment expansion (zero runtime behavior change, confirmed by an unmodified function body + full suite green + `tsc --noEmit` clean). `test/security/canary-no-echo.test.ts` is a new top-level test directory, but it exactly matches design's own File Changes table row (`test/security/canary-no-echo.test.ts | Create`) — not a freelanced location. `test/fitness/definefactory-jsdoc.test.ts` joins the existing `test/fitness/` fixture-and-gate convention. FIT-07's recursive walk is unaffected (no new `src/core/schema/**` files this run). `defineFactory` confirmed NOT reachable from FIT-06's `PUBLIC_PATHS` (verified: `rg defineFactory src/commons/index.ts src/conformance/index.ts` — zero export-site hits, only prose mentions in doc comments), so FIT-06 staying untouched is structurally correct, not an oversight.
+- **Group 3 (Code quality)**: No untyped casts beyond the established test-file convention already used elsewhere in this codebase (`as unknown as Record<string, unknown>` for reading an Error's own extra properties — the same shape as `fit-11-whole-object-leak-scan.test.ts`'s `as unknown as { cause?: unknown }`, not the banned narrowing-smuggle pattern in a NEW form). No magic numbers. No TODO/FIXME. No dead code — every new helper (`surfaceContains`, `scratchDir`) is used by every test case in its file.
+- **Verdict**: no `Bug`/`Architecture` findings — no halt.
+
+---
 
 ## Slices Built This Run (S-003, S-004)
 
@@ -320,7 +396,7 @@ Carried forward from S-000 (items 1-4, unchanged — see prior entries below), p
 - **Group 3 (Code quality)**: No untyped casts (`as any`/`as never`/`as unknown as X`) introduced. No magic numbers. No TODO/FIXME markers (deferred behaviour documented via prose comments naming the owning future slice, matching the codebase's existing convention). No dead duplicates.
 - **Verdict**: no `Bug`/`Architecture` findings — no halt.
 
-## Test Evidence (cumulative, after S-000..S-004 + the ADR-0032 in-loop fix)
+## [Prior run] Test Evidence (cumulative, after S-000..S-004 + the ADR-0032 in-loop fix)
 
 `bun test` (full suite): **543 pass, 0 fail, 893 `expect()` calls, 74 files** (prior baseline
 after S-000/S-001/S-002 + the in-loop fix was 482 pass / 71 files; +3 files this run —
@@ -340,21 +416,42 @@ Per-slice isolated runs (also green, confirming no cross-slice file-order depend
 - `bun test test/fitness/fit-16-reserved-name-scan.test.ts` — 8 pass (new)
 - `bun test test/fitness/fit-07-no-tree-in-core.test.ts` — 24 pass (unaffected — no new src/core/schema files this run, only modified existing ones)
 
+## Test Evidence (cumulative, after S-000..S-005)
+
+`bun test` (full suite): **556 pass, 0 fail, 924 `expect()` calls, 76 files** (prior baseline
+after S-000..S-004 + the ADR-0032 in-loop fix was 543 pass / 74 files; +2 files this run —
+`test/security/canary-no-echo.test.ts` (10) and `test/fitness/definefactory-jsdoc.test.ts`
+(3) — no extensions to existing files' test counts).
+`bunx tsc --noEmit`: clean (no output, exit 0).
+`bun run build`: not run directly by this agent this pass (session rule — never `bun run
+build`); the two new test files each self-build the `dist/bin` artifact via their own
+unconditional `beforeAll` (established `codegen-cli.test.ts`/`fit-14` pattern), which the
+full-suite run above already exercised successfully.
+
+Per-slice isolated runs (also green, confirming no cross-slice file-order dependency):
+- `bun test test/security/canary-no-echo.test.ts` — 10 pass (new)
+- `bun test test/fitness/definefactory-jsdoc.test.ts` — 3 pass (new)
+- `bun test test/fitness/fit-06-example-jsdoc.test.ts` — unaffected (untouched file; still green in the full-suite run, confirming `defineFactory` is correctly out of its scan scope)
+
 ## Overall Progress
 
 | Metric | Value |
 |---|---|
-| Slices in this scope (cumulative) | 5 (S-000, S-001, S-002, S-003, S-004) |
-| Slices complete | 5 |
+| Slices in this scope (cumulative) | 6 (S-000, S-001, S-002, S-003, S-004, S-005) |
+| Slices complete | 6 |
 | Slices in progress | 0 |
-| Tasks complete | 28/28 (7 + 6 + 4 + 6 + 5) |
+| Tasks complete | 32/32 (7 + 6 + 4 + 6 + 5 + 4) |
 
 ## Next Step
 
-Ready for `/build --scope=slice:S-005` (requires S-001 + S-003 + S-004, all now complete).
-S-005 is the LAST slice in this `/build` deliverable (S-000..S-005) — after it lands, the
-change does NOT proceed to verify-final/archive: S-006 stays deferred-blocked on the
-`stage-2-error-attribution` archive + its coordinated `sdd-spec` amendment. Note the
-pre-existing dirty `.sdd/state/stage-4-typed-options.json` observed at session start (before
-any change by this agent) — orchestrator-owned, not touched here; flagging again for
-orchestrator awareness (carried forward from prior runs).
+`/build` deliverable (S-000..S-005) is COMPLETE. The change does NOT proceed to
+`sdd-verify --mode=final`/archive: **S-006 stays deferred-blocked** on the
+`stage-2-error-attribution` archive + its coordinated `sdd-spec` amendment (REQ-AEC-07/08/09)
+landing on Stage 2's own signed spec. Per slices.md's own Build Order: "the CHANGE reaches
+`sdd-verify --mode=final` + archive ONLY after S-006 lands." Recommended orchestrator routing:
+hold this change at its current state; re-invoke `/build --scope=slice:S-006` once the S-006
+gate opens (Stage 2 archived + amendment landed) — S-006's own first task is the gate check
+(`stage-2-precondition-missing` halt if the precondition isn't met yet). Note the pre-existing
+dirty `.sdd/state/stage-4-typed-options.json` observed at session start (before any change by
+this agent) — orchestrator-owned, not touched here; flagging again for orchestrator awareness
+(carried forward from prior runs).

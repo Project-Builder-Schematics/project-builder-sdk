@@ -166,9 +166,38 @@ function checkReservedNames(packageDir: string): void {
  * `options.packageDir` (pass `import.meta.dir`, never `import.meta.url`) opts a factory
  * into schema-derived run-boundary validation against its adjacent `schema.json`; a bare
  * `defineFactory(fn)` call is the untyped opt-out and runs exactly as before this option
- * existed (REQ-TFO-02). Full JSDoc `@example`/`@param`/`@remarks` (bin workflow, opt-out
- * tiers, reserved lifecycle names) lands in S-005 once reserved-name enforcement (S-004)
- * exists to document.
+ * existed (REQ-TFO-02).
+ *
+ * @param fn - the authoring logic; receives the resolved, schema-validated input.
+ * @param options.packageDir - opts into schema-derived input validation and reserved-name
+ * enforcement (both structural checks against this package's `schema.json`/sibling files).
+ * Pass `import.meta.dir` (a directory) — NOT `import.meta.url` (a file URL; a common
+ * misuse). Two opt-out tiers: omit `options` entirely for the untyped, unvalidated escape
+ * hatch (REQ-TFO-02); pass `{ packageDir }` with no adjacent `schema.json` to opt into the
+ * flow loudly-schemaless (a warning fires on every run, REQ-RBV-03).
+ *
+ * @remarks
+ * A factory package must never declare a sibling module named `pre-execute` or
+ * `post-execute` (file or directory form, case-insensitive) — these are reserved lifecycle
+ * names for future SDK use and are rejected at this boundary (the `reserved-lifecycle-names`
+ * domain). `add`/`remove` are NOT reserved by this check (collection-level naming, deferred
+ * to a future L2 scope).
+ *
+ * @example
+ * // 1. Generate the typed Input from schema.json:
+ * //      pbuilder-codegen <package-dir>
+ * // 2. Author against the generated type:
+ * import type { Input } from "./schema.generated.ts";
+ *
+ * export const run = defineFactory<Input>(
+ *   (input) => {
+ *     create("server.config.ts", {
+ *       template: "export const port = {{port}};",
+ *       options: { port: input.port },
+ *     });
+ *   },
+ *   { packageDir: import.meta.dir }
+ * );
  */
 export function defineFactory<O>(
   fn: (o: O) => void | Promise<void>,

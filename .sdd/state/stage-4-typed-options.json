@@ -4,8 +4,8 @@
   "triage": "L",
   "triage_note": "Unanimous L, PROVISIONAL. Re-triage trigger: D4 = derive AND all five items bundled -> XL/program; 6+ ADRs at design confirms XL. D4 front-loaded: ratify at explore/propose, never mid-design.",
   "retriage_trigger": "D4 = derive (codegen bin or Zod-as-source) AND scope keeps all five items bundled -> re-triage (split: 4a differentiator / 4b reserved names / 4c D7 harness).",
-  "phase": "verify-in-loop",
-  "phase_status": "batch 3 (S-003+S-004) applied ok (543 tests), verify iter 1 of batch (artefact N=4)",
+  "phase": "build-deliverable-complete",
+  "phase_status": "S-000..S-005 built+verified (verify-in-loop-1..5, 2 PASS-after-halt cycles); suite 359->556; awaiting S-006 (Stage-2 AEC amendment) before verify-final/archive",
   "proposal_artifacts": [
     "openspec/changes/stage-4-typed-options/proposal.md",
     "engram obs 755 (sdd/stage-4-typed-options/proposal)"
@@ -24,7 +24,7 @@
     "[PM followup] Stage-2 enum-extension amendment registered as pending change at archive (not prose-only)",
     "[BA cross-artefact] triage.md scope block predates the D7-split amendment \u2014 reconcile at archive, contract-of-record must match"
   ],
-  "next_phase": "apply S-000 walking skeleton, then in-loop verify per batch",
+  "next_phase": "sdd-spec amendment (Stage-2 AEC-09 rows, owner unfreeze) -> /build S-006 -> /evaluate (verify final + judgment-day + steward reckoning + arch audit) -> archive",
   "plan_verify_final": "READY (2026-07-07, iteration 4, obs 799, verify-plan-4.md). Judge A no findings (3rd consecutive); Judge B explicit 'ready to execute' after verifying the 3 iteration-4 pins against artefact + codebase (self-building beforeAll per FIT-04 precedent; branch->template mapping complete for RBV-01.1-.8; README line after Anatomy closing fence). Judge-continuation pattern used for the endgame (SendMessage to the same Judge B). Publish skipped (spec_source internal). PLAN CLOSED: spec V4 signed / design rev 5 (ADRs 0027-0031 draft \u2014 renumbered from 0024-0028 at commit time; stage-3 claims 0024-0026) / slices rev 4 / foresight ALIGNED (4b committed-next) / verify-plan 1-4.",
   "completed_phases_note": "triage, explore, propose, spec (V1->V4), design (rev 1->5), steward-foresight, slice (rev 1->4), plan-verify (4 iterations)",
   "plan_verify_iter3": "GAPS -> plan-verify-failed -> OWNER (2026-07-07, obs 797, verify-plan-3.md). Judge A: NO FINDINGS (clean coverage matrix, boundaries fenced, S-006 sequencing disclosed-not-objected). Judge B: 5 technical literal-level pins, 0 product ('the plan is unusually complete'): (1) schema.json on-disk shape \u2014 OWNER RATIFIED: wrapped {\"properties\":{...}}, unknown top-level keys reserved/ignored, missing properties = fail-closed invalid shape; (2) RBV-05.1 malformed-schema runtime literal; (3) {expectedType} per-branch rendering (declared kind for non-JSON/null; enum = 'one of: <choices>'); (4) ContractFake driving contract into mandatory reading list + sketch; (5) <dir> = path.relative(process.cwd(), packageDir). OWNER AUTHORIZED iteration 4 (cap extension) as confirmation round. Trajectory: 7 architectural -> 13 (unconstructibility) -> 5 literals.",
@@ -98,7 +98,7 @@
   "spec_reqs": 25,
   "verify_final": null,
   "arch_audit": null,
-  "in_loop_iteration": 1,
+  "in_loop_iteration": 0,
   "execution_mode": "automatic",
   "artifact_store": "hybrid",
   "spec_source": "internal",
@@ -117,10 +117,16 @@
     "S-000": "done",
     "S-001": "done",
     "S-002": "done",
-    "S-003": "applied",
-    "S-004": "applied",
-    "S-005": "pending",
-    "S-006": "gated"
+    "S-003": "done",
+    "S-004": "done",
+    "S-005": "done (verify-in-loop-5 PASS)",
+    "S-006": "gated: needs coordinated Stage-2 AEC-09 amendment (stage-2 archived 2026-07-07, gate half-open)"
   },
-  "owner_rulings_build": "TFO-04.4: re-design with zero-dep best-effort position locator (2026-07-10, over re-spec relax)"
+  "owner_rulings_build": "TFO-04.4: re-design with zero-dep best-effort position locator (2026-07-10, over re-spec relax)",
+  "build_commits": [
+    "e9a3cee S-000",
+    "c892109 S-001+S-002+ADR-0032 locator fix",
+    "2c30485 S-003+S-004",
+    "(this) S-005"
+  ]
 }

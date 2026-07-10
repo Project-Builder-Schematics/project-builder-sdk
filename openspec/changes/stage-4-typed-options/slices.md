@@ -320,10 +320,10 @@ nowhere — except a key NAME may legitimately appear. GIVEN `defineFactory`'s J
 `@example` demonstrates bin-invocation → typed call end-to-end (asserted by the dedicated `definefactory-jsdoc.test.ts`, Gap 5).
 
 ### Tasks
-- [ ] [must-fail-first] `canary-no-echo.test.ts` — dictionary-seeded scan across every branch, using `test/support/canary.ts`
-- [ ] key-name-vs-value asymmetry pin (RBV-04.2)
-- [ ] `context.ts` JSDoc — `@example` (bin→typed workflow), `@param packageDir` (two tiers, `import.meta.dir` steer), `@remarks` (reserved names); NEW dedicated `test/fitness/definefactory-jsdoc.test.ts` (Gap 5) reads `src/core/context.ts` and asserts `@example` + `@remarks` naming BOTH reserved tokens — FIT-06 (`fit-06-example-jsdoc.test.ts`) is left UNTOUCHED (its `PUBLIC_PATHS` scans commons+conformance only; `defineFactory` lives in the internal-kit `src/core/index.ts`)
-- [ ] [must-fail-first] README.md — add the REQ-FPS-05.4 qualifying line VERBATIM (see Load-bearing literals) immediately AFTER the CLOSING ``` fence of the "Anatomy" code block that contains the `schema.json # typed inputs` line (iteration-4 pin: the anchor line itself sits INSIDE the fence, where a `>` blockquote cannot render — the line goes right below the block's closing fence, as normal markdown); if that anchor block is absent at build time, place it in the top feature/anatomy section (Gap 13, executor discretion sanctioned — byte-exact literal unchanged either way); a `fit`/test asserts it byte-for-byte greppable; reverted in stage-4b
+- [x] [must-fail-first → characterization, see apply-progress Deviations] `canary-no-echo.test.ts` — dictionary-seeded scan across every branch, using `test/support/canary.ts`
+- [x] key-name-vs-value asymmetry pin (RBV-04.2)
+- [x] `context.ts` JSDoc — `@example` (bin→typed workflow), `@param packageDir` (two tiers, `import.meta.dir` steer), `@remarks` (reserved names); NEW dedicated `test/fitness/definefactory-jsdoc.test.ts` (Gap 5) reads `src/core/context.ts` and asserts `@example` + `@remarks` naming BOTH reserved tokens — FIT-06 (`fit-06-example-jsdoc.test.ts`) is left UNTOUCHED (its `PUBLIC_PATHS` scans commons+conformance only; `defineFactory` lives in the internal-kit `src/core/index.ts`)
+- [x] [must-fail-first] README.md — add the REQ-FPS-05.4 qualifying line VERBATIM (see Load-bearing literals) immediately AFTER the CLOSING ``` fence of the "Anatomy" code block that contains the `schema.json # typed inputs` line (iteration-4 pin: the anchor line itself sits INSIDE the fence, where a `>` blockquote cannot render — the line goes right below the block's closing fence, as normal markdown); if that anchor block is absent at build time, place it in the top feature/anatomy section (Gap 13, executor discretion sanctioned — byte-exact literal unchanged either way); a `fit`/test asserts it byte-for-byte greppable; reverted in stage-4b
 
 ---
 
