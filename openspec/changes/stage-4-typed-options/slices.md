@@ -214,13 +214,13 @@ BEFORE `als.run`/emit, thrown as a plain `Error` whose `.message` is the pinned 
 assertion interim).
 
 ### Tasks
-- [ ] [must-fail-first] `schema/{schema-model,schema-parse,schema-discovery,schema-digest,input-rejection,index}.ts` — `input-rejection.ts` throws a plain `Error` with the pinned REQ-AEC-09 literal (constraint 1; NO `AuthoringError` interim)
-- [ ] [must-fail-first] `bin/{pbuilder-codegen,emit-type}.ts` — escaping emitter (constraint 2) from the start
-- [ ] [must-fail-first] `context.ts` — `defineFactory<O>(fn, {packageDir}?)`; pre-`als.run` schema-validation call (not reserved-name yet — S-004)
-- [ ] `package.json` — `#bin` field + `bun build` step; `tsconfig.json` — add `test/fixtures/red/**` to `exclude` (constraint 11)
-- [ ] `test/fixtures/typed-factory/*` (reference schematic) + `test/e2e/typed-factory.e2e.test.ts` (happy path + one reject variant asserting the pinned plain-`Error` message)
-- [ ] `test/types/typed-factory-options.test.ts` — TFO-01.2 mutation-resistant proof via `@ts-expect-error` (constraint from design §4.6 / Gap 7; string→number, re-run, factory body fails to compile → the missing error reddens `tsc`); file stays in the MAIN tsc set
-- [ ] [must-fail-first] `fit-07-no-tree-in-core.test.ts` Modify — recursive walk (ARCH-1) so `schema/` is covered from day 1
+- [x] [must-fail-first] `schema/{schema-model,schema-parse,schema-discovery,schema-digest,input-rejection,index}.ts` — `input-rejection.ts` throws a plain `Error` with the pinned REQ-AEC-09 literal (constraint 1; NO `AuthoringError` interim). **Executor note**: `schema-validate.ts` also created here (not named in the original directory-group notation) — the run-boundary "missing required key" finding needed to drive `input-rejection.ts`/context.ts had to live somewhere; S-003 triangulates the rest of the RBV-01 matrix into this same file per its own task list.
+- [x] [must-fail-first] `bin/{pbuilder-codegen,emit-type}.ts` — escaping emitter (constraint 2) from the start
+- [x] [must-fail-first] `context.ts` — `defineFactory<O>(fn, {packageDir}?)`; pre-`als.run` schema-validation call (not reserved-name yet — S-004)
+- [x] `package.json` — `#bin` field + `bun build` step; `tsconfig.json` — add `test/fixtures/red/**` to `exclude` (constraint 11)
+- [x] `test/fixtures/typed-factory/*` (reference schematic) + `test/e2e/typed-factory.e2e.test.ts` (happy path + one reject variant asserting the pinned plain-`Error` message)
+- [x] `test/types/typed-factory-options.test.ts` — TFO-01.2 mutation-resistant proof via `@ts-expect-error` (constraint from design §4.6 / Gap 7; string→number, re-run, factory body fails to compile → the missing error reddens `tsc`); file stays in the MAIN tsc set
+- [x] [must-fail-first] `fit-07-no-tree-in-core.test.ts` Modify — recursive walk (ARCH-1) so `schema/` is covered from day 1
 
 ---
 
