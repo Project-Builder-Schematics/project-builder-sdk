@@ -576,3 +576,181 @@ now landed). Two items to flag to the Planner before/at verify-final:
 Note the pre-existing dirty `.sdd/state/stage-4-typed-options.json` observed at session start
 (before any change by this agent) — orchestrator-owned, not touched here; flagging again for
 orchestrator awareness (carried forward from prior runs).
+
+---
+
+## Final-verify fix batch (GAN iter 2)
+
+**Trigger**: blind verify-final council returned two `needs-iteration` verdicts over four
+blocking findings (1 HIGH security, 1 MAJOR, 2 MINOR/mutation-coverage). Scope tightly limited
+to these four — the ~8 non-blocking followups from the same council pass are explicitly
+untouched here (registered at archive instead).
+
+### Fix 1 — [HIGH, security] Codegen injection via unvalidated `type` field
+
+**Root cause**: `schema-parse.ts` casts `type: value.type as SchemaKind` with zero runtime
+validation; `bin/emit-type.ts`'s `emitPropertyType` returned `property.type` verbatim for any
+non-`enum` type; `bin/pbuilder-codegen.ts`'s `generateSchema` never consulted
+`checkSufficiency` before emitting. A hostile `schema.json` with a `type` value shaped like
+`string;\nexport const PWNED = eval(...);\ntype _junk = {...` reached `schema.generated.ts`
+verbatim — real top-level TypeScript text injected via a JSON field, breaking the TFO-01/SEC-1
+"hostile-schema inertness" contract.
+
+**Fix (two layers, belt-and-suspenders)**:
+1. **Primary** — `generateSchema` (`bin/pbuilder-codegen.ts`) now calls `checkSufficiency(raw)`
+   after a successful `parseSchema` and throws a new `SchemaSufficiencyFailure` (carrying the
+   findings) when any hard-fail finding exists — refusing to emit. `runCli` formats this into
+   the standard `pbuilder-codegen: <file>: <reason>` template, never echoing a finding's
+   `detail` (the raw offending value) — only property keys surface.
+2. **Backstop** — `emitPropertyType` (`bin/emit-type.ts`) now allow-lists `property.type`
+   against `RECOGNIZED_KINDS` (newly exported from `schema-sufficiency.ts` as the single
+   canonical source, not duplicated) and throws `UnrecognizedPropertyTypeError` on anything
+   else — the last line of defence if the primary gate is ever bypassed. `runCli` also handles
+   this error type gracefully (same template), so even the backstop path fails closed instead
+   of dumping an internal `dist/bin` stack trace.
+
+**Files**: `src/core/schema/schema-sufficiency.ts` (export `RECOGNIZED_KINDS`),
+`src/core/schema/index.ts` (re-export), `bin/emit-type.ts` (allow-list guard +
+`UnrecognizedPropertyTypeError`), `bin/pbuilder-codegen.ts` (`SchemaSufficiencyFailure` +
+wiring + `runCli` catch branches + `describeSufficiencyFinding`/`formatSufficiencyError`).
+
+**Tests (RED confirmed before the fix, GREEN after)**:
+- `test/bin/emit-type.test.ts` — 3 new: injection payload throws; `type: "any"` (silent-widening)
+  throws; thrown message names the field, never echoes the injected value.
+- `test/bin/codegen-cli.test.ts` — 2 new: hostile `type` refused before any write, generated
+  file absent, stderr never contains the payload AND never a raw stack trace (asserts the
+  `pbuilder-codegen: ` prefix, no ` at ` frames, no `dist/bin`); `type: "any"` rejected the
+  same way.
+
+### Fix 2 — [MAJOR, QA] Deep-nesting RangeError breaks the fail-closed message contract
+
+**Root cause**: `locateFirstJsonSyntaxError` (`schema-locate.ts`) is recursive; a ~120KB
+`"[".repeat(120000)+"@"` schema overflows the call stack. The locator was invoked UNGUARDED
+inside `schema-parse.ts`'s `catch` — the resulting `RangeError` is not a `SchemaParseFailure`,
+so it propagated raw: the runtime path surfaced `RangeError: Maximum call stack size exceeded`
+instead of the REQ-RBV-05.1 literal, and the bin path dumped the internal `dist/bin` stack.
+Reproduced pre-fix via direct script execution against both `defineFactory` and the built CLI
+before writing any test (see verification transcript in this run's tool history).
+
+**Fix**: wrapped the `locateFirstJsonSyntaxError(raw)` call in `schema-parse.ts`'s catch in its
+own try/catch — any throw degrades to the existing `(position unknown)` fallback, the same
+branch used for a locator that legitimately returns `undefined`. Single point of the fix covers
+both call sites (runtime `context.ts` and the bin), since both consume `SchemaParseFailure`'s
+`line`/`column` fields.
+
+**Files**: `src/core/schema/schema-parse.ts` (guard only — `schema-locate.ts` itself
+untouched, no depth-bound added; the catch is the contract fix per the finding's own
+guidance), new fixture `test/fixtures/red/schema/deep-nesting/schema.json` (120001 bytes:
+`"[".repeat(120000) + "@"`).
+
+**Tests (RED confirmed before the fix — reproduced the raw `RangeError`/internal stack, GREEN
+after)**:
+- `test/skeleton/run-boundary-validation.test.ts` — 1 new: asserts the exact REQ-RBV-05.1
+  literal with `(position unknown)`, never `Maximum call stack`/`RangeError` in the message.
+- `test/bin/codegen-cli.test.ts` — 1 new: asserts exit non-zero, the exact
+  `pbuilder-codegen: <file>: invalid JSON (position unknown)` stderr line, no `RangeError`, no
+  `Maximum call stack`, no `dist/bin`.
+
+### Fix 3 — [MINOR-MAJOR, QA] Default-required mutation survives (mutation-coverage gap)
+
+**Root cause**: `schema-validate.ts`'s `property.required !== false` (omitted `required` ⇒
+required) survived mutation to `=== true` because every existing fixture sets `required`
+explicitly (`true` or `false`) — the omitted-`required`-defaults-to-required behaviour was
+untested. Production code confirmed CORRECT — this is a coverage gap only, no production
+change.
+
+**Fix**: added one test to `test/skeleton/schema-validate.test.ts` — a schema property with
+`required` omitted entirely + absent input ⇒ `[{kind:"missing", field:"port",
+expectedType:"number"}]`.
+
+**Mutation-kill proof**: applied `property.required === true` to `schema-validate.ts`, ran the
+new test — it failed (`[]` instead of the expected `missing` finding, exactly 1 test failure in
+the file, all 19 others still green), then reverted. `git diff` on `schema-validate.ts` after
+revert is empty (byte-identical restoration confirmed).
+
+### Fix 4 — [MINOR, QA] Locator escape-skip mutation survives (mutation-coverage gap)
+
+**Root cause**: `schema-locate.ts`'s `scanString`'s escape-skip `pos += 2` survived mutation to
+`pos += 1` — no fixture placed a backslash-escaped quote before a later syntax error, so
+ADR-0032's escape-consumption fidelity was unpinned. Production code confirmed CORRECT — this
+is a coverage gap only, no production change.
+
+**Fix**: added one test to `test/skeleton/schema-locate.test.ts` using raw content
+`{"a":"x\"y", @}` — asserts the exact `{line: 1, column: 14}` locator result (the `@` after the
+comma), proving the escaped quote inside the string value is consumed as one escaped character,
+not mistaken for the string terminator.
+
+**Mutation-kill proof**: applied `pos += 1` to `scanString`'s escape branch in
+`schema-locate.ts`, ran the new test — it failed (`column: 10` instead of the expected `14`,
+exactly 1 test failure in the file, all 8 others still green — the mutant mistook the escaped
+`\"` for the string's closing quote, landing on the wrong later token), then reverted. `git diff`
+on `schema-locate.ts` after revert is empty (byte-identical restoration confirmed).
+
+### TDD Cycle Evidence — Final-verify fix batch (GAN iter 2)
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| Fix 2 (runtime) | `run-boundary-validation.test.ts::a deeply-nested malformed schema.json degrades to the (position unknown) fallback...` | integration | `Expected: "...(position unknown)" / Received: "Maximum call stack size exceeded."` | ✅ | n/a — single guard covers both call sites; the bin-level test is the triangulating case | none needed |
+| Fix 2 (bin) | `codegen-cli.test.ts::a deeply-nested malformed schema.json degrades to (position unknown) instead of dumping an uncaught RangeError...` | e2e (spawned built artifact) | received a full `RangeError` stack incl. `dist/bin/pbuilder-codegen.js` frames | ✅ | triangulates Fix 2's single fix point across the runtime/bin split | none needed |
+| Fix 1 (unit, injection) | `emit-type.test.ts::throws instead of emitting an unrecognized type verbatim (injection payload)` | unit | "Received function did not throw" — injected text present verbatim in output | ✅ | 2 cases (injection payload + `"any"`) | none needed |
+| Fix 1 (unit, widening) | `emit-type.test.ts::throws on the silent-widening variant (type: "any")...` | unit | "Received function did not throw" — `any` emitted verbatim | ✅ | see above | none needed |
+| Fix 1 (unit, no-echo) | `emit-type.test.ts::the thrown error names the field but never echoes the injected type value` | unit | `caught` was `undefined` (nothing thrown pre-fix) | ✅ | n/a — assertion-only case | none needed |
+| Fix 1 (e2e, injection) | `codegen-cli.test.ts::a hostile type value (injection payload) is refused BEFORE any write...` | e2e | stderr contained a raw `dist/bin` stack trace (`not.toContain("dist/bin")` failed) | ✅ | 2 cases (injection + `"any"`) | none needed |
+| Fix 1 (e2e, widening) | `codegen-cli.test.ts::the silent-widening variant (type: "any") is rejected...` | e2e | same raw-stack failure mode | ✅ | see above | none needed |
+| Fix 3 | `schema-validate.test.ts::treats an OMITTED required field as required (default-required)...` | unit | test passed immediately (production already correct) — validated instead via mutation-kill (see Fix 3 above) | ✅ | n/a — coverage-gap backfill, not new behaviour | none needed |
+| Fix 4 | `schema-locate.test.ts::consumes a backslash-escaped quote as TWO characters...` | unit | test passed immediately (production already correct) — validated instead via mutation-kill (see Fix 4 above) | ✅ | n/a — coverage-gap backfill, not new behaviour | none needed |
+
+### Files Changed
+
+| File | Action | Fix | What Was Done |
+|---|---|---|---|
+| `src/core/schema/schema-parse.ts` | Modified | 2 | Guard the locator call in a nested try/catch; degrade to `(position unknown)` on any throw |
+| `src/core/schema/schema-sufficiency.ts` | Modified | 1 | Export `RECOGNIZED_KINDS` as the canonical allow-list |
+| `src/core/schema/index.ts` | Modified | 1 | Re-export `RECOGNIZED_KINDS` from the barrel |
+| `bin/emit-type.ts` | Modified | 1 | `emitPropertyType` allow-lists against `RECOGNIZED_KINDS`, throws `UnrecognizedPropertyTypeError` otherwise |
+| `bin/pbuilder-codegen.ts` | Modified | 1 | `generateSchema` calls `checkSufficiency` and throws `SchemaSufficiencyFailure` on findings; `runCli` formats both new error types into the standard template |
+| `test/fixtures/red/schema/deep-nesting/schema.json` | Created | 2 | 120001-byte deeply-nested fixture (`"[".repeat(120000) + "@"`) |
+| `test/skeleton/run-boundary-validation.test.ts` | Modified | 2 | +1 test (runtime deep-nesting fallback) |
+| `test/bin/codegen-cli.test.ts` | Modified | 1, 2 | +1 test (bin deep-nesting fallback), +2 tests (hostile-type/widening refusal) |
+| `test/bin/emit-type.test.ts` | Modified | 1 | +3 tests (injection throw, widening throw, no-echo) |
+| `test/skeleton/schema-validate.test.ts` | Modified | 3 | +1 test (omitted-required mutation-kill) |
+| `test/skeleton/schema-locate.test.ts` | Modified | 4 | +1 test (escape-skip mutation-kill) |
+
+### Deviations from Design
+
+None — implementation matches the four findings' prescribed fixes exactly. No production code
+was changed for Fix 3 or Fix 4 (both confirmed correct; coverage-gap backfills only), per the
+finding's own instruction to halt rather than silently "fix" correct behaviour.
+
+### Halt / Issues Found
+
+None.
+
+### Overall Progress (this fix batch)
+
+| Metric | Value |
+|---|---|
+| Findings in scope | 4 (1 HIGH, 1 MAJOR, 2 MINOR/MINOR-MAJOR) |
+| Findings closed | 4/4 |
+| New tests added | 9 |
+| Production files modified | 5 |
+| Test files modified | 5 |
+| New fixtures | 1 |
+
+### Test Evidence
+
+`bun test` (full suite) — **before**: 563 pass / 0 fail / 940 `expect()` calls / 76 files.
+**After**: 572 pass / 0 fail / 972 `expect()` calls / 76 files (9 new tests, 0 regressions,
+0 new files — all additions extend existing test files except the new fixture).
+
+`bunx tsc --noEmit` — clean, no output, exit 0.
+
+`bun run build` — not invoked directly; `test/bin/codegen-cli.test.ts`'s own unconditional
+`beforeAll` self-builds `dist/bin/pbuilder-codegen.js` (established FIT-04 precedent), which the
+full-suite run above already exercised for both the pre-existing and new bin-level tests.
+
+### Next Step
+
+All four blocking council findings are closed with killing tests (Fixes 1/2 red-then-green;
+Fixes 3/4 validated via mutation-kill-then-revert with byte-identical production diffs). Ready
+for the next verify-final iteration (GAN iter 3, or final pass if the council accepts).

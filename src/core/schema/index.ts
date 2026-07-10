@@ -11,5 +11,5 @@ export { computeSchemaDigest } from "./schema-digest.ts";
 export { validateInput } from "./schema-validate.ts";
 export type { ValidationFinding } from "./schema-validate.ts";
 export { rejectionFor, rejectionForReservedName } from "./input-rejection.ts";
-export { checkSufficiency } from "./schema-sufficiency.ts";
+export { checkSufficiency, RECOGNIZED_KINDS } from "./schema-sufficiency.ts";
 export type { SufficiencyFinding, SufficiencyReason } from "./schema-sufficiency.ts";

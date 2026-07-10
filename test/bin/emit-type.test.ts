@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { emitInputType, GENERATED_HEADER } from "../../bin/emit-type.ts";
-import type { Schema } from "../../src/core/schema/schema-model.ts";
+import type { Schema, SchemaKind } from "../../src/core/schema/schema-model.ts";
 
 describe("emitInputType", () => {
   it("emits the AUTO-GENERATED header and an embedded schema-digest line", () => {
@@ -72,5 +72,50 @@ describe("emitInputType", () => {
     const output = emitInputType(schema, "digest");
 
     expect(output).not.toContain('*/ import("evil")');
+  });
+
+  describe("unrecognized `type` value (defense-in-depth, SEC-1 — last line of defence before emit)", () => {
+    it("throws instead of emitting an unrecognized type verbatim (injection payload)", () => {
+      const schema: Schema = {
+        properties: [
+          {
+            key: "port",
+            // `as SchemaKind` mirrors schema-parse.ts's unvalidated runtime cast — the exact
+            // shape that lets a hostile schema.json reach this function with a non-`SchemaKind`
+            // string at runtime despite the compile-time type saying otherwise.
+            type: 'string;\nexport const PWNED = eval("process.env");\ntype _junk = {\n bar: string' as SchemaKind,
+            required: true,
+          },
+        ],
+      };
+
+      expect(() => emitInputType(schema, "digest")).toThrow();
+    });
+
+    it("throws on the silent-widening variant (`type: \"any\"`) instead of emitting `any`", () => {
+      const schema: Schema = {
+        properties: [{ key: "port", type: "any" as SchemaKind, required: true }],
+      };
+
+      expect(() => emitInputType(schema, "digest")).toThrow();
+    });
+
+    it("the thrown error names the field but never echoes the injected type value (no-echo)", () => {
+      const schema: Schema = {
+        properties: [{ key: "port", type: "evil-payload" as SchemaKind, required: true }],
+      };
+
+      let caught: unknown;
+      try {
+        emitInputType(schema, "digest");
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(Error);
+      const message = (caught as Error).message;
+      expect(message).toContain("port");
+      expect(message).not.toContain("evil-payload");
+    });
   });
 });

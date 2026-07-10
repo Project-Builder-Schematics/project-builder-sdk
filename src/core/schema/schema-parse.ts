@@ -40,7 +40,18 @@ export function parseSchema(raw: string): Schema {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    const locator = err instanceof SyntaxError ? locateFirstJsonSyntaxError(raw) : undefined;
+    // The locator re-scans already-rejected text and is itself recursive (ADR-0032) — a
+    // pathologically deep document (e.g. thousands of nested `[`) can overflow the call
+    // stack. That RangeError is not a grammar finding; degrade to the same "no offset"
+    // fallback as a bounded-fidelity locator result rather than let it escape raw.
+    let locator: { line: number; column: number } | undefined;
+    if (err instanceof SyntaxError) {
+      try {
+        locator = locateFirstJsonSyntaxError(raw);
+      } catch {
+        locator = undefined;
+      }
+    }
     throw new SchemaParseFailure({
       problem: "invalid JSON",
       line: locator?.line,

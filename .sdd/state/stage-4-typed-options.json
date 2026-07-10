@@ -4,8 +4,8 @@
   "triage": "L",
   "triage_note": "Unanimous L, PROVISIONAL. Re-triage trigger: D4 = derive AND all five items bundled -> XL/program; 6+ ADRs at design confirms XL. D4 front-loaded: ratify at explore/propose, never mid-design.",
   "retriage_trigger": "D4 = derive (codegen bin or Zod-as-source) AND scope keeps all five items bundled -> re-triage (split: 4a differentiator / 4b reserved names / 4c D7 harness).",
-  "phase": "build-complete",
-  "phase_status": "ALL slices S-000..S-006 built+verified (verify-in-loop-1..6 PASS); AEC amendment landed (main spec V3, change spec V5); suite 359->563; branch pushed @ 6bbd9f2; NEXT /evaluate",
+  "phase": "verify-final",
+  "phase_status": "final GAN converged iter 3: security + QA both re-verified approve; council 5/5 cleared; committing fix, next judgment-day (required)",
   "proposal_artifacts": [
     "openspec/changes/stage-4-typed-options/proposal.md",
     "engram obs 755 (sdd/stage-4-typed-options/proposal)"
@@ -96,9 +96,9 @@
   "spec_status": "signed",
   "spec_signed": "V5, owner, 2026-07-10 (amendment applied)",
   "spec_reqs": 25,
-  "verify_final": null,
+  "verify_final": "pass-with-followups",
   "arch_audit": null,
-  "in_loop_iteration": 0,
+  "in_loop_iteration": 1,
   "execution_mode": "automatic",
   "artifact_store": "hybrid",
   "spec_source": "internal",
@@ -135,5 +135,16 @@
     "2 RED-posture reassessments (TDD audit zero-tolerance)",
     "bin -h alias untested",
     "AuthoringError message? ungated across 8 reasons -> discriminated-union followup (register at archive)"
+  ],
+  "final_gan_iteration": 3,
+  "council_final": {
+    "verify": "pass-with-followups",
+    "architect": "approve-with-notes",
+    "tech-writer": "approve-with-notes",
+    "security": "approve (re-verify: HIGH closed, dual-layer)",
+    "qa": "approve (re-verify: all 3 closed)"
+  },
+  "new_followups": [
+    "F-07 primary sufficiency gate lacks independent mutation-guard test (backstop catches injection) \u2014 QA iter3"
   ]
 }

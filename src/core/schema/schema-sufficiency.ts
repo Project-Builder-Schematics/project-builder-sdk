@@ -8,7 +8,10 @@
 // is itself one of the hard-fail conditions this module exists to catch, so the walk must
 // never trigger a prototype getter via bare/for-in access.
 
-const RECOGNIZED_KINDS = new Set(["string", "number", "boolean", "enum"]);
+// Exported as the single canonical allow-list — `emitPropertyType` (bin/emit-type.ts) reuses
+// this same Set as its last-line-of-defence guard against an unrecognized `type`, rather than
+// duplicating the recognized-kind vocabulary at the emit boundary.
+export const RECOGNIZED_KINDS = new Set(["string", "number", "boolean", "enum"]);
 const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 export type SufficiencyReason =

@@ -51,6 +51,16 @@ describe("locateFirstJsonSyntaxError — position-known", () => {
 
     expect(locateFirstJsonSyntaxError(raw)).toEqual({ line: 1, column: 9 });
   });
+
+  it("consumes a backslash-escaped quote as TWO characters (escape + escaped char) before " +
+     "landing on a later structural error — falsifies an escape-skip that consumes only one " +
+     "character and mistakes the escaped quote for the string terminator (ADR-0032 fidelity)", () => {
+    // Raw content: {"a":"x\"y", @}  — the \" inside the string value must be consumed as a
+    // single escaped character, not treated as the string's closing quote.
+    const raw = '{"a":"x\\"y", @}';
+
+    expect(locateFirstJsonSyntaxError(raw)).toEqual({ line: 1, column: 14 });
+  });
 });
 
 describe("locateFirstJsonSyntaxError — fallback (bounded fidelity, ADR-0032)", () => {

@@ -13,7 +13,8 @@ import { join, dirname, basename, resolve, sep } from "node:path";
 import { parseSchema, SchemaParseFailure } from "../src/core/schema/schema-parse.ts";
 import { computeSchemaDigest } from "../src/core/schema/schema-digest.ts";
 import { schemaPathFor } from "../src/core/schema/schema-discovery.ts";
-import { emitInputType } from "./emit-type.ts";
+import { checkSufficiency, type SufficiencyFinding } from "../src/core/schema/schema-sufficiency.ts";
+import { emitInputType, UnrecognizedPropertyTypeError } from "./emit-type.ts";
 
 export const GENERATED_FILENAME = "schema.generated.ts";
 export const SUCCESS_LINE = "pbuilder-codegen: wrote schema.generated.ts";
@@ -28,6 +29,20 @@ export interface GenerateResult {
   digest: string;
 }
 
+// SEC-1/TFO-01 belt-and-suspenders: checkSufficiency's `nonsensical-type` rule already flags
+// an unrecognized `type` (and the other hard-fail shapes) — refusing to emit here is the
+// PRIMARY defence against a hostile schema.json reaching the emitter; `emitPropertyType`'s
+// own allow-list (bin/emit-type.ts) is the backstop if this call site is ever bypassed.
+export class SchemaSufficiencyFailure extends Error {
+  readonly findings: SufficiencyFinding[];
+
+  constructor(findings: SufficiencyFinding[]) {
+    super(`schema sufficiency failure: ${findings.length} finding(s)`);
+    this.name = "SchemaSufficiencyFailure";
+    this.findings = findings;
+  }
+}
+
 /**
  * Reads `<packageDir>/schema.json`, parses it, and writes `<packageDir>/schema.generated.ts`
  * — the bin's fixed, non-configurable output location (REQ-TFO-05.1/FPS-01).
@@ -36,6 +51,10 @@ export function generateSchema(packageDir: string): GenerateResult {
   const schemaPath = schemaPathFor(packageDir);
   const raw = readFileSync(schemaPath, "utf-8");
   const schema = parseSchema(raw);
+  const sufficiencyFindings = checkSufficiency(raw);
+  if (sufficiencyFindings.length > 0) {
+    throw new SchemaSufficiencyFailure(sufficiencyFindings);
+  }
   const digest = computeSchemaDigest(raw);
   const output = emitInputType(schema, digest);
   const outputPath = join(packageDir, GENERATED_FILENAME);
@@ -114,6 +133,30 @@ function formatParseError(schemaPath: string, err: SchemaParseFailure): string {
   return `pbuilder-codegen: ${schemaPath}: ${err.problem} ${locator}`;
 }
 
+// Bounded, author-vocabulary descriptions per REQ-SCP-02 reason — never echoes a finding's
+// `detail` (the raw offending value, e.g. an injection payload lives in `nonsensical-type`'s
+// `detail`); only property KEYS surface, matching the same canary-asymmetry no-echo contract
+// as the run-boundary rejection templates (key names may appear, values never).
+function describeSufficiencyFinding(finding: SufficiencyFinding): string {
+  switch (finding.reason) {
+    case "forbidden-key":
+      return `property "${finding.key}" uses a forbidden key`;
+    case "missing-type":
+      return `property "${finding.key}" is missing a type`;
+    case "nonsensical-type":
+      return `unrecognized property type for "${finding.key}"`;
+    case "enum-missing-choices":
+      return `enum property "${finding.key}" is missing choices`;
+    case "missing-label":
+      return `property "${finding.key}" is missing a label`;
+  }
+}
+
+function formatSufficiencyError(schemaPath: string, err: SchemaSufficiencyFailure): string {
+  const reasons = err.findings.map(describeSufficiencyFinding).join("; ");
+  return `pbuilder-codegen: ${schemaPath}: ${reasons}`;
+}
+
 /**
  * Runs the CLI logic for `argv` (`process.argv.slice(2)`) and returns the process exit
  * code, printing usage/success/error text to STDOUT/STDERR per the CLI contract
@@ -152,6 +195,17 @@ export function runCli(argv: string[]): number {
   } catch (err) {
     if (err instanceof SchemaParseFailure) {
       console.error(formatParseError(schemaPath, err));
+      return 1;
+    }
+    if (err instanceof SchemaSufficiencyFailure) {
+      console.error(formatSufficiencyError(schemaPath, err));
+      return 1;
+    }
+    // Backstop: emitPropertyType's own allow-list (bin/emit-type.ts) should be unreachable
+    // given the sufficiency gate above, but a bypass must still fail closed with the standard
+    // template rather than an uncaught internal stack trace.
+    if (err instanceof UnrecognizedPropertyTypeError) {
+      console.error(`pbuilder-codegen: ${schemaPath}: ${err.message}`);
       return 1;
     }
     if (isErrnoException(err) && err.code === "ENOENT") {

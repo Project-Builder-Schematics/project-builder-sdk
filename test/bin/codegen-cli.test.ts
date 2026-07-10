@@ -167,6 +167,27 @@ describe("pbuilder-codegen CLI — malformed schema.json (TFO-04.1, .3, .4, .6)"
     expect(result.stderr).not.toContain("SyntaxError");
   });
 
+  it("a deeply-nested malformed schema.json degrades to (position unknown) instead of dumping an " +
+     "uncaught RangeError/internal dist/bin stack (locator stack-overflow, fail-closed message contract)", () => {
+    const dir = scratchDir();
+    mkdirSync(dir, { recursive: true });
+    const deepNesting = readFileSync(
+      join(PROJECT_ROOT, "test/fixtures/red/schema/deep-nesting/schema.json"),
+      "utf-8",
+    );
+    Bun.write(join(dir, "schema.json"), deepNesting);
+
+    const result = runBin([dir]);
+
+    expect(result.status).not.toEqual(0);
+    expect(result.stdout).toEqual("");
+    expect(result.stderr).toEqual(`pbuilder-codegen: ${join(dir, "schema.json")}: invalid JSON (position unknown)\n`);
+    expect(result.stderr).not.toContain("RangeError");
+    expect(result.stderr).not.toContain("Maximum call stack");
+    expect(result.stderr).not.toContain("dist/bin");
+    expect(existsSync(join(dir, GENERATED_FILENAME))).toBe(false);
+  });
+
   it("a malformed re-run does not destroy a prior valid generated output (non-destructive)", () => {
     const dir = scratchDir();
     seedSchema(dir, VALID_SCHEMA);
@@ -258,5 +279,47 @@ describe("pbuilder-codegen CLI — hostile-schema emitter inertness (TFO-01 SEC-
     // The hostile enum choice reaches the output ONLY through JSON.stringify (SEC-1) —
     // never as an unescaped string that could break out of the union-literal position.
     expect(generated).toContain(JSON.stringify('"; import("evil"); //'));
+  });
+
+  it("a hostile `type` value (injection payload) is refused BEFORE any write — never reaches " +
+     "the generated .ts, and the CLI fails closed with the standard template rather than an " +
+     "uncaught internal stack (TFO-01/SEC-1 emit-boundary gap)", () => {
+    const dir = scratchDir();
+    const injection = 'string;\nexport const PWNED = eval("process.env");\ntype _junk = {\n bar: string';
+    seedSchema(dir, {
+      properties: {
+        port: { type: injection, label: "Server port", required: true },
+      },
+    });
+
+    const result = runBin([dir]);
+
+    expect(result.status).not.toEqual(0);
+    expect(result.stdout).toEqual("");
+    expect(existsSync(join(dir, GENERATED_FILENAME))).toBe(false);
+    expect(result.stderr).not.toContain("PWNED");
+    expect(result.stderr).not.toContain("eval(");
+    expect(result.stderr).not.toContain("_junk");
+    expect(result.stderr).not.toContain("dist/bin");
+    expect(result.stderr).not.toContain(" at ");
+    expect(result.stderr.startsWith("pbuilder-codegen: ")).toBe(true);
+  });
+
+  it("the silent-widening variant (`type: \"any\"`) is rejected, never silently emitted as `any`, " +
+     "and fails closed with the standard template", () => {
+    const dir = scratchDir();
+    seedSchema(dir, {
+      properties: {
+        port: { type: "any", label: "Server port", required: true },
+      },
+    });
+
+    const result = runBin([dir]);
+
+    expect(result.status).not.toEqual(0);
+    expect(existsSync(join(dir, GENERATED_FILENAME))).toBe(false);
+    expect(result.stderr).not.toContain("dist/bin");
+    expect(result.stderr).not.toContain(" at ");
+    expect(result.stderr.startsWith("pbuilder-codegen: ")).toBe(true);
   });
 });

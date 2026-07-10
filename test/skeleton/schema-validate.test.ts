@@ -38,6 +38,17 @@ describe("validateInput", () => {
     expect(validateInput(schema, {})).toEqual([]);
   });
 
+  it("treats an OMITTED `required` field as required (default-required) — the default leg of " +
+     "`property.required !== false`, never pinned by a fixture that sets `required` explicitly", () => {
+    const schema: Schema = {
+      properties: [{ key: "port", type: "number" }],
+    };
+
+    expect(validateInput(schema, {})).toEqual([
+      { kind: "missing", field: "port", expectedType: "number" },
+    ]);
+  });
+
   describe("REQ-RBV-01.2 — wrong-typed value", () => {
     it("a string value against a number-typed property is 'wrong-type', declared type never the received kind", () => {
       const findings = validateInput(PORT_SCHEMA, { port: "8080" });

@@ -6,7 +6,7 @@
  * calls into `validateInput` (which own the exhaustive finding-shape matrix).
  */
 import { describe, it, expect, spyOn, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, chmodSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, chmodSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
@@ -14,6 +14,7 @@ import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError } from "../../src/core/authoring-error.ts";
 import { seedSchema } from "../support/canary.ts";
 
+const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const PORT_SCHEMA = { properties: { port: { type: "number", label: "Port", required: true } } };
 
 let dirs: string[] = [];
@@ -211,6 +212,26 @@ describe("REQ-RBV-05 — fail-closed on malformed/unreadable/empty schema", () =
 
     expect((err as Error).message).toContain("schema.json could not be read");
     expect((err as Error).message).toContain('missing "properties" object');
+  });
+
+  it("a deeply-nested malformed schema.json degrades to the (position unknown) fallback instead of " +
+     "crashing with an uncaught RangeError (locator stack-overflow, fail-closed message contract)", async () => {
+    const dir = scratchDir();
+    mkdirSync(dir, { recursive: true });
+    const deepNesting = readFileSync(
+      join(PROJECT_ROOT, "test/fixtures/red/schema/deep-nesting/schema.json"),
+      "utf-8",
+    );
+    writeFileSync(join(dir, "schema.json"), deepNesting, "utf-8");
+
+    const err = await runAgainst(dir, { port: 8080 });
+
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toEqual(
+      `[pbuilder] factory at ${relative(process.cwd(), dir)}: schema.json could not be read: invalid JSON (position unknown)`
+    );
+    expect((err as Error).message).not.toContain("Maximum call stack");
+    expect((err as Error).message).not.toContain("RangeError");
   });
 
   it("REQ-RBV-05.2: an empty schema (zero declared properties) is distinct from no schema — run succeeds, distinct warning text", async () => {
