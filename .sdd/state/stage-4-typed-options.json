@@ -4,8 +4,8 @@
   "triage": "L",
   "triage_note": "Unanimous L, PROVISIONAL. Re-triage trigger: D4 = derive AND all five items bundled -> XL/program; 6+ ADRs at design confirms XL. D4 front-loaded: ratify at explore/propose, never mid-design.",
   "retriage_trigger": "D4 = derive (codegen bin or Zod-as-source) AND scope keeps all five items bundled -> re-triage (split: 4a differentiator / 4b reserved names / 4c D7 harness).",
-  "phase": "archive",
-  "phase_status": "all gates passed; archiving (sync specs, move to archive/, promote ADRs 0027-0032, register followups)",
+  "phase": "done",
+  "phase_status": "CYCLE CLOSED + PR #11 OPEN 2026-07-11; /simplify deferred by owner",
   "proposal_artifacts": [
     "openspec/changes/stage-4-typed-options/proposal.md",
     "engram obs 755 (sdd/stage-4-typed-options/proposal)"
@@ -150,5 +150,6 @@
   ],
   "judgment_day": "APPROVED (2 judges, 0 crit/0 major; LOW: numeric-enum-unusable->4b, dir-relativization; risk: authoring-error.ts merge hazard vs stage-2)",
   "steward_reckoning": "DELIVERED (owner affirmed 2026-07-11: 4a ships in-repo-proven, 4b stays committed-next)",
-  "merge_hazard_note": "RESOLVED by arch refresh: base 413b2aa IS current main w/ stage-1/2/3 merged; authoring-error.ts extends already-present stage-2 surface, no collision"
+  "merge_hazard_note": "RESOLVED by arch refresh: base 413b2aa IS current main w/ stage-1/2/3 merged; authoring-error.ts extends already-present stage-2 surface, no collision",
+  "pr": "#11 https://github.com/Project-Builder-Schematics/project-builder-sdk/pull/11"
 }
