@@ -1,6 +1,6 @@
 # ADR-0035: Fake relocation + parity-by-identity
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-11
 - Change: `stage-4b-testing-harness` (S-000)
 - Builds on: ADR-0033 (third audience `author-testing`)

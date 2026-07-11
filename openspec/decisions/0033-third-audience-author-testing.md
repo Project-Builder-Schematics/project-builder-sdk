@@ -1,6 +1,6 @@
 # ADR-0033: Third audience `author-testing` (ADR-0009 amendment)
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-11
 - Change: `stage-4b-testing-harness` (S-005)
 - Amends: ADR-0009 (two audiences — author/contributor)
