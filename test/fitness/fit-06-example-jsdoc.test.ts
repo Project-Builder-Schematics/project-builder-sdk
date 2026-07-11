@@ -292,6 +292,27 @@ export interface UndocumentedHandle {
     expect(violations).toEqual(["UndocumentedHandle"]);
   });
 
+  // REQ-TSD-02.1: `runFactoryForTest`'s JSDoc must carry an `@param` tag documenting `seed`,
+  // and its `@example` must show a COMPLETE author test — not merely an import/definition —
+  // by asserting on the result, not just logging it (judgment-day round 1 gap: neither half
+  // of this scenario had a permanent regression guard before this test).
+  it("REQ-TSD-02.1: runFactoryForTest's JSDoc carries an @param seed tag", () => {
+    const source = readFileSync(join(ROOT, "testing/index.ts"), "utf-8");
+    const jsdoc = jsDocBefore(source, /^export async function runFactoryForTest</);
+    expect(jsdoc).toMatch(/@param\s+seed\b/);
+  });
+
+  it("REQ-TSD-02.1: runFactoryForTest's @example is a complete author test — factory, invocation, and an assertion on the result", () => {
+    const source = readFileSync(join(ROOT, "testing/index.ts"), "utf-8");
+    const jsdoc = jsDocBefore(source, /^export async function runFactoryForTest</);
+    const exampleIdx = jsdoc.indexOf("@example");
+    expect(exampleIdx).toBeGreaterThan(-1);
+    const example = jsdoc.slice(exampleIdx);
+    expect(example).toContain("defineFactory");
+    expect(example).toContain("runFactoryForTest(");
+    expect(example).toContain("expect(");
+  });
+
   // REQ-TSD-02.2: stability-language TOKEN-LEVEL assert (design rev 4 §4.6, GAP-5 pinned
   // token set) — `runFactoryForTest`'s JSDoc must state the 0.x/semver-exempt exemption.
   it("REQ-TSD-02.2: runFactoryForTest's JSDoc states the 0.x semver-exempt exemption", () => {

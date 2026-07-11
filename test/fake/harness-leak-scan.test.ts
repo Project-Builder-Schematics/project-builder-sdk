@@ -19,6 +19,7 @@ import { describe, it, expect } from "bun:test";
 import { defineFactory, runFactoryForTest } from "../../src/testing/index.ts";
 import { create, find, AuthoringError } from "../../src/commons/index.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
+import type { JsonValue } from "../../src/core/wire.ts";
 import * as rejectionMessages from "../../src/testing/rejection-messages.ts";
 
 const LEAK_DICTIONARY: readonly string[] = Object.values(rejectionMessages).filter(
@@ -115,6 +116,17 @@ describe("REQ-ATH-12.1 — harness result carries no leaked fragment", () => {
 
     expect(result.error).toBeInstanceOf(AuthoringError);
     expect((result.error as AuthoringError).reason).toEqual("changes-too-large");
+    expect(scanForLeaks(result.error, LEAK_DICTIONARY)).toEqual([]);
+  });
+
+  it("unrepresentable-content rejection (REQ-ATH-09.1) leaks nothing", async () => {
+    const run = defineFactory<void>(() => {
+      create("bad.ts", { template: "x", options: { fn: () => {} } as unknown as JsonValue });
+    });
+    const result = await runFactoryForTest(run, undefined);
+
+    expect(result.error).toBeInstanceOf(AuthoringError);
+    expect((result.error as AuthoringError).reason).toEqual("unrepresentable-content");
     expect(scanForLeaks(result.error, LEAK_DICTIONARY)).toEqual([]);
   });
 });

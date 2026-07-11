@@ -2,6 +2,51 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `stage-4b-testing-harness` (2026-07-12)
+
+### Evaluator diversity catches what 4/4 green in-loop verifies miss
+**What**: A blind post-build council (4 personas) plus judgment-day found three real defects —
+a factually wrong README boundary line (`./conformance` mis-described as testing an "engine
+implementation"), an under-documented verbatim-template behavior, and a prototype-chain leak in
+`ContractFake`'s seed lookup (`path in seed` treating inherited `Object.prototype` members as
+present) — none of which four consecutive verify-in-loop passes (all PASS, zero findings on the
+last) had surfaced.
+**Why**: In-loop verification re-checks the builder's own coverage claims against the signed
+spec; council personas approach the shipped artefact adversarially/fresh (a tech-writer reading
+the README as a stranger would, a security engineer probing the fake's object semantics) — a
+different failure class than spec-compliance re-checking.
+**Where**: Any L change reaching a clean in-loop streak — the streak is not evidence the
+post-build council pass is redundant.
+**Learned**: Never skip the post-verify blind council + judgment-day pass because in-loop was
+clean; budget it as a structurally different check, not a formality.
+
+### Spec-prescribed doc wording can itself be wrong — verify it like code, not like a checkbox
+**What**: REQ-TSD-01.3's own spec text described `./conformance` as "conformance-testing an
+engine implementation" — factually wrong (it tests a dialect/op-pack's parse/print fidelity,
+never an engine). The README inherited the same error verbatim from the spec, and it shipped
+past 4 in-loop verifies before council caught it.
+**Why**: Docs REQs pinned by TOKEN-LEVEL assertions (deliberately, to keep prose author-free and
+executor-green-deterministic) can go green while asserting a token set that is itself
+semantically wrong — token presence proves the words are there, not that they're true.
+**Where**: Any change whose spec dictates literal doc wording, verified by token/string
+assertion rather than a domain-knowledgeable read.
+**Learned**: A token-level doc assertion is necessary but not sufficient — pair it with at least
+one adversarial/domain-aware read of the actual sentence before archive, especially when the
+spec text itself is the wording's origin.
+
+### A sequence-gated slice's gate can open earlier than the plan assumed
+**What**: S-006 was planned GATED on `stage-4-typed-options` reaching ARCHIVE; by the time
+`/build` actually launched, stage-4 had already archived (its own cycle closed first), so the
+gate was open from the start of this change's build rather than opening mid-build as the plan
+anticipated.
+**Why**: Cross-change sequencing gates are evaluated once at plan time; if the sibling change's
+cycle completes faster than expected, the gate's state at plan time and at build time can
+diverge, and a stale mental model treats it as still-closed.
+**Where**: Any change whose slices are gated on a sibling change's merge/archive milestone.
+**Learned**: Re-verify sequencing-gate state (merged? archived?) at the moment `/build` actually
+launches, not only when slicing — a gate can silently open early and unblock work sooner than
+planned, or (less happily) close if a sibling change stalls.
+
 ## From `stage-4-typed-options` (2026-07-11)
 
 ### Blind verify-final council catches what its own checklist pass misses

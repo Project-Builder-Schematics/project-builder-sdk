@@ -25,7 +25,7 @@ Followups registered from archived changes. Visible to future `/plan` grooming.
 | Description | Type | Size | Gating? | Stage |
 |---|---|---|---|---|
 | W3 · `publish.yml` repo-owner guard (`if: github.repository == '…'`) — fork-own-`main` reaches OIDC | security | XS | **Before first LIVE publish** | **6.2** |
-| W1 · REQ-PKG-01 live-resolution smoke test (pack→install→assert `/core` throws, `/commons` resolves) | edge-case | S | Before live publish | **6.2** |
+| ~~W1 · REQ-PKG-01 live-resolution smoke test (pack→install→assert `/core` throws, `/commons` resolves)~~ **SUBSUMED 2026-07-12 (`stage-4b-testing-harness` archive)** — REQ-TES-06's installed-consumer-vantage e2e (`test/e2e/installed-consumer.e2e.test.ts`) delivers the same pack→install→resolution mechanic plus the two founding-bug behavioural scenarios; W1 is superseded, not duplicated | edge-case | S | ~~Before live publish~~ **closed** | ~~6.2~~ |
 | W2 · FIT-01 import-graph depth — follow relative imports transitively (catch AST via `core`) | refactor | S | Before first real dialect | **5.0 (hard pre-gate)** |
 | W5 · REQ-STD-01 guarding test (SECURITY verbatim sentence + dialect-doc outline) | docs | XS | — | **5.7** |
 | W6 · `defineFactory` finally-flush must preserve the original `fn` error if flush also rejects | refactor | XS | — | **1.5** |
@@ -134,3 +134,25 @@ author-facing consumption path (`defineFactory` reachable from an installed pack
 differentiator stays theoretical for installed authors and CQ-1/CQ-2 (usability/significance)
 should be revisited. No new row — this note ties the steward gate's condition back to the
 existing pending-changes entry.
+
+**DELIVERED 2026-07-12** — `stage-4b-testing-harness` archived; the COMMITTED-NEXT condition
+above is satisfied (`defineFactory` + `runFactoryForTest` reachable from an installed package
+via `./testing`, proven from a packed-tarball vantage; steward reckoning verdict `DELIVERED`).
+
+## From `stage-4b-testing-harness` (2026-07-12) — accepted as non-blocking at archive
+
+Verify verdict `pass-with-followups`. Judgment-day APPROVED (R1: 1 confirmed WARNING fixed in
+`5ad8a73`; R2: both judges PASS). Steward reckoning `DELIVERED` — CQ2 (opted-in factory
+support) answered YES and honored in-change (REQ-ATH-13); CQ1 and CQ3 below are carried as
+owner-nod items, not gaps.
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| Stage-6 `./core` production graduation: `defineFactory`'s production import home stays `./testing` until then (PM M4; steward CQ1 — an author's PRODUCTION `factory.ts` imports from a path literally named `./testing`; works today, 0.x-exempt, but is a naming-worth call for the owner to confirm, not a usability failure) | other | M | Stage 6 | **6 (production graduation)** |
+| Throw-value-shape triangulation: a factory that `throw`s `undefined` is indistinguishable from success in `result.error`, and a `null` throw is a falsy-error-consumer hazard for authors who write `if (result.error)` (QA council) | edge-case | S | — | **backlog** |
+| Exotic-path pass-through pin: path-traversal (`../`), NUL-byte, and unicode-normalization-edge paths are stored verbatim by the fake with no dedicated scenario pinning that behaviour (QA council) | test-coverage | XS | — | **backlog** |
+| `deepEqual`'s `key in`/bracket-access pattern in `src/testing/contract-fake.ts` (batch-payload comparison) is the SAME class of prototype-chain leak the seed-lookup fix (`fbb3053`) closed for seed reads — inherited `Object.prototype` members could spuriously match on payload keys (fix-agent flag, unconfirmed on batch path) | edge-case | XS | — | **next `contract-fake.ts` touch** |
+| FIT-17's dev-only bundle guard scans minified builds of the `src/` ENTRY FILES as a proxy for `dist/` (equivalence argued via tsc's 1:1 emission, §4.7) — have it scan the shipped `dist` entries directly as the source of truth instead (security council, low severity) | refactor | S | — | **backlog (hardening)** |
+| Widen `REQ-ATH-11`'s in-memory instrumentation to cover `node:child_process` (SEC-m3, executor-optional at build time — never added) and dynamic `import()` parity, alongside the existing fs/net/Bun-I/O/fetch/env/argv surfaces (security council) | refactor | S | — | **backlog (hardening)** |
+| Long-term form of ship-the-fake: `ContractFake` currently ships inside the production npm tarball behind six structural containment guards (ADR-0034) — is a permanent containment surface the right long-term shape, or should it become a separate `@pbuilder/testing` package (or BYO-fake docs)? Accepted 0.x expedient by owner ruling (ADR-0034); flagged for a deliberate long-term-form nod (steward CQ3, owner-nod pending, non-blocking) | other | L | — | **re-evaluate alongside `@pbuilder/sdk-kit` extraction (6.2)** |
+| `RunResult.error`'s typed union `AuthoringError \| unknown` collapses to `unknown` at the type-checker (no narrowing value from the union today) — revisit the result-shape typing at the next 0.x result-shape iteration once `./testing` graduates past its semver-exempt window (arch note, verify-report) | refactor | XS | — | **next 0.x result-shape iteration** |

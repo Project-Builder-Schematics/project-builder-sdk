@@ -1,6 +1,6 @@
 # ADR-0034: `./testing` containment strategy (six structural guards)
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-11
 - Change: `stage-4b-testing-harness` (S-003)
 - Builds on: ADR-0033 (third audience `author-testing`), ADR-0035 (fake relocation)

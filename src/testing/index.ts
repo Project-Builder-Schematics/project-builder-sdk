@@ -70,22 +70,27 @@ export { defineFactory } from "../core/context.ts";
  * @example
  * import { defineFactory, runFactoryForTest } from "@pbuilder/sdk/testing";
  * import { create, AuthoringError } from "@pbuilder/sdk/commons";
+ * import { expect, test } from "bun:test";
  *
- * const run = defineFactory<{ name: string }>((input) => {
- *   create("src/greeting.ts", {
- *     template: "export const greeting = '{{name}}';",
- *     options: { name: input.name },
+ * test("factory writes a greeting file", async () => {
+ *   const run = defineFactory<{ name: string }>((input) => {
+ *     create("src/greeting.ts", {
+ *       template: "export const greeting = '{{name}}';",
+ *       options: { name: input.name },
+ *     });
  *   });
- * });
  *
- * const result = await runFactoryForTest(run, { name: "hello" });
- * if (result.error !== undefined) {
- *   if (result.error instanceof AuthoringError) {
- *     console.error(result.error.reason);
+ *   const result = await runFactoryForTest(run, { name: "hello" });
+ *
+ *   if (result.error !== undefined) {
+ *     if (result.error instanceof AuthoringError) {
+ *       throw new Error(`unexpected rejection: ${result.error.reason}`);
+ *     }
+ *     throw result.error;
  *   }
- * } else {
- *   console.log(result.tree.get("src/greeting.ts"));
- * }
+ *
+ *   expect(result.tree.get("src/greeting.ts")).toEqual("export const greeting = '{{name}}';");
+ * });
  */
 export async function runFactoryForTest<O>(
   factory: (o: O, deps: { client: RecordingClient }) => Promise<void>,
