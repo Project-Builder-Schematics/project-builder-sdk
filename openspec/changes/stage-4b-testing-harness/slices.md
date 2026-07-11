@@ -264,9 +264,9 @@ founding bug); GIVEN a colliding-without-force factory THEN `result.tree` is emp
 type (TES-06.3).
 
 ### Tasks
-- [ ] `test/e2e/installed-consumer.e2e.test.ts` Modify — elaborate the S-000 spike into TES-02.1 (resolution matrix) + TES-06.1/.2/.3 (founding-bug scenarios)
-- [ ] golden committed-tree fixture (write-only factory) + colliding-batch fixture (all-or-nothing rejection)
-- [ ] assert consumer-side `AuthoringError` narrowing via the installed package's own export
+- [x] `test/e2e/installed-consumer.e2e.test.ts` Modify — elaborate the S-000 spike into TES-02.1 (resolution matrix) + TES-06.1/.2/.3 (founding-bug scenarios)
+- [x] golden committed-tree fixture (write-only factory) + colliding-batch fixture (all-or-nothing rejection)
+- [x] assert consumer-side `AuthoringError` narrowing via the installed package's own export
 
 ---
 
