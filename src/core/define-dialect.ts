@@ -3,25 +3,29 @@
 // intersection compile-enforced, and an awaitable coalescing Handle<State, Ast, Ops>.
 //
 // Bare (no type-argument) usage of `Dialect`/`OpPack`/`Handle` resolves via default type
-// parameters to `<unknown, OpPack<unknown>>` — this is what lets src/conformance/index.ts's
+// parameters to `<any, OpPack<any>>` — this is what lets src/conformance/index.ts's
 // fixtures stay generic-erased ("some dialect, don't care about the concrete Ast") without
 // re-parameterising the conformance kit itself (design §4.3's literal code block uses bare
-// `Dialect`/`OpPack`).
+// `Dialect`/`OpPack`). `any`, not `unknown`: `Op<Ast>`'s `ast` parameter is CONTRAVARIANT —
+// a concrete `Dialect<ToyAst, ...>` is not structurally assignable to `Dialect<unknown, ...>`
+// (target's param `unknown` must be assignable to source's param `ToyAst`, which it is not),
+// but `any` short-circuits variance checking in both directions, which is exactly the
+// "don't care about the concrete Ast" erasure this bare form needs.
 
 import type { ReadOps } from "./base-handle.ts";
 import { createDialectHandle } from "./dialect-handle.ts";
 
 // An op mutates the live AST in place; `never[]` at the descriptor level lets each op
 // declare its OWN trailing arg tuple (bound away from `ast` by `OpMethods` below).
-export type Op<Ast = unknown> = (ast: Ast, ...args: never[]) => void;
+export type Op<Ast = any> = (ast: Ast, ...args: never[]) => void;
 
 // An op-pack is a named record of ops over one shared AST type (ADR-0010).
-export type OpPack<Ast = unknown> = Record<string, Op<Ast>>;
+export type OpPack<Ast = any> = Record<string, Op<Ast>>;
 
 // The dialect descriptor shape is FROZEN at exactly these three top-level fields
 // (REQ-DG-01.1) — a 5th field is a compile error because DialectDescriptor has no index
 // signature: an excess property in an object-literal argument is rejected by TS structurally.
-export interface DialectDescriptor<Ast = unknown, Ops extends OpPack<Ast> = OpPack<Ast>> {
+export interface DialectDescriptor<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
   extensions: string[];
   ast: { parse(source: string): Ast; print(ast: Ast): string };
   ops: Ops;
@@ -54,7 +58,7 @@ type DialectWriteOps<Ast, Ops extends OpPack<Ast>> = {
 // — `.then` delegates to the internal `#tail` promise queue (dialect-handle.ts).
 export type Handle<
   State extends "found" | "writable" = "found",
-  Ast = unknown,
+  Ast = any,
   Ops extends OpPack<Ast> = OpPack<Ast>,
 > = ReadOps &
   DialectWriteOps<Ast, Ops> & { raw(fn: (ast: Ast) => void): Edited<Ast, Ops> } & OpMethods<Ast, Ops> &
@@ -62,7 +66,7 @@ export type Handle<
   (State extends "found" ? { remove(): void } : {}) &
   PromiseLike<void>;
 
-export interface Dialect<Ast = unknown, Ops extends OpPack<Ast> = OpPack<Ast>> {
+export interface Dialect<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
   readonly extensions: readonly string[];
   readonly ast: { parse(source: string): Ast; print(ast: Ast): string };
   readonly ops: Ops;
