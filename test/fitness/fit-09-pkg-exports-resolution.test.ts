@@ -5,6 +5,7 @@
  *   "."          → dist/index.js    (umbrella re-export of ./commons)
  *   "./commons"  → dist/commons/index.js
  *   "./conformance" → dist/conformance/index.js
+ *   "./testing"  → dist/testing/index.js (third audience, `author-testing`, ADR-0033/REQ-TES-01)
  *
  * "./core" is intentionally NOT exported — it is the contributor-kit boundary (ADR-0009).
  *
@@ -51,12 +52,19 @@ describe("REQ-PKG-01 — package.json#exports resolution contract", () => {
     expect(conformance!.import).toMatch(/dist\/conformance\/index\.js$/);
   });
 
+  it('exports "./testing" with correct types and import fields (REQ-TES-01)', () => {
+    const testing = pkgJson.exports["./testing"] ?? null;
+    expect(testing).not.toBeNull();
+    expect(testing!.types).toMatch(/dist\/testing\/index\.d\.ts$/);
+    expect(testing!.import).toMatch(/dist\/testing\/index\.js$/);
+  });
+
   it('does NOT export "./core" (contributor-kit boundary, ADR-0009)', () => {
     expect(pkgJson.exports["./core"]).toBeUndefined();
   });
 
-  it("the only exported subpaths are ., ./commons, and ./conformance", () => {
+  it("the only exported subpaths are ., ./commons, ./conformance, and ./testing (REQ-TES-01.1)", () => {
     const keys = Object.keys(pkgJson.exports).sort();
-    expect(keys).toEqual([".", "./commons", "./conformance"]);
+    expect(keys).toEqual([".", "./commons", "./conformance", "./testing"]);
   });
 });

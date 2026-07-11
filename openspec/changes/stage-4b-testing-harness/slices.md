@@ -55,7 +55,7 @@ ARCHIVE.
 
 1. `openspec/changes/stage-4b-testing-harness/spec.md` + all 4 `specs/*/spec.md` (scenario texts — this file is build ORDER, those are build CONTENT)
 2. `openspec/changes/stage-4b-testing-harness/design.md` — esp. §4.2 (File Changes), §4.3 (Data Model), §4.4 (Interface Contracts), §4.5 (ADRs), §4.6/4.6a/4.6b (Test Derivation, shared-build, ATH-11 scoping), §4.8 (sequencing)
-3. `openspec/decisions/0009-two-audiences-contributor-kit.md` — the boundary ADR-0032 amends
+3. `openspec/decisions/0009-two-audiences-contributor-kit.md` — the boundary ADR-0033 amends
 4. `test/support/contract-fake.ts`, `test/support/rejection-messages.ts`, `test/support/spy-client.ts` — exact APIs being relocated/mirrored
 5. `src/core/context.ts` (`defineFactory`), `src/core/wire.ts` (`Batch`/`Directive`) — origin declarations FIT-06's cascade reaches
 6. `test/fitness/fit-08-no-kit-bleed.test.ts`, `fit-10-engine-client-port-guard.test.ts`, `fit-09-pkg-exports-resolution.test.ts`, `fit-04-dts-semver-gate.test.ts`, `fit-06-example-jsdoc.test.ts`, `fit-07-no-tree-in-core.test.ts` — every fitness file this change modifies
@@ -78,7 +78,7 @@ ARCHIVE.
 - **Facade signature/param name**: `runFactoryForTest<O>(factory, input, seed?)` — first param named `factory` (author vocabulary), frozen by FIT-04; `factory` = the RUNNER `defineFactory` returns (`(o, { client }) => Promise<void>`), never the raw fn; the caller never passes a client (harness builds fake + `RecordingClient` internally; `seed` → `ContractFakeOptions.seed`).
 - **ATH-13 interim shape (stage-4 Option A carry-over)**: opted-in rejection throws a **plain `Error`** (never `AuthoringError`) with the stage-4-pinned REQ-AEC-09 message literal; `result.error` observed as `unknown`; `instanceof AuthoringError`/`reason` only assertable post stage-4 S-006.
 - **FSP mechanism**: reference-identity (`===` on the class / value equality on constants) — never a behavioural parity suite.
-- **Numbering**: FIT-17 (dev-only bundle), FIT-18 (fake parity) — next free after stage-4's FIT-16. ADRs 0032–0035 — next free after stage-4's 0031.
+- **Numbering**: FIT-17 (dev-only bundle), FIT-18 (fake parity) — next free after stage-4's FIT-16. ADRs 0033–0036 — next free after stage-4's 0031.
 
 ### Binding constraints (verbatim — violating any is a slicing/build defect)
 
@@ -103,14 +103,29 @@ old-path shims; GIVEN the built, packed, scratch-installed tarball WHEN a script
 ONE symbol (`defineFactory`) from `@pbuilder/sdk/testing` by name THEN it resolves.
 
 ### Tasks
-- [ ] [must-fail-first] git-move `contract-fake.ts` + `rejection-messages.ts` into `src/testing/`; shim both old `test/support/` paths as pure re-exports
-- [ ] `fit-10-engine-client-port-guard.test.ts` Modify — allow-list transition to `src/testing/contract-fake.ts` (constraint: exact string, never a glob)
-- [ ] `src/testing/index.ts` Create (minimal) — re-export `defineFactory` (value) only; no `RunResult`/`runFactoryForTest` yet
-- [ ] `package.json#exports` Modify — add `./testing`
-- [ ] `openspec/decisions/0034-fake-relocation-parity-by-identity.md`, `0035-packed-tarball-e2e-lifecycle.md` Create (drafts, from design §4.5)
-- [ ] `test/support/shared-build.ts` Create — `ensureTscBuild()` memoized per-process
-- [ ] [must-fail-first] `test/e2e/installed-consumer.e2e.test.ts` Create (spike only) — build→pack→`.tmp-testing-e2e/` install (`--ignore-scripts`, non-routable registry)→import `defineFactory` by name, assert resolution
-- [ ] Full suite green + `tsc --noEmit` clean proof
+- [x] [must-fail-first] git-move `contract-fake.ts` + `rejection-messages.ts` into `src/testing/`; shim both old `test/support/` paths as pure re-exports
+- [x] `fit-10-engine-client-port-guard.test.ts` Modify — allow-list transition to `src/testing/contract-fake.ts` (constraint: exact string, never a glob)
+- [x] `src/testing/index.ts` Create (minimal) — re-export `defineFactory` (value) only; no `RunResult`/`runFactoryForTest` yet
+- [x] `package.json#exports` Modify — add `./testing`
+- [x] `openspec/decisions/0035-fake-relocation-parity-by-identity.md`, `0036-packed-tarball-e2e-lifecycle.md` Create (drafts, from design §4.5)
+- [x] `test/support/shared-build.ts` Create — `ensureTscBuild()` memoized per-process
+- [x] [must-fail-first] `test/e2e/installed-consumer.e2e.test.ts` Create (spike only) — build→pack→`.tmp-testing-e2e/` install (`--ignore-scripts`, non-routable registry)→import `defineFactory` by name, assert resolution
+- [x] Full suite green + `tsc --noEmit` clean proof
+
+**Executor deviation note (binding constraint #7 compliance)**: two extra fitness files
+needed a same-slice update beyond this card's literal list, both because adding
+`package.json#exports["./testing"]` and `src/testing/index.ts` necessarily changed observable
+surface those guards pin exactly — leaving either unpatched would have left the suite RED at
+this slice's boundary, violating "every slice leaves the suite GREEN" (constraint 7):
+1. `test/fitness/fit-09-pkg-exports-resolution.test.ts` — widened the exact-keys assertion
+   3→4 (`./testing` added) + a new dedicated `./testing` shape assertion. This is nominally
+   S-003's TES-01 row, but the exports-map edit that trips it happens HERE — same precedent
+   §4.8 already sets for FIT-14 ("regenerated in the SAME slice as the package.json exports
+   edit"). S-003's own fit-09 task is now a verify-and-skip.
+2. `test/fitness/fit-14-package-surface.test.ts` + `pkg-surface-baseline.json` — regenerated
+   per §4.8's explicit same-slice instruction (the row is duplicated on S-006's task list;
+   that duplicate is now a verify-and-skip too — S-006 makes no further package.json/exports
+   edit that would re-trigger this baseline).
 
 ---
 
@@ -197,7 +212,7 @@ expected (baseline == current); the gate protects FUTURE changes.
 - [ ] [must-fail-first] [permanent-fixture] `test/fitness/fit-17-testing-dev-only-bundle.test.ts` Create — 4-entry minified scan per the FIT-17 mechanics block above (via shared-build's `ensureMinifiedEntry`); absence + positive-control presence + `sideEffects`-absent assert
 - [ ] `test/fitness/fit-04-dts-semver-gate.test.ts` Modify — add `testing.index` dts pair (`test/fitness/dts-baseline/testing.index.d.ts` Create) + negative declaration-scan companion assert; consume `shared-build`; update W7 header comment
 - [ ] `test/fitness/fit-07-no-tree-in-core.test.ts` Modify — de-stale "not in dist" comment; assert glob stays `src/core/**`
-- [ ] `openspec/decisions/0033-shipped-fake-containment.md` Create (draft, from design §4.5)
+- [ ] `openspec/decisions/0034-shipped-fake-containment.md` Create (draft, from design §4.5)
 
 ---
 
@@ -231,7 +246,7 @@ copy-runnable (TSD-01.1) and states the 0.x exemption + `./testing`-vs-`./confor
 boundary (TSD-01.2-.4); GIVEN `src/testing/index.ts`'s JSDoc WHEN scanned by FIT-06 THEN
 `@example` includes a rejection assertion with `instanceof AuthoringError`, `@param seed` is
 documented, and the cascade reaches `defineFactory`/`Batch`/`Directive` origins (TSD-02);
-GIVEN ADR-0009's amendment stub THEN it cross-references ADR-0032's third-audience text
+GIVEN ADR-0009's amendment stub THEN it cross-references ADR-0033's third-audience text
 (TSD-04). The docs tests assert **TOKEN-LEVEL strings** (design rev 4 §4.6 pins the token
 set), not whole-sentence prose matches. **Qualifying-line boundary (GAP-6)**: this slice
 does NOT write or touch the README incremental-shipping qualifying line — stage-4's OWN
@@ -242,7 +257,7 @@ S-005 writes it; 4b only REVERTS it, in S-006, after stage-4 archives.
 - [ ] `src/core/wire.ts` Modify — `@example` on `Batch`/`Directive` origin decls (FIT-06 cascade)
 - [ ] `test/fitness/fit-06-example-jsdoc.test.ts` Modify — `PUBLIC_PATHS` += `src/testing/index.ts`; `RunResult` in scope; stability-language assert
 - [ ] [must-fail-first] `test/docs/testing-story-docs.test.ts` Create — TSD-01/02/04 copy-runnable + TOKEN-LEVEL text asserts (design rev 4 §4.6 token set)
-- [ ] `openspec/decisions/0009-two-audiences-contributor-kit.md` Modify (amendment stub) + `0032-third-audience-author-testing.md` Create (draft)
+- [ ] `openspec/decisions/0009-two-audiences-contributor-kit.md` Modify (amendment stub) + `0033-third-audience-author-testing.md` Create (draft)
 
 ---
 

@@ -11,6 +11,10 @@
     "./conformance": {
       "types": "./dist/conformance/index.d.ts",
       "import": "./dist/conformance/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
     }
   },
   "files": ["dist"],
@@ -100,6 +104,15 @@
     "dist/index.d.ts",
     "dist/index.d.ts.map",
     "dist/index.js",
+    "dist/testing/contract-fake.d.ts",
+    "dist/testing/contract-fake.d.ts.map",
+    "dist/testing/contract-fake.js",
+    "dist/testing/index.d.ts",
+    "dist/testing/index.d.ts.map",
+    "dist/testing/index.js",
+    "dist/testing/rejection-messages.d.ts",
+    "dist/testing/rejection-messages.d.ts.map",
+    "dist/testing/rejection-messages.js",
     "package.json"
   ]
 }
