@@ -2,12 +2,18 @@
  * FIT-14: package-surface guard (REQ-FPS-02, Gap 11).
  *
  * Baseline-diff mechanism (FIT-04-style): a committed snapshot
- * `test/fitness/pkg-surface-baseline.json` records `{ exports, files, bin, shebang,
- * tarball }` as of this change. This test REGENERATES the actual surface (package.json
- * fields + a real `bun pm pack --dry-run` listing + the shipped bin's first line) and diffs
- * it against the committed baseline — any drift (a changed export, a lost `files` entry, a
- * newly-introduced `dependencies` entry, a missing shebang, or an unexpected new tarball
- * entry) fails, naming the delta.
+ * `test/fitness/pkg-surface-baseline.json` records `{ exports, dependencies, files, bin,
+ * shebang, tarball }` as of this change. This test REGENERATES the actual surface
+ * (package.json fields + a real `bun pm pack --dry-run` listing + the shipped bin's first
+ * line) and diffs it against the committed baseline — any drift (a changed export, an
+ * unauthorized `dependencies` entry, a lost `files` entry, a missing shebang, or an
+ * unexpected new tarball entry) fails, naming the delta.
+ *
+ * stage-5-first-dialect (REQ-FPS-02, V4): the baseline's `exports`/`dependencies` fields
+ * were regenerated at this change to capture its OWN authorized growth — `./typescript`
+ * (5th export entry) and `ts-morph` (first-ever runtime dependency, exact-pinned). The
+ * zero-deps invariant this file's tests originally asserted becomes a ONE-deps invariant,
+ * still closed (REQ-FPS-02.1) — asserted below against the pinned baseline, not "empty".
  *
  * Self-building via an unconditional `beforeAll` (FIT-04 precedent, slices constraint 10)
  * so a bare `bun test` on a fresh checkout stays green.
@@ -22,6 +28,7 @@ const BASELINE_PATH = join(PROJECT_ROOT, "test/fitness/pkg-surface-baseline.json
 
 interface PkgSurfaceBaseline {
   exports: Record<string, { types: string; import: string }>;
+  dependencies: Record<string, string>;
   files: string[];
   bin: Record<string, string>;
   shebang: string;
@@ -75,6 +82,12 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     expect(pkgJson.exports).toEqual(baseline.exports);
   });
 
+  it("REQ-FPS-02.1: exports map is EXACTLY the five authorized entries, no more, no less", () => {
+    expect(Object.keys(pkgJson.exports).sort()).toEqual(
+      [".", "./commons", "./conformance", "./testing", "./typescript"].sort()
+    );
+  });
+
   it("files field is unchanged from the committed baseline", () => {
     expect(pkgJson.files).toEqual(baseline.files);
   });
@@ -83,8 +96,20 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     expect(pkgJson.bin).toEqual(baseline.bin);
   });
 
-  it("dependencies remains absent or empty — zero-runtime-deps preserved (REQ-FPS-02.1)", () => {
-    expect(Object.keys(pkgJson.dependencies ?? {})).toEqual([]);
+  it("dependencies is unchanged from the committed baseline (REQ-FPS-02.1)", () => {
+    expect(pkgJson.dependencies ?? {}).toEqual(baseline.dependencies);
+  });
+
+  it("REQ-FPS-02.1: dependencies contains EXACTLY one entry, ts-morph, exact-pinned (no caret/tilde)", () => {
+    const deps = pkgJson.dependencies ?? {};
+    expect(Object.keys(deps)).toEqual(["ts-morph"]);
+    expect(deps["ts-morph"]).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  // RED-PROOF: a caret/tilde-ranged version would fail the exact-pin assertion above.
+  it("[red-proof] a caret-ranged ts-morph version would fail the exact-pin pattern", () => {
+    expect("^28.0.0").not.toMatch(/^\d+\.\d+\.\d+$/);
+    expect("~28.0.0").not.toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   it("the shipped dist/bin artifact's first line is exactly the pinned shebang", () => {

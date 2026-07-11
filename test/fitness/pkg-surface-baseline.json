@@ -15,7 +15,14 @@
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"
+    },
+    "./typescript": {
+      "types": "./dist/dialects/typescript/index.d.ts",
+      "import": "./dist/dialects/typescript/index.js"
     }
+  },
+  "dependencies": {
+    "ts-morph": "28.0.0"
   },
   "files": ["dist"],
   "bin": {
@@ -98,6 +105,15 @@
     "dist/core/wire.d.ts",
     "dist/core/wire.d.ts.map",
     "dist/core/wire.js",
+    "dist/dialects/typescript/ast.d.ts",
+    "dist/dialects/typescript/ast.d.ts.map",
+    "dist/dialects/typescript/ast.js",
+    "dist/dialects/typescript/index.d.ts",
+    "dist/dialects/typescript/index.d.ts.map",
+    "dist/dialects/typescript/index.js",
+    "dist/dialects/typescript/ops.d.ts",
+    "dist/dialects/typescript/ops.d.ts.map",
+    "dist/dialects/typescript/ops.js",
     "dist/dry-run/index.d.ts",
     "dist/dry-run/index.d.ts.map",
     "dist/dry-run/index.js",
