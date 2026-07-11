@@ -10,9 +10,8 @@
 // the remaining branches — see slices Coverage Check.
 
 import type { Schema, SchemaProperty } from "./schema-model.ts";
-import { RESERVED_LIFECYCLE_NAMES } from "./schema-model.ts";
+import { FORBIDDEN_KEYS, RESERVED_LIFECYCLE_NAMES } from "./schema-model.ts";
 
-const FORBIDDEN_INPUT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 const RESERVED_INPUT_KEYS = new Set<string>(RESERVED_LIFECYCLE_NAMES);
 
 export type ValidationFinding =
@@ -72,7 +71,7 @@ export function validateInput(schema: Schema, input: unknown): ValidationFinding
   // mapping, slices load-bearing literals).
   const declaredKeys = new Set(schema.properties.map((property) => property.key));
   for (const key of Object.keys(record)) {
-    if (RESERVED_INPUT_KEYS.has(key) || FORBIDDEN_INPUT_KEYS.has(key) || !declaredKeys.has(key)) {
+    if (RESERVED_INPUT_KEYS.has(key) || FORBIDDEN_KEYS.has(key) || !declaredKeys.has(key)) {
       findings.push({ kind: "disallowed-key", field: key });
     }
   }

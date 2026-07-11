@@ -3,6 +3,7 @@
 // vocabulary; this module never renders a caller-facing message itself (no-echo, ADR-0027).
 
 import type { Schema, SchemaKind, SchemaProperty } from "./schema-model.ts";
+import { isPlainObject } from "./schema-model.ts";
 import { locateFirstJsonSyntaxError } from "./schema-locate.ts";
 
 export interface SchemaParseFailureInfo {
@@ -25,8 +26,11 @@ export class SchemaParseFailure extends Error {
   }
 }
 
-function isPlainObject(value: unknown): value is { [key: string]: unknown } {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+// Shared parse-error locator suffix — both the runtime (context.ts's RBV-05.1 literal) and
+// the bin (pbuilder-codegen.ts's TW-m6 pinned template) render a `SchemaParseFailure`'s
+// line/column into their own message; this is the one place that formats it.
+export function formatLocator(line: number | undefined, column: number | undefined): string {
+  return line !== undefined && column !== undefined ? `(line ${line}, column ${column})` : "(position unknown)";
 }
 
 /**
