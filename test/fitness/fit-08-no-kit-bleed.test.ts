@@ -1,15 +1,28 @@
 /**
- * FIT-08: No author subpath re-exports a kit symbol (ADR-0009).
- * The author-facing subpaths (src/commons, src/index, src/conformance) MUST NOT
- * re-export symbols from the internal kit (src/core): EngineClient, Session,
- * DirectiveFactory, ContractFake, RunContext, defineFactory, currentContext, etc.
- * These are the contributor-kit boundary — they must stay behind src/core.
+ * FIT-08: No author subpath re-exports a kit symbol beyond its own per-path allowlist
+ * (ADR-0009, ADR-0034 guard 2).
  *
- * Strategy: scan the author subpath sources for any export that points at ../core
- * or re-exports a known kit symbol name.
+ * Per-path allowlist data model (REQ-TES-03): each scanned path carries its own
+ * `valueAllow`/`typeAllow` symbol lists. `.`, `./commons`, `./conformance` keep the
+ * original full ban (empty allowlists — unchanged behaviour). `./testing` gets a narrow
+ * allowlist: VALUE `defineFactory`/`runFactoryForTest`, TYPE-ONLY `Batch`/`Directive` — every
+ * OTHER kit symbol, `ContractFake` included (as a value OR as a type, SEC-M3), stays banned
+ * there too. A per-path allowlist relaxes ONLY the kit-symbol/`../core`-re-export ban;
+ * locally-declared non-kit exports (e.g. `RunResult`) are outside this guard's universe and
+ * need no allowlist entry (ARCH-M1).
  *
- * Red-proof: a fixture that re-exports a kit symbol from a commons-like source is caught.
- * Activates in S-004 (subpaths established).
+ * Wildcard ban by form (SEC-M1, design rev 4/GAP-4): ANY `export *`/`export * as ns`
+ * statement on any scanned path is a violation BY FORM regardless of specifier — allowlisted
+ * paths enumerate names exhaustively, so a wildcard can never be validated against one — with
+ * EXACTLY ONE specifier-exact grandfathered exemption: `src/index.ts`'s pre-existing
+ * `export * from "./commons/index.ts"` umbrella re-export.
+ *
+ * Strategy: per scanned path, scan for (a) any wildcard re-export statement (banned by form,
+ * minus the one exemption) and (b) any named export brace list containing a KIT_SYMBOL_NAMES
+ * entry not present in that path's allow list for its export form (value vs type-only).
+ *
+ * Red-proof: a fixture re-exporting a non-allowlisted kit symbol, or `ContractFake` in either
+ * form, or a wildcard on a non-exempt path/specifier, is caught.
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -17,14 +30,31 @@ import { join } from "node:path";
 
 const ROOT = new URL("../../src", import.meta.url).pathname;
 
-// Public author subpaths (author surface — kit must not leak into these)
-const AUTHOR_SUBPATHS = [
-  join(ROOT, "commons/index.ts"),
-  join(ROOT, "index.ts"),
-  join(ROOT, "conformance/index.ts"),
+interface ScannedPath {
+  path: string;
+  valueAllow: string[];
+  typeAllow: string[];
+}
+
+// Per-path allowlist data model (REQ-TES-03): the FIT-08 equivalent of the old flat
+// AUTHOR_SUBPATHS list, now with per-path value/type allowances. `./testing` MUST be a
+// member of this set (REQ-TES-03.3) — allowlisted, never removed from scanning.
+const SCANNED: ScannedPath[] = [
+  { path: join(ROOT, "commons/index.ts"), valueAllow: [], typeAllow: [] },
+  { path: join(ROOT, "index.ts"), valueAllow: [], typeAllow: [] },
+  { path: join(ROOT, "conformance/index.ts"), valueAllow: [], typeAllow: [] },
+  {
+    path: join(ROOT, "testing/index.ts"),
+    valueAllow: ["defineFactory", "runFactoryForTest"],
+    typeAllow: ["Batch", "Directive"],
+  },
 ];
 
-// Kit symbols that must NOT appear in author subpath exports
+const UMBRELLA_PATH = join(ROOT, "index.ts");
+const UMBRELLA_EXEMPT_SPECIFIER = "./commons/index.ts";
+
+// Kit symbols that must NOT appear in a scanned path's exports, unless allowlisted for
+// that path and that export form (value vs type-only).
 const KIT_SYMBOL_NAMES = [
   "EngineClient",
   "Session",
@@ -41,74 +71,167 @@ const KIT_SYMBOL_NAMES = [
   "WritableHandleRef",
 ];
 
+const WILDCARD_PATTERN = /export\s+\*(?:\s+as\s+\w+)?\s+from\s+['"]([^'"]+)['"]/g;
+const NAMED_EXPORT_PATTERN = /export\s+(type\s+)?\{([^}]+)\}/g;
+
 /**
- * Detects kit symbol bleed in author subpath sources.
- * Checks:
- *   1. Any `export ... from "../core/..."` (re-exporting the core barrel or a specific core file)
- *   2. Any named export of a known kit symbol (e.g. `export { Session }`)
+ * Wildcard-ban-by-form (SEC-M1): any `export *`/`export * as ns` statement on a scanned
+ * path is a violation regardless of specifier — allowlisted paths enumerate their export
+ * names exhaustively, so a wildcard can never be validated against one. The ONE
+ * specifier-exact grandfathered exemption: `src/index.ts` re-exporting from EXACTLY
+ * `./commons/index.ts` (GAP-4).
  */
-function findKitBleed(source: string): string[] {
+function findWildcardViolations(source: string, filePath: string): string[] {
   const violations: string[] = [];
-
-  // Check for re-exports pointing at ../core/
-  const reExportPattern = /export\s+(?:type\s+)?\{[^}]+\}\s+from\s+['"][^'"]*\/core[^'"]*['"]/g;
-  const coreExportStarPattern = /export\s+\*\s+from\s+['"][^'"]*\/core[^'"]*['"]/g;
-
-  for (const match of source.matchAll(reExportPattern)) {
-    violations.push(match[0].slice(0, 80));
-  }
-  for (const match of source.matchAll(coreExportStarPattern)) {
-    violations.push(match[0].slice(0, 80));
-  }
-
-  // Check for named exports of kit symbols (could be inline or re-export)
-  // e.g. `export { Session }` or `export { Session as SomeAlias }`
-  const namedExportPattern = /export\s+(?:type\s+)?\{([^}]+)\}/g;
-  for (const match of source.matchAll(namedExportPattern)) {
-    const exported = match[1] ?? "";
-    for (const kitSymbol of KIT_SYMBOL_NAMES) {
-      // Match `Symbol` or `Symbol as Alias` but not `FoundHandle` etc.
-      const symbolPattern = new RegExp(`\\b${kitSymbol}\\b`);
-      if (symbolPattern.test(exported)) {
-        violations.push(`kit symbol leaked: ${kitSymbol} in export { ${exported.trim()} }`);
-      }
+  for (const match of source.matchAll(WILDCARD_PATTERN)) {
+    const specifier = match[1] ?? "";
+    const isUmbrellaExemption = filePath === UMBRELLA_PATH && specifier === UMBRELLA_EXEMPT_SPECIFIER;
+    if (!isUmbrellaExemption) {
+      violations.push(`wildcard re-export banned by form: ${match[0].trim()}`);
     }
   }
-
   return violations;
 }
 
-describe("FIT-08 — no author subpath re-exports a kit symbol (ADR-0009)", () => {
-  for (const filePath of AUTHOR_SUBPATHS) {
-    it(`${filePath.replace(ROOT, "src")} exports no kit symbols`, () => {
-      const source = readFileSync(filePath, "utf-8");
-      const violations = findKitBleed(source);
+/**
+ * Per-path named-kit-symbol ban: scans every `export { ... }`/`export type { ... }` brace
+ * list for a KIT_SYMBOL_NAMES entry that is not present in this path's allow list for its
+ * export form (value vs type-only). A re-export of an allowlisted symbol from ../core is
+ * permitted on its path; every other kit symbol — ContractFake included, value or type
+ * (SEC-M3) — stays banned.
+ */
+function findNamedKitBleed(source: string, entry: ScannedPath): string[] {
+  const violations: string[] = [];
+  for (const match of source.matchAll(NAMED_EXPORT_PATTERN)) {
+    const isTypeOnly = match[1] !== undefined;
+    const exported = match[2] ?? "";
+    const allowList = isTypeOnly ? entry.typeAllow : entry.valueAllow;
+    for (const kitSymbol of KIT_SYMBOL_NAMES) {
+      const symbolPattern = new RegExp(`\\b${kitSymbol}\\b`);
+      if (symbolPattern.test(exported) && !allowList.includes(kitSymbol)) {
+        violations.push(
+          `kit symbol leaked: ${kitSymbol} in export ${isTypeOnly ? "type " : ""}{ ${exported.trim()} }`
+        );
+      }
+    }
+  }
+  return violations;
+}
+
+function scanPath(source: string, entry: ScannedPath): string[] {
+  return [...findWildcardViolations(source, entry.path), ...findNamedKitBleed(source, entry)];
+}
+
+describe("FIT-08 — no author subpath re-exports a kit symbol beyond its allowlist (ADR-0009)", () => {
+  for (const entry of SCANNED) {
+    it(`${entry.path.replace(ROOT, "src")} exports only its allowlist`, () => {
+      const source = readFileSync(entry.path, "utf-8");
+      const violations = scanPath(source, entry);
       expect(violations).toEqual([]);
     });
   }
 
-  // RED-PROOF: a fixture source re-exporting Session from core is caught.
+  // RED-PROOF: a fixture source re-exporting Session from core is caught (empty-allowlist path).
   it("[red-proof] re-exporting Session from core is detected as kit bleed", () => {
     const fixtureSource = `
 import { find } from "./internals.ts";
 export { Session } from "../core/session.ts";
 export { find };
 `;
-
-    const violations = findKitBleed(fixtureSource);
-    // Both the core re-export pattern and the named export check should fire
+    const entry = SCANNED.find((e) => e.path === join(ROOT, "commons/index.ts"))!;
+    const violations = scanPath(fixtureSource, entry);
     expect(violations.length).toBeGreaterThan(0);
-    expect(violations.some((v) => v.includes("core") || v.includes("Session"))).toBe(true);
+    expect(violations.some((v) => v.includes("Session"))).toBe(true);
   });
 
-  // RED-PROOF: re-exporting defineFactory under an alias is also caught.
-  it("[red-proof] re-exporting defineFactory (renamed) from core is caught", () => {
+  // RED-PROOF: re-exporting defineFactory under an alias is caught on an empty-allowlist path.
+  it("[red-proof] re-exporting defineFactory (renamed) from core is caught on a full-ban path", () => {
     const fixtureSource = `
 export { defineFactory as runFactory } from "../core/context.ts";
 `;
-
-    const violations = findKitBleed(fixtureSource);
+    const entry = SCANNED.find((e) => e.path === join(ROOT, "commons/index.ts"))!;
+    const violations = scanPath(fixtureSource, entry);
     expect(violations.length).toBeGreaterThan(0);
+  });
+
+  describe("REQ-TES-03 — ./testing per-path allowlist", () => {
+    const testingEntry = SCANNED.find((e) => e.path === join(ROOT, "testing/index.ts"))!;
+
+    it("REQ-TES-03.1: ./testing permits only its allowlist — no violation for the four sanctioned exports", () => {
+      const fixtureSource = `
+export type { Batch, Directive };
+export { defineFactory } from "../core/context.ts";
+export async function runFactoryForTest() {}
+`;
+      const violations = scanPath(fixtureSource, testingEntry);
+      expect(violations).toEqual([]);
+    });
+
+    it("[red-proof] REQ-TES-03.2: ./testing still bans a non-allowlisted kit symbol (Session)", () => {
+      const fixtureSource = `
+export type { Batch, Directive };
+export { defineFactory } from "../core/context.ts";
+export { Session } from "../core/session.ts";
+`;
+      const violations = scanPath(fixtureSource, testingEntry);
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations.some((v) => v.includes("Session"))).toBe(true);
+    });
+
+    it("REQ-TES-03.3: ./testing's source path is a member of the scanned-path set", () => {
+      const scannedPaths = SCANNED.map((e) => e.path);
+      expect(scannedPaths).toContain(join(ROOT, "testing/index.ts"));
+    });
+
+    it("[red-proof] REQ-TES-03.4: ContractFake is banned regardless of export form (value AND type-only)", () => {
+      const fixtureSource = `
+export type { Batch, Directive };
+export { defineFactory } from "../core/context.ts";
+export { ContractFake } from "./contract-fake.ts";
+export type { ContractFake as ContractFakeType } from "./contract-fake.ts";
+`;
+      const violations = scanPath(fixtureSource, testingEntry);
+      const contractFakeViolations = violations.filter((v) => v.includes("ContractFake"));
+      expect(contractFakeViolations.length).toEqual(2);
+    });
+  });
+
+  describe("REQ-ATH-01.3 — ContractFake is not exported by name from ./testing", () => {
+    const testingEntry = SCANNED.find((e) => e.path === join(ROOT, "testing/index.ts"))!;
+
+    it("[red-proof] REQ-ATH-01.3: a fixture re-exporting ContractFake as a value is flagged", () => {
+      const fixtureSource = `export { ContractFake } from "./contract-fake.ts";`;
+      const violations = scanPath(fixtureSource, testingEntry);
+      expect(violations.some((v) => v.includes("ContractFake"))).toBe(true);
+    });
+
+    it("[red-proof] REQ-ATH-01.3: a fixture re-exporting ContractFake as a type is flagged", () => {
+      const fixtureSource = `export type { ContractFake } from "./contract-fake.ts";`;
+      const violations = scanPath(fixtureSource, testingEntry);
+      expect(violations.some((v) => v.includes("ContractFake"))).toBe(true);
+    });
+  });
+
+  describe("SEC-M1 — wildcard re-export banned by form (GAP-4 specifier-exact exemption)", () => {
+    it("[red-proof] a facade wildcard re-export of the fake is flagged", () => {
+      const fixtureSource = `export * from "./contract-fake.ts";`;
+      const testingEntry = SCANNED.find((e) => e.path === join(ROOT, "testing/index.ts"))!;
+      const violations = scanPath(fixtureSource, testingEntry);
+      expect(violations.some((v) => v.includes("wildcard"))).toBe(true);
+    });
+
+    it("[red-proof] an umbrella wildcard to a NON-./commons/index.ts specifier is flagged (exemption is specifier-exact)", () => {
+      const fixtureSource = `export * from "./core/index.ts";`;
+      const umbrellaEntry = SCANNED.find((e) => e.path === UMBRELLA_PATH)!;
+      const violations = scanPath(fixtureSource, umbrellaEntry);
+      expect(violations.some((v) => v.includes("wildcard"))).toBe(true);
+    });
+
+    it("the umbrella's real, pre-existing `export * from \"./commons/index.ts\"` is exempted", () => {
+      const source = readFileSync(UMBRELLA_PATH, "utf-8");
+      const violations = findWildcardViolations(source, UMBRELLA_PATH);
+      expect(violations).toEqual([]);
+    });
   });
 
   // Boundary: FoundHandle/WritableHandle are author surface types, NOT kit symbols.
@@ -125,5 +248,11 @@ export { defineFactory as runFactory } from "../core/context.ts";
     expect(KIT_SYMBOL_NAMES).not.toContain("AuthoringVerb");
     expect(KIT_SYMBOL_NAMES).not.toContain("AuthoringReason");
     expect(KIT_SYMBOL_NAMES).not.toContain("AuthoringOrigin");
+  });
+
+  // Boundary (ARCH-M1): RunResult is a locally-DECLARED non-kit export — outside this
+  // guard's universe entirely, needs no allowlist entry.
+  it("RunResult is NOT in the kit symbol list (locally-declared, outside FIT-08's universe)", () => {
+    expect(KIT_SYMBOL_NAMES).not.toContain("RunResult");
   });
 });

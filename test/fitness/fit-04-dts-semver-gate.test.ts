@@ -8,16 +8,19 @@
  * from the current .d.ts counts as a breaking removal. Additive changes (new exports)
  * are allowed without a bump.
  *
- * Unconditional rebuild (W7): every run does `bun run build` before diffing — no mtime
- * gate. A mtime-based freshness check trusts the filesystem clock, which a stale/clean
- * checkout, a touched-but-unchanged file, or clock skew across a rebase can silently
- * defeat (dist looking "fresh" against a src it does not actually reflect). Rebuilding
- * every time trades a few hundred ms for removing that whole failure class.
+ * Unconditional rebuild (W7, updated ARCH-m4): every run consumes `shared-build.ts`'s
+ * `ensureTscBuild()` — a memoized, module-singleton `bun run build`, run AT MOST ONCE per
+ * `bun test` process and shared with the installed-consumer e2e (their build inputs are
+ * identical). This preserves W7's original invariant (never trust a stale `dist/` via a
+ * mtime-based freshness check, which a stale/clean checkout, a touched-but-unchanged file, or
+ * clock skew across a rebase can silently defeat) while removing the per-test-file rebuild
+ * this file used to trigger on its own.
  *
  * Baseline regeneration (manual, no script exists): `bun run build`, then copy each
  * `dist/**\/*.d.ts` over its committed counterpart in `test/fitness/dts-baseline/`
  * (`dist/commons/index.d.ts` → `commons.index.d.ts`, `dist/core/base-handle.d.ts` →
- * `core.base-handle.d.ts`, `dist/core/handle-state.d.ts` → `core.handle-state.d.ts`).
+ * `core.base-handle.d.ts`, `dist/core/handle-state.d.ts` → `core.handle-state.d.ts`,
+ * `dist/testing/index.d.ts` → `testing.index.d.ts`).
  *
  * Red-proof: simulating a baseline drift (a removed export) triggers the gate.
  * Activates in S-004 (build pipeline produces .d.ts; baseline committed here).
@@ -25,23 +28,17 @@
 import { describe, it, expect, beforeAll } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { ensureTscBuild } from "../support/shared-build.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const BASELINE_DIR = join(PROJECT_ROOT, "test/fitness/dts-baseline");
 const DIST_DIR = join(PROJECT_ROOT, "dist");
 
 beforeAll(() => {
-  const result = spawnSync("bun", ["run", "build"], {
-    cwd: PROJECT_ROOT,
-    encoding: "utf-8",
-  });
-  if (result.status !== 0) {
-    throw new Error(
-      `FIT-04: bun run build failed — cannot diff .d.ts without a fresh build.\n` +
-      `stdout: ${result.stdout}\nstderr: ${result.stderr}`
-    );
-  }
+  // ensureTscBuild() returns this same DIST_DIR — the call's purpose here is triggering
+  // the shared, memoized build, not sourcing the path (needed at module-eval time above,
+  // before beforeAll runs).
+  ensureTscBuild();
 });
 
 // Strips comment lines and blank lines from a .d.ts string, returning only
@@ -113,7 +110,21 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     distFile: join(DIST_DIR, "commons/classify-content.d.ts"),
     label: "commons/classify-content",
   },
+  {
+    // REQ-TES-05: entry-only baseline (ADR-0034 guard 5) — the type-only Batch/Directive
+    // re-export lines live in this file's index.d.ts, so entry-only still catches their
+    // removal (REQ-TES-05.2) without churning on internal fake refactors.
+    baselineFile: join(BASELINE_DIR, "testing.index.d.ts"),
+    distFile: join(DIST_DIR, "testing/index.d.ts"),
+    label: "testing",
+  },
 ];
+
+// Companion negative declaration-scan (SEC-M2, ADR-0034 guard 6): FIT-10 scans SOURCES only
+// and FIT-04 above is removal-only, so declaration emit could resurface a port-internal name
+// undetected by either. Housed here because this file already reads dist/testing/index.d.ts
+// via ensureTscBuild().
+const PORT_SYMBOL_PATTERN = /\b(?:EngineClient|EmitRejection)\b/;
 
 describe("FIT-04 — public .d.ts semver gate (baseline diff)", () => {
   for (const { baselineFile, distFile, label } of DTS_PAIRS) {
@@ -126,6 +137,20 @@ describe("FIT-04 — public .d.ts semver gate (baseline diff)", () => {
       expect(removals).toEqual([]);
     });
   }
+
+  // SEC-M2 companion assert: dist/testing/index.d.ts must never resurface a port-internal
+  // name — declaration emit is a distinct surface from FIT-10's source scan and FIT-04's
+  // removal-only diff above, so neither alone would catch it.
+  it("testing: dist/testing/index.d.ts does not resurface EngineClient or EmitRejection", () => {
+    const dts = readFileSync(join(DIST_DIR, "testing/index.d.ts"), "utf-8");
+    expect(PORT_SYMBOL_PATTERN.test(dts)).toBe(false);
+  });
+
+  // RED-PROOF: a fixture .d.ts naming the port symbol is caught by the negative scan.
+  it("[red-proof] a fixture dts naming EngineClient is caught by the negative declaration-scan", () => {
+    const fixtureDts = `export declare function makeClient(): EngineClient;`;
+    expect(PORT_SYMBOL_PATTERN.test(fixtureDts)).toBe(true);
+  });
 
   // RED-PROOF: simulating a baseline with an export the current dist does not have → violation detected.
   it("[red-proof] a removed export is detected as a breaking change", () => {

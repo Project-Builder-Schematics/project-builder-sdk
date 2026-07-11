@@ -241,12 +241,12 @@ the repo's one-line-diff discipline (FIT-04 idiom, lessons-learned). First-run g
 expected (baseline == current); the gate protects FUTURE changes.
 
 ### Tasks
-- [ ] `test/fitness/fit-08-no-kit-bleed.test.ts` Modify — per-path allowlist data model (`SCANNED` array) + wildcard-ban-by-form (with the specifier-exact `src/index.ts` umbrella exemption) + red-proof fixture; ATH-01.3 (`ContractFake` not exported by name) red-proof
-- [ ] `test/fitness/fit-09-pkg-exports-resolution.test.ts` Modify — 3→4 keys incl. `./testing`; `./core` still absent (TES-01)
-- [ ] [must-fail-first] [permanent-fixture] `test/fitness/fit-17-testing-dev-only-bundle.test.ts` Create — 4-entry minified scan per the FIT-17 mechanics block above (via shared-build's `ensureMinifiedEntry`); absence + positive-control presence + `sideEffects`-absent assert
-- [ ] `test/fitness/fit-04-dts-semver-gate.test.ts` Modify — add `testing.index` dts pair (`test/fitness/dts-baseline/testing.index.d.ts` Create) + negative declaration-scan companion assert; consume `shared-build`; update W7 header comment
-- [ ] `test/fitness/fit-07-no-tree-in-core.test.ts` Modify — de-stale "not in dist" comment; assert glob stays `src/core/**`
-- [ ] `openspec/decisions/0034-shipped-fake-containment.md` Create (draft, from design §4.5)
+- [x] `test/fitness/fit-08-no-kit-bleed.test.ts` Modify — per-path allowlist data model (`SCANNED` array) + wildcard-ban-by-form (with the specifier-exact `src/index.ts` umbrella exemption) + red-proof fixture; ATH-01.3 (`ContractFake` not exported by name) red-proof
+- [x] `test/fitness/fit-09-pkg-exports-resolution.test.ts` Modify — 3→4 keys incl. `./testing`; `./core` still absent (TES-01) — verify-and-skip, already done in S-000's deviation
+- [x] [must-fail-first] [permanent-fixture] `test/fitness/fit-17-testing-dev-only-bundle.test.ts` Create — 4-entry minified scan per the FIT-17 mechanics block above (via shared-build's `ensureMinifiedEntry`); absence + positive-control presence + `sideEffects`-absent assert
+- [x] `test/fitness/fit-04-dts-semver-gate.test.ts` Modify — add `testing.index` dts pair (`test/fitness/dts-baseline/testing.index.d.ts` Create) + negative declaration-scan companion assert; consume `shared-build`; update W7 header comment
+- [x] `test/fitness/fit-07-no-tree-in-core.test.ts` Modify — de-stale "not in dist" comment; assert glob stays `src/core/**`
+- [x] `openspec/decisions/0034-shipped-fake-containment.md` Create (draft, from design §4.5)
 
 ---
 
