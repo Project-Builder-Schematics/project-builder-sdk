@@ -7,33 +7,15 @@
  * (`test/fitness/fit-16-reserved-name-scan.test.ts`), which reuses the same discovery
  * function over a fixed allowlist regardless of `packageDir`.
  */
-import { describe, it, expect, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { describe, it, expect } from "bun:test";
+import { mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError } from "../../src/core/authoring-error.ts";
+import { scratchDirFactory } from "../support/scratch-dir.ts";
 
-let dirs: string[] = [];
-
-function scratchDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), "rln-"));
-  dirs.push(dir);
-  return dir;
-}
-
-afterEach(() => {
-  for (const dir of dirs) {
-    try {
-      chmodSync(dir, 0o755);
-    } catch {
-      // best-effort
-    }
-    rmSync(dir, { recursive: true, force: true });
-  }
-  dirs = [];
-});
+const scratchDir = scratchDirFactory("rln-");
 
 async function runAgainst(packageDir: string): Promise<unknown> {
   const fake = new ContractFake({ seed: {} });

@@ -5,6 +5,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { RESERVED_LIFECYCLE_NAMES } from "./schema-model.ts";
+import { isErrnoException } from "../fs-errors.ts";
 
 export const SCHEMA_FILENAME = "schema.json";
 
@@ -13,10 +14,6 @@ export function schemaPathFor(packageDir: string): string {
 }
 
 const RESERVED_EXTENSIONS = [".ts", ".js"];
-
-function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
-  return err instanceof Error && "code" in err;
-}
 
 // Strips a recognized extension (case-insensitively) so `pre-execute.ts`, `PRE-EXECUTE.TS`,
 // and the dir-form entry `pre-execute` (no extension at all) all normalize to the same

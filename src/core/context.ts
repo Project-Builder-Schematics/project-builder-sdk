@@ -11,9 +11,10 @@ import { DirectiveFactory } from "./directive-factory.ts";
 import { Session } from "./session.ts";
 import { AuthoringError } from "./authoring-error.ts";
 import { schemaPathFor, findReservedSibling } from "./schema/schema-discovery.ts";
-import { parseSchema, SchemaParseFailure } from "./schema/schema-parse.ts";
+import { parseSchema, SchemaParseFailure, formatLocator } from "./schema/schema-parse.ts";
 import { validateInput } from "./schema/schema-validate.ts";
 import { rejectionFor, rejectionForReservedName } from "./schema/input-rejection.ts";
+import { isErrnoException } from "./fs-errors.ts";
 
 export interface RunContext {
   session: Session;
@@ -52,10 +53,6 @@ function relativeDir(packageDir: string): string {
   return relative(process.cwd(), packageDir);
 }
 
-function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
-  return err instanceof Error && "code" in err;
-}
-
 // Author-vocabulary description of a non-ENOENT read failure — never the raw errno
 // message (no-echo). ENOENT is handled by its own opt-out branch and never reaches this.
 function describeReadFailure(err: unknown): string {
@@ -64,10 +61,6 @@ function describeReadFailure(err: unknown): string {
     if (err.code === "EISDIR") return "is a directory, not a file";
   }
   return "unreadable";
-}
-
-function locatorSuffix(line: number | undefined, column: number | undefined): string {
-  return line !== undefined && column !== undefined ? `(line ${line}, column ${column})` : "(position unknown)";
 }
 
 // RBV-05.1 runtime literal (slices load-bearing literals, design §4.4): ONE literal covers
@@ -81,7 +74,7 @@ function malformedSchemaMessage(
   line: number | undefined,
   column: number | undefined
 ): string {
-  return `[pbuilder] factory at ${relativeDir(packageDir)}: schema.json could not be read: ${problem} ${locatorSuffix(line, column)}`;
+  return `[pbuilder] factory at ${relativeDir(packageDir)}: schema.json could not be read: ${problem} ${formatLocator(line, column)}`;
 }
 
 function noSchemaWarning(packageDir: string): string {

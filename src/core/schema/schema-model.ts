@@ -24,3 +24,11 @@ export interface Schema {
 // Cross-repo lifecycle tokens (2026-07-06 engine handoff) — schematic-level, kebab-case,
 // case-insensitive matching lives in the reserved-name scan (S-004, ADR-0028).
 export const RESERVED_LIFECYCLE_NAMES = ["pre-execute", "post-execute"] as const;
+
+// Proto-pollution guard (ADR-0029 safe iteration): shared by schema-validate.ts's
+// input-key scan and schema-sufficiency.ts's declared-property-key scan.
+export const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+export function isPlainObject(value: unknown): value is { [key: string]: unknown } {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}

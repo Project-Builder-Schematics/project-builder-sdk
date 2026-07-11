@@ -15,37 +15,26 @@
 // `reserved lifecycle name: {name} is reserved and cannot be declared by a factory module`
 // (RLN-02.1, distinguishable-in-kind from the two templates above by literal text alone).
 
-import { AuthoringError } from "../authoring-error.ts";
+import { AuthoringError, type AuthoringReason } from "../authoring-error.ts";
 import type { ValidationFinding } from "./schema-validate.ts";
+
+function rejection(reason: AuthoringReason, message: string): AuthoringError {
+  return new AuthoringError({ verb: undefined, path: undefined, appliedCount: 0, reason, message });
+}
 
 export function rejectionFor(finding: ValidationFinding): AuthoringError {
   switch (finding.kind) {
     case "missing":
     case "wrong-type":
-      return new AuthoringError({
-        verb: undefined,
-        path: undefined,
-        reason: "invalid-input",
-        appliedCount: 0,
-        message: `invalid input: ${finding.field} must be ${finding.expectedType}`,
-      });
+      return rejection("invalid-input", `invalid input: ${finding.field} must be ${finding.expectedType}`);
     case "disallowed-key":
-      return new AuthoringError({
-        verb: undefined,
-        path: undefined,
-        reason: "invalid-input",
-        appliedCount: 0,
-        message: `invalid input: ${finding.field} is a reserved or disallowed key`,
-      });
+      return rejection("invalid-input", `invalid input: ${finding.field} is a reserved or disallowed key`);
   }
 }
 
 export function rejectionForReservedName(name: string): AuthoringError {
-  return new AuthoringError({
-    verb: undefined,
-    path: undefined,
-    reason: "reserved-name",
-    appliedCount: 0,
-    message: `reserved lifecycle name: ${name} is reserved and cannot be declared by a factory module`,
-  });
+  return rejection(
+    "reserved-name",
+    `reserved lifecycle name: ${name} is reserved and cannot be declared by a factory module`
+  );
 }

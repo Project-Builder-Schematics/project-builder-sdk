@@ -5,38 +5,19 @@
  * -> validate -> reject/warn — distinct from `schema-validate.test.ts`'s unit-level direct
  * calls into `validateInput` (which own the exhaustive finding-shape matrix).
  */
-import { describe, it, expect, spyOn, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, chmodSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { describe, it, expect, spyOn } from "bun:test";
+import { chmodSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError } from "../../src/core/authoring-error.ts";
 import { seedSchema } from "../support/canary.ts";
+import { scratchDirFactory } from "../support/scratch-dir.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const PORT_SCHEMA = { properties: { port: { type: "number", label: "Port", required: true } } };
 
-let dirs: string[] = [];
-
-function scratchDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), "rbv-"));
-  dirs.push(dir);
-  return dir;
-}
-
-afterEach(() => {
-  for (const dir of dirs) {
-    // chmod back to writable/readable so cleanup itself never fails on a locked-down fixture.
-    try {
-      chmodSync(dir, 0o755);
-    } catch {
-      // best-effort
-    }
-    rmSync(dir, { recursive: true, force: true });
-  }
-  dirs = [];
-});
+const scratchDir = scratchDirFactory("rbv-");
 
 async function runAgainst(packageDir: string, input: unknown): Promise<unknown> {
   const fake = new ContractFake({ seed: {} });

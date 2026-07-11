@@ -10,10 +10,11 @@
 
 import { readFileSync, writeFileSync, existsSync, realpathSync } from "node:fs";
 import { join, dirname, basename, resolve, sep } from "node:path";
-import { parseSchema, SchemaParseFailure } from "../src/core/schema/schema-parse.ts";
+import { parseSchema, SchemaParseFailure, formatLocator } from "../src/core/schema/schema-parse.ts";
 import { computeSchemaDigest } from "../src/core/schema/schema-digest.ts";
 import { schemaPathFor } from "../src/core/schema/schema-discovery.ts";
 import { checkSufficiency, type SufficiencyFinding } from "../src/core/schema/schema-sufficiency.ts";
+import { isErrnoException } from "../src/core/fs-errors.ts";
 import { emitInputType, UnrecognizedPropertyTypeError } from "./emit-type.ts";
 
 export const GENERATED_FILENAME = "schema.generated.ts";
@@ -119,18 +120,11 @@ function assertWriteContained(packageDirArg: string, outputPath: string): void {
   }
 }
 
-function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
-  return err instanceof Error && "code" in err;
-}
-
 // TW-m6 pinned template: `pbuilder-codegen: <file>: <problem> (line L, column C)`, with the
 // ADR-0027 Gap-8 `(position unknown)` fallback when the engine's SyntaxError carried no
 // extractable offset. Never echoes raw file content or the underlying parser's own text.
 function formatParseError(schemaPath: string, err: SchemaParseFailure): string {
-  const locator = err.line !== undefined && err.column !== undefined
-    ? `(line ${err.line}, column ${err.column})`
-    : "(position unknown)";
-  return `pbuilder-codegen: ${schemaPath}: ${err.problem} ${locator}`;
+  return `pbuilder-codegen: ${schemaPath}: ${err.problem} ${formatLocator(err.line, err.column)}`;
 }
 
 // Bounded, author-vocabulary descriptions per REQ-SCP-02 reason — never echoes a finding's
