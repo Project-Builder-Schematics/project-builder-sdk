@@ -155,11 +155,21 @@ run THEN it still throws (ATH-08).
   per `emit()` call, in call order.
 
 ### Tasks
-- [ ] `src/testing/index.ts` Modify — elaborate to full `runFactoryForTest<O>(factory, input, seed?)` + `RunResult` per the facade contract above; local `RecordingClient` structural type (never names `EngineClient`)
-- [ ] [must-fail-first] `test/fake/harness-result.test.ts` Create — ATH-01/02/03/04/05/06/07/09/10
-- [ ] [must-fail-first] escaped-callback outside-run scenario (ATH-08)
-- [ ] ~4 MiB batch-cap fixture (ATH-09.2) + non-JSON-safe value reject (ATH-09.1)
-- [ ] unrendered-template non-promise assertion (ATH-10)
+- [x] `src/testing/index.ts` Modify — elaborate to full `runFactoryForTest<O>(factory, input, seed?)` + `RunResult` per the facade contract above; local `RecordingClient` structural type (never names `EngineClient`)
+- [x] [must-fail-first] `test/fake/harness-result.test.ts` Create — ATH-01/02/03/04/05/06/07/09/10
+- [x] [must-fail-first] escaped-callback outside-run scenario (ATH-08)
+- [x] ~4 MiB batch-cap fixture (ATH-09.2) + non-JSON-safe value reject (ATH-09.1)
+- [x] unrendered-template non-promise assertion (ATH-10)
+
+**Executor deviation note (binding constraint compliance)**: FIT-10's port-symbol scan is a
+textual regex over the WHOLE source (comments included), not just code — the facade's
+header comment originally spelled out the kit's port-interface/rejection-value type names in
+prose to explain the structural-typing rationale, which FIT-10 flagged as a violation even
+though no code referenced them. Reworded the comment to describe the mechanism without
+spelling those identifiers, per binding constraint #1 (`src/testing/index.ts` MUST NOT name
+them) — this constraint turned out to bind on the WHOLE file text, not just import/usage
+sites. No spec/design impact; the fix is a comment-only edit, `src/testing/index.ts` diff
+scope unchanged.
 
 ---
 
