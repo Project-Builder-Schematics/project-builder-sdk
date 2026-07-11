@@ -203,31 +203,35 @@ own import graph contains no `Session`/`DirectiveFactory`/`EngineClient`; no dir
 `EngineClient.read` call exists anywhere in `src/dialects/typescript/**`.
 
 ### Tasks
-- [ ] [must-fail-first] Halt-check: confirm S-000's FIT-01 rewrite is green BEFORE this task
+- [x] [must-fail-first] Halt-check: confirm S-000's FIT-01 rewrite is green BEFORE this task
   proceeds (constraint 1); then `package.json` — `ts-morph` exact-pinned dependency, `./typescript`
   exports entry; commit `bun.lock`; `openspec/decisions/0033-*.md` (Create) + `0014-*.md`
-  amendment (Modify)
-- [ ] [must-fail-first] `src/dialects/typescript/ast.ts` (Create) — ts-morph parse/print with
+  amendment (Modify) — LANDED AS `0038-ts-morph-runtime-dependency.md` (renumbered; 0033-0037
+  claimed by stage-4b-testing-harness + this change's own S-001 batch — see file header)
+- [x] [must-fail-first] `src/dialects/typescript/ast.ts` (Create) — ts-morph parse/print with
   frozen `ManipulationSettings` + explicit `newLineKind`, no language-service formatter
-- [ ] [must-fail-first] `src/dialects/typescript/ops.ts` (Create) — `addImport(name, from)`
+- [x] [must-fail-first] `src/dialects/typescript/ops.ts` (Create) — `addImport(name, from)`
   op-pack, merge-into-existing-clause idempotency (TSD-01.1/.2)
-- [ ] [must-fail-first] `src/dialects/typescript/index.ts` (Create) — namespace export
+- [x] [must-fail-first] `src/dialects/typescript/index.ts` (Create) — namespace export
   exposing `find`, composed via `defineDialect` + `withOps(addImportPack)`; async `@example`
   (FIT-06)
-- [ ] `test/dialects/typescript/dialect.test.ts` (Create) — TSD-01/02 base cases + determinism
+- [x] `test/dialects/typescript/dialect.test.ts` (Create) — TSD-01/02 base cases + determinism
   spy (language-service formatter zero calls)
-- [ ] `test/dialects/typescript/coalescing.test.ts` (Create) — MC-01/02/05 real-AST restatement
-  + unawaited-join/same-path (MC-06/07) restatement, spy-on-`emit` content-verified
-- [ ] `test/dialects/typescript/read-routing.test.ts` (Create) — MC-03 static scan + planted
+- [x] `test/dialects/typescript/coalescing.test.ts` (Create) — MC-01/02/05 real-AST restatement
+  + unawaited-join/same-path (MC-06/07) restatement, spy-on-`emit` content-verified — also
+  closes verify-in-loop-1 followup F1 (REQ-DG-03.2, `.raw()` before a named op)
+- [x] `test/dialects/typescript/read-routing.test.ts` (Create) — MC-03 static scan + planted
   direct-`EngineClient.read` red-proof
-- [ ] `test/dialects/typescript/golden/` (Create) — coalesced-one, split-#1/#2, addImport
+- [x] `test/dialects/typescript/golden/` (Create) — coalesced-one, split-#1/#2, addImport
   before/after goldens
-- [ ] `test/e2e/dialect-modify.e2e.test.ts` (Create) — Flows 1-4 (chain→one-modify, `.raw`
+- [x] `test/e2e/dialect-modify.e2e.test.ts` (Create) — Flows 1-4 (chain→one-modify, `.raw`
   either order, mid-chain split, forgotten-await still commits)
-- [ ] `test/fitness/fit-03/04/05/06/08/14-*.test.ts` Modify — `./typescript` budget constant;
+- [x] `test/fitness/fit-03/04/05/06/08/14-*.test.ts` Modify — `./typescript` budget constant;
   `typescript.index.d.ts` baseline; FIT-05 real-dialect coalesced-directive scenario; `PUBLIC_PATHS`
   +`typescript/index.ts`; `./typescript` kit-bleed scan + planted Session-import red-proof
-  (DG-04); FIT-14 4-exports/ts-morph-dep/tarball + regenerated `pkg-surface-baseline.json`
+  (DG-04); FIT-14 4-exports/ts-morph-dep/tarball + regenerated `pkg-surface-baseline.json` —
+  exports set is actually 5 entries not 4 (`./testing` pre-existing on `main`, see apply-progress
+  Deviation #2); FIT-09 also extended (not in original task text — required for suite-green)
 
 ---
 
