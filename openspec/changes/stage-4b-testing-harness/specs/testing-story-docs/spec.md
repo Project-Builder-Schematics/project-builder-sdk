@@ -12,7 +12,7 @@ documented — a README section an author can follow start-to-finish, a JSDoc `@
 revert of Stage-4's incremental-shipping qualifying-line, and the ADR-0009 amendment that
 literally names the third audience. **V2 note**: the 0.x semver exemption must be
 COMMUNICATED, not just decided (TW-M2) — in the README AND in `runFactoryForTest`'s JSDoc,
-not only in ADR-0032.
+not only in ADR-0033.
 
 ## Requirements
 
@@ -117,7 +117,7 @@ revert actually happening.
 
 ### REQ-TSD-04: ADR-0009 Amendment Content
 
-The ADR-0009 amendment (next free ADR: 0032) MUST literally state: a third audience named
+The ADR-0009 amendment (next free ADR: 0033) MUST literally state: a third audience named
 `author-testing`; its own entry, `./testing`; and that `./testing` ships 0.x
 semver-exempt (mirroring the kit) until validated by real use. The amendment extends the
 two-audience boundary — it MUST NOT redefine or remove the existing AUTHOR/CONTRIBUTOR

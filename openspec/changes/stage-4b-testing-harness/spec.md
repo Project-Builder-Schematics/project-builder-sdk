@@ -72,7 +72,7 @@ exemption holds. FIT-04 baseline granularity for `./testing` (entry-only `.d.ts`
 whole `src/testing/**` tree) is left as an explicit **design input** — this spec requires
 COVERAGE of the `./testing` surface by the semver gate, not a pinned file set. **V2**: this
 exemption must be COMMUNICATED, not merely decided — REQ-TSD-01 and REQ-TSD-02 both require
-it stated in the README and in `runFactoryForTest`'s JSDoc respectively (TW-M2); ADR-0032
+it stated in the README and in `runFactoryForTest`'s JSDoc respectively (TW-M2); ADR-0033
 (REQ-TSD-04) records it as the decision of record, but is no longer the ONLY place it's
 said.
 
@@ -101,7 +101,7 @@ before slicing.
    this change builds before that archive lands, REQ-TSD-03's slice is DEFERRED, never
    silently dropped.
 3. **Numbering.** Next free fitness number claimed here: **FIT-17** (REQ-TES-04). Next free
-   ADR: **0032** (REQ-TSD-04). No collision with Stage-4's FIT-12..FIT-15 or ADR-0027..0031
+   ADR: **0033** (REQ-TSD-04). No collision with Stage-4's FIT-12..FIT-15 or ADR-0027..0031
    drafts.
 4. **Read-only upstream.** Stage-2 (`stage-2-error-attribution`) and Stage-4
    (`stage-4-typed-options`) signed specs are NOT touched by this change. Any FIT-14

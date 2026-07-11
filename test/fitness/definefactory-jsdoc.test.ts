@@ -39,12 +39,17 @@ describe("REQ-FPS-05.3 — reserved lifecycle names are documented at defineFact
   });
 });
 
-describe("REQ-FPS-05.4 — README qualifies the incremental-shipping status (reverted in stage-4b)", () => {
+describe("REQ-FPS-05.4 — README incremental-shipping qualifying line (reverted by stage-4b REQ-TSD-03)", () => {
+  // The scenario's own text anticipated this flip: "this line is REVERTED when
+  // stage-4b-testing-harness lands (temporary, stage-scoped qualifier)". `stage-4b`'s
+  // REQ-TSD-03 owns the revert (openspec/changes/stage-4b-testing-harness); this permanent
+  // regression guard stays here so a future change can never silently reintroduce the
+  // stale qualifier once the API this note qualified is real.
   const README_QUALIFYING_LINE =
     '> **Note**: shipping incrementally — the external-author API (installable `defineFactory` + testing harness) lands with stage-4b.';
 
-  it("README.md contains the qualifying line verbatim, byte-for-byte", () => {
+  it("README.md no longer contains the qualifying line — the external-author API it qualified now ships", () => {
     const readme = readFileSync(join(PROJECT_ROOT, "README.md"), "utf-8");
-    expect(readme).toContain(README_QUALIFYING_LINE);
+    expect(readme).not.toContain(README_QUALIFYING_LINE);
   });
 });

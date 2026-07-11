@@ -55,7 +55,7 @@ ARCHIVE.
 
 1. `openspec/changes/stage-4b-testing-harness/spec.md` + all 4 `specs/*/spec.md` (scenario texts — this file is build ORDER, those are build CONTENT)
 2. `openspec/changes/stage-4b-testing-harness/design.md` — esp. §4.2 (File Changes), §4.3 (Data Model), §4.4 (Interface Contracts), §4.5 (ADRs), §4.6/4.6a/4.6b (Test Derivation, shared-build, ATH-11 scoping), §4.8 (sequencing)
-3. `openspec/decisions/0009-two-audiences-contributor-kit.md` — the boundary ADR-0032 amends
+3. `openspec/decisions/0009-two-audiences-contributor-kit.md` — the boundary ADR-0033 amends
 4. `test/support/contract-fake.ts`, `test/support/rejection-messages.ts`, `test/support/spy-client.ts` — exact APIs being relocated/mirrored
 5. `src/core/context.ts` (`defineFactory`), `src/core/wire.ts` (`Batch`/`Directive`) — origin declarations FIT-06's cascade reaches
 6. `test/fitness/fit-08-no-kit-bleed.test.ts`, `fit-10-engine-client-port-guard.test.ts`, `fit-09-pkg-exports-resolution.test.ts`, `fit-04-dts-semver-gate.test.ts`, `fit-06-example-jsdoc.test.ts`, `fit-07-no-tree-in-core.test.ts` — every fitness file this change modifies
@@ -78,7 +78,7 @@ ARCHIVE.
 - **Facade signature/param name**: `runFactoryForTest<O>(factory, input, seed?)` — first param named `factory` (author vocabulary), frozen by FIT-04; `factory` = the RUNNER `defineFactory` returns (`(o, { client }) => Promise<void>`), never the raw fn; the caller never passes a client (harness builds fake + `RecordingClient` internally; `seed` → `ContractFakeOptions.seed`).
 - **ATH-13 interim shape (stage-4 Option A carry-over)**: opted-in rejection throws a **plain `Error`** (never `AuthoringError`) with the stage-4-pinned REQ-AEC-09 message literal; `result.error` observed as `unknown`; `instanceof AuthoringError`/`reason` only assertable post stage-4 S-006.
 - **FSP mechanism**: reference-identity (`===` on the class / value equality on constants) — never a behavioural parity suite.
-- **Numbering**: FIT-17 (dev-only bundle), FIT-18 (fake parity) — next free after stage-4's FIT-16. ADRs 0032–0035 — next free after stage-4's 0031.
+- **Numbering**: FIT-17 (dev-only bundle), FIT-18 (fake parity) — next free after stage-4's FIT-16. ADRs 0033–0036 — next free after stage-4's 0031.
 
 ### Binding constraints (verbatim — violating any is a slicing/build defect)
 
@@ -103,14 +103,29 @@ old-path shims; GIVEN the built, packed, scratch-installed tarball WHEN a script
 ONE symbol (`defineFactory`) from `@pbuilder/sdk/testing` by name THEN it resolves.
 
 ### Tasks
-- [ ] [must-fail-first] git-move `contract-fake.ts` + `rejection-messages.ts` into `src/testing/`; shim both old `test/support/` paths as pure re-exports
-- [ ] `fit-10-engine-client-port-guard.test.ts` Modify — allow-list transition to `src/testing/contract-fake.ts` (constraint: exact string, never a glob)
-- [ ] `src/testing/index.ts` Create (minimal) — re-export `defineFactory` (value) only; no `RunResult`/`runFactoryForTest` yet
-- [ ] `package.json#exports` Modify — add `./testing`
-- [ ] `openspec/decisions/0034-fake-relocation-parity-by-identity.md`, `0035-packed-tarball-e2e-lifecycle.md` Create (drafts, from design §4.5)
-- [ ] `test/support/shared-build.ts` Create — `ensureTscBuild()` memoized per-process
-- [ ] [must-fail-first] `test/e2e/installed-consumer.e2e.test.ts` Create (spike only) — build→pack→`.tmp-testing-e2e/` install (`--ignore-scripts`, non-routable registry)→import `defineFactory` by name, assert resolution
-- [ ] Full suite green + `tsc --noEmit` clean proof
+- [x] [must-fail-first] git-move `contract-fake.ts` + `rejection-messages.ts` into `src/testing/`; shim both old `test/support/` paths as pure re-exports
+- [x] `fit-10-engine-client-port-guard.test.ts` Modify — allow-list transition to `src/testing/contract-fake.ts` (constraint: exact string, never a glob)
+- [x] `src/testing/index.ts` Create (minimal) — re-export `defineFactory` (value) only; no `RunResult`/`runFactoryForTest` yet
+- [x] `package.json#exports` Modify — add `./testing`
+- [x] `openspec/decisions/0035-fake-relocation-parity-by-identity.md`, `0036-packed-tarball-e2e-lifecycle.md` Create (drafts, from design §4.5)
+- [x] `test/support/shared-build.ts` Create — `ensureTscBuild()` memoized per-process
+- [x] [must-fail-first] `test/e2e/installed-consumer.e2e.test.ts` Create (spike only) — build→pack→`.tmp-testing-e2e/` install (`--ignore-scripts`, non-routable registry)→import `defineFactory` by name, assert resolution
+- [x] Full suite green + `tsc --noEmit` clean proof
+
+**Executor deviation note (binding constraint #7 compliance)**: two extra fitness files
+needed a same-slice update beyond this card's literal list, both because adding
+`package.json#exports["./testing"]` and `src/testing/index.ts` necessarily changed observable
+surface those guards pin exactly — leaving either unpatched would have left the suite RED at
+this slice's boundary, violating "every slice leaves the suite GREEN" (constraint 7):
+1. `test/fitness/fit-09-pkg-exports-resolution.test.ts` — widened the exact-keys assertion
+   3→4 (`./testing` added) + a new dedicated `./testing` shape assertion. This is nominally
+   S-003's TES-01 row, but the exports-map edit that trips it happens HERE — same precedent
+   §4.8 already sets for FIT-14 ("regenerated in the SAME slice as the package.json exports
+   edit"). S-003's own fit-09 task is now a verify-and-skip.
+2. `test/fitness/fit-14-package-surface.test.ts` + `pkg-surface-baseline.json` — regenerated
+   per §4.8's explicit same-slice instruction (the row is duplicated on S-006's task list;
+   that duplicate is now a verify-and-skip too — S-006 makes no further package.json/exports
+   edit that would re-trigger this baseline).
 
 ---
 
@@ -140,11 +155,21 @@ run THEN it still throws (ATH-08).
   per `emit()` call, in call order.
 
 ### Tasks
-- [ ] `src/testing/index.ts` Modify — elaborate to full `runFactoryForTest<O>(factory, input, seed?)` + `RunResult` per the facade contract above; local `RecordingClient` structural type (never names `EngineClient`)
-- [ ] [must-fail-first] `test/fake/harness-result.test.ts` Create — ATH-01/02/03/04/05/06/07/09/10
-- [ ] [must-fail-first] escaped-callback outside-run scenario (ATH-08)
-- [ ] ~4 MiB batch-cap fixture (ATH-09.2) + non-JSON-safe value reject (ATH-09.1)
-- [ ] unrendered-template non-promise assertion (ATH-10)
+- [x] `src/testing/index.ts` Modify — elaborate to full `runFactoryForTest<O>(factory, input, seed?)` + `RunResult` per the facade contract above; local `RecordingClient` structural type (never names `EngineClient`)
+- [x] [must-fail-first] `test/fake/harness-result.test.ts` Create — ATH-01/02/03/04/05/06/07/09/10
+- [x] [must-fail-first] escaped-callback outside-run scenario (ATH-08)
+- [x] ~4 MiB batch-cap fixture (ATH-09.2) + non-JSON-safe value reject (ATH-09.1)
+- [x] unrendered-template non-promise assertion (ATH-10)
+
+**Executor deviation note (binding constraint compliance)**: FIT-10's port-symbol scan is a
+textual regex over the WHOLE source (comments included), not just code — the facade's
+header comment originally spelled out the kit's port-interface/rejection-value type names in
+prose to explain the structural-typing rationale, which FIT-10 flagged as a violation even
+though no code referenced them. Reworded the comment to describe the mechanism without
+spelling those identifiers, per binding constraint #1 (`src/testing/index.ts` MUST NOT name
+them) — this constraint turned out to bind on the WHOLE file text, not just import/usage
+sites. No spec/design impact; the fix is a comment-only edit, `src/testing/index.ts` diff
+scope unchanged.
 
 ---
 
@@ -160,9 +185,33 @@ false-flagged (ATH-12); GIVEN the two `ContractFake` paths WHEN compared THEN th
 to the SAME reference (FSP-02) and a re-declared-body regression fails closed (FSP-04).
 
 ### Tasks
-- [ ] [must-fail-first] `test/fake/harness-in-memory-invariant.test.ts` Create — spies on `node:fs`/`node:net`/`Bun.write/file/spawn/$/connect`/`fetch` + Proxy traps on `process.env`/`process.argv`
-- [ ] [must-fail-first] `test/fake/harness-leak-scan.test.ts` Create — ATH-12.1/.2 (leak + author-content exemption)
-- [ ] [must-fail-first] [permanent-fixture] `test/fitness/fit-18-fake-single-source-parity.test.ts` Create — FSP-01 single-source, FSP-02 `===` identity, FSP-03 dictionary single-source, FSP-04 red-proof (re-declared shim body fails)
+- [x] [must-fail-first] `test/fake/harness-in-memory-invariant.test.ts` Create — spies on `node:fs`/`node:net`/`Bun.write/file/spawn/$/connect`/`fetch` + Proxy traps on `process.env`/`process.argv`
+- [x] [must-fail-first] `test/fake/harness-leak-scan.test.ts` Create — ATH-12.1/.2 (leak + author-content exemption)
+- [x] [must-fail-first] [permanent-fixture] `test/fitness/fit-18-fake-single-source-parity.test.ts` Create — FSP-01 single-source, FSP-02 `===` identity, FSP-03 dictionary single-source, FSP-04 red-proof (re-declared shim body fails)
+
+**Executor deviation notes (binding constraint #7 compliance)**:
+1. **ATH-11.2 executor-note investigation (no widening needed at S-002)**: per the binding
+   design-rev-3 executor note, checked whether stage-4's merged discovery surface
+   (`src/core/schema/schema-discovery.ts`'s `readdirSync`, `src/core/context.ts`'s
+   `readFileSync`) could trip ATH-11.1's strict zero-events assertion for a non-opted-in
+   factory. Confirmed (src/core/context.ts lines ~197-206): both reads execute ONLY inside
+   `if (options?.packageDir !== undefined)` — i.e. only for a `packageDir`-opted-in factory.
+   S-002's ATH-11.1 scope is non-opted-in factories only (ATH-11.2's allowlist-predicate
+   scenario is S-006, gated). No allowlist widening required at this slice; strict
+   zero-events is correct as written. Documented inline in the test file's header comment.
+2. **FIT-18's repository-wide scan (FSP-01.1) excludes its own file, one exact path**: a
+   regex/brace-balance scan can't distinguish this spec file's own fixture template-literal
+   strings (used for the method-set triangulation tests) from real class declarations, so
+   `test/fitness/fit-18-fake-single-source-parity.test.ts` textually self-matched as 2 false
+   positives during RED→GREEN. Fixed with a single, exact, documented path exemption
+   (`filePath !== import.meta.path`) — mirrors FIT-10's `ALLOW_LISTED_PATH` single-path
+   precedent rather than narrowing the scan's directory universe (which would have silently
+   dropped `test/`+`bin/` coverage for a hypothetical duplicate planted there).
+3. **`test/fake/harness-leak-scan.test.ts`'s `scanForLeaks` is an intentional near-duplicate**
+   of `test/fitness/fit-11-whole-object-leak-scan.test.ts`'s traversal (same technique:
+   `Object.getOwnPropertyNames` + bounded `.cause` walk + cycle guard) — kept local rather
+   than extracted into a shared module, mirroring the S-001 precedent (`test/fake/batch-cap-fixtures.ts`
+   near-duplicate) of not widening a neighbour file outside this slice's declared scope.
 
 ---
 
@@ -192,12 +241,12 @@ the repo's one-line-diff discipline (FIT-04 idiom, lessons-learned). First-run g
 expected (baseline == current); the gate protects FUTURE changes.
 
 ### Tasks
-- [ ] `test/fitness/fit-08-no-kit-bleed.test.ts` Modify — per-path allowlist data model (`SCANNED` array) + wildcard-ban-by-form (with the specifier-exact `src/index.ts` umbrella exemption) + red-proof fixture; ATH-01.3 (`ContractFake` not exported by name) red-proof
-- [ ] `test/fitness/fit-09-pkg-exports-resolution.test.ts` Modify — 3→4 keys incl. `./testing`; `./core` still absent (TES-01)
-- [ ] [must-fail-first] [permanent-fixture] `test/fitness/fit-17-testing-dev-only-bundle.test.ts` Create — 4-entry minified scan per the FIT-17 mechanics block above (via shared-build's `ensureMinifiedEntry`); absence + positive-control presence + `sideEffects`-absent assert
-- [ ] `test/fitness/fit-04-dts-semver-gate.test.ts` Modify — add `testing.index` dts pair (`test/fitness/dts-baseline/testing.index.d.ts` Create) + negative declaration-scan companion assert; consume `shared-build`; update W7 header comment
-- [ ] `test/fitness/fit-07-no-tree-in-core.test.ts` Modify — de-stale "not in dist" comment; assert glob stays `src/core/**`
-- [ ] `openspec/decisions/0033-shipped-fake-containment.md` Create (draft, from design §4.5)
+- [x] `test/fitness/fit-08-no-kit-bleed.test.ts` Modify — per-path allowlist data model (`SCANNED` array) + wildcard-ban-by-form (with the specifier-exact `src/index.ts` umbrella exemption) + red-proof fixture; ATH-01.3 (`ContractFake` not exported by name) red-proof
+- [x] `test/fitness/fit-09-pkg-exports-resolution.test.ts` Modify — 3→4 keys incl. `./testing`; `./core` still absent (TES-01) — verify-and-skip, already done in S-000's deviation
+- [x] [must-fail-first] [permanent-fixture] `test/fitness/fit-17-testing-dev-only-bundle.test.ts` Create — 4-entry minified scan per the FIT-17 mechanics block above (via shared-build's `ensureMinifiedEntry`); absence + positive-control presence + `sideEffects`-absent assert
+- [x] `test/fitness/fit-04-dts-semver-gate.test.ts` Modify — add `testing.index` dts pair (`test/fitness/dts-baseline/testing.index.d.ts` Create) + negative declaration-scan companion assert; consume `shared-build`; update W7 header comment
+- [x] `test/fitness/fit-07-no-tree-in-core.test.ts` Modify — de-stale "not in dist" comment; assert glob stays `src/core/**`
+- [x] `openspec/decisions/0034-shipped-fake-containment.md` Create (draft, from design §4.5)
 
 ---
 
@@ -215,9 +264,9 @@ founding bug); GIVEN a colliding-without-force factory THEN `result.tree` is emp
 type (TES-06.3).
 
 ### Tasks
-- [ ] `test/e2e/installed-consumer.e2e.test.ts` Modify — elaborate the S-000 spike into TES-02.1 (resolution matrix) + TES-06.1/.2/.3 (founding-bug scenarios)
-- [ ] golden committed-tree fixture (write-only factory) + colliding-batch fixture (all-or-nothing rejection)
-- [ ] assert consumer-side `AuthoringError` narrowing via the installed package's own export
+- [x] `test/e2e/installed-consumer.e2e.test.ts` Modify — elaborate the S-000 spike into TES-02.1 (resolution matrix) + TES-06.1/.2/.3 (founding-bug scenarios)
+- [x] golden committed-tree fixture (write-only factory) + colliding-batch fixture (all-or-nothing rejection)
+- [x] assert consumer-side `AuthoringError` narrowing via the installed package's own export
 
 ---
 
@@ -231,18 +280,18 @@ copy-runnable (TSD-01.1) and states the 0.x exemption + `./testing`-vs-`./confor
 boundary (TSD-01.2-.4); GIVEN `src/testing/index.ts`'s JSDoc WHEN scanned by FIT-06 THEN
 `@example` includes a rejection assertion with `instanceof AuthoringError`, `@param seed` is
 documented, and the cascade reaches `defineFactory`/`Batch`/`Directive` origins (TSD-02);
-GIVEN ADR-0009's amendment stub THEN it cross-references ADR-0032's third-audience text
+GIVEN ADR-0009's amendment stub THEN it cross-references ADR-0033's third-audience text
 (TSD-04). The docs tests assert **TOKEN-LEVEL strings** (design rev 4 §4.6 pins the token
 set), not whole-sentence prose matches. **Qualifying-line boundary (GAP-6)**: this slice
 does NOT write or touch the README incremental-shipping qualifying line — stage-4's OWN
 S-005 writes it; 4b only REVERTS it, in S-006, after stage-4 archives.
 
 ### Tasks
-- [ ] `README.md` Modify — testing section (copy-runnable example + seeded-read worked example + boundary + 0.x sentence); qualifying line untouched
-- [ ] `src/core/wire.ts` Modify — `@example` on `Batch`/`Directive` origin decls (FIT-06 cascade)
-- [ ] `test/fitness/fit-06-example-jsdoc.test.ts` Modify — `PUBLIC_PATHS` += `src/testing/index.ts`; `RunResult` in scope; stability-language assert
-- [ ] [must-fail-first] `test/docs/testing-story-docs.test.ts` Create — TSD-01/02/04 copy-runnable + TOKEN-LEVEL text asserts (design rev 4 §4.6 token set)
-- [ ] `openspec/decisions/0009-two-audiences-contributor-kit.md` Modify (amendment stub) + `0032-third-audience-author-testing.md` Create (draft)
+- [x] `README.md` Modify — testing section (copy-runnable example + seeded-read worked example + boundary + 0.x sentence); qualifying line untouched
+- [x] `src/core/wire.ts` Modify — `@example` on `Batch`/`Directive` origin decls (FIT-06 cascade)
+- [x] `test/fitness/fit-06-example-jsdoc.test.ts` Modify — `PUBLIC_PATHS` += `src/testing/index.ts`; `RunResult` in scope; stability-language assert
+- [x] [must-fail-first] `test/docs/testing-story-docs.test.ts` Create — TSD-01/02/04 copy-runnable + TOKEN-LEVEL text asserts (design rev 4 §4.6 token set)
+- [x] `openspec/decisions/0009-two-audiences-contributor-kit.md` Modify (amendment stub) + `0033-third-audience-author-testing.md` Create (draft)
 
 ---
 
@@ -274,12 +323,43 @@ its interim plain-`Error` shape is governed by
 (pre-Stage-2-amendment)". ATH-13.1 asserts THAT literal + the fail-closed empties.
 
 ### Tasks
-- [ ] **GATE** — verify stage-4 ARCHIVE evidence: `context.ts` carries `defineFactory(fn, { packageDir })` (ADR-0029) AND stage-4's ADRs 0027–0031 are promoted from DRAFT in `openspec/decisions/` (promotion happens at stage-4's `sdd-archive` — archive-state evidence, deliberately NOT in the S-000 merge-gate); if either is absent, HALT `stage-4-precondition-missing`
-- [ ] `test/fixtures/harness-opted-in/schema.json` Create — `{ port: number }`
-- [ ] [must-fail-first] `test/fake/harness-opted-in.test.ts` Create — ATH-11.2 (event-allowlist predicate scoping), ATH-13.1 (schema-invalid reject, plain-`Error` message + empty tree/emitted), ATH-13.2 (schema-valid happy path)
-- [ ] `src/core/context.ts` — verify `@example`; ADD if absent (row flips to Modify) so FIT-06's cascade holds
-- [ ] IF `stage-4-typed-options` archived: `README.md` — revert the REQ-FPS-05.4 qualifying line (TSD-03.1); ELSE register as a followup (TSD-03.2)
-- [ ] `test/fitness/fit-14-package-surface.test.ts` Modify + `pkg-surface-baseline.json` Modify — regenerate with `./testing`
+- [x] **GATE** — verify stage-4 ARCHIVE evidence: `context.ts` carries `defineFactory(fn, { packageDir })` (ADR-0029) AND stage-4's ADRs 0027–0031 are promoted from DRAFT in `openspec/decisions/` (promotion happens at stage-4's `sdd-archive` — archive-state evidence, deliberately NOT in the S-000 merge-gate); if either is absent, HALT `stage-4-precondition-missing`
+- [x] `test/fixtures/harness-opted-in/schema.json` Create — `{ port: number }`
+- [x] [must-fail-first] `test/fake/harness-opted-in.test.ts` Create — ATH-11.2 (event-allowlist predicate scoping), ATH-13.1 (schema-invalid reject, plain-`Error` message + empty tree/emitted), ATH-13.2 (schema-valid happy path)
+- [x] `src/core/context.ts` — verify `@example`; ADD if absent (row flips to Modify) so FIT-06's cascade holds
+- [x] IF `stage-4-typed-options` archived: `README.md` — revert the REQ-FPS-05.4 qualifying line (TSD-03.1); ELSE register as a followup (TSD-03.2)
+- [x] `test/fitness/fit-14-package-surface.test.ts` Modify + `pkg-surface-baseline.json` Modify — regenerate with `./testing`
+
+**Executor deviation notes (binding constraint #7 compliance)**:
+1. **ATH-11.2 predicate widened beyond §4.6b's literal text**: the design's prose names only
+   the `schema.json` read as observed-not-flagged. Investigating the actual merged discovery
+   surface (this slice's own gate condition) shows `defineFactory`'s opted-in branch makes TWO
+   unconditional `node:fs` reads before `als.run` — `checkReservedNames` -> `readdirSync(<packageDir>)`
+   THEN `validateAtRunBoundary` -> `readFileSync(<packageDir>/schema.json)` — both gated by the
+   SAME `options.packageDir !== undefined` check, neither optional. Proven via real RED (the
+   literal single-path predicate failed the run on the unclassified `readdirSync` event before
+   any widening) then GREEN after widening the predicate to both resolved paths. Documented
+   inline in `test/fake/harness-opted-in.test.ts`'s header comment.
+2. **ATH-13's interim-shape reinterpretation (spec staleness, licensed)**: the card's literal
+   text assumes a plain-`Error`/`unknown` interim shape "until stage-4's S-006 lands." That
+   window already closed on this merge base — `src/core/schema/input-rejection.ts` (git
+   `6bbd9f2`, stage-4's OWN now-archived S-006) already constructs a full `AuthoringError`.
+   Confirmed independently by the already-green `test/skeleton/run-boundary-validation.test.ts`
+   REQ-RBV-01.2 case (same schema/message, direct `defineFactory` call). Per REQ-ATH-13's own
+   text ("Post-S-006... scenarios re-verify against that shape"), ATH-13.1/.2 assert the
+   `AuthoringError` shape, tagged `[characterization]` (production behaviour predates this
+   slice — RED-first waived per the slices RED-posture taxonomy).
+3. **TSD-03 test placement**: added `REQ-TSD-03` to S-005's `test/docs/testing-story-docs.test.ts`
+   (that file's own header comment forward-referenced "S-006's scope") rather than creating a
+   new file — no Create row named one, and design's purpose text for that file already
+   describes the TSD-03 assertion. Also updated `test/fitness/definefactory-jsdoc.test.ts`'s
+   stage-4-owned REQ-FPS-05.4 block from a presence-assertion to an absence-assertion (kept as
+   a permanent regression guard) — required by constraint 7: removing the README line without
+   this update would leave the suite RED at this slice's boundary. Neither file is on the
+   card's task list, both are same-slice-necessitated per the S-000 precedent.
+4. **FIT-14/`pkg-surface-baseline.json`**: verified current — already carries `./testing`
+   (regenerated at S-000, per design §4.8's same-slice-as-exports-edit instruction). No edit
+   needed; verify-and-skip, as anticipated by S-000's own deviation note.
 
 ---
 

@@ -24,9 +24,9 @@ runner against it, and returns `{tree, emitted, error}`. The one binding subtlet
 (`RecordingClient`) covering only `emit/read/commit/discard`, which is structurally
 identical to `EngineClient` and thus passes to the runner's `deps.client` without importing
 the port type. The single architectural seam this crosses: `ContractFake` — until now
-test-owned, unshipped — becomes a **src-owned, tarball-shipped** module (ADR-0034); its
+test-owned, unshipped — becomes a **src-owned, tarball-shipped** module (ADR-0035); its
 containment (never bundled into `.`/`./commons`/`./conformance`) is the fail-closed job of
-the new dev-only guard FIT-17 and the five companion guards (ADR-0033, six in total).
+the new dev-only guard FIT-17 and the five companion guards (ADR-0034, six in total).
 
 ## 4.2 File Changes
 
@@ -59,11 +59,11 @@ the new dev-only guard FIT-17 and the five companion guards (ADR-0033, six in to
 | `test/fitness/fit-07-no-tree-in-core.test.ts` | Modify | Update stale "not in dist" comment; assert glob STAYS `src/core/**` (spec SEC-M2 non-regression note) |
 | `test/fitness/fit-14-package-surface.test.ts` | Modify | stage-4-owned; `./testing` now in exports (stage-4-dependent row) |
 | `test/fitness/pkg-surface-baseline.json` | Modify | Regenerate surface snapshot with `./testing` (same slice as exports edit) |
-| `openspec/decisions/0009-two-audiences-contributor-kit.md` | Modify | Amendment STUB cross-referencing ADR-0032 (REQ-TSD-04) — decision text lives in 0032, §4.5 |
-| `openspec/decisions/0032-third-audience-author-testing.md` | Create | ADR-0032 draft (§4.5) |
-| `openspec/decisions/0033-shipped-fake-containment.md` | Create | ADR-0033 draft (§4.5) |
-| `openspec/decisions/0034-fake-relocation-parity-by-identity.md` | Create | ADR-0034 draft (§4.5) |
-| `openspec/decisions/0035-packed-tarball-e2e-lifecycle.md` | Create | ADR-0035 draft (§4.5) |
+| `openspec/decisions/0009-two-audiences-contributor-kit.md` | Modify | Amendment STUB cross-referencing ADR-0033 (REQ-TSD-04) — decision text lives in 0033, §4.5 |
+| `openspec/decisions/0033-third-audience-author-testing.md` | Create | ADR-0033 draft (§4.5) |
+| `openspec/decisions/0034-shipped-fake-containment.md` | Create | ADR-0034 draft (§4.5) |
+| `openspec/decisions/0035-fake-relocation-parity-by-identity.md` | Create | ADR-0035 draft (§4.5) |
+| `openspec/decisions/0036-packed-tarball-e2e-lifecycle.md` | Create | ADR-0036 draft (§4.5) |
 | `README.md` | Modify | Testing section (TSD-01) incl. the seeded-read worked example (TSD-01.4's chosen home, TW-m1) + qualifying-line revert (TSD-03, sequence-gated on stage-4 archive) |
 
 ## 4.2b Flow Changes
@@ -79,14 +79,14 @@ the new dev-only guard FIT-17 and the five companion guards (ADR-0033, six in to
 |---|---|---|---|
 | `package.json#exports` | extend | add `./testing` (never `./core`) | aligns |
 | `src/testing/` module | new | facade + relocated fake, joins the single-layer lib | aligns (mirrors `conformance`/`dry-run`) |
-| ADR-0009 audience boundary | modify | records third audience `author-testing`, own entry | deviates → ADR-0032 |
-| `ContractFake` ownership | modify | test-owned→src-owned, shipped in tarball; data-ownership line moves | deviates → ADR-0034 |
-| FIT-08 no-kit-bleed | modify | flat ban → per-path allowlist data model | deviates → ADR-0033 |
-| FIT-10 port guard | modify | allow-list transitions into shipped `src/`; boundary widening | deviates → ADR-0033 |
+| ADR-0009 audience boundary | modify | records third audience `author-testing`, own entry | deviates → ADR-0033 |
+| `ContractFake` ownership | modify | test-owned→src-owned, shipped in tarball; data-ownership line moves | deviates → ADR-0035 |
+| FIT-08 no-kit-bleed | modify | flat ban → per-path allowlist data model | deviates → ADR-0034 |
+| FIT-10 port guard | modify | allow-list transitions into shipped `src/`; boundary widening | deviates → ADR-0034 |
 | FIT-17 dev-only bundle guard | new | fail-closed containment scan of production bundles | aligns (mirrors FIT-03) |
 | FIT-04 / FIT-09 baselines | modify | extend fixed fixtures to cover `./testing` | aligns |
 | FIT-07 glob | modify | comment refresh; pinned to `src/core/**`, NOT widened (SEC-M2) | aligns |
-| installed-consumer-vantage e2e | new | build→pack→install→import-by-name | deviates → ADR-0035 |
+| installed-consumer-vantage e2e | new | build→pack→install→import-by-name | deviates → ADR-0036 |
 | `README.md` / ADR-0009 doc | modify | positive docs + amendment | aligns |
 
 ## 4.3 Data Model
@@ -212,12 +212,14 @@ every other `src/**` file naming `EngineClient`/`EmitRejection` is caught.
 
 ## 4.5 ADRs (drafts under `openspec/decisions/`, DRAFT until archive)
 
-Numbered 0032–0035 (0027–0031 are stage-4 drafts; verified `openspec/decisions/` latest = 0031).
+Numbered 0033–0036 (0027–0032 are stage-4's, now promoted/Accepted post-merge; verified
+`openspec/decisions/` latest = 0032 at apply-time — renumbered up from the plan-time draft
+range 0032–0035 to avoid colliding with stage-4's merged ADR-0032).
 Each ADR is its own draft FILE (§4.2 Create rows). The edit to `0009-*.md` is an amendment
-STUB cross-referencing ADR-0032 — the amendment's decision text lives in 0032, never inlined
+STUB cross-referencing ADR-0033 — the amendment's decision text lives in 0033, never inlined
 into 0009 (TW-M1/ARCH-m2).
 
-### ADR-0032: Third audience `author-testing` (ADR-0009 amendment)
+### ADR-0033: Third audience `author-testing` (ADR-0009 amendment)
 
 **Status**: Proposed
 **Context**: `defineFactory` and the normative fake are unreachable from an installed
@@ -236,7 +238,7 @@ the author-runtime surface and drags the fake into the commons bundle (blows FIT
 containment). Wiring `./core` into exports — rejected: repeals ADR-0009, semver-locks the
 whole kit prematurely (blind-rejected by architect+security).
 
-### ADR-0033: `./testing` containment strategy (six structural guards)
+### ADR-0034: `./testing` containment strategy (six structural guards)
 
 **Status**: Proposed
 **Context**: relocating the fake into shipped `src/` raises the stakes — test-only machinery
@@ -271,7 +273,7 @@ rejected: fail-open; REQ-TES-04.3 red-proofs that a conditional-routed bundle st
 carrying the literal is caught. Directory-level FIT-10 exemption (`src/testing/**`) —
 rejected: reopens the port-bleed hole (REQ-TES-07.3).
 
-### ADR-0034: Fake relocation + parity-by-identity
+### ADR-0035: Fake relocation + parity-by-identity
 
 **Status**: Proposed
 **Context**: the fake must live in `src/` to ship, but 25 importers + FIT-11 depend on the
@@ -291,7 +293,7 @@ drifting; identity cannot be spoofed. Keep fake in `test/` + widen build `rootDi
 fights the `rootDir:"./src"`/`exclude:["test"]` invariant every FIT-04/FIT-09 dist assertion is
 keyed to.
 
-### ADR-0035: Installed-consumer-vantage e2e lifecycle
+### ADR-0036: Installed-consumer-vantage e2e lifecycle
 
 **Status**: Proposed
 **Context**: the owner's outcome-proof requires proving reachability from a real installed
@@ -403,26 +405,26 @@ armed window.
 
 ## 4.7 Fitness Functions
 
-- **FIT-17** (new) dev-only bundle containment: ADR-0033 (1). Shares `ensureMinifiedEntry`.
+- **FIT-17** (new) dev-only bundle containment: ADR-0034 (1). Shares `ensureMinifiedEntry`.
   Bundled entries are the **`src/` entry files** (`src/index.ts`, `src/commons/index.ts`,
   `src/conformance/index.ts`, `src/testing/index.ts`), mirroring FIT-03's idiom (SEC-m1):
   equivalence with dist holds because tsc emits `dist/` 1:1 per-module (no bundling), so the
   `src` import graph IS the `dist` import graph `bun build` resolves. Recorded assumption:
   `package.json` declares NO `sideEffects` field — FIT-17 asserts its absence, so bundler
   tree-shaking semantics cannot silently diverge between the scan and a consumer's build.
-- **FIT-08** (modified) per-path allowlist + wildcard ban by form: §4.4 / ADR-0033 (2), SEC-M1.
-- **FIT-10** (modified) single-path allow-list transition: §4.4 / ADR-0033 (3) / REQ-TES-07.
-- **FIT-07** (modified) glob pinned to `src/core/**`, comment de-staled: ADR-0033 (4).
+- **FIT-08** (modified) per-path allowlist + wildcard ban by form: §4.4 / ADR-0034 (2), SEC-M1.
+- **FIT-10** (modified) single-path allow-list transition: §4.4 / ADR-0034 (3) / REQ-TES-07.
+- **FIT-07** (modified) glob pinned to `src/core/**`, comment de-staled: ADR-0034 (4).
 - **FIT-04** (modified) **entry-only** `./testing` baseline = ONE new `DTS_PAIRS` row
   (`testing.index.d.ts` ↔ `dist/testing/index.d.ts`). Rationale: whole-`dist/testing/**`
   would monitor NON-public fake internals (unshipped-as-surface, like today's `dist/core/**`)
   and churn baselines on every internal fake refactor; entry-only still catches removal of the
   `defineFactory`/`runFactoryForTest`/`Batch`/`Directive` public lines (REQ-TES-05.2 — the
-  type-only re-export lines live in `index.d.ts`). ADR-0033 (5). **Housing decision (SEC-M2)**:
+  type-only re-export lines live in `index.d.ts`). ADR-0034 (5). **Housing decision (SEC-M2)**:
   the negative declaration-scan — `dist/testing/index.d.ts` MUST NOT match
   `\b(EngineClient|EmitRejection)\b` — lives HERE as a companion assert on the testing row
   (FIT-04 already reads that exact file via `ensureTscBuild`; FIT-17 scans minified JS, not
-  dts). ADR-0033 (6).
+  dts). ADR-0034 (6).
 - **FIT-09** (modified) 3→4 keys; `./core` still asserted absent.
 - **FIT-06** (modified) `PUBLIC_PATHS` += `src/testing/index.ts`; re-export cascade reaches
   `defineFactory` (context.ts) + `Batch`/`Directive` (wire.ts) origins; `RunResult` in scope;
@@ -445,9 +447,9 @@ FIT-06 cascade relies on it); **`test/fake/harness-opted-in.test.ts` + its fixtu
 (ATH-11.2/ATH-13.1/13.2 — `defineFactory(fn, { packageDir })` does not exist on main-today;
 Cross-Change Note 7: if stage-4's merged opt-in shape shifts before build, these scenarios
 re-verify at rebase). Everything else builds on main-today shape. Stage-4 must promote
-its ADR drafts (0027–0031) before 4b's 0032–0035 are claimed.
+its ADR drafts (0027–0031) before 4b's 0033–0036 are claimed.
 
-**Slice guidance**: **S-000 = walking skeleton** = the ADR-0035 pack/install spike + the fake
+**Slice guidance**: **S-000 = walking skeleton** = the ADR-0036 pack/install spike + the fake
 relocation + shims (unblocks everything). No Stage-2 coupling anywhere in this change (the
 harness surfaces Stage-2's already-merged `AuthoringError` via the emit seam; it constructs
 none).
@@ -470,7 +472,7 @@ the only cost lever — bounded by the shared-build fixture (§4.6a): ~1 tsc bui
 **Architecture impact**: modifying
 **Rationale**: derives from 4.2c — no baseline component is removed and the layered-modules-
 behind-an-IR-seam pattern is intact (not `breaking`), but two `deviates` rows change documented
-boundaries: ADR-0032 amends the ADR-0009 audience boundary, and ADR-0034 shifts a data-ownership
+boundaries: ADR-0033 amends the ADR-0009 audience boundary, and ADR-0035 shifts a data-ownership
 line (the normative fake moves from test-owned/unshipped to src-owned/shipped surface). The new
 `src/testing/` module joining the existing single layer is additive, but the boundary amendments
 lift the class to `modifying`. Triggers `arch_refresh_post_verify` post-build.
@@ -483,17 +485,17 @@ None.
 
 | # | Finding (lens) | Disposition |
 |---|---|---|
-| 1 | SEC-M1 wildcard re-export evasion | APPLIED — §4.4 wildcard-ban-by-form clause (any `export *`/`export * as`, any specifier, on every scanned path = violation); red-proof fixture on §4.6 TES-03 row; fit-08 File Changes row updated; ADR-0033 guard (2) wording |
-| 2 | SEC-M2 dts can resurface port names | APPLIED — negative declaration-scan `\b(EngineClient\|EmitRejection)\b` on `dist/testing/index.d.ts`; HOUSED as companion assert on FIT-04's testing row (it already reads that file via `ensureTscBuild`; FIT-17 scans minified JS, not dts) — §4.7 + ADR-0033 guard (6) |
+| 1 | SEC-M1 wildcard re-export evasion | APPLIED — §4.4 wildcard-ban-by-form clause (any `export *`/`export * as`, any specifier, on every scanned path = violation); red-proof fixture on §4.6 TES-03 row; fit-08 File Changes row updated; ADR-0034 guard (2) wording |
+| 2 | SEC-M2 dts can resurface port names | APPLIED — negative declaration-scan `\b(EngineClient\|EmitRejection)\b` on `dist/testing/index.d.ts`; HOUSED as companion assert on FIT-04's testing row (it already reads that file via `ensureTscBuild`; FIT-17 scans minified JS, not dts) — §4.7 + ADR-0034 guard (6) |
 | 3 | ARCH-M1 + TW-M2 (converged) RunResult ambiguity | APPLIED both ways — §4.4 scan-universe clause (per-path allowlist relaxes kit-symbol/core-re-export ban only; locally-declared non-kit exports OUTSIDE FIT-08's universe); `RunResult` stays exported + joins FIT-06 `@example` scope (facade + fit-06 rows) |
-| 4 | TW-M1 + ARCH-m2 ADR files not in File Changes | APPLIED — four Create rows (`0032-third-audience-author-testing.md`, `0033-shipped-fake-containment.md`, `0034-fake-relocation-parity-by-identity.md`, `0035-packed-tarball-e2e-lifecycle.md`); §4.5 intro: the 0009 Modify row is an amendment STUB cross-referencing 0032 |
+| 4 | TW-M1 + ARCH-m2 ADR files not in File Changes | APPLIED — four Create rows (`0033-third-audience-author-testing.md`, `0034-shipped-fake-containment.md`, `0035-fake-relocation-parity-by-identity.md`, `0036-packed-tarball-e2e-lifecycle.md`); §4.5 intro: the 0009 Modify row is an amendment STUB cross-referencing 0033 |
 | 5 | TW-M2 facade JSDoc obligations scattered | APPLIED — facade Create row carries the full TSD-02 checklist (@example complete test, @param seed, 0.x sentence, boundary reference, RunResult @example + field docs) |
 | 6 | TW-M3 instanceof idiom doc home unpinned | APPLIED — §4.4 doc-homes clause: `runFactoryForTest` `@example` includes a rejection assertion with the `instanceof AuthoringError` branch; `RunResult.error` field doc states "undefined on success" explicitly |
 | 7 | ARCH-m1 "bivariantly assignable" wrong mechanism | APPLIED — §4.4: mutual assignability via structural identity under `strictFunctionTypes` (contravariant params satisfied in both directions) |
 | 8 | ARCH-m4 FIT-04 W7 comment staleness | APPLIED — fit-04 File Changes row + §4.6a: header comment updated in the SAME slice as `ensureTscBuild`, describing the memoized one-fresh-build-per-process mechanic |
-| 9 | ARCH-m5 ADR-0033 must stand alone | APPLIED — entry-only alternative + whole-tree rejection rationale inlined into ADR-0033 guard (5) |
+| 9 | ARCH-m5 ADR-0034 must stand alone | APPLIED — entry-only alternative + whole-tree rejection rationale inlined into ADR-0034 guard (5) |
 | 10 | SEC-m1 FIT-17 entry ambiguity + sideEffects | APPLIED — §4.7: bundles the four `src/` entry files (FIT-03 idiom); equivalence via tsc 1:1 emission stated; `sideEffects`-absent assumption ASSERTED by FIT-17 |
-| 11 | SEC-m2 e2e install hardening | APPLIED — ADR-0035: `bun install --ignore-scripts` + `BUN_CONFIG_REGISTRY=http://127.0.0.1:9` (non-routable, loud network failure) + repo-lockfile hash-unchanged assert |
+| 11 | SEC-m2 e2e install hardening | APPLIED — ADR-0036: `bun install --ignore-scripts` + `BUN_CONFIG_REGISTRY=http://127.0.0.1:9` (non-routable, loud network failure) + repo-lockfile hash-unchanged assert |
 | 12 | SEC-m3 child_process spy | APPLIED — §4.6b optional executor note (strengthening only, spec floor unchanged) |
 | 13 | TW-m1 seeded-read home | APPLIED — README testing section is the chosen home (TSD-01.4); stated in §4.4 + README row |
 | 14 | TW-m2 fit-06 row/§4.6 misalignment | APPLIED — fit-06 row now names the stability-language assert (TSD-02.2) |
@@ -522,13 +524,13 @@ new ATH-13 + scenarios 11.2/13.1/13.2, Cross-Change Note 7). Touch, not re-draft
 
 Architecture impact RE-AFFIRMED `modifying`: rev 3 adds test surface + semantics
 documentation only — no new touchpoint, no boundary change beyond those already recorded
-(ADR-0032/0034).
+(ADR-0033/0035).
 
 ### Rev 3 → Rev 4 Delta (plan-verify iteration-1 gap fixes — surgical)
 
 | # | Gap (Judge B) | Disposition |
 |---|---|---|
-| GAP-4 | Rev-2 wildcard-ban-by-form flags `src/index.ts`'s legitimate pre-existing `export * from "./commons/index.ts"` (verified: that IS the umbrella's whole body, and it IS in FIT-08's scanned set) | APPLIED — §4.4 clause corrected: EXACTLY ONE specifier-exact grandfathered exemption (`src/index.ts` → `./commons/index.ts` only); any other wildcard on any scanned path — any other specifier, any other file, especially the facade — stays a violation by form. Red-proofs now ×2: (a) facade `export * from "./contract-fake.ts"` flagged (kept intact); (b) umbrella wildcard to a non-`./commons/index.ts` specifier flagged (exemption is specifier-exact, not file-wide). ADR-0033 guard (2) + fit-08 row + §4.6 TES-03 row updated |
+| GAP-4 | Rev-2 wildcard-ban-by-form flags `src/index.ts`'s legitimate pre-existing `export * from "./commons/index.ts"` (verified: that IS the umbrella's whole body, and it IS in FIT-08's scanned set) | APPLIED — §4.4 clause corrected: EXACTLY ONE specifier-exact grandfathered exemption (`src/index.ts` → `./commons/index.ts` only); any other wildcard on any scanned path — any other specifier, any other file, especially the facade — stays a violation by form. Red-proofs now ×2: (a) facade `export * from "./contract-fake.ts"` flagged (kept intact); (b) umbrella wildcard to a non-`./commons/index.ts` specifier flagged (exemption is specifier-exact, not file-wide). ADR-0034 guard (2) + fit-08 row + §4.6 TES-03 row updated |
 | GAP-5 | Docs tests (FIT-06 stability assert; `testing-story-docs.test.ts`) had no canonical wording — executor cannot go green deterministically | APPLIED — TOKEN-LEVEL asserts pinned (§4.6 "Docs token pins" block + both file-change rows): TSD-01.2/TSD-02.2 stability = `0.x` + `semver-exempt`; TSD-01.3 boundary = `./conformance`; TSD-01.4 seeded read = `runFactoryForTest` + `seed` in the section's code example; TSD-04.1 = `author-testing` + `./testing` + `0.x`; TSD-03.1 = ABSENCE of stage-4's byte-exact qualifying-line literal (already deterministic). Surrounding prose stays author-free |
 
 Nothing else touched (surgical scope, per the plan-verify routing). Architecture impact

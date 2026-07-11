@@ -1,0 +1,5 @@
+{
+  "properties": {
+    "port": { "type": "number", "label": "Port", "required": true }
+  }
+}

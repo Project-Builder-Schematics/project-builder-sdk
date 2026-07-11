@@ -4,7 +4,12 @@
  * non-recursive scan would silently exempt the src/core/schema/ subdirectory) and scans
  * for prohibited path-keyed collection patterns.
  *
- * ContractFake has been moved to test/support/contract-fake.ts (not compiled into dist/).
+ * ContractFake lives at src/testing/contract-fake.ts (relocated from test/support/ in
+ * stage-4b S-000, ADR-0035) — it IS compiled into dist/testing/ now, but its `#tree:
+ * Map<string, string>` field is exactly the ADR-0008 shape this guard bans. The glob stays
+ * PINNED to src/core/**, never widened to src/testing/** (ADR-0034 guard 4, SEC-M2
+ * non-regression note): the fake's own path-keyed tree is its legitimate job, not a
+ * production-core violation, and widening the scan would wrongly flag it.
  * All files in src/core/** are production types — no exclusions needed.
  *
  * Prohibited patterns:
@@ -78,6 +83,20 @@ describe("FIT-07 — no Map<path,*>/tree field in production core", () => {
   it("recursively covers nested subdirectories (src/core/schema/**), not just top-level files", () => {
     expect(files).toContain("schema/schema-model.ts");
     expect(files).toContain("schema/input-rejection.ts");
+  });
+
+  // SEC-M2 non-regression (ADR-0034 guard 4): the glob stays pinned to src/core/**, never
+  // widened to src/testing/**. ContractFake's own #tree: Map<string, string> field (its
+  // legitimate job, not a production-core violation) would trip this detector if the scan
+  // were ever widened to reach it.
+  it("the glob stays pinned to src/core — src/testing/contract-fake.ts is never scanned", () => {
+    expect(CORE_DIR.endsWith("/src/core")).toBe(true);
+    expect(files.some((f) => f.includes("testing"))).toBe(false);
+  });
+
+  it("[characterization] ContractFake's own Map<string,string> tree field would trip this detector if in scope", () => {
+    const fakeSource = readFileSync(new URL("../../src/testing/contract-fake.ts", import.meta.url).pathname, "utf-8");
+    expect(hasProhibitedPattern(fakeSource)).toEqual(true);
   });
 
   for (const filename of files) {

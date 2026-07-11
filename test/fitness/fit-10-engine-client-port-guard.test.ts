@@ -14,10 +14,12 @@
  * the false positive of a bare EventEmitter `.emit(` call in a file that has nothing to do
  * with the port.
  *
- * Allow-list = exactly `test/support/contract-fake.ts` (the one legitimate EngineClient
- * implementer, and the one legitimate `EmitRejection` thrower). A structural
- * `implements EngineClient` exception was rejected at design time (spoofable by a planted
- * bypass); a path allow-list cannot be spoofed.
+ * Allow-list = exactly `src/testing/contract-fake.ts` (REQ-TES-07, post-relocation ADR-0035
+ * — the one legitimate EngineClient implementer, and the one legitimate `EmitRejection`
+ * thrower). A structural `implements EngineClient` exception was rejected at design time
+ * (spoofable by a planted bypass); a path allow-list cannot be spoofed. The facade
+ * `src/testing/index.ts` is explicitly RULED OFF this allow-list — it must achieve its
+ * spy-wrapping via a local structural type, never by naming `EngineClient`/`EmitRejection`.
  *
  * `Directive`/`JsonValue` are data shapes, not the port — the scan never matches them.
  *
@@ -32,7 +34,7 @@ const PROJECT_ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "
 const SRC_ROOT = join(PROJECT_ROOT, "src");
 const CORE_DIR = join(SRC_ROOT, "core");
 
-const ALLOW_LISTED_PATH = "test/support/contract-fake.ts";
+const ALLOW_LISTED_PATH = "src/testing/contract-fake.ts";
 
 const PORT_SYMBOL_PATTERN = /\b(?:EngineClient|EmitRejection)\b/;
 const PORT_CALL_PATTERN = /\.(emit|commit|discard)\(/g;
@@ -112,7 +114,7 @@ export function bypass(): never {
     expect(violations.some((v) => v.includes("EmitRejection"))).toBe(true);
   });
 
-  it("test/support/contract-fake.ts (real source) is allow-listed clean", () => {
+  it("src/testing/contract-fake.ts (real source) is allow-listed clean", () => {
     const source = readFileSync(join(PROJECT_ROOT, ALLOW_LISTED_PATH), "utf-8");
     const violations = scanPortBleed(source, ALLOW_LISTED_PATH);
     expect(violations).toEqual([]);
@@ -168,6 +170,44 @@ export function describe(directive: Directive): JsonValue {
       // `files`, which the prior test scanned in full) — this test only pins membership.
       expect(files).toContain(commonsPath);
       expect(files).toContain(conformancePath);
+    });
+  });
+
+  describe("REQ-TES-07 — allow-list transition post fake relocation", () => {
+    it("REQ-TES-07.1: the allow-list is exactly one path", () => {
+      expect(ALLOW_LISTED_PATH).toEqual("src/testing/contract-fake.ts");
+    });
+
+    // RED-PROOF (REQ-TES-07.2): the facade is NOT on the allow-list — naming EngineClient
+    // there is caught, same as any other non-allow-listed src/** file.
+    it("[red-proof] REQ-TES-07.2: src/testing/index.ts naming EngineClient is caught", () => {
+      const fixtureSource = `
+import type { EngineClient } from "../core/engine-client.ts";
+
+export function makeClient(): EngineClient {
+  throw new Error("not implemented");
+}
+`;
+      const violations = scanPortBleed(fixtureSource, "src/testing/index.ts");
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations.some((v) => v.includes("EngineClient"))).toBe(true);
+    });
+
+    // RED-PROOF (REQ-TES-07.3): a bleed in an unrelated src/** file (never the
+    // allow-listed path) is still caught post-transition — the widened path did not become
+    // a directory- or module-level exemption.
+    it("[red-proof] REQ-TES-07.3: a bleed in an unrelated src/** file is still caught post-transition", () => {
+      const fixtureSource = `
+import { EngineClient } from "../core/engine-client.ts";
+
+export async function bypass(client: EngineClient) {
+  return client.emit({ protocolVersion: 1, force: false, instructions: [] });
+}
+`;
+      const violations = scanPortBleed(fixtureSource, "src/testing/helpers.ts");
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations.some((v) => v.includes("EngineClient"))).toBe(true);
+      expect(violations.some((v) => v.includes(".emit("))).toBe(true);
     });
   });
 });
