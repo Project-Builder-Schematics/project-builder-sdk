@@ -51,6 +51,9 @@ export interface ContractFakeOptions {
 }
 
 export class ContractFake implements EngineClient {
+  // Null-prototype + Object.hasOwn everywhere below: a plain-prototype seed object makes
+  // "path in seed" / seed[path] leak Object.prototype members ("__proto__", "constructor",
+  // "toString", ...) as spuriously present, even when the caller never seeded them.
   readonly #seed: Record<string, string>;
   readonly #tree: Map<string, string> = new Map();
   // ADR-01 two-phase model: #committed is empty until commit() promotes staging into it.
@@ -61,7 +64,7 @@ export class ContractFake implements EngineClient {
   lastServed: ServedFrom | null = null;
 
   constructor({ seed }: ContractFakeOptions) {
-    this.#seed = { ...seed };
+    this.#seed = Object.assign(Object.create(null) as Record<string, string>, seed);
   }
 
   async emit(batch: Batch): Promise<void> {
@@ -145,7 +148,7 @@ export class ContractFake implements EngineClient {
       this.lastServed = "tree";
       return this.#tree.get(filePath)!;
     }
-    if (filePath in this.#seed) {
+    if (Object.hasOwn(this.#seed, filePath)) {
       this.lastServed = "disk";
       return this.#seed[filePath]!;
     }
@@ -154,7 +157,7 @@ export class ContractFake implements EngineClient {
 
   #exists(p: string): boolean {
     if (this.#deleted.has(p)) return false;
-    return this.#tree.has(p) || p in this.#seed;
+    return this.#tree.has(p) || Object.hasOwn(this.#seed, p);
   }
 
   #getContent(p: string): string {

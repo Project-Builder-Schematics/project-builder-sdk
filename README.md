@@ -37,10 +37,12 @@ supported way to test a factory you're authoring, in-memory, without a running e
 ships `0.x`, semver-exempt (mirroring the kit) until real use validates the result shape.
 
 This is distinct from `./conformance`: `./testing` tests **your own factory's** behaviour;
-`./conformance` conformance-tests an **engine implementation** against the wire contract.
+`./conformance` conformance-tests a **dialect or op-pack** implementation (parse/print
+fidelity), not a factory.
 
 Import `defineFactory` and `runFactoryForTest` from `@pbuilder/sdk/testing`, run your factory
-against an in-memory fake, and assert on the result:
+against an in-memory fake, and assert on the result. Templates are stored **verbatim** —
+`{{...}}` interpolation is the engine's job, not the harness's:
 
 ```ts
 import { defineFactory, runFactoryForTest } from "@pbuilder/sdk/testing";

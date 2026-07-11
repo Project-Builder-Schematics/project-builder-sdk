@@ -30,6 +30,8 @@ export interface RunResult {
   /**
    * The committed tree (`ContractFake.committedTree()`), path → content. Committed writes
    * ONLY — an unmodified seed path is never present here, even if the factory read it.
+   * Content is stored verbatim — `{{...}}` template placeholders are never rendered here;
+   * interpolation is the engine's job, not the harness's.
    */
   tree: ReadonlyMap<string, string>;
   /** One `Batch` per `emit()` call, in call order. */
