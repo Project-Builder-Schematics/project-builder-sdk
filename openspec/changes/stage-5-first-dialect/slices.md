@@ -125,12 +125,12 @@ behavior — mirrors the skill's own "no-SPIDR-split" rule for internal guard re
 existing direct-import checks (today's `fit-01-commons-no-ast.test.ts`) stay green.
 
 ### Tasks
-- [ ] [must-fail-first] Rewrite `fit-01-commons-no-ast.test.ts`'s scan from per-file direct
+- [x] [must-fail-first] Rewrite `fit-01-commons-no-ast.test.ts`'s scan from per-file direct
   specifiers to a relative-import-closure GRAPH WALK (allow-list = SDK `core` public symbols +
   Node/Bun builtins; any other import at ANY depth fails)
-- [ ] [permanent-fixture] Two-file planted fixture (`leaf.ts` clean, `helper.ts` importing
+- [x] [permanent-fixture] Two-file planted fixture (`leaf.ts` clean, `helper.ts` importing
   `ts-morph`) proving the TRANSITIVE case the old scanner could not see
-- [ ] Confirm the three existing red-proofs (direct ts-morph, builtins pass, `../core` passes)
+- [x] Confirm the three existing red-proofs (direct ts-morph, builtins pass, `../core` passes)
   still hold under the new walk
 
 ---
@@ -151,32 +151,35 @@ throws THEN the run rejects with the frozen-prefix `Error`, no `unhandledRejecti
 absent.
 
 ### Tasks
-- [ ] [must-fail-first] `src/core/define-dialect.ts` rewrite — real `Op<Ast>`/`OpPack<Ast>`,
+- [x] [must-fail-first] `src/core/define-dialect.ts` rewrite — real `Op<Ast>`/`OpPack<Ast>`,
   frozen `DialectDescriptor`, `Handle<State,Ast,Ops>` type (intersection via `withOps`,
   `PromiseLike<void>`), `.raw()` on the type surface (DG-01, DG-02, DG-03 type-level pins)
-- [ ] [must-fail-first] `src/core/dialect-handle.ts` (Create) — the coalescing handle factory:
+- [x] [must-fail-first] `src/core/dialect-handle.ts` (Create) — the coalescing handle factory:
   `#tail` promise-queue chaining, read-through-parse via `Session.read` ONLY, `ensureOpen()`
   re-registration (identity check against `pendingSnapshot()`), memoized lazy `content` getter,
   the frozen-prefix contained-error wrapper (constraint 3), self-registration into
   `RunContext.dialects`
-- [ ] [must-fail-first] `src/core/context.ts` Modify — `RunContext.dialects: DialectRegistry`;
+- [x] [must-fail-first] `src/core/context.ts` Modify — `RunContext.dialects: DialectRegistry`;
   `defineFactory` drains it (`allSettled`, first-rejection re-throw) BEFORE `session.flush()`,
   routing through the EXISTING discard+re-throw catch (no new catch path)
-- [ ] `openspec/decisions/0034-coalescing-seam-handle-owned.md` (Create) — ADR-0034 verbatim
-  per design §4.5
-- [ ] `test/fixtures/toy-dialect/index.ts` (Create, slice-level addition) — `Ast = string[]`,
+- [x] `openspec/decisions/0034-coalescing-seam-handle-owned.md` (Create) — ADR-0034 verbatim
+  per design §4.5 — LANDED AS ADR-0037 (renumbered; 0033-0036 were claimed by
+  stage-4b-testing-harness on main in the interim — see file header)
+- [x] `test/fixtures/toy-dialect/index.ts` (Create, slice-level addition) — `Ast = string[]`,
   `parse`/`print` by newline join/split, one `push` op, composed via real `defineDialect`/
   `withOps`
-- [ ] `test/core/dialect-handle.test.ts` (Create) — MC-01/02/04/05/07 against the toy dialect,
+- [x] `test/core/dialect-handle.test.ts` (Create) — MC-01/02/04/05/07 against the toy dialect,
   spy-on-`emit` batch inspection (constraint 7); flush-seed-rule honored (constraint 5)
-- [ ] [must-fail-first] `test/fitness/fit-17-coalescing-orphan-guard.test.ts` (Create) —
-  drained-handle re-registration red-proof
-- [ ] [must-fail-first] `test/fitness/fit-18-unawaited-join-guard.test.ts` (Create) — MC-06
-  happy+throwing unawaited cases; red-proof removes `dialects.drain()`
-- [ ] `test/types/define-dialect.test.ts` Modify — DG-01.1 fifth-field compile error, DG-02.1
+- [x] [must-fail-first] `test/fitness/fit-17-coalescing-orphan-guard.test.ts` (Create) —
+  drained-handle re-registration red-proof — LANDED AS `fit-19-coalescing-orphan-guard.test.ts`
+  (renumbered; fit-17/18 were claimed by stage-4b-testing-harness on main)
+- [x] [must-fail-first] `test/fitness/fit-18-unawaited-join-guard.test.ts` (Create) — MC-06
+  happy+throwing unawaited cases; red-proof removes `dialects.drain()` — LANDED AS
+  `fit-20-unawaited-join-guard.test.ts` (renumbered, see above)
+- [x] `test/types/define-dialect.test.ts` Modify — DG-01.1 fifth-field compile error, DG-02.1
   attached-only `expectTypeOf` negative pin, DG-02.3 standalone `defineOpPack`, `.raw`
   presence, thenable-handle type
-- [ ] `test/e2e/toy-dialect-skeleton.e2e.test.ts` (Create, slice-level addition) — ONE smoke
+- [x] `test/e2e/toy-dialect-skeleton.e2e.test.ts` (Create, slice-level addition) — ONE smoke
   driving the toy dialect outside-in against `ContractFake`; `test/conformance/toy-dialect-smoke.test.ts`
   (Create) proves `testDialect`/`testOpPack` are CALLABLE against the toy fixture (signature
   smoke only — constraint 2, never DC-01..05 content assertions)
