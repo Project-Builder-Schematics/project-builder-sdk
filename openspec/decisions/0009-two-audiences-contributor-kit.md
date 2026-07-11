@@ -8,6 +8,12 @@
 - Builds on: roadmap §4 (DX), §7 (dialect contract frozen pre-publish), §10 (monorepo deferred to the
   2nd dialect).
 
+> **Amended by ADR-0033 (this repo)** — adds a third audience, `author-testing`, surfaced
+> through its own `./testing` entry (0.x, semver-exempt) so authors can test their own
+> factories without reaching into the kit boundary this ADR defines. The AUTHOR/CONTRIBUTOR
+> split below is EXTENDED by 0033, not rewritten — see ADR-0033 for the amendment's decision
+> text.
+
 ## Context
 
 The SDK has **two first-class audiences with distinct surfaces**: (A) schematic **authors** who USE it

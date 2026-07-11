@@ -10,6 +10,21 @@ export type JsonValue =
   | JsonValue[]
   | { [k: string]: JsonValue };
 
+/**
+ * The wire-level mutation instruction the SDK emits and the engine applies (ADR-0001,
+ * ADR-0013). Opaque to the template DSL — `template`/`pathTemplate` are uninterpreted
+ * strings from the SDK's perspective; rendering (if any) is the engine's job.
+ *
+ * @example
+ * const directive: Directive = {
+ *   op: "create",
+ *   create: {
+ *     pathTemplate: "src/greeting.ts",
+ *     template: "export const greeting = '{{name}}';",
+ *     options: { name: "world" },
+ *   },
+ * };
+ */
 export type Directive =
   | { op: "create"; create: { pathTemplate: string; template: string; options: JsonValue; force?: boolean } }
   | { op: "modify"; modify: { path: string; content: string } }
@@ -18,7 +33,14 @@ export type Directive =
   | { op: "move"; move: { path: string; toDir: string; force?: boolean } }
   | { op: "copy"; copy: { from: string; to: string; force?: boolean } };
 
-// Envelope order is fixed: protocolVersion, force, instructions.
+/**
+ * The all-or-nothing wire envelope the SDK emits per `emit()` call — a fixed-order set of
+ * `Directive`s plus the flags the engine checks before applying anything. Envelope field
+ * order is fixed: `protocolVersion`, `force`, `instructions`.
+ *
+ * @example
+ * const batch: Batch = { protocolVersion: 1, force: false, instructions: [] };
+ */
 export type Batch = { protocolVersion: 1; force: boolean; instructions: Directive[] };
 
 // ADR-0019: 4 MiB cap on Buffer.byteLength(JSON.stringify(batch), 'utf8') — the fake

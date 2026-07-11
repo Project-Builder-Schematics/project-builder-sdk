@@ -287,11 +287,11 @@ does NOT write or touch the README incremental-shipping qualifying line — stag
 S-005 writes it; 4b only REVERTS it, in S-006, after stage-4 archives.
 
 ### Tasks
-- [ ] `README.md` Modify — testing section (copy-runnable example + seeded-read worked example + boundary + 0.x sentence); qualifying line untouched
-- [ ] `src/core/wire.ts` Modify — `@example` on `Batch`/`Directive` origin decls (FIT-06 cascade)
-- [ ] `test/fitness/fit-06-example-jsdoc.test.ts` Modify — `PUBLIC_PATHS` += `src/testing/index.ts`; `RunResult` in scope; stability-language assert
-- [ ] [must-fail-first] `test/docs/testing-story-docs.test.ts` Create — TSD-01/02/04 copy-runnable + TOKEN-LEVEL text asserts (design rev 4 §4.6 token set)
-- [ ] `openspec/decisions/0009-two-audiences-contributor-kit.md` Modify (amendment stub) + `0033-third-audience-author-testing.md` Create (draft)
+- [x] `README.md` Modify — testing section (copy-runnable example + seeded-read worked example + boundary + 0.x sentence); qualifying line untouched
+- [x] `src/core/wire.ts` Modify — `@example` on `Batch`/`Directive` origin decls (FIT-06 cascade)
+- [x] `test/fitness/fit-06-example-jsdoc.test.ts` Modify — `PUBLIC_PATHS` += `src/testing/index.ts`; `RunResult` in scope; stability-language assert
+- [x] [must-fail-first] `test/docs/testing-story-docs.test.ts` Create — TSD-01/02/04 copy-runnable + TOKEN-LEVEL text asserts (design rev 4 §4.6 token set)
+- [x] `openspec/decisions/0009-two-audiences-contributor-kit.md` Modify (amendment stub) + `0033-third-audience-author-testing.md` Create (draft)
 
 ---
 

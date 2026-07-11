@@ -1,27 +1,32 @@
 /**
  * FIT-06: Every public export carries a JSDoc @example tag.
- * Scans the public author subpaths (commons, conformance) for exported declarations.
+ * Scans the public author subpaths (commons, conformance, testing) for exported declarations.
  * Any declaration missing @example and not tagged @internal → fail.
  *
- * Re-export resolution: `export type { Foo } from './x'` and the two-step
- * `import type { Foo } from './x'; export type { Foo }` patterns are followed
- * to the origin module so that re-exported types (e.g. FoundHandle, WritableHandle
- * re-exported through src/commons/index.ts) are checked at their defining JSDoc.
+ * Re-export resolution: `export type { Foo } from './x'`, `export { Foo } from './x'`, and
+ * the two-step `import type { Foo } from './x'; export type { Foo }` patterns are followed
+ * to the origin module so that re-exported declarations (e.g. FoundHandle/WritableHandle
+ * through src/commons/index.ts; defineFactory, Batch, Directive through src/testing/index.ts,
+ * REQ-TSD-02) are checked at their defining JSDoc, not their re-export statement.
  *
  * Activates in S-004 (build pipeline exists to produce public surface).
  *
- * Red-proof: a public export (incl. a re-exported type) missing @example → caught.
+ * Red-proof: a public export (incl. a re-exported type or value) missing @example → caught.
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
+import { jsDocBefore } from "../support/jsdoc-scan.ts";
 
 const ROOT = new URL("../../src", import.meta.url).pathname;
 
-// Public author subpaths to scan (kit excluded per ADR-0009)
+// Public author subpaths to scan (kit excluded per ADR-0009; ./testing added per ADR-0033/
+// REQ-TSD-02 — the widening cascades to defineFactory's origin in core/context.ts and to
+// Batch/Directive's origin in core/wire.ts, both re-exported through src/testing/index.ts)
 const PUBLIC_PATHS = [
   join(ROOT, "commons/index.ts"),
   join(ROOT, "conformance/index.ts"),
+  join(ROOT, "testing/index.ts"),
 ];
 
 // Matches a JSDoc tag at the start of a JSDoc line: `* @tagname` or `* @tagname value`
@@ -285,5 +290,51 @@ export interface UndocumentedHandle {
     }
 
     expect(violations).toEqual(["UndocumentedHandle"]);
+  });
+
+  // REQ-TSD-02.2: stability-language TOKEN-LEVEL assert (design rev 4 §4.6, GAP-5 pinned
+  // token set) — `runFactoryForTest`'s JSDoc must state the 0.x/semver-exempt exemption.
+  it("REQ-TSD-02.2: runFactoryForTest's JSDoc states the 0.x semver-exempt exemption", () => {
+    const source = readFileSync(join(ROOT, "testing/index.ts"), "utf-8");
+    const jsdoc = jsDocBefore(source, /^export async function runFactoryForTest</);
+    expect(jsdoc).toContain("0.x");
+    expect(jsdoc).toContain("semver-exempt");
+  });
+
+  // REQ-TSD-02.3 [red-proof]: the ./testing widening cascades to origin declarations, not
+  // just the facade's own re-export line — a VALUE re-export (`export { X } from '...'`,
+  // the shape src/testing/index.ts uses for `defineFactory`) with a missing @example at its
+  // origin must be flagged. Mirrors the type-re-export red-proof above; the underlying
+  // buildReExportMap/extractNamedExports traversal is already generic over value vs. type
+  // re-exports (proven by the existing UndocumentedHandle case), so this pins the specific
+  // shape REQ-TSD-02.3 calls out rather than exercising new production logic.
+  it("REQ-TSD-02.3 [red-proof]: a re-exported VALUE without @example in its defining source is flagged", () => {
+    // Simulate src/testing/index.ts's actual shape: `export { defineFactory } from "../core/context.ts";`
+    const barrelSource = `export { undocumentedFactory } from '../core/context';`;
+
+    const originSource = `
+/** No example here. */
+export function undocumentedFactory(fn: unknown): unknown {
+  return fn;
+}
+`;
+
+    const reExportMap = buildReExportMap(barrelSource, "/fake/testing/index.ts");
+    const byOrigin = new Map<string, string[]>();
+    for (const [name, origin] of reExportMap) {
+      if (!byOrigin.has(origin)) byOrigin.set(origin, []);
+      byOrigin.get(origin)!.push(name);
+    }
+
+    const violations: string[] = [];
+    for (const [, names] of byOrigin) {
+      const originExports = extractNamedExports(originSource, new Set(names));
+      for (const name of names) {
+        const entry = originExports.find((e) => e.name === name);
+        if (entry && !entry.isInternal && !entry.hasExample) violations.push(name);
+      }
+    }
+
+    expect(violations).toEqual(["undocumentedFactory"]);
   });
 });
