@@ -23,8 +23,6 @@ collection
   └── factory.ts     # the authoring logic (written against @pbuilder/sdk)
 ```
 
-> **Note**: shipping incrementally — the external-author API (installable `defineFactory` + testing harness) lands with stage-4b.
-
 ## Design at a glance
 
 - **Surface ≠ contract** — the SDK gives you rich authoring verbs; they lower to a small, stable IR.

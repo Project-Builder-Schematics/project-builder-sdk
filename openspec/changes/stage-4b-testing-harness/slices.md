@@ -323,12 +323,43 @@ its interim plain-`Error` shape is governed by
 (pre-Stage-2-amendment)". ATH-13.1 asserts THAT literal + the fail-closed empties.
 
 ### Tasks
-- [ ] **GATE** — verify stage-4 ARCHIVE evidence: `context.ts` carries `defineFactory(fn, { packageDir })` (ADR-0029) AND stage-4's ADRs 0027–0031 are promoted from DRAFT in `openspec/decisions/` (promotion happens at stage-4's `sdd-archive` — archive-state evidence, deliberately NOT in the S-000 merge-gate); if either is absent, HALT `stage-4-precondition-missing`
-- [ ] `test/fixtures/harness-opted-in/schema.json` Create — `{ port: number }`
-- [ ] [must-fail-first] `test/fake/harness-opted-in.test.ts` Create — ATH-11.2 (event-allowlist predicate scoping), ATH-13.1 (schema-invalid reject, plain-`Error` message + empty tree/emitted), ATH-13.2 (schema-valid happy path)
-- [ ] `src/core/context.ts` — verify `@example`; ADD if absent (row flips to Modify) so FIT-06's cascade holds
-- [ ] IF `stage-4-typed-options` archived: `README.md` — revert the REQ-FPS-05.4 qualifying line (TSD-03.1); ELSE register as a followup (TSD-03.2)
-- [ ] `test/fitness/fit-14-package-surface.test.ts` Modify + `pkg-surface-baseline.json` Modify — regenerate with `./testing`
+- [x] **GATE** — verify stage-4 ARCHIVE evidence: `context.ts` carries `defineFactory(fn, { packageDir })` (ADR-0029) AND stage-4's ADRs 0027–0031 are promoted from DRAFT in `openspec/decisions/` (promotion happens at stage-4's `sdd-archive` — archive-state evidence, deliberately NOT in the S-000 merge-gate); if either is absent, HALT `stage-4-precondition-missing`
+- [x] `test/fixtures/harness-opted-in/schema.json` Create — `{ port: number }`
+- [x] [must-fail-first] `test/fake/harness-opted-in.test.ts` Create — ATH-11.2 (event-allowlist predicate scoping), ATH-13.1 (schema-invalid reject, plain-`Error` message + empty tree/emitted), ATH-13.2 (schema-valid happy path)
+- [x] `src/core/context.ts` — verify `@example`; ADD if absent (row flips to Modify) so FIT-06's cascade holds
+- [x] IF `stage-4-typed-options` archived: `README.md` — revert the REQ-FPS-05.4 qualifying line (TSD-03.1); ELSE register as a followup (TSD-03.2)
+- [x] `test/fitness/fit-14-package-surface.test.ts` Modify + `pkg-surface-baseline.json` Modify — regenerate with `./testing`
+
+**Executor deviation notes (binding constraint #7 compliance)**:
+1. **ATH-11.2 predicate widened beyond §4.6b's literal text**: the design's prose names only
+   the `schema.json` read as observed-not-flagged. Investigating the actual merged discovery
+   surface (this slice's own gate condition) shows `defineFactory`'s opted-in branch makes TWO
+   unconditional `node:fs` reads before `als.run` — `checkReservedNames` -> `readdirSync(<packageDir>)`
+   THEN `validateAtRunBoundary` -> `readFileSync(<packageDir>/schema.json)` — both gated by the
+   SAME `options.packageDir !== undefined` check, neither optional. Proven via real RED (the
+   literal single-path predicate failed the run on the unclassified `readdirSync` event before
+   any widening) then GREEN after widening the predicate to both resolved paths. Documented
+   inline in `test/fake/harness-opted-in.test.ts`'s header comment.
+2. **ATH-13's interim-shape reinterpretation (spec staleness, licensed)**: the card's literal
+   text assumes a plain-`Error`/`unknown` interim shape "until stage-4's S-006 lands." That
+   window already closed on this merge base — `src/core/schema/input-rejection.ts` (git
+   `6bbd9f2`, stage-4's OWN now-archived S-006) already constructs a full `AuthoringError`.
+   Confirmed independently by the already-green `test/skeleton/run-boundary-validation.test.ts`
+   REQ-RBV-01.2 case (same schema/message, direct `defineFactory` call). Per REQ-ATH-13's own
+   text ("Post-S-006... scenarios re-verify against that shape"), ATH-13.1/.2 assert the
+   `AuthoringError` shape, tagged `[characterization]` (production behaviour predates this
+   slice — RED-first waived per the slices RED-posture taxonomy).
+3. **TSD-03 test placement**: added `REQ-TSD-03` to S-005's `test/docs/testing-story-docs.test.ts`
+   (that file's own header comment forward-referenced "S-006's scope") rather than creating a
+   new file — no Create row named one, and design's purpose text for that file already
+   describes the TSD-03 assertion. Also updated `test/fitness/definefactory-jsdoc.test.ts`'s
+   stage-4-owned REQ-FPS-05.4 block from a presence-assertion to an absence-assertion (kept as
+   a permanent regression guard) — required by constraint 7: removing the README line without
+   this update would leave the suite RED at this slice's boundary. Neither file is on the
+   card's task list, both are same-slice-necessitated per the S-000 precedent.
+4. **FIT-14/`pkg-surface-baseline.json`**: verified current — already carries `./testing`
+   (regenerated at S-000, per design §4.8's same-slice-as-exports-edit instruction). No edit
+   needed; verify-and-skip, as anticipated by S-000's own deviation note.
 
 ---
 

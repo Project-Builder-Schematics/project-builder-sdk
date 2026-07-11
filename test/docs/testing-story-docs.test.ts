@@ -1,11 +1,13 @@
 /**
- * TSD-01 (README testing section) + TSD-04 (ADR-0009 amendment content) — copy-runnable and
- * TOKEN-LEVEL text proofs (design rev 4 §4.6, GAP-5 pinned token sets). Asserts token
- * PRESENCE, never whole-sentence prose matches, so prose stays author-free.
+ * TSD-01 (README testing section) + TSD-03 (qualifying-line revert) + TSD-04 (ADR-0009
+ * amendment content) — copy-runnable and TOKEN-LEVEL text proofs (design rev 4 §4.6, GAP-5
+ * pinned token sets). Asserts token PRESENCE, never whole-sentence prose matches, so prose
+ * stays author-free.
  *
  * TSD-02 (`runFactoryForTest` JSDoc coverage) lives in fit-06-example-jsdoc.test.ts — the
  * FIT-06 scan is the mechanism, not this file. TSD-03 (qualifying-line revert) is sequenced
- * strictly after `stage-4-typed-options` archives and is S-006's scope — not covered here.
+ * strictly after `stage-4-typed-options` archives — S-005 punted it (that gate wasn't true
+ * yet at S-005's build); S-006's gate confirms the archive, so it lands here now.
  */
 import { describe, it, expect } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -104,6 +106,23 @@ describe("REQ-TSD-01 — README testing section", () => {
     const codeText = extractTsCodeBlocks(extractTestingSection()).join("\n");
     expect(codeText).toContain("runFactoryForTest");
     expect(codeText).toContain("seed");
+  });
+});
+
+describe("REQ-TSD-03 — README qualifying-line revert (sequence-gated)", () => {
+  // stage-4-typed-options's REQ-FPS-05.4 wrote this line; its own scenario text says it is
+  // "REVERTED when stage-4b-testing-harness lands". This slice's gate (orchestrator-confirmed)
+  // verified `stage-4-typed-options` has ARCHIVED, so REQ-TSD-03.1's branch applies — the
+  // line must be gone. definefactory-jsdoc.test.ts carries the permanent regression guard
+  // for the same literal (stage-4-owned file, stage-4b-updated assertion); this is TSD-03's
+  // own home per the design's File Changes purpose text.
+  const README_QUALIFYING_LINE =
+    '> **Note**: shipping incrementally — the external-author API (installable `defineFactory` + testing harness) lands with stage-4b.';
+
+  it("REQ-TSD-03.1: the qualifying line is removed from README.md and no other content is disturbed", () => {
+    const readme = readFileSync(README_PATH, "utf-8");
+    expect(readme).not.toContain(README_QUALIFYING_LINE);
+    expect(readme).toContain(TESTING_SECTION_HEADING);
   });
 });
 
