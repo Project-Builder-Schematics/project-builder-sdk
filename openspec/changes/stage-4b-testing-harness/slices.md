@@ -185,9 +185,33 @@ false-flagged (ATH-12); GIVEN the two `ContractFake` paths WHEN compared THEN th
 to the SAME reference (FSP-02) and a re-declared-body regression fails closed (FSP-04).
 
 ### Tasks
-- [ ] [must-fail-first] `test/fake/harness-in-memory-invariant.test.ts` Create — spies on `node:fs`/`node:net`/`Bun.write/file/spawn/$/connect`/`fetch` + Proxy traps on `process.env`/`process.argv`
-- [ ] [must-fail-first] `test/fake/harness-leak-scan.test.ts` Create — ATH-12.1/.2 (leak + author-content exemption)
-- [ ] [must-fail-first] [permanent-fixture] `test/fitness/fit-18-fake-single-source-parity.test.ts` Create — FSP-01 single-source, FSP-02 `===` identity, FSP-03 dictionary single-source, FSP-04 red-proof (re-declared shim body fails)
+- [x] [must-fail-first] `test/fake/harness-in-memory-invariant.test.ts` Create — spies on `node:fs`/`node:net`/`Bun.write/file/spawn/$/connect`/`fetch` + Proxy traps on `process.env`/`process.argv`
+- [x] [must-fail-first] `test/fake/harness-leak-scan.test.ts` Create — ATH-12.1/.2 (leak + author-content exemption)
+- [x] [must-fail-first] [permanent-fixture] `test/fitness/fit-18-fake-single-source-parity.test.ts` Create — FSP-01 single-source, FSP-02 `===` identity, FSP-03 dictionary single-source, FSP-04 red-proof (re-declared shim body fails)
+
+**Executor deviation notes (binding constraint #7 compliance)**:
+1. **ATH-11.2 executor-note investigation (no widening needed at S-002)**: per the binding
+   design-rev-3 executor note, checked whether stage-4's merged discovery surface
+   (`src/core/schema/schema-discovery.ts`'s `readdirSync`, `src/core/context.ts`'s
+   `readFileSync`) could trip ATH-11.1's strict zero-events assertion for a non-opted-in
+   factory. Confirmed (src/core/context.ts lines ~197-206): both reads execute ONLY inside
+   `if (options?.packageDir !== undefined)` — i.e. only for a `packageDir`-opted-in factory.
+   S-002's ATH-11.1 scope is non-opted-in factories only (ATH-11.2's allowlist-predicate
+   scenario is S-006, gated). No allowlist widening required at this slice; strict
+   zero-events is correct as written. Documented inline in the test file's header comment.
+2. **FIT-18's repository-wide scan (FSP-01.1) excludes its own file, one exact path**: a
+   regex/brace-balance scan can't distinguish this spec file's own fixture template-literal
+   strings (used for the method-set triangulation tests) from real class declarations, so
+   `test/fitness/fit-18-fake-single-source-parity.test.ts` textually self-matched as 2 false
+   positives during RED→GREEN. Fixed with a single, exact, documented path exemption
+   (`filePath !== import.meta.path`) — mirrors FIT-10's `ALLOW_LISTED_PATH` single-path
+   precedent rather than narrowing the scan's directory universe (which would have silently
+   dropped `test/`+`bin/` coverage for a hypothetical duplicate planted there).
+3. **`test/fake/harness-leak-scan.test.ts`'s `scanForLeaks` is an intentional near-duplicate**
+   of `test/fitness/fit-11-whole-object-leak-scan.test.ts`'s traversal (same technique:
+   `Object.getOwnPropertyNames` + bounded `.cause` walk + cycle guard) — kept local rather
+   than extracted into a shared module, mirroring the S-001 precedent (`test/fake/batch-cap-fixtures.ts`
+   near-duplicate) of not widening a neighbour file outside this slice's declared scope.
 
 ---
 
