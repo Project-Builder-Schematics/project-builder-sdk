@@ -3,16 +3,26 @@
   "parent_plan": "openspec/objectives-plan.md 4.5 + pending-changes.md row (split from stage-4-typed-options, D7)",
   "triage": "L",
   "triage_note": "Owner anticipated L->M (pending-changes.md:106) explicitly weighed and NOT adopted: two registered sensitive-area rows fire independently (public-api contract: new ./testing exports subpath + .d.ts surface; security supply-chain: new published subpath carrying test machinery) and each alone forces minimum L. Architect: L on merits too (ADR-0009 boundary-model amendment = third audience, 3 fitness guards modified + 1 new invariant). PM: M on merits BUT its own escalation trigger (sensitive registry rows) fired -> converges L. Owner CONFIRMED L at checkpoint (2026-07-10) and AMENDED in_scope: + installed-consumer-vantage e2e outcome-proof through published ./testing entry (triage.md updated).",
-  "phase": "plan-complete",
+  "phase": "build-complete",
   "plan_verify_final": "READY (2026-07-10, iteration 4 — owner cap extension, judge-continuation; verify-plan-4.md). Judge A clean 3x; Judge B explicit 'ready to execute' after slices rev 4 marker fix. Owner sequencing of record: S-000..S-005 gate on stage-4 MERGE (4 markers + halt), S-006 on stage-4 ARCHIVE. Publish 8b skipped (internal). PLAN CLOSED: spec V3 signed (28 REQs/54 scen) / design rev 4 (ADRs 0032-0035 draft, architecture_impact modifying) / slices rev 4 (7 slices) / steward foresight resolved (C1 discharged, CQ1-CQ3 answered) / verify-plan 1-4. NEXT: /build stage-4b — S-000 first, AFTER the four-marker stage-4-merge precondition passes.",
   "phase_status": "COMPLETE (2026-07-10) — sdd-explore (ready_for_proposal: partial) + blind council architect/security/qa/ba. OWNER RULINGS 2026-07-10 (all four product questions, recorded in triage.md scope): P1 defineFactory via ./testing ONLY, ./core stays unmapped, 'wire ./core' STRUCK; P2 result = committed tree + emitted IR Batch[] + error, unrendered-template non-promise documented; P3 4b owns positive docs (README section + @example); P4 ADR-0009 = literal third audience author-testing, own ./testing entry, 0.x semver-exempt. Groom defaults: README revert stays (builds post-stage-4-archive); W1 pending row rewritten/subsumed at archive grooming.",
-  "next_phase": "sdd-slice (walking skeleton + 4-7 slices; S-000 front-loads pack/install spike + fake relocation)",
+  "next_phase": "/evaluate: sdd-verify --mode=final (L => expect adversarial_review required -> judgment-day blind) -> arch refresh/audit -> steward reckoning -> archive",
   "spec_v3": "SIGNED same-act (2026-07-10, obs 813): 28 REQs / 54 scenarios. Delta: ATH-11 re-scoped (harness machinery only, +ATH-11.2), +ATH-13 (opted-in factories, 13.1/13.2 STAGE-4-MERGED-DEPENDENT), Cross-Change Note 7. Verified: stage-4 interim rejection = plain Error (Option A) — AuthoringError reasons post-S-006 only; ATH-13 words it accurately.",
   "design_rev3": "2026-07-10 (obs 815 upserted): C1 DISCHARGED. Opted-in factories run AS-IS — ZERO production-code change (explicit claim to verify at build); rejection -> existing catch -> result.error, tree+emitted empty (pre-emit seam); interim = pinned message literal + fail-closed empties, instanceof/reason post-S-006. ATH-11 scoping = event-allowlist predicate (only node:fs reads resolving to <packageDir>/schema.json observed-not-flagged; spies armed full run). +2 Create rows (test/fake/harness-opted-in.test.ts + fixture schema.json), both stage-4-gated. Coverage 28/28. EXECUTOR NOTE: if stage-4's merged discovery reads siblings (e.g. FIT-16 readdirSync of package dir), the ATH-11.2 allowlist predicate needs widening — check merged discovery surface when writing the test. architecture_impact modifying re-affirmed.",
-  "completed_phases": ["triage", "explore", "propose", "spec", "design", "steward-foresight"],
+  "completed_phases": [
+    "triage",
+    "explore",
+    "propose",
+    "spec",
+    "design",
+    "steward-foresight"
+  ],
   "steward_foresight": "ALIGNED-CONDITIONAL (2026-07-10, obs 817, north-star.md). Both literal walls resolved; TES-06 discharges stage-4's conditional; founding bug caught via ATH-02; guards proportionate. BLOCKING C1 (design-misalignment, scoped): stage-4's defineFactory(fn, {packageDir}) opts into DISK-read schema.json + RBV pre-als.run — 4b models the runner as pure in-memory and is silent: (1) does runFactoryForTest support opted-in factories? (2) ATH-11 zero-fs contradicts the factory-under-test's legitimate schema read — invariant must scope to HARNESS MACHINERY vs factory-under-test; (3) no scenario tests input-validation through the harness. Resolve BEFORE slice (baking pure-in-memory into slices = costly rework). CQ1 production factory.ts importing from a path named /testing until Stage 6 — acceptable 0.x ergonomics? CQ2 (sets C1 scope) should authors test input-validation through the harness? CQ3 shipping the fake in-tarball behind 6 guards vs separate @pbuilder/testing package. Conscience suspicion: without C1, green harness for bare bodies while typed/validated factories stay awkward — outputs-without-full-outcome. OWNER ANSWERS 2026-07-10: CQ2 YES support opted-in factories (harness runs them as-is — packageDir lives in the definition; ATH-11 re-scoped to harness machinery, factory-under-test may read ITS schema; RBV rejection surfaces as result.error; +1-2 scenarios; V3 MICRO-UNFREEZE AUTHORIZED by this selection, re-signed on it). CQ1 acceptable 0.x interim (ADR-0032 + README declare defineFactory lives in ./testing until Stage 6). CQ3 proportionate now (separate @pbuilder/testing rejected; follow-up registered to re-evaluate extraction alongside kit at Stage 6). GATE PASSED conditional on C1 landing in V3 + design rev 3 before slice.",
   "propose_status": "COMPLETE (2026-07-10) — proposal.md + engram obs 811. Blind council: BA approve-with-notes (4 minor), PM approve-with-notes (4 major + 2 minor), architect approve-with-notes (3 major + 2 minor). NO re-propose; findings carried as binding spec/design constraints. 4 capabilities: author-test-harness, testing-entry-surface, fake-single-source-parity, testing-story-docs. Next free FIT = 17; next free ADR = 0032 (gated on stage-4 archive promoting 0027-0031).",
-  "proposal_artifacts": ["openspec/changes/stage-4b-testing-harness/proposal.md", "engram obs 811 (sdd/stage-4b-testing-harness/proposal)"],
+  "proposal_artifacts": [
+    "openspec/changes/stage-4b-testing-harness/proposal.md",
+    "engram obs 811 (sdd/stage-4b-testing-harness/proposal)"
+  ],
   "proposal_council_constraints": [
     "[BA m1] FIT-08 per-path allowlist REQ must have a NAMED capability home (testing-entry-surface) — spec writer must not infer it; shallow skip-./testing fix reopens the symbol-scoped hole",
     "[BA m2] FIT-11 no-engine-text extension needs a capability home; split success criterion 7 into two independently falsifiable invariants (in-memory purity vs no-engine-text)",
@@ -30,7 +40,10 @@
     "[arch m -> qa] suite wall-time: FIT-04 unconditional build + FIT-17 per-entry builds + pack/install e2e stack multiple full builds — qa owns the call",
     "[arch] parity-by-identity rejected-alternative (behavioural parity suite) recorded at least as design-note"
   ],
-  "explore_artifacts": ["openspec/changes/stage-4b-testing-harness/explore.md", "engram obs 810 (sdd/stage-4b-testing-harness/explore)"],
+  "explore_artifacts": [
+    "openspec/changes/stage-4b-testing-harness/explore.md",
+    "engram obs 810 (sdd/stage-4b-testing-harness/explore)"
+  ],
   "explore_council_convergences": [
     "[arch+security, INDEPENDENT] 'wire ./core into exports' must NOT be taken literally: full-barrel export repeals ADR-0009 (premature semver-lock of the whole contributor kit slated for @pbuilder/sdk-kit 0.x extraction) and breaks FIT-09 ./core-undefined. Scope items 1 and 2 conflict — owner ruling required",
     "[arch+qa+explore, FORCED] ContractFake relocates to src/testing/ (test/support is outside rootDir, excluded from build, absent from dist — facade cannot import across src->test). Drags test/support/rejection-messages.ts; ~25 importers re-pointed via re-export shim; FIT-10 ALLOW_LISTED_PATH hardcode + stale FIT-07 comment touched. Parity-by-identity (shim re-export + reference identity toBe) preferred over behavioural parity suite",
@@ -50,7 +63,10 @@
     "T2 FIT-08 carve-out needs new per-path allowlist data model (not config tweak); ./testing exports ContractFake by name? depends on P1/P2 API shape",
     "T3 4b lands before/after stage-4 FIT-14 baseline exists — determines regen vs FIT-09-only update"
   ],
-  "personas_triage": ["architect", "pm"],
+  "personas_triage": [
+    "architect",
+    "pm"
+  ],
   "personas_downstream": "explore: architect + qa-engineer + business-analyst (author-facing) + security-engineer (sensitive); propose: business-analyst + pm + architect; spec: business-analyst + qa-engineer + security-engineer + tech-writer; design: architect + security-engineer + tech-writer",
   "carry_forward_constraints": [
     "[arch, blocker] 'wire ./core' is a wording trap: ADR-0009 forbids a public ./core or /internal subpath (FIT-08/FIT-09 enforce). defineFactory reachability MUST route through the ./testing facade — spec must disambiguate, never encode a ./core exports entry",
@@ -62,7 +78,7 @@
     "[arch, adr] ADR-0009 amendment must record the rejected alternative (runFactoryForTest in ./commons) with rejection reason, and define third-audience bleed rules (what ./testing may expose that ./commons may not)",
     "[tw/pm, followup-or-scope] positive usage docs for runFactoryForTest (README revert only removes a false caveat, documents nothing) — fold small usage example into scope or register followup"
   ],
-  "spec_status": "V1 draft (2026-07-10, obs 813): 26 REQs / 33 scenarios / 4 domains (ATH-01..12, TES-01..06, FSP-01..04, TSD-01..04). Council V1: BA approve-with-notes (M1 TES-06 missing founding-bug scenarios at installed vantage; M2 seed param unauthorized surface — owner ruling pending; minors ATH-01 negative keys scenario, Batch reachability, ATH-12 upstream homing, meta red-proofs). QA NEEDS-ITERATION (B1 result.tree seed-inclusion self-contradictory ATH-01/03/04/05 + ATH-04.1 unsatisfiable vs committedTree() — owner ruling pending; M1 ATH-08.1 ALS-escape mechanism unsatisfiable as written, needs concrete escape mechanic + red-proof; M2 multi-directive partial-commit mutant unkilled; M3 seed-empty-string-vs-absent boundary missing; M4 suite build-cost unbudgeted — design constraint: share one build artifact across FIT-04/FIT-17/e2e; minors: ATH-11.1 env/argv needs Proxy mechanism, emitted length wording, FIT-17 sources CONTRACT_FAKE_PREFIX structurally, 4MiB fixture cost note). SECURITY NEEDS-ITERATION (B1 FIT-10 port-guard tripped by relocation, NO governing REQ — add REQ + red-proof, allow-list transition to exactly src/testing/contract-fake.ts, cover facade file explicitly; M1 in-memory enforcement misses Bun-native I/O — instrument Bun.write/file/spawn/$/connect + global fetch; M2 FIT-07 glob must stay off src/testing — one-line REQ; M3 ContractFake export ban must be EXPLICIT in TES-03 + ATH-01 with red-proof; minors: second structural marker design-note, author-content-not-a-leak distinction, allow-list as fixed literal [defineFactory, runFactoryForTest], sensitive-areas rows 1/6 update at archive grooming). TECH-WRITER approve-with-notes (M1 FIT-06 PUBLIC_PATHS must widen to src/testing + defineFactory origin @example dependency; M2 0.x exemption must be communicated in README section AND runFactoryForTest JSDoc, not only ADR-0032; M3 emitted Batch[] contradicts no-kit-type claim — Batch/Directive live in the kit barrel, owner ruling pending; M4 result.error static type unspecified — pin union; minors: committed-tree glossary reconcile, ATH-12 phantom report-surface clause, ./testing-vs-./conformance boundary one-liner, emitted field naming, seed doc home @param/README). OWNER RULINGS 2026-07-10 (recorded in triage.md): tree = committedTree() ONLY; Batch+Directive TYPE-only re-exports from ./testing; seed param RATIFIED (Record<string,string>, sole channel, mandatory doc home). V2 DRAFT (2026-07-10, obs 813 upserted): 27 REQs / 51 scenarios; all 26 V1 IDs preserved (13 verbatim, 13 modified, 0 removed); +TES-07 (FIT-10 allow-list transition, rules src/testing/index.ts OFF the allow-list — facade must not name EngineClient/EmitRejection, judgment call awaiting owner confirmation); ATH-11 Bun-native instrumentation; ATH-08.1 satisfiable ALS-escape rewrite; TES-06 + founding scenarios at installed vantage; suite-cost acknowledgement + BINDING design constraint (share one build artifact FIT-04/FIT-17/e2e); zero council findings rejected. Known debt: per-domain word budget breached (pre-existing V1, ATH 1451w) — owner-flagged, not blocking. SIGNED V2 (owner, 2026-07-10; TES-07 facade-off-allow-list confirmed at signing) -> design launched.",
+  "spec_status": "signed",
   "spec_signed": "V2, owner, 2026-07-10",
   "spec_reqs": 27,
   "design_rev1": "2026-07-10 (obs 815): architecture_impact=MODIFYING (ADR-0009 audience amendment + fake ownership shift; pattern intact). 12 Create / 14 Modify / 1 Read-only. 4 ADRs 0032-0035 (numbering verified vs decisions/ 0031 latest). Resolutions: FIT-04 entry-only dts; shared-build test/support/shared-build.ts (ensureTscBuild memoized + ensureMinifiedEntry); TES-07 via local structural RecordingClient; FIT-14 real stage-4-dependent row; proposal's 25-importer churn DROPPED (shim at old path, all 22 named imports satisfiable).",
@@ -84,7 +100,7 @@
   "verify_final": null,
   "arch_audit": null,
   "in_loop_iteration": 0,
-  "execution_mode": "interactive",
+  "execution_mode": "automatic",
   "artifact_store": "hybrid",
   "spec_source": "internal",
   "write_mode": "sync",
@@ -96,5 +112,15 @@
     "openspec/changes/stage-4b-testing-harness/triage.md",
     "engram obs 807 (sdd/stage-4b-testing-harness/triage)"
   ],
-  "updated_at": "2026-07-10"
+  "updated_at": "2026-07-12",
+  "spec_status_history": "V1/V2 council narrative moved from spec_status 2026-07-11; V3 SIGNED 2026-07-10 (28 REQs/54 scen) — see spec_v3 field",
+  "build_scope": "S-000..S-006 (owner 2026-07-11: S-006 gate OPEN — stage-4 archived 2026-07-11, included in this run after S-002+S-005)",
+  "build_branch": "feat/stage-4b-testing-harness @ worktree .claude/worktrees/feat+stage-4b-testing-harness, base 3c46098",
+  "stage4_merge_precondition": "PASS 2026-07-11 (all 4 markers verified on main 3c46098: context.ts defineFactory+@example; fit-14+baseline; exports merged state; src/core/schema + bin pbuilder-codegen)",
+  "apply_progress": "S-000..S-006 ALL COMPLETE (commits 8ab00ff/873adfd/2fdf9ad/1832a59/2f23160/170c808/ead213e; suite 572->651 green; tsc+build clean)",
+  "verify_in_loop_1": "PASS (obs 857; suite 580/580, tsc clean, build clean; deviations licensed by design 4.8)",
+  "verify_in_loop_2": "PASS (obs 858; 596/596, tsc clean; 2 minor tolerated)",
+  "verify_in_loop_3": "PASS (obs 859; S-002..S-005 batch, 647/647, 2 minor tolerated)",
+  "verify_in_loop_4": "PASS (obs 860; S-006, 651/651, ZERO findings; both deviations independently confirmed licensed)",
+  "s006_gate": "OPEN + built: stage-4 archived 2026-07-11; ATH-13 interim-Error window had closed on merge base (stage-4 S-006 6bbd9f2 upgraded rejections to AuthoringError; spec re-verify clause applied)"
 }
