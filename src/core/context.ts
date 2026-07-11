@@ -16,9 +16,43 @@ import { validateInput } from "./schema/schema-validate.ts";
 import { rejectionFor, rejectionForReservedName } from "./schema/input-rejection.ts";
 import { isErrnoException } from "./fs-errors.ts";
 
+// ADR-0037: the run-boundary join registry. A dialect handle self-registers here at its
+// first op; `defineFactory` drains it (awaits every registered `settle()`) BEFORE
+// `session.flush()`, so an unawaited dialect chain still completes and commits, and an
+// unawaited THROWING chain rejects the run contained instead of leaking an
+// `unhandledRejection`. Kept generic over "anything with a settle()" — this module has no
+// knowledge of dialect-handle.ts internals (dialect-handle.ts imports FROM context.ts, not
+// the other way around).
+export interface DialectRegistry {
+  register(handle: { readonly settle: () => Promise<void> }): void;
+  drain(): Promise<void>;
+}
+
+class DialectRegistryImpl implements DialectRegistry {
+  #handles: Array<{ readonly settle: () => Promise<void> }> = [];
+
+  register(handle: { readonly settle: () => Promise<void> }): void {
+    this.#handles.push(handle);
+  }
+
+  // Promise.allSettled (never a bare Promise.all): every handle's settle() is awaited
+  // regardless of others rejecting, so no settlement is left dangling unobserved; the
+  // FIRST rejection (author-chain order) is re-thrown into defineFactory's existing catch.
+  async drain(): Promise<void> {
+    const handles = this.#handles;
+    this.#handles = [];
+    const results = await Promise.allSettled(handles.map((h) => h.settle()));
+    const firstRejection = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (firstRejection !== undefined) {
+      throw firstRejection.reason;
+    }
+  }
+}
+
 export interface RunContext {
   session: Session;
   factory: DirectiveFactory;
+  dialects: DialectRegistry;
 }
 
 const als = new AsyncLocalStorage<RunContext>();
@@ -207,12 +241,19 @@ export function defineFactory<O>(
     const ctx: RunContext = {
       session: new Session(client),
       factory: new DirectiveFactory(),
+      dialects: new DialectRegistryImpl(),
     };
     // ADR-01: no `finally` — success (commit) and failure (discard) are distinct paths.
     // The final flush is INSIDE the try, so a flush-time emit rejection (already an
     // AuthoringError via Session.flush) skips commit() and routes to discard + re-throw.
+    //
+    // ADR-0037: the dialect-handle drain runs BETWEEN `als.run` and `session.flush()` — an
+    // unawaited dialect chain (forgotten `await`) still completes and commits; a drain
+    // rejection (an unawaited chain that threw) routes through the SAME catch below as a
+    // flush rejection already does.
     try {
       await als.run(ctx, () => fn(o));
+      await ctx.dialects.drain();
       await ctx.session.flush();
       await ctx.session.commit();
     } catch (err) {
