@@ -6,6 +6,91 @@
 
 ---
 
+## Batch 3 — S-003 (`addVariable`+`addClass`) + S-004 (`withOps` collision + reserved-names)
+
+**Mode**: Strict TDD · **Suite**: 829 → 844 (bun test, +15 net: +9 S-003 [8 op scenarios + 1
+exact-set gate], +6 S-004 [2 GREEN/standalone + 4 collision/reserved]) · `bunx tsc --noEmit`:
+CLEAN · `bun run build`: CLEAN · **Branch**: `feat/stage-5b-dialect-breadth`
+
+### Slices Built This Run
+
+| Slice | Scope tag | Status | Tasks |
+|---|---|---|---|
+| S-003 | happy-path | complete | 8/8 |
+| S-004 | edge-case | complete | 5/5 |
+
+### Commits
+
+1. `e514928` feat(typescript-dialect): S-003 — addVariable + addClass ± export, exact op-set gate
+2. `cde3ad2` chore(sdd): stage-5b — mark S-003 slice tasks complete
+3. `148e15f` feat(core): S-004 — withOps eager collision + reserved-handle-verb diagnostic
+
+(S-003's slices.md checkbox update landed as its own tiny chore commit, ahead of S-004's code,
+to keep S-003's and S-004's tracking-artifact changes from mixing into either feature commit.)
+
+### TDD Cycle Evidence — S-003
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| addVariable + addClass | `ops-declarations-cuttable.test.ts` (8 cases, REQ-TSD-10.1–10.4, 11.1–11.4) | unit+integration | "ts.find(\"a.ts\").addClass is not a function" (and the addVariable analogue) | ✅ | 8 scenarios: non-exported/exported/collision/empty-file-seed × 2 ops, `kind` variety (const default, `let` exported, `var` explicit) | none needed |
+| REQ-TSD-01.1 exact-set gate | `ops-exact-set.test.ts::sorted Object.keys...EQUALS the exact five-op allow-list` | unit | Would have failed pre-S-003 (four-op set); written and run only after both new ops existed, per the slice's own dependency (own scenario is trivially GREEN once addVariable/addClass compose) — investigated per Strict TDD's "passes immediately" rule: not vacuous, the assertion is `toEqual` on the literal 5-element array, would fail RED against any 4-or-6-element actual | ✅ | n/a — single deterministic set comparison | none needed |
+
+### TDD Cycle Evidence — S-004
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| withOps cross-pack duplicate | `define-dialect-collision.test.ts::two op-packs declaring the same op name throw...` | integration | "Received function did not throw" | ✅ | 2 cases (cross-pack duplicate, collision against `base.ops`) | none needed |
+| withOps reserved-name | `define-dialect-collision.test.ts::throws synchronously, naming \`then\`...` | integration | "Received function did not throw" | ✅ | 7 cases (one per `RESERVED_HANDLE_NAMES` member: read/raw/modify/rename/move/copy/remove, plus `then` itself) | none needed |
+| withOps disjoint GREEN + defineOpPack standalone | `define-dialect-collision.test.ts` (REQ-DG-02.2/02.3, 2 cases) | unit+integration | N/A — these are the negative-control/positive-baseline cases (assert NO throw / standalone shape), written alongside the RED cases to prove the check doesn't over-fire | ✅ | n/a | none needed |
+
+### Deviations from Design
+
+1. **`assertNoCollision`'s `handlePath` cast tightened (S-003, verify-standing SUGGESTION)**:
+   the standing verify note flagged `handlePath as string` (an arbitrary-type cast) at
+   `addFunction`'s call site. Since `handlePath` is structurally required to stay an optional
+   5th parameter (the S-001 trailing-arg threading trick — `OpMethods` derives the
+   author-facing type from the op-pack's own declared type, not the function's real, wider
+   signature), the cast itself can't be removed, but a cleaner alternative exists: `handlePath!`
+   (non-null assertion) only strips `| undefined`, whereas `as string` could silently mask an
+   unrelated type mismatch. Applied at all three call sites (`addFunction`, and the two new
+   `addVariable`/`addClass` sites) for consistency.
+2. **`ops-exact-set.test.ts` mechanism (S-003)**: REQ-TSD-01.1's scenario text says
+   `Object.keys(dialect.ops)`, which would require a new export of the `Dialect` object (or its
+   `.ops` field) from `src/dialects/typescript/index.ts` — not called for anywhere in design's
+   File Changes row for that file. Used the SAME mechanism the retired REQ-TSD-01.1 V4 test
+   used instead (`Object.keys(handle)` filtered against the base-handle-surface set, sorted) —
+   equivalent assertion power, no new public export introduced.
+3. **`withOps`'s composition-collision helper typed via bare `OpPack` (S-004)**: an initial
+   `readonly OpPack<unknown>[]` parameter failed to typecheck — `OpPack<Ast>` is not assignable
+   to `OpPack<unknown>` because `Op<Ast>`'s `ast` parameter is contravariant (the same variance
+   trap this file's own top-of-file comment already documents for the bare-generic-erasure
+   case). Retyped as `readonly OpPack[]` (bare, defaulting to `OpPack<any>` per the type's own
+   default parameter) — matches the file's established `any`-erasure convention rather than
+   introducing a second one.
+4. **Load-bearing literal period placement (S-004)**: slices.md's "Load-bearing literals" block
+   and design.md §4.4/§4.5 render the duplicate-op compose-time message with the trailing
+   period placed differently (slices.md: period INSIDE the backtick-quoted literal; design.md:
+   period as prose punctuation OUTSIDE it). Followed slices.md verbatim per this batch's
+   explicit "load-bearing literals VERBATIM" instruction — the shipped message is
+   `op-pack composition failed: duplicate op "{name}" declared by more than one pack.` (with a
+   literal trailing period); the reserved-name message has no trailing period, matching both
+   documents.
+
+### Non-test LOC (cut-lever tripwire input)
+
+Cumulative `git diff --numstat 57ce4d1..HEAD -- src/**` (57ce4d1 = the plan-merge commit, before
+any apply work began) — this measured number supersedes the per-batch running estimates in
+earlier sections of this file:
+
+**Cumulative non-test source LOC this change (S-000 through S-004)**: 395 lines added, 49 lines
+removed — net 346, gross 444. Well under the ~1,200-line L-band ceiling (triage.md Criteria row
+2); no cut-lever trigger condition met. **ADR count**: 4 total for this change (ADR-0039 new;
+amendments to ADR-0037/0010/0012) — unchanged since S-002, under the 6-new-ADR standing
+tripwire. **Cut-lever check result: NEITHER stop-condition triggered — S-003 built as planned,
+no HALT.**
+
+---
+
 ## Batch 2 — S-001 (`addFunction`) + S-002 (`removeImport` + row-136 + registry)
 
 **Mode**: Strict TDD · **Suite**: 806 → 828 (bun test, +22 net: +8 addFunction, +1 REQ-DG-07.2
