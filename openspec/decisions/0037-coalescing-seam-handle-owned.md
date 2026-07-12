@@ -84,6 +84,10 @@ directives).
   same containment as a sync throw — its rejection surfaces through the frozen-prefix contained
   error (never an uncontained `unhandledRejection`), and its mutation is guaranteed observed
   before the next print.
+- (-) *(known limit)* `drain()` snapshots the registered handles once; a handle registered DURING
+  drain (e.g. by a dialect whose `settle()` enqueues new handles) is not re-drained in the same
+  run boundary. No shipped dialect does this; a future dialect relying on nested registration
+  must extend the join to drain-until-quiescent first.
 
 **Rejected alternative — author-await-only (no join).** Relies entirely on author discipline: a
 forgotten `await` either silently LOSES the edit (the chain never runs before the run-end flush)

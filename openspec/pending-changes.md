@@ -129,7 +129,7 @@ completed, NOT pending (verify-report F-03).
 
 ## From `stage-5-first-dialect` (2026-07-12) — accepted as non-blocking at archive
 
-Verify verdict `pass-with-followups`. Judgment-day APPROVED (R1 + R2). Steward reckoning DELIVERED (4 CQs affirmed, delivered). Six followups covering `stage-5b-dialect-breadth` integration + two Stage-6 deferred items.
+Verify verdict `pass-with-followups`. Judgment-day APPROVED (R1 clean — 0 critical, 0 real warnings). Steward reckoning DELIVERED (4 CQs affirmed, delivered). Six followups covering `stage-5b-dialect-breadth` integration + two Stage-6 deferred items.
 
 | Description | Type | Size | Gating? | Stage |
 |---|---|---|---|---|
