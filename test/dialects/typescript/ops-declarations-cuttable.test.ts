@@ -55,8 +55,13 @@ describe("addVariable — REQ-TSD-10", () => {
     }
     expect(caught).toBeInstanceOf(Error);
     const err = caught as Error;
-    expect(err.message).toContain('addVariable("bar")');
-    expect(err.message).toContain('a value or import binding named "bar" already exists');
+    // Options omitted (the common call form): the path channel must not collide with the
+    // optional `options` slot — asserted via the FULL pinned message including `on "<path>"`.
+    expect(err.message).toBe(
+      'dialect operation failed: addVariable("bar") on "a.ts" — a value or import binding named "bar" already ' +
+        "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
+        "or edit it with .raw()."
+    );
     expect(err.cause).toBeUndefined();
   });
 
@@ -116,8 +121,13 @@ describe("addClass — REQ-TSD-11", () => {
     }
     expect(caught).toBeInstanceOf(Error);
     const err = caught as Error;
-    expect(err.message).toContain('addClass("Baz")');
-    expect(err.message).toContain('a value or import binding named "Baz" already exists');
+    // Options omitted (the common call form): the path channel must not collide with the
+    // optional `options` slot — asserted via the FULL pinned message including `on "<path>"`.
+    expect(err.message).toBe(
+      'dialect operation failed: addClass("Baz") on "a.ts" — a value or import binding named "Baz" already ' +
+        "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
+        "or edit it with .raw()."
+    );
     expect(err.cause).toBeUndefined();
   });
 

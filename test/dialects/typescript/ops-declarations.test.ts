@@ -50,9 +50,14 @@ describe("addFunction — REQ-TSD-09", () => {
     }
     expect(caught).toBeInstanceOf(Error);
     const err = caught as Error;
-    expect(err.message).toContain('addFunction("foo")');
-    expect(err.message).toContain('a value or import binding named "foo" already exists');
-    expect(err.message).toContain("Rename or remove the existing one, or edit it with .raw().");
+    // Options omitted (the common call form, per the spec's own scenarios): the path
+    // channel must not collide with the optional `options` slot — asserted here via the
+    // FULL pinned message including the `on "<path>"` clause, not just a loose substring.
+    expect(err.message).toBe(
+      'dialect operation failed: addFunction("foo") on "a.ts" — a value or import binding named "foo" already ' +
+        "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
+        "or edit it with .raw()."
+    );
     expect(err.cause).toBeUndefined();
   });
 
@@ -116,6 +121,29 @@ describe("addFunction — REQ-TSD-09", () => {
     const err = caught as Error;
     expect(err.message).toContain('addFunction("foo")');
     expect(err.message).toContain('a value or import binding named "foo" already exists');
+    expect(err.cause).toBeUndefined();
+  });
+
+  it("final-verify fix (F-2): an existing CLASS declaration collides too — the getClass conjunct in assertNoCollision", async () => {
+    const { client } = makeSpyClient({ "a.ts": "class Foo {}\n" });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addFunction("Foo", "(): void {}");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    expect(err.message).toBe(
+      'dialect operation failed: addFunction("Foo") on "a.ts" — a value or import binding named "Foo" already ' +
+        "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
+        "or edit it with .raw()."
+    );
     expect(err.cause).toBeUndefined();
   });
 

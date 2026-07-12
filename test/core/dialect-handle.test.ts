@@ -589,8 +589,13 @@ describe("dialect handle — REQ-DG-07.2 (concrete collision trigger, S-001)", (
 
     expect(caught).toBeInstanceOf(Error);
     const err = caught as Error;
-    expect(err.message).toContain('addFunction("foo")');
-    expect(err.message).toContain('a value or import binding named "foo" already exists');
+    // Options omitted (the common call form): the path channel must not collide with the
+    // optional `options` slot — asserted via the FULL pinned message including `on "<path>"`.
+    expect(err.message).toBe(
+      'dialect operation failed: addFunction("foo") on "a.ts" — a value or import binding named "foo" already ' +
+        "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
+        "or edit it with .raw()."
+    );
     expect(err.cause).toBeUndefined();
     expect(collectModifies(emitted)).toHaveLength(0);
   });

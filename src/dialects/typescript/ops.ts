@@ -11,6 +11,7 @@
 
 import type { SourceFile } from "ts-morph";
 import { dialectError } from "../../core/dialect-error.ts";
+import { handlePathFor } from "../../core/dialect-handle.ts";
 
 /**
  * Adds `import { name } from "from";` to the file, or merges `name` into an EXISTING
@@ -45,11 +46,12 @@ function exportPrefixFor(options?: DeclarationOptions): string {
 // scope-aware (matches the "no language service needed" owner framing; every signed
 // scenario seeds top-level declarations only).
 //
-// `handlePath` is the S-001 trailing-arg addition threaded by dialect-handle.ts's runOp
-// (see its own doc comment) — the ONLY channel through which an op function can recover
-// the author-facing path for its own dialectError()-branded message (design §4.4's
-// pinned "on {path}" clause).
-function assertNoCollision(ast: SourceFile, name: string, opName: string, handlePath: string): void {
+// `handlePathFor(ast)` (final-verify fix, dialect-handle.ts) is the ONLY channel through
+// which an op function can recover the author-facing path for its own dialectError()-branded
+// message (design §4.4's pinned "on {path}" clause) — position-independent (keyed by the
+// live AST instance, not a runtime argument position), so it can never collide with `name`/
+// `options` regardless of which trailing args the author omitted.
+function assertNoCollision(ast: SourceFile, name: string, opName: string): void {
   const collides =
     ast.getFunction(name) !== undefined ||
     ast.getVariableDeclaration(name) !== undefined ||
@@ -61,7 +63,7 @@ function assertNoCollision(ast: SourceFile, name: string, opName: string, handle
       );
   if (!collides) return;
   throw dialectError(
-    `${opName}("${name}") on "${handlePath}" — a value or import binding named "${name}" already exists; ` +
+    `${opName}("${name}") on "${handlePathFor(ast)}" — a value or import binding named "${name}" already exists; ` +
       `TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, or edit it with .raw().`
   );
 }
@@ -77,17 +79,11 @@ function assertNoCollision(ast: SourceFile, name: string, opName: string, handle
  *
  * @example
  * // source includes braces:
- * ast.find(path).addFunction("hi", "(): void {}"); // -> function hi(): void {}
+ * ts.find(path).addFunction("hi", "(): void {}"); // -> function hi(): void {}
  * // contrast addClass, whose source EXCLUDES braces (the op adds them).
  */
-export function addFunction(
-  ast: SourceFile,
-  name: string,
-  source: string,
-  options?: DeclarationOptions,
-  handlePath?: string
-): void {
-  assertNoCollision(ast, name, "addFunction", handlePath!);
+export function addFunction(ast: SourceFile, name: string, source: string, options?: DeclarationOptions): void {
+  assertNoCollision(ast, name, "addFunction");
   ast.addStatements(`${exportPrefixFor(options)}function ${name}${source}`);
 }
 
@@ -98,17 +94,16 @@ export function addFunction(
  * as `addFunction` (ADR-0039) — `type`/`interface` are exempt.
  *
  * @example
- * ast.find(path).addVariable("PI", "3.14159"); // -> const PI = 3.14159;
- * ast.find(path).addVariable("counter", "0", { export: true, kind: "let" }); // -> export let counter = 0;
+ * ts.find(path).addVariable("PI", "3.14159"); // -> const PI = 3.14159;
+ * ts.find(path).addVariable("counter", "0", { export: true, kind: "let" }); // -> export let counter = 0;
  */
 export function addVariable(
   ast: SourceFile,
   name: string,
   initializer: string,
-  options?: DeclarationOptions & { kind?: "const" | "let" | "var" },
-  handlePath?: string
+  options?: DeclarationOptions & { kind?: "const" | "let" | "var" }
 ): void {
-  assertNoCollision(ast, name, "addVariable", handlePath!);
+  assertNoCollision(ast, name, "addVariable");
   const kind = options?.kind ?? "const";
   ast.addStatements(`${exportPrefixFor(options)}${kind} ${name} = ${initializer};`);
 }
@@ -124,17 +119,11 @@ export function addVariable(
  *
  * @example
  * // source excludes braces:
- * ast.find(path).addClass("Point", "  x = 0;"); // -> class Point {\n  x = 0;\n}
+ * ts.find(path).addClass("Point", "  x = 0;"); // -> class Point {\n  x = 0;\n}
  * // contrast addFunction, whose source INCLUDES braces (the op does NOT add them itself).
  */
-export function addClass(
-  ast: SourceFile,
-  name: string,
-  source: string,
-  options?: DeclarationOptions,
-  handlePath?: string
-): void {
-  assertNoCollision(ast, name, "addClass", handlePath!);
+export function addClass(ast: SourceFile, name: string, source: string, options?: DeclarationOptions): void {
+  assertNoCollision(ast, name, "addClass");
   ast.addStatements(`${exportPrefixFor(options)}class ${name} {\n${source}\n}`);
 }
 

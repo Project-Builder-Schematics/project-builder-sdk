@@ -29,6 +29,29 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
   );
 }
 
+// Final-verify fix (F-1, position-independent path channel): keyed by the live AST
+// instance itself, so an op can recover its handle's author-facing path WITHOUT any
+// positional coupling to the op's own (variable-arity, author-optional) argument list. A
+// WeakMap entry lives exactly as long as the AST instance it's keyed on (set once in
+// #ensureLive, alongside `#live` itself) — no separate cleanup needed.
+const astHandlePaths = new WeakMap<object, string>();
+
+/**
+ * Recovers the author-facing handle path for a live AST instance previously registered by
+ * `#ensureLive` — the ONLY channel through which an op function can reach the path for its
+ * own `dialectError()`-branded message (design §4.4's "on {path}" clause; unreachable any
+ * other way, since `Op<Ast>` and `DialectAst.parse()` carry no path parameter). Throws if
+ * called with an AST instance never registered by a handle — a contributor bug, not an
+ * author-reachable state.
+ */
+export function handlePathFor(ast: object): string {
+  const path = astHandlePaths.get(ast);
+  if (path === undefined) {
+    throw new Error("dialect-handle: handlePathFor() called with an unregistered AST instance");
+  }
+  return path;
+}
+
 // A getter-backed modify directive: `content` resolves lazily, exactly once, memoized — at
 // whichever flush first `JSON.stringify`s the batch (ADR-0006's "serialize once at flush").
 // `dryRun()` never triggers this: `dryRunPlan` reads only `verb`/`path` (REQ-MC-05).
@@ -154,6 +177,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     } catch {
       throw dialectError(`could not parse "${this.#path}" as TypeScript`);
     }
+    astHandlePaths.set(this.#live as object, this.#path);
     this.#lastEmittedText = content;
   }
 
@@ -220,20 +244,21 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // `opName` names the tail for BOTH the foreign-wrap message (constraint: `{op}() on
   // "{path}" threw`) and #ensureOpen runs AFTER the op (never before) — the mutation gate
   // needs the op's effect already applied to compare against the baseline.
-  // S-001: `this.#path` is appended as a TRAILING runtime arg after the author's own args.
-  // Existing ops (e.g. addImport) declare no matching parameter and simply ignore it (JS
-  // drops unclaimed trailing args); an add-op needing the author-facing path for its own
-  // dialectError()-branded collision message (design §4.4's "on {path}" clause — unreachable
-  // from ops.ts any other way, since Op<Ast> and DialectAst.parse() carry no path channel)
-  // declares an extra OPTIONAL trailing parameter to receive it. Never part of the PUBLIC
-  // call signature: OpMethods derives the author-facing type from the op-pack's own type
-  // annotation (e.g. index.ts's op-pack type), not from the concrete function's real
-  // (wider) parameter list, so this stays invisible to authors.
+  //
+  // Final-verify fix (F-1): the author-facing path is NEVER threaded as a runtime arg to
+  // `fn` — a trailing positional arg collided with the `options` slot whenever an
+  // add-op's OWN optional trailing param was omitted (the common call form), silently
+  // rendering "on \"undefined\"" in the collision message. The path channel is now
+  // POSITION-INDEPENDENT: `astHandlePaths` (module scope above), keyed by the live AST
+  // instance itself, set once in #ensureLive. An op needing the path for its own
+  // dialectError()-branded message calls the exported `handlePathFor(ast)` — no arity
+  // coupling to the author's own (variable, optional) argument list, so this is immune to
+  // however many params the author did or didn't supply.
   runOp(fn: (ast: Ast, ...args: unknown[]) => void, args: unknown[], opName: string): void {
     this.#enqueue(async () => {
       await this.#ensureLive();
       await this.#invokeContained(
-        () => fn(this.#live as Ast, ...args, this.#path),
+        () => fn(this.#live as Ast, ...args),
         `${opName}() on "${this.#path}" threw`
       );
       this.#ensureOpen();
