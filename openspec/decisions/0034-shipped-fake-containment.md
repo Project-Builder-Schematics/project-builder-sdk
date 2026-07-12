@@ -67,3 +67,37 @@ Containment is structural and fail-closed across six guards:
 - **Directory-level FIT-10 exemption (`src/testing/**`)** — rejected: reopens the port-bleed
   hole a single-path allow-list closes; a bleed planted anywhere else under `src/testing/**`
   (e.g. a hypothetical `src/testing/helpers.ts`) would go uncaught.
+
+---
+
+## AMENDMENT (draft — `stage-6-release-shape`, 2026-07-12): `dist/core/**` document-not-strip + `declarationMap: false`
+
+- Status: Proposed (draft)
+- Relates to: REQ-FPS-06, REQ-PPH-05; extends this ADR's ship-unmapped posture
+
+**Context**: Stage 6 finalizes the tarball surface. `./testing` re-exports `defineFactory` from a
+RUNTIME relative import of `../core/context.ts`, so `dist/testing/index.js` needs `dist/core/context.js`
+physically present; stripping `dist/core/**` wholesale would break `./testing` at runtime. The owner
+ruled `defineFactory` stays `./testing` this change (no graduation), decoupling the strip decision from
+any relocation.
+
+**Decision (extends this ADR)**: apply the SAME "ship the file, don't map it in `exports`" pattern this
+ADR established for the fake to `dist/core/**` — it ships INTENTIONALLY and stays unreachable via
+`package.json#exports` (the ADR-0009 boundary remains advisory-by-convention, NOT enforced by tarball
+exclusion). This is documented at the package-shape surface (README/linked doc, REQ-FPS-06.2). Paired
+with `tsconfig.build.json#declarationMap: false` so no `.d.ts.map` source-map files ship alongside the
+unmapped `dist/core/**` (or any other) declarations — closing a source-map leak of internal paths and
+shrinking the tarball. FIT-14's regenerated baseline pins `dist/core/**` present and zero `.d.ts.map`;
+a positive no-secrets scan runs independently (REQ-FPS-07).
+
+**Consequences**: (+) `./testing` keeps working from the tarball with no relocation; the containment
+story stays uniform (ship-unmapped, one pattern for the fake AND core). (−) internal `dist/core/**`
+JS/`.d.ts` remain in the tarball, unmapped — accepted 0.x containment shape, identical in kind to the
+fake's. (→) if `defineFactory` graduates in the future public-package plan, the strip decision reopens
+then, not now.
+
+**Alternatives Considered**: **Strip `dist/core/**` from `files`** — rejected: breaks `./testing`'s
+runtime import; the only safe strip requires relocating `defineFactory`'s canonical source first, which
+the owner deferred out of this change. **Keep `declarationMap: true`** — rejected: ships `.d.ts.map`
+files that leak internal source paths and add unmapped-surface churn to the FIT-14 baseline for zero
+consumer value (no published sourcemaps are consumed downstream).
