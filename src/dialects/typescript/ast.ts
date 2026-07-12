@@ -43,14 +43,7 @@ export function detectNewLineKind(source: string): NewLineKind {
 }
 
 function countOccurrences(source: string, needle: string): number {
-  let count = 0;
-  let pos = 0;
-  for (;;) {
-    const idx = source.indexOf(needle, pos);
-    if (idx === -1) return count;
-    count += 1;
-    pos = idx + needle.length;
-  }
+  return source.split(needle).length - 1;
 }
 
 /**

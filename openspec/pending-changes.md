@@ -134,13 +134,16 @@ Verify verdict `pass-with-followups`. Judgment-day APPROVED (R1 clean — 0 crit
 | Description | Type | Size | Gating? | Stage |
 |---|---|---|---|---|
 | [stage-5b] modify(content)-after-AST-op last-write-wins (reject or document — judgment-day confirmed both judges converged on this question; decision pending design review) | design | M | — | **5b** |
-| [stage-5b] runOp async containment if `Op<Ast>` ever relaxes to async (theoretical; today all ops are sync) | refactor | S | — | **5b** |
+| [stage-5b] runOp async containment — the loophole is LATENT TODAY: TS void-return compatibility admits an async op in a defineOpPack literal without any type relaxation; contain like `.raw` (shared contained-invoke helper) + spec touch for the tail wording | refactor | S | — | **5b** |
 | [stage-5b] DAS-01.1 negative-guard broadening beyond removeImport (scope narrowing at archive; list remains `addImport` + `.raw` only) | docs | S | — | **5b** |
 | [stage-5b] TSD-04.1 own-property/stack sweep vs REAL ts-morph error tracking (executor latitude on getSyntacticDiagnostics internals) | refactor | S | — | **5b** |
 | [stage-5b] mid-chain print-failure containment + "could not print" fixture (error message contract for serialization failures) | test-coverage | S | — | **5b** |
 | [stage-5b] MC-01.2/TSD-03.1 batch-grouping annotation-or-assert, Session.isPending() instead of pendingSnapshot copy per op, FIT-01 extensionless-relative-import blind spot, AuthoringError{origin} promotion | refactor | M | — | **5b** |
 | provenance go-live checklist (remove `--dry-run` at first real release + assert live provenance via npm attestation; dry-run staged in publish.yml) | refactor | XS | Before live publish | **6.2** |
 | README front-door dialect entry (Stage 6.3 scope: new author's first view should advertise `find().addImport()`, not just stub concept) | docs | S | When Stage 6 front-door lands | **6.3** |
+| [stage-5b] hoist the BOM/encoding round-trip from the TS dialect's WeakMap to the core handle's parse/print seam when the second dialect lands — N dialects must not re-discover it | refactor | S | — | **5b** |
+| [stage-5b] the lazy modify directive retains the ts-morph Project via the memoized getter's `resolve` closure after resolution — clear the closure ref post-memoization (one-liner, memory-only, visible in in-process harnesses) | refactor | XS | — | **5b** |
+| [stage-5b] extract the duplicated `deepEqual` (`src/conformance/index.ts` + `src/testing/contract-fake.ts`, both shipped) into a kit-internal shared module — has pkg-surface baseline implications, do alongside 5b | refactor | S | — | **5b** |
 
 **Reaffirmed (already registered above, engine-handoff section, row "Split from `stage-4-typed-options`")**:
 `stage-4b-testing-harness` stays **COMMITTED-NEXT** — steward reckoning CQ-3 condition: the

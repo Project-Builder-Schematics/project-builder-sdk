@@ -23,12 +23,8 @@ import { detectNewLineKind, parse, print } from "../../../src/dialects/typescrip
 import { addImport } from "../../../src/dialects/typescript/ops.ts";
 import type { Directive } from "../../../src/core/wire.ts";
 import { BATCH_CAP_BYTES } from "../../../src/core/wire.ts";
-import { makeSpyClient } from "../../support/spy-client.ts";
-
-const GOLDEN_DIR = new URL("./golden/", import.meta.url).pathname;
-function golden(name: string): string {
-  return readFileSync(join(GOLDEN_DIR, name), "utf-8");
-}
+import { makeSpyClient, collectModifies } from "../../support/spy-client.ts";
+import { golden } from "../../support/golden.ts";
 
 // Base handle surface every dialect handle carries regardless of its op-pack (ReadOps +
 // WriteOps re-declared + raw + PromiseLike + the "found"-only remove) — subtracting this set
@@ -56,9 +52,7 @@ describe("TypeScript dialect — REQ-TSD-01 subpath + thin op-pack shape", () =>
     });
     await run(undefined, { client });
 
-    const modifies = emitted
-      .flatMap((b) => b.instructions)
-      .filter((d): d is { op: "modify"; modify: { path: string; content: string } } => d.op === "modify");
+    const modifies = collectModifies(emitted);
     expect(modifies).toHaveLength(1);
     expect(modifies[0]?.modify.path).toBe("a.ts");
     expect(modifies[0]?.modify.content).toBe(golden("add-import-after.txt"));
@@ -76,10 +70,7 @@ describe("TypeScript dialect — REQ-TSD-02 ts-morph determinism pins", () => {
         await ts.find("a.ts").addImport("readFileSync", "node:fs");
       });
       await run(undefined, { client });
-      const modifies = emitted
-        .flatMap((b) => b.instructions)
-        .filter((d): d is { op: "modify"; modify: { path: string; content: string } } => d.op === "modify");
-      return modifies[0]?.modify.content ?? "";
+      return collectModifies(emitted)[0]?.modify.content ?? "";
     }
 
     const first = await runOnce();
@@ -196,9 +187,7 @@ describe("TypeScript dialect — REQ-TSD-03 edge scenarios (S-003)", () => {
     });
     await run(undefined, { client });
 
-    const modifies = collectDirectives(emitted).filter(
-      (d): d is { op: "modify"; modify: { path: string; content: string } } => d.op === "modify"
-    );
+    const modifies = collectModifies(emitted);
     expect(modifies).toHaveLength(1);
     expect(modifies[0]?.modify.content).toBe(
       'import { existsSync } from "node:fs";\n\nconst x = 1;\nexport const w = 4;\n'
@@ -233,9 +222,7 @@ describe("TypeScript dialect — REQ-TSD-03 edge scenarios (S-003)", () => {
     });
     await run(undefined, { client });
 
-    const modifies = collectDirectives(emitted).filter(
-      (d): d is { op: "modify"; modify: { path: string; content: string } } => d.op === "modify"
-    );
+    const modifies = collectModifies(emitted);
     expect(modifies).toHaveLength(1);
     expect(modifies[0]?.modify.content).toBe(golden("empty-add-import-after.txt"));
   });
@@ -254,9 +241,7 @@ describe("TypeScript dialect — REQ-TSD-03 edge scenarios (S-003)", () => {
     });
     await run(undefined, { client });
 
-    const modifies = collectDirectives(emitted).filter(
-      (d): d is { op: "modify"; modify: { path: string; content: string } } => d.op === "modify"
-    );
+    const modifies = collectModifies(emitted);
     expect(modifies).toHaveLength(1);
     expect(modifies[0]?.modify.content).toBe(golden("crlf-add-import-after.txt"));
     expect(modifies[0]?.modify.content).toContain("\r\n");
@@ -270,9 +255,7 @@ describe("TypeScript dialect — REQ-TSD-03 edge scenarios (S-003)", () => {
     });
     await run(undefined, { client });
 
-    const modifies = collectDirectives(emitted).filter(
-      (d): d is { op: "modify"; modify: { path: string; content: string } } => d.op === "modify"
-    );
+    const modifies = collectModifies(emitted);
     expect(modifies).toHaveLength(1);
     expect(modifies[0]?.modify.content).toBe(golden("add-import-after.txt"));
     const importLines = modifies[0]!.modify.content.split("\n").filter((l) => l.startsWith("import "));

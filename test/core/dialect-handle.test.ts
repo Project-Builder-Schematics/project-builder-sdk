@@ -11,12 +11,8 @@ import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
 import { dryRun } from "../../src/commons/index.ts";
-import { makeSpyClient } from "../support/spy-client.ts";
+import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
 import { toyDialect, PARSE_FAIL_SENTINEL, type ToyAst } from "../fixtures/toy-dialect/index.ts";
-
-function collectModifies(emitted: Array<{ instructions: Array<{ op: string }> }>) {
-  return emitted.flatMap((b) => b.instructions).filter((d): d is { op: "modify"; modify: { path: string; content: string } } => d.op === "modify");
-}
 
 describe("dialect handle — coalescing (REQ-MC-01)", () => {
   it("REQ-MC-01.1: two distinguishable ops, no read, one modify, byte-exact content", async () => {

@@ -8,6 +8,7 @@
 // TYPE (define-dialect.ts) are frozen.
 
 import { currentContext } from "./context.ts";
+import type { DirectiveFactory } from "./directive-factory.ts";
 import type { OpPack, Handle } from "./define-dialect.ts";
 import type { Directive } from "./wire.ts";
 
@@ -81,16 +82,31 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     return this.#ops;
   }
 
-  // Chains `step` onto `#tail` and EAGER-marks the updated `#tail` handled, synchronously,
-  // in the same turn — before returning to the caller (ADR-0037, Q3). This closes the
-  // pre-drain `unhandledRejection` window for a forgotten-`await` throwing chain; the real
-  // rejection stays observable on `#tail` for author-`await` and `settle()`.
-  #enqueue(step: () => void | Promise<void>): void {
-    this.#tail = this.#tail.then(step);
+  // The ONE containment primitive (ADR-0037, Q3): chains `step` onto `#tail` and
+  // EAGER-marks the updated `#tail` handled, synchronously, in the same turn — before
+  // returning to the caller. This closes the pre-drain `unhandledRejection` window for a
+  // forgotten-`await` throwing chain; the real rejection stays observable on `#tail` for
+  // author-`await` and `settle()`, and on the returned step-result promise for callers
+  // (like `read()`) that surface the step's value.
+  #chain<T>(step: () => T | Promise<T>): Promise<T> {
+    const result = this.#tail.then(step);
+    this.#tail = result.then(() => undefined);
     this.#tail.catch(() => {
       // Eager shadow-catch — intentionally empty. See module doc + ADR-0037.
     });
     this.#registerOnce();
+    return result;
+  }
+
+  #enqueue(step: () => void | Promise<void>): void {
+    void this.#chain(step);
+  }
+
+  #bufferDirective(build: (factory: DirectiveFactory) => Directive): void {
+    this.#enqueue(() => {
+      const { session, factory } = currentContext();
+      session.buffer(build(factory));
+    });
   }
 
   #registerOnce(): void {
@@ -169,38 +185,23 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     // #tail (author-order preservation) but deliberately NOT routed through the AST
     // coalescing machinery — its overlap with an open AST `modify` is out of tested scope
     // for this change (tracked stage-5b followup).
-    this.#enqueue(() => {
-      const { session, factory } = currentContext();
-      session.buffer(factory.modify({ path: this.#path, content }));
-    });
+    this.#bufferDirective((factory) => factory.modify({ path: this.#path, content }));
   }
 
   runRename(newName: string, opts?: { force?: boolean }): void {
-    this.#enqueue(() => {
-      const { session, factory } = currentContext();
-      session.buffer(factory.rename({ path: this.#path, newName, force: opts?.force }));
-    });
+    this.#bufferDirective((factory) => factory.rename({ path: this.#path, newName, force: opts?.force }));
   }
 
   runMove(toDir: string, opts?: { force?: boolean }): void {
-    this.#enqueue(() => {
-      const { session, factory } = currentContext();
-      session.buffer(factory.move({ path: this.#path, toDir, force: opts?.force }));
-    });
+    this.#bufferDirective((factory) => factory.move({ path: this.#path, toDir, force: opts?.force }));
   }
 
   runCopy(to: string, opts?: { force?: boolean }): void {
-    this.#enqueue(() => {
-      const { session, factory } = currentContext();
-      session.buffer(factory.copy({ from: this.#path, to, force: opts?.force }));
-    });
+    this.#bufferDirective((factory) => factory.copy({ from: this.#path, to, force: opts?.force }));
   }
 
   runRemove(): void {
-    this.#enqueue(() => {
-      const { session, factory } = currentContext();
-      session.buffer(factory.remove({ path: this.#path }));
-    });
+    this.#bufferDirective((factory) => factory.remove({ path: this.#path }));
   }
 
   // Sequenced on #tail (author order): a mid-chain read must observe every op enqueued
@@ -209,17 +210,10 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // read-your-own-writes hold (REQ-MC-02.2) and what the NEXT op's #ensureOpen() detects to
   // re-register a fresh directive (the split).
   read(): Promise<string | undefined> {
-    const previousTail = this.#tail;
-    const result: Promise<string | undefined> = previousTail.then(async () => {
+    return this.#chain(async () => {
       const { session } = currentContext();
       return session.read(this.#path);
     });
-    this.#tail = result.then(() => undefined);
-    this.#tail.catch(() => {
-      // Eager shadow-catch — see #enqueue.
-    });
-    this.#registerOnce();
-    return result;
   }
 
   // Awaited by the run-boundary drain, and delegated to by `then()` for an author `await`.
@@ -248,18 +242,17 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
  * `Object.keys(ops)` is exactly the set `OpMethods<Ast, Ops>` describes at the type level.
  */
 export function createDialectHandle<Ast, Ops extends OpPack<Ast>>(
-  dialectAst: { parse(source: string): Ast; print(ast: Ast): string },
+  dialectAst: DialectAst<Ast>,
   ops: Ops,
   path: string
 ): Handle<"found", Ast, Ops> {
   const controller = new DialectHandleController<Ast, Ops>(dialectAst, ops, path);
 
   // Every chaining method returns `handle` (the PUBLIC wrapper below), never the
-  // controller directly — the controller's own methods return `this` (the controller
-  // instance) for its own internal fluency, but the author-facing chain must keep landing
-  // on an object that carries `.raw`/`.push`(op methods)/etc., which the controller itself
-  // does not expose. Safe forward reference: these are closures, only evaluated when
-  // called — by then `handle` below is already assigned.
+  // controller directly — the author-facing chain must keep landing on an object that
+  // carries `.raw`/`.push`(op methods)/etc., which the controller itself does not expose.
+  // Safe forward reference: these are closures, only evaluated when called — by then
+  // `handle` below is already assigned.
   const base = {
     read: () => controller.read(),
     raw: (fn: (ast: Ast) => void) => {

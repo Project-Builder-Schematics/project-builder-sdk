@@ -6,13 +6,12 @@
  * Red-proof: a directive with a non-serializable value (Function) must fail the roundtrip.
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { DirectiveFactory } from "../../src/core/directive-factory.ts";
 import type { Directive } from "../../src/core/wire.ts";
 import { defineFactory } from "../../src/core/context.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
+import { golden } from "../support/golden.ts";
 
 /**
  * Checks that a directive contains only JSON-serializable values.
@@ -70,7 +69,7 @@ describe("FIT-05 — only serializable bytes cross the seam", () => {
   // directive's content is a plain resolved string by construction (DirectiveFactory stays
   // AST-blind, ADR-0006), not only for hand-built directives.
   it("a coalesced dialect modify directive produced by a real TypeScript-dialect chain survives JSON roundtrip", async () => {
-    const before = readFileSync(join(new URL("../dialects/typescript/golden/", import.meta.url).pathname, "add-import-before.txt"), "utf-8");
+    const before = golden("add-import-before.txt");
     const { client, emitted } = makeSpyClient({ "a.ts": before });
 
     const run = defineFactory<void>(async () => {

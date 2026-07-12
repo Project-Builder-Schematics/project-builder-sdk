@@ -22,7 +22,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
-import { makeSpyClient } from "../support/spy-client.ts";
+import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
 import { toyDialect, type ToyAst } from "../fixtures/toy-dialect/index.ts";
 
 describe("[permanent-fixture] FIT-19 — coalescing orphan guard (ADR-0037)", () => {
@@ -39,9 +39,7 @@ describe("[permanent-fixture] FIT-19 — coalescing orphan guard (ADR-0037)", ()
     });
     await run(undefined, { client });
 
-    const modifies = emitted
-      .flatMap((b) => b.instructions)
-      .filter((d): d is { op: "modify"; modify: { path: string; content: string } } => d.op === "modify");
+    const modifies = collectModifies(emitted);
 
     // No double-buffer: exactly two directives, not one (orphan reuse) and not three+
     // (a duplicate re-open).

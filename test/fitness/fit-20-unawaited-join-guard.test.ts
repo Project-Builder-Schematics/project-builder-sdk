@@ -23,7 +23,7 @@
  */
 import { describe, it, expect, afterEach } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
-import { makeSpyClient } from "../support/spy-client.ts";
+import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
 import { toyDialect } from "../fixtures/toy-dialect/index.ts";
 
 let unhandledRejections: unknown[] = [];
@@ -50,9 +50,7 @@ describe("[permanent-fixture] FIT-20 — unawaited-join guard (ADR-0037, REQ-MC-
     // Give any stray unhandledRejection a chance to surface before asserting.
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    const modifies = emitted
-      .flatMap((b) => b.instructions)
-      .filter((d): d is { op: "modify"; modify: { path: string; content: string } } => d.op === "modify");
+    const modifies = collectModifies(emitted);
     expect(modifies).toHaveLength(1);
     expect(modifies[0]?.modify.content).toBe("seed\njoined-edit");
     expect(unhandledRejections).toEqual([]);

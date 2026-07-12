@@ -9,23 +9,11 @@
  * constraint 7).
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { defineFactory } from "../../../src/core/context.ts";
 import { dryRun } from "../../../src/commons/index.ts";
 import * as ts from "../../../src/dialects/typescript/index.ts";
-import { makeSpyClient } from "../../support/spy-client.ts";
-
-const GOLDEN_DIR = new URL("./golden/", import.meta.url).pathname;
-function golden(name: string): string {
-  return readFileSync(join(GOLDEN_DIR, name), "utf-8");
-}
-
-function collectModifies(emitted: Array<{ instructions: Array<{ op: string }> }>) {
-  return emitted
-    .flatMap((b) => b.instructions)
-    .filter((d): d is { op: "modify"; modify: { path: string; content: string } } => d.op === "modify");
-}
+import { makeSpyClient, collectModifies } from "../../support/spy-client.ts";
+import { golden } from "../../support/golden.ts";
 
 describe("real dialect — coalescing (REQ-MC-01 restatement)", () => {
   it("REQ-MC-01.1: two distinguishable ops, no read, one modify, byte-exact content", async () => {

@@ -10,8 +10,9 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { PROJECT_ROOT } from "../support/jsdoc-scan.ts";
+import { extractSection } from "../support/markdown-section.ts";
 
-const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 const SECURITY_PATH = join(PROJECT_ROOT, "SECURITY.md");
 const DOC_PATH = join(PROJECT_ROOT, "docs/authoring-a-dialect.md");
 const PUBLISH_WORKFLOW_PATH = join(PROJECT_ROOT, ".github/workflows/publish.yml");
@@ -44,23 +45,6 @@ const GENERAL_TRUST_SENTENCE =
 
 const CONTRIBUTOR_HEADING = "### For contributors: building a dialect";
 
-/** Returns the doc's section starting at `heading` (inclusive) up to the next `#`-`###` heading. */
-function extractSection(content: string, heading: string): string {
-  const lines = content.split("\n");
-  const start = lines.findIndex((line) => line.trim() === heading);
-  if (start === -1) {
-    throw new Error(`docs/authoring-a-dialect.md is missing the "${heading}" section`);
-  }
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i++) {
-    if (/^#{1,3} /.test(lines[i] ?? "")) {
-      end = i;
-      break;
-    }
-  }
-  return lines.slice(start, end).join("\n");
-}
-
 describe("REQ-STD-01 — SECURITY.md trust sentences", () => {
   it("carries the general explicit-trust posture", () => {
     expect(security()).toContain(GENERAL_TRUST_SENTENCE);
@@ -74,11 +58,10 @@ describe("REQ-STD-01 — SECURITY.md trust sentences", () => {
     expect(security()).toContain(CONFORMANCE_NOT_SAFETY_CAVEAT);
   });
 
-  it("fails red if either new sentence is removed (regression proof)", () => {
-    const withoutRaw = security().replace(RAW_TRUST_SENTENCE, "");
-    const withoutCaveat = security().replace(CONFORMANCE_NOT_SAFETY_CAVEAT, "");
-    expect(withoutRaw).not.toContain(RAW_TRUST_SENTENCE);
-    expect(withoutCaveat).not.toContain(CONFORMANCE_NOT_SAFETY_CAVEAT);
+  it("each new sentence appears exactly once", () => {
+    const content = security();
+    expect(content.split(RAW_TRUST_SENTENCE).length - 1).toBe(1);
+    expect(content.split(CONFORMANCE_NOT_SAFETY_CAVEAT).length - 1).toBe(1);
   });
 });
 
@@ -100,8 +83,8 @@ describe("REQ-DAS-01.2 — two-realms hazard section", () => {
     expect(doc()).toContain(TWO_REALMS_HAZARD);
   });
 
-  it("fails red if the hazard paragraph is removed (regression proof)", () => {
-    expect(doc().replace(TWO_REALMS_HAZARD, "")).not.toContain(TWO_REALMS_HAZARD);
+  it("the hazard paragraph appears exactly once", () => {
+    expect(doc().split(TWO_REALMS_HAZARD).length - 1).toBe(1);
   });
 });
 

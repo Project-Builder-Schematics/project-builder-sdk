@@ -13,8 +13,6 @@
  * read-boundary split) + REQ-TSD-05.1 (minimum subpath smoke-resolve-and-run).
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
 import { parse, print } from "../../src/dialects/typescript/ast.ts";
@@ -23,17 +21,13 @@ import * as ts from "../../src/dialects/typescript/index.ts";
 import { testDialect, testOpPack, type DialectFixture, type OpPackFixture } from "../../src/conformance/index.ts";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
+import { golden } from "../support/golden.ts";
 import { roundTripViolationFixture } from "./planted/round-trip-violation.ts";
 import { singleOpViolationFixture } from "./planted/single-op-violation.ts";
 import { closureSmuggleFixture } from "./planted/closure-smuggle-violation.ts";
 import { liveNodeSmuggleFixture } from "./planted/live-node-smuggle-violation.ts";
 import { coalescingViolationFixture } from "./planted/coalescing-violation.ts";
 import { readSplitViolationFixture } from "./planted/read-split-violation.ts";
-
-const GOLDEN_DIR = new URL("../dialects/typescript/golden/", import.meta.url).pathname;
-function golden(name: string): string {
-  return readFileSync(join(GOLDEN_DIR, name), "utf-8");
-}
 
 type AddImportOps = { addImport: (ast: SourceFile, name: string, from: string) => void };
 const addImportPack = defineOpPack<SourceFile, AddImportOps>({ addImport });

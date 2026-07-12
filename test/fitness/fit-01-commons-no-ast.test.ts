@@ -153,6 +153,12 @@ describe("FIT-01 — commons imports zero AST libs", () => {
     expect(violations).toEqual([]);
   });
 
+  // Bare non-builtin specifiers in a single source — extractBareImports already excludes
+  // relative specifiers, so builtin-ness is the only remaining filter.
+  function violationsIn(source: string): string[] {
+    return extractBareImports(source).filter((s) => !isBuiltin(s));
+  }
+
   // RED-PROOF: a fixture that imports an AST lib is detected.
   it("[red-proof] a fixture importing ts-morph is caught", () => {
     const fixtureSource = `
@@ -165,10 +171,7 @@ export function parseAst(path: string) {
 }
 `;
 
-    const bare = extractBareImports(fixtureSource);
-    const violations = bare.filter((s) => !isBuiltin(s) && !isRelative(s));
-
-    expect(violations).toContain("ts-morph");
+    expect(violationsIn(fixtureSource)).toContain("ts-morph");
   });
 
   // RED-PROOF: Node builtins are NOT flagged.
@@ -178,10 +181,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 `;
 
-    const bare = extractBareImports(fixtureSource);
-    const violations = bare.filter((s) => !isBuiltin(s) && !isRelative(s));
-
-    expect(violations).toEqual([]);
+    expect(violationsIn(fixtureSource)).toEqual([]);
   });
 
   // RED-PROOF: relative imports to ../core are not flagged.
@@ -191,10 +191,7 @@ import type { JsonValue } from "../core/wire.ts";
 import { currentContext } from "../core/context.ts";
 `;
 
-    const bare = extractBareImports(fixtureSource);
-    const violations = bare.filter((s) => !isBuiltin(s) && !isRelative(s));
-
-    expect(violations).toEqual([]);
+    expect(violationsIn(fixtureSource)).toEqual([]);
   });
 });
 

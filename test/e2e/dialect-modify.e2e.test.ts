@@ -13,16 +13,10 @@
  * Flow 4: forgotten-await chain still completes + commits at run end (REQ-MC-06)
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
-
-const GOLDEN_DIR = new URL("../dialects/typescript/golden/", import.meta.url).pathname;
-function golden(name: string): string {
-  return readFileSync(join(GOLDEN_DIR, name), "utf-8");
-}
+import { golden } from "../support/golden.ts";
 
 describe("e2e — dialect modify (S-002, real TypeScript dialect)", () => {
   it("Flow 1: addImport + .raw() on one file coalesce into a single committed modify", async () => {

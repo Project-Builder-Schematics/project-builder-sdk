@@ -94,8 +94,10 @@ export interface OpPackFixture {
 // Object.is-based structural equality (not `===`): JSON.stringify silently OMITS keys
 // holding function/undefined/Symbol values (the closure-smuggle failure mode, REQ-DC-04.1)
 // rather than throwing, so only a structural compare against the original catches a missing
-// key. Mirrors test/testing/contract-fake.ts's own boundary check — duplicated deliberately
-// (this module ships to `src/`, that one stays test-only; no cross-import between them).
+// key. src/testing/contract-fake.ts (also shipped, ADR-0035) carries its own copy —
+// duplicated deliberately: `./conformance` must not import `./testing` (the dev-only bundle
+// boundary, FIT-17). Extraction into a kit-internal shared module is registered as a
+// stage-5b followup (it has pkg-surface baseline implications).
 function deepEqual(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true;
   if (Array.isArray(a) || Array.isArray(b)) {
@@ -152,7 +154,7 @@ interface ExerciseRun {
 // across the whole run, in emission order.
 async function runExercise(
   dialect: Dialect,
-  exercise: OpExercise,
+  exercise: Pick<OpExercise, "seed" | "path" | "chain">,
   opts: { injectReadAfterFirstOp: boolean }
 ): Promise<ExerciseRun> {
   const path = exercise.path ?? `op-exercise${dialect.extensions[0] ?? ""}`;
@@ -267,11 +269,10 @@ export async function testOpPack(fixture: OpPackFixture): Promise<void> {
       // op: the GLOBAL flush-before-read (ADR-0015) forces exactly TWO modify directives
       // whose cumulative content equals `expect`; directive #1's expected content is
       // SELF-DERIVED by running the first op ALONE — no extra fixture field.
-      const firstOpOnly: OpExercise = {
+      const firstOpOnly: Pick<OpExercise, "seed" | "path" | "chain"> = {
         seed: exercise.seed,
         path: exercise.path,
         chain: exercise.chain.slice(0, 1),
-        expect: exercise.expect,
       };
       const firstOnly = await runExercise(fixture.baseDialect, firstOpOnly, { injectReadAfterFirstOp: false });
       const expectedFirst = firstOnly.modifies[0]?.content;

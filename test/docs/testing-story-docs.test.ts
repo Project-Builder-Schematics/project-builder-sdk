@@ -13,6 +13,7 @@ import { describe, it, expect } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { extractSection } from "../support/markdown-section.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 const README_PATH = join(PROJECT_ROOT, "README.md");
@@ -31,20 +32,7 @@ const TESTING_SECTION_HEADING = "## Testing your factory";
  * evidence before the section exists.
  */
 function extractTestingSection(): string {
-  const source = readFileSync(README_PATH, "utf-8");
-  const lines = source.split("\n");
-  const start = lines.findIndex((line) => line.trim() === TESTING_SECTION_HEADING);
-  if (start === -1) {
-    throw new Error(`README.md is missing the "${TESTING_SECTION_HEADING}" section`);
-  }
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i++) {
-    if (/^## /.test(lines[i] ?? "")) {
-      end = i;
-      break;
-    }
-  }
-  return lines.slice(start, end).join("\n");
+  return extractSection(readFileSync(README_PATH, "utf-8"), TESTING_SECTION_HEADING, /^## /);
 }
 
 /** Extracts every ```ts fenced code block's inner content from a markdown section. */

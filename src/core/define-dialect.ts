@@ -130,10 +130,7 @@ export function withOps<Ast, B extends OpPack<Ast>, P extends OpPack<Ast>[]>(
   base: Dialect<Ast, B>,
   ...packs: P
 ): Dialect<Ast, B & UnionToIntersection<P[number]>> {
-  const merged = { ...base.ops } as B & UnionToIntersection<P[number]>;
-  for (const pack of packs) {
-    Object.assign(merged as object, pack);
-  }
+  const merged = Object.assign({}, base.ops, ...packs) as B & UnionToIntersection<P[number]>;
   return {
     extensions: base.extensions,
     ast: base.ast,
