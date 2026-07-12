@@ -16,9 +16,11 @@ import { extractSection } from "../support/markdown-section.ts";
 const SECURITY_PATH = join(PROJECT_ROOT, "SECURITY.md");
 const DOC_PATH = join(PROJECT_ROOT, "docs/authoring-a-dialect.md");
 const PUBLISH_WORKFLOW_PATH = join(PROJECT_ROOT, ".github/workflows/publish.yml");
+const SENSITIVE_AREAS_PATH = join(PROJECT_ROOT, "openspec/sensitive-areas.md");
 
 const security = () => readFileSync(SECURITY_PATH, "utf-8");
 const doc = () => readFileSync(DOC_PATH, "utf-8");
+const sensitiveAreas = () => readFileSync(SENSITIVE_AREAS_PATH, "utf-8");
 
 // Frozen strings — design.md §4.4b. Copied verbatim; do not paraphrase.
 const RAW_TRUST_SENTENCE =
@@ -68,13 +70,14 @@ describe("REQ-STD-01 — SECURITY.md trust sentences", () => {
 describe("REQ-DAS-01.1 — authoring doc names exactly the shipped API", () => {
   it("names every shipped kit verb and dialect verb", () => {
     const content = doc();
-    for (const name of ["defineDialect", "defineOpPack", "withOps", ".raw", "addImport"]) {
+    // S-002 (DAS-01.1 guard-flip): removeImport (this slice's own op) + addFunction
+    // (already shipped by preceding S-001, safe to name now per Build Order) join the
+    // loop. addVariable/addClass are excluded — they ship in S-003, the slice that adds
+    // them to this loop; naming them now would violate REQ-DAS-01 (the loop names exactly
+    // the shipped API).
+    for (const name of ["defineDialect", "defineOpPack", "withOps", ".raw", "addImport", "removeImport", "addFunction"]) {
       expect(content).toContain(name);
     }
-  });
-
-  it("never names unshipped surface (e.g. removeImport)", () => {
-    expect(doc()).not.toContain("removeImport");
   });
 });
 
@@ -114,5 +117,19 @@ describe("REQ-DAS-02.1 — contributor section has no author-style demo", () => 
 describe("REQ-TSD-06.2 — publish workflow retains --provenance", () => {
   it("keeps npm publish --provenance in the CI publish job", () => {
     expect(readFileSync(PUBLISH_WORKFLOW_PATH, "utf-8")).toContain("--provenance");
+  });
+});
+
+describe("S-002 registry deliverable — sensitive-areas.md promotion (constraint 9)", () => {
+  it('the "security (code execution)" row reads `high`, not `medium`', () => {
+    const row = sensitiveAreas()
+      .split("\n")
+      .find((line) => line.startsWith("| security (code execution)"));
+    expect(row).toBeDefined();
+    expect(row).toContain("| high |");
+  });
+
+  it('the stale "All entries are `confidence: low` and **anticipated**" sentence is absent', () => {
+    expect(sensitiveAreas()).not.toContain("All entries are `confidence: low` and **anticipated**");
   });
 });

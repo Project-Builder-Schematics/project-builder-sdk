@@ -7,7 +7,7 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.raw()` escape hatch, and the
 first real dialect, `@pbuilder/sdk/typescript`, whose op-pack is widening past its original thin
-starter shape (`addImport`) with `addFunction`.
+starter shape (`addImport`) with `addFunction` and `removeImport`.
 
 ## Two audiences
 
@@ -50,6 +50,28 @@ type to share an identifier).
 await ts.find("src/index.ts").addFunction("hi", "(): void {}", { export: true });
 // -> export function hi(): void {}
 // contrast addClass, whose source EXCLUDES braces (the op adds them itself).
+```
+
+`removeImport(name, from)` removes the named binding from `from`'s import clause. Idempotent:
+removing an ABSENT binding is a no-op (zero directives emitted) — mirrors `addImport`'s own
+idempotency. Removing the LAST remaining named binding in an import clause deletes the entire
+import statement — no dangling `import {} from "from"`. An aliased specifier
+(`{ readFileSync as rf }`) is matched by the module-EXPORTED name (`readFileSync`), not the local
+alias `rf`. Scope: NAMED-binding imports only — default and namespace imports are out of scope
+for this op.
+
+A dialect handle's `.modify(content)` REJECTS when an AST-op directive (any named op, or `.raw()`)
+is still OPEN — buffered, not yet drained by a read or flush — on the SAME handle: the pending AST
+edit would otherwise be silently lost to `.modify()`'s own raw overwrite. This is asymmetric and
+narrowly scoped: `.modify()` with no AST op pending is unaffected; an AST op enqueued AFTER
+`.modify()` is unaffected (the restriction is directional); and `.read()` is the documented
+escape — it drains the pending AST op first, so `.modify()` called AFTER a `.read()` is a
+legitimate sequential edit, not a collision:
+
+```ts
+const handle = ts.find("src/index.ts").addImport("readFileSync", "node:fs");
+await handle.read(); // drains the pending addImport edit
+handle.modify("new content"); // succeeds — the documented escape
 ```
 
 ### For contributors: building a dialect
@@ -120,8 +142,14 @@ A **forgotten-await** chain that throws still surfaces its error, contained, at 
 — never as an unhandled rejection. If you need to observe or handle a dialect failure locally,
 `await` the chain (or a promise derived from it) inside your own `try`/`catch`.
 
-The contained error intentionally carries no cause or stack from inside your `.raw()` body —
-`.cause` is always absent. To debug what went wrong inside a `.raw()` callback, log from inside it.
+This containment is not `.raw()`-specific: a NAMED op (`addImport`, `addFunction`,
+`removeImport`, or a third-party dialect's own op) that throws synchronously, or whose
+implementation is itself `async` and rejects, is contained exactly the same way — never an
+unhandled rejection, always the pinned error shape.
+
+The contained error intentionally carries no cause or stack from inside your `.raw()` body or a
+named op's own implementation — `.cause` is always absent. To debug what went wrong, log from
+inside the op or callback itself.
 
 ## Testing with the conformance kit
 

@@ -246,25 +246,29 @@ silently drops the AST edit) — `.read()` remains the documented escape.
   REPLACES the characterisation test committed in commit 1 with the reject scenario (RED→GREEN
   within this same commit) — the replacement is visible in this commit's diff, never dropped
   silently (constraint 2). Same SLICE (S-002), two commits
-- [ ] `src/dialects/typescript/ops.ts` (Modify) — `removeImport(name, from)`: sibling survives,
-  last-binding deletes statement, alias matched by exported name, absent = no-op
-- [ ] `src/dialects/typescript/index.ts` (Modify) — compose `removeImport`
-- [ ] `test/dialects/typescript/ops-removeImport.test.ts` (Create) — 08.1/08.2/08.3/08.5
+- [x] `src/dialects/typescript/ops.ts` (Modify) — `removeImport(name, from)`: sibling survives,
+  last-binding deletes statement, alias matched by exported name, absent = no-op.
+  **DEVIATION**: also guards against whole-statement deletion when a default/namespace import
+  coexists on the same declaration (not scenario-tested — defensive, out-of-scope per REQ text,
+  never exercised by any signed scenario)
+- [x] `src/dialects/typescript/index.ts` (Modify) — compose `removeImport`
+- [x] `test/dialects/typescript/ops-removeImport.test.ts` (Create) — 08.1/08.2/08.3/08.5
   (dryRun preview via `pendingSnapshot()`)
-- [ ] `test/core/dialect-handle.test.ts` (Modify) — REQ-TSD-08.4 (zero directives), 08.6 (RYOW,
+- [x] `test/core/dialect-handle.test.ts` (Modify) — REQ-TSD-08.4 (zero directives), 08.6 (RYOW,
   add-then-remove same chain = one modify = byte-identical seed), REQ-MC-08.1–08.4, REQ-DG-07.1
-  (row-136 fail-closed, zero batches across BOTH handles), mixed old+new-op coalescing fixture
-  (REQ-MC-01 coverage note, non-normative — `addImport`+`addFunction`+`removeImport` one chain)
-- [ ] `test/core/dialect-handle.test.ts` (Modify) — row-141 kept-half, batch-grouping component
-  (no REQ of its own; pending-changes row 141 / spec.md's row-141 note: "kit-internal,
-  test-authoring hygiene"): annotate the mixed old+new-op coalescing fixture above with an
-  explicit `// proves REQ-MC-01.2 (two independent handles on different paths batch into two
-  separate modify directives, no cross-contamination) and REQ-TSD-03.1 (a create-then-addImport
-  chain in one run coalesces to exactly one modify at flush)` comment naming both existing,
-  already-tested scenarios it demonstrates — an ANNOTATION (both scenarios are proven elsewhere
-  already; this is traceability, not a new assertion)
-- [ ] `test/dialects/typescript/goldens/**` (Create, partial) — `removeImport` fixtures
-- [ ] `test/docs/security-authoring-guard.test.ts` (Modify) — extend the positive shipped-verbs
+  (row-136 fail-closed, zero batches across BOTH handles — commit-boundary assertion per the
+  S-001 emit-vs-commit discovery), mixed old+new-op coalescing fixture (REQ-MC-01 coverage note,
+  non-normative — `addImport`+`addFunction`+`removeImport` one chain)
+- [x] `test/core/dialect-handle.test.ts` (Modify) — row-141 kept-half, batch-grouping component:
+  the mixed old+new-op coalescing fixture above is annotated with a comment naming both
+  REQ-MC-01.2 and REQ-TSD-03.1 as already-proven scenarios it demonstrates — traceability, not
+  a new assertion
+- [x] `test/dialects/typescript/goldens/**` (Create, partial) — `removeImport` fixtures.
+  **DEVIATION**: used inline byte-exact strings for 08.1/08.2/08.3 (short one-liner outputs)
+  rather than separate golden files, matching the EXISTING mixed pattern in `dialect.test.ts`
+  (e.g. REQ-TSD-03.3/03.4 use inline strings too) — constraint 7's byte-exact requirement is
+  satisfied either way; one existing golden (`add-import-after.txt`) is reused for 08.5
+- [x] `test/docs/security-authoring-guard.test.ts` (Modify) — extend the positive shipped-verbs
   loop with `removeImport` (this slice's own op) AND `addFunction` (already shipped by preceding
   S-001 — safe to name now, since S-001 lands before S-002 in Build Order); `addVariable`/
   `addClass` are EXCLUDED here — they ship later in S-003 and naming them now would violate
@@ -272,9 +276,10 @@ silently drops the AST edit) — `.read()` remains the documented escape.
   slice that ships them (see S-003 Tasks). DELETE the negative unshipped-surface test (lines
   76-78); assert `sensitive-areas.md` `security (code execution)` row reads `high`; assert the
   stale "anticipated"/"confidence: low" sentence is ABSENT
-- [ ] `openspec/sensitive-areas.md` (Modify) — promote medium→high; fix stale paragraph
-- [ ] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — `removeImport` signature, same slice
-- [ ] `docs/authoring-a-dialect.md` (Modify, partial) — op-inventory prose update ("one
+- [x] `openspec/sensitive-areas.md` (Modify) — promote medium→high; fix stale paragraph
+- [x] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — `removeImport` signature, same slice.
+  FIT-14 needed NO change (no new dist file paths, no export/dependency change)
+- [x] `docs/authoring-a-dialect.md` (Modify, partial) — op-inventory prose update ("one
   structured op" claim now false), `removeImport` paragraph, row-136 reject rule + `.read()`
   escape, async-op containment note
 

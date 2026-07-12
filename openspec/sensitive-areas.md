@@ -10,7 +10,7 @@
 | Area | Anticipated paths | Confidence | Reason | Note |
 |---|---|---|---|---|
 | security (supply-chain) | published package surface, incl. `./testing` (`src/testing/**`, ships `ContractFake` in the tarball) | medium | PUBLIC npm package — consumers run our code; a compromised release ships to everyone. `./testing` (stage-4b-testing-harness, 2026-07-12) is a THIRD published entry carrying normative test machinery, guarded by FIT-08/FIT-10/FIT-17/FIT-18 + a dts negative-declaration scan (structural, fail-closed) | Sensitivity is the *publish boundary*, not a single file. Provenance + pinned publish creds required. FIT-17 currently scans `src/`-derived minified builds as a proxy for `dist/` — a pending followup asks it to scan shipped `dist` entries directly. |
-| security (code execution) | the L2 `.raw(ast => …)` escape hatch, now concrete at `src/dialects/typescript/**` (the TypeScript dialect's `.raw()` surface, ts-morph realm) and `src/core/dialect-handle.ts` (the coalescing/containment seam every dialect shares) | medium | `.raw` runs arbitrary author code against a live AST at author-time. `stage-5-first-dialect` (2026-07-12) is the first change to land these paths for real, per its design §4.8 promotion | Only final `[]byte` crosses the IR seam — closures never do. Boundary discipline must be enforced. The two-realms hazard (a different ts-morph version loaded by the author) is documented, not solved — `docs/authoring-a-dialect.md` + `SECURITY.md`, guarded by `test/docs/security-authoring-guard.test.ts`. |
+| security (code execution) | the L2 `.raw(ast => …)` escape hatch, now concrete at `src/dialects/typescript/**` (the TypeScript dialect's `.raw()` surface plus the widening structured op-pack — `addImport`/`addFunction`/`removeImport`, ts-morph realm) and `src/core/dialect-handle.ts` (the coalescing/containment/fail-closed seam every dialect shares) | high | `.raw` runs arbitrary author code against a live AST at author-time, and the op-pack itself now includes a destructive op (`removeImport`) and a fail-loud reject path (row-136, ADR-0039) that a security-motivated edit depends on landing correctly. `stage-5-first-dialect` (2026-07-12) landed these paths for real; `stage-5b-dialect-breadth` (2026-07-12) widened the op-pack and promoted this row from `medium` per its own registry-deliverable obligation (S-002) | Only final `[]byte` crosses the IR seam — closures never do. Boundary discipline must be enforced. The two-realms hazard (a different ts-morph version loaded by the author) is documented, not solved — `docs/authoring-a-dialect.md` + `SECURITY.md`, guarded by `test/docs/security-authoring-guard.test.ts`. |
 | security (third-party trust) | dialect packages (`@acme/pbuilder-sdk-*`); `package.json#dependencies` — now concrete: `ts-morph`, the SDK's own FIRST runtime dependency (`stage-5-first-dialect`, 2026-07-12) | medium | Community dialects are third-party code depending on a PUBLIC contract; a first-party runtime dependency is also supply-chain surface — exact-pinned, committed lockfile, provenance-attested publish (REQ-TSD-06) | No threat model / signing / trust tiers yet for community dialects (SDK_DOSSIER §8 gap #7). `ts-morph`'s own supply chain is scoped by FIT-01's leaf-isolation walk (never reaches `src/commons/**`). |
 | security (IPC) | JSON-RPC wire to the Go engine sidecar | low | Cross-process boundary; the engine treats Bun as hostile (engine `bunipc`) | Only serializable messages cross; TS never touches Go internals. |
 | deployment | `.github/workflows/`, npm publish | low | CI + `npm publish` secrets (NPM_TOKEN / OIDC provenance), publish scope | Lands with foundations-skeleton CI. Upgrade to **high** once secrets exist. Security-engineer review then mandatory. |
@@ -18,9 +18,11 @@
 
 ## Review Required
 
-All entries are `confidence: low` and **anticipated** — none reflect existing code. Re-run
-`/sdd-init force=true` (or update this file) once `foundations-skeleton` lands real paths, and promote
-the relevant rows to `medium`/`high` with concrete paths.
+Most rows above now reflect CONCRETE, landed code (paths, not anticipations) — `security
+(code execution)` and `security (third-party trust)` promoted from their original
+`anticipated`/`confidence: low` state as `stage-5-first-dialect` and `stage-5b-dialect-breadth`
+(2026-07-12) landed the real paths. `security (IPC)` and `deployment` remain lower-confidence;
+re-run `/sdd-init force=true` (or update this file) as their own paths land for real.
 
 > Reminder: a sensitive-area change overrides triage to a minimum of **L** regardless of size. The
 > publish boundary and the IPC wire are the two most likely to trip this once code exists.
