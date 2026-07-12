@@ -33,3 +33,12 @@ An **ambient run-context**, scoped per run via `AsyncLocalStorage` (NOT a module
   replaces the spike" mechanically possible.
 - `flush` stays internal to `Session` (never on the author surface).
 - Per-run scoping (not a process global) keeps concurrent runs and test isolation correct.
+
+## Amendment (2026-07-12, `schematic-local-files`) — `packageRoot`/`packageDir` fields
+
+`RunContext` gains two run-boundary-seeded fields, `packageDir` (resolution anchor) and
+`packageRoot` (the `collection.json` containment ceiling), seeded ONCE in `defineFactory`
+at the pre-`als.run` chokepoint — the same "seed once at run boundary" pattern the
+`dialects` registry (ADR-0037) already uses. See ADR-0046. The ambient-context invariant
+(per-run, not global; `currentContext()` throws outside a run) is unchanged; these are
+additional read-only per-run facts the scaffold leaf consumes via `currentContext()`.

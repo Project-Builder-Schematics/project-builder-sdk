@@ -1,6 +1,7 @@
 # ADR-0005: `scaffold` — folder-create as SDK sugar over N `create` directives
 
-- Status: Draft (Model A leaning; A-vs-B open)
+- Status: **Superseded by ADR-0044** (2026-07-12, change `schematic-local-files`)
+- Status (historical): Draft (Model A leaning; A-vs-B open)
 - Date: 2026-06-21
 - Deciders: Daniel (Hyperxq)
 - Builds on: engine ADR-0028 (`create` directive, text-only invariant, `copy` for binaries).
@@ -42,3 +43,13 @@ contract amendment. **Deferred** to a follow-up once the wire weight of template
 - No engine contract change; ships on the existing `create` directive.
 - Template bytes cross the wire (text, small; the 4 MiB frame cap + streaming already handle volume).
 - The author keeps the logic (which resources, which data); `scaffold` removes the plumbing.
+
+## Amendment (2026-07-12, `schematic-local-files`) — Superseded
+
+Model A-vs-B is closed by ADR-0044 + obs #915: **both**, by ratified classification. The
+common case is the declarative `scaffold` verb (SDK-side lowering); text files render
+by-value on the existing `create` IR (as Model A held), binaries travel **by-reference**
+via the new `copyIn` op (ADR-0043) — a case 0005 had punted to `copy`. The `.template`
+suffix DOES exist now (0005's "nothing to mark" is reversed by obs #915 ruling 3). Model B
+(an engine-side `scaffold` wire op) stays deferred/out-of-scope (L2). This ADR is retained
+for provenance only; ADR-0044 governs.
