@@ -237,11 +237,11 @@ GIVEN an open `addImport` WHEN `.modify()` is called on the SAME handle THEN it 
 silently drops the AST edit) — `.read()` remains the documented escape.
 
 ### Tasks
-- [ ] [characterization] `test/core/dialect-handle.test.ts` (Modify) — COMMIT 1 of 2, its OWN
+- [x] [characterization] `test/core/dialect-handle.test.ts` (Modify) — COMMIT 1 of 2, its OWN
   commit (the evidence artefact): the GREEN characterisation test pinning today's silent LWW —
   two directives, in order, raw wins, final tree = raw content. This commit stands alone; it is
   NOT squashed with the reject implementation
-- [ ] `src/core/dialect-handle.ts` (Modify) — COMMIT 2 of 2 (implementation commit): `runModify`
+- [x] `src/core/dialect-handle.ts` (Modify) — COMMIT 2 of 2 (implementation commit): `runModify`
   rejects when `#openDirective !== undefined && session.isPending(#openDirective)`. THIS commit
   REPLACES the characterisation test committed in commit 1 with the reject scenario (RED→GREEN
   within this same commit) — the replacement is visible in this commit's diff, never dropped

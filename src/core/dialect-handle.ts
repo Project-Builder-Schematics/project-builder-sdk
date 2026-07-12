@@ -244,12 +244,24 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     });
   }
 
+  // S-002 / ADR-0039 (row-136): rejects when this handle's own open AST-op directive is
+  // STILL PENDING (undrained) — the IDENTICAL predicate #ensureOpen already tests. Supersedes
+  // the pre-existing silent last-write-wins (S-002 commit 1's characterization test, now
+  // replaced by REQ-MC-08's reject scenarios in this same commit). Checked INSIDE the
+  // enqueued step (not at call time): #openDirective is only set once addImport's own
+  // async step has actually run, which #tail sequencing guarantees has happened by the time
+  // THIS step executes. `.read()` remains the documented escape (it drains the pending
+  // directive first, so a `.modify()` chained after a `.read()` is unaffected).
   runModify(content: string): void {
-    // Design rev 3 Q2 / ADR-0037 clause 1b: a raw content overwrite, sequenced through
-    // #tail (author-order preservation) but deliberately NOT routed through the AST
-    // coalescing machinery — its overlap with an open AST `modify` is out of tested scope
-    // for this change (tracked stage-5b followup).
-    this.#bufferDirective((factory) => factory.modify({ path: this.#path, content }));
+    this.#enqueue(() => {
+      const { session, factory } = currentContext();
+      if (this.#openDirective !== undefined && session.isPending(this.#openDirective)) {
+        throw dialectError(
+          `cannot .modify() "${this.#path}" while a structured edit is pending on the same handle — the pending edit would be lost; call .read() to commit it first, then .modify()`
+        );
+      }
+      session.buffer(factory.modify({ path: this.#path, content }));
+    });
   }
 
   runRename(newName: string, opts?: { force?: boolean }): void {

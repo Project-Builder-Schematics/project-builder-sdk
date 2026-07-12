@@ -698,24 +698,77 @@ describe("dialect handle — no-reparse across a mixed-op chain", () => {
   });
 });
 
-describe("dialect handle — row-136 [characterization] (PRE-REJECT baseline, S-002 commit 1 of 2)", () => {
-  // ADR-0039 / REQ-MC-08: this test pins TODAY's silent last-write-wins as RED-phase
-  // evidence, landing in its OWN standalone commit (constraint 2). It is REPLACED — not
-  // squashed alongside — by the reject scenarios in commit 2 of the SAME slice. The
-  // last-write-wins behaviour here is NOT a normative scenario of the signed spec; it
-  // exists solely as a rollback reference.
-  it("[characterization] TODAY: .modify() after an open, undrained AST op silently wins array-order — the AST edit is lost", async () => {
+describe("dialect handle — REQ-MC-08 (row-136 reject, S-002 commit 2 of 2 — replaces the commit-1 characterization)", () => {
+  // S-002 commit 1's [characterization] test asserted TODAY's silent last-write-wins
+  // (`.modify()` after an open AST op quietly won array-order, the AST edit lost with no
+  // error). That test is REPLACED here — same slice, this commit's diff — by REQ-MC-08's
+  // reject scenarios (ADR-0039): the pending AST edit is never silently discarded again.
+
+  it("REQ-MC-08.1: .modify() while an AST op is open on the SAME handle REJECTS, naming the conflict", async () => {
     const fake = new ContractFake({ seed: { "a.ts": "const x = 1;\n" } });
 
     const run = defineFactory<void>(async () => {
       await ts.find("a.ts").addImport("readFileSync", "node:fs").modify("raw override content");
     });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client: fake });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    expect(err.message).toBe(
+      'dialect operation failed: cannot .modify() "a.ts" while a structured edit is pending on the same handle — the pending edit would be lost; call .read() to commit it first, then .modify()'
+    );
+    expect(err.cause).toBeUndefined();
+    // The AST edit is never silently discarded — nothing commits at all (fail-closed).
+    expect(fake.committedTree().size).toBe(0);
+  });
+
+  it("REQ-MC-08.2: .modify() with NO pending AST op is unaffected — succeeds exactly as today", async () => {
+    const fake = new ContractFake({ seed: { "a.ts": "const x = 1;\n" } });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").modify("plain overwrite");
+    });
     await run(undefined, { client: fake });
 
-    // Two directives land, in array order (the lazy AST-op modify, then the raw .modify());
-    // ContractFake#apply's plain `#tree.set(p, content)` means the LAST one applied wins —
-    // the addImport edit is silently discarded, never observable in the final tree.
-    expect(fake.committedTree().get("a.ts")).toBe("raw override content");
+    expect(fake.committedTree().get("a.ts")).toBe("plain overwrite");
+  });
+
+  it("REQ-MC-08.3: .read() drains the pending AST op first — .modify() after it is the documented escape, both directives commit", async () => {
+    const fake = new ContractFake({ seed: { "a.ts": "const x = 1;\n" } });
+
+    const run = defineFactory<void>(async () => {
+      const handle = ts.find("a.ts").addImport("readFileSync", "node:fs");
+      await handle.read();
+      handle.modify("post-read overwrite");
+      await handle;
+    });
+    await run(undefined, { client: fake });
+
+    // The addImport edit committed via its own drain-triggered flush (at the .read()),
+    // then the post-read .modify() overwrites on top — both directives landed, neither
+    // silently dropped.
+    expect(fake.committedTree().get("a.ts")).toBe("post-read overwrite");
+  });
+
+  it("REQ-MC-08.4: reverse order (.modify() THEN an AST op) stays defined, unaffected by the reject", async () => {
+    const fake = new ContractFake({ seed: { "a.ts": "const x = 1;\n" } });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").modify("const y = 2;\n").addImport("readFileSync", "node:fs");
+    });
+    await run(undefined, { client: fake });
+
+    // The AST op runs AFTER .modify() buffered its own directive — #ensureLive() reads
+    // through the flush-before-read seam (the modify already committed by then), so the
+    // AST op parses the POST-modify content ("const y = 2;\n") and the addImport edit
+    // lands on top of it — the same insertion shape the existing golden fixtures pin.
+    expect(fake.committedTree().get("a.ts")).toBe('import { readFileSync } from "node:fs";\n\nconst y = 2;\n');
   });
 });
 
