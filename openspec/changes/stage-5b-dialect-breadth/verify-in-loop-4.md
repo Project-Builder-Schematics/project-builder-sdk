@@ -11,7 +11,16 @@ numbering used across batches B1–B4)
 
 ---
 
-### Verdict: NEEDS_FIX
+### FINAL Verdict: PASS
+
+The initial pass over the S-005 delta returned NEEDS_FIX on one CRITICAL finding (preserved
+verbatim below for the audit trail). The Executor's fix commit `dd1d109` was re-verified
+independently and closes both findings — batch B4 PASSES; the change is fully built. See
+"Fix Re-verification (iteration 2)" at the end of this report, including the ruling on the
+probe-ordering deviation (ACCEPTED — the two orderings are verdict-equivalent; only
+diagnostics differ).
+
+### Initial Verdict (pre-fix, superseded): NEEDS_FIX
 
 One CRITICAL finding blocks a clean PASS: **REQ-DC-06's normative text is not fully
 implemented — `testOpPack` receives ZERO of the six mandatory adversarial samples**, though the
@@ -344,3 +353,112 @@ existing one, scoped to `testOpPack`.
 
 Orchestrator action: re-invoke `/build` (SDD-light) targeting Finding #1 only. Iteration 1 of 3
 used for batch B4.
+
+---
+
+# Fix Re-verification (iteration 2) — commit `dd1d109`
+
+**Delta re-verified**: `git show dd1d109` — `runRoundTripProbe()` extraction
+(`src/conformance/index.ts`), `testOpPack` tail call against `fixture.baseDialect`, new
+`REQ-DC-06.3` spy test, planted fixtures `null-parse-violation.ts` /
+`undefined-parse-violation.ts` + `REQ-DC-08.2`/`08.3` tests.
+
+## Verdict: both findings CLOSED — batch B4 PASS
+
+## Execution evidence (reproduced independently)
+
+| Check | Claimed | Verified |
+|---|---|---|
+| `bun test` (full suite) | 851 pass / 0 fail | ✅ **851 pass / 0 fail, 1538 expect() calls** |
+| `bunx tsc --noEmit` | clean | ✅ clean, exit 0 |
+
+## Finding #1 closure (CRITICAL → CLOSED)
+
+- `runRoundTripProbe()` is a faithful extraction of `testDialect`'s previous loop (same 3-way
+  guard, same REQ-DC-08/REQ-DC-01 error texts, now `label`-scoped); `testDialect` behavior
+  unchanged (its pre-existing tests, including all mutation-verified ones from iteration 1,
+  still pass).
+- `testOpPack` now runs the six mandatory samples against `fixture.baseDialect`
+  unconditionally at the end of every call whose exercises pass.
+- **Mutation-kill reproduced live**: commenting out the `testOpPack` probe call →
+  `REQ-DC-06.3` fails (`seenSources.slice(-6)` received `[]` — zero mandatory samples seen).
+  Restored cleanly (byte-exact vs HEAD, suite back at 851/0). The assertion is order- and
+  content-exact (`toEqual` on the full six-string array in declaration order), not a bare count.
+- Observation (non-finding): with the probe disabled, `seenSources` was EMPTY — the exercise
+  loop never routes through `fixture.baseDialect.ast.parse` via that property path, so the
+  test's `slice(-6)` tail-guard is defensive rather than currently load-bearing. Harmless;
+  the assertion is strictly stronger than needed.
+
+## Finding #2 closure (WARNING → CLOSED)
+
+Both new planted fixtures genuinely drive their guard branches — verified by live branch
+mutations, each restored cleanly:
+- Dropped `ast === null` from the guard → `REQ-DC-08.2` fails (rejects with REQ-DC-01 instead
+  of REQ-DC-08 — the null-parse fixture reaches `print` and fails round-trip, proving the
+  branch, not an accident, is what produces the REQ-DC-08 rejection). ✅ killed.
+- Dropped `ast === undefined` → `REQ-DC-08.3` fails the same way. ✅ killed.
+All three branches of the 3-way OR now have an independently-triangulated planted fixture
+(identity from iteration 1, null + undefined from this fix). Triangulation gap closed; no
+production change was needed and none was made to the guard's logic.
+
+## Ordering deviation — RULED: ACCEPTED
+
+The Executor placed the `testOpPack` probe AFTER the exercise loop, not before as my iteration-1
+recommendation sketched. Ruling with evidence:
+
+1. **The two orderings are verdict-equivalent for every possible input.** Enumerating the
+   cases: exercises pass + probe passes → resolves under both orderings; exercises pass +
+   probe fails → rejects under both; exercises fail (probe would pass or fail) → rejects under
+   both. There is NO input that passes under probe-last but would fail under probe-first — the
+   ordering affects only WHICH error message surfaces first, never the pass/fail outcome. The
+   "a sloppy/malicious pack could fail one exercise to dodge the samples" hole is not real:
+   dodging the samples by failing an exercise still FAILS the conformance run — there is no
+   path from a dodge to a green check, which is the only outcome REQ-DC-06 protects.
+2. **The signed spec prescribes injection and non-opt-out, not ordering.** REQ-DC-06's chapeau
+   ("into EVERY `testDialect`/`testOpPack` run... ADDITIVE to, never a replacement for") and
+   scenario REQ-DC-06.1's Given/When/Then say nothing about sequence. "Additive" is satisfied
+   literally — the samples run in addition to the exercises, on every call.
+3. **Probe-last is CONSISTENT with `testDialect`'s own approved semantics.** `testDialect`
+   appends the mandatory set AFTER `fixture.samples` in one array — a fixture whose own first
+   sample fails round-trip never reaches the mandatory set either. "Injected content runs
+   only if the fixture's own content survives first" was already the established, REQ-DC-06.1-
+   blessed behavior; probe-last in `testOpPack` is the same rule, not a new weakening.
+4. **The Executor's breakage claim reproduced exactly.** Moving the probe to the top of
+   `testOpPack` live broke precisely the four claimed `[permanent-fixture]` tests (REQ-DC-05.1
+   coalescing slot, REQ-DC-04.1, REQ-DC-04.2, REQ-DC-05.2) — confirmed from source that
+   `coalescing-violation.ts`/`read-split-violation.ts` use identity `parse` (probe rejects
+   REQ-DC-08) and both smuggle fixtures have broken `print` (probe fails REQ-DC-01), masking
+   each fixture's targeted violation. Those fixtures are themselves spec-load-bearing
+   (REQ-DC-05's text mandates the closure-smuggle instance "MUST NOT be omitted"), so
+   probe-first is not just inconvenient — it degrades the planted suite's diagnostic
+   specificity that REQ-DC-05 exists to pin. Experiment restored cleanly (byte-exact vs HEAD).
+
+The Executor's comment block at the call site documents the reasoning in place — future readers
+won't re-litigate the ordering blind.
+
+## Post-experiment state
+
+`git status --short` → only the pre-existing orchestrator-owned `.sdd/state/*.json` delta and
+this report file modified; `git diff -- src/ test/` empty; full suite re-run green (851/0).
+
+## Updated Carry to Verify-Final (supersedes the iteration-1 list)
+
+1. ~~REQ-DC-06 testOpPack gap~~ **CLOSED by `dd1d109`** — final verify's compliance matrix can
+   now mark REQ-DC-06 (chapeau) COMPLIANT, evidenced by REQ-DC-06.1 + REQ-DC-06.3 together.
+2. ~~Triangulation gap on the real-base probe~~ **CLOSED by `dd1d109`** (REQ-DC-08.2/08.3).
+3. **Still open, from verify-in-loop-3 (B3)**: SUGGESTION re: `isContained` non-branding
+   assertion for S-004 compose-time throws — non-blocking.
+4. **Cross-batch aggregate for final's Strict TDD audit**: method across all 4 batches =
+   file-pairing + apply-progress RED/GREEN evidence (no per-cycle commits) — aggregate, don't
+   re-derive.
+5. **Owner visibility (recommended, not blocking)**: `dd1d109` changes `testOpPack`'s runtime
+   behavior (six extra parse/print round-trips per call, probe-last ordering) beyond what CQ-B's
+   foresight affirmation reviewed. The ordering ruling above is technically sound; surfacing it
+   to the owner at /evaluate time keeps the CQ-B trail honest.
+6. **Note for final verify**: REQ-DC-06.3's tail-guard observation (exercise loop doesn't
+   route through `baseDialect.ast.parse`) — zero-cost awareness item if anyone later refactors
+   the run vehicle to consume the fixture's `ast` property directly.
+
+Orchestrator action: batch B4 loop EXITS on PASS. All 6 slices (S-000..S-005) built and
+verified in-loop. Proceed to `/evaluate` (sdd-verify --mode=final) before archive. Iteration 2
+of 3 used for batch B4.
