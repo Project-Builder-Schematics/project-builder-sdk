@@ -97,6 +97,35 @@ trigger condition met. 4 ADRs exist for this change total (0039 new, amendments 
 
 ---
 
+### Batch 2 fix — verify-in-loop-2 CRITICAL (Strict TDD triangulation gap)
+
+**Mode**: Strict TDD fix (in-loop iteration 2/3) · **Suite**: 828 → 829 (+1) · `bunx tsc --noEmit`:
+CLEAN · **Branch**: `feat/stage-5b-dialect-breadth`
+
+`verify-in-loop-2.md` CRITICAL finding #1: `removeImport`'s whole-statement-deletion guard
+(`ops.ts:98-99`) has a `getDefaultImport() === undefined && getNamespaceImport() === undefined`
+conjunct with zero triangulating tests. Fixed per the verifier's recommended option (i): added
+`test/dialects/typescript/ops-removeImport.test.ts::"default import survives when its sibling
+named binding is the last one removed"` — seeds `import def, { a } from "m";`, calls
+`removeImport("a", "m")`, asserts byte-exact `import def from "m";\n` (the default import
+survives; the declaration is NOT deleted).
+
+Only the `getDefaultImport()` conjunct is reachable: TypeScript's import-clause grammar never
+allows a `NamespaceImport` to coexist with `NamedImports` on the same declaration (only `import *
+as ns from "m"` XOR `import { a } from "m"`, either optionally paired with a default), so
+`getNamespaceImport()` is always `undefined` whenever `getNamedImports().length > 0` — ts-morph
+cannot parse a fixture that would exercise that conjunct as false. Documented inline in the test
+file rather than manufacturing an impossible fixture.
+
+**Mutation-kill proof (live, this fix)**: weakened the guard to
+`decl.getNamedImports().length === 1` (dropping both defensive conjuncts) — the new test FAILED
+for the right reason (`Expected "import def from "m";\n", Received ""`  — the whole declaration
+was deleted instead of the default import surviving). Restored `src/dialects/typescript/ops.ts`
+via `git checkout --`; `git diff --stat` confirmed zero residual change; full suite re-ran
+829/829 green.
+
+---
+
 ## Batch 1 — S-000: Walking Skeleton (Contained-Invoke, Kit-Internal Modules, Fail-Closed Mechanism)
 
 ### Slices Built This Run

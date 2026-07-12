@@ -60,4 +60,26 @@ describe("removeImport — REQ-TSD-08", () => {
     });
     await run(undefined, { client });
   });
+
+  // Out-of-spec-scope defensive coverage (verify-in-loop-2.md CRITICAL finding #1): removeImport's
+  // whole-statement-deletion guard also checks getDefaultImport()/getNamespaceImport() before
+  // deleting the declaration on the last named binding. REQ-TSD-08 itself only covers named-binding
+  // imports; this guard exists purely to avoid corrupting a default/namespace import that happens to
+  // share the declaration. Only the default-import conjunct is reachable: TypeScript's import-clause
+  // grammar never allows a NamespaceImport to coexist with NamedImports on the same declaration (only
+  // `import * as ns from "m"` XOR `import { a } from "m"`, either optionally paired with a default) —
+  // ts-morph cannot parse a fixture where getNamedImports().length > 0 and getNamespaceImport() is
+  // defined, so that conjunct is unreachable-but-harmless dead code, not an untested live branch.
+  it("default import survives when its sibling named binding is the last one removed", async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": 'import def, { a } from "m";\n' });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").removeImport("a", "m");
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe('import def from "m";\n');
+  });
 });
