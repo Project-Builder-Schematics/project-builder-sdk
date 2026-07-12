@@ -278,19 +278,19 @@ smuggle AND live-node-smuggle, two DISTINCT failure modes) all hold; GIVEN the p
 suite THEN every fixture fails RED against its corresponding assertion.
 
 ### Tasks
-- [ ] [must-fail-first] `src/conformance/index.ts` Modify — real `testDialect` body (DC-01
+- [x] [must-fail-first] `src/conformance/index.ts` Modify — real `testDialect` body (DC-01
   byte-exact round-trip over representative samples)
-- [ ] [must-fail-first] real `testOpPack` body — DC-02 (single-op + unchanged-elsewhere), DC-03
+- [x] [must-fail-first] real `testOpPack` body — DC-02 (single-op + unchanged-elsewhere), DC-03
   (coalescing-to-one, content-verified, ≥2 distinguishable ops)
-- [ ] [must-fail-first] DC-04 seam-serializability — `JSON.parse(JSON.stringify(directive))`
+- [x] [must-fail-first] DC-04 seam-serializability — `JSON.parse(JSON.stringify(directive))`
   deep-equal assertion wired into both `testDialect`/`testOpPack`
-- [ ] [permanent-fixture] `test/conformance/planted/` (Create) — closure-smuggle (DC-04.1,
+- [x] [permanent-fixture] `test/conformance/planted/` (Create) — closure-smuggle (DC-04.1,
   silently drops) AND live-ts-morph-Node-smuggle (DC-04.2, `JSON.stringify` throws on circular
   parent pointers) — TWO DISTINCT failure modes, both mandatory
-- [ ] [permanent-fixture] one planted violation per core assertion (DC-05) — round-trip,
+- [x] [permanent-fixture] one planted violation per core assertion (DC-05) — round-trip,
   single-op, coalescing, serializability, PLUS the read-boundary-split violation (DC-05.2,
   silently coalesces across a mid-chain read instead of splitting)
-- [ ] Rewrite `test/conformance/meta.test.ts` — replace the old "throws, no dialect exists yet"
+- [x] Rewrite `test/conformance/meta.test.ts` — replace the old "throws, no dialect exists yet"
   assertions with real-dialect-backed conformance runs (`typescript-conformance.test.ts`, Create)
 
 ---

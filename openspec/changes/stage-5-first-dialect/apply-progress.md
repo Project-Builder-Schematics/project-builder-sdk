@@ -116,6 +116,160 @@ starting since S-003 is complete. S-004 is disjoint in files from S-003 (touches
 
 ---
 
+## Batch 3b — S-004: Conformance Core Against the Real Dialect
+
+**Mode**: Strict TDD, [must-fail-first] — every planted-violation fixture was probed via a
+standalone script (RED-equivalent evidence: confirmed the fixture rejects, and rejects for
+the SPECIFIC assertion it targets, not an incidental earlier check) BEFORE being wired into
+`typescript-conformance.test.ts`'s expect-reject assertions; the happy-path `testDialect`/
+`testOpPack` bodies were likewise probed against the real dialect end-to-end before being
+committed to production code, per the same house convention batches 2/3 already established
+for this change. **Suite**: 740 → 746 (bun test, +6: 3 meta + 3 conformance-suite files worth
+of new assertions minus the deleted toy-smoke file's 5) · `bunx tsc --noEmit`: CLEAN ·
+`bun run build`: CLEAN.
+
+### Slices Built This Run
+
+| Slice | Scope tag | Status | Tasks |
+|---|---|---|---|
+| S-004 | happy-path | complete | 6/6 |
+
+### ADR-0012 amendment
+
+`openspec/decisions/0012-conformance-kit.md` amended in place (Modified, not a new number —
+per this change's own established precedent for amending EXISTING ADRs 0012/0014, distinct
+from the ADR-0033/0034 renumbering-collision precedent which only applies to brand-NEW
+decision numbers). Amendment section documents: the five CORE assertions now shipped,
+`Promise<void>` signatures, the `OpPackFixture.exercises`/`OpExercise` additive field, the
+run-vehicle rationale, and what stays deferred (adversarial samples, leaf rule,
+real-base-dialect rule — `stage-5b-dialect-breadth`).
+
+### Implementation approach
+
+- **`src/conformance/run-vehicle.ts`** (Create) — a MINIMAL kit-internal in-memory transport
+  (stage/read/commit/discard semantics only) implementing the port shape via a LOCAL
+  structural interface, never naming the SDK's transport-port TYPE anywhere in the file
+  (comments included — REQ-FIT-09/fit-10's structural guard scans ALL source text, not just
+  code; caught this on first full-suite run, see Deviations). NOT exported from
+  `./conformance` (FIT-08-legal internal use; `test/`'s `ContractFake` stays normative).
+- **`src/conformance/index.ts`** (Modify) — real `testDialect` (DC-01: direct
+  `dialect.ast.print(dialect.ast.parse(sample))` comparison, no run-vehicle needed) and
+  `testOpPack` (DC-02/03/04/05.2: a shared `runExercise` helper drives each `OpExercise`
+  through `defineFactory` + a fresh, isolated `run-vehicle.ts` instance, per §4.4c). Assertion
+  ORDER is deliberate: serializability (DC-04) is checked BEFORE content/count checks on every
+  exercise result, so a closure-/live-node-smuggle fixture fails on the SPECIFIC DC-04
+  assertion rather than an incidental content mismatch masking it (verified via probe — see
+  TDD Cycle Evidence).
+- **`test/conformance/planted/`** (Create, 6 files) — `round-trip-violation.ts` (DC-01 slot,
+  built via the real `defineDialect` factory with a corrupting `print`), `single-op-violation.ts`
+  (DC-02 slot), `coalescing-violation.ts` (DC-03 slot, hand-rolled `find()` since the real
+  `createDialectHandle` machinery cannot be coerced into NOT coalescing — bypasses
+  `defineDialect` entirely, test-only code so importing `currentContext` directly is legal),
+  `closure-smuggle-violation.ts` (DC-04.1, ALSO the mandated DC-05 serializability instance per
+  REQ-DC-05's own text), `live-node-smuggle-violation.ts` (DC-04.2, uses the REAL `ast.ts`
+  `parse` to get a genuine ts-morph `SourceFile` with circular compiler-node parent
+  pointers — empirically confirmed `JSON.stringify` throws `TypeError: JSON.stringify cannot
+  serialize cyclic structures.` on it, verified BEFORE writing the fixture), and
+  `read-split-violation.ts` (DC-05.2 slot, hand-rolled `find()` that defers ALL buffering to
+  the chain's final `.then()` — correctly coalesces a plain no-read chain into one modify
+  [isolating the read-split failure specifically] but ignores any mid-chain `read()` entirely,
+  so it never splits).
+- **`test/conformance/typescript-conformance.test.ts`** (Create) — assembles a REAL
+  `Dialect` from the SAME production building blocks `src/dialects/typescript/index.ts`
+  composes internally (`defineDialect`+`defineOpPack`+`withOps` over the real `ast.ts`/`ops.ts`)
+  since `index.ts` itself exports only `find` (REQ-DG-04.1/FIT-08) — this is NOT a mock, per
+  ADR-0012/REQ-TSD-07, it is literally the same `parse`/`print`/`addImport` production code the
+  shipped dialect uses. DC-02's single-op exercise and DC-03's multi-op exercise reuse the
+  EXISTING `add-import-before/after.txt` and `coalesced-two-edits.txt` goldens (no new goldens
+  needed — same real ts-morph output already committed and verified in S-002). REQ-TSD-05.1
+  smoke test added (against a real `ContractFake`, per design's Test Derivation assignment).
+- **`test/conformance/meta.test.ts`** (Rewrite) — dropped the stale "throws, no dialect exists
+  yet" assertions; kept + extended the export-surface wiring checks (now also asserts
+  `testDialect` returns a `Promise`, matching the new async signature).
+- **`test/conformance/toy-dialect-smoke.test.ts`** (Deleted) — design's own Q2/rev-4 language
+  is explicit: "that smoke is REPLACED by the REAL TypeScript-dialect conformance run... the
+  toy fixture is NOT carried into conformance code past S-001" (constraint 2). Its own
+  assertions (`testDialect`/`testOpPack` throw the stub error) are now FALSE against the real
+  implementation — kept as dead code would either bit-rot or require reimplementing stub
+  behavior just to keep an obsolete test green, both worse than deletion. `rg` confirmed no
+  other file references it.
+
+### Deviations From Plan
+
+#### 1. FIT-10/REQ-FIT-09 caught a comment, not code (self-corrected same session)
+
+First `run-vehicle.ts` draft explained its OWN port-symbol avoidance in a comment that
+LITERALLY NAMED the two banned symbols ("No `EngineClient`/`EmitRejection` symbol is named
+anywhere in this file...") — fit-10's structural guard scans ALL source text (`PORT_SYMBOL_
+PATTERN.test(source)`), comments included, so the explanatory comment tripped the very guard
+it was explaining. Fixed by rephrasing the comment to describe the constraint without quoting
+the banned identifiers. Caught on the FIRST full-suite run after the file was written — no
+implementation change needed, purely a comment-wording fix. Recorded here as a genuine,
+non-obvious gotcha for future dialect-adjacent `src/` authors: the port guard is a TEXT scan,
+not an AST/import scan.
+
+#### 2. `OpPackFixture.exercises` was already present (no change needed)
+
+S-001's batch had already landed the `exercises: readonly OpExercise[]` REQUIRED field and
+`OpExercise` type in `src/conformance/index.ts` (type-only, per the verify-plan-4 amendment) —
+confirmed by reading the file before writing S-004's bodies. No structural change needed here;
+S-004 only filled in the runtime bodies that CONSUME `exercises`.
+
+### TDD Cycle Evidence — S-004
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| `testDialect` DC-01 | `typescript-conformance.test.ts::REQ-DC-01.1` | integration | Probed standalone against 4 representative samples (plain, comment+whitespace, JSDoc+function, leading/trailing-space) BEFORE writing the assertion — all round-tripped byte-exact on first probe run (the underlying `ast.ts` parse/print pair was already proven correct in S-002); committed test passed on first `bun test` run | ✅ | 4 distinct sample shapes | n/a |
+| `testOpPack` DC-02/03/05.2 | `typescript-conformance.test.ts::"addImport single-op...multi-op..."` | integration | Probed standalone (single-op + multi-op exercises against the real dialect) BEFORE committing — confirmed exactly 1 modify (no-read) / exactly 2 modifies (read-injected), byte-exact against existing goldens | ✅ | single-op (DC-02) + multi-op (DC-03) + read-split (DC-05.2) — 3 distinct code paths through the same `runExercise` helper | n/a |
+| DC-04 serializability (positive path) | (implicit — every exercise run above passes `assertSerializable`, plain-string content) | integration | n/a — proven negative via the two smuggle fixtures below, not a positive-only assertion (Theatre Criteria: "a `.raw()` fixture that is positive-only... MUST NOT appear") | ✅ | n/a | n/a |
+| round-trip-violation | `typescript-conformance.test.ts::"round-trip slot"` | integration | [must-fail-first] Probed: `testDialect(roundTripViolationFixture)` rejects with the REQ-DC-01 message on first run (a print-corrupting dialect can never round-trip) | ✅ | n/a (one fixed violation) | n/a |
+| single-op-violation | `typescript-conformance.test.ts::"single-op-fidelity slot"` | integration | [must-fail-first] Probed: rejects with REQ-DC-02/03 content-mismatch message; required a SECOND, multi-op exercise added to the fixture so the structural "≥1 multi-op exercise" precondition didn't mask the single-op failure with a DIFFERENT (wrong-reason) rejection — caught via probe, fixed before commit | ✅ | 2 exercises (single-op + multi-op, both broken the same way) | n/a |
+| coalescing-violation | `typescript-conformance.test.ts::"coalescing slot"` | integration | [must-fail-first] Probed: rejects with "expected exactly ONE modify... got 2" — confirms the hand-rolled never-coalescing `find()` genuinely bypasses the real machinery | ✅ | n/a | n/a |
+| closure-smuggle / live-node-smuggle | `typescript-conformance.test.ts::"serializability slot" / "distinct failure mode"` | integration | [must-fail-first] Probed BOTH independently: closure fixture rejects via the deep-equal mismatch branch (silent key-drop); live-node fixture rejects via the try/catch branch (`JSON.stringify` THROWS) — confirmed these are genuinely DISTINCT code paths inside `assertSerializable`, not the same branch catching both | ✅ | 2 distinct failure modes, both required by REQ-DC-04.1/.2 | n/a |
+| read-split-violation | `typescript-conformance.test.ts::"REQ-DC-05.2"` | integration | [must-fail-first] First hand-rolled attempt ("stale-directive-reuse" design) produced a LOST edit (0 additional modifies) rather than a clean "1 modify where 2 expected" — still correctly rejected (`length !== 2`) but the mechanism didn't match the fixture's own doc comment. Redesigned to "defer all buffering to final `.then()`" — probed again, now genuinely "coalesces across the read" (1 modify, cumulative content) matching REQ-DC-05.2's literal wording; verified the DIRECT (no-read) pass still coalesces correctly first, isolating the read-split failure specifically | ✅ | n/a | one full mechanism redesign (see RED evidence) |
+| `meta.test.ts` rewrite | `meta.test.ts::"testDialect returns a Promise"` | unit | Old stub-throw assertions removed; new Promise-return assertion probed against the real (non-stub) implementation | ✅ | n/a | n/a |
+
+### Files Changed
+
+| File | Action | Slice | What |
+|---|---|---|---|
+| `src/conformance/index.ts` | Modified | S-004 | Real `testDialect`/`testOpPack` bodies, `deepEqual`, `assertSerializable`, `runExercise` |
+| `src/conformance/run-vehicle.ts` | Created | S-004 | Kit-internal minimal in-memory transport (structural port type, never names it) |
+| `test/conformance/typescript-conformance.test.ts` | Created | S-004 | DC-01..05 + TSD-05.1 against the real dialect |
+| `test/conformance/planted/round-trip-violation.ts` | Created | S-004 | DC-05 round-trip slot |
+| `test/conformance/planted/single-op-violation.ts` | Created | S-004 | DC-05 single-op slot |
+| `test/conformance/planted/coalescing-violation.ts` | Created | S-004 | DC-05 coalescing slot |
+| `test/conformance/planted/closure-smuggle-violation.ts` | Created | S-004 | DC-04.1 + DC-05 serializability slot |
+| `test/conformance/planted/live-node-smuggle-violation.ts` | Created | S-004 | DC-04.2 distinct failure mode |
+| `test/conformance/planted/read-split-violation.ts` | Created | S-004 | DC-05.2 slot |
+| `test/conformance/meta.test.ts` | Modified | S-004 | Dropped stale stub assertions, added Promise-return check |
+| `test/conformance/toy-dialect-smoke.test.ts` | Deleted | S-004 | Replaced by `typescript-conformance.test.ts` (constraint 2) |
+| `test/fitness/dts-baseline/conformance.index.d.ts` | Modified | S-004 | Regenerated (`Promise<void>`, `exercises`/`OpExercise`) |
+| `test/fitness/pkg-surface-baseline.json` | Modified | S-004 | +3 tarball entries (`dist/conformance/run-vehicle.*`) |
+| `openspec/decisions/0012-conformance-kit.md` | Modified | S-004 | ADR-0012 amendment (in place, no renumber — amends an existing ADR) |
+
+### Post-Slice Self-Review (Step 7c — no external audit engine available in this sub-agent context)
+
+Checked the S-004 diff against all 8 binding constraints: (1) N/A (no dependency change); (2)
+zero references to `test/fixtures/toy-dialect/**` in any S-004 file (`rg` confirmed) —
+`toy-dialect-smoke.test.ts` was DELETED, not extended, per constraint 2's own text; (3) the
+frozen-prefix wrapper untouched, S-004 never constructs a second error-wrapping site; (4) N/A
+(S-005 scope); (5) every `OpExercise`/exercise run pre-seeds its target via
+`createRunVehicle({[path]: seed})` before any op runs — no bare `create()`-then-`find()`-only
+chain; (6) no test asserts a specific outcome for concurrent unawaited same-path handles; (7)
+every DC-01/02/03 assertion is byte-exact (`===`) against either a committed golden or a
+self-derived value — never count-only, and DC-04's assertion is structural deep-equal, never a
+`toBeDefined`-style loose check; (8) suite green (746/746) + `tsc` clean + `bun run build`
+clean confirmed, including FIT-04/FIT-14's own self-rebuilding checks. No findings.
+
+### Next Recommended
+
+`/build --scope=slice:S-005` (Authoring Docs, SECURITY Guard, Sensitive-Areas Promotion) —
+requires S-002 (complete) + S-004 (complete, this batch). This is the LAST slice in the
+Build Order; once done, the change is ready for `sdd-verify --mode=final`.
+
+---
+
 ## Batch 2 — S-002: The Real Dialect (ts-morph, `./typescript`, `addImport`)
 
 **Mode**: Strict TDD (batch-oriented per house precedent — implementation and its driving

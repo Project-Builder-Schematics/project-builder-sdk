@@ -1,10 +1,60 @@
 # ADR-0012: The conformance kit — `testDialect` / `testOpPack`
 
-- Status: Accepted
+- Status: Accepted (amended 2026-07-12 — real CORE bodies shipped, see "Amendment" below)
 - Date: 2026-06-21
 - Deciders: Daniel (Hyperxq)
 - Builds on: ADR-0009 (open ecosystem), ADR-0010 (op-packs); roadmap §7 (fitness functions), §8
   (Strict TDD).
+
+## Amendment (2026-07-12, `stage-5-first-dialect`, S-004): CORE subset now, tail deferred
+
+**Context**: `testDialect`/`testOpPack` shipped as frozen-signature stubs (throwing) until a
+real dialect existed to validate the adversarial cases against. Stage 5's TypeScript dialect
+is that dialect.
+
+**Decision**: Fill the frozen signatures with FIVE core assertions — byte-exact round-trip
+(REQ-DC-01), single-op fidelity + unchanged-elsewhere (REQ-DC-02), coalescing-to-one
+content-verified (REQ-DC-03, ≥2 distinguishable ops), seam-serializability (REQ-DC-04,
+including MANDATORY closure- AND live-node-smuggle red-proofs, two distinct failure modes),
+and the read-boundary split (REQ-DC-05.2) — plus a planted-violation suite (one red-proof per
+assertion, `test/conformance/planted/`). Fixture SHAPES stay frozen (`DialectFixture`
+unchanged); `OpPackFixture` gains ONE additive REQUIRED field, `exercises: readonly
+OpExercise[]` (new exported `OpExercise` type) — the op-invocation recipe the generic kit needs
+to actually apply each op on a seeded target (without it `testOpPack`'s per-op assertions would
+be untestable theatre). Both functions become `async (...): Promise<void>` — observing
+DC-03/DC-04 requires awaiting a REAL async coalescing run (the handle's `#tail`, the
+run-boundary join, and `Session.flush` are all async); a synchronous body could only inspect
+the emitted batch via a mock/bypass, which this ADR and REQ-TSD-07 (ContractFake-only) forbid.
+Planted violations surface as promise REJECTIONS, not sync throws.
+
+**Run vehicle**: the five assertions need to observe an EMITTED, coalesced batch, which
+requires a real transport driving `Session.flush`/`commit`. The kit ships a MINIMAL
+kit-internal in-memory transport, `src/conformance/run-vehicle.ts`, implementing only the
+stage/read/commit/discard semantics DC-01..05 exercise — NOT exported from `./conformance`
+(internal port use is FIT-08-legal; re-export is not), so it grows the shipped tarball by
+exactly one file and no public symbol. It does NOT replace `test/`'s `ContractFake`: that stays
+the normative, full-fidelity fake for the SDK's own test suite; the run vehicle is a separate,
+deliberately thin implementation whose own fidelity is pinned by the kit's assertions running
+the REAL dialect through it (a divergence would fail DC-01..05, not hide).
+
+**Adversarial samples, the leaf rule, and the real-base-dialect rule** (beyond "op-packs tested
+against a real dialect, never a mock" — already held from day one) remain OUT OF SCOPE,
+tracked as committed-next (`stage-5b-dialect-breadth`).
+
+**Consequences**: (+) the `.raw()` code-execution invariant ships in CORE, not a deferred tail;
+(+) "conformance ≠ safety" is asserted in-kit, not only in prose (SECURITY.md). (–) partial
+coverage — a tracked followup, not a silent gap. (–) `./conformance`'s public signatures change
+`void` → `Promise<void>` — a signature-touching FIT-04 baseline update
+(`conformance.index.d.ts`), landed as an explicit S-004 task.
+
+**Alternatives considered**: deferring all bodies (rejected — leaves the security-core seam
+assertion unshipped while `.raw()` goes live); shipping the full adversarial battery now
+(rejected — the XL breadth the owner ruling defers to `stage-5b-dialect-breadth`); relocating
+`ContractFake` to `src/` for the run vehicle (rejected — drags full FAKE-01..06 semantics +
+test-support coupling into the shipped surface for five assertions that need a fraction of
+it).
+
+The body below (originally accepted 2026-06-21) is otherwise unchanged.
 
 ## Context
 
