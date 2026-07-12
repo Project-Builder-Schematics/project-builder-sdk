@@ -82,6 +82,67 @@ change.**
 
 ---
 
+### Batch 4 fix — verify-in-loop-4 CRITICAL + WARNING (S-005 mandatory-sample injection gap + probe triangulation)
+
+**Mode**: Strict TDD fix (in-loop iteration 2/3) · **Suite**: 848 → 851 (+3) · `bunx tsc --noEmit`:
+CLEAN · `bun run build`: CLEAN · **Branch**: `feat/stage-5b-dialect-breadth`
+
+`verify-in-loop-4.md` CRITICAL finding #1: REQ-DC-06's chapeau ("into EVERY
+`testDialect`/`testOpPack` run") was only half-implemented — `testOpPack` received ZERO of the
+six mandatory adversarial samples, contradicting the un-hedged spec text (unlike REQ-DC-07/08,
+REQ-DC-06 carries no "Design flag" granting latitude to narrow scope). Fixed per the verifier's
+prescribed approach: extracted `testDialect`'s round-trip + real-base-probe loop into a shared
+`runRoundTripProbe(dialectAst, samples, label)` helper (`src/conformance/index.ts:177-207`),
+called from `testDialect` (unchanged behavior, against `fixture.dialect` + `fixture.samples` +
+the mandatory set) and newly from `testOpPack` (against `fixture.baseDialect` + the mandatory set
+only, independent of `fixture.exercises` — no per-op sample synthesis, exactly as the verifier
+predicted). Added `typescript-conformance.test.ts::REQ-DC-06.3` (spy on `baseDialect.ast.parse`,
+mirrors REQ-DC-06.1's technique) — RED first (`testOpPack` resolved with zero samples observed),
+GREEN after wiring the helper into `testOpPack`.
+
+**Structural conflict surfaced during implementation (resolved without redesign)**: injecting
+the probe at the START of `testOpPack` (call order the verifier's writeup implied) broke 4
+PRE-EXISTING `[permanent-fixture]` S-004 planted-violation tests (REQ-DC-03 coalescing,
+REQ-DC-04.1 closure-smuggle, REQ-DC-04.2 live-node-smuggle, REQ-DC-05.2 read-split) — those
+fixtures deliberately use identity/hand-rolled `baseDialect.ast` pairs to isolate ONE unrelated
+failure mode, and the new probe's own REQ-DC-08/REQ-DC-01 checks rejected them first, masking
+the violation each test exists to prove. Resolved by moving the probe call to the END of
+`testOpPack` (after the exercise loop, `index.ts:328-338`): a fixture's own exercise failure
+still surfaces for its own reason first, while the mandatory-sample probe still runs
+unconditionally on every call whose exercises pass — satisfies REQ-DC-06's "regardless of what
+samples the contributor's own fixture supplies" without touching any of the 4 signed-off S-004
+fixtures. `REQ-DC-06.3`'s spy assertion was adjusted to read the LAST six recorded sources
+(`seenSources.slice(-6)`) to match.
+
+`verify-in-loop-4.md` WARNING finding #2: the real-base probe's 3-way OR
+(`ast === null || ast === undefined || ast === sample`) only had a dedicated planted fixture for
+the `ast === sample` (identity) branch. Added `test/conformance/planted/null-parse-violation.ts`
+and `undefined-parse-violation.ts` (same `[permanent-fixture]` convention as
+`identity-fixture-violation.ts`) plus `typescript-conformance.test.ts::REQ-DC-08.2`/`REQ-DC-08.3`
+— both pass immediately against the existing (already-correct) guard, since no production code
+change was needed for this finding; substituted a live mutation-kill proof for RED per Strict
+TDD's "RED-first where possible" allowance.
+
+**Mutation-kill proof #1 (Finding #1, live, this fix)**: commented out the
+`runRoundTripProbe(fixture.baseDialect.ast, ...)` call at the end of `testOpPack` — `REQ-DC-06.3`
+FAILED for the right reason (`seenSources.slice(-6)` was `[]`, expected the six mandatory
+samples). Restored `src/conformance/index.ts` from a pre-mutation copy; `git diff --stat`
+confirmed zero residual change; full suite re-ran 851/851 green.
+
+**Mutation-kill proof #2 (Finding #2, live, this fix)**: weakened the guard to
+`ast === sample` (dropping the `null`/`undefined` disjuncts) — `REQ-DC-08.2` and `REQ-DC-08.3`
+BOTH failed for the right reason (rejected with REQ-DC-01 round-trip mismatch instead of
+REQ-DC-08 real-base-dialect rule — the null/undefined checks no longer fired). Restored;
+`git diff --stat` confirmed zero residual change; full suite re-ran 851/851 green.
+
+### Test/typecheck/build evidence (fix)
+
+- `bun test`: 851 pass / 0 fail (was 848 / 0 before this fix), 1538 `expect()` calls.
+- `bunx tsc --noEmit`: clean, no errors.
+- `bun run build`: clean (`tsc -p tsconfig.build.json` + codegen bin bundle).
+
+---
+
 ## Batch 3 — S-003 (`addVariable`+`addClass`) + S-004 (`withOps` collision + reserved-names)
 
 **Mode**: Strict TDD · **Suite**: 829 → 844 (bun test, +15 net: +9 S-003 [8 op scenarios + 1

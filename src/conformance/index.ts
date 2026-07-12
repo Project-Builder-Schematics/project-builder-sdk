@@ -174,6 +174,39 @@ const MANDATORY_ADVERSARIAL_SAMPLES: readonly string[] = [
   'import { a } from "m";\nimport { b } from "m";\n', // duplicate-target: two import statements sharing one module specifier
 ];
 
+// Shared by `testDialect` and `testOpPack` (verify-in-loop-4 Finding #1): the round-trip +
+// real-base-probe loop is ONE mechanism, run against whichever dialect reference the caller
+// holds (`fixture.dialect` for testDialect, `fixture.baseDialect` for testOpPack) — REQ-DC-06's
+// chapeau ("into EVERY testDialect/testOpPack run") and REQ-DC-08 (real-base-dialect rule) both
+// name a dialect's `ast.parse`/`ast.print` pair, not an op-chain, so no per-op synthesis is
+// needed to satisfy either for `testOpPack`. `label` scopes error messages to the caller.
+function runRoundTripProbe(
+  dialectAst: { parse(source: string): unknown; print(ast: unknown): string },
+  samples: readonly string[],
+  label: string
+): void {
+  for (const sample of samples) {
+    const ast = dialectAst.parse(sample);
+    // REQ-DC-08 (real-base-dialect rule): a stub/mock parse that returns nothing or hands
+    // back the input string unchanged would let an identity round-trip pass vacuously —
+    // reject before the round-trip assertion can even run.
+    if (ast === null || ast === undefined || ast === sample) {
+      throw new Error(
+        `${label}: REQ-DC-08 real-base-dialect rule — dialect.ast.parse(sample) returned a ` +
+          "nullish value or the input string unchanged; a real dialect's parse must produce a distinct AST"
+      );
+    }
+    const roundTripped = dialectAst.print(ast);
+    if (roundTripped !== sample) {
+      const preview = sample.length > 80 ? `${sample.slice(0, 80)}...` : sample;
+      throw new Error(
+        `${label}: REQ-DC-01 round-trip fidelity — print(parse(sample)) did not byte-exact match ` +
+          `the original sample: ${JSON.stringify(preview)}`
+      );
+    }
+  }
+}
+
 /**
  * Runs the conformance suite for a dialect: asserts parse/print no-op round-trip fidelity
  * (REQ-DC-01) — `print(parse(sample)) === sample` BYTE-EXACT, never AST-equal, for every
@@ -191,26 +224,7 @@ const MANDATORY_ADVERSARIAL_SAMPLES: readonly string[] = [
  */
 export async function testDialect(fixture: DialectFixture): Promise<void> {
   const samples = [...fixture.samples, ...MANDATORY_ADVERSARIAL_SAMPLES];
-  for (const sample of samples) {
-    const ast = fixture.dialect.ast.parse(sample);
-    // REQ-DC-08 (real-base-dialect rule, extended to testDialect): a stub/mock parse that
-    // returns nothing or hands back the input string unchanged would let an identity
-    // round-trip pass vacuously — reject before the round-trip assertion can even run.
-    if (ast === null || ast === undefined || (ast as unknown) === sample) {
-      throw new Error(
-        "testDialect: REQ-DC-08 real-base-dialect rule — dialect.ast.parse(sample) returned a " +
-          "nullish value or the input string unchanged; a real dialect's parse must produce a distinct AST"
-      );
-    }
-    const roundTripped = fixture.dialect.ast.print(ast);
-    if (roundTripped !== sample) {
-      const preview = sample.length > 80 ? `${sample.slice(0, 80)}...` : sample;
-      throw new Error(
-        `testDialect: REQ-DC-01 round-trip fidelity — print(parse(sample)) did not byte-exact match ` +
-          `the original sample: ${JSON.stringify(preview)}`
-      );
-    }
-  }
+  runRoundTripProbe(fixture.dialect.ast, samples, "testDialect");
 }
 
 /**
@@ -219,7 +233,10 @@ export async function testDialect(fixture: DialectFixture): Promise<void> {
  * unchanged-elsewhere (REQ-DC-02) / coalescing-to-one content-verified (REQ-DC-03) via a
  * no-read run, seam-serializability (REQ-DC-04) over every emitted directive, and — for
  * every multi-op exercise — the read-boundary split (REQ-DC-05.2's live counterpart): a
- * mid-chain `read()` must force exactly TWO cumulative modify directives, never one.
+ * mid-chain `read()` must force exactly TWO cumulative modify directives, never one. Finally,
+ * asserts `fixture.baseDialect` survives the six mandatory adversarial samples' round-trip +
+ * real-base probe (REQ-DC-06/REQ-DC-08 — additive, not opt-out-able, same mechanism
+ * `testDialect` runs), unconditionally on every call whose exercises pass.
  *
  * @example
  * await testOpPack({
@@ -308,4 +325,16 @@ export async function testOpPack(fixture: OpPackFixture): Promise<void> {
       }
     }
   }
+
+  // REQ-DC-06/REQ-DC-08 (verify-in-loop-4 Finding #1): the six mandatory adversarial
+  // samples' round-trip + real-base probe, run against `fixture.baseDialect` — same
+  // mechanism `testDialect` runs, independent of `fixture.exercises`. Deliberately LAST
+  // (not first, unlike testDialect): a fixture's own exercises target ONE specific
+  // REQ-DC-02..05 failure mode against a baseDialect that may be intentionally non-generic
+  // (e.g. this repo's own REQ-DC-05 planted-violation fixtures use hand-rolled/identity
+  // `ast` pairs to isolate that ONE mode) — ordering the probe last lets that exercise-level
+  // failure surface for its own reason first, while still running the probe unconditionally
+  // on every call whose exercises pass, exactly as REQ-DC-06's "regardless of what samples
+  // the contributor's own fixture supplies" demands.
+  runRoundTripProbe(fixture.baseDialect.ast, MANDATORY_ADVERSARIAL_SAMPLES, "testOpPack");
 }

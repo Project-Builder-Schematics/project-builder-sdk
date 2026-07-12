@@ -30,6 +30,8 @@ import { liveNodeSmuggleFixture } from "./planted/live-node-smuggle-violation.ts
 import { coalescingViolationFixture } from "./planted/coalescing-violation.ts";
 import { readSplitViolationFixture } from "./planted/read-split-violation.ts";
 import { identityFixtureViolationFixture } from "./planted/identity-fixture-violation.ts";
+import { nullParseViolationFixture } from "./planted/null-parse-violation.ts";
+import { undefinedParseViolationFixture } from "./planted/undefined-parse-violation.ts";
 
 type AddImportOps = { addImport: (ast: SourceFile, name: string, from: string) => void };
 const addImportPack = defineOpPack<SourceFile, AddImportOps>({ addImport });
@@ -142,6 +144,56 @@ describe("REQ-DC-06 — mandatory adversarial samples (contributor cannot opt ou
     await expect(testDialect(fixture)).resolves.toBeUndefined();
     expect(parseCalls).toBe(6);
   });
+
+  it("REQ-DC-06.3: all six mandatory samples run against fixture.baseDialect on every testOpPack call, independent of exercises", async () => {
+    const seenSources: string[] = [];
+    // Same spy technique as REQ-DC-06.1, applied to `baseDialect` instead of `dialect` —
+    // `OpPackFixture` carries no `samples` field at all, so the mandatory set is the ONLY
+    // source of round-trip probing testOpPack does outside its own op-exercises.
+    const spiedBaseDialect: typeof realTypescriptDialect = {
+      ...realTypescriptDialect,
+      ast: {
+        parse: (source: string) => {
+          seenSources.push(source);
+          return realTypescriptDialect.ast.parse(source);
+        },
+        print: realTypescriptDialect.ast.print,
+      },
+    };
+    const fixture: OpPackFixture = {
+      opPack: addImportPack,
+      baseDialect: spiedBaseDialect,
+      exercises: [
+        {
+          seed: golden("add-import-before.txt"),
+          chain: [
+            { op: "addImport", args: ["join", "node:path"] },
+            {
+              raw: (ast: unknown): void => {
+                (ast as SourceFile).addStatements("export const z = 3;");
+              },
+            },
+          ],
+          expect: golden("coalesced-two-edits.txt"),
+        },
+      ],
+    };
+
+    await expect(testOpPack(fixture)).resolves.toBeUndefined();
+
+    // The mandatory probe runs LAST (after every exercise, see index.ts's testOpPack) and
+    // has no `await` between samples, so it lands as one synchronous burst at the tail —
+    // the last six recorded sources are exactly the injected set, in declaration order,
+    // regardless of how many exercise-driven calls preceded it.
+    expect(seenSources.slice(-6)).toEqual([
+      "",
+      "// just a comment, no statements\n",
+      `/*${"a".repeat(4 * 1024 * 1024)}*/\nconst x = 1;\n`,
+      "const x = 1;\r\nconst y = 2;\r\n",
+      "﻿const x = 1;\n",
+      'import { a } from "m";\nimport { b } from "m";\n',
+    ]);
+  });
 });
 
 describe("REQ-DC-07 — leaf rule: no cross-dialect / AST-library import (documented limit)", () => {
@@ -160,5 +212,15 @@ describe("REQ-DC-07 — leaf rule: no cross-dialect / AST-library import (docume
 describe("REQ-DC-08 — real-base-dialect rule extended to testDialect", () => {
   it("[permanent-fixture] REQ-DC-08.1: an identity parse/print fixture fails BEFORE the round-trip assertion could vacuously pass", async () => {
     await expect(testDialect(identityFixtureViolationFixture)).rejects.toThrow(/REQ-DC-08/);
+  });
+
+  // verify-in-loop-4 Finding #2: the two remaining branches of the real-base probe's 3-way
+  // OR (`ast === null` / `ast === undefined`), each independently triangulated.
+  it("[permanent-fixture] REQ-DC-08.2: a parse that always returns null fails BEFORE the round-trip assertion could run", async () => {
+    await expect(testDialect(nullParseViolationFixture)).rejects.toThrow(/REQ-DC-08/);
+  });
+
+  it("[permanent-fixture] REQ-DC-08.3: a parse that always returns undefined fails BEFORE the round-trip assertion could run", async () => {
+    await expect(testDialect(undefinedParseViolationFixture)).rejects.toThrow(/REQ-DC-08/);
   });
 });
