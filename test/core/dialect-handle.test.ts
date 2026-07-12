@@ -189,11 +189,14 @@ describe("dialect handle — same-path scoping (REQ-MC-07)", () => {
 
 describe("dialect handle — .raw() and parse-failure containment (REQ-DG-05)", () => {
   it("REQ-DG-05.1: a throwing .raw callback is contained — frozen prefix + tail, no .cause", async () => {
+    const SECRET_MARKER = "PLANTED_NATIVE_INTERNAL_9f3a";
     const { client } = makeSpyClient({ "a.toy": "seed" });
 
     const run = defineFactory<void>(async () => {
       toyDialect.find("a.toy").raw(() => {
-        throw new Error("boom");
+        const native = new Error(`boom ${SECRET_MARKER}`);
+        (native as unknown as Record<string, unknown>).internalNode = { marker: SECRET_MARKER };
+        throw native;
       });
     });
 
@@ -208,6 +211,14 @@ describe("dialect handle — .raw() and parse-failure containment (REQ-DG-05)", 
     const err = caught as Error;
     expect(err.message).toBe('dialect operation failed: raw() on "a.toy" threw');
     expect(err.cause).toBeUndefined();
+
+    // council fix pass (QA F2): sweep EVERY own property (not just message/.cause) for the
+    // planted secret marker — proves the native error object was discarded wholesale at the
+    // wrap site (a fresh Error, per module doc), not merely stripped of one named field.
+    for (const prop of Object.getOwnPropertyNames(err)) {
+      const value = (err as unknown as Record<string, unknown>)[prop];
+      expect(String(value)).not.toContain(SECRET_MARKER);
+    }
   });
 
   it("REQ-DG-05.2: an unparseable target is contained the same way as REQ-DG-05.1", async () => {
@@ -228,5 +239,59 @@ describe("dialect handle — .raw() and parse-failure containment (REQ-DG-05)", 
     const err = caught as Error;
     expect(err.message).toBe('dialect operation failed: could not parse "a.toy" as TypeScript');
     expect(err.cause).toBeUndefined();
+  });
+});
+
+describe("dialect handle — async .raw() containment (council fix pass, security note 1, ADR-0037)", () => {
+  it("an async .raw callback that rejects is contained the same as a sync throw, with no unhandledRejection", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandledRejection);
+
+    const { client } = makeSpyClient({ "a.toy": "seed" });
+
+    const run = defineFactory<void>(async () => {
+      // Deliberately not awaited by the author — the run-boundary join must still observe
+      // the async rejection through the SAME containment as a sync throw.
+      toyDialect.find("a.toy").raw(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        throw new Error("boom-async");
+      });
+      await new Promise((resolve) => setTimeout(resolve, 15));
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    } finally {
+      process.off("unhandledRejection", onUnhandledRejection);
+    }
+
+    // Give any stray unhandledRejection a chance to surface before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    expect(err.message).toBe('dialect operation failed: raw() on "a.toy" threw');
+    expect(err.cause).toBeUndefined();
+    expect(unhandled).toEqual([]);
+  });
+
+  it("an async .raw callback that resolves after a delay has its mutation included in the coalesced modify", async () => {
+    const { client, emitted } = makeSpyClient({ "a.toy": "seed" });
+
+    const run = defineFactory<void>(async () => {
+      await toyDialect.find("a.toy").raw(async (ast) => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        (ast as ToyAst).push("async-line");
+      });
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe("seed\nasync-line");
   });
 });

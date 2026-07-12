@@ -102,6 +102,9 @@ A **forgotten-await** chain that throws still surfaces its error, contained, at 
 — never as an unhandled rejection. If you need to observe or handle a dialect failure locally,
 `await` the chain (or a promise derived from it) inside your own `try`/`catch`.
 
+The contained error intentionally carries no cause or stack from inside your `.raw()` body —
+`.cause` is always absent. To debug what went wrong inside a `.raw()` callback, log from inside it.
+
 ## Testing with the conformance kit
 
 `@pbuilder/sdk/conformance` exports `testDialect(fixture)` and `testOpPack(fixture)`. Both are

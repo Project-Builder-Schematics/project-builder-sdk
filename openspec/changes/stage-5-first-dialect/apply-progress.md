@@ -89,6 +89,10 @@ file, avoiding a second copy that could silently drift.
 | `docs/authoring-a-dialect.md` | Modified | S-005 | Stub → real content (two-audience split, kit verbs, `.raw()`, two ts-morph realms, coalescing shape, Async usage, testing/publishing) |
 | `SECURITY.md` | Modified | S-005 | + `.raw()`-specific trust sentence + "conformance ≠ safety" caveat (verbatim) |
 | `test/docs/security-authoring-guard.test.ts` | Created | S-005 | 12 substring guards (STD-01, DAS-01.1/.2/.3, DAS-02.1, TSD-06.2) |
+
+> **Correction (council fix pass)**: the row above understates it — the "conformance ≠ safety"
+> sentence is verbatim-identical in BOTH `SECURITY.md` AND `docs/authoring-a-dialect.md`
+> (`security-authoring-guard.test.ts` guards both copies), not SECURITY.md only.
 | `openspec/sensitive-areas.md` | Modified | S-005 | 2 rows promoted low→medium, concrete paths (design §4.8) |
 | `openspec/changes/stage-5-first-dialect/slices.md` | Modified | S-005 | S-005 tasks ticked `[x]` |
 
@@ -659,3 +663,145 @@ S-002 is the first task to touch `package.json#dependencies` (ts-morph) — its 
 (constraint 1) should re-verify FIT-01 is still green before proceeding. S-002's executor
 should also apply the SAME ADR-renumbering treatment to ADR-0033 (ts-morph) — next free slot
 is 0038 at time of writing.
+
+---
+
+## Council Fix Pass (post-final-verify, pre-adversarial-review)
+
+**Mode**: Strict TDD. **Suite**: 758 → 765 (bun test, +7) · `bunx tsc --noEmit`: CLEAN ·
+`bun run build`: not re-run this pass (no build-affecting change; dist-diffing fitness tests in
+the suite already cover the shipped `dist/**` and stayed green). Closes the 4 mandatory fix
+items + 1 optional from council review (QA F1/F2/F3/F4, security note 1, tech-writer N1/N2,
+architect note 2) ahead of the blind adversarial review.
+
+### FIX-1 (QA F1+F3) — `test/dialects/typescript/read-routing.test.ts` widened
+
+**Problem**: the scan only checked for `EngineClient` (REQ-DG-04.1's full banned set is
+`Session`/`DirectiveFactory`/`EngineClient`/`EmitRejection`) and only listed TOP-LEVEL files
+under `src/dialects/typescript/**` — a violation nested in a subdirectory, or naming any of the
+other three symbols, would pass silently.
+
+**Fix**: `findEngineClientReferences` → `findBannedSymbolReferences`, looping a
+`BANNED_SYMBOLS` const tuple through the same word-boundary/comment-stripped regex per symbol
+(reused, unchanged, from the existing FIT-01 comment-stripping pattern). `listSourceFiles`
+rewritten to recurse into subdirectories (mirrors FIT-01's `collectTs`). A planted
+two-directory-deep fixture (`test/fixtures/red/dialect-typescript/nested/inner/
+deep-session-use.ts`, excluded from `tsc` via the existing `test/fixtures/red/**` tsconfig
+exclusion) proves the recursion; three new inline string-source red-proof cases (FIT-01
+pattern) prove `Session`/`DirectiveFactory`/`EmitRejection` detection; the pre-existing
+`EngineClient` file fixture and comment-stripping guard were kept and now run through the
+generalised function.
+
+RED evidence (captured against the OLD EngineClient-only, top-level-only implementation, before
+widening — see full run log in this batch's commit history):
+```
+[red-proof] a fixture importing Session fails the scan
+  Expected to contain: "Session referenced" / Received: []
+[red-proof] a fixture importing DirectiveFactory fails the scan
+  Expected to contain: "DirectiveFactory referenced" / Received: []
+[red-proof] a fixture importing EmitRejection fails the scan
+  Expected to contain: "EmitRejection referenced" / Received: []
+[red-proof] a fixture nested two directory levels deep is still caught by the scan
+  Expected: > 0 / Received: 0
+```
+4 genuine fails → widened the scanner → 7/7 GREEN.
+
+### FIX-2 (security note 1) — async `.raw()` containment in `src/core/dialect-handle.ts`
+
+**Problem**: `runRaw` invoked `fn(this.#live as Ast)` inside a sync `try`/`catch` without
+capturing or awaiting the return value. An async `fn` (permitted at the type level by TS's
+void-return compatibility, even though `Handle.raw`'s signature reads `(ast: Ast) => void`)
+returns a promise the `try`/`catch` never observes: a later rejection surfaced as an
+uncontained `unhandledRejection` (leaking the native error's message) while the run committed
+as if successful — the exact all-or-nothing violation ADR-0037 exists to prevent. A
+resolve-after-delay callback's mutation could also race the coalesced print.
+
+**Fix**: capture `fn`'s return value; if it's thenable (`isThenable` helper — a structural
+`typeof value.then === "function"` check, since the static type says `void`), `await` it INSIDE
+the same `try`/`catch` — the enqueued step already runs inside the async `#tail` chain, so this
+is a natural extension, not a queue restructure. `runOp` was checked and left untouched:
+`Op<Ast>` (`define-dialect.ts`) is declared `(ast: Ast, ...args: never[]) => void` with no
+`Promise` branch — per the fix item's own scoping rule, ops are treated as sync-only and out of
+scope for this pass. Verified against `specs/dialect-generics/spec.md` REQ-DG-03/REQ-DG-05: no
+scenario pins "return value ignored" or sync-only `.raw()` semantics — no HALT needed. Frozen
+tails (`raw() on "{path}" threws`, `.cause` absent) are unchanged; `openspec/decisions/
+0037-coalescing-seam-handle-owned.md`'s Consequences section gained one sentence documenting
+the behavior.
+
+RED evidence (`test/core/dialect-handle.test.ts`, captured against the pre-fix `runRaw`):
+```
+an async .raw callback that rejects is contained the same as a sync throw, with no unhandledRejection
+  error: boom-async  (uncaught — the callback's rejection escaped containment entirely)
+an async .raw callback that resolves after a delay has its mutation included in the coalesced modify
+  Expected: "seed\nasync-line" / Received: "seed"  (mutation lost the race against print)
+```
+2 genuine fails → awaited the thenable inside containment → 12/12 GREEN (both new cases plus
+the 10 pre-existing REQ-MC-01/02/04/05/07 + REQ-DG-05 cases, unregressed).
+
+### FIX-3 (tech-writer N1) — `docs/authoring-a-dialect.md` `.cause`-absent debugging note
+
+Added one sentence after the forgotten-await/try-catch guidance: the contained error carries
+no cause or stack from inside a `.raw()` body — `.cause` is always absent — so debugging a
+`.raw()` callback means logging from inside it. `test/docs/security-authoring-guard.test.ts`
+re-run: 12/12 GREEN, unregressed (the new sentence sits outside every frozen-string guard's
+match window).
+
+### FIX-4 (architect note 2 / TW N2 / QA F4) — planning-artefact reference rot
+
+`design.md` and `slices.md` both accumulate amendments as blockquote notes (the `Rev N` chain
+at the top of `design.md`; per-task "LANDED AS" annotations in `slices.md`) — added a
+"Renumbering note (apply-time, council fix pass)" blockquote to each file in that SAME idiom,
+reconciling the full ADR-0033→0038 / ADR-0034→0037 / FIT-17→FIT-19 / FIT-18→FIT-20 mapping in
+one place per file, plus a one-line pointer at `design.md`'s two `### ADR-00xx` section headers
+(§4.5) since those are the most likely places an archiver's eye lands first. `slices.md` already
+had per-task-line "LANDED AS" notes for 3 of the ~11 occurrences (from the original apply
+pass); the new top-of-file note covers the remaining unannotated "Covers:" lines and body prose
+without touching every line individually — content is unaffected, only the numbers were stale.
+The archive spec-sync must read the mapping, not the raw numbers.
+
+Also corrects this document's OWN prior imprecision: the S-005 Files-Changed table (line ~90)
+listed the "conformance ≠ safety" caveat under `SECURITY.md` only — it is verbatim-identical in
+BOTH `SECURITY.md` and `docs/authoring-a-dialect.md` (`security-authoring-guard.test.ts` guards
+both copies). Corrected inline at that table row.
+
+### FIX-5 (optional, QA F2) — own-property no-leak sweep
+
+`test/core/dialect-handle.test.ts` REQ-DG-05.1 extended: the thrown native error now carries a
+planted secret marker (in its message AND a synthetic `internalNode` own property, simulating a
+ts-morph-style internal reference), and the test sweeps EVERY own property of the surfaced
+error for that marker — not just `.message`/`.cause` — proving the native error object is
+discarded wholesale at the wrap site (fresh `Error` construction), not merely stripped of one
+named field. [characterization]: RED waived — `dialectError()` already constructs a fresh
+`Error` from a string literal with no reference to the caught value, so this could not fail
+without a genuine ADR-0037 clause-3 regression; ran once to confirm it exercises the assertion
+for real (not vacuous) — 12/12 GREEN, not flaky (no reliance on the Bun/Node-specific
+`line`/`column`/`sourceURL` own-property set `new Error()` happens to carry — checked property
+content, not property shape).
+
+### TDD Cycle Evidence — Council Fix Pass
+
+| Fix | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| FIX-1 | `read-routing.test.ts::[red-proof] a fixture importing Session fails the scan` | architectural (static scan) | `Expected to contain: "Session referenced" / Received: []` | ✅ | 4 symbols × per-symbol case + 1 recursion case | none needed |
+| FIX-1 | `read-routing.test.ts::[red-proof] a fixture nested two directory levels deep is still caught by the scan` | architectural | `Expected: > 0 / Received: 0` | ✅ | n/a (structural, not a value class) | none needed |
+| FIX-2 | `dialect-handle.test.ts::an async .raw callback that rejects is contained...` | integration | `error: boom-async` (uncaught) | ✅ | 2 cases (reject + resolve-after-delay) | none needed |
+| FIX-2 | `dialect-handle.test.ts::an async .raw callback that resolves after a delay...` | integration | `Expected: "seed\nasync-line" / Received: "seed"` | ✅ | see above | none needed |
+| FIX-5 | `dialect-handle.test.ts::REQ-DG-05.1 (extended)` | unit | n/a — [characterization], justified above | ✅ | n/a | none needed |
+
+### Files Changed (Council Fix Pass)
+
+| File | Action | Fix | What |
+|---|---|---|---|
+| `test/dialects/typescript/read-routing.test.ts` | Modified | FIX-1 | Full banned-symbol set, recursive listing, per-symbol red-proofs |
+| `test/fixtures/red/dialect-typescript/nested/inner/deep-session-use.ts` | Created | FIX-1 | Two-level-deep planted fixture (recursion proof), `tsc`-excluded |
+| `src/core/dialect-handle.ts` | Modified | FIX-2 | `runRaw` awaits a thenable return inside containment; new `isThenable` helper |
+| `openspec/decisions/0037-coalescing-seam-handle-owned.md` | Modified | FIX-2 | Consequences: one sentence on async-callback containment |
+| `test/core/dialect-handle.test.ts` | Modified | FIX-2, FIX-5 | 2 new async-containment cases; REQ-DG-05.1 extended with own-property sweep |
+| `docs/authoring-a-dialect.md` | Modified | FIX-3 | One sentence: `.cause` always absent, log inside `.raw()` to debug |
+| `openspec/changes/stage-5-first-dialect/design.md` | Modified | FIX-4 | Renumbering note (top-of-doc) + 2 section-header pointers |
+| `openspec/changes/stage-5-first-dialect/slices.md` | Modified | FIX-4 | Renumbering note (top-of-doc) |
+| `openspec/changes/stage-5-first-dialect/apply-progress.md` | Modified | FIX-4 | This section + S-005 table correction |
+
+### Next Recommended
+
+Blind adversarial review (judgment-day).

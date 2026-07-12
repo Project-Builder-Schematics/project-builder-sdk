@@ -80,6 +80,10 @@ directives).
   departure from the synchronous commons verbs, taught explicitly (async-usage doc section).
 - (-) Concurrent same-path handles are UB, a guarded expectation rather than a guarantee — the
   author must `await` between same-path handles for defined ordering.
+- (+) *(council fix pass)* an async `.raw()` callback's returned promise is `await`ed INSIDE the
+  same containment as a sync throw — its rejection surfaces through the frozen-prefix contained
+  error (never an uncontained `unhandledRejection`), and its mutation is guaranteed observed
+  before the next print.
 
 **Rejected alternative — author-await-only (no join).** Relies entirely on author discipline: a
 forgotten `await` either silently LOSES the edit (the chain never runs before the run-end flush)

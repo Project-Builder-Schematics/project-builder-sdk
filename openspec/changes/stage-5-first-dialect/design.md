@@ -56,6 +56,16 @@
 > (RunContext drains outstanding dialect handles before `session.flush()`), the explicit
 > thenable-handle promise-queue mechanism, the honest same-path concurrency scoping, print-at-flush
 > containment reconciled with `toAuthoringError`, and the frozen guard strings.
+>
+> **Renumbering note (apply-time, council fix pass).** This document's ADR/FIT numbers below are
+> as PLANNED, before landing collided with numbers `stage-4b-testing-harness` claimed on `main` in
+> the interim. Content is unaffected — only the numbers changed at apply-time (see each artefact's
+> own file header for the authoritative number): **ADR-0033** ("ts-morph as the first runtime
+> dependency", §4.5) landed as **ADR-0038**; **ADR-0034** ("Coalescing seam is handle-owned", §4.5)
+> landed as **ADR-0037**; **FIT-17** (coalescing orphan guard, §4.7) landed as **FIT-19**;
+> **FIT-18** (run-boundary join guard, §4.7) landed as **FIT-20**. Every other in-document mention
+> of these four numbers (File Changes table, Test Derivation, Fitness Functions, body prose) refers
+> to the SAME planned artefact — read it via this mapping, not the raw number.
 
 ## 4.1 Architecture Overview
 
@@ -449,6 +459,8 @@ byte-exact against a committed golden = created template + import.
 ## 4.5 Architecture Decisions (ADRs)
 
 ### ADR-0033: ts-morph as the first runtime dependency — plain, exact-pinned (D5)
+> Landed as **ADR-0038** (renumbered at apply-time — see the "Renumbering note" above).
+
 **Status**: Proposed. **Context**: `modify` needs a real AST library; the repo has zero runtime
 `dependencies`. The open half of D5 is the posture — plain `dependency` vs `peerDependency`.
 **Decision**: Declare ts-morph as a plain, EXACT-pinned `dependencies` entry (no caret/tilde), commit
@@ -462,6 +474,8 @@ adopters, pushes install friction onto every consumer; *caret range* — reintro
 nondeterminism the pins exist to kill.
 
 ### ADR-0034: Coalescing seam is handle-owned; the run boundary joins outstanding handles
+> Landed as **ADR-0037** (renumbered at apply-time — see the "Renumbering note" above).
+
 **Status**: Proposed. **Context**: N AST edits coalesce to ONE `modify` (ADR-0006); a global
 mid-chain read SPLITS to exactly two (ADR-0015); content must be a plain string (FIT-05); `dryRun()`
 must not force serialization (REQ-MC-05). An async read-through makes the handle awaitable — raising

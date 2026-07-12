@@ -6,6 +6,14 @@ scenarios by direct count — see Coverage Check note) · **Design**: rev 2 · *
 **Test**: `bun test <path>` · full `bun test` · types `bunx tsc --noEmit` · build
 `bun run build` (needed for FIT-04/FIT-14 dist-diffing tests).
 
+> **Renumbering note (apply-time, council fix pass).** Every ADR/FIT number below is AS PLANNED
+> at slicing time, before landing collided with numbers `stage-4b-testing-harness` claimed on
+> `main` in the interim (some task lines already carry their own "LANDED AS" annotation from
+> the original apply pass — this note covers the remaining unannotated mentions, e.g. "Covers:"
+> lines and body prose). The mapping (unchanged from design.md's own note): **ADR-0033** → landed
+> as **ADR-0038**; **ADR-0034** → landed as **ADR-0037**; **FIT-17** → landed as **FIT-19**;
+> **FIT-18** → landed as **FIT-20**. Content is unaffected — only the numbers changed.
+
 ## Executor Context (mandatory)
 
 > Handoff-plumbing appendix, following the stage-2/stage-4 house pattern (plan-verify Judge B

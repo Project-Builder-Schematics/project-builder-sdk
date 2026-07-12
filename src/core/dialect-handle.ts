@@ -26,6 +26,16 @@ function dialectError(tail: string): Error {
   return new Error(ERROR_PREFIX + tail);
 }
 
+// `.raw()`'s `fn` is typed `(ast: Ast) => void`, but TS's void-return compatibility lets an
+// author pass an async function anyway — this is the runtime check that catches that case.
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
+}
+
 // A getter-backed modify directive: `content` resolves lazily, exactly once, memoized — at
 // whichever flush first `JSON.stringify`s the batch (ADR-0006's "serialize once at flush").
 // `dryRun()` never triggers this: `dryRunPlan` reads only `verb`/`path` (REQ-MC-05).
@@ -134,12 +144,20 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     });
   }
 
+  // Council fix pass (security note 1, ADR-0037): an ASYNC `fn` is awaited INSIDE this same
+  // containment — the enqueued step already runs in the async `#tail` chain, so awaiting is
+  // natural. Without this, `fn`'s returned promise floats unobserved: a rejection surfaces as
+  // an uncontained `unhandledRejection` (leaking the raw internal message) while the run
+  // COMMITS as if successful, and a resolve-after-delay's mutation may race the print.
   runRaw(fn: (ast: Ast) => void): void {
     this.#enqueue(async () => {
       await this.#ensureLive();
       this.#ensureOpen();
       try {
-        fn(this.#live as Ast);
+        const result: unknown = fn(this.#live as Ast);
+        if (isThenable(result)) {
+          await result;
+        }
       } catch {
         throw dialectError(`raw() on "${this.#path}" threw`);
       }
