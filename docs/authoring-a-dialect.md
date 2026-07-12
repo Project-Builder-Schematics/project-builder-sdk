@@ -112,7 +112,13 @@ A dialect is assembled from three kit verbs:
 - **`withOps(base, ...packs)`** — composes additional op-packs onto a base dialect; the resulting
   handle type is the INTERSECTION of the base's ops and every attached pack's ops. An op from an
   unattached pack, or a typo, is a compile error. See its JSDoc `@example` in
-  `src/core/define-dialect.ts`.
+  `src/core/define-dialect.ts`. At composition time, `withOps` also runs an eager, synchronous,
+  fail-closed check: an op name declared by two or more of the passed packs (or colliding with
+  the base dialect's own ops) throws immediately, naming the colliding op — composition never
+  silently resolves to whichever pack happened to be spread last. An op name that shadows the
+  base handle's own vocabulary (`then`, `read`, `raw`, `modify`, `rename`, `move`, `copy`,
+  `remove`) throws the same way — an op-pack op named `then` in particular would break the
+  handle's `PromiseLike` join.
 
 A contributor's worked proof anchors are the conformance kit — `testDialect`/`testOpPack`
 (`@pbuilder/sdk/conformance`) — which asserts a dialect's parse/print round-trip, per-op

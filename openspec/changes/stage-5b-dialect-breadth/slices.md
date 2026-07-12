@@ -357,16 +357,16 @@ synchronously naming the op; GIVEN an op-pack declaring `then` WHEN composed THE
 naming the reserved-vocabulary collision.
 
 ### Tasks
-- [ ] `src/core/define-dialect.ts` (Modify) — `withOps` eager synchronous fail-closed check:
+- [x] `src/core/define-dialect.ts` (Modify) — `withOps` eager synchronous fail-closed check:
   cross-pack collision + `RESERVED_HANDLE_NAMES` (`then`, `read`, `raw`, `modify`, `rename`,
   `move`, `copy`, `remove`) — throws are NOT WeakSet-branded (outside `dialectError()`)
-- [ ] `test/core/define-dialect-collision.test.ts` (Create) — REQ-DG-02.2 (GREEN disjoint real
+- [x] `test/core/define-dialect-collision.test.ts` (Create) — REQ-DG-02.2 (GREEN disjoint real
   packs), 02.3 (`defineOpPack` standalone), 02.4 (RED colliding real packs), 02.5 (RED `then`)
-- [ ] `test/fixtures/red/**` (Create, partial) — colliding op-pack pair typed over real
+- [x] `test/fixtures/red/**` (Create, partial) — colliding op-pack pair typed over real
   `SourceFile`, outside `src/conformance/**`
-- [ ] `test/types/define-dialect.test.ts` (Modify) — note REQ-DG-02.1 unchanged; runtime
+- [x] `test/types/define-dialect.test.ts` (Modify) — note REQ-DG-02.1 unchanged; runtime
   collision is now the load-bearing proof
-- [ ] `docs/authoring-a-dialect.md` (Modify, partial) — `withOps` collision + reserved-names line
+- [x] `docs/authoring-a-dialect.md` (Modify, partial) — `withOps` collision + reserved-names line
 
 ---
 

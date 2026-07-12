@@ -1,6 +1,12 @@
 // Type-level tests for defineDialect / defineOpPack / withOps — real generics (S-001,
-// ADR-0010 / ADR-0037). Covers REQ-DG-01.1/.2, REQ-DG-02.1/.2/.3, REQ-DG-03 (.raw presence),
-// and the thenable-handle type.
+// ADR-0010 / ADR-0037). Covers REQ-DG-01.1/.2, REQ-DG-02.1, REQ-DG-03 (.raw presence), and
+// the thenable-handle type.
+//
+// REQ-DG-02.1 (compile-time intersection pin) is UNCHANGED by S-004: op-pack composition
+// still type-checks only through attached ops. REQ-DG-02.2–02.5 (runtime collision +
+// reserved-name checks) are NEW, RUNTIME-only load-bearing proof this file cannot express
+// (the kit's `any`-erasure means a THIRD-PARTY pack collision evaporates at the type level) —
+// see test/core/define-dialect-collision.test.ts, the load-bearing proof for those scenarios.
 //
 // Negative assertions use the "dead call in a never-invoked arrow" pattern (house
 // convention, test/types/handle-types.test.ts): tsc still evaluates and enforces the
