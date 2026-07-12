@@ -321,22 +321,26 @@ THEN golden begins `export class Point`; GIVEN `Object.keys(dialect.ops)` sorted
 THEN it `toEqual`s the exact shipped set (five ops if not cut, three if cut).
 
 ### Tasks
-- [ ] `src/dialects/typescript/ops.ts` (Modify) — `addVariable`, `addClass` (reuse
+- [x] `src/dialects/typescript/ops.ts` (Modify) — `addVariable`, `addClass` (reuse
   `assertNoCollision`)
-- [ ] `src/dialects/typescript/index.ts` (Modify) — compose both; finalize widened op-type/`find`
+- [x] `src/dialects/typescript/index.ts` (Modify) — compose both; finalize widened op-type/`find`
   return type for the shipped set
-- [ ] `test/dialects/typescript/ops-declarations-cuttable.test.ts` (Create) — 10.1–10.4,
+- [x] `test/dialects/typescript/ops-declarations-cuttable.test.ts` (Create) — 10.1–10.4,
   11.1–11.4 (own collision scenarios, empty-file seeds)
-- [ ] `test/dialects/typescript/ops-exact-set.test.ts` (Create) — REQ-TSD-01.1, `toEqual` on the
+- [x] `test/dialects/typescript/ops-exact-set.test.ts` (Create) — REQ-TSD-01.1, `toEqual` on the
   sorted allow-list
-- [ ] `test/dialects/typescript/goldens/**` (Create, partial) — `addVariable`/`addClass` fixtures
-- [ ] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — both op signatures, same slice
-- [ ] `test/docs/security-authoring-guard.test.ts` (Modify) — extend the SAME positive
+- [x] `test/dialects/typescript/goldens/**` (Create, partial) — `addVariable`/`addClass` fixtures.
+  **DEVIATION (consistent with S-001/S-002 precedent)**: landed in the EXISTING singular
+  `test/dialects/typescript/golden/` directory, not a new plural `goldens/` dir
+- [x] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — FIT-04's `typescript.index.d.ts` baseline
+  regenerated (widened op-pack type, renamed `AddImportOps`→`TypeScriptOps`); FIT-14 needed NO
+  change (no new dist file paths, no export/dependency change) — same as S-001/S-002
+- [x] `test/docs/security-authoring-guard.test.ts` (Modify) — extend the SAME positive
   shipped-verbs loop already extended by S-002 with `addVariable`/`addClass`, completing the
   four-op set in the SAME slice that ships them (REQ-DAS-01: the loop never names an unshipped
   verb) — the cut lever therefore covers only these two entries; S-002's already-landed
   `removeImport`/`addFunction` loop entries are unaffected by a cut
-- [ ] `docs/authoring-a-dialect.md` (Modify, partial) — `addVariable`/`addClass` paragraphs
+- [x] `docs/authoring-a-dialect.md` (Modify, partial) — `addVariable`/`addClass` paragraphs
 
 ---
 
