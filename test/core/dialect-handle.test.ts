@@ -20,6 +20,7 @@ import { dialectError } from "../../src/core/dialect-error.ts";
 import { dryRun } from "../../src/commons/index.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
 import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
+import { ContractFake } from "../support/contract-fake.ts";
 import { toyDialect, PARSE_FAIL_SENTINEL, type ToyAst } from "../fixtures/toy-dialect/index.ts";
 import { asyncRejectingOp } from "../fixtures/red/dialect-generics/async-op-rejects.ts";
 
@@ -577,7 +578,7 @@ describe("dialect handle — REQ-DG-07.2 (concrete collision trigger, S-001)", (
   // Same fail-closed mechanism REQ-DG-07.3 proves generically against a synthetic op
   // (S-000, constraint 7) — this test exercises it via the CONCRETE trigger (constraint 8):
   // a real addFunction collision reject against the shipped TypeScript dialect.
-  it("an addFunction collision reject fails the run closed, zero batches", async () => {
+  it("an addFunction collision reject fails the run closed, zero batches (single handle)", async () => {
     const { client, emitted } = makeSpyClient({ "a.ts": "const foo = 1;\n" });
 
     const run = defineFactory<void>(async () => {
@@ -597,6 +598,37 @@ describe("dialect handle — REQ-DG-07.2 (concrete collision trigger, S-001)", (
     expect(err.message).toContain('a value or import binding named "foo" already exists');
     expect(err.cause).toBeUndefined();
     expect(collectModifies(emitted)).toHaveLength(0);
+  });
+
+  it("REQ-DG-07.2: an EARLIER handle that would otherwise flush cleanly commits NOTHING when a LATER handle's addFunction collides", async () => {
+    // ADR-01's two-phase emit/commit/discard protocol: b.ts's #ensureLive() read
+    // GLOBALLY flushes a.ts's already-buffered directive to emit() BEFORE the collision
+    // is even detected (session.read() always flushes first, ADR-0015) — so `emitted`
+    // alone cannot distinguish "committed" from "staged-then-discarded". The durable
+    // guarantee REQ-DG-07.2 pins is at the COMMIT boundary (ADR-01: "no partial commit"):
+    // asserted here via the fake's own committedTree()/stagingTree(), matching this
+    // codebase's established pattern (e.g. test/skeleton/write-only-factory.test.ts's
+    // "all-or-nothing" case) rather than the emit-interception spy.
+    const fake = new ContractFake({ seed: { "a.ts": "seed", "b.ts": "const foo = 1;\n" } });
+
+    const run = defineFactory<void>(async () => {
+      // a.ts's edit would flush cleanly on its own — proving THIS handle's otherwise-clean
+      // edits are rolled back too, not just the colliding handle's.
+      await toyDialect.find("a.ts").push("push-line");
+      await ts.find("b.ts").addFunction("foo", "(): void {}");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client: fake });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain('addFunction("foo")');
+    expect(fake.committedTree().size).toBe(0);
+    expect(fake.stagingTree().size).toBe(0);
   });
 });
 
