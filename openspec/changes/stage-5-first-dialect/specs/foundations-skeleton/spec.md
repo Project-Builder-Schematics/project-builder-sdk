@@ -1,7 +1,10 @@
 # Delta for foundations-skeleton
 
-**Spec version**: V3
-**Status**: signed (owner, 2026-07-11 — V3; join deltas ratified)
+**Spec version**: V4
+**Status**: signed (owner, 2026-07-12 — V4: owner-authorized micro-unfreeze — reconcile
+REQ-FIT-01 walk semantics to the verify-plan-5 ratified ruling and REQ-PKG-01's exports
+enumeration to the shipped 5-entry reality; no behavioral change; re-sign authorized for
+exactly this scope)
 **Change**: `stage-5-first-dialect`
 
 ## MODIFIED Requirements
@@ -9,13 +12,15 @@
 ### REQ-PKG-01: Subpath exports, no kit leak
 
 `package.json#exports` MUST expose `.` (umbrella → commons surface), `./commons`,
-`./conformance`, `./typescript`, and MUST NOT expose `./core`/`./internal`/`./kit`. The
-dialect subpath is now WIRED — exactly `./typescript` (frozen, ADR-0014 amendment;
-`typescript-dialect` REQ-TSD-01) — no other dialect subpath exists and no general
+`./conformance`, `./testing`, `./typescript`, and MUST NOT expose `./core`/`./internal`/
+`./kit`. The dialect subpath is now WIRED — exactly `./typescript` (frozen, ADR-0014
+amendment; `typescript-dialect` REQ-TSD-01) — no other dialect subpath exists and no general
 dialect-naming convention is established by this wiring.
 
 (Previously: "The reserved dialect subpath is documented, NOT wired." — this change is the
-trigger event ADR-0014 anticipated.)
+trigger event ADR-0014 anticipated. V4: added `./testing` to the enumeration — it landed on
+`main` via `stage-4b-testing-harness` ahead of this branch and was omitted from the original
+V1-V3 text; this REQ never claimed exhaustiveness, but the enumeration itself was stale.)
 
 - GIVEN the package, WHEN a consumer imports `@pbuilder/sdk/core`, THEN resolution fails;
   AND `@pbuilder/sdk/commons` resolves.
@@ -48,15 +53,22 @@ pending-changes row W5.)
 ### REQ-FIT-01: commons imports zero AST libs, TRANSITIVELY
 
 Import-GRAPH walk over `src/commons/**`'s relative-import closure (not just each file's own
-direct specifiers) with an **allow-list** = { the SDK's own `core` public symbols, Node/Bun
-builtins }; any other import reached at ANY depth through the relative-import chain (esp.
-ts-morph/postcss/cheerio/babel) → fail. MUST land and be GREEN (walking-skeleton slice
+direct specifiers): the walk FOLLOWS every relative-import edge to any depth — legitimate
+non-core SDK-internal targets reached this way (e.g. `../core`, `../dry-run`) are traversal
+edges, NOT violations — and FAILS on any BARE non-builtin specifier reached at ANY depth
+through that chain (esp. ts-morph/postcss/cheerio/babel). The invariant is "zero external
+packages reachable from commons", NOT "commons only imports core" — a target-allow-list
+reading (relative imports must resolve into core) is REJECTED, since it would flag today's
+legitimate `../dry-run` imports as violations. MUST land and be GREEN (walking-skeleton slice
 S-000) BEFORE ts-morph enters `package.json#dependencies` — this ordering is load-bearing,
 not incidental.
 
 (Previously: scanned each commons file's own direct import specifiers only — a relative
 import that ITSELF imported an AST lib, transitively, was invisible to the scanner. This
-closes tracked debt row W2.)
+closes tracked debt row W2. V4: reconciled the walk-semantics description to the
+verify-plan-5 ratified ruling — a target-allow-list reading was drafted then explicitly
+REJECTED before sign-off; the shipped scanner always implemented the ratified "zero external
+packages reachable" invariant, not the target-allow-list text this REQ previously carried.)
 
 - EVERY FIT REQ (shared, unchanged): a meta-test MUST demonstrate the function fails RED
   against a deliberate violation.
