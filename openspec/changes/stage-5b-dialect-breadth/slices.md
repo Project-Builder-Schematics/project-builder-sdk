@@ -387,22 +387,22 @@ new import-graph scanner is added inside `src/conformance/**`; the kit DOCUMENTS
 contract, third-party authors self-run their own static check).
 
 ### Tasks
-- [ ] `src/conformance/index.ts` (Modify) — inject six mandatory adversarial samples
+- [x] `src/conformance/index.ts` (Modify) — inject six mandatory adversarial samples
   (empty/comment-only/4 MiB/CRLF/BOM/duplicate-target), additive, no opt-out field; real-base
   structural probe (`parse(sample)` returns non-null, distinct from input string). NO leaf-rule
   scanning logic is added here — DOCUMENTED-LIMIT (design ADR-0012 amendment clause 3, north-star
   CQ-B): `src/conformance/**` gains no import-graph scanner of any kind; REQ-DC-07.1's proof for
   the shipped TypeScript dialect is the PRE-EXISTING FIT-01 import-graph walk (unmodified by this
   slice), never new code in the conformance module
-- [ ] `src/conformance/index.ts` + `src/testing/contract-fake.ts` (Modify) — both import
+- [x] `src/conformance/index.ts` + `src/testing/contract-fake.ts` (Modify) — both import
   `deepEqual` from `../core/deep-equal.ts`; drop the duplicated local copy
-- [ ] `test/conformance/typescript-conformance.test.ts` (Modify) — REQ-DC-06.1 (six samples
+- [x] `test/conformance/typescript-conformance.test.ts` (Modify) — REQ-DC-06.1 (six samples
   execute); REQ-DC-07.1 surfaced as a documentation-pointer assertion ONLY (asserts the FIT-01
   fitness function is the load-bearing proof for the shipped dialect — no duplicate import-graph
   scan authored here or anywhere under `src/conformance/**`)
-- [ ] `test/conformance/planted/**` (Create/Modify) — identity-fixture RED (REQ-DC-08.1);
+- [x] `test/conformance/planted/**` (Create/Modify) — identity-fixture RED (REQ-DC-08.1);
   opt-out-attempt RED/compile-pin (REQ-DC-06.2 — fixture type has no disabling field)
-- [ ] `docs/authoring-a-dialect.md` (Modify, partial) — leaf-rule DOCUMENTED-LIMIT statement:
+- [x] `docs/authoring-a-dialect.md` (Modify, partial) — leaf-rule DOCUMENTED-LIMIT statement:
   (a) the kit DOCUMENTS the leaf contract (a dialect's `parse`/`print`/ops MUST NOT import
   another dialect or a foreign AST library) in this recipe doc, stating explicitly that
   third-party dialect authors are expected to self-run their OWN static check (e.g. an
