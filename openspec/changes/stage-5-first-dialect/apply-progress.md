@@ -5,6 +5,113 @@
 
 ---
 
+## Batch 4 — S-005: Authoring Docs, SECURITY Guard, Sensitive-Areas Promotion (FINAL SLICE)
+
+**Mode**: Strict TDD, [must-fail-first] — `test/docs/security-authoring-guard.test.ts` was
+written FIRST against the pre-existing stub `docs/authoring-a-dialect.md` and unmodified
+`SECURITY.md`; run to confirm genuine RED (6 pass / 6 fail — the passes were the
+already-satisfied general-trust-sentence check, the vacuous unshipped-name check, the
+already-satisfied `--provenance` workflow check, and the two "regression proof" tests whose
+own logic is self-contained; the fails were the 3 new/moved frozen strings + 2 mandated
+sections genuinely absent). Content was then written to `docs/authoring-a-dialect.md` and
+`SECURITY.md` and the suite re-run GREEN. **Suite**: 746 → 758 (bun test, +12) ·
+`bunx tsc --noEmit`: CLEAN · `bun run build`: CLEAN.
+
+### Slices Built This Run
+
+| Slice | Scope tag | Status | Tasks |
+|---|---|---|---|
+| S-005 | edge-case | complete | 4/4 |
+
+### Commits
+
+1. `cb94b90` — docs(dialect): S-005 — authoring guide, SECURITY guard, sensitive-areas promotion
+
+### Implementation approach
+
+- **`docs/authoring-a-dialect.md`** (Modify, stub → real) — restructured around ADR-0009's
+  two-audience split: "For authors" (worked `addImport` example, awaited chain) and "For
+  contributors" (kit-verbs prose only — `defineDialect`/`defineOpPack`/`withOps` — pointing to
+  each verb's own JSDoc `@example` in `src/core/define-dialect.ts` rather than repeating a
+  runnable demo, per REQ-DAS-02's "no author-style demo in the contributor section"; names
+  `testDialect`/`testOpPack`/`expectTypeOf` as verification anchors). Added "Two ts-morph
+  realms" (frozen paragraph, verbatim) under the `.raw()` section, and a dedicated "Async
+  usage" section covering both the awaited-chain form and the forgotten-await run-end-join
+  behavior (REQ-MC-06). Coalescing's observable shape (N edits → one `modify`; a read splits
+  it into two) gets its own section. Intro paragraph deliberately never names unshipped
+  surface (no "postcss", no "removeImport", no second dialect) — REQ-DAS-01.1's "only the
+  shipped surface" bar.
+- **`SECURITY.md`** (Modify) — added a new `## \`.raw()\` and the conformance kit` section
+  (before the existing `## Publish pipeline`) carrying the two NEW frozen sentences verbatim;
+  the pre-existing general explicit-trust paragraph is untouched (REQ-STD-01 requires BOTH to
+  co-exist, not one replacing the other).
+- **`test/docs/security-authoring-guard.test.ts`** (Create, `[permanent-fixture]`) — mirrors
+  `test/docs/testing-story-docs.test.ts`'s house pattern (`PROJECT_ROOT` via `import.meta.url`,
+  `readFileSync` fixtures, `describe`/`it`/`.toContain`). Frozen strings are module-level
+  constants built by joining design.md §4.4b's markdown-wrapped source lines into single
+  unwrapped strings (both the doc and SECURITY.md paragraphs are written as ONE physical
+  line each in their respective files, so `readFileSync` yields the identical string with no
+  wrap-point mismatch). Each frozen-string `describe` block also carries a "fails red if
+  removed" regression-proof test (string-splice-and-recheck) — the guard's own self-test that
+  its assertion is load-bearing, not vacuous. `extractSection()` reuses
+  `testing-story-docs.test.ts`'s heading-bounded-section technique for the "Async usage" and
+  "For contributors" scoped checks.
+- **Sensitive-areas promotion** — `openspec/sensitive-areas.md`'s "security (code execution)"
+  and "security (third-party trust)" rows updated in place (matching the precedent set by
+  stage-4b-testing-harness's own row edits for `./testing`): paths now name
+  `src/dialects/typescript/**`, `src/core/dialect-handle.ts`, and
+  `package.json#dependencies` (ts-morph) concretely; confidence low→medium. Engram topic
+  `project/sensitive-areas` (obs #646) upserted to match — discovered it had drifted behind
+  the filesystem file (last synced at the stage-4b archive), so this upsert also backfills
+  that drift in the same pass, not just the stage-5 delta.
+
+### Deviations From Plan
+
+None — content-only slice, no implementation files touched. One judgment call not explicit in
+slices.md: the two SECURITY.md frozen sentences are NOT repeated verbatim inside
+`docs/authoring-a-dialect.md` (the doc cross-references SECURITY.md in prose instead) — only
+the two-realms hazard paragraph is doc-side frozen per design §4.4b's own text ("land
+byte-for-byte in S-005" is stated for the two-realms hazard specifically; the SECURITY.md
+sentences are SECURITY.md's own frozen strings). This keeps one frozen string in exactly one
+file, avoiding a second copy that could silently drift.
+
+### TDD Cycle Evidence — S-005
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| Doc + SECURITY frozen strings | `security-authoring-guard.test.ts` (12 cases) | architectural (substring guard) | Full-suite run against the pre-existing stub/unmodified files: 6/6 genuine fails (missing `.raw()` sentence-in-doc-context N/A, missing caveat in SECURITY.md, missing two-realms paragraph, missing "Async usage" section, missing "For contributors" heading, missing kit-verb names) — see run log in this batch's commit history | ✅ (12/12 after content) | n/a (each REQ pins one fixed frozen string/section, not a class of inputs) | n/a |
+| Sensitive-areas promotion | (no dedicated test — registry update, per slices.md's own task text: "orchestrator/apply-time registry update, not a test") | — | n/a | n/a (file + engram diffed manually against design §4.8's exact path list) | n/a | n/a |
+
+### Files Changed
+
+| File | Action | Slice | What |
+|---|---|---|---|
+| `docs/authoring-a-dialect.md` | Modified | S-005 | Stub → real content (two-audience split, kit verbs, `.raw()`, two ts-morph realms, coalescing shape, Async usage, testing/publishing) |
+| `SECURITY.md` | Modified | S-005 | + `.raw()`-specific trust sentence + "conformance ≠ safety" caveat (verbatim) |
+| `test/docs/security-authoring-guard.test.ts` | Created | S-005 | 12 substring guards (STD-01, DAS-01.1/.2/.3, DAS-02.1, TSD-06.2) |
+| `openspec/sensitive-areas.md` | Modified | S-005 | 2 rows promoted low→medium, concrete paths (design §4.8) |
+| `openspec/changes/stage-5-first-dialect/slices.md` | Modified | S-005 | S-005 tasks ticked `[x]` |
+
+### Post-Slice Self-Review (Step 7c — no external audit engine available in this sub-agent context)
+
+Checked the S-005 diff against all 8 binding constraints: (1) N/A (no dependency change); (2)
+zero references to `test/fixtures/toy-dialect/**` in any S-005 file (`rg` confirmed); (3) N/A
+(no error-wrapper touched — this slice is docs/security/registry only); (4) frozen guard
+strings copied byte-for-byte from design §4.4b (joined-wrapped-lines technique, verified via
+the guard test's own exact-substring assertions passing); (5) N/A (no dialect-chain test
+added this slice); (6) N/A (no concurrency assertion this slice); (7) every guard assertion
+is exact-substring (`.toContain` against a full frozen string or a full section extraction),
+never count-only; (8) suite green (758/758) + `tsc` clean + `bun run build` clean confirmed.
+No findings.
+
+### Next Recommended
+
+`sdd-verify --mode=in-loop` (iteration 4, this is the LAST slice) → if pass, `/evaluate`
+(`sdd-verify --mode=final`) — S-005 was the final slice in the Build Order; all 6 slices
+(S-000..S-005) are now complete, 34/34 REQ-IDs covered per slices.md's Coverage Check.
+
+---
+
 ## Batch 3a — S-003: Edge Scenarios & Fidelity Boundaries
 
 **Mode**: Strict TDD, [characterization] posture (RED-posture taxonomy, slices.md) — every
