@@ -80,3 +80,26 @@ export function addFunction(
   const exportPrefix = options?.export === true ? "export " : "";
   ast.addStatements(`${exportPrefix}function ${name}${source}`);
 }
+
+/**
+ * Removes the named binding from `from`'s import clause (REQ-TSD-08). Idempotent: an
+ * absent binding is a no-op. Removing the LAST named binding deletes the entire import
+ * statement — no dangling `import {} from "from"`. Matched by the module-EXPORTED name,
+ * not the local alias (`{ readFileSync as rf }` is matched by `"readFileSync"`). Scope:
+ * NAMED-binding imports only — default and namespace imports are untouched, and a
+ * declaration mixing a default/namespace import alongside named bindings is never
+ * whole-statement-deleted (only the matched named specifier is removed).
+ */
+export function removeImport(ast: SourceFile, name: string, from: string): void {
+  const decl = ast.getImportDeclaration((d) => d.getModuleSpecifierValue() === from);
+  if (decl === undefined) return;
+  const specifier = decl.getNamedImports().find((named) => named.getName() === name);
+  if (specifier === undefined) return;
+  const isLastNamedBindingOnly =
+    decl.getNamedImports().length === 1 && decl.getDefaultImport() === undefined && decl.getNamespaceImport() === undefined;
+  if (isLastNamedBindingOnly) {
+    decl.remove();
+  } else {
+    specifier.remove();
+  }
+}

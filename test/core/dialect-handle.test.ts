@@ -772,6 +772,91 @@ describe("dialect handle — REQ-MC-08 (row-136 reject, S-002 commit 2 of 2 — 
   });
 });
 
+describe("dialect handle — removeImport mechanism proofs (REQ-TSD-08.4/08.6, S-002)", () => {
+  it("REQ-TSD-08.4: removeImport of an absent import is an idempotent no-op — ZERO directives", async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": "const x = 1;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").removeImport("a", "m");
+      expect(dryRun()).toEqual([]);
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)).toHaveLength(0);
+  });
+
+  it("REQ-TSD-08.6: removeImport of an import added earlier in the SAME chain (RYOW) — one modify, byte-identical to seed", async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": "const x = 1;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("x", "m").removeImport("x", "m");
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe("const x = 1;\n");
+  });
+});
+
+describe("dialect handle — REQ-DG-07.1 (row-136 concrete trigger, S-002)", () => {
+  // Same fail-closed mechanism REQ-DG-07.3 proves generically (S-000) and REQ-DG-07.2
+  // proves via addFunction's collision (S-001) — this exercises it via row-136's
+  // concrete trigger (constraint 8). Commit-boundary assertion per the emit-vs-commit
+  // discovery (S-001 fix): a second handle's own read globally flushes an earlier clean
+  // handle's directive to emit() before the reject is detected — the durable guarantee
+  // lives at commit()/discard(), not emit() interception.
+  it("a row-136 reject on a LATER handle commits nothing for an EARLIER, otherwise-clean handle", async () => {
+    const fake = new ContractFake({ seed: { "a.ts": "seed", "b.ts": "const x = 1;\n" } });
+
+    const run = defineFactory<void>(async () => {
+      await toyDialect.find("a.ts").push("push-line");
+      await ts.find("b.ts").addImport("readFileSync", "node:fs").modify("raw override");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client: fake });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("while a structured edit is pending");
+    expect(fake.committedTree().size).toBe(0);
+    expect(fake.stagingTree().size).toBe(0);
+  });
+});
+
+describe("dialect handle — mixed old+new-op coalescing (REQ-MC-01 coverage note, non-normative)", () => {
+  // Row-141 kept-half (pending-changes row 141, "kit-internal, test-authoring hygiene"):
+  // this fixture demonstrates two ALREADY-PROVEN scenarios — annotated here, not a new
+  // assertion. proves REQ-MC-01.2 (two independent handles on different paths batch into
+  // two separate modify directives, no cross-contamination) and REQ-TSD-03.1 (a
+  // create-then-addImport chain in one run coalesces to exactly one modify at flush) — both
+  // scenarios are proven elsewhere already (dialect.test.ts REQ-TSD-03.1, this file's own
+  // REQ-MC-01.2); this is traceability for the mixed old+new-op coalescing claim, not a
+  // duplicate proof obligation.
+  it("addImport + addFunction + removeImport in one chain coalesce to exactly one modify", async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": 'import { keep } from "m";\nimport { drop } from "n";\n' });
+
+    const run = defineFactory<void>(async () => {
+      await ts
+        .find("a.ts")
+        .addImport("readFileSync", "node:fs")
+        .addFunction("hi", "(): void {}")
+        .removeImport("drop", "n");
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe(
+      'import { keep } from "m";\nimport { readFileSync } from "node:fs";\nfunction hi(): void {}\n'
+    );
+  });
+});
+
 // row-145 (lazy modify directive's memoized getter — dialect-handle.ts's `resolve` closure
 // ref, nulled post-resolution so the retained ts-morph Project/live AST becomes GC-eligible):
 // EXPLICITLY UNTESTED here. It is a memory-only concern (no observable behavioral change —
