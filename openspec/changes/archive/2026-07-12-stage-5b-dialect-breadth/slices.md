@@ -128,20 +128,20 @@ through byte-exact, never double-wrapped; GIVEN a rejected run WHEN a further op
 DIFFERENT handle THEN it never executes — surfaces the original rejection via the poison flag.
 
 ### Tasks
-- [ ] `src/core/dialect-error.ts` (Create) — `dialectError(tail): Error` factory + `isContained
+- [x] `src/core/dialect-error.ts` (Create) — `dialectError(tail): Error` factory + `isContained
   (err): boolean`, module-private `WeakSet<Error>` brand
-- [ ] `src/core/deep-equal.ts` (Create) — kit-internal `deepEqual`, no barrel/subpath
-- [ ] `src/core/dialect-handle.ts` (Modify) — shared `#invokeContained(fn, foreignTail)` used by
+- [x] `src/core/deep-equal.ts` (Create) — kit-internal `deepEqual`, no barrel/subpath
+- [x] `src/core/dialect-handle.ts` (Modify) — shared `#invokeContained(fn, foreignTail)` used by
   BOTH `runRaw` and `runOp` (`runOp` gains `opName` for its tail); mutation-gated `#ensureOpen`
   (register only when print differs from `#lastEmittedText` baseline); row-145: the lazy modify
   directive's memoized getter retains the ts-morph `Project` via its `resolve` closure after the
   getter has resolved (memoized) the live AST — null that `resolve` closure ref immediately
   post-resolution so the `Project`/live AST becomes GC-eligible (one-liner, memory-only fix, no
   observable behavioral change)
-- [ ] `src/core/session.ts` (Modify) — `isPending(directive): boolean`
-- [ ] `src/core/context.ts` (Modify) — `RunContext.runFailure?: { reason: unknown }`; NO import
+- [x] `src/core/session.ts` (Modify) — `isPending(directive): boolean`
+- [x] `src/core/context.ts` (Modify) — `RunContext.runFailure?: { reason: unknown }`; NO import
   from `dialect-handle.ts` (fitness-guarded)
-- [ ] `src/dialects/typescript/ast.ts` (Modify) — row-139: in `parse`'s syntactic-diagnostic
+- [x] `src/dialects/typescript/ast.ts` (Modify) — row-139: in `parse`'s syntactic-diagnostic
   handling, sweep out the own-property/stack-shape heuristic used to detect/classify ts-morph
   diagnostic errors, replacing it with real ts-morph error tracking (classify off the actual
   diagnostic object `getSyntacticDiagnostics()` reports, not an assumption about the caught
@@ -149,19 +149,25 @@ DIFFERENT handle THEN it never executes — surfaces the original rejection via 
   contained) against a containment path that could misclassify or silently miss a genuine
   ts-morph syntactic error because it only shape-matched a heuristic instead of the real
   diagnostic object (no REQ of its own — hardens TSD-04.1; executor latitude on the exact
-  internals)
-- [ ] `test/core/dialect-handle.test.ts` (Modify) — REQ-DG-06.1–06.5 (sync/async containment,
+  internals). **VERIFIED (executor latitude exercised)**: `parse` already classified off the
+  real `getSyntacticDiagnostics()` object (landed in S-002's own `bc073d2`, predating this
+  change) — no own-property/stack-shape heuristic exists anywhere in this codebase to sweep
+  out. No code change made; a doc-comment traceability note was added instead of manufacturing
+  a no-op diff.
+- [x] `test/core/dialect-handle.test.ts` (Modify) — REQ-DG-06.1–06.5 (sync/async containment,
   passthrough via synthetic `dialectError` op — constraint 7), REQ-DG-07.3 (same+different
   handle, synthetic reject), mutation-gate zero-directive (generic, via `addImport` idempotent
   no-op), no-reparse parse-count spy; row-145 (closure-ref clear, above) annotated EXPLICITLY
   UNTESTED — memory-only concern, no filler/no-op assertion, do not manufacture a fake assertion
   to claim coverage
-- [ ] `test/fixtures/red/**` (Create, partial) — async-op containment red fixture (DG-06.2)
-- [ ] `test/dialects/typescript/print-failure.test.ts` (Create) — REQ-TSD-04.2,
+- [x] `test/fixtures/red/**` (Create, partial) — async-op containment red fixture (DG-06.2)
+- [x] `test/dialects/typescript/print-failure.test.ts` (Create) — REQ-TSD-04.2,
   `.raw(sf => sf.forget())` forces a REAL ts-morph print throw
-- [ ] Fitness: static import-scan asserting `context.ts` takes no import from
-  `dialect-handle.ts` (F2 guard), red-proof via planted fixture
-- [ ] `test/fitness/fit-14-*` — VERIFIED: FIT-14 diffs TWO independent halves of
+- [x] Fitness: static import-scan asserting `context.ts` takes no import from
+  `dialect-handle.ts` (F2 guard), red-proof via planted fixture. Landed as
+  `test/fitness/fit-21-context-no-dialect-handle-import.test.ts` (next free FIT number after
+  the existing fit-01..fit-20 series).
+- [x] `test/fitness/fit-14-*` — VERIFIED: FIT-14 diffs TWO independent halves of
   `pkg-surface-baseline.json` — (a) the `exports`/`dependencies`/`files`/`bin`/`shebang` surface
   (`toEqual` exact match, REQ-FPS-02.1) and (b) the full publishable tarball manifest (`bun pm
   pack --dry-run` vs `baseline.tarball`, new/missing-entry diff, REQ-FPS-02.2) — NOT a single
@@ -170,7 +176,17 @@ DIFFERENT handle THEN it never executes — surfaces the original rejection via 
   rows to half (b)'s `tarball` array (it ships inside the `files: ["dist"]` glob regardless of
   export status): `dist/core/deep-equal.js`, `dist/core/deep-equal.d.ts`,
   `dist/core/deep-equal.d.ts.map`. Update `baseline.tarball` only; leave `baseline.exports`/
-  `baseline.dependencies` untouched
+  `baseline.dependencies` untouched. **DEVIATION (build-verified)**: `dialect-error.ts` — this
+  slice's OTHER new kit-internal core module — was not named in this task's tarball-row list
+  but is subject to the identical reasoning (kit-internal, `files: ["dist"]` glob catches it
+  regardless of export status); `bun run build` confirmed it also emits `dist/core/
+  dialect-error.js`/`.d.ts`/`.d.ts.map`, so those three rows were added alongside deep-equal's
+  to keep FIT-14 green. Also required an unrelated FIT-07 false-positive fix: `deep-equal.ts`'s
+  original `Record<string, unknown>` cast (copied verbatim from the existing conformance/
+  testing duplicates) textually tripped FIT-07's path-keyed-collection scan once the file
+  moved under `src/core/`; retyped via an index-signature object type instead (`{ [key:
+  string]: unknown }`) — identical runtime behavior, no semantic path-keyed store was ever
+  present.
 
 ---
 
@@ -186,16 +202,22 @@ true})` flushes THEN the printed content is byte-exact against a committed golde
 runs THEN it REJECTS with the pinned collision message, fail-closed run-wide.
 
 ### Tasks
-- [ ] `src/dialects/typescript/ops.ts` (Modify) — `addFunction`; local `assertNoCollision(ast,
+- [x] `src/dialects/typescript/ops.ts` (Modify) — `addFunction`; local `assertNoCollision(ast,
   name)` (value-namespace + import bindings, cross-kind; `type`/`interface` exempt)
-- [ ] `src/dialects/typescript/index.ts` (Modify) — compose `addFunction` into the pack
-- [ ] `test/dialects/typescript/ops-declarations.test.ts` (Create) — 09.1–09.8 (golden pairs,
+- [x] `src/dialects/typescript/index.ts` (Modify) — compose `addFunction` into the pack
+- [x] `test/dialects/typescript/ops-declarations.test.ts` (Create) — 09.1–09.8 (golden pairs,
   cross-kind + import-binding collision, type-alias non-collision, CRLF, comment-only, run-twice)
-- [ ] `test/dialects/typescript/goldens/**` (Create, partial) — `addFunction` fixtures
-- [ ] `test/core/dialect-handle.test.ts` (Modify) — REQ-DG-07.2 (collision reject fail-closed,
+- [x] `test/dialects/typescript/goldens/**` (Create, partial) — `addFunction` fixtures.
+  **DEVIATION**: placed in the EXISTING `test/dialects/typescript/golden/` (singular) directory
+  with the existing `golden()` helper, not a new plural `goldens/` dir — matches established
+  pattern (craftsman preamble rule 3), no functional need for a second fixture directory cited
+  anywhere in design/slices
+- [x] `test/core/dialect-handle.test.ts` (Modify) — REQ-DG-07.2 (collision reject fail-closed,
   zero batches across the run)
-- [ ] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — `addFunction` signature, same slice
-- [ ] `docs/authoring-a-dialect.md` (Modify, partial) — `addFunction` paragraph, braces-INCLUDED
+- [x] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — `addFunction` signature, same slice.
+  FIT-04's `typescript.index.d.ts` baseline regenerated (additive `addFunction` type line);
+  FIT-14 needed NO change (no new dist file paths, no export/dependency change)
+- [x] `docs/authoring-a-dialect.md` (Modify, partial) — `addFunction` paragraph, braces-INCLUDED
   `source` teaching, `@example` cross-referencing `addClass`'s braces-EXCLUDED contrast
 
 ---
@@ -215,34 +237,38 @@ GIVEN an open `addImport` WHEN `.modify()` is called on the SAME handle THEN it 
 silently drops the AST edit) — `.read()` remains the documented escape.
 
 ### Tasks
-- [ ] [characterization] `test/core/dialect-handle.test.ts` (Modify) — COMMIT 1 of 2, its OWN
+- [x] [characterization] `test/core/dialect-handle.test.ts` (Modify) — COMMIT 1 of 2, its OWN
   commit (the evidence artefact): the GREEN characterisation test pinning today's silent LWW —
   two directives, in order, raw wins, final tree = raw content. This commit stands alone; it is
   NOT squashed with the reject implementation
-- [ ] `src/core/dialect-handle.ts` (Modify) — COMMIT 2 of 2 (implementation commit): `runModify`
+- [x] `src/core/dialect-handle.ts` (Modify) — COMMIT 2 of 2 (implementation commit): `runModify`
   rejects when `#openDirective !== undefined && session.isPending(#openDirective)`. THIS commit
   REPLACES the characterisation test committed in commit 1 with the reject scenario (RED→GREEN
   within this same commit) — the replacement is visible in this commit's diff, never dropped
   silently (constraint 2). Same SLICE (S-002), two commits
-- [ ] `src/dialects/typescript/ops.ts` (Modify) — `removeImport(name, from)`: sibling survives,
-  last-binding deletes statement, alias matched by exported name, absent = no-op
-- [ ] `src/dialects/typescript/index.ts` (Modify) — compose `removeImport`
-- [ ] `test/dialects/typescript/ops-removeImport.test.ts` (Create) — 08.1/08.2/08.3/08.5
+- [x] `src/dialects/typescript/ops.ts` (Modify) — `removeImport(name, from)`: sibling survives,
+  last-binding deletes statement, alias matched by exported name, absent = no-op.
+  **DEVIATION**: also guards against whole-statement deletion when a default/namespace import
+  coexists on the same declaration (not scenario-tested — defensive, out-of-scope per REQ text,
+  never exercised by any signed scenario)
+- [x] `src/dialects/typescript/index.ts` (Modify) — compose `removeImport`
+- [x] `test/dialects/typescript/ops-removeImport.test.ts` (Create) — 08.1/08.2/08.3/08.5
   (dryRun preview via `pendingSnapshot()`)
-- [ ] `test/core/dialect-handle.test.ts` (Modify) — REQ-TSD-08.4 (zero directives), 08.6 (RYOW,
+- [x] `test/core/dialect-handle.test.ts` (Modify) — REQ-TSD-08.4 (zero directives), 08.6 (RYOW,
   add-then-remove same chain = one modify = byte-identical seed), REQ-MC-08.1–08.4, REQ-DG-07.1
-  (row-136 fail-closed, zero batches across BOTH handles), mixed old+new-op coalescing fixture
-  (REQ-MC-01 coverage note, non-normative — `addImport`+`addFunction`+`removeImport` one chain)
-- [ ] `test/core/dialect-handle.test.ts` (Modify) — row-141 kept-half, batch-grouping component
-  (no REQ of its own; pending-changes row 141 / spec.md's row-141 note: "kit-internal,
-  test-authoring hygiene"): annotate the mixed old+new-op coalescing fixture above with an
-  explicit `// proves REQ-MC-01.2 (two independent handles on different paths batch into two
-  separate modify directives, no cross-contamination) and REQ-TSD-03.1 (a create-then-addImport
-  chain in one run coalesces to exactly one modify at flush)` comment naming both existing,
-  already-tested scenarios it demonstrates — an ANNOTATION (both scenarios are proven elsewhere
-  already; this is traceability, not a new assertion)
-- [ ] `test/dialects/typescript/goldens/**` (Create, partial) — `removeImport` fixtures
-- [ ] `test/docs/security-authoring-guard.test.ts` (Modify) — extend the positive shipped-verbs
+  (row-136 fail-closed, zero batches across BOTH handles — commit-boundary assertion per the
+  S-001 emit-vs-commit discovery), mixed old+new-op coalescing fixture (REQ-MC-01 coverage note,
+  non-normative — `addImport`+`addFunction`+`removeImport` one chain)
+- [x] `test/core/dialect-handle.test.ts` (Modify) — row-141 kept-half, batch-grouping component:
+  the mixed old+new-op coalescing fixture above is annotated with a comment naming both
+  REQ-MC-01.2 and REQ-TSD-03.1 as already-proven scenarios it demonstrates — traceability, not
+  a new assertion
+- [x] `test/dialects/typescript/goldens/**` (Create, partial) — `removeImport` fixtures.
+  **DEVIATION**: used inline byte-exact strings for 08.1/08.2/08.3 (short one-liner outputs)
+  rather than separate golden files, matching the EXISTING mixed pattern in `dialect.test.ts`
+  (e.g. REQ-TSD-03.3/03.4 use inline strings too) — constraint 7's byte-exact requirement is
+  satisfied either way; one existing golden (`add-import-after.txt`) is reused for 08.5
+- [x] `test/docs/security-authoring-guard.test.ts` (Modify) — extend the positive shipped-verbs
   loop with `removeImport` (this slice's own op) AND `addFunction` (already shipped by preceding
   S-001 — safe to name now, since S-001 lands before S-002 in Build Order); `addVariable`/
   `addClass` are EXCLUDED here — they ship later in S-003 and naming them now would violate
@@ -250,9 +276,10 @@ silently drops the AST edit) — `.read()` remains the documented escape.
   slice that ships them (see S-003 Tasks). DELETE the negative unshipped-surface test (lines
   76-78); assert `sensitive-areas.md` `security (code execution)` row reads `high`; assert the
   stale "anticipated"/"confidence: low" sentence is ABSENT
-- [ ] `openspec/sensitive-areas.md` (Modify) — promote medium→high; fix stale paragraph
-- [ ] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — `removeImport` signature, same slice
-- [ ] `docs/authoring-a-dialect.md` (Modify, partial) — op-inventory prose update ("one
+- [x] `openspec/sensitive-areas.md` (Modify) — promote medium→high; fix stale paragraph
+- [x] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — `removeImport` signature, same slice.
+  FIT-14 needed NO change (no new dist file paths, no export/dependency change)
+- [x] `docs/authoring-a-dialect.md` (Modify, partial) — op-inventory prose update ("one
   structured op" claim now false), `removeImport` paragraph, row-136 reject rule + `.read()`
   escape, async-op containment note
 
@@ -294,22 +321,26 @@ THEN golden begins `export class Point`; GIVEN `Object.keys(dialect.ops)` sorted
 THEN it `toEqual`s the exact shipped set (five ops if not cut, three if cut).
 
 ### Tasks
-- [ ] `src/dialects/typescript/ops.ts` (Modify) — `addVariable`, `addClass` (reuse
+- [x] `src/dialects/typescript/ops.ts` (Modify) — `addVariable`, `addClass` (reuse
   `assertNoCollision`)
-- [ ] `src/dialects/typescript/index.ts` (Modify) — compose both; finalize widened op-type/`find`
+- [x] `src/dialects/typescript/index.ts` (Modify) — compose both; finalize widened op-type/`find`
   return type for the shipped set
-- [ ] `test/dialects/typescript/ops-declarations-cuttable.test.ts` (Create) — 10.1–10.4,
+- [x] `test/dialects/typescript/ops-declarations-cuttable.test.ts` (Create) — 10.1–10.4,
   11.1–11.4 (own collision scenarios, empty-file seeds)
-- [ ] `test/dialects/typescript/ops-exact-set.test.ts` (Create) — REQ-TSD-01.1, `toEqual` on the
+- [x] `test/dialects/typescript/ops-exact-set.test.ts` (Create) — REQ-TSD-01.1, `toEqual` on the
   sorted allow-list
-- [ ] `test/dialects/typescript/goldens/**` (Create, partial) — `addVariable`/`addClass` fixtures
-- [ ] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — both op signatures, same slice
-- [ ] `test/docs/security-authoring-guard.test.ts` (Modify) — extend the SAME positive
+- [x] `test/dialects/typescript/goldens/**` (Create, partial) — `addVariable`/`addClass` fixtures.
+  **DEVIATION (consistent with S-001/S-002 precedent)**: landed in the EXISTING singular
+  `test/dialects/typescript/golden/` directory, not a new plural `goldens/` dir
+- [x] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — FIT-04's `typescript.index.d.ts` baseline
+  regenerated (widened op-pack type, renamed `AddImportOps`→`TypeScriptOps`); FIT-14 needed NO
+  change (no new dist file paths, no export/dependency change) — same as S-001/S-002
+- [x] `test/docs/security-authoring-guard.test.ts` (Modify) — extend the SAME positive
   shipped-verbs loop already extended by S-002 with `addVariable`/`addClass`, completing the
   four-op set in the SAME slice that ships them (REQ-DAS-01: the loop never names an unshipped
   verb) — the cut lever therefore covers only these two entries; S-002's already-landed
   `removeImport`/`addFunction` loop entries are unaffected by a cut
-- [ ] `docs/authoring-a-dialect.md` (Modify, partial) — `addVariable`/`addClass` paragraphs
+- [x] `docs/authoring-a-dialect.md` (Modify, partial) — `addVariable`/`addClass` paragraphs
 
 ---
 
@@ -326,16 +357,16 @@ synchronously naming the op; GIVEN an op-pack declaring `then` WHEN composed THE
 naming the reserved-vocabulary collision.
 
 ### Tasks
-- [ ] `src/core/define-dialect.ts` (Modify) — `withOps` eager synchronous fail-closed check:
+- [x] `src/core/define-dialect.ts` (Modify) — `withOps` eager synchronous fail-closed check:
   cross-pack collision + `RESERVED_HANDLE_NAMES` (`then`, `read`, `raw`, `modify`, `rename`,
   `move`, `copy`, `remove`) — throws are NOT WeakSet-branded (outside `dialectError()`)
-- [ ] `test/core/define-dialect-collision.test.ts` (Create) — REQ-DG-02.2 (GREEN disjoint real
+- [x] `test/core/define-dialect-collision.test.ts` (Create) — REQ-DG-02.2 (GREEN disjoint real
   packs), 02.3 (`defineOpPack` standalone), 02.4 (RED colliding real packs), 02.5 (RED `then`)
-- [ ] `test/fixtures/red/**` (Create, partial) — colliding op-pack pair typed over real
+- [x] `test/fixtures/red/**` (Create, partial) — colliding op-pack pair typed over real
   `SourceFile`, outside `src/conformance/**`
-- [ ] `test/types/define-dialect.test.ts` (Modify) — note REQ-DG-02.1 unchanged; runtime
+- [x] `test/types/define-dialect.test.ts` (Modify) — note REQ-DG-02.1 unchanged; runtime
   collision is now the load-bearing proof
-- [ ] `docs/authoring-a-dialect.md` (Modify, partial) — `withOps` collision + reserved-names line
+- [x] `docs/authoring-a-dialect.md` (Modify, partial) — `withOps` collision + reserved-names line
 
 ---
 
@@ -356,22 +387,22 @@ new import-graph scanner is added inside `src/conformance/**`; the kit DOCUMENTS
 contract, third-party authors self-run their own static check).
 
 ### Tasks
-- [ ] `src/conformance/index.ts` (Modify) — inject six mandatory adversarial samples
+- [x] `src/conformance/index.ts` (Modify) — inject six mandatory adversarial samples
   (empty/comment-only/4 MiB/CRLF/BOM/duplicate-target), additive, no opt-out field; real-base
   structural probe (`parse(sample)` returns non-null, distinct from input string). NO leaf-rule
   scanning logic is added here — DOCUMENTED-LIMIT (design ADR-0012 amendment clause 3, north-star
   CQ-B): `src/conformance/**` gains no import-graph scanner of any kind; REQ-DC-07.1's proof for
   the shipped TypeScript dialect is the PRE-EXISTING FIT-01 import-graph walk (unmodified by this
   slice), never new code in the conformance module
-- [ ] `src/conformance/index.ts` + `src/testing/contract-fake.ts` (Modify) — both import
+- [x] `src/conformance/index.ts` + `src/testing/contract-fake.ts` (Modify) — both import
   `deepEqual` from `../core/deep-equal.ts`; drop the duplicated local copy
-- [ ] `test/conformance/typescript-conformance.test.ts` (Modify) — REQ-DC-06.1 (six samples
+- [x] `test/conformance/typescript-conformance.test.ts` (Modify) — REQ-DC-06.1 (six samples
   execute); REQ-DC-07.1 surfaced as a documentation-pointer assertion ONLY (asserts the FIT-01
   fitness function is the load-bearing proof for the shipped dialect — no duplicate import-graph
   scan authored here or anywhere under `src/conformance/**`)
-- [ ] `test/conformance/planted/**` (Create/Modify) — identity-fixture RED (REQ-DC-08.1);
+- [x] `test/conformance/planted/**` (Create/Modify) — identity-fixture RED (REQ-DC-08.1);
   opt-out-attempt RED/compile-pin (REQ-DC-06.2 — fixture type has no disabling field)
-- [ ] `docs/authoring-a-dialect.md` (Modify, partial) — leaf-rule DOCUMENTED-LIMIT statement:
+- [x] `docs/authoring-a-dialect.md` (Modify, partial) — leaf-rule DOCUMENTED-LIMIT statement:
   (a) the kit DOCUMENTS the leaf contract (a dialect's `parse`/`print`/ops MUST NOT import
   another dialect or a foreign AST library) in this recipe doc, stating explicitly that
   third-party dialect authors are expected to self-run their OWN static check (e.g. an

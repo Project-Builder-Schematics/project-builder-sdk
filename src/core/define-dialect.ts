@@ -116,12 +116,43 @@ type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) exten
   ? I
   : never;
 
+// The base handle's own vocabulary (S-004, REQ-DG-02, ADR-0010 amendment) — an op-pack op
+// sharing any of these names would silently shadow a base verb; `then` in particular would
+// break the handle's `PromiseLike` join. Superset of the spec's illustrative
+// then/read/modify/raw, covering every DialectWriteOps verb too (Stage-4 reserved-names
+// precedent).
+const RESERVED_HANDLE_NAMES = new Set(["then", "read", "raw", "modify", "rename", "move", "copy", "remove"]);
+
+/**
+ * Eager, synchronous, fail-closed check run at `withOps` composition time (REQ-DG-02,
+ * ADR-0010 amendment): throws on a cross-pack op-name duplicate (including a collision
+ * against `base.ops`) or on an op name in `RESERVED_HANDLE_NAMES`. Both throws are PLAIN
+ * `Error`s, NOT minted via `dialectError()` — they are not run-op contained rejects and must
+ * never be recognised by `isContained` as passthrough (design §4.5's own rationale).
+ */
+function assertNoCompositionCollision(baseOpNames: readonly string[], packs: readonly OpPack[]): void {
+  const claimed = new Set(baseOpNames);
+  for (const pack of packs) {
+    for (const name of Object.keys(pack)) {
+      if (RESERVED_HANDLE_NAMES.has(name)) {
+        throw new Error(`op-pack composition failed: op "${name}" collides with a reserved handle verb`);
+      }
+      if (claimed.has(name)) {
+        throw new Error(`op-pack composition failed: duplicate op "${name}" declared by more than one pack.`);
+      }
+      claimed.add(name);
+    }
+  }
+}
+
 /**
  * Composes additional op-packs onto a base dialect. The resulting handle type is the
  * INTERSECTION of the base's ops and every attached pack's ops (ADR-0010) — an op from an
- * unattached pack, or a typo, is a compile error (REQ-DG-02.1). Op-name collisions across
- * packs are OUT OF SCOPE (committed-next `stage-5b-dialect-breadth`); this change composes
- * exactly one starter pack, so no collision is exercised (REQ-DG-02.2).
+ * unattached pack, or a typo, is a compile error (REQ-DG-02.1). At composition time, an
+ * eager RUNTIME check (REQ-DG-02.2–02.5, ADR-0010 amendment) throws synchronously on a
+ * cross-pack op-name duplicate (or a collision against `base.ops`) or a reserved-vocabulary
+ * collision — composition never silently resolves to whichever pack happened to be spread
+ * last.
  *
  * @example
  * const tsDialect = withOps(baseTsDialect, addImportPack);
@@ -130,6 +161,7 @@ export function withOps<Ast, B extends OpPack<Ast>, P extends OpPack<Ast>[]>(
   base: Dialect<Ast, B>,
   ...packs: P
 ): Dialect<Ast, B & UnionToIntersection<P[number]>> {
+  assertNoCompositionCollision(Object.keys(base.ops), packs);
   const merged = Object.assign({}, base.ops, ...packs) as B & UnionToIntersection<P[number]>;
   return {
     extensions: base.extensions,

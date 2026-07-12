@@ -157,6 +157,27 @@ existing pending-changes entry.
 above is satisfied (`defineFactory` + `runFactoryForTest` reachable from an installed package
 via `./testing`, proven from a packed-tarball vantage; steward reckoning verdict `DELIVERED`).
 
+## From `stage-5b-dialect-breadth` (2026-07-12) — accepted as non-blocking at archive
+
+Verify verdict `pass-with-followups`. Judgment-day APPROVED (R1: 0 critical, 4 real findings fixed in D2; R2: both judges PASS). Steward reckoning DELIVERED (7 CQs affirmed, delivered).
+
+| Description | Type | Size | Notes |
+|---|---|---|---|
+| (13) mutation-gate double-print optimization (3 independent sources: dialect-handle.ts #ensureOpen gate-check print + flush print; seed lazyModifyDirective cached value with gate-check string, invalidate on subsequent fast-path hit — legitimate optimization but changes REQ-MC-05.1-asserted print counts (ADR-0037 amendment relaxation), needs design-reviewed followup, ~4MiB waste per op-chain on large files) | design | M | — |
+| (14) REQ-DG-07 emit-vs-commit wording amendment + document engine-discard cross-seam rollback assumption (verify-report #4, council finding) | documentation | S | — |
+| (15) RESERVED_HANDLE_NAMES hardening — Object.prototype builtins + `__proto__`/`constructor`/`prototype` rejection + null-proto pack merge (security-council finding) | refactor | M | — |
+| (16) DAS-01.1 guard: derive verb set from shipped op-pack type instead of hardcoded literal (ops.ts-only config, design comment row-144) | refactor | S | — |
+| (17) REQ-DC-08 real-base probe wrapper-stub gap (verify-report follows implicit contract; planted fixture incomplete) | docs | S | — |
+| (18) REQ-DC-07.1 pointer assertion mutation-weak (existsSync only; need stronger predicate; confirm in final round-trip) | test | S | — |
+| (19) primitive-AST dialect → uncontained TypeError at WeakMap.set (guard + contained error; info-severity, verify-report tracking) | refactor | XS | — |
+| (20) FIT-08 KIT_SYMBOL_NAMES to include handlePathFor (compliance expansion, tech-writer finding) | refactor | S | — |
+| (21) design §4.2b named `test/e2e/dialect-modify.e2e.test.ts` extension — never landed, coverage complete at integration level (verify coherence finding #2; document OR extend file) | documentation | S | — |
+| (22) name/source TS-identifier validation on add-ops (theoretical injection hardening; security-council forward-looking note) | refactor | M | — |
+| (23) defineDialect-direct ops bypass reserved-name check — route op attachment through one guarded path (design pattern, not current gap; noted for next dialect-authoring-standards REQ) | documentation | S | — |
+| (24) removeImport alias-vs-exported-name asymmetry doc clause (tech-writer coherence finding; recipe docs already cover, spec-level enhancement) | documentation | S | — |
+| (25) reserved-verb compose message could name the reserved set (pinned-literal change → needs spec-level decision; tech-writer nit suggesting user clarity) | documentation | S | — |
+| (C-acceptance-note) CQ-R2 acceptance recorded at reckoning: `dd1d109` testOpPack behavior affirmed (six adversarial round-trips per call, probe-after-exercises ordering ACCEPTED as legitimate extension of CQ-B's "runtime rules enforced" condition) | acceptance-note | — | observed |
+
 ## From `stage-4b-testing-harness` (2026-07-12) — accepted as non-blocking at archive
 
 Verify verdict `pass-with-followups`. Judgment-day APPROVED (R1: 1 confirmed WARNING fixed in

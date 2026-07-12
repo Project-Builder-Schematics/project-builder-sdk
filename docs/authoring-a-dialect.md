@@ -6,8 +6,9 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.raw()` escape hatch, and the
-first real dialect, `@pbuilder/sdk/typescript`, whose thin starter op-pack currently has one
-structured op, `addImport`.
+first real dialect, `@pbuilder/sdk/typescript`, whose op-pack has widened past its original thin
+starter shape (`addImport`) to five structured ops: `addImport`, `addFunction`, `addVariable`,
+`addClass`, `removeImport`.
 
 ## Two audiences
 
@@ -34,6 +35,73 @@ directive at flush (see "Coalescing" below).
 into an existing named-import clause from the same module if one is already present (calling it
 twice with the same name and module is idempotent — no duplicate import line).
 
+`addFunction(name, source, options?)` inserts a new top-level function declaration at the end of
+the file, in call order: `options?.export` prepends `export `. `source` INCLUDES the function's
+`{ … }` braces — the full signature-and-body text, e.g. `"(): void {}"` for
+`function hi(): void {}` — a deliberate contrast with `addClass`'s `source`, which EXCLUDES its
+braces (that op supplies them itself). `addFunction` REJECTS when a value declaration
+(`function`/`const`/`let`/`var`/`class`) or an import binding already exists under `name` —
+imports MERGE (safe, multiple modules can share a name), but two value declarations sharing a
+name produce invalid TypeScript, so this op fails loud instead of silently colliding. A
+`type`/`interface` under the same name does NOT collide (TypeScript legally permits a value and a
+type to share an identifier).
+
+```ts
+// source includes braces:
+await ts.find("src/index.ts").addFunction("hi", "(): void {}", { export: true });
+// -> export function hi(): void {}
+// contrast addClass, whose source EXCLUDES braces (the op adds them itself).
+```
+
+`addVariable(name, initializer, options?)` inserts a new top-level variable declaration at the end
+of the file, in call order: `{export }{kind} {name} = {initializer};`. `options?.kind` defaults to
+`"const"` (also accepts `"let"`/`"var"`); `options?.export` prepends `export `. Rejects under the
+SAME collision rule as `addFunction` — a value declaration or import binding already existing
+under `name` fails loud; `type`/`interface` do not collide.
+
+```ts
+await ts.find("src/index.ts").addVariable("counter", "0", { export: true, kind: "let" });
+// -> export let counter = 0;
+```
+
+`addClass(name, source, options?)` inserts a new top-level class declaration at the end of the
+file, in call order: `{export }class {name} {\n{source}\n}`. `source` EXCLUDES the class's
+`{ … }` braces — the op supplies them itself, a deliberate contrast with `addFunction`'s `source`,
+which INCLUDES its braces. Rejects under the SAME collision rule as `addFunction`.
+
+```ts
+// source excludes braces:
+await ts.find("src/index.ts").addClass("Point", "  x = 0;");
+// -> class Point {\n  x = 0;\n}
+// contrast addFunction, whose source INCLUDES braces (the op does NOT add them itself).
+```
+
+`addFunction`'s/`addVariable`'s/`addClass`'s `source`/`initializer` strings are inserted
+VERBATIM — never validated or sanitized. The author owns their own syntax, the same trust
+contract `.raw()` carries.
+
+`removeImport(name, from)` removes the named binding from `from`'s import clause. Idempotent:
+removing an ABSENT binding is a no-op (zero directives emitted) — mirrors `addImport`'s own
+idempotency. Removing the LAST remaining named binding in an import clause deletes the entire
+import statement — no dangling `import {} from "from"`. An aliased specifier
+(`{ readFileSync as rf }`) is matched by the module-EXPORTED name (`readFileSync`), not the local
+alias `rf`. Scope: NAMED-binding imports only — default and namespace imports are out of scope
+for this op.
+
+A dialect handle's `.modify(content)` REJECTS when an AST-op directive (any named op, or `.raw()`)
+is still OPEN — buffered, not yet drained by a read or flush — on the SAME handle: the pending AST
+edit would otherwise be silently lost to `.modify()`'s own raw overwrite. This is asymmetric and
+narrowly scoped: `.modify()` with no AST op pending is unaffected; an AST op enqueued AFTER
+`.modify()` is unaffected (the restriction is directional); and `.read()` is the documented
+escape — it drains the pending AST op first, so `.modify()` called AFTER a `.read()` is a
+legitimate sequential edit, not a collision:
+
+```ts
+const handle = ts.find("src/index.ts").addImport("readFileSync", "node:fs");
+await handle.read(); // drains the pending addImport edit
+handle.modify("new content"); // succeeds — the documented escape
+```
+
 ### For contributors: building a dialect
 
 A dialect is assembled from three kit verbs:
@@ -48,7 +116,13 @@ A dialect is assembled from three kit verbs:
 - **`withOps(base, ...packs)`** — composes additional op-packs onto a base dialect; the resulting
   handle type is the INTERSECTION of the base's ops and every attached pack's ops. An op from an
   unattached pack, or a typo, is a compile error. See its JSDoc `@example` in
-  `src/core/define-dialect.ts`.
+  `src/core/define-dialect.ts`. At composition time, `withOps` also runs an eager, synchronous,
+  fail-closed check: an op name declared by two or more of the passed packs (or colliding with
+  the base dialect's own ops) throws immediately, naming the colliding op — composition never
+  silently resolves to whichever pack happened to be spread last. An op name that shadows the
+  base handle's own vocabulary (`then`, `read`, `raw`, `modify`, `rename`, `move`, `copy`,
+  `remove`) throws the same way — an op-pack op named `then` in particular would break the
+  handle's `PromiseLike` join.
 
 A contributor's worked proof anchors are the conformance kit — `testDialect`/`testOpPack`
 (`@pbuilder/sdk/conformance`) — which asserts a dialect's parse/print round-trip, per-op
@@ -102,8 +176,14 @@ A **forgotten-await** chain that throws still surfaces its error, contained, at 
 — never as an unhandled rejection. If you need to observe or handle a dialect failure locally,
 `await` the chain (or a promise derived from it) inside your own `try`/`catch`.
 
-The contained error intentionally carries no cause or stack from inside your `.raw()` body —
-`.cause` is always absent. To debug what went wrong inside a `.raw()` callback, log from inside it.
+This containment is not `.raw()`-specific: a NAMED op (`addImport`, `addFunction`, `addVariable`,
+`addClass`, `removeImport`, or a third-party dialect's own op) that throws synchronously, or whose
+implementation is itself `async` and rejects, is contained exactly the same way — never an
+unhandled rejection, always the pinned error shape.
+
+The contained error intentionally carries no cause or stack from inside your `.raw()` body or a
+named op's own implementation — `.cause` is always absent. To debug what went wrong, log from
+inside the op or callback itself.
 
 ## Testing with the conformance kit
 
@@ -112,12 +192,38 @@ The contained error intentionally carries no cause or stack from inside your `.r
 sync throw.
 
 - `testDialect({ dialect, samples })` asserts your dialect's `parse`/`print` pair round-trips
-  every sample byte-exact.
+  every sample byte-exact. `testDialect` also injects six mandatory adversarial samples on
+  every run — empty, comment-only, a 4 MiB file, CRLF line endings, a UTF-8 BOM, and two
+  imports sharing one module — that your dialect's `parse`/`print` must round-trip byte-exact.
+  There is no opt-out: the fixture type carries no field to disable them. Before each
+  round-trip it rejects a stub/identity `parse` (one that returns nothing or hands back the
+  input string), so an identity dialect cannot pass vacuously.
 - `testOpPack({ opPack, baseDialect, exercises })` applies each `OpExercise` (a seed, an op
   chain, and the expected byte-exact output) against the real coalescing pipeline, asserting
-  per-op fidelity, coalescing-to-one, and seam-serializability.
+  per-op fidelity, coalescing-to-one, and seam-serializability. It runs those same six
+  mandatory samples against your `baseDialect` too, after your exercises pass.
 
 Passing the conformance kit (`@pbuilder/sdk/conformance`) is not a security attestation: it proves a dialect keeps the seam serializable and its ops faithful, not that the dialect's `.raw()` code is safe to execute.
+
+## The leaf rule: dialect isolation
+
+A dialect's `parse`/`print` pair and its ops MUST NOT import another dialect's package, and
+`@pbuilder/sdk/commons` MUST NOT import any AST library (ts-morph or otherwise) — dialects and
+op-packs are leaves in the dependency graph, never depending on one another.
+
+**Documented limit**: the conformance kit's in-memory run vehicle cannot perform a full static
+import-graph analysis the way a source-tree fitness function can, so it does not ship a
+runtime or static scanner for this rule. `testDialect`/`testOpPack` do not check it. Third-party
+dialect authors are expected to self-run their OWN static check (e.g. an import-graph lint over
+their package's source) to enforce leaf-isolation locally — this is a real, documented gap for
+third-party dialects, not a silently-skipped guarantee.
+
+The SDK's own shipped `@pbuilder/sdk/typescript` dialect IS proven leaf-isolated today — by the
+PRE-EXISTING `FIT-01` transitive import-graph walk in this repo's own test suite
+(`test/fitness/fit-01-commons-no-ast.test.ts`), which asserts `src/commons/**` reaches no bare
+AST-library import at any transitive depth. That proof lives in the fitness-function suite, not
+inside `@pbuilder/sdk/conformance` — nothing under `src/conformance/**` re-implements or
+duplicates it.
 
 ## Publishing and trust
 

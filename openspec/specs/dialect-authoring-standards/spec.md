@@ -22,9 +22,10 @@ escape hatch and its explicit-trust posture (cross-referencing SECURITY.md's REQ
 sentence), the coalescing contract's observable shape (N edits → one modify; a read splits
 it — `modify-coalescing`), ASYNC USAGE (the awaited-chain form, e.g.
 `await find(p).addImport(x).raw(f)`, AND forgotten-await behaviour under the run-end join —
-`modify-coalescing` REQ-MC-06), and the `@pbuilder/sdk/typescript` starter op-pack as the
-worked example. It MUST NOT document unshipped surface (a second dialect, op-pack breadth
-beyond `addImport`, the collision diagnostic) as if it existed. The `.raw()` coverage MUST ALSO
+`modify-coalescing` REQ-MC-06), and the `@pbuilder/sdk/typescript` op-pack as the worked
+example. The op-pack coverage MUST document all five shipped ops: `removeImport`, `addFunction`,
+`addVariable`, `addClass`, plus the original `addImport`. It MUST NOT document unshipped surface
+(a second dialect, the collision diagnostic) as if it existed. The `.raw()` coverage MUST ALSO
 document the TWO-REALMS hazard: the author's OWN ts-morph realm (if they already depend on it
 directly) vs. the SDK's internal realm inside `.raw(ast => …)` — Node objects/instances
 crossing between the two are NOT interchangeable even when both realms load the same ts-morph
@@ -34,9 +35,10 @@ version (`typescript-dialect` REQ-TSD-06's accepted-and-documented residual risk
 
 - GIVEN `docs/authoring-a-dialect.md` after this change
 - WHEN its content is scanned against the shipped public surface
-  (`defineDialect`/`defineOpPack`/`withOps`/`.raw`/`addImport`)
+  (`defineDialect`/`defineOpPack`/`withOps`/`.raw`/`addImport`/`removeImport`/`addFunction`/
+  `addVariable`/`addClass`)
 - THEN every documented API name resolves to a REAL export; no documented name refers to
-  unshipped surface (e.g. `removeImport`)
+  unshipped surface
 
 #### Scenario REQ-DAS-01.2: the two-realms hazard section is present and guard-asserted
 

@@ -53,6 +53,14 @@ export interface RunContext {
   session: Session;
   factory: DirectiveFactory;
   dialects: DialectRegistry;
+  // F2 poison flag (ADR-0037 amendment): run-scoped, first-wins, set by dialect-handle.ts's
+  // step wrapper on the FIRST rejection and consulted at every subsequent step/read() entry
+  // so a chained op on a DIFFERENT handle is never attempted as a fresh operation
+  // (REQ-DG-07.3) — not merely left uncommitted. Never serialized, never crosses the wire.
+  // Plain field, no reverse import: context.ts still imports NOTHING from
+  // dialect-handle.ts (F2 fitness-guarded) — dialect-handle.ts reaches this via
+  // currentContext().
+  runFailure?: { reason: unknown };
 }
 
 const als = new AsyncLocalStorage<RunContext>();

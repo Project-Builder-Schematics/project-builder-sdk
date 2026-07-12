@@ -30,6 +30,13 @@ export class Session {
     return this.#pending.slice();
   }
 
+  // Row-141 kept-half: an identity membership check against the LIVE buffer (no defensive
+  // copy) for call sites that only need a yes/no answer per directive, e.g. the dialect
+  // handle's orphan-guard (#ensureOpen) and row-136's modify-reject predicate.
+  isPending(directive: Directive): boolean {
+    return this.#pending.includes(directive);
+  }
+
   async read(path: string): Promise<string | undefined> {
     await this.flush();
     return this.#client.read(path);

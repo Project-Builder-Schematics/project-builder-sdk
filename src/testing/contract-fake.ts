@@ -10,6 +10,7 @@ import type { EngineClient } from "../core/engine-client.ts";
 import type { Batch, Directive } from "../core/wire.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
 import { EmitRejection } from "../core/emit-rejection.ts";
+import { deepEqual } from "../core/deep-equal.ts";
 import {
   CONTRACT_FAKE_PREFIX,
   ALREADY_EXISTS,
@@ -19,30 +20,6 @@ import {
   ROUND_TRIP_FIDELITY_CHECK,
   JSON_SERIALIZATION,
 } from "./rejection-messages.ts";
-
-// boundary REQ-01/02: structural equality for the round-trip fidelity check. Plain `===`
-// is not enough — JSON.stringify silently OMITS object keys (function/undefined/Symbol
-// values) and nulls array elements holding those same values, so a mismatch shows up as
-// a missing key (Object.keys length differs) or a null-vs-non-null array element, never
-// as a thrown error.
-function deepEqual(a: unknown, b: unknown): boolean {
-  // Object.is, not `===`: `-0 === 0` is true but JSON round-trips -0 to 0, so `===`
-  // would silently pass a fidelity-breaking mutation (fail-closed posture, REQ-01/02).
-  if (Object.is(a, b)) return true;
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-    return a.every((value, index) => deepEqual(value, b[index]));
-  }
-  if (a !== null && typeof a === "object" && b !== null && typeof b === "object") {
-    const aRecord = a as Record<string, unknown>;
-    const bRecord = b as Record<string, unknown>;
-    const aKeys = Object.keys(aRecord);
-    const bKeys = Object.keys(bRecord);
-    if (aKeys.length !== bKeys.length) return false;
-    return aKeys.every((key) => key in bRecord && deepEqual(aRecord[key], bRecord[key]));
-  }
-  return false;
-}
 
 export type ServedFrom = "tree" | "disk";
 

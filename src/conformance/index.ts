@@ -18,6 +18,7 @@
 import type { Dialect, OpPack } from "../core/define-dialect.ts";
 import type { Directive } from "../core/wire.ts";
 import { defineFactory } from "../core/context.ts";
+import { deepEqual } from "../core/deep-equal.ts";
 import { createRunVehicle } from "./run-vehicle.ts";
 
 /**
@@ -91,30 +92,6 @@ export interface OpPackFixture {
   exercises: readonly OpExercise[];
 }
 
-// Object.is-based structural equality (not `===`): JSON.stringify silently OMITS keys
-// holding function/undefined/Symbol values (the closure-smuggle failure mode, REQ-DC-04.1)
-// rather than throwing, so only a structural compare against the original catches a missing
-// key. src/testing/contract-fake.ts (also shipped, ADR-0035) carries its own copy —
-// duplicated deliberately: `./conformance` must not import `./testing` (the dev-only bundle
-// boundary, FIT-17). Extraction into a kit-internal shared module is registered as a
-// stage-5b followup (it has pkg-surface baseline implications).
-function deepEqual(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true;
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-    return a.every((value, index) => deepEqual(value, b[index]));
-  }
-  if (a !== null && typeof a === "object" && b !== null && typeof b === "object") {
-    const aRecord = a as Record<string, unknown>;
-    const bRecord = b as Record<string, unknown>;
-    const aKeys = Object.keys(aRecord);
-    const bKeys = Object.keys(bRecord);
-    if (aKeys.length !== bKeys.length) return false;
-    return aKeys.every((key) => key in bRecord && deepEqual(aRecord[key], bRecord[key]));
-  }
-  return false;
-}
-
 // REQ-DC-04 (seam-serializability): `JSON.parse(JSON.stringify(directive))` must deep-equal
 // `directive` for EVERY emitted directive. Two DISTINCT failure modes a planted `.raw()` can
 // trigger (REQ-DC-04.1/.2): a closure attached to directive content is silently DROPPED by
@@ -182,10 +159,62 @@ async function runExercise(
   return { modifies, directives };
 }
 
+// REQ-DC-06 (ADR-0012 amendment clause 1): six mandatory adversarial samples, injected
+// ADDITIVELY into every `testDialect` run — `DialectFixture` carries no field capable of
+// disabling this (compile-level guarantee, REQ-DC-06.2, see test/conformance/planted/
+// opt-out-attempt.test.ts). Each sample is independently verified to round-trip byte-exact
+// against the real TypeScript dialect (`ast.ts`'s parse/print pair) — a dialect that fails one
+// is a real conformance failure, not a fixture artefact.
+const MANDATORY_ADVERSARIAL_SAMPLES: readonly string[] = [
+  "", // empty file
+  "// just a comment, no statements\n", // comment-only file
+  `/*${"a".repeat(4 * 1024 * 1024)}*/\nconst x = 1;\n`, // 4 MiB serialized-boundary sample (REQ-TSD-03.7 precedent)
+  "const x = 1;\r\nconst y = 2;\r\n", // CRLF
+  "﻿const x = 1;\n", // UTF-8 BOM
+  'import { a } from "m";\nimport { b } from "m";\n', // duplicate-target: two import statements sharing one module specifier
+];
+
+// Shared by `testDialect` and `testOpPack` (verify-in-loop-4 Finding #1): the round-trip +
+// real-base-probe loop is ONE mechanism, run against whichever dialect reference the caller
+// holds (`fixture.dialect` for testDialect, `fixture.baseDialect` for testOpPack) — REQ-DC-06's
+// chapeau ("into EVERY testDialect/testOpPack run") and REQ-DC-08 (real-base-dialect rule) both
+// name a dialect's `ast.parse`/`ast.print` pair, not an op-chain, so no per-op synthesis is
+// needed to satisfy either for `testOpPack`. `label` scopes error messages to the caller.
+function runRoundTripProbe(
+  dialectAst: { parse(source: string): unknown; print(ast: unknown): string },
+  samples: readonly string[],
+  label: string
+): void {
+  for (const sample of samples) {
+    const ast = dialectAst.parse(sample);
+    // REQ-DC-08 (real-base-dialect rule): a stub/mock parse that returns nothing or hands
+    // back the input string unchanged would let an identity round-trip pass vacuously —
+    // reject before the round-trip assertion can even run.
+    if (ast === null || ast === undefined || ast === sample) {
+      throw new Error(
+        `${label}: REQ-DC-08 real-base-dialect rule — dialect.ast.parse(sample) returned a ` +
+          "nullish value or the input string unchanged; a real dialect's parse must produce a distinct AST"
+      );
+    }
+    const roundTripped = dialectAst.print(ast);
+    if (roundTripped !== sample) {
+      const preview = sample.length > 80 ? `${sample.slice(0, 80)}...` : sample;
+      throw new Error(
+        `${label}: REQ-DC-01 round-trip fidelity — print(parse(sample)) did not byte-exact match ` +
+          `the original sample: ${JSON.stringify(preview)}`
+      );
+    }
+  }
+}
+
 /**
  * Runs the conformance suite for a dialect: asserts parse/print no-op round-trip fidelity
  * (REQ-DC-01) — `print(parse(sample)) === sample` BYTE-EXACT, never AST-equal, for every
- * sample in `fixture.samples`.
+ * sample in `fixture.samples` PLUS the six mandatory adversarial samples the kit injects on
+ * every run (REQ-DC-06 — additive, not opt-out-able). Before each round-trip check, verifies
+ * `fixture.dialect.ast.parse` is a REAL parser, not an identity/stub function (REQ-DC-08): a
+ * `parse` returning `null`/`undefined`, or the input string unchanged, fails BEFORE the
+ * round-trip assertion could vacuously pass.
  *
  * @example
  * await testDialect({
@@ -194,16 +223,8 @@ async function runExercise(
  * });
  */
 export async function testDialect(fixture: DialectFixture): Promise<void> {
-  for (const sample of fixture.samples) {
-    const roundTripped = fixture.dialect.ast.print(fixture.dialect.ast.parse(sample));
-    if (roundTripped !== sample) {
-      const preview = sample.length > 80 ? `${sample.slice(0, 80)}...` : sample;
-      throw new Error(
-        `testDialect: REQ-DC-01 round-trip fidelity — print(parse(sample)) did not byte-exact match ` +
-          `the original sample: ${JSON.stringify(preview)}`
-      );
-    }
-  }
+  const samples = [...fixture.samples, ...MANDATORY_ADVERSARIAL_SAMPLES];
+  runRoundTripProbe(fixture.dialect.ast, samples, "testDialect");
 }
 
 /**
@@ -212,7 +233,10 @@ export async function testDialect(fixture: DialectFixture): Promise<void> {
  * unchanged-elsewhere (REQ-DC-02) / coalescing-to-one content-verified (REQ-DC-03) via a
  * no-read run, seam-serializability (REQ-DC-04) over every emitted directive, and — for
  * every multi-op exercise — the read-boundary split (REQ-DC-05.2's live counterpart): a
- * mid-chain `read()` must force exactly TWO cumulative modify directives, never one.
+ * mid-chain `read()` must force exactly TWO cumulative modify directives, never one. Finally,
+ * asserts `fixture.baseDialect` survives the six mandatory adversarial samples' round-trip +
+ * real-base probe (REQ-DC-06/REQ-DC-08 — additive, not opt-out-able, same mechanism
+ * `testDialect` runs), unconditionally on every call whose exercises pass.
  *
  * @example
  * await testOpPack({
@@ -301,4 +325,16 @@ export async function testOpPack(fixture: OpPackFixture): Promise<void> {
       }
     }
   }
+
+  // REQ-DC-06/REQ-DC-08 (verify-in-loop-4 Finding #1): the six mandatory adversarial
+  // samples' round-trip + real-base probe, run against `fixture.baseDialect` — same
+  // mechanism `testDialect` runs, independent of `fixture.exercises`. Deliberately LAST
+  // (not first, unlike testDialect): a fixture's own exercises target ONE specific
+  // REQ-DC-02..05 failure mode against a baseDialect that may be intentionally non-generic
+  // (e.g. this repo's own REQ-DC-05 planted-violation fixtures use hand-rolled/identity
+  // `ast` pairs to isolate that ONE mode) — ordering the probe last lets that exercise-level
+  // failure surface for its own reason first, while still running the probe unconditionally
+  // on every call whose exercises pass, exactly as REQ-DC-06's "regardless of what samples
+  // the contributor's own fixture supplies" demands.
+  runRoundTripProbe(fixture.baseDialect.ast, MANDATORY_ADVERSARIAL_SAMPLES, "testOpPack");
 }

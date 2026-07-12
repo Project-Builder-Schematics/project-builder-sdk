@@ -61,6 +61,11 @@ function countOccurrences(source: string, needle: string): number {
  * The caller (`src/core/dialect-handle.ts`) wraps any throw from this function with the
  * frozen contained-error prefix; this function's own thrown message is never surfaced
  * directly to the author.
+ *
+ * Row-139 (stage-5b, executor-latitude, no REQ of its own): classification below reads off
+ * `getSyntacticDiagnostics()`'s own diagnostic objects — never an assumption about a caught
+ * error's own-enumerable-properties or call-stack shape. Verified already in this shape; no
+ * heuristic-based classification exists in this function to sweep out.
  */
 export function parse(source: string): SourceFile {
   const startsWithBom = source.startsWith(BOM);

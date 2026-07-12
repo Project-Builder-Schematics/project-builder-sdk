@@ -41,3 +41,34 @@ The handle is **open**. Ops compose at the **value level** and the types interse
   documented "packs own disjoint op names" convention is required.
 - The contributor never writes a handle subclass — `defineDialect` generates the handle from the three
   slots (`extensions`, `ast: { parse, print }`, `ops`).
+
+## Amendment (2026-07-12, `stage-5b-dialect-breadth`, S-004): `withOps` runtime collision + reserved-name check
+
+**Status**: Accepted (amends Accepted ADR-0010)
+
+**Context**: ADR-0010 promised "a readable diagnostic + a disjoint-names convention" but left
+collisions as an incompatible-intersection compile artifact. The kit's `any`-erasure means a
+THIRD-PARTY (or fixture) pack collision evaporates at the type level — a runtime test cannot
+red-prove a compile error, so the load-bearing proof MUST be runtime.
+
+**Decision**: `withOps` performs an EAGER, synchronous, fail-closed check at composition: (a)
+an op name declared by two or more of the passed packs (or colliding with `base.ops`) throws
+`op-pack composition failed: duplicate op "{name}"…`; (b) an op name in `RESERVED_HANDLE_NAMES`
+(the full base vocabulary — `then`, `read`, `raw`, `modify`, `rename`, `move`, `copy`, `remove`
+— superset of the spec's illustrative `then`/`read`/`modify`/`raw`, to prevent silent shadowing
+of ANY base verb) throws `op-pack composition failed: op "{name}" collides with a reserved
+handle verb`. These compose-time throws are NOT WeakSet-branded (they are minted outside
+`dialectError()`), so `#invokeContained`'s `isContained` discriminator never mistakes one for a
+deliberate contained reject — and they fire at composition, before any run exists. The DISTINCT
+`"op-pack composition failed: "` prefix additionally keeps the two families legible to a reader.
+Type-level intersection (REQ-DG-02.1) is unchanged; no type-level collision diagnostic is added
+(theatre for the runtime-proven case).
+
+**Consequences**: (+) the deferred diagnostic ships, RED+GREEN, against real `SourceFile` packs.
+(+) `then`-shadow (breaks PromiseLike join) is caught. (−) a legitimately-named third-party op
+matching a base verb is blocked — acceptable (base verbs are reserved).
+
+**Alternatives considered**: **Compile-time only** — rejected: unprovable against `any`-erased
+third-party packs. **WeakSet-brand the compose-time throws too** — rejected: they are not
+run-op contained rejects and must never be recognised by `isContained` as passthrough; keeping
+them unbranded (and out of `dialectError()`) is what preserves the discriminator's meaning.

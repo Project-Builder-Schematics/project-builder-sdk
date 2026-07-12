@@ -10,7 +10,8 @@
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
-import { join, dirname, resolve } from "node:path";
+import { join, dirname } from "node:path";
+import { specifiersResolvingInto } from "../support/import-scan.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = join(PROJECT_ROOT, "src");
@@ -30,25 +31,10 @@ function getSourceFiles(dir: string, prefix = ""): string[] {
   return files;
 }
 
-const IMPORT_SPECIFIER_RE = /(?:import|export)\s+(?:[^'"]*?\s+from\s+)?["']([^"']+)["']/g;
-
-function relativeSpecifiersResolvingInto(source: string, fromDir: string, targetDir: string): string[] {
-  const offenders: string[] = [];
-  for (const match of source.matchAll(IMPORT_SPECIFIER_RE)) {
-    const specifier = match[1]!;
-    if (!specifier.startsWith(".")) continue; // bare/package specifiers can never reach bin/
-    const resolved = resolve(fromDir, specifier);
-    if (resolved === targetDir || resolved.startsWith(`${targetDir}/`)) {
-      offenders.push(specifier);
-    }
-  }
-  return offenders;
-}
-
 function importsFromBin(relPath: string): string[] {
   const source = readFileSync(join(SRC_DIR, relPath), "utf-8");
   const importDir = dirname(join(SRC_DIR, relPath));
-  return relativeSpecifiersResolvingInto(source, importDir, BIN_DIR);
+  return specifiersResolvingInto(source, importDir, BIN_DIR);
 }
 
 describe("FIT-15 — bin -> core direction only (no src/ runtime module imports bin/)", () => {
@@ -69,7 +55,7 @@ describe("FIT-15 — bin -> core direction only (no src/ runtime module imports 
   it("[red-proof] a relative import resolving into bin/ is detected", () => {
     const fakeSource = `import { generateSchema } from "../../bin/pbuilder-codegen.ts";`;
     const fakeDir = join(SRC_DIR, "core");
-    expect(relativeSpecifiersResolvingInto(fakeSource, fakeDir, BIN_DIR)).toEqual([
+    expect(specifiersResolvingInto(fakeSource, fakeDir, BIN_DIR)).toEqual([
       "../../bin/pbuilder-codegen.ts",
     ]);
   });
@@ -79,13 +65,13 @@ describe("FIT-15 — bin -> core direction only (no src/ runtime module imports 
   it("[red-proof] a bare specifier containing the substring 'bin/' is NOT flagged (no false positive)", () => {
     const fakeSource = `import { x } from "some-package/bin/thing.js";`;
     const fakeDir = join(SRC_DIR, "core");
-    expect(relativeSpecifiersResolvingInto(fakeSource, fakeDir, BIN_DIR)).toEqual([]);
+    expect(specifiersResolvingInto(fakeSource, fakeDir, BIN_DIR)).toEqual([]);
   });
 
   // RED-PROOF: a relative import that stays within src/ is NOT flagged.
   it("[red-proof] a relative import staying within src/ is NOT flagged", () => {
     const fakeSource = `import { Schema } from "./schema/schema-model.ts";`;
     const fakeDir = join(SRC_DIR, "core");
-    expect(relativeSpecifiersResolvingInto(fakeSource, fakeDir, BIN_DIR)).toEqual([]);
+    expect(specifiersResolvingInto(fakeSource, fakeDir, BIN_DIR)).toEqual([]);
   });
 });

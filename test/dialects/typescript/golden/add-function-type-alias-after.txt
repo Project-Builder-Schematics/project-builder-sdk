@@ -1,0 +1,2 @@
+type foo = string;
+function foo(): void {}

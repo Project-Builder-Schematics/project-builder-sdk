@@ -12,6 +12,7 @@
  * REQ-DC-01..05 (round-trip, single-op fidelity, coalescing-to-one, seam-serializability,
  * read-boundary split) + REQ-TSD-05.1 (minimum subpath smoke-resolve-and-run).
  */
+import { existsSync } from "node:fs";
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
@@ -28,6 +29,9 @@ import { closureSmuggleFixture } from "./planted/closure-smuggle-violation.ts";
 import { liveNodeSmuggleFixture } from "./planted/live-node-smuggle-violation.ts";
 import { coalescingViolationFixture } from "./planted/coalescing-violation.ts";
 import { readSplitViolationFixture } from "./planted/read-split-violation.ts";
+import { identityFixtureViolationFixture } from "./planted/identity-fixture-violation.ts";
+import { nullParseViolationFixture } from "./planted/null-parse-violation.ts";
+import { undefinedParseViolationFixture } from "./planted/undefined-parse-violation.ts";
 
 type AddImportOps = { addImport: (ast: SourceFile, name: string, from: string) => void };
 const addImportPack = defineOpPack<SourceFile, AddImportOps>({ addImport });
@@ -116,5 +120,107 @@ describe("REQ-DC-05 — planted-violation suite: every core assertion fails RED 
 
   it("[permanent-fixture] REQ-DC-05.2: a dialect that coalesces across a mid-chain read (never splits) fails RED", async () => {
     await expect(testOpPack(readSplitViolationFixture)).rejects.toThrow(/REQ-DC-05\.2/);
+  });
+});
+
+describe("REQ-DC-06 — mandatory adversarial samples (contributor cannot opt out)", () => {
+  it("REQ-DC-06.1: all six mandatory samples run even when the fixture's own samples array is empty", async () => {
+    let parseCalls = 0;
+    // Spy on the REAL dialect's parse — every call proves a sample was actually round-trip
+    // checked. `fixture.samples` is deliberately empty, so any call beyond zero can only come
+    // from the kit's own injected mandatory set (REQ-DC-06.1's own spy/count note).
+    const spiedDialect: typeof realTypescriptDialect = {
+      ...realTypescriptDialect,
+      ast: {
+        parse: (source: string) => {
+          parseCalls++;
+          return realTypescriptDialect.ast.parse(source);
+        },
+        print: realTypescriptDialect.ast.print,
+      },
+    };
+    const fixture: DialectFixture = { dialect: spiedDialect, samples: [] };
+
+    await expect(testDialect(fixture)).resolves.toBeUndefined();
+    expect(parseCalls).toBe(6);
+  });
+
+  it("REQ-DC-06.3: all six mandatory samples run against fixture.baseDialect on every testOpPack call, independent of exercises", async () => {
+    const seenSources: string[] = [];
+    // Same spy technique as REQ-DC-06.1, applied to `baseDialect` instead of `dialect` —
+    // `OpPackFixture` carries no `samples` field at all, so the mandatory set is the ONLY
+    // source of round-trip probing testOpPack does outside its own op-exercises.
+    const spiedBaseDialect: typeof realTypescriptDialect = {
+      ...realTypescriptDialect,
+      ast: {
+        parse: (source: string) => {
+          seenSources.push(source);
+          return realTypescriptDialect.ast.parse(source);
+        },
+        print: realTypescriptDialect.ast.print,
+      },
+    };
+    const fixture: OpPackFixture = {
+      opPack: addImportPack,
+      baseDialect: spiedBaseDialect,
+      exercises: [
+        {
+          seed: golden("add-import-before.txt"),
+          chain: [
+            { op: "addImport", args: ["join", "node:path"] },
+            {
+              raw: (ast: unknown): void => {
+                (ast as SourceFile).addStatements("export const z = 3;");
+              },
+            },
+          ],
+          expect: golden("coalesced-two-edits.txt"),
+        },
+      ],
+    };
+
+    await expect(testOpPack(fixture)).resolves.toBeUndefined();
+
+    // The mandatory probe runs LAST (after every exercise, see index.ts's testOpPack) and
+    // has no `await` between samples, so it lands as one synchronous burst at the tail —
+    // the last six recorded sources are exactly the injected set, in declaration order,
+    // regardless of how many exercise-driven calls preceded it.
+    expect(seenSources.slice(-6)).toEqual([
+      "",
+      "// just a comment, no statements\n",
+      `/*${"a".repeat(4 * 1024 * 1024)}*/\nconst x = 1;\n`,
+      "const x = 1;\r\nconst y = 2;\r\n",
+      "﻿const x = 1;\n",
+      'import { a } from "m";\nimport { b } from "m";\n',
+    ]);
+  });
+});
+
+describe("REQ-DC-07 — leaf rule: no cross-dialect / AST-library import (documented limit)", () => {
+  // DOCUMENTED-LIMIT (design ADR-0012 amendment clause 3, north-star CQ-B affirmation): the
+  // conformance kit ships NO import-graph scanner of its own, and none is authored here — this
+  // is a documentation-pointer assertion, not a duplicate check. The load-bearing proof for the
+  // SDK's own shipped TypeScript dialect is FIT-01's PRE-EXISTING transitive import-graph walk
+  // (test/fitness/fit-01-commons-no-ast.test.ts), unmodified by this slice. Third-party dialect
+  // authors self-run their OWN static check — see docs/authoring-a-dialect.md.
+  it("REQ-DC-07.1: FIT-01's transitive import-graph walk is the shipped dialect's leaf-isolation proof", () => {
+    const fit01Path = new URL("../fitness/fit-01-commons-no-ast.test.ts", import.meta.url).pathname;
+    expect(existsSync(fit01Path)).toBe(true);
+  });
+});
+
+describe("REQ-DC-08 — real-base-dialect rule extended to testDialect", () => {
+  it("[permanent-fixture] REQ-DC-08.1: an identity parse/print fixture fails BEFORE the round-trip assertion could vacuously pass", async () => {
+    await expect(testDialect(identityFixtureViolationFixture)).rejects.toThrow(/REQ-DC-08/);
+  });
+
+  // verify-in-loop-4 Finding #2: the two remaining branches of the real-base probe's 3-way
+  // OR (`ast === null` / `ast === undefined`), each independently triangulated.
+  it("[permanent-fixture] REQ-DC-08.2: a parse that always returns null fails BEFORE the round-trip assertion could run", async () => {
+    await expect(testDialect(nullParseViolationFixture)).rejects.toThrow(/REQ-DC-08/);
+  });
+
+  it("[permanent-fixture] REQ-DC-08.3: a parse that always returns undefined fails BEFORE the round-trip assertion could run", async () => {
+    await expect(testDialect(undefinedParseViolationFixture)).rejects.toThrow(/REQ-DC-08/);
   });
 });

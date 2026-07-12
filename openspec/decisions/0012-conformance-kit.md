@@ -56,6 +56,36 @@ it).
 
 The body below (originally accepted 2026-06-21) is otherwise unchanged.
 
+## Amendment (2026-07-12, `stage-5b-dialect-breadth`, S-005): conformance tail + `deepEqual` extraction
+
+**Status**: Accepted (amends Accepted ADR-0012)
+
+**Context**: the adversarial-sample battery, the leaf rule, and the real-base rule for
+`testDialect` were deferred to this change; and `deepEqual` is duplicated across
+`./conformance` and `./testing` (FIT-17 forbids the cross-edge).
+
+**Decision**: (1) **Mandatory samples** — `testDialect`/`testOpPack` inject six adversarial
+samples (empty, comment-only, 4 MiB, CRLF, BOM, duplicate-target) ADDITIVELY on every run; the
+fixture type carries no field to disable them (compile-level, REQ-DC-06.2). (2)
+**Real-base probe** (REQ-DC-08) — a RUNTIME structural probe: `parse(sample)` must return a
+non-null object distinct from the input string; an identity/stub `parse` returns the string →
+FAIL. Combined with the six mandatory samples a vacuous fixture cannot pass. A type-level brand
+is REJECTED (`any`-erasure evaporates it; fakeable = theatre). (3) **Leaf rule** (REQ-DC-07) —
+**documented-limit**: the kit DOCUMENTS the leaf contract; the SDK's shipped dialect is enforced
+by the existing FIT-01 transitive walk (REQ-DC-07.1 asserted there, surfaced through the
+conformance test module); third-party dialects self-run it via their own tooling. NO new public
+static entry point (PM balloon-watch; the in-memory vehicle is not a static analyzer). (4)
+`deepEqual` moves to kit-internal `src/core/deep-equal.ts`, imported by both consumers; NOT in
+any barrel/subpath (no public symbol; FIT-04 unchanged; FIT-14 gains one additive tarball row).
+This is the SAME kit-internal-shared-in-core decision that homes `dialect-error.ts` (F1 — see
+ADR-0037 amendment clause 0): two sibling no-public-symbol modules, one decision, no extra ADR.
+
+**Consequences**: (+) conformance theatre closed honestly. (−) leaf rule runtime-enforced only
+for the SDK's own dialect — a documented limit, not a silent gap. (−) FIT-14 baseline +1 row.
+
+**Alternatives considered**: **Static leaf entry point** — rejected (public surface + not the
+vehicle's job). **Type-brand real-base** — rejected (fakeable theatre).
+
 ## Context
 
 An open ecosystem (ADR-0009) cannot have the core team review every community dialect/op-pack. The
