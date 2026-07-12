@@ -11,6 +11,7 @@ import { currentContext } from "./context.ts";
 import { dialectError, isContained } from "./dialect-error.ts";
 import type { DirectiveFactory } from "./directive-factory.ts";
 import type { OpPack, Handle } from "./define-dialect.ts";
+import type { Session } from "./session.ts";
 import type { Directive } from "./wire.ts";
 
 interface DialectAst<Ast> {
@@ -164,6 +165,15 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     }
   }
 
+  // Shared predicate (row-141/row-136): is this handle's own AST-op directive still
+  // buffered, undrained? #ensureOpen consults it to skip re-registration while the prior
+  // directive is still pending; runModify consults the SAME check to reject a conflicting
+  // .modify() (ADR-0039). `session` is passed in rather than re-derived via currentContext()
+  // — both call sites already have it in scope from their own context lookup.
+  #hasOpenPendingDirective(session: Session): boolean {
+    return this.#openDirective !== undefined && session.isPending(this.#openDirective);
+  }
+
   // FIT-19 orphan guard (ADR-0037): re-registers a FRESH directive whenever the prior one
   // is no longer present in the session's pending buffer (an IDENTITY check, never a value
   // check) — this is what turns a global flush mid-chain into the split-into-two-modifies
@@ -177,7 +187,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // Must be called AFTER the op has run (never before) so the print reflects its effect.
   #ensureOpen(): void {
     const { session } = currentContext();
-    if (this.#openDirective !== undefined && session.isPending(this.#openDirective)) {
+    if (this.#hasOpenPendingDirective(session)) {
       return;
     }
     if (this.#openDirective === undefined && this.#printContained() === this.#lastEmittedText) {
@@ -255,7 +265,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   runModify(content: string): void {
     this.#enqueue(() => {
       const { session, factory } = currentContext();
-      if (this.#openDirective !== undefined && session.isPending(this.#openDirective)) {
+      if (this.#hasOpenPendingDirective(session)) {
         throw dialectError(
           `cannot .modify() "${this.#path}" while a structured edit is pending on the same handle — the pending edit would be lost; call .read() to commit it first, then .modify()`
         );

@@ -30,6 +30,14 @@ export function addImport(ast: SourceFile, name: string, from: string): void {
   ast.addImportDeclaration({ moduleSpecifier: from, namedImports: [name] });
 }
 
+// Shared `{ export?: boolean }` shape across addFunction/addVariable/addClass — addVariable
+// composes it with its own extra `kind` member.
+type DeclarationOptions = { export?: boolean };
+
+function exportPrefixFor(options?: DeclarationOptions): string {
+  return options?.export === true ? "export " : "";
+}
+
 // ADR-0039 collision-namespace pin (owner ruling #4): a VALUE-namespace declaration
 // (function/const/let/var/class) OR a named-import binding under `name` collides,
 // cross-kind; `type`/`interface` are exempt (legal TS coexistence). Syntactic search only
@@ -76,12 +84,11 @@ export function addFunction(
   ast: SourceFile,
   name: string,
   source: string,
-  options?: { export?: boolean },
+  options?: DeclarationOptions,
   handlePath?: string
 ): void {
   assertNoCollision(ast, name, "addFunction", handlePath!);
-  const exportPrefix = options?.export === true ? "export " : "";
-  ast.addStatements(`${exportPrefix}function ${name}${source}`);
+  ast.addStatements(`${exportPrefixFor(options)}function ${name}${source}`);
 }
 
 /**
@@ -98,13 +105,12 @@ export function addVariable(
   ast: SourceFile,
   name: string,
   initializer: string,
-  options?: { export?: boolean; kind?: "const" | "let" | "var" },
+  options?: DeclarationOptions & { kind?: "const" | "let" | "var" },
   handlePath?: string
 ): void {
   assertNoCollision(ast, name, "addVariable", handlePath!);
-  const exportPrefix = options?.export === true ? "export " : "";
   const kind = options?.kind ?? "const";
-  ast.addStatements(`${exportPrefix}${kind} ${name} = ${initializer};`);
+  ast.addStatements(`${exportPrefixFor(options)}${kind} ${name} = ${initializer};`);
 }
 
 /**
@@ -125,12 +131,11 @@ export function addClass(
   ast: SourceFile,
   name: string,
   source: string,
-  options?: { export?: boolean },
+  options?: DeclarationOptions,
   handlePath?: string
 ): void {
   assertNoCollision(ast, name, "addClass", handlePath!);
-  const exportPrefix = options?.export === true ? "export " : "";
-  ast.addStatements(`${exportPrefix}class ${name} {\n${source}\n}`);
+  ast.addStatements(`${exportPrefixFor(options)}class ${name} {\n${source}\n}`);
 }
 
 /**
@@ -145,10 +150,11 @@ export function addClass(
 export function removeImport(ast: SourceFile, name: string, from: string): void {
   const decl = ast.getImportDeclaration((d) => d.getModuleSpecifierValue() === from);
   if (decl === undefined) return;
-  const specifier = decl.getNamedImports().find((named) => named.getName() === name);
+  const namedImports = decl.getNamedImports();
+  const specifier = namedImports.find((named) => named.getName() === name);
   if (specifier === undefined) return;
   const isLastNamedBindingOnly =
-    decl.getNamedImports().length === 1 && decl.getDefaultImport() === undefined && decl.getNamespaceImport() === undefined;
+    namedImports.length === 1 && decl.getDefaultImport() === undefined && decl.getNamespaceImport() === undefined;
   if (isLastNamedBindingOnly) {
     decl.remove();
   } else {

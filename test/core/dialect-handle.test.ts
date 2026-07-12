@@ -21,6 +21,7 @@ import { dryRun } from "../../src/commons/index.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
 import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
 import { ContractFake } from "../support/contract-fake.ts";
+import { assertNoLeak } from "../support/assert-no-leak.ts";
 import { toyDialect, PARSE_FAIL_SENTINEL, type ToyAst } from "../fixtures/toy-dialect/index.ts";
 import { asyncRejectingOp } from "../fixtures/red/dialect-generics/async-op-rejects.ts";
 
@@ -294,10 +295,7 @@ describe("dialect handle — .raw() and parse-failure containment (REQ-DG-05)", 
     // council fix pass (QA F2): sweep EVERY own property (not just message/.cause) for the
     // planted secret marker — proves the native error object was discarded wholesale at the
     // wrap site (a fresh Error, per module doc), not merely stripped of one named field.
-    for (const prop of Object.getOwnPropertyNames(err)) {
-      const value = (err as unknown as Record<string, unknown>)[prop];
-      expect(String(value)).not.toContain(SECRET_MARKER);
-    }
+    assertNoLeak(err, SECRET_MARKER);
   });
 
   it("REQ-DG-05.2: an unparseable target is contained the same way as REQ-DG-05.1", async () => {
@@ -414,10 +412,7 @@ describe("dialect handle — runOp containment, parity with .raw() (REQ-DG-06)",
     expect(caught).toBeInstanceOf(Error);
     const err = caught as Error;
     expect(err.message).toBe('dialect operation failed: leakyThrow() on "a.synth" threw');
-    for (const prop of Object.getOwnPropertyNames(err)) {
-      const value = (err as unknown as Record<string, unknown>)[prop];
-      expect(String(value)).not.toContain(SECRET_MARKER);
-    }
+    assertNoLeak(err, SECRET_MARKER);
   });
 
   it("REQ-DG-06.2: an async op rejection is contained, zero unhandledRejection, zero batches", async () => {
