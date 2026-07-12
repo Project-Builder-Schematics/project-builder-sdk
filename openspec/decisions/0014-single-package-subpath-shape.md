@@ -1,11 +1,33 @@
 # ADR-0014: Single-package distribution and subpath-exports shape
 
-- Status: Accepted
+- Status: Accepted (amended 2026-07-12 — `./typescript` wired, see "Amendment" below)
 - Date: 2026-06-21
 - Deciders: Daniel (Hyperxq)
 - Builds on: ADR-0009 (two audiences, monorepo deferral), ADR-0012 (conformance kit),
   ADR-0001 (SDK emits wire directives).
 - Formalises: what S-004 (build/exports) implemented and REQ-PKG-01/02 specified.
+
+## Amendment (2026-07-12, `stage-5-first-dialect`, ADR-0038): the `./typescript` dialect subpath is wired
+
+**Context**: this ADR documented the dialect subpath as "documented, NOT wired" pending a
+frozen dialect API. Stage 5 freezes it (`dialect-generics` spec, ADR-0037).
+
+**Decision**: Wire exactly one dialect subpath, `./typescript` (FROZEN) →
+`dist/dialects/typescript/index.js`. This is the "first dialect" trigger this ADR
+anticipated below ("monorepo-deferral trigger"), but the monorepo extraction stays DEFERRED
+(this dialect is INTERNAL to `@pbuilder/sdk`; extraction fires on the SECOND, or first
+EXTERNAL, dialect — trigger conditions unchanged). No general dialect-naming convention is
+established by wiring exactly one subpath.
+
+**Consequences**: (+) authors get a real `@pbuilder/sdk/typescript`; (+) FIT-04 baselines the
+new `.d.ts` from first commit. (–) the subpath is FIT-04 semver-frozen on ship.
+
+**Alternatives considered**: minting a competing ADR (rejected — this is an evolution of this
+ADR, not a reversal); establishing a general dialect-naming convention now (rejected —
+premature with exactly one dialect shipped).
+
+The body below (originally accepted 2026-06-21) is otherwise unchanged; the exports table's
+dialect-subpath row now reads as amended, not superseded.
 
 ## Context
 
@@ -25,20 +47,24 @@ defers monorepo complexity until it is earned.
 
 ### Subpath exports (package.json#exports)
 
-Three subpaths are wired; the kit and dialect subpaths are NOT:
+Originally-authored table (2026-06-21); note the amendment above wires `./typescript` and a
+separate, later amendment (`stage-4b-testing-harness`, not reproduced here — see that change's
+ADRs) wired `./testing`. The kit subpath stays NOT wired:
 
 | Subpath | Resolves to | Audience | Notes |
 |---|---|---|---|
 | `.` (umbrella) | `dist/index.js` + `dist/index.d.ts` | Authors | Re-exports the commons surface only — `src/index.ts` → `src/commons/index.ts` |
 | `./commons` | `dist/commons/index.js` + `dist/commons/index.d.ts` | Authors | The canonical author import (`@pbuilder/sdk/commons`) |
 | `./conformance` | `dist/conformance/index.js` + `dist/conformance/index.d.ts` | Contributors / Testers | The conformance kit scaffold (ADR-0012) |
+| `./typescript` | `dist/dialects/typescript/index.js` + `.d.ts` | Authors | **Wired 2026-07-12** (amendment above) — the first real dialect |
 | `./core` | **Not wired — fails resolution** | — | Internal only; blocked by `exports` |
 | `./internal` | **Not wired** | — | Reserved |
 | `./kit` | **Not wired** | — | Reserved for future `@pbuilder/sdk-kit` extraction trigger |
 
-The dialect subpath pattern (`@pbuilder/sdk/<dialect>`) is **documented, not wired**: no dialect
-is shipped in v1. Dialects are community packages that import from `@pbuilder/sdk-kit` (the
-future extracted kit). See "monorepo-deferral trigger" below.
+The dialect subpath pattern (`@pbuilder/sdk/<dialect>`) was **documented, not wired** at this
+ADR's original acceptance: no dialect shipped in v1. `stage-5-first-dialect` is the trigger
+event that wired the first one (`./typescript`, amendment above); no general dialect-naming
+convention is established by wiring exactly one.
 
 ### Bleed prevention
 

@@ -15,11 +15,17 @@
  * AuthoringError`) run INSIDE that script, against the installed package's OWN class
  * reference — a check from outside would compare against the wrong module instance.
  *
- * Hardening (ADR-0036, SEC-m2): `bun install --ignore-scripts` + a non-routable
- * `BUN_CONFIG_REGISTRY` so any accidental network dependence fails loudly instead of silently
- * fetching; the scratch install gets its OWN lockfile inside the scratch dir — the repo's
- * lockfile hash is asserted unchanged before/after. `afterAll` always removes the scratch dir
- * (tarball lives inside it, so one `rm -rf` covers both).
+ * Hardening (ADR-0036, SEC-m2): `bun install --ignore-scripts` blocks lifecycle-script network
+ * egress (the actual supply-chain concern) — the strongest remaining guard once a real
+ * dependency exists. Originally paired with a non-routable `BUN_CONFIG_REGISTRY` for
+ * belt-and-suspenders zero-deps-era hardening (SEC-m2's ORIGINAL text); stage-5-first-dialect
+ * is the FIRST change to give this package a real runtime dependency (ts-morph, REQ-TSD-06,
+ * D5) — the scratch install now legitimately needs registry access to resolve it, so the
+ * non-routable override was removed (it would fail EVERY install now, not just an accidental
+ * one). `--ignore-scripts` alone still catches the attack this guard exists for: a malicious
+ * postinstall script phoning home. The scratch install gets its OWN lockfile inside the
+ * scratch dir — the repo's lockfile hash is asserted unchanged before/after. `afterAll` always
+ * removes the scratch dir (tarball lives inside it, so one `rm -rf` covers both).
  */
 import { describe, it, expect, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -113,12 +119,14 @@ function ensureInstalledConsumer(): Promise<void> {
       )
     );
 
-    // Non-routable registry (SEC-m2): any accidental network dependence fails loudly instead
-    // of silently fetching. The `file:` dependency never needs the registry.
+    // `--ignore-scripts` (SEC-m2): blocks lifecycle-script network egress — the actual
+    // supply-chain guard. The `file:` dependency itself never needs the registry, but its
+    // OWN `ts-morph` dependency (this change's first real one) does; the registry is left at
+    // its ambient default rather than forced non-routable (see file-header doc comment).
     const installResult = spawnSync("bun", ["install", "--ignore-scripts"], {
       cwd: SCRATCH_DIR,
       encoding: "utf-8",
-      env: { ...process.env, BUN_CONFIG_REGISTRY: "http://127.0.0.1:9" },
+      env: process.env,
     });
     if (installResult.status !== 0) {
       throw new Error(`scratch bun install failed:\n${installResult.stdout}\n${installResult.stderr}`);

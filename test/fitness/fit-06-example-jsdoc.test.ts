@@ -22,11 +22,14 @@ const ROOT = new URL("../../src", import.meta.url).pathname;
 
 // Public author subpaths to scan (kit excluded per ADR-0009; ./testing added per ADR-0033/
 // REQ-TSD-02 — the widening cascades to defineFactory's origin in core/context.ts and to
-// Batch/Directive's origin in core/wire.ts, both re-exported through src/testing/index.ts)
+// Batch/Directive's origin in core/wire.ts, both re-exported through src/testing/index.ts;
+// ./typescript added per stage-5-first-dialect REQ-FIT-06 — the new dialect subpath's entry
+// verb `find` is gate-covered by this SAME fitness function, not left to convention)
 const PUBLIC_PATHS = [
   join(ROOT, "commons/index.ts"),
   join(ROOT, "conformance/index.ts"),
   join(ROOT, "testing/index.ts"),
+  join(ROOT, "dialects/typescript/index.ts"),
 ];
 
 // Matches a JSDoc tag at the start of a JSDoc line: `* @tagname` or `* @tagname value`
@@ -216,6 +219,28 @@ describe("FIT-06 — every public export carries a JSDoc @example", () => {
       expect(allViolations).toEqual([]);
     });
   }
+
+  // REQ-FIT-06 (stage-5-first-dialect): ./typescript's entry verb `find` is gate-covered by
+  // THIS SAME fitness function — proven positively (it currently carries @example) and by a
+  // red-proof (removing it fails RED), not left to per-subpath convention.
+  it("REQ-FIT-06: src/dialects/typescript/index.ts's find carries @example", () => {
+    const source = readFileSync(join(ROOT, "dialects/typescript/index.ts"), "utf-8");
+    const exports = extractPublicExports(source);
+    const findExport = exports.find((e) => e.name === "find");
+    expect(findExport?.hasExample).toBe(true);
+  });
+
+  it("[red-proof] REQ-FIT-06: a fixture where find's @example is removed fails RED", () => {
+    const fixtureSource = `
+/** Opens a TypeScript file for dialect-aware editing. */
+export function find(path: string): unknown {
+  return path;
+}
+`;
+    const exports = extractPublicExports(fixtureSource);
+    const violations = exports.filter((e) => !e.isInternal && !e.hasExample);
+    expect(violations.map((v) => v.name)).toEqual(["find"]);
+  });
 
   // RED-PROOF: a public export without @example is detected as a violation.
   it("[red-proof] a public export without @example is detected as a violation", () => {

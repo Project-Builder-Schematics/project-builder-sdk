@@ -3,8 +3,10 @@
  * Removing any exported property makes this test RED — it is the seed of the
  * future conformance harness and proves the wiring fires.
  *
- * Red-proof: removing `testDialect` from the actual export object → the property
- * check fails. Demonstrated by deleting the key from a spread copy of the real module.
+ * S-004: the old "throws, no dialect exists yet" stub assertions are RETIRED — a real
+ * dialect exists now, and `testDialect`/`testOpPack`'s real bodies (against the REAL
+ * TypeScript dialect) are asserted in `test/conformance/typescript-conformance.test.ts`.
+ * This file stays scoped to what it always was: the kit's export-surface wiring.
  */
 import { describe, it, expect } from "bun:test";
 import * as conformance from "../../src/conformance/index.ts";
@@ -18,6 +20,16 @@ describe("conformance — meta-test: public surface is intact", () => {
   it("exports testOpPack as a function", () => {
     expect(conformance).toHaveProperty("testOpPack");
     expect(typeof conformance.testOpPack).toBe("function");
+  });
+
+  // testDialect/testOpPack are `async (...): Promise<void>` (ADR-0012 amendment, rev 3 Q3)
+  // — calling either returns a Promise, never a synchronous result.
+  it("testDialect returns a Promise", () => {
+    const result = conformance.testDialect({ dialect: { extensions: [], ast: { parse: (s: string) => s, print: (s: string) => s }, ops: {}, find: () => { throw new Error("not used"); } }, samples: [] });
+    expect(result).toBeInstanceOf(Promise);
+    // Swallow — this fixture's `find` is never called for an empty `samples` array; the
+    // resulting promise resolves cleanly (no samples to fail round-trip on).
+    void result.catch(() => {});
   });
 
   // Red-proof: delete testDialect from a copy of the real conformance surface →

@@ -6,6 +6,14 @@ scenarios by direct count — see Coverage Check note) · **Design**: rev 2 · *
 **Test**: `bun test <path>` · full `bun test` · types `bunx tsc --noEmit` · build
 `bun run build` (needed for FIT-04/FIT-14 dist-diffing tests).
 
+> **Renumbering note (apply-time, council fix pass).** Every ADR/FIT number below is AS PLANNED
+> at slicing time, before landing collided with numbers `stage-4b-testing-harness` claimed on
+> `main` in the interim (some task lines already carry their own "LANDED AS" annotation from
+> the original apply pass — this note covers the remaining unannotated mentions, e.g. "Covers:"
+> lines and body prose). The mapping (unchanged from design.md's own note): **ADR-0033** → landed
+> as **ADR-0038**; **ADR-0034** → landed as **ADR-0037**; **FIT-17** → landed as **FIT-19**;
+> **FIT-18** → landed as **FIT-20**. Content is unaffected — only the numbers changed.
+
 ## Executor Context (mandatory)
 
 > Handoff-plumbing appendix, following the stage-2/stage-4 house pattern (plan-verify Judge B
@@ -125,12 +133,12 @@ behavior — mirrors the skill's own "no-SPIDR-split" rule for internal guard re
 existing direct-import checks (today's `fit-01-commons-no-ast.test.ts`) stay green.
 
 ### Tasks
-- [ ] [must-fail-first] Rewrite `fit-01-commons-no-ast.test.ts`'s scan from per-file direct
+- [x] [must-fail-first] Rewrite `fit-01-commons-no-ast.test.ts`'s scan from per-file direct
   specifiers to a relative-import-closure GRAPH WALK (allow-list = SDK `core` public symbols +
   Node/Bun builtins; any other import at ANY depth fails)
-- [ ] [permanent-fixture] Two-file planted fixture (`leaf.ts` clean, `helper.ts` importing
+- [x] [permanent-fixture] Two-file planted fixture (`leaf.ts` clean, `helper.ts` importing
   `ts-morph`) proving the TRANSITIVE case the old scanner could not see
-- [ ] Confirm the three existing red-proofs (direct ts-morph, builtins pass, `../core` passes)
+- [x] Confirm the three existing red-proofs (direct ts-morph, builtins pass, `../core` passes)
   still hold under the new walk
 
 ---
@@ -151,32 +159,35 @@ throws THEN the run rejects with the frozen-prefix `Error`, no `unhandledRejecti
 absent.
 
 ### Tasks
-- [ ] [must-fail-first] `src/core/define-dialect.ts` rewrite — real `Op<Ast>`/`OpPack<Ast>`,
+- [x] [must-fail-first] `src/core/define-dialect.ts` rewrite — real `Op<Ast>`/`OpPack<Ast>`,
   frozen `DialectDescriptor`, `Handle<State,Ast,Ops>` type (intersection via `withOps`,
   `PromiseLike<void>`), `.raw()` on the type surface (DG-01, DG-02, DG-03 type-level pins)
-- [ ] [must-fail-first] `src/core/dialect-handle.ts` (Create) — the coalescing handle factory:
+- [x] [must-fail-first] `src/core/dialect-handle.ts` (Create) — the coalescing handle factory:
   `#tail` promise-queue chaining, read-through-parse via `Session.read` ONLY, `ensureOpen()`
   re-registration (identity check against `pendingSnapshot()`), memoized lazy `content` getter,
   the frozen-prefix contained-error wrapper (constraint 3), self-registration into
   `RunContext.dialects`
-- [ ] [must-fail-first] `src/core/context.ts` Modify — `RunContext.dialects: DialectRegistry`;
+- [x] [must-fail-first] `src/core/context.ts` Modify — `RunContext.dialects: DialectRegistry`;
   `defineFactory` drains it (`allSettled`, first-rejection re-throw) BEFORE `session.flush()`,
   routing through the EXISTING discard+re-throw catch (no new catch path)
-- [ ] `openspec/decisions/0034-coalescing-seam-handle-owned.md` (Create) — ADR-0034 verbatim
-  per design §4.5
-- [ ] `test/fixtures/toy-dialect/index.ts` (Create, slice-level addition) — `Ast = string[]`,
+- [x] `openspec/decisions/0034-coalescing-seam-handle-owned.md` (Create) — ADR-0034 verbatim
+  per design §4.5 — LANDED AS ADR-0037 (renumbered; 0033-0036 were claimed by
+  stage-4b-testing-harness on main in the interim — see file header)
+- [x] `test/fixtures/toy-dialect/index.ts` (Create, slice-level addition) — `Ast = string[]`,
   `parse`/`print` by newline join/split, one `push` op, composed via real `defineDialect`/
   `withOps`
-- [ ] `test/core/dialect-handle.test.ts` (Create) — MC-01/02/04/05/07 against the toy dialect,
+- [x] `test/core/dialect-handle.test.ts` (Create) — MC-01/02/04/05/07 against the toy dialect,
   spy-on-`emit` batch inspection (constraint 7); flush-seed-rule honored (constraint 5)
-- [ ] [must-fail-first] `test/fitness/fit-17-coalescing-orphan-guard.test.ts` (Create) —
-  drained-handle re-registration red-proof
-- [ ] [must-fail-first] `test/fitness/fit-18-unawaited-join-guard.test.ts` (Create) — MC-06
-  happy+throwing unawaited cases; red-proof removes `dialects.drain()`
-- [ ] `test/types/define-dialect.test.ts` Modify — DG-01.1 fifth-field compile error, DG-02.1
+- [x] [must-fail-first] `test/fitness/fit-17-coalescing-orphan-guard.test.ts` (Create) —
+  drained-handle re-registration red-proof — LANDED AS `fit-19-coalescing-orphan-guard.test.ts`
+  (renumbered; fit-17/18 were claimed by stage-4b-testing-harness on main)
+- [x] [must-fail-first] `test/fitness/fit-18-unawaited-join-guard.test.ts` (Create) — MC-06
+  happy+throwing unawaited cases; red-proof removes `dialects.drain()` — LANDED AS
+  `fit-20-unawaited-join-guard.test.ts` (renumbered, see above)
+- [x] `test/types/define-dialect.test.ts` Modify — DG-01.1 fifth-field compile error, DG-02.1
   attached-only `expectTypeOf` negative pin, DG-02.3 standalone `defineOpPack`, `.raw`
   presence, thenable-handle type
-- [ ] `test/e2e/toy-dialect-skeleton.e2e.test.ts` (Create, slice-level addition) — ONE smoke
+- [x] `test/e2e/toy-dialect-skeleton.e2e.test.ts` (Create, slice-level addition) — ONE smoke
   driving the toy dialect outside-in against `ContractFake`; `test/conformance/toy-dialect-smoke.test.ts`
   (Create) proves `testDialect`/`testOpPack` are CALLABLE against the toy fixture (signature
   smoke only — constraint 2, never DC-01..05 content assertions)
@@ -200,31 +211,35 @@ own import graph contains no `Session`/`DirectiveFactory`/`EngineClient`; no dir
 `EngineClient.read` call exists anywhere in `src/dialects/typescript/**`.
 
 ### Tasks
-- [ ] [must-fail-first] Halt-check: confirm S-000's FIT-01 rewrite is green BEFORE this task
+- [x] [must-fail-first] Halt-check: confirm S-000's FIT-01 rewrite is green BEFORE this task
   proceeds (constraint 1); then `package.json` — `ts-morph` exact-pinned dependency, `./typescript`
   exports entry; commit `bun.lock`; `openspec/decisions/0033-*.md` (Create) + `0014-*.md`
-  amendment (Modify)
-- [ ] [must-fail-first] `src/dialects/typescript/ast.ts` (Create) — ts-morph parse/print with
+  amendment (Modify) — LANDED AS `0038-ts-morph-runtime-dependency.md` (renumbered; 0033-0037
+  claimed by stage-4b-testing-harness + this change's own S-001 batch — see file header)
+- [x] [must-fail-first] `src/dialects/typescript/ast.ts` (Create) — ts-morph parse/print with
   frozen `ManipulationSettings` + explicit `newLineKind`, no language-service formatter
-- [ ] [must-fail-first] `src/dialects/typescript/ops.ts` (Create) — `addImport(name, from)`
+- [x] [must-fail-first] `src/dialects/typescript/ops.ts` (Create) — `addImport(name, from)`
   op-pack, merge-into-existing-clause idempotency (TSD-01.1/.2)
-- [ ] [must-fail-first] `src/dialects/typescript/index.ts` (Create) — namespace export
+- [x] [must-fail-first] `src/dialects/typescript/index.ts` (Create) — namespace export
   exposing `find`, composed via `defineDialect` + `withOps(addImportPack)`; async `@example`
   (FIT-06)
-- [ ] `test/dialects/typescript/dialect.test.ts` (Create) — TSD-01/02 base cases + determinism
+- [x] `test/dialects/typescript/dialect.test.ts` (Create) — TSD-01/02 base cases + determinism
   spy (language-service formatter zero calls)
-- [ ] `test/dialects/typescript/coalescing.test.ts` (Create) — MC-01/02/05 real-AST restatement
-  + unawaited-join/same-path (MC-06/07) restatement, spy-on-`emit` content-verified
-- [ ] `test/dialects/typescript/read-routing.test.ts` (Create) — MC-03 static scan + planted
+- [x] `test/dialects/typescript/coalescing.test.ts` (Create) — MC-01/02/05 real-AST restatement
+  + unawaited-join/same-path (MC-06/07) restatement, spy-on-`emit` content-verified — also
+  closes verify-in-loop-1 followup F1 (REQ-DG-03.2, `.raw()` before a named op)
+- [x] `test/dialects/typescript/read-routing.test.ts` (Create) — MC-03 static scan + planted
   direct-`EngineClient.read` red-proof
-- [ ] `test/dialects/typescript/golden/` (Create) — coalesced-one, split-#1/#2, addImport
+- [x] `test/dialects/typescript/golden/` (Create) — coalesced-one, split-#1/#2, addImport
   before/after goldens
-- [ ] `test/e2e/dialect-modify.e2e.test.ts` (Create) — Flows 1-4 (chain→one-modify, `.raw`
+- [x] `test/e2e/dialect-modify.e2e.test.ts` (Create) — Flows 1-4 (chain→one-modify, `.raw`
   either order, mid-chain split, forgotten-await still commits)
-- [ ] `test/fitness/fit-03/04/05/06/08/14-*.test.ts` Modify — `./typescript` budget constant;
+- [x] `test/fitness/fit-03/04/05/06/08/14-*.test.ts` Modify — `./typescript` budget constant;
   `typescript.index.d.ts` baseline; FIT-05 real-dialect coalesced-directive scenario; `PUBLIC_PATHS`
   +`typescript/index.ts`; `./typescript` kit-bleed scan + planted Session-import red-proof
-  (DG-04); FIT-14 4-exports/ts-morph-dep/tarball + regenerated `pkg-surface-baseline.json`
+  (DG-04); FIT-14 4-exports/ts-morph-dep/tarball + regenerated `pkg-surface-baseline.json` —
+  exports set is actually 5 entries not 4 (`./testing` pre-existing on `main`, see apply-progress
+  Deviation #2); FIT-09 also extended (not in original task text — required for suite-green)
 
 ---
 
@@ -242,16 +257,16 @@ per its Given/When/Then; GIVEN malformed TypeScript WHEN the first op parses THE
 REQ-DG-05's contract with the REAL ts-morph error contained (`.cause` absent).
 
 ### Tasks
-- [ ] [must-fail-first] Extend `dialect.test.ts` — TSD-03.1/.2/.9 (create/move/copy interaction
+- [x] [characterization] Extend `dialect.test.ts` — TSD-03.1/.2/.9 (create/move/copy interaction
   with a coalesced modify) + TSD-03.3 (two-distinguishable-edits content proof) + TSD-03.4
   (not-found pinned message)
-- [ ] [must-fail-first] TSD-03.5/.6/.8 goldens — empty file, CRLF+BOM round-trip, CRLF+addImport
+- [x] [characterization] TSD-03.5/.6/.8 goldens — empty file, CRLF+BOM round-trip, CRLF+addImport
   newline-kind matching
-- [ ] [must-fail-first] TSD-03.7 — multibyte-UTF-8 fixture sized so raw < `BATCH_CAP_BYTES` ≤
+- [x] [characterization] TSD-03.7 — multibyte-UTF-8 fixture sized so raw < `BATCH_CAP_BYTES` ≤
   serialized bytes (Stage-1 lesson); accept-at-cap or reject-at-cap, never silent truncation
-- [ ] [must-fail-first] TSD-03.10 — duplicate `addImport(x,m)` twice on one handle → single
+- [x] [characterization] TSD-03.10 — duplicate `addImport(x,m)` twice on one handle → single
   import line, idempotent
-- [ ] [must-fail-first] TSD-04.1 — real syntactically-invalid TypeScript fixture; parse failure
+- [x] [characterization] TSD-04.1 — real syntactically-invalid TypeScript fixture; parse failure
   contained per REQ-DG-05, asserted against the REAL ts-morph error (constraint 3)
 
 ---
@@ -271,19 +286,19 @@ smuggle AND live-node-smuggle, two DISTINCT failure modes) all hold; GIVEN the p
 suite THEN every fixture fails RED against its corresponding assertion.
 
 ### Tasks
-- [ ] [must-fail-first] `src/conformance/index.ts` Modify — real `testDialect` body (DC-01
+- [x] [must-fail-first] `src/conformance/index.ts` Modify — real `testDialect` body (DC-01
   byte-exact round-trip over representative samples)
-- [ ] [must-fail-first] real `testOpPack` body — DC-02 (single-op + unchanged-elsewhere), DC-03
+- [x] [must-fail-first] real `testOpPack` body — DC-02 (single-op + unchanged-elsewhere), DC-03
   (coalescing-to-one, content-verified, ≥2 distinguishable ops)
-- [ ] [must-fail-first] DC-04 seam-serializability — `JSON.parse(JSON.stringify(directive))`
+- [x] [must-fail-first] DC-04 seam-serializability — `JSON.parse(JSON.stringify(directive))`
   deep-equal assertion wired into both `testDialect`/`testOpPack`
-- [ ] [permanent-fixture] `test/conformance/planted/` (Create) — closure-smuggle (DC-04.1,
+- [x] [permanent-fixture] `test/conformance/planted/` (Create) — closure-smuggle (DC-04.1,
   silently drops) AND live-ts-morph-Node-smuggle (DC-04.2, `JSON.stringify` throws on circular
   parent pointers) — TWO DISTINCT failure modes, both mandatory
-- [ ] [permanent-fixture] one planted violation per core assertion (DC-05) — round-trip,
+- [x] [permanent-fixture] one planted violation per core assertion (DC-05) — round-trip,
   single-op, coalescing, serializability, PLUS the read-boundary-split violation (DC-05.2,
   silently coalesces across a mid-chain read instead of splitting)
-- [ ] Rewrite `test/conformance/meta.test.ts` — replace the old "throws, no dialect exists yet"
+- [x] Rewrite `test/conformance/meta.test.ts` — replace the old "throws, no dialect exists yet"
   assertions with real-dialect-backed conformance runs (`typescript-conformance.test.ts`, Create)
 
 ---
@@ -304,16 +319,16 @@ carries the `.raw()` trust sentence + "conformance ≠ safety" caveat verbatim (
 GIVEN the CI publish job THEN it retains `--provenance` for the release carrying `ts-morph`.
 
 ### Tasks
-- [ ] [must-fail-first] `docs/authoring-a-dialect.md` Modify — real content: kit-verbs
+- [x] [must-fail-first] `docs/authoring-a-dialect.md` Modify — real content: kit-verbs
   reference, `.raw()` + trust cross-ref, coalescing observable shape, worked `addImport`
   example, two-audience split (DAS-02, no author-style demo in the contributor section),
   two-realms hazard, Async-usage section (verbatim per §4.4b)
-- [ ] [must-fail-first] `SECURITY.md` Modify — `.raw()` trust sentence + "conformance ≠ safety"
+- [x] [must-fail-first] `SECURITY.md` Modify — `.raw()` trust sentence + "conformance ≠ safety"
   caveat, verbatim (constraint 4)
-- [ ] [must-fail-first] [permanent-fixture] `test/docs/security-authoring-guard.test.ts`
+- [x] [must-fail-first] [permanent-fixture] `test/docs/security-authoring-guard.test.ts`
   (Create) — exact-substring guards for all frozen strings (DAS-01.2/.3, DAS-02.1, STD-01) +
   workflow-substring guard for `--provenance` retention (TSD-06.2)
-- [ ] Register `src/dialects/typescript/**`, `src/core/dialect-handle.ts`,
+- [x] Register `src/dialects/typescript/**`, `src/core/dialect-handle.ts`,
   `package.json#dependencies` at low→medium in `project/sensitive-areas` (design §4.8,
   concrete paths not a category) — orchestrator/apply-time registry update, not a test
 

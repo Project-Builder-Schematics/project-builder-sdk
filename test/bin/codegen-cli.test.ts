@@ -91,8 +91,12 @@ describe("pbuilder-codegen CLI — bin invocation discipline (TFO-03.1/.2)", () 
     expect(pkgJson.scripts.postinstall).toBeUndefined();
   });
 
-  it("zero-runtime-deps preserved — package.json#dependencies stays absent or empty", () => {
-    expect(Object.keys(pkgJson.dependencies ?? {})).toEqual([]);
+  // stage-5-first-dialect (REQ-TSD-06, REQ-FPS-02 V4): the zero-deps invariant this test
+  // originally asserted became a ONE-deps invariant, still closed — the bin itself pulls in
+  // no dependency of its own; the SOLE authorized entry is ts-morph (the dialect's, not the
+  // bin's). Any OTHER entry would still be a genuine TFO-03 violation.
+  it("only the authorized ts-morph dependency is present — the bin itself pulls in no dependency of its own", () => {
+    expect(Object.keys(pkgJson.dependencies ?? {})).toEqual(["ts-morph"]);
   });
 });
 

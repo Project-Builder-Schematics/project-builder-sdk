@@ -2,6 +2,48 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `stage-5-first-dialect` (2026-07-12)
+
+### ts-morph@28 strips leading BOM through getFullText — re-prepend logic is load-bearing
+**What**: ts-morph's `getFullText()` method strips the BOM (byte order mark) from source files; the parsed AST retains it in metadata but the print surface loses it, breaking byte-exact round-trip fidelity.
+**Why**: Round-trip tests (REQ-DC-01, REQ-TSD-03.6) revealed the loss; conformance kit re-prepends via a WeakMap-backed internal mechanism to restore byte identity.
+**Where**: `src/dialects/typescript/ast.ts` — the `ast.ts` module owns the ts-morph binding and the BOM-strip workaround; the fix is invisible to dialect ops and authors.
+**Learned**: When a third-party parser library has a known limitation that breaks your fidelity contract, own the fix at the binding layer (not at the op/dialect layer) and document the invariant clearly, or the next engineer will re-discover it painfully.
+
+Source: change `stage-5-first-dialect` (2026-07-12)
+
+### ts-morph parser is fault-tolerant — real syntax-error detection needs getSyntacticDiagnostics
+**What**: ts-morph's `createSourceFile()` succeeds on malformed TypeScript; detecting genuine syntax errors (REQ-TSD-04: parsing a file with `const x = ;` should error) requires calling `getSyntacticDiagnostics()` explicitly.
+**Why**: The design assumed parse failures would throw; the executor discovered ts-morph's permissive parse path and implemented the correct detection method, which is internal to the dialect's `ast.ts`.
+**Where**: `src/dialects/typescript/ast.ts` — the `parse()` function checks diagnostics; dialect callers never see the library's permissive behavior.
+**Learned**: Verify third-party library error-reporting behavior with adversarial input early; don't assume exceptions for parse failures.
+
+Source: change `stage-5-first-dialect` (2026-07-12)
+
+### Async author callbacks under `=> void` type escape sync try/catch containment
+**What**: An async operation wrapped in a sync-typed callback (e.g., `async () => { await someOp() }` assigned to `fn: (...) => void`) allows exceptions to escape the containing try/catch because the exception lives in a rejected promise, not the sync stack.
+**Why**: The run-boundary join (FIT-20, `RunContext` drains outstanding handles before flush) required containing both sync and async failures from author code. A sync try/catch around the `await` of an async callback leaks if the callback itself is async-internal.
+**Where**: `src/core/context.ts` `defineFactory` runner — the factory function is typed `(o) => void | Promise<void>` to allow authors to forget the await; the runner's own error handler awaits the function's thenable return (if any) inside a contained wrapper.
+**Learned**: If your public API accepts a callback typed as sync but the runner treats it as potentially async, wrap the thenable-await inside your own try/catch, not the sync caller's. Sync-typed callbacks that are async-internally require async-aware error containment.
+
+Source: change `stage-5-first-dialect` (2026-07-12)
+
+### Openspec architecture mirror skips when refreshes stay engram-only
+**What**: Refreshing the architecture baseline from within a change worktree (hybrid/engram mode) updates only the engram topic; if the filesystem is the team's source of truth, the `.md` file stays stale.
+**Why**: Stage-3 and stage-5 ran architecture refreshes in engram-only context. The baseline `.md` file is visible to the team; a stale file confuses future readers who expect it to be current.
+**Where**: Architecture refresh hooks (post-verify) — any agent running in hybrid mode should mirror refreshes to both engram and filesystem.
+**Learned**: After an architecture baseline refresh, verify both backends are current: engram topic `sdd/{project}/architecture` AND `openspec/decisions/architecture.md` (if openspec mode is active). If you refresh engram-only and the team uses filesystem-backed decisions, you've silently created drift. Commit the `.md` refresh at archive time or document the worktree-scope limitation.
+
+Source: change `stage-5-first-dialect` (2026-07-12)
+
+### Cross-branch ADR/FIT collision: reserve ranges at plan time
+**What**: Two parallel branches independently assigned the "next free" ADR numbers (stage-4 claimed 0024-0028, stage-5 drafted 0033-0034) unaware of each other. When merged in a different order, one branch's numbers collided with the other's landed numbers.
+**Why**: Number assignment at design time (per-branch, in isolation) assumes no parallel work. Stage-5 discovered stage-4b's 0033-0036 already on main; mechanically renumbered stage-5's 0033-0034 to 0037-0038 at apply time (established stage-4 precedent).
+**Where**: Multi-stage programs with parallel sub-changes; ADR and fitness-function numbering.
+**Learned**: On the first `/plan` of a multi-stage program, reserve ADR ranges: "stage-4 gets 0024-0032; stage-5 gets 0033-0050" (or similar). Document the ranges in the program-level plan artefact. If a range is breached, apply-time renumber is safe but creates churn in design/slices/apply-progress headers; prevention is cheaper. Applied remedy: design/slices/apply-progress headers now document the collision and the renumber precedent, so the next team reader knows it's deliberate.
+
+Source: change `stage-5-first-dialect` (2026-07-12)
+
 ## From `stage-4b-testing-harness` (2026-07-12)
 
 ### Evaluator diversity catches what 4/4 green in-loop verifies miss

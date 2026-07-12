@@ -50,6 +50,10 @@
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"
+    },
+    "./typescript": {
+      "types": "./dist/dialects/typescript/index.d.ts",
+      "import": "./dist/dialects/typescript/index.js"
     }
   },
   "scripts": {
@@ -62,5 +66,8 @@
     "@types/bun": "^1.3.14",
     "expect-type": "^1.3.0",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "ts-morph": "28.0.0"
   }
 }

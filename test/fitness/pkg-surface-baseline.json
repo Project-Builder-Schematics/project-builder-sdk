@@ -15,7 +15,14 @@
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"
+    },
+    "./typescript": {
+      "types": "./dist/dialects/typescript/index.d.ts",
+      "import": "./dist/dialects/typescript/index.js"
     }
+  },
+  "dependencies": {
+    "ts-morph": "28.0.0"
   },
   "files": ["dist"],
   "bin": {
@@ -35,6 +42,9 @@
     "dist/conformance/index.d.ts",
     "dist/conformance/index.d.ts.map",
     "dist/conformance/index.js",
+    "dist/conformance/run-vehicle.d.ts",
+    "dist/conformance/run-vehicle.d.ts.map",
+    "dist/conformance/run-vehicle.js",
     "dist/core/authoring-error.d.ts",
     "dist/core/authoring-error.d.ts.map",
     "dist/core/authoring-error.js",
@@ -47,6 +57,9 @@
     "dist/core/define-dialect.d.ts",
     "dist/core/define-dialect.d.ts.map",
     "dist/core/define-dialect.js",
+    "dist/core/dialect-handle.d.ts",
+    "dist/core/dialect-handle.d.ts.map",
+    "dist/core/dialect-handle.js",
     "dist/core/directive-factory.d.ts",
     "dist/core/directive-factory.d.ts.map",
     "dist/core/directive-factory.js",
@@ -95,6 +108,15 @@
     "dist/core/wire.d.ts",
     "dist/core/wire.d.ts.map",
     "dist/core/wire.js",
+    "dist/dialects/typescript/ast.d.ts",
+    "dist/dialects/typescript/ast.d.ts.map",
+    "dist/dialects/typescript/ast.js",
+    "dist/dialects/typescript/index.d.ts",
+    "dist/dialects/typescript/index.d.ts.map",
+    "dist/dialects/typescript/index.js",
+    "dist/dialects/typescript/ops.d.ts",
+    "dist/dialects/typescript/ops.d.ts.map",
+    "dist/dialects/typescript/ops.js",
     "dist/dry-run/index.d.ts",
     "dist/dry-run/index.d.ts.map",
     "dist/dry-run/index.js",

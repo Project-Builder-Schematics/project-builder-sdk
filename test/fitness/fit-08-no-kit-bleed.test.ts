@@ -48,6 +48,10 @@ const SCANNED: ScannedPath[] = [
     valueAllow: ["defineFactory", "runFactoryForTest"],
     typeAllow: ["Batch", "Directive"],
   },
+  // REQ-DG-04.1 (stage-5-first-dialect): the new ./typescript dialect subpath is a full-ban
+  // path, same as commons/index/conformance — it imports ONLY defineDialect/defineOpPack/
+  // withOps (already sanctioned, not re-exported from here) + its own AST library.
+  { path: join(ROOT, "dialects/typescript/index.ts"), valueAllow: [], typeAllow: [] },
 ];
 
 const UMBRELLA_PATH = join(ROOT, "index.ts");
@@ -193,6 +197,34 @@ export type { ContractFake as ContractFakeType } from "./contract-fake.ts";
       const violations = scanPath(fixtureSource, testingEntry);
       const contractFakeViolations = violations.filter((v) => v.includes("ContractFake"));
       expect(contractFakeViolations.length).toEqual(2);
+    });
+  });
+
+  describe("REQ-DG-04.1 — ./typescript imports only the sanctioned dialect-author surface", () => {
+    const typescriptEntry = SCANNED.find((e) => e.path === join(ROOT, "dialects/typescript/index.ts"))!;
+
+    // RED-PROOF: a planted fixture re-exporting Session from ./typescript is caught — proves
+    // FIT-08's existing scan is EXERCISED against the new subpath, not merely inherited by
+    // text (REQ-DG-04.1's own red-proof obligation).
+    it("[red-proof] a fixture re-exporting Session from src/dialects/typescript is detected as kit bleed", () => {
+      const fixtureSource = `
+import { find } from "./index.ts";
+export { Session } from "../../core/session.ts";
+export { find };
+`;
+      const violations = scanPath(fixtureSource, typescriptEntry);
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations.some((v) => v.includes("Session"))).toBe(true);
+    });
+
+    it("[red-proof] a fixture re-exporting DirectiveFactory or EngineClient from ./typescript is detected", () => {
+      const fixtureSource = `
+export { DirectiveFactory } from "../../core/directive-factory.ts";
+export type { EngineClient } from "../../core/engine-client.ts";
+`;
+      const violations = scanPath(fixtureSource, typescriptEntry);
+      expect(violations.some((v) => v.includes("DirectiveFactory"))).toBe(true);
+      expect(violations.some((v) => v.includes("EngineClient"))).toBe(true);
     });
   });
 
