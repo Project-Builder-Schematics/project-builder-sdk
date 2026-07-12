@@ -1,0 +1,34 @@
+# Orchestrator-owned DAG state — stage-5b-dialect-breadth
+change: stage-5b-dialect-breadth
+triage: L
+sensitivity_override: true
+completed_phases:
+  - triage
+  - explore
+  - propose
+  - spec
+  - design
+  - steward-foresight
+  - slice
+  - plan-verify
+current_phase: plan-verify
+current_phase_status: complete
+spec_status: signed (owner, 2026-07-12 — V2; 13 REQs, 47 scenarios, 4 domains)
+design_status: complete (rev 2 — additive, ADR-0039 new + 0037/0010/0012 amendments)
+steward_foresight: aligned (4 CQs owner-affirmed)
+slices: rev 4 — S-000..S-005 (S-003 cuttable, default BUILD, tripwire ~1200 LOC / 6+ ADRs)
+plan_verify: READY (owner-ruled iter 4; verify-plan-1..4)
+in_loop_iteration: 0
+next_phase: build (S-000 first)
+execution_mode: interactive
+artifact_store: hybrid
+notes: >
+  Triage L (sensitivity floor: .raw()/AST code-execution + third-party ts-morph trust).
+  Blind council convergence: cut row 144 (BOM hoist — one-user abstraction, second-dialect
+  trigger contradicts 5b out-of-scope), split row 141 (AuthoringError{origin} promotion is
+  public-union MAJOR, Stage-2 lineage; FIT-01 is fitness lineage). Architect HIGH risk:
+  prune-unused-imports vs REQ-TSD-02 no-language-service freeze. Collision diagnostic needs
+  a real >=2-pack topology or honest re-deferral. Row 136 LWW decision = mandatory design
+  input. XL tripwires: 6+ ADRs at design, or apply-time size trending to parent XL estimate.
+  Scope ruling RATIFIED by owner 2026-07-12 (carve-outs accepted); triage.md amended in place.
+updated_at: 2026-07-12
