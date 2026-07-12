@@ -157,6 +157,27 @@ existing pending-changes entry.
 above is satisfied (`defineFactory` + `runFactoryForTest` reachable from an installed package
 via `./testing`, proven from a packed-tarball vantage; steward reckoning verdict `DELIVERED`).
 
+## From `stage-5b-dialect-breadth` (2026-07-12) — accepted as non-blocking at archive
+
+Verify verdict `pass-with-followups`. Judgment-day APPROVED (R1: 0 critical, 4 real findings fixed in D2; R2: both judges PASS). Steward reckoning DELIVERED (7 CQs affirmed, delivered).
+
+| Description | Type | Size | Notes |
+|---|---|---|---|
+| (13) mutation-gate double-print optimization (3 independent sources: dialect-handle.ts #ensureOpen gate-check print + flush print; seed lazyModifyDirective cached value with gate-check string, invalidate on subsequent fast-path hit — legitimate optimization but changes REQ-MC-05.1-asserted print counts (ADR-0037 amendment relaxation), needs design-reviewed followup, ~4MiB waste per op-chain on large files) | design | M | — |
+| (14) REQ-DG-07 emit-vs-commit wording amendment + document engine-discard cross-seam rollback assumption (verify-report #4, council finding) | documentation | S | — |
+| (15) RESERVED_HANDLE_NAMES hardening — Object.prototype builtins + `__proto__`/`constructor`/`prototype` rejection + null-proto pack merge (security-council finding) | refactor | M | — |
+| (16) DAS-01.1 guard: derive verb set from shipped op-pack type instead of hardcoded literal (ops.ts-only config, design comment row-144) | refactor | S | — |
+| (17) REQ-DC-08 real-base probe wrapper-stub gap (verify-report follows implicit contract; planted fixture incomplete) | docs | S | — |
+| (18) REQ-DC-07.1 pointer assertion mutation-weak (existsSync only; need stronger predicate; confirm in final round-trip) | test | S | — |
+| (19) primitive-AST dialect → uncontained TypeError at WeakMap.set (guard + contained error; info-severity, verify-report tracking) | refactor | XS | — |
+| (20) FIT-08 KIT_SYMBOL_NAMES to include handlePathFor (compliance expansion, tech-writer finding) | refactor | S | — |
+| (21) design §4.2b named `test/e2e/dialect-modify.e2e.test.ts` extension — never landed, coverage complete at integration level (verify coherence finding #2; document OR extend file) | documentation | S | — |
+| (22) name/source TS-identifier validation on add-ops (theoretical injection hardening; security-council forward-looking note) | refactor | M | — |
+| (23) defineDialect-direct ops bypass reserved-name check — route op attachment through one guarded path (design pattern, not current gap; noted for next dialect-authoring-standards REQ) | documentation | S | — |
+| (24) removeImport alias-vs-exported-name asymmetry doc clause (tech-writer coherence finding; recipe docs already cover, spec-level enhancement) | documentation | S | — |
+| (25) reserved-verb compose message could name the reserved set (pinned-literal change → needs spec-level decision; tech-writer nit suggesting user clarity) | documentation | S | — |
+| (C-acceptance-note) CQ-R2 acceptance recorded at reckoning: `dd1d109` testOpPack behavior affirmed (six adversarial round-trips per call, probe-after-exercises ordering ACCEPTED as legitimate extension of CQ-B's "runtime rules enforced" condition) | acceptance-note | — | observed |
+
 ## From `stage-4b-testing-harness` (2026-07-12) — accepted as non-blocking at archive
 
 Verify verdict `pass-with-followups`. Judgment-day APPROVED (R1: 1 confirmed WARNING fixed in
@@ -166,7 +187,7 @@ owner-nod items, not gaps.
 
 | Description | Type | Size | Gating? | Stage |
 |---|---|---|---|---|
-| Stage-6 `./core` production graduation: `defineFactory`'s production import home stays `./testing` until then (PM M4; steward CQ1 — an author's PRODUCTION `factory.ts` imports from a path literally named `./testing`; works today, 0.x-exempt, but is a naming-worth call for the owner to confirm, not a usability failure) | other | M | Stage 6 | **6 (production graduation)** |
+| Stage-6 `./core` production graduation: `defineFactory`'s production import home stays `./testing` until then (PM M4; steward CQ1 — an author's PRODUCTION `factory.ts` imports from a path literally named `./testing`; works today, 0.x-exempt, but is a naming-worth call for the owner to confirm, not a usability failure). **OWNER-RULED 2026-07-12 (stage-6 explore gate): stays `./testing` for stage-6; graduation re-registered as a mandatory re-evaluation inside the future public-package plan (pre-live-publish gate) — candidate home `./factory` per stage-6 explore blast-radius table** | other | M | Pre-live-publish | **public-package plan (own change)** |
 | Throw-value-shape triangulation: a factory that `throw`s `undefined` is indistinguishable from success in `result.error`, and a `null` throw is a falsy-error-consumer hazard for authors who write `if (result.error)` (QA council) | edge-case | S | — | **backlog** |
 | Exotic-path pass-through pin: path-traversal (`../`), NUL-byte, and unicode-normalization-edge paths are stored verbatim by the fake with no dedicated scenario pinning that behaviour (QA council) | test-coverage | XS | — | **backlog** |
 | `deepEqual`'s `key in`/bracket-access pattern in `src/testing/contract-fake.ts` (batch-payload comparison) is the SAME class of prototype-chain leak the seed-lookup fix (`fbb3053`) closed for seed reads — inherited `Object.prototype` members could spuriously match on payload keys (fix-agent flag, unconfirmed on batch path) | edge-case | XS | — | **next `contract-fake.ts` touch** |
@@ -174,3 +195,16 @@ owner-nod items, not gaps.
 | Widen `REQ-ATH-11`'s in-memory instrumentation to cover `node:child_process` (SEC-m3, executor-optional at build time — never added) and dynamic `import()` parity, alongside the existing fs/net/Bun-I/O/fetch/env/argv surfaces (security council) | refactor | S | — | **backlog (hardening)** |
 | Long-term form of ship-the-fake: `ContractFake` currently ships inside the production npm tarball behind six structural containment guards (ADR-0034) — is a permanent containment surface the right long-term shape, or should it become a separate `@pbuilder/testing` package (or BYO-fake docs)? Accepted 0.x expedient by owner ruling (ADR-0034); flagged for a deliberate long-term-form nod (steward CQ3, owner-nod pending, non-blocking) | other | L | — | **re-evaluate alongside `@pbuilder/sdk-kit` extraction (6.2)** |
 | `RunResult.error`'s typed union `AuthoringError \| unknown` collapses to `unknown` at the type-checker (no narrowing value from the union today) — revisit the result-shape typing at the next 0.x result-shape iteration once `./testing` graduates past its semver-exempt window (arch note, verify-report) | refactor | XS | — | **next 0.x result-shape iteration** |
+
+## From stage-6 planning grooming (2026-07-12) — owner-validated gaps
+
+Owner use case validated in-session: schematics need to copy asset files from the schematic
+package folder into the target tree (Angular Schematics' `apply(url('./files'))` mental model).
+Two distinct debts surfaced:
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| `copy` verb is emit-only end-to-end: SDK emits the directive correctly, fake + conformance vehicle simulate it faithfully, but the REAL engine drops it until the apply pass lands (ADR-0013 §copy; engine-side bytes-by-reference via `SourceFS` deferred to engine ADR-0028 §copy) — green tests ≠ files copied; needs the engine apply pass plus a real-wire assertion when PC-PROTO-01 unblocks integration | other | — | Engine ADR-0028 §copy apply pass | **cross-repo flag (with PC-PROTO-01)** |
+| Schematic-package asset → target tree has NO mechanism: `copy` is tree→tree only (fake enforces `from` exists in the tree, FAKE-06); no `apply(url('./files'))` equivalent, no source-FS notion (ADR-0008 keeps the SDK disk-blind by design). Workaround today: author-side `readFileSync` + `create` — text only; binary assets cannot travel the text wire (ADR-0019). Candidate primitive: `SourceFS` bytes-by-reference at the engine seam. **OWNER-RULED 2026-07-12: out of stage-6 — own change** | feature | L | Engine seam contract (cross-repo) | **own change** |
+| FIT-09/FIT-14 exports-guard extensibility refactor: split the frozen exact flat subpath list into a stable-core exact assert (`.`, `./commons`, `./conformance`, `./testing`) + an extensible dialect-set pattern assert, so a new dialect subpath is a one-row addition instead of a multi-file edit (package.json + FIT-09:77 + FIT-14:86-88 + baseline JSON). OWNER-RULED 2026-07-12: deferred — stage-5b adds no subpath (breadth within `./typescript`, exports byte-identical); first real consumer is a second dialect no plan contains yet | refactor | S | — | **second dialect (own trigger)** |
+| **Public-package plan (own /plan cycle, owner-carved 2026-07-12 at stage-6 explore gate; EXTENDED 2026-07-12 at stage-6 steward foresight, CQ2)**: everything that makes `@pbuilder/sdk` a package OTHER PEOPLE consume — GitHub Packages dual-name config (`@project-builder-schematics/sdk` publish-time rewrite, consumer `.npmrc` auth-wart docs), live npm publish readiness + go-live interlocks (GitHub Environment reviewer gate, tag-triggered publish), `defineFactory` home re-evaluation (row above), and whatever real engine integration reveals is missing. **Now ALSO absorbs the npm placeholder publish** (deferred at steward foresight, CQ2 — the `@pbuilder` scope is already owner-controlled, so an inert stub buys no security today): the stub itself, ADR-0040's reasoning, the fit-22 inertness suite, the RUNBOOK, and the `0.0.1` semver-floor decision. Rationale: "mientras funcione el bun link… por el momento es overkill porque no está preparado para que nadie lo use." Stage-6 now keeps only: hardening of the EXISTING publish.yml surface (W3 guard, SHA pins) and the local consumption story — ZERO registry writes | feature | L | L1-readiness (post engine integration) | **own change (post-6)** |

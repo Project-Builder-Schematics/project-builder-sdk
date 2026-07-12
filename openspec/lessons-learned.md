@@ -368,6 +368,54 @@ directive, mixed-verb, non-first offender).
 
 Source: change `stage-2-error-attribution` (2026-07-06)
 
+## From `stage-5b-dialect-breadth` (2026-07-12)
+
+### Blind council + judgment-day discovered real defects in-loop missed
+
+**What**: Two judgment-day rounds caught four real bugs (on-undefined pinned message with collision namespace, enum/namespace collision set, multi-declaration removeImport scope, cross-handle gate staleness) the in-loop cycle and council's parallel review both overlooked.
+
+**Why**: Adversarial independence (judges read ONLY the evidence, not the orchestrator's transcript or prior council reasoning) surfaces blind spots no amount of restatement-and-iteration cures.
+
+**Where**: `/home/barri/Projects/Project-Builder-Renaissance/project-builder-sdk` — dialect-handle.ts, define-dialect-collision testing, ops.ts collision namespace, security-authoring-guard.test.ts scope.
+
+**Learned**: Structure every L change to include blind judgment gates; the council is expert-checking against the spec, but judgment-day's role is to find what's missing from the spec itself. The two checks are orthogonal, not redundant.
+
+---
+
+### Signed spec text governs over derived tables; reconciliation costs matter
+
+**What**: REQ-DC-06 chapeau ('EVERY testDialect/testOpPack run') stated the requirement in prose but the Test Derivation table narrowed it (by describing injection scoped to testDialect only). The spec text survives 4 plan-verify iterations unchallenged; reconciliation required a fix iteration and owner visibility on the cost.
+
+**Why**: Tables and prose must be reconciled BEFORE signing; a diff in derived vs normative language invites misimplementation.
+
+**Where**: `openspec/changes/stage-5b-dialect-breadth/spec.md` § Verification Obligations.
+
+**Learned**: In-flight spec drifts (prose vs tables) cost fix iterations; re-read signed specs for consistency between sections before launch. Spec-maintainer role needs explicit "all derived tables reconciled to prose" gate.
+
+---
+
+### Trailing positional args after variable-arity author-facing args are structurally fragile
+
+**What**: Four problems (on-undefined collision-namespace message, multi-declaration removeImport guard, runFailure poison flag first-wins, `handlePath!` non-null assertion hack) stemmed from or were exacerbated by the `(ast, ...args) => void` rhythm carrying positional args after a variable arglist.
+
+**Why**: Variable-arity with trailing positionals creates a collision zone; errors sneak past static checking.
+
+**Where**: All structured ops take `(name, source/initializer/from, options?)` — the `options?` is fine, but any direct trailing arg (no optional wrapper) is fragile.
+
+**Learned**: Enforce "no trailing positional after `...args`" in the contributor kit's conformance checks (FIT-16 or a new variant); document the pattern in dialect-authoring-standards as an anti-pattern to avoid.
+
+---
+
+### State-mirror duplicate-key corruption breaks pipeline-guard
+
+**What**: A malformed `.sdd/state/stage-5b-dialect-breadth.json` with a repeated key was silently parsed (JSON.parse took the last value, first silently dropped) — the pipeline-guard didn't catch the truncation. The schema has no uniqueness enforcement.
+
+**Why**: JSON parsers accept duplicate keys by spec; the orchestrator's state mirror is the single source of truth, so truncation isn't detectable from other sources.
+
+**Where**: `.sdd/state/` schema and the orchestrator's read path.
+
+**Learned**: Add a validation pass (schema audit or direct inspection) after every state write; at least one early-session check should reject non-canonical JSON or confirm schema compliance. Document in `skills/_shared/persistence-contract.md`.
+
 ### Data-variant slices over a generalized mechanism are characterization, not must-fail-first
 **What**: When a walking-skeleton slice has already generalized a mechanism (metadata-driven
 translation), later slices that add DATA variants (more verbs, more flush counts) over it should be
