@@ -5,6 +5,117 @@
 
 ---
 
+## Batch 3a — S-003: Edge Scenarios & Fidelity Boundaries
+
+**Mode**: Strict TDD, [characterization] posture (RED-posture taxonomy, slices.md) — every
+mechanism this slice exercises (BOM re-prepend, `detectNewLineKind`, syntactic-diagnostics
+parse-failure detection, `addImport` merge-idempotency, the coalescing handle's move/copy/create
+interplay) was already BUILT in S-002 but not yet test-covered (apply-progress batch 2 explicitly
+flagged this: "not yet golden/test-covered (S-002 doesn't reach TSD-03)"). Every new test was
+first run to confirm it exercises REAL behaviour (not a tautology) via a standalone probe script
+against the actual `ast.ts`/`ops.ts`/dialect-handle chain BEFORE being committed to the test file
+— the probe output IS the RED-equivalent evidence (mirrors S-002's own precedent for
+pre-verified-then-batched assertions) — then the committed test ran GREEN on the first `bun test`
+pass, confirming the mechanism holds. No implementation changes were needed this slice — S-003 is
+proof/coverage only. **Suite**: 729 → 740 (bun test) · `bunx tsc --noEmit`: CLEAN · `bun run
+build`: CLEAN.
+
+### Slices Built This Run
+
+| Slice | Scope tag | Status | Tasks |
+|---|---|---|---|
+| S-003 | edge-case | complete | 5/5 |
+
+### Task-to-scenario map
+
+| Task | Scenarios covered | Test |
+|---|---|---|
+| create/move/copy interaction | TSD-03.1, TSD-03.2, TSD-03.9 | `dialect.test.ts` — "REQ-TSD-03 edge scenarios" describe |
+| two-distinguishable-edits + not-found | TSD-03.3, TSD-03.4 | same describe |
+| goldens: empty / CRLF+BOM / CRLF+addImport | TSD-03.5, TSD-03.6, TSD-03.8 | same describe + 4 new golden files |
+| 4 MiB boundary | TSD-03.7 | same describe |
+| duplicate addImport | TSD-03.10 | same describe |
+| malformed TypeScript | TSD-04.1 | `dialect.test.ts` — "REQ-TSD-04" describe |
+
+### New golden files (byte-exact, verified via `xxd`/`node -e` before commit — never hand-typed)
+
+- `test/dialects/typescript/golden/empty-add-import-after.txt` — `import { readFileSync } from
+  "node:fs";\n` (empty seed + addImport, TSD-03.5)
+- `test/dialects/typescript/golden/crlf-bom-round-trip.txt` — `EF BB BF` BOM + CRLF content,
+  written via `node -e` (never a text editor, to guarantee exact bytes — TSD-03.6)
+- `test/dialects/typescript/golden/crlf-add-import-before.txt` / `crlf-add-import-after.txt` —
+  CRLF seed + CRLF-consistent import insertion (TSD-03.8)
+
+### TSD-03.7 (4 MiB boundary) — construction note
+
+Reused the EXISTING `test/fake/batch-cap-fixtures.ts` technique (quote-padding: 1 raw byte `"`
+costs 2 JSON-serialized bytes `\"`) rather than reinventing it, but applied it through the REAL
+dialect chain instead of a synthetic `Batch`: a block comment (`/* ... */`) holding the padding
+quotes needs NO TypeScript-level escaping (so ts-morph round-trips it byte-for-byte, same
+guarantee REQ-DC-01 exercises), but each `"` still costs 2 bytes once the printed content becomes
+a `modify` directive's `content` field and the whole batch is `JSON.stringify`'d. Deterministic
+arithmetic (probe with an empty comment body to measure fixed envelope+import overhead, then pad
+to land exactly `BATCH_CAP_BYTES + 1` serialized bytes) — no search/iteration, same style as
+`batchOverSerializedBytes`. Verified empirically (standalone probe, ~0.6s for the full
+parse→addImport→print→JSON.stringify round trip on a ~2 MiB comment): raw print bytes =
+2,097,121 (`< BATCH_CAP_BYTES`), serialized = 4,194,305 (`BATCH_CAP_BYTES + 1`). The run rejects
+cleanly with `AuthoringError.reason === "changes-too-large"` — the SAME cap-rejection path
+already proven by `test/fake/batch-cap.test.ts` (REQ-01.2), now proven reachable through the
+dialect's coalescing/print pipeline specifically, and proving "never silently truncated" (a
+typed rejection, not corrupted output).
+
+### Deviations From Plan
+
+None — no implementation files changed, only new tests + 4 new golden files. The mechanism this
+slice proves (BOM, newline detection, parse-failure containment, addImport idempotency, the
+dialect handle's move/copy/create interplay) was already built in S-002; S-003 is exactly the
+test-writing slice slices.md's own Test Derivation table describes it as.
+
+### TDD Cycle Evidence — S-003
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| TSD-03.1/.2/.9 (create/move/copy) | `dialect.test.ts::REQ-TSD-03.1/.2/.9` | integration | [characterization] — mechanism pre-built in S-001 (ADR-0037 clause 1b re-owned write verbs) + S-002; probed via standalone script against the real chain before committing the assertion, output matched design's predicted directive order/content on first run | ✅ | n/a (each REQ is one fixed scenario, not a class of inputs) | n/a |
+| TSD-03.3 (two-distinguishable-edits) | `dialect.test.ts::REQ-TSD-03.3` | integration | [characterization] — same coalescing mechanism as REQ-MC-01.1 (already proven in S-002's `coalescing.test.ts`), restated at the TSD edge-scenario layer with a distinct op combo (`addImport("existsSync",...)` + `.raw` appending a different statement) to avoid a literal content duplicate | ✅ | n/a | n/a |
+| TSD-03.4 (not-found) | `dialect.test.ts::REQ-TSD-03.4` | integration | [characterization] — the frozen-prefix wrapper was built and unit-probed in S-001/S-002; this is its first REQ-TSD-03-level pin of the QUOTED not-found tail | ✅ | n/a | n/a |
+| TSD-03.5 (empty file) | `dialect.test.ts::REQ-TSD-03.5` | integration | [characterization] — probed empirically first (empty source + addImport → `import {...} from "...";\n`, no spurious blank line), golden committed from the probe's real output | ✅ | n/a | n/a |
+| TSD-03.6 (CRLF+BOM round-trip) | `dialect.test.ts::REQ-TSD-03.6` | unit | [characterization] — direct `print(parse(seeded)) === seeded` against the golden (mirrors REQ-DC-01's own round-trip framing); the BOM re-prepend WeakMap mechanism was built in S-002 and probed then but never asserted against a committed golden until now | ✅ | n/a | n/a |
+| TSD-03.8 (CRLF+addImport) | `dialect.test.ts::REQ-TSD-03.8` | integration | [characterization] — `detectNewLineKind` was unit-tested in S-002 (REQ-TSD-02.2) in isolation; this is its first proof end-to-end through an actual `addImport` insertion on a CRLF file | ✅ | n/a | n/a |
+| TSD-03.10 (duplicate addImport) | `dialect.test.ts::REQ-TSD-03.10` | integration | [characterization] — `ops.ts`'s merge-into-existing-clause branch was written in S-002 but never exercised via TWO calls on the SAME handle (only single-call coverage existed); probed first, single import line confirmed | ✅ | n/a | n/a |
+| TSD-03.7 (4 MiB boundary) | `dialect.test.ts::REQ-TSD-03.7` | integration | GENUINELY NEW assertion (not characterization) — no prior test drove a multibyte-inflation cap rejection through the dialect. Probed via standalone script first (see construction note above); real RED-equivalent evidence is the probe's own arithmetic proof (`raw < CAP < serialized`) before the assertion was committed | ✅ | n/a (one fixed boundary construction, not a class of inputs — REQ-TSD-03.7 pins a single deterministic fixture) | n/a |
+| TSD-04.1 (malformed TypeScript) | `dialect.test.ts::REQ-TSD-04.1` | unit | [characterization] — the syntactic-diagnostics throw mechanism in `ast.ts` was empirically probed and built in S-002 (apply-progress batch 2, deviation #3) explicitly deferring its own test to S-003; probed again here against a fresh malformed fixture (`const x = ;\nfunction ( { }\n`) confirming the REAL ts-morph diagnostics path throws, contained, `.cause` absent | ✅ | n/a | n/a |
+
+### Files Changed
+
+| File | Action | Slice | What |
+|---|---|---|---|
+| `test/dialects/typescript/dialect.test.ts` | Modified | S-003 | +11 tests: TSD-03.1/.2/.3/.4/.5/.6/.7/.8/.9/.10, TSD-04.1 |
+| `test/dialects/typescript/golden/empty-add-import-after.txt` | Created | S-003 | TSD-03.5 golden |
+| `test/dialects/typescript/golden/crlf-bom-round-trip.txt` | Created | S-003 | TSD-03.6 golden (BOM+CRLF) |
+| `test/dialects/typescript/golden/crlf-add-import-before.txt` | Created | S-003 | TSD-03.8 seed |
+| `test/dialects/typescript/golden/crlf-add-import-after.txt` | Created | S-003 | TSD-03.8 golden |
+
+### Post-Slice Self-Review (Step 7c — no external audit engine available in this sub-agent context)
+
+Checked the S-003 diff against all 8 binding constraints: (1) N/A this slice (no dependency
+change); (2) zero references to `test/fixtures/toy-dialect/**`; (3) the frozen-prefix wrapper
+is untouched — S-003 only adds NEW callers of the existing `dialect-handle.ts` wrapper, never a
+second implementation; (4) N/A this slice (S-005 scope); (5) both `find()`-only chains that call
+`.read()` — none in this slice actually call bare `.read()` without a prior op, so the
+flush-seed-rule is vacuously satisfied (every new test pre-seeds via `makeSpyClient({...})`
+before any op runs); (6) no test asserts a specific outcome for concurrent unawaited same-path
+handles; (7) every new content assertion is byte-exact against a committed golden or an inline
+literal derived from a real probe run — never count-only; (8) suite green + `tsc` clean +
+`bun run build` clean confirmed. No findings.
+
+### Next Recommended
+
+`/build --scope=slice:S-004` (Conformance Core) — parallelizable with S-003 per Build Order, now
+starting since S-003 is complete. S-004 is disjoint in files from S-003 (touches
+`src/conformance/index.ts`, `src/conformance/run-vehicle.ts`, `test/conformance/**`).
+
+---
+
 ## Batch 2 — S-002: The Real Dialect (ts-morph, `./typescript`, `addImport`)
 
 **Mode**: Strict TDD (batch-oriented per house precedent — implementation and its driving

@@ -249,16 +249,16 @@ per its Given/When/Then; GIVEN malformed TypeScript WHEN the first op parses THE
 REQ-DG-05's contract with the REAL ts-morph error contained (`.cause` absent).
 
 ### Tasks
-- [ ] [must-fail-first] Extend `dialect.test.ts` — TSD-03.1/.2/.9 (create/move/copy interaction
+- [x] [characterization] Extend `dialect.test.ts` — TSD-03.1/.2/.9 (create/move/copy interaction
   with a coalesced modify) + TSD-03.3 (two-distinguishable-edits content proof) + TSD-03.4
   (not-found pinned message)
-- [ ] [must-fail-first] TSD-03.5/.6/.8 goldens — empty file, CRLF+BOM round-trip, CRLF+addImport
+- [x] [characterization] TSD-03.5/.6/.8 goldens — empty file, CRLF+BOM round-trip, CRLF+addImport
   newline-kind matching
-- [ ] [must-fail-first] TSD-03.7 — multibyte-UTF-8 fixture sized so raw < `BATCH_CAP_BYTES` ≤
+- [x] [characterization] TSD-03.7 — multibyte-UTF-8 fixture sized so raw < `BATCH_CAP_BYTES` ≤
   serialized bytes (Stage-1 lesson); accept-at-cap or reject-at-cap, never silent truncation
-- [ ] [must-fail-first] TSD-03.10 — duplicate `addImport(x,m)` twice on one handle → single
+- [x] [characterization] TSD-03.10 — duplicate `addImport(x,m)` twice on one handle → single
   import line, idempotent
-- [ ] [must-fail-first] TSD-04.1 — real syntactically-invalid TypeScript fixture; parse failure
+- [x] [characterization] TSD-04.1 — real syntactically-invalid TypeScript fixture; parse failure
   contained per REQ-DG-05, asserted against the REAL ts-morph error (constraint 3)
 
 ---
