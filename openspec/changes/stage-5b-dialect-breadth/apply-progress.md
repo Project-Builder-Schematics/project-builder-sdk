@@ -6,6 +6,97 @@
 
 ---
 
+## Batch 2 — S-001 (`addFunction`) + S-002 (`removeImport` + row-136 + registry)
+
+**Mode**: Strict TDD · **Suite**: 806 → 828 (bun test, +22 net: +8 addFunction, +1 REQ-DG-07.2
+two-handle, -1 stale REQ-TSD-01.1, +4 REQ-MC-08, +4 removeImport, +2 REQ-TSD-08.4/08.6, +1
+REQ-DG-07.1, +1 mixed-chain, +2 registry guard) · `bunx tsc --noEmit`: CLEAN · `bun run build`:
+CLEAN · **Branch**: `feat/stage-5b-dialect-breadth`
+
+### Slices Built This Run
+
+| Slice | Scope tag | Status | Tasks |
+|---|---|---|---|
+| S-001 | happy-path | complete | 7/7 |
+| S-002 | happy-path | complete | 13/13 |
+
+### Commits
+
+1. `000243a` feat(typescript-dialect): S-001 — addFunction ± export, collision-namespace guard
+2. `8867d42` test(core): S-001 fix — REQ-DG-07.2's two-handle case asserts commit boundary
+3. `769f455` test(core): S-002 commit 1/2 — characterize today's row-136 silent last-write-wins
+4. `ce48427` feat(core): S-002 commit 2/2 — row-136 reject (ADR-0039), replaces LWW characterization
+5. `e955d55` feat(typescript-dialect): S-002 — removeImport op + REQ-DG-07.1/mixed-chain proofs
+6. `7831143` docs(dialect): S-002 — registry promotion, guard-loop flip, authoring doc update
+
+### TDD Cycle Evidence — S-001
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| addFunction + assertNoCollision | `ops-declarations.test.ts` (8 cases, REQ-TSD-09.1–09.8) | unit+integration | "addFunction is not a function" | ✅ | 8 scenarios: non-exported, exported, cross-kind collision, comment-only seed, CRLF, run-twice, import-binding collision, type-alias non-collision | none needed |
+| REQ-DG-07.2 (single handle) | `dialect-handle.test.ts::an addFunction collision reject fails the run closed, zero batches (single handle)` | integration | "addFunction is not a function" (via the same RED as ops-declarations) | ✅ | — | none needed |
+| REQ-DG-07.2 (two handles, commit boundary) | `dialect-handle.test.ts::REQ-DG-07.2: an EARLIER handle...` | integration | First attempt asserted `collectModifies(emitted)` == 0 and FAILED for the right reason ("Received length: 1") — a genuine architectural discovery (session.read() globally flushes before the collision is detected), not a test-authoring slip caught before running. Fixed to assert `committedTree()`/`stagingTree()` instead | ✅ | 2 cases (single-handle, two-handle) | none needed |
+
+### TDD Cycle Evidence — S-002
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| row-136 characterization | `dialect-handle.test.ts::[characterization] TODAY: .modify() after an open, undrained AST op...` | integration | N/A — a characterization test by definition (asserts EXISTING behavior); confirmed it passed against pre-change code before any implementation edit, per constraint 2 | ✅ (pre-change baseline) | n/a | none needed |
+| row-136 reject (runModify) | `dialect-handle.test.ts` REQ-MC-08.1–08.4 (4 cases), REPLACING the characterization test in the SAME commit | integration | "Expected: rejects... Received: resolves" (characterization test's own assertion now describes the WRONG behavior once the reject expectation replaces it) | ✅ | 4 cases (reject-while-pending, unaffected-when-none-pending, read-drains-then-succeeds, reverse-order-unaffected) | none needed |
+| removeImport | `ops-removeImport.test.ts` (4 cases, REQ-TSD-08.1/08.2/08.3/08.5) | unit+integration | "removeImport is not a function" | ✅ | 4 scenarios: sibling survives, last-binding deletes statement, alias matched by exported name, dryRun preview | none needed |
+| REQ-TSD-08.4/08.6 | `dialect-handle.test.ts` (2 cases) | integration | Passed immediately on first run — investigated per Strict TDD's halt rule: the mutation-gate (S-000) and #tail sequencing (pre-existing) already deliver zero-directive no-ops and RYOW generically; these tests close a genuine coverage gap for the CONCRETE removeImport trigger, not a vacuous assertion (mirrors S-000's own "pre-existing behavior already correct" precedent) | ✅ | n/a — mechanism proof, not branching logic | none needed |
+| REQ-DG-07.1 (concrete trigger) | `dialect-handle.test.ts::a row-136 reject on a LATER handle commits nothing for an EARLIER, otherwise-clean handle` | integration | Written directly with the commit-boundary assertion (informed by the REQ-DG-07.2 discovery above) — passed on first run since the underlying poison-flag/discard mechanism is unchanged; verified deliberately, not assumed | ✅ | n/a | none needed |
+| mixed old+new-op chain | `dialect-handle.test.ts::addImport + addFunction + removeImport in one chain coalesce to exactly one modify` | integration | Exact byte output unknown in advance — ran once, observed actual ts-morph formatting, corrected the expected literal twice (blank-line placement) before it passed for the right reason | ✅ | n/a | none needed |
+| registry guard (sensitive-areas.md) | `security-authoring-guard.test.ts` (2 new cases) | doc-guard | "Expected to not contain: removeImport" (pre-existing negative test, deleted per constraint 6) — new registry assertions written against the ALREADY-EDITED sensitive-areas.md, so they passed on first run; investigated (not vacuous — verified by temporarily reverting sensitive-areas.md's edit and re-running, confirming the assertions do fail against the pre-promotion text) | ✅ | n/a | none needed |
+
+### Deviations from Design
+
+1. **Path threading through `runOp` (S-001, touches S-000-owned `dialect-handle.ts`)**: the
+   add-op collision message template (design §4.4, "Load-bearing literals") requires `on
+   "{path}"`, but `Op<Ast>`/`DialectAst.parse()` give an op function NO channel to the
+   author-facing path (ts-morph's own `SourceFile.getFilePath()` is a constant internal virtual
+   path, `ast.ts`'s own module doc confirms this is deliberate). Resolved by having `runOp`
+   append `this.#path` as a TRAILING, OPTIONAL runtime argument after the author's own args —
+   existing ops (`addImport`) ignore it silently (JS drops unclaimed trailing args); `addFunction`
+   declares an extra optional 5th parameter to receive it, invisible to the public call
+   signature (`OpMethods` derives the author-facing type from the op-pack's own type annotation,
+   not the function's real, wider parameter list — verified both by `tsc --noEmit` passing and
+   by the mechanism being additive/backward-compatible for every existing op and test). Reusable
+   by S-003's `addVariable`/`addClass`, which share `assertNoCollision`.
+2. **Stale pre-existing test retired (S-001)**: `test/dialects/typescript/dialect.test.ts`'s
+   REQ-TSD-01.1 test ("ops is EXACTLY addImport") asserted spec V4's now-superseded scenario;
+   composing `addFunction` broke it immediately. Not listed in slices.md's file inventory as an
+   S-001 touch — removed as an unavoidable, narrowly-scoped consequence of landing the op
+   (its replacement, the exact 5-op set assertion, is explicitly owned by S-003's
+   `ops-exact-set.test.ts` per design's Test Derivation table) rather than left permanently
+   false or updated every slice.
+3. **Golden fixture directory (S-001/S-002)**: placed new fixtures in the EXISTING
+   `test/dialects/typescript/golden/` (singular) directory with the existing `golden()` helper,
+   not a new plural `goldens/` directory as slices.md/design.md's prose names it — no
+   functional need for a second directory was cited anywhere, and the singular directory +
+   helper is the established pattern.
+4. **removeImport's whole-statement-deletion guard (S-002)**: added a defensive check (never
+   delete the whole import declaration if it ALSO carries a default or namespace import
+   alongside the matched named binding) — not scenario-tested (out of REQ-TSD-08's stated
+   scope), but prevents silent corruption of a declaration shape the REQ text explicitly
+   excludes rather than leaving it unguarded.
+
+### Non-test LOC (cut-lever tripwire input)
+
+Cumulative `git diff --numstat` on `src/**` from before S-000 through end of this batch:
+- S-000 (reported previously): ~150 added/modified
+- S-001 contribution: `dialect-handle.ts` +13/-1, `index.ts` +12/-6, `ops.ts` +58/-0
+- S-002 contribution: `dialect-handle.ts` +14 (net, row-136 reject), `index.ts` +2/-1,
+  `ops.ts` +23/-0
+
+**Cumulative non-test source LOC this change (S-000+S-001+S-002)**: 294 lines added, 45 lines
+removed (`git diff --numstat` on `src/**` from the pre-change base through HEAD) — net ~249,
+gross ~339. Well under the ~1,200-line L-band ceiling (triage.md Criteria row 2); no cut-lever
+trigger condition met. 4 ADRs exist for this change total (0039 new, amendments to 0037/0010/0012)
+— under the 6-new-ADR standing tripwire.
+
+---
+
 ## Batch 1 — S-000: Walking Skeleton (Contained-Invoke, Kit-Internal Modules, Fail-Closed Mechanism)
 
 ### Slices Built This Run
