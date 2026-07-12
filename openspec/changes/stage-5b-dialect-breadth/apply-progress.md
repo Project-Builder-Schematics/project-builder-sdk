@@ -486,3 +486,74 @@ Source (non-test) diff for this batch, `git diff --numstat` on `src/**`:
 **Cumulative non-test source LOC this change**: ~150 added/modified lines (S-000 only — first
 slice of the change). Well under the ~1,200-line L-band ceiling (triage.md Criteria row 2);
 no cut-lever trigger condition met.
+
+## Final-verify fix (post-build, pre-judgment-day)
+
+Council found one shipped defect (QA F-1, architect converged MEDIUM) plus two closures.
+
+1. **Fix 1 (CRITICAL, QA F-1 / architect MEDIUM)**: `dialect-handle.ts`'s `runOp` threaded
+   `this.#path` as a TRAILING positional arg (`fn(this.#live, ...args, this.#path)`). All
+   three add-ops declare `handlePath?` AFTER `options?`; when the author omits `options`
+   (the common form, used in the spec's own scenarios) the path landed in the `options`
+   slot instead, rendering the pinned collision message as `on "undefined"`. RED-confirmed
+   empirically first (strengthened `REQ-TSD-09.3`/`10.3`/`11.3` + the `REQ-DG-07.2` site
+   from loose `toContain` to the FULL pinned message including `on "<path>"` — all four
+   failed with literal `on "undefined"`).
+   Root-cause fix: replaced the positional trailing-arg channel with a **WeakMap keyed by
+   the live AST instance** (`astHandlePaths`, set once in `#ensureLive`), exposed via an
+   exported `handlePathFor(ast)`. This is fully arity-independent — no coupling to how many
+   optional trailing args the author supplied. Considered the task's own suggested
+   alternative first (`fn(ast, this.#path, ...args)`, ops re-declared as
+   `(ast, handlePath, name, source, options?)`) and REJECTED it empirically: it breaks
+   `defineOpPack<SourceFile, TypeScriptOps>(...)`'s assignability in `index.ts` (confirmed
+   via an isolated `tsc --strict` repro) — `TypeScriptOps`'s frozen author-facing type has 3
+   required params (`ast`, `name`, `source`), a required `handlePath` in position 2 needs 4,
+   and TS rejects the excess-required-parameter mismatch (`options`/`source` type collision
+   at position 3). The WeakMap channel sidesteps this entirely: the three ops' concrete
+   signatures shrank back to an EXACT match with `TypeScriptOps` (no `handlePath` param at
+   all), so the assignability is now trivial. `ops.ts` imports `handlePathFor` from
+   `../../core/dialect-handle.ts` — a core (not cross-dialect) import, same category as the
+   pre-existing `dialectError` import; no fitness function (FIT-02 cross-dialect leaf rule,
+   FIT-08 kit-bleed re-export ban, FIT-10 EngineClient port guard) restricts it.
+2. **Fix 2 (QA F-2)**: added a collision scenario seeding `class Foo {}` and asserting
+   `addFunction("Foo")` rejects with the full pinned message — proven a genuine mutant-kill
+   via a throwaway experiment (removed the `getClass` conjunct in `assertNoCollision`, test
+   failed with `caught === undefined`; restored cleanly, `bun test` back to green).
+3. **Fix 3 (standing SUGGESTION closure)**: added explicit `isContained(caught) === false`
+   assertions for the duplicate-op and reserved-verb `withOps` compose-time throws in
+   `test/core/define-dialect-collision.test.ts` — passes immediately (structurally
+   guaranteed, `withOps` never calls `dialectError`), converting the guarantee into a pinned
+   regression guard.
+4. **Fix 4 (tech-writer MEDIUM)**: `docs/authoring-a-dialect.md`'s conformance section now
+   documents the six mandatory adversarial samples (`testDialect`/`testOpPack`) and the
+   stub/identity-`parse` rejection this change's own deliverables ship.
+5. **Fix 5 (tech-writer LOW)**: `ops.ts`'s `@example` blocks renamed `ast` → `ts` to match
+   `docs/authoring-a-dialect.md`'s own convention (landed together with Fix 1's edits to the
+   same functions).
+6. **Fix 6 (QA observation)**: added one sentence to `docs/authoring-a-dialect.md` stating
+   `addFunction`/`addVariable`/`addClass`'s `source`/`initializer` strings are inserted
+   verbatim, never validated — mirrors `.raw()`'s trust contract.
+
+Explicitly out of scope (per the fix-batch instructions, orchestrator owns followups):
+reserved-verb message wording, `Object.prototype` reserved-name hardening, REQ-DG-07
+emit-vs-commit spec wording, DAS-01.1 derive-from-type, real-base probe non-identity-fake
+gap, mutation-gate double-print, e2e dialect-modify extension.
+
+### Commit granularity
+
+Fix 1+2 landed as one commit (same mechanism file `dialect-handle.ts` + same op file
+`ops.ts` + their test files) — Fix 5's `@example` rename is inside the same
+`addFunction`/`addVariable`/`addClass` edits as Fix 1, so it rides along in that commit
+rather than forcing a second touch of the same lines. Fixes 3/4/6 landed as one
+docs/test-only commit (no source changes, no shared mechanism with Fix 1/2).
+
+### Test/typecheck/build evidence (final-verify fix batch)
+
+- `bun test`: 854 pass / 0 fail (was 851 / 0 before this batch — 3 new tests: Fix 2's
+  mutant-kill scenario + Fix 3's two `isContained` pins), 1538 `expect()` calls.
+- `bunx tsc --noEmit`: clean, no errors.
+- `bun run build`: clean (`tsc -p tsconfig.build.json` + codegen bin bundle).
+- Baselines byte-identical: `git status --short test/fitness/dts-baseline
+  test/fitness/pkg-surface-baseline.json` — no output (public surface untouched, as
+  required: `TypeScriptOps` in `index.ts` was never touched, and `handlePathFor` is an
+  internal core export never re-exported from any public subpath).

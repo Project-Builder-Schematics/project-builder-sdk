@@ -76,6 +76,10 @@ await ts.find("src/index.ts").addClass("Point", "  x = 0;");
 // contrast addFunction, whose source INCLUDES braces (the op does NOT add them itself).
 ```
 
+`addFunction`'s/`addVariable`'s/`addClass`'s `source`/`initializer` strings are inserted
+VERBATIM — never validated or sanitized. The author owns their own syntax, the same trust
+contract `.raw()` carries.
+
 `removeImport(name, from)` removes the named binding from `from`'s import clause. Idempotent:
 removing an ABSENT binding is a no-op (zero directives emitted) — mirrors `addImport`'s own
 idempotency. Removing the LAST remaining named binding in an import clause deletes the entire
@@ -188,10 +192,16 @@ inside the op or callback itself.
 sync throw.
 
 - `testDialect({ dialect, samples })` asserts your dialect's `parse`/`print` pair round-trips
-  every sample byte-exact.
+  every sample byte-exact. `testDialect` also injects six mandatory adversarial samples on
+  every run — empty, comment-only, a 4 MiB file, CRLF line endings, a UTF-8 BOM, and two
+  imports sharing one module — that your dialect's `parse`/`print` must round-trip byte-exact.
+  There is no opt-out: the fixture type carries no field to disable them. Before each
+  round-trip it rejects a stub/identity `parse` (one that returns nothing or hands back the
+  input string), so an identity dialect cannot pass vacuously.
 - `testOpPack({ opPack, baseDialect, exercises })` applies each `OpExercise` (a seed, an op
   chain, and the expected byte-exact output) against the real coalescing pipeline, asserting
-  per-op fidelity, coalescing-to-one, and seam-serializability.
+  per-op fidelity, coalescing-to-one, and seam-serializability. It runs those same six
+  mandatory samples against your `baseDialect` too, after your exercises pass.
 
 Passing the conformance kit (`@pbuilder/sdk/conformance`) is not a security attestation: it proves a dialect keeps the seam serializable and its ops faithful, not that the dialect's `.raw()` code is safe to execute.
 

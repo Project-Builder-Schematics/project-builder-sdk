@@ -6,6 +6,7 @@
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
+import { isContained } from "../../src/core/dialect-error.ts";
 import { parse, print } from "../../src/dialects/typescript/ast.ts";
 import { packA as collidingPackA, packB as collidingPackB } from "../fixtures/red/dialect-generics/colliding-op-packs.ts";
 
@@ -45,6 +46,20 @@ describe("withOps — REQ-DG-02.4: colliding real packs throw synchronously (RED
     );
   });
 
+  // Final-verify fix closure (F-3, standing SUGGESTION): compose-time throws are NOT
+  // `dialectError()`-branded — pins this structurally (`isContained`), converting what was
+  // already a structural guarantee (withOps never calls dialectError) into a regression
+  // guard, rather than relying on convention alone.
+  it("final-verify fix (F-3): the duplicate-op throw is not isContained (compose-time, not a run-time dialect op error)", () => {
+    let caught: unknown;
+    try {
+      withOps(realBaseDialect(), collidingPackA, collidingPackB);
+    } catch (err) {
+      caught = err;
+    }
+    expect(isContained(caught)).toBe(false);
+  });
+
   it("a pack colliding with base.ops also throws", () => {
     const baseWithAnnotate = defineDialect({
       extensions: [".ts"],
@@ -67,6 +82,21 @@ describe("withOps — REQ-DG-02.5: op named `then` collides with the base handle
     expect(() => withOps(realBaseDialect(), thenPack)).toThrow(
       'op-pack composition failed: op "then" collides with a reserved handle verb'
     );
+  });
+
+  // Final-verify fix closure (F-3, standing SUGGESTION): same closure as the duplicate-op
+  // case above, for the reserved-verb throw.
+  it("final-verify fix (F-3): the reserved-verb throw is not isContained (compose-time, not a run-time dialect op error)", () => {
+    const thenPack = defineOpPack<SourceFile, { then: (ast: SourceFile) => void }>({
+      then(_ast) {},
+    });
+    let caught: unknown;
+    try {
+      withOps(realBaseDialect(), thenPack);
+    } catch (err) {
+      caught = err;
+    }
+    expect(isContained(caught)).toBe(false);
   });
 
   it("every base-handle verb is reserved (read/raw/modify/rename/move/copy/remove), not just then", () => {
