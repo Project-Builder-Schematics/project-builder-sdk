@@ -12,6 +12,7 @@
  * REQ-DC-01..05 (round-trip, single-op fidelity, coalescing-to-one, seam-serializability,
  * read-boundary split) + REQ-TSD-05.1 (minimum subpath smoke-resolve-and-run).
  */
+import { existsSync } from "node:fs";
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
@@ -28,6 +29,7 @@ import { closureSmuggleFixture } from "./planted/closure-smuggle-violation.ts";
 import { liveNodeSmuggleFixture } from "./planted/live-node-smuggle-violation.ts";
 import { coalescingViolationFixture } from "./planted/coalescing-violation.ts";
 import { readSplitViolationFixture } from "./planted/read-split-violation.ts";
+import { identityFixtureViolationFixture } from "./planted/identity-fixture-violation.ts";
 
 type AddImportOps = { addImport: (ast: SourceFile, name: string, from: string) => void };
 const addImportPack = defineOpPack<SourceFile, AddImportOps>({ addImport });
@@ -116,5 +118,47 @@ describe("REQ-DC-05 — planted-violation suite: every core assertion fails RED 
 
   it("[permanent-fixture] REQ-DC-05.2: a dialect that coalesces across a mid-chain read (never splits) fails RED", async () => {
     await expect(testOpPack(readSplitViolationFixture)).rejects.toThrow(/REQ-DC-05\.2/);
+  });
+});
+
+describe("REQ-DC-06 — mandatory adversarial samples (contributor cannot opt out)", () => {
+  it("REQ-DC-06.1: all six mandatory samples run even when the fixture's own samples array is empty", async () => {
+    let parseCalls = 0;
+    // Spy on the REAL dialect's parse — every call proves a sample was actually round-trip
+    // checked. `fixture.samples` is deliberately empty, so any call beyond zero can only come
+    // from the kit's own injected mandatory set (REQ-DC-06.1's own spy/count note).
+    const spiedDialect: typeof realTypescriptDialect = {
+      ...realTypescriptDialect,
+      ast: {
+        parse: (source: string) => {
+          parseCalls++;
+          return realTypescriptDialect.ast.parse(source);
+        },
+        print: realTypescriptDialect.ast.print,
+      },
+    };
+    const fixture: DialectFixture = { dialect: spiedDialect, samples: [] };
+
+    await expect(testDialect(fixture)).resolves.toBeUndefined();
+    expect(parseCalls).toBe(6);
+  });
+});
+
+describe("REQ-DC-07 — leaf rule: no cross-dialect / AST-library import (documented limit)", () => {
+  // DOCUMENTED-LIMIT (design ADR-0012 amendment clause 3, north-star CQ-B affirmation): the
+  // conformance kit ships NO import-graph scanner of its own, and none is authored here — this
+  // is a documentation-pointer assertion, not a duplicate check. The load-bearing proof for the
+  // SDK's own shipped TypeScript dialect is FIT-01's PRE-EXISTING transitive import-graph walk
+  // (test/fitness/fit-01-commons-no-ast.test.ts), unmodified by this slice. Third-party dialect
+  // authors self-run their OWN static check — see docs/authoring-a-dialect.md.
+  it("REQ-DC-07.1: FIT-01's transitive import-graph walk is the shipped dialect's leaf-isolation proof", () => {
+    const fit01Path = new URL("../fitness/fit-01-commons-no-ast.test.ts", import.meta.url).pathname;
+    expect(existsSync(fit01Path)).toBe(true);
+  });
+});
+
+describe("REQ-DC-08 — real-base-dialect rule extended to testDialect", () => {
+  it("[permanent-fixture] REQ-DC-08.1: an identity parse/print fixture fails BEFORE the round-trip assertion could vacuously pass", async () => {
+    await expect(testDialect(identityFixtureViolationFixture)).rejects.toThrow(/REQ-DC-08/);
   });
 });
