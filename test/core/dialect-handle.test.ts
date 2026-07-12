@@ -698,6 +698,27 @@ describe("dialect handle — no-reparse across a mixed-op chain", () => {
   });
 });
 
+describe("dialect handle — row-136 [characterization] (PRE-REJECT baseline, S-002 commit 1 of 2)", () => {
+  // ADR-0039 / REQ-MC-08: this test pins TODAY's silent last-write-wins as RED-phase
+  // evidence, landing in its OWN standalone commit (constraint 2). It is REPLACED — not
+  // squashed alongside — by the reject scenarios in commit 2 of the SAME slice. The
+  // last-write-wins behaviour here is NOT a normative scenario of the signed spec; it
+  // exists solely as a rollback reference.
+  it("[characterization] TODAY: .modify() after an open, undrained AST op silently wins array-order — the AST edit is lost", async () => {
+    const fake = new ContractFake({ seed: { "a.ts": "const x = 1;\n" } });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:fs").modify("raw override content");
+    });
+    await run(undefined, { client: fake });
+
+    // Two directives land, in array order (the lazy AST-op modify, then the raw .modify());
+    // ContractFake#apply's plain `#tree.set(p, content)` means the LAST one applied wins —
+    // the addImport edit is silently discarded, never observable in the final tree.
+    expect(fake.committedTree().get("a.ts")).toBe("raw override content");
+  });
+});
+
 // row-145 (lazy modify directive's memoized getter — dialect-handle.ts's `resolve` closure
 // ref, nulled post-resolution so the retained ts-morph Project/live AST becomes GC-eligible):
 // EXPLICITLY UNTESTED here. It is a memory-only concern (no observable behavioral change —
