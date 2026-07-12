@@ -195,6 +195,26 @@ sync throw.
 
 Passing the conformance kit (`@pbuilder/sdk/conformance`) is not a security attestation: it proves a dialect keeps the seam serializable and its ops faithful, not that the dialect's `.raw()` code is safe to execute.
 
+## The leaf rule: dialect isolation
+
+A dialect's `parse`/`print` pair and its ops MUST NOT import another dialect's package, and
+`@pbuilder/sdk/commons` MUST NOT import any AST library (ts-morph or otherwise) — dialects and
+op-packs are leaves in the dependency graph, never depending on one another.
+
+**Documented limit**: the conformance kit's in-memory run vehicle cannot perform a full static
+import-graph analysis the way a source-tree fitness function can, so it does not ship a
+runtime or static scanner for this rule. `testDialect`/`testOpPack` do not check it. Third-party
+dialect authors are expected to self-run their OWN static check (e.g. an import-graph lint over
+their package's source) to enforce leaf-isolation locally — this is a real, documented gap for
+third-party dialects, not a silently-skipped guarantee.
+
+The SDK's own shipped `@pbuilder/sdk/typescript` dialect IS proven leaf-isolated today — by the
+PRE-EXISTING `FIT-01` transitive import-graph walk in this repo's own test suite
+(`test/fitness/fit-01-commons-no-ast.test.ts`), which asserts `src/commons/**` reaches no bare
+AST-library import at any transitive depth. That proof lives in the fitness-function suite, not
+inside `@pbuilder/sdk/conformance` — nothing under `src/conformance/**` re-implements or
+duplicates it.
+
 ## Publishing and trust
 
 Read [SECURITY.md](../SECURITY.md) before publishing or importing a dialect or op-pack: importing
