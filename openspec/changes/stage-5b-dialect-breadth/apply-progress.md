@@ -6,6 +6,82 @@
 
 ---
 
+## Batch 4 — S-005: Conformance Tail (Adversarial Samples, Leaf Rule, Real-Base Probe)
+
+**Mode**: Strict TDD · **Suite**: 844 → 848 (bun test, +4: +1 REQ-DC-06.1 spy test, +1
+REQ-DC-07.1 documentation-pointer test, +1 REQ-DC-08.1 identity-fixture RED, +1 REQ-DC-06.2
+compile-pin) · `bunx tsc --noEmit`: CLEAN · `bun run build`: CLEAN · **Branch**:
+`feat/stage-5b-dialect-breadth`
+
+### Slices Built This Run
+
+| Slice | Scope tag | Status | Tasks |
+|---|---|---|---|
+| S-005 | edge-case | complete | 5/5 |
+
+### Commits
+
+1. `b011d83` feat(conformance): S-005 — mandatory adversarial samples, real-base probe, shared deepEqual
+2. `4d79c53` docs(dialect): S-005 — leaf-rule documented-limit statement
+3. `da0d022` chore(sdd): stage-5b — mark S-005 slice tasks complete
+
+### TDD Cycle Evidence — S-005
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| Six mandatory adversarial samples + real-base probe | `typescript-conformance.test.ts::REQ-DC-06.1: all six mandatory samples run even when the fixture's own samples array is empty` | integration | `expect(parseCalls).toBe(6)` — "Expected: 6, Received: 0" (fixture.samples was empty, no injection existed yet) | ✅ | n/a — single deterministic injected-set count, not a class of varying inputs | none needed |
+| Real-base structural probe (REQ-DC-08) | `typescript-conformance.test.ts::[permanent-fixture] REQ-DC-08.1: an identity parse/print fixture fails BEFORE the round-trip assertion could vacuously pass` | integration | "Expected promise that rejects, Received promise that resolved" (identity parse/print passed the round-trip vacuously, pre-implementation) | ✅ | 2 cases: the identity-fixture RED case above, plus the PRE-EXISTING REQ-DC-01.1 real-TypeScript-dialect test (unchanged, still green) as the positive control proving the probe doesn't false-positive on a real AST | none needed |
+| `deepEqual` extraction to `src/core/deep-equal.ts` | full suite (no dedicated new test — behavior-preserving refactor of an already-tested function; `assertSerializable`'s existing REQ-DC-04 tests and `ContractFake`'s existing boundary REQ-01/02 tests both continue to pass unchanged, proving the extraction is behavior-identical) | — | n/a — pure extraction, not a RED/GREEN-driven behavior change | ✅ | n/a | none needed |
+| REQ-DC-07.1 documentation-pointer assertion | `typescript-conformance.test.ts::REQ-DC-07.1: FIT-01's transitive import-graph walk is the shipped dialect's leaf-isolation proof` | architectural | passed immediately on first run — investigated per Strict TDD's "passes immediately" rule: this is a DELIBERATE documentation-pointer assertion (design's own characterization, "no duplicate import-graph scan authored here"), not a behavior-driving test; its only job is to fail if FIT-01's file is ever moved/removed without updating the pointer, which is exactly what it does (verified by temporarily renaming the FIT-01 file — the assertion failed as expected — then reverting) | ✅ | n/a | none needed |
+| REQ-DC-06.2 opt-out compile-pin | `test/conformance/planted/opt-out-attempt.test.ts::attempting to disable mandatory-sample injection is a compile error` | contract | N/A (compile-time) — `DialectFixture` has never had an opt-out field, in either direction of this slice's change, so the excess-property check + `@ts-expect-error` combination was true both before and after; verified live by temporarily removing the `@ts-expect-error` comment — `tsc --noEmit` failed with `TS2353: Object literal may only specify known properties` as expected, confirming the check is real, then restored | ✅ | n/a | none needed |
+
+### Deviations from Design
+
+1. **Injection scoped to `testDialect` only, not `testOpPack`** (design §4.1/§4.5 prose says
+   "testDialect/testOpPack" together): slices.md's own Task 1 text, the Acceptance criteria, and
+   the ENTIRE Test Derivation table (§4.6) for REQ-DC-06/07/08 name only `testDialect` and
+   `typescript-conformance.test.ts` — no `ops-*`/exercise-level test file is listed anywhere.
+   `testOpPack`'s `OpExercise` shape (seed + op chain + expected byte-exact output) has no
+   generic slot a kit-injected "adversarial sample" could occupy without knowing the concrete
+   op being exercised — injecting there would require synthesizing expected outputs per
+   op-pack, which no task or REQ text calls for. Scoped the implementation to `testDialect`,
+   matching the concrete, testable acceptance criteria.
+2. **"Duplicate-target" sample interpretation** (REQ-DC-06 names it without defining it, and no
+   other precedent in this codebase uses that exact phrase for a round-trip sample): chose a
+   source string with two import statements sharing one module specifier (`import { a } from
+   "m"; import { b } from "m";`) — a `testDialect`-appropriate adversarial round-trip case (the
+   dialect must round-trip it byte-exact without merging or de-duplicating on print, since
+   round-trip is presentation-preserving, not semantic). Verified empirically against the real
+   `src/dialects/typescript/ast.ts` parse/print pair before committing to it (all six samples,
+   including this one, independently confirmed byte-exact round-trip).
+3. **4 MiB sample construction**: reused the existing `REQ-TSD-03.7` precedent's technique (a
+   block comment padded to size, `/*{padding}*/\nconst x = 1;\n`) rather than its exact
+   byte-arithmetic (that test targets the SERIALIZED batch-cap boundary via `BATCH_CAP_BYTES`,
+   which has no bearing on `testDialect`'s round-trip check — no batch is ever emitted there).
+   Used a flat 4 MiB (`4 * 1024 * 1024`) of padding — empirically verified to round-trip
+   byte-exact against the real dialect.
+
+### Non-test LOC (cut-lever tripwire input)
+
+Cumulative `git diff --numstat 57ce4d1..HEAD -- src/**` (57ce4d1 = the plan-merge commit, before
+any apply work began) — this measured number supersedes the per-batch running estimates in
+earlier sections of this file:
+
+**Cumulative non-test source LOC this change (S-000 through S-005, full change complete)**: 430
+lines added, 100 lines removed — net 330, gross 530. Well under the ~1,200-line L-band ceiling
+(triage.md Criteria row 2); no cut-lever trigger condition met. **ADR count**: 4 total for this
+change (unchanged since S-002 — S-005 fulfills ADR-0012's amendment, already counted, no new
+ADR minted). **Cut-lever check result: NEITHER stop-condition triggered across the whole
+change.**
+
+### Test/typecheck/build evidence
+
+- `bun test`: 848 pass / 0 fail (was 844 / 0 before this batch), 1534 `expect()` calls.
+- `bunx tsc --noEmit`: clean, no errors.
+- `bun run build`: clean (`tsc -p tsconfig.build.json` + codegen bin bundle).
+
+---
+
 ## Batch 3 — S-003 (`addVariable`+`addClass`) + S-004 (`withOps` collision + reserved-names)
 
 **Mode**: Strict TDD · **Suite**: 829 → 844 (bun test, +15 net: +9 S-003 [8 op scenarios + 1
