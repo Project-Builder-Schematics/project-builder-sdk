@@ -6,8 +6,8 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.raw()` escape hatch, and the
-first real dialect, `@pbuilder/sdk/typescript`, whose thin starter op-pack currently has one
-structured op, `addImport`.
+first real dialect, `@pbuilder/sdk/typescript`, whose op-pack is widening past its original thin
+starter shape (`addImport`) with `addFunction`.
 
 ## Two audiences
 
@@ -33,6 +33,24 @@ directive at flush (see "Coalescing" below).
 `addImport(name, from)` adds `import { name } from "from";` to the file's import list, merging
 into an existing named-import clause from the same module if one is already present (calling it
 twice with the same name and module is idempotent — no duplicate import line).
+
+`addFunction(name, source, options?)` inserts a new top-level function declaration at the end of
+the file, in call order: `options?.export` prepends `export `. `source` INCLUDES the function's
+`{ … }` braces — the full signature-and-body text, e.g. `"(): void {}"` for
+`function hi(): void {}` — a deliberate contrast with `addClass`'s `source`, which EXCLUDES its
+braces (that op supplies them itself). `addFunction` REJECTS when a value declaration
+(`function`/`const`/`let`/`var`/`class`) or an import binding already exists under `name` —
+imports MERGE (safe, multiple modules can share a name), but two value declarations sharing a
+name produce invalid TypeScript, so this op fails loud instead of silently colliding. A
+`type`/`interface` under the same name does NOT collide (TypeScript legally permits a value and a
+type to share an identifier).
+
+```ts
+// source includes braces:
+await ts.find("src/index.ts").addFunction("hi", "(): void {}", { export: true });
+// -> export function hi(): void {}
+// contrast addClass, whose source EXCLUDES braces (the op adds them itself).
+```
 
 ### For contributors: building a dialect
 

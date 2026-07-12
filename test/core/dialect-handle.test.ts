@@ -573,6 +573,33 @@ describe("dialect handle — fail-closed run semantics (REQ-DG-07.3, poison flag
   });
 });
 
+describe("dialect handle — REQ-DG-07.2 (concrete collision trigger, S-001)", () => {
+  // Same fail-closed mechanism REQ-DG-07.3 proves generically against a synthetic op
+  // (S-000, constraint 7) — this test exercises it via the CONCRETE trigger (constraint 8):
+  // a real addFunction collision reject against the shipped TypeScript dialect.
+  it("an addFunction collision reject fails the run closed, zero batches", async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": "const foo = 1;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addFunction("foo", "(): void {}");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    expect(err.message).toContain('addFunction("foo")');
+    expect(err.message).toContain('a value or import binding named "foo" already exists');
+    expect(err.cause).toBeUndefined();
+    expect(collectModifies(emitted)).toHaveLength(0);
+  });
+});
+
 describe("dialect handle — mutation-gated #ensureOpen (row-141, REQ-TSD-08.4 mechanism)", () => {
   it("a true no-op (idempotent addImport on an already-present binding) never registers a directive — zero directives emitted", async () => {
     const { client, emitted } = makeSpyClient({

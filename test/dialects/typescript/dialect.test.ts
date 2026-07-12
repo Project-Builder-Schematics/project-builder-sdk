@@ -26,23 +26,12 @@ import { BATCH_CAP_BYTES } from "../../../src/core/wire.ts";
 import { makeSpyClient, collectModifies } from "../../support/spy-client.ts";
 import { golden } from "../../support/golden.ts";
 
-// Base handle surface every dialect handle carries regardless of its op-pack (ReadOps +
-// WriteOps re-declared + raw + PromiseLike + the "found"-only remove) — subtracting this set
-// from a handle's own enumerable keys isolates exactly its OP-PACK-derived members.
-const BASE_HANDLE_KEYS = new Set(["read", "raw", "modify", "rename", "move", "copy", "remove", "then"]);
-
 describe("TypeScript dialect — REQ-TSD-01 subpath + thin op-pack shape", () => {
-  it("REQ-TSD-01.1: the dialect's ops is EXACTLY addImport — any op beyond .raw/addImport/at-most-one-more is absent", async () => {
-    const { client } = makeSpyClient({ "a.ts": golden("add-import-before.txt") });
-
-    const run = defineFactory<void>(async () => {
-      const handle = ts.find("a.ts");
-      const opKeys = Object.keys(handle).filter((k) => !BASE_HANDLE_KEYS.has(k));
-      expect(opKeys).toEqual(["addImport"]);
-      await handle.addImport("readFileSync", "node:fs");
-    });
-    await run(undefined, { client });
-  });
+  // REQ-TSD-01.1's V4 scenario ("ops is EXACTLY addImport") is superseded by spec V5
+  // (stage-5b-dialect-breadth): the op-pack now widens incrementally across S-001..S-003.
+  // REQ-TSD-01.1's V5 scenario (exact sorted 5-op set) is owned by S-003's
+  // `ops-exact-set.test.ts` per design's Test Derivation table — this stale case is removed
+  // rather than updated every slice, since its replacement is already scheduled.
 
   it("REQ-TSD-01.2: addImport concrete before/after byte pair, matches the committed golden", async () => {
     const { client, emitted } = makeSpyClient({ "a.ts": golden("add-import-before.txt") });

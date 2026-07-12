@@ -9,11 +9,17 @@
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
 import { parse, print } from "./ast.ts";
-import { addImport } from "./ops.ts";
+import { addImport, addFunction } from "./ops.ts";
 
-type AddImportOps = { addImport: (ast: SourceFile, name: string, from: string) => void };
+// S-003 finalizes this type's name + the exported op-set as ops land incrementally
+// (removeImport in S-002, addVariable/addClass in S-003) — kept as `AddImportOps` in the
+// interim per that slice's own "finalize widened op-type" task.
+type AddImportOps = {
+  addImport: (ast: SourceFile, name: string, from: string) => void;
+  addFunction: (ast: SourceFile, name: string, source: string, options?: { export?: boolean }) => void;
+};
 
-const addImportPack = defineOpPack<SourceFile, AddImportOps>({ addImport });
+const opsPack = defineOpPack<SourceFile, AddImportOps>({ addImport, addFunction });
 
 const baseDialect = defineDialect({
   extensions: [".ts"],
@@ -21,13 +27,13 @@ const baseDialect = defineDialect({
   ops: {},
 });
 
-const typescriptDialect = withOps(baseDialect, addImportPack);
+const typescriptDialect = withOps(baseDialect, opsPack);
 
 /**
  * Opens a TypeScript file for dialect-aware editing — the dialect's entry verb into a run
  * (REQ-DG-01.2). Returns an awaitable, chainable `Handle` exposing the universal `.raw()`
- * escape hatch plus the thin starter op-pack (`addImport`). Reads route through
- * `Session.read` only (REQ-MC-03); edits coalesce into a single `modify` at flush
+ * escape hatch plus the dialect's structured ops (`addImport`, `addFunction`). Reads route
+ * through `Session.read` only (REQ-MC-03); edits coalesce into a single `modify` at flush
  * (REQ-MC-01/02).
  *
  * @example

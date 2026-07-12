@@ -210,10 +210,22 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // `opName` names the tail for BOTH the foreign-wrap message (constraint: `{op}() on
   // "{path}" threw`) and #ensureOpen runs AFTER the op (never before) — the mutation gate
   // needs the op's effect already applied to compare against the baseline.
+  // S-001: `this.#path` is appended as a TRAILING runtime arg after the author's own args.
+  // Existing ops (e.g. addImport) declare no matching parameter and simply ignore it (JS
+  // drops unclaimed trailing args); an add-op needing the author-facing path for its own
+  // dialectError()-branded collision message (design §4.4's "on {path}" clause — unreachable
+  // from ops.ts any other way, since Op<Ast> and DialectAst.parse() carry no path channel)
+  // declares an extra OPTIONAL trailing parameter to receive it. Never part of the PUBLIC
+  // call signature: OpMethods derives the author-facing type from the op-pack's own type
+  // annotation (e.g. index.ts's op-pack type), not from the concrete function's real
+  // (wider) parameter list, so this stays invisible to authors.
   runOp(fn: (ast: Ast, ...args: unknown[]) => void, args: unknown[], opName: string): void {
     this.#enqueue(async () => {
       await this.#ensureLive();
-      await this.#invokeContained(() => fn(this.#live as Ast, ...args), `${opName}() on "${this.#path}" threw`);
+      await this.#invokeContained(
+        () => fn(this.#live as Ast, ...args, this.#path),
+        `${opName}() on "${this.#path}" threw`
+      );
       this.#ensureOpen();
     });
   }

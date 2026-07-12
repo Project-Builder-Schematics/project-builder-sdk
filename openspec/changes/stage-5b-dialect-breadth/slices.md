@@ -202,16 +202,22 @@ true})` flushes THEN the printed content is byte-exact against a committed golde
 runs THEN it REJECTS with the pinned collision message, fail-closed run-wide.
 
 ### Tasks
-- [ ] `src/dialects/typescript/ops.ts` (Modify) — `addFunction`; local `assertNoCollision(ast,
+- [x] `src/dialects/typescript/ops.ts` (Modify) — `addFunction`; local `assertNoCollision(ast,
   name)` (value-namespace + import bindings, cross-kind; `type`/`interface` exempt)
-- [ ] `src/dialects/typescript/index.ts` (Modify) — compose `addFunction` into the pack
-- [ ] `test/dialects/typescript/ops-declarations.test.ts` (Create) — 09.1–09.8 (golden pairs,
+- [x] `src/dialects/typescript/index.ts` (Modify) — compose `addFunction` into the pack
+- [x] `test/dialects/typescript/ops-declarations.test.ts` (Create) — 09.1–09.8 (golden pairs,
   cross-kind + import-binding collision, type-alias non-collision, CRLF, comment-only, run-twice)
-- [ ] `test/dialects/typescript/goldens/**` (Create, partial) — `addFunction` fixtures
-- [ ] `test/core/dialect-handle.test.ts` (Modify) — REQ-DG-07.2 (collision reject fail-closed,
+- [x] `test/dialects/typescript/goldens/**` (Create, partial) — `addFunction` fixtures.
+  **DEVIATION**: placed in the EXISTING `test/dialects/typescript/golden/` (singular) directory
+  with the existing `golden()` helper, not a new plural `goldens/` dir — matches established
+  pattern (craftsman preamble rule 3), no functional need for a second fixture directory cited
+  anywhere in design/slices
+- [x] `test/core/dialect-handle.test.ts` (Modify) — REQ-DG-07.2 (collision reject fail-closed,
   zero batches across the run)
-- [ ] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — `addFunction` signature, same slice
-- [ ] `docs/authoring-a-dialect.md` (Modify, partial) — `addFunction` paragraph, braces-INCLUDED
+- [x] `test/fitness/fit-04-*` + `fit-14-*` (Modify) — `addFunction` signature, same slice.
+  FIT-04's `typescript.index.d.ts` baseline regenerated (additive `addFunction` type line);
+  FIT-14 needed NO change (no new dist file paths, no export/dependency change)
+- [x] `docs/authoring-a-dialect.md` (Modify, partial) — `addFunction` paragraph, braces-INCLUDED
   `source` teaching, `@example` cross-referencing `addClass`'s braces-EXCLUDED contrast
 
 ---

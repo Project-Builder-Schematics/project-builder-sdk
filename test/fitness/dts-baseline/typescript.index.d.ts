@@ -2,12 +2,15 @@ import type { SourceFile } from "ts-morph";
 import { type Handle } from "../../core/define-dialect.ts";
 type AddImportOps = {
     addImport: (ast: SourceFile, name: string, from: string) => void;
+    addFunction: (ast: SourceFile, name: string, source: string, options?: {
+        export?: boolean;
+    }) => void;
 };
 /**
  * Opens a TypeScript file for dialect-aware editing — the dialect's entry verb into a run
  * (REQ-DG-01.2). Returns an awaitable, chainable `Handle` exposing the universal `.raw()`
- * escape hatch plus the thin starter op-pack (`addImport`). Reads route through
- * `Session.read` only (REQ-MC-03); edits coalesce into a single `modify` at flush
+ * escape hatch plus the dialect's structured ops (`addImport`, `addFunction`). Reads route
+ * through `Session.read` only (REQ-MC-03); edits coalesce into a single `modify` at flush
  * (REQ-MC-01/02).
  *
  * @example
