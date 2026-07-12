@@ -557,3 +557,77 @@ docs/test-only commit (no source changes, no shared mechanism with Fix 1/2).
   test/fitness/pkg-surface-baseline.json` — no output (public surface untouched, as
   required: `TypeScriptOps` in `index.ts` was never touched, and `handlePathFor` is an
   internal core export never re-exported from any public subpath).
+
+## Judgment-day fix R1 (surgical fix agent, confirmed issues only)
+
+Three confirmed issues from the blind adversarial round, applied with Strict TDD (RED test
+per fix, confirmed failing for the right reason, then the fix, then GREEN).
+
+1. **Issue 1 (mutation-gate post-flush no-op)** — `src/core/dialect-handle.ts` `read()`
+   (~line 323). RED: `addImport("writeFileSync","node:fs")` on a seed already importing
+   `readFileSync` from the same module → `await handle.read()` (drains the real edit) →
+   `handle.removeImport("nope","nowhere")` (absent binding, genuine no-op) → run end.
+   Before the fix: 2 identical `modify` directives (the drained one plus a redundant
+   re-registration). Root cause: `#ensureOpen`'s zero-directive gate only special-cased the
+   very FIRST registration (`#openDirective === undefined && print === #lastEmittedText`);
+   after `read()`'s global flush-before-read drains the directive, `#openDirective` stays a
+   stale non-undefined reference, so the gate's first conjunct always failed and a
+   byte-identical directive got re-registered. Fix: `read()` now re-baselines
+   `#lastEmittedText` to the just-flushed content and resets `#openDirective` to `undefined`
+   whenever `session.read()` returns defined content — the drain is the ONE place this
+   controller can be certain the flush already happened (global flush-before-read, ADR-0015),
+   so it's the correct hook to re-baseline. This makes a post-flush no-op behave exactly like
+   a fresh first-registration check, without touching `#ensureOpen`'s conditional at all.
+   Verified the existing REQ-MC-05.1 printCalls assertions and REQ-TSD-08.4/08.6 gate tests
+   stay green as-is (ran them first, individually, before and after).
+
+2. **Issue 2 (removeImport, multi-declaration)** — `src/dialects/typescript/ops.ts`
+   `removeImport` (~line 139). RED (3 cases in `ops-removeImport.test.ts`): (a) binding in
+   the SECOND of two same-module `import` declarations removed, sibling intact — failed
+   with 0 modifies (silent no-op) before the fix; (b) last binding of the second declaration
+   deletes only that statement — same failure mode; (c) absent binding across multiple
+   declarations stays a clean zero-directive no-op — passed even before the fix (already
+   correct), kept as a regression pin. Root cause: `ast.getImportDeclaration(...)` (singular)
+   returns only the FIRST declaration matching the module specifier — a binding living in a
+   later declaration from the same module was invisible. Fix: switched to
+   `ast.getImportDeclarations().filter(...)` and loop over every matching declaration,
+   applying the SAME last-binding-deletes-statement / default-import-survival logic to
+   whichever declaration actually contains the binding, `return`ing on the first match (an
+   absent binding across all of them falls through to a no-op, unchanged).
+
+3. **Issue 3 (collision predicate, enum/namespace)** — `src/dialects/typescript/ops.ts`
+   `assertNoCollision` (~line 54). RED (2 cases in `ops-declarations.test.ts`): `enum Foo { A
+   }` seed + `addFunction("Foo")`, and `namespace Foo {}` seed + `addVariable("Foo","1")` —
+   both failed with `caught === undefined` before the fix (the op silently succeeded,
+   emitting invalid TS — TS2451 duplicate identifier — instead of rejecting). Fix: added
+   `ast.getEnum(name) !== undefined || ast.getModule(name) !== undefined` conjuncts to the
+   shared `assertNoCollision` predicate — since all three ops (`addFunction`/`addVariable`/
+   `addClass`) route through this ONE function, the fix covers all three in a single pass
+   (verified `addVariable`'s test exercises the `getModule` conjunct, distinct from
+   `addFunction`'s `getEnum` case, so both call sites are proven). The pinned message
+   template is byte-identical (no wording change) — only the trigger set widened. `type`/
+   `interface` remain exempt (untouched, REQ-TSD-09.8 stays green). **Spec-amendment note for
+   archive**: the signed spec's ADR-0039 scenario list did not enumerate enum/namespace as
+   collision triggers; this extends the collision namespace to TypeScript's FULL value
+   namespace, within the REQ's own stated rationale ("TypeScript forbids two value
+   declarations sharing a name") — register as a spec amendment at `/sdd-archive`, not a
+   scope violation.
+
+### Test/typecheck/build evidence (judgment-day fix R1)
+
+- `bun test`: 860 pass / 0 fail (was 854 / 0 before this round — 6 new tests: 1 for Issue 1,
+  3 for Issue 2, 2 for Issue 3), 1551 `expect()` calls.
+- `bunx tsc --noEmit`: clean, no errors.
+- `bun run build`: clean (`tsc -p tsconfig.build.json` + codegen bin bundle).
+- Baselines byte-identical: `git status --short test/fitness/dts-baseline
+  test/fitness/pkg-surface-baseline.json` — no output. Public surface untouched: no changes
+  to `index.ts`, `TypeScriptOps`, or any exports map entry — only internal mechanism
+  (`dialect-handle.ts`'s `read()`) and internal op bodies (`ops.ts`'s `removeImport`/
+  `assertNoCollision`) changed.
+- Signed REQ scenarios: no flips. REQ-MC-05.1, REQ-TSD-08.1–08.6, REQ-TSD-09.1–09.8,
+  REQ-TSD-10.1–10.4, REQ-TSD-11.1–11.4 all re-run green, unmodified.
+
+### Commit
+
+One commit: `fix(dialect): judgment-day round 1 — post-flush mutation gate, multi-declaration
+removeImport, enum/namespace collisions`.

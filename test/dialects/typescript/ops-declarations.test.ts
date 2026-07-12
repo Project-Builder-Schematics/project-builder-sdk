@@ -159,4 +159,55 @@ describe("addFunction — REQ-TSD-09", () => {
     expect(modifies).toHaveLength(1);
     expect(modifies[0]?.modify.content).toBe(golden("add-function-type-alias-after.txt"));
   });
+
+  // Judgment-day round 1, Issue 3: an existing enum/namespace shares TypeScript's VALUE
+  // namespace with function/const/class — assertNoCollision missed both conjuncts, letting
+  // addFunction/addVariable emit invalid TS (TS2451, duplicate identifier). Extends the
+  // collision namespace per ADR-0039's own rationale ("TypeScript forbids two value
+  // declarations sharing a name"); the pinned message template is unchanged.
+  it("an existing ENUM declaration collides too — the getEnum conjunct in assertNoCollision", async () => {
+    const { client } = makeSpyClient({ "a.ts": "enum Foo { A }\n" });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addFunction("Foo", "(): void {}");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    expect(err.message).toBe(
+      'dialect operation failed: addFunction("Foo") on "a.ts" — a value or import binding named "Foo" already ' +
+        "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
+        "or edit it with .raw()."
+    );
+    expect(err.cause).toBeUndefined();
+  });
+
+  it("an existing NAMESPACE declaration collides too — the getModule conjunct in assertNoCollision", async () => {
+    const { client } = makeSpyClient({ "a.ts": "namespace Foo {}\n" });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addVariable("Foo", "1");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    expect(err.message).toBe(
+      'dialect operation failed: addVariable("Foo") on "a.ts" — a value or import binding named "Foo" already ' +
+        "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
+        "or edit it with .raw()."
+    );
+    expect(err.cause).toBeUndefined();
+  });
 });

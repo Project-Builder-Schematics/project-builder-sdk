@@ -799,6 +799,26 @@ describe("dialect handle — removeImport mechanism proofs (REQ-TSD-08.4/08.6, S
   });
 });
 
+describe("dialect handle — post-flush mutation gate (judgment-day round 1, Issue 1)", () => {
+  it("a no-op AFTER a mid-chain read() drains the prior edit registers nothing — exactly one modify", async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": 'import { readFileSync } from "node:fs";\n' });
+
+    const run = defineFactory<void>(async () => {
+      const handle = ts.find("a.ts").addImport("writeFileSync", "node:fs");
+      await handle.read();
+      // A genuine no-op (absent binding): must NOT re-register a byte-identical directive
+      // now that the real edit above already flushed via the read().
+      handle.removeImport("nope", "nowhere");
+      await handle;
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe('import { readFileSync, writeFileSync } from "node:fs";\n');
+  });
+});
+
 describe("dialect handle — REQ-DG-07.1 (row-136 concrete trigger, S-002)", () => {
   // Same fail-closed mechanism REQ-DG-07.3 proves generically (S-000) and REQ-DG-07.2
   // proves via addFunction's collision (S-001) — this exercises it via row-136's

@@ -323,7 +323,19 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   read(): Promise<string | undefined> {
     return this.#chain(async () => {
       const { session } = currentContext();
-      return session.read(this.#path);
+      const content = await session.read(this.#path);
+      // Judgment-day round 1 (Issue 1): session.read() is the GLOBAL flush-before-read, so
+      // any directive this handle had open is now drained — re-baseline the mutation gate
+      // to the just-flushed content and clear the stale reference. Without this, the NEXT
+      // #ensureOpen() sees a non-undefined #openDirective (bypassing the zero-directive
+      // no-op check entirely) and re-registers a byte-identical directive for an op that
+      // changed nothing since the drain (REQ-TSD-08.4's guarantee, generalized past the
+      // very first registration).
+      if (content !== undefined) {
+        this.#lastEmittedText = content;
+        this.#openDirective = undefined;
+      }
+      return content;
     });
   }
 

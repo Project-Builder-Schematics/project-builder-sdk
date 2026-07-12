@@ -82,4 +82,51 @@ describe("removeImport — REQ-TSD-08", () => {
     expect(modifies).toHaveLength(1);
     expect(modifies[0]?.modify.content).toBe('import def from "m";\n');
   });
+
+  // Judgment-day round 1, Issue 2: removeImport only inspected the FIRST import declaration
+  // matching the module specifier — with two SEPARATE declarations importing from the same
+  // module, a binding living in the second one silently no-op'd. These three cases prove the
+  // fix iterates every matching declaration.
+  it("a binding in the SECOND same-module declaration is removed — sibling declaration intact", async () => {
+    const { client, emitted } = makeSpyClient({
+      "a.ts": 'import { a } from "m";\nimport { b, c } from "m";\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").removeImport("c", "m");
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe('import { a } from "m";\nimport { b } from "m";\n');
+  });
+
+  it("removing the last binding of the SECOND declaration deletes only that statement", async () => {
+    const { client, emitted } = makeSpyClient({
+      "a.ts": 'import { a } from "m";\nimport { b } from "m";\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").removeImport("b", "m");
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe('import { a } from "m";\n');
+  });
+
+  it("an absent binding across multiple matching declarations stays a clean no-op — ZERO directives", async () => {
+    const { client, emitted } = makeSpyClient({
+      "a.ts": 'import { a } from "m";\nimport { b } from "m";\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").removeImport("z", "m");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)).toHaveLength(0);
+  });
 });

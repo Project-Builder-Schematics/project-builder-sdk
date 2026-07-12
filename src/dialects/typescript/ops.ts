@@ -56,6 +56,12 @@ function assertNoCollision(ast: SourceFile, name: string, opName: string): void 
     ast.getFunction(name) !== undefined ||
     ast.getVariableDeclaration(name) !== undefined ||
     ast.getClass(name) !== undefined ||
+    // Judgment-day round 1 (Issue 3): enum and namespace declarations also occupy the
+    // value namespace (TypeScript rejects `enum Foo {}` / `namespace Foo {}` coexisting
+    // with a same-named function/const/class — TS2451) — missing these two let addFunction/
+    // addVariable/addClass emit invalid TS instead of rejecting.
+    ast.getEnum(name) !== undefined ||
+    ast.getModule(name) !== undefined ||
     ast
       .getImportDeclarations()
       .some((decl) =>
@@ -135,18 +141,25 @@ export function addClass(ast: SourceFile, name: string, source: string, options?
  * NAMED-binding imports only — default and namespace imports are untouched, and a
  * declaration mixing a default/namespace import alongside named bindings is never
  * whole-statement-deleted (only the matched named specifier is removed).
+ *
+ * Judgment-day round 1 (Issue 2): a module can be imported via SEVERAL separate
+ * declarations (`import { a } from "m"; import { b } from "m";`, legal TS) — this walks
+ * every declaration matching `from`, not just the first, and operates on whichever one
+ * actually contains `name`. Sibling declarations from the same module are never touched.
  */
 export function removeImport(ast: SourceFile, name: string, from: string): void {
-  const decl = ast.getImportDeclaration((d) => d.getModuleSpecifierValue() === from);
-  if (decl === undefined) return;
-  const namedImports = decl.getNamedImports();
-  const specifier = namedImports.find((named) => named.getName() === name);
-  if (specifier === undefined) return;
-  const isLastNamedBindingOnly =
-    namedImports.length === 1 && decl.getDefaultImport() === undefined && decl.getNamespaceImport() === undefined;
-  if (isLastNamedBindingOnly) {
-    decl.remove();
-  } else {
-    specifier.remove();
+  const decls = ast.getImportDeclarations().filter((d) => d.getModuleSpecifierValue() === from);
+  for (const decl of decls) {
+    const namedImports = decl.getNamedImports();
+    const specifier = namedImports.find((named) => named.getName() === name);
+    if (specifier === undefined) continue;
+    const isLastNamedBindingOnly =
+      namedImports.length === 1 && decl.getDefaultImport() === undefined && decl.getNamespaceImport() === undefined;
+    if (isLastNamedBindingOnly) {
+      decl.remove();
+    } else {
+      specifier.remove();
+    }
+    return;
   }
 }
