@@ -201,20 +201,37 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // FIT-19 orphan guard (ADR-0037): re-registers a FRESH directive whenever the prior one
   // is no longer present in the session's pending buffer (an IDENTITY check, never a value
   // check) — this is what turns a global flush mid-chain into the split-into-two-modifies
-  // contract (REQ-MC-02), with no edit lost and no double-buffer. Unconditional once a
-  // directive has EVER been registered (REQ-TSD-08.6: add-then-revert keeps the already-
-  // registered directive, not retroactive cancellation).
+  // contract (REQ-MC-02), with no edit lost and no double-buffer.
   //
-  // Mutation gate (ADR-0037 clause 2, row-141): the FIRST registration only happens if the
-  // op actually changed the print vs #lastEmittedText — a true no-op (e.g. removeImport on
-  // an absent binding) never registers, so its run emits ZERO directives (REQ-TSD-08.4).
-  // Must be called AFTER the op has run (never before) so the print reflects its effect.
+  // Mutation gate (ADR-0037 clause 2, row-141): registration only happens if the op
+  // actually changed the print vs #lastEmittedText — a true no-op (e.g. removeImport on an
+  // absent binding) never registers, so its run emits ZERO directives (REQ-TSD-08.4). Must
+  // be called AFTER the op has run (never before) so the print reflects its effect.
+  //
+  // Judgment-day round 2 (convergence fix, generalizes round 1's Issue 1): a directive can
+  // drain WITHOUT this handle's own read() ever running — a DIFFERENT handle's read() is
+  // ALSO a global flush-before-read (ADR-0015) and drains this handle's open directive too.
+  // So the "was it drained?" re-baseline can't live only in read() (round 1's fix) — it has
+  // to run HERE, right before the gate, for BOTH drain sources. When #hasOpenPendingDirective
+  // is false but #openDirective is still set, the prior directive was drained (by either
+  // path) since it was last registered: re-baseline #lastEmittedText to its content — the
+  // getter memoized the print the instant flush's JSON.stringify walked it (module doc,
+  // "serialize once ... at whichever flush first" — the value is already fixed, no fresh
+  // print needed nor possible after the op already mutated the live AST past it) — and clear
+  // #openDirective so the zero-directive gate below re-evaluates against the fresh baseline
+  // instead of unconditionally re-registering a byte-identical directive.
   #ensureOpen(): void {
     const { session } = currentContext();
     if (this.#hasOpenPendingDirective(session)) {
       return;
     }
-    if (this.#openDirective === undefined && this.#printContained() === this.#lastEmittedText) {
+    if (this.#openDirective !== undefined) {
+      if (this.#openDirective.op === "modify") {
+        this.#lastEmittedText = this.#openDirective.modify.content;
+      }
+      this.#openDirective = undefined;
+    }
+    if (this.#printContained() === this.#lastEmittedText) {
       return;
     }
     this.#openDirective = lazyModifyDirective(this.#path, () => this.#printContained());
@@ -318,24 +335,15 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // Sequenced on #tail (author order): a mid-chain read must observe every op enqueued
   // before it. Session.read is the GLOBAL flush-before-read (ADR-0015) — this drains this
   // handle's own open directive (and every other handle's), which is exactly what makes
-  // read-your-own-writes hold (REQ-MC-02.2) and what the NEXT op's #ensureOpen() detects to
-  // re-register a fresh directive (the split).
+  // read-your-own-writes hold (REQ-MC-02.2). The drain itself needs no re-baseline here:
+  // #ensureOpen (judgment-day round 2) detects a drained-but-still-set #openDirective on
+  // the NEXT op, from EITHER drain source (this handle's own read(), like this one, or a
+  // different handle's), and re-baselines from the drained directive's memoized content —
+  // one mechanism instead of two subtly different ones.
   read(): Promise<string | undefined> {
     return this.#chain(async () => {
       const { session } = currentContext();
-      const content = await session.read(this.#path);
-      // Judgment-day round 1 (Issue 1): session.read() is the GLOBAL flush-before-read, so
-      // any directive this handle had open is now drained — re-baseline the mutation gate
-      // to the just-flushed content and clear the stale reference. Without this, the NEXT
-      // #ensureOpen() sees a non-undefined #openDirective (bypassing the zero-directive
-      // no-op check entirely) and re-registers a byte-identical directive for an op that
-      // changed nothing since the drain (REQ-TSD-08.4's guarantee, generalized past the
-      // very first registration).
-      if (content !== undefined) {
-        this.#lastEmittedText = content;
-        this.#openDirective = undefined;
-      }
-      return content;
+      return session.read(this.#path);
     });
   }
 

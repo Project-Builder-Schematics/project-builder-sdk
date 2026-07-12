@@ -819,6 +819,34 @@ describe("dialect handle — post-flush mutation gate (judgment-day round 1, Iss
   });
 });
 
+describe("dialect handle — post-flush mutation gate (judgment-day round 2, cross-handle drain)", () => {
+  it("a no-op on handle A AFTER a DIFFERENT handle's read() globally flushes A's directive registers nothing — exactly one modify for a.ts", async () => {
+    const { client, emitted } = makeSpyClient({
+      "a.ts": 'import { readFileSync } from "node:fs";\n',
+      "b.ts": "const y = 1;\n",
+    });
+
+    const run = defineFactory<void>(async () => {
+      const handleA = ts.find("a.ts").addImport("writeFileSync", "node:fs");
+      await handleA;
+      // b.ts's read() is a DIFFERENT handle — but session.read() is the GLOBAL
+      // flush-before-read (ADR-0015), so it drains handleA's still-pending directive too,
+      // even though handleA itself never called .read().
+      await ts.find("b.ts").read();
+      // A genuine no-op on A (absent binding), measured AFTER the foreign drain: must NOT
+      // re-register a byte-identical directive now that the real edit above already
+      // flushed via b.ts's read().
+      handleA.removeImport("nope", "nowhere");
+      await handleA;
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted).filter((m) => m.modify.path === "a.ts");
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe('import { readFileSync, writeFileSync } from "node:fs";\n');
+  });
+});
+
 describe("dialect handle — REQ-DG-07.1 (row-136 concrete trigger, S-002)", () => {
   // Same fail-closed mechanism REQ-DG-07.3 proves generically (S-000) and REQ-DG-07.2
   // proves via addFunction's collision (S-001) — this exercises it via row-136's

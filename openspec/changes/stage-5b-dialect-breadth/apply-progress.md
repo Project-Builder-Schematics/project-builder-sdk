@@ -631,3 +631,63 @@ per fix, confirmed failing for the right reason, then the fix, then GREEN).
 
 One commit: `fix(dialect): judgment-day round 1 — post-flush mutation gate, multi-declaration
 removeImport, enum/namespace collisions`.
+
+## Judgment-day fix R2 (convergence)
+
+Single finding from Judge B's probe of R1's Issue 1 fix, fixed-without-re-judge under the
+Round 2+ threshold.
+
+**Finding**: R1's fix re-baselined `#lastEmittedText`/`#openDirective` ONLY inside the
+handle's own `read()` (`src/core/dialect-handle.ts`, then ~line 323). But a DIFFERENT
+handle's `session.read()` is ALSO the global flush-before-read (ADR-0015) and drains THIS
+handle's open directive too — a drain source R1's fix never covered. After a foreign drain,
+`#lastEmittedText` stays stale (pre-edit content) and `#openDirective` stays a stale
+non-undefined reference (no longer pending); `#ensureOpen`'s zero-directive gate
+(`#openDirective === undefined && print === #lastEmittedText`) then always fails on its
+first conjunct, so a subsequent TRUE no-op on this handle still registers a fresh
+byte-identical `modify`.
+
+RED (`test/core/dialect-handle.test.ts`, "judgment-day round 2, cross-handle drain"): handle
+A does a real edit (`addImport("writeFileSync","node:fs")`) and is awaited; handle B on a
+DIFFERENT path (`b.ts`) is created and `await`ed via `.read()` — this globally flushes A's
+directive; then a genuine no-op on A (`removeImport("nope","nowhere")`); run end. Before the
+fix: 2 byte-identical `modify` directives for `a.ts`. Confirmed failing for the right reason
+(`toHaveLength(1)` got 2) before writing the fix.
+
+**Fix** (`src/core/dialect-handle.ts` `#ensureOpen`, ~line 212): moved the re-baseline INTO
+`#ensureOpen` itself, right before the zero-directive gate, so it fires regardless of WHICH
+handle's read caused the drain. When `#hasOpenPendingDirective` is false but
+`#openDirective` is still set, the prior directive was drained since it was last
+registered: re-baseline `#lastEmittedText` from the drained directive's own `.modify.content`
+getter (memoized — `JSON.stringify` inside `ContractFake.emit` walks the batch and resolves
+the getter synchronously during flush, so by the time `#ensureOpen` runs the value is
+already fixed and cached; confirmed via `src/testing/contract-fake.ts:54`'s
+`JSON.stringify(batch)` call site) and clear `#openDirective`, then fall through to the
+normal gate. This subsumed `read()`'s own R1 re-baseline cleanly (same re-baseline, now
+running from the one place that sees BOTH drain sources instead of only one) — `read()` was
+simplified back to a plain `session.read()` delegate, removing the now-redundant duplicate
+logic. Pre-op-mutation ordering was verified: `runOp`/`runRaw` always call `#ensureOpen()`
+AFTER the op already ran (`fn(...)` then `#ensureOpen()`), so no pre-op content is available
+at that point — the memoized drained-directive content is the only correct baseline source,
+exactly as flagged in the fix-direction caution; no improvised baseline was needed.
+
+Verified `read()`'s own R1 test ("a no-op AFTER a mid-chain read() drains the prior edit
+registers nothing — exactly one modify") and REQ-MC-05.1 printCalls / REQ-TSD-08.4/08.6
+stayed green, unmodified.
+
+### Test/typecheck/build evidence (judgment-day fix R2)
+
+- `bun test`: 861 pass / 0 fail (was 860 / 0 before this round — 1 new test), 1553
+  `expect()` calls.
+- `bun test test/core/dialect-handle.test.ts`: 36 pass / 0 fail.
+- `bun test test/dialects/typescript/`: 61 pass / 0 fail (8 files).
+- `bunx tsc --noEmit`: clean, no errors.
+- `bun run build`: clean (`tsc -p tsconfig.build.json` + codegen bin bundle).
+- Baselines byte-identical: `git status --short test/fitness/dts-baseline
+  test/fitness/pkg-surface-baseline.json` — no output. Public surface unmoved: only
+  `src/core/dialect-handle.ts` internals (`#ensureOpen`, `read()`) changed.
+
+### Commit
+
+One commit: `fix(core): re-baseline mutation gate after cross-handle drain (judgment-day R2
+convergence fix)`.
