@@ -127,6 +127,21 @@ completed, NOT pending (verify-report F-03).
 | Reserved-name structural scan (FIT-16 + runtime) recognizes only `.ts`/`.js` filenames — `.mjs`/`.cjs`/`.tsx` evade detection; spec-scoped to `{.ts,.js}` deliberately, so this is a documented known-limitation note, not a bug (QA nit) | docs | XS | — | **known-limitation note** |
 | Planning artefacts (spec §"REQ-ID Stability", slices Coverage Check) label the REQ set "25 REQ-IDs"; the true distinct count is 23 (TFO×5, SCP×2, RBV×5, RLN×3, FPS×5, AEC×3) — an off-by-two arithmetic label; coverage itself is unaffected. Correct the label (verify-final F-06) | docs | XS | — | **doc hygiene, anytime** |
 
+## From `stage-5-first-dialect` (2026-07-12) — accepted as non-blocking at archive
+
+Verify verdict `pass-with-followups`. Judgment-day APPROVED (R1 + R2). Steward reckoning DELIVERED (4 CQs affirmed, delivered). Six followups covering `stage-5b-dialect-breadth` integration + two Stage-6 deferred items.
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| [stage-5b] modify(content)-after-AST-op last-write-wins (reject or document — judgment-day confirmed both judges converged on this question; decision pending design review) | design | M | — | **5b** |
+| [stage-5b] runOp async containment if `Op<Ast>` ever relaxes to async (theoretical; today all ops are sync) | refactor | S | — | **5b** |
+| [stage-5b] DAS-01.1 negative-guard broadening beyond removeImport (scope narrowing at archive; list remains `addImport` + `.raw` only) | docs | S | — | **5b** |
+| [stage-5b] TSD-04.1 own-property/stack sweep vs REAL ts-morph error tracking (executor latitude on getSyntacticDiagnostics internals) | refactor | S | — | **5b** |
+| [stage-5b] mid-chain print-failure containment + "could not print" fixture (error message contract for serialization failures) | test-coverage | S | — | **5b** |
+| [stage-5b] MC-01.2/TSD-03.1 batch-grouping annotation-or-assert, Session.isPending() instead of pendingSnapshot copy per op, FIT-01 extensionless-relative-import blind spot, AuthoringError{origin} promotion | refactor | M | — | **5b** |
+| provenance go-live checklist (remove `--dry-run` at first real release + assert live provenance via npm attestation; dry-run staged in publish.yml) | refactor | XS | Before live publish | **6.2** |
+| README front-door dialect entry (Stage 6.3 scope: new author's first view should advertise `find().addImport()`, not just stub concept) | docs | S | When Stage 6 front-door lands | **6.3** |
+
 **Reaffirmed (already registered above, engine-handoff section, row "Split from `stage-4-typed-options`")**:
 `stage-4b-testing-harness` stays **COMMITTED-NEXT** — steward reckoning CQ-3 condition: the
 author-facing consumption path (`defineFactory` reachable from an installed package) + the
