@@ -128,20 +128,20 @@ through byte-exact, never double-wrapped; GIVEN a rejected run WHEN a further op
 DIFFERENT handle THEN it never executes — surfaces the original rejection via the poison flag.
 
 ### Tasks
-- [ ] `src/core/dialect-error.ts` (Create) — `dialectError(tail): Error` factory + `isContained
+- [x] `src/core/dialect-error.ts` (Create) — `dialectError(tail): Error` factory + `isContained
   (err): boolean`, module-private `WeakSet<Error>` brand
-- [ ] `src/core/deep-equal.ts` (Create) — kit-internal `deepEqual`, no barrel/subpath
-- [ ] `src/core/dialect-handle.ts` (Modify) — shared `#invokeContained(fn, foreignTail)` used by
+- [x] `src/core/deep-equal.ts` (Create) — kit-internal `deepEqual`, no barrel/subpath
+- [x] `src/core/dialect-handle.ts` (Modify) — shared `#invokeContained(fn, foreignTail)` used by
   BOTH `runRaw` and `runOp` (`runOp` gains `opName` for its tail); mutation-gated `#ensureOpen`
   (register only when print differs from `#lastEmittedText` baseline); row-145: the lazy modify
   directive's memoized getter retains the ts-morph `Project` via its `resolve` closure after the
   getter has resolved (memoized) the live AST — null that `resolve` closure ref immediately
   post-resolution so the `Project`/live AST becomes GC-eligible (one-liner, memory-only fix, no
   observable behavioral change)
-- [ ] `src/core/session.ts` (Modify) — `isPending(directive): boolean`
-- [ ] `src/core/context.ts` (Modify) — `RunContext.runFailure?: { reason: unknown }`; NO import
+- [x] `src/core/session.ts` (Modify) — `isPending(directive): boolean`
+- [x] `src/core/context.ts` (Modify) — `RunContext.runFailure?: { reason: unknown }`; NO import
   from `dialect-handle.ts` (fitness-guarded)
-- [ ] `src/dialects/typescript/ast.ts` (Modify) — row-139: in `parse`'s syntactic-diagnostic
+- [x] `src/dialects/typescript/ast.ts` (Modify) — row-139: in `parse`'s syntactic-diagnostic
   handling, sweep out the own-property/stack-shape heuristic used to detect/classify ts-morph
   diagnostic errors, replacing it with real ts-morph error tracking (classify off the actual
   diagnostic object `getSyntacticDiagnostics()` reports, not an assumption about the caught
@@ -149,19 +149,25 @@ DIFFERENT handle THEN it never executes — surfaces the original rejection via 
   contained) against a containment path that could misclassify or silently miss a genuine
   ts-morph syntactic error because it only shape-matched a heuristic instead of the real
   diagnostic object (no REQ of its own — hardens TSD-04.1; executor latitude on the exact
-  internals)
-- [ ] `test/core/dialect-handle.test.ts` (Modify) — REQ-DG-06.1–06.5 (sync/async containment,
+  internals). **VERIFIED (executor latitude exercised)**: `parse` already classified off the
+  real `getSyntacticDiagnostics()` object (landed in S-002's own `bc073d2`, predating this
+  change) — no own-property/stack-shape heuristic exists anywhere in this codebase to sweep
+  out. No code change made; a doc-comment traceability note was added instead of manufacturing
+  a no-op diff.
+- [x] `test/core/dialect-handle.test.ts` (Modify) — REQ-DG-06.1–06.5 (sync/async containment,
   passthrough via synthetic `dialectError` op — constraint 7), REQ-DG-07.3 (same+different
   handle, synthetic reject), mutation-gate zero-directive (generic, via `addImport` idempotent
   no-op), no-reparse parse-count spy; row-145 (closure-ref clear, above) annotated EXPLICITLY
   UNTESTED — memory-only concern, no filler/no-op assertion, do not manufacture a fake assertion
   to claim coverage
-- [ ] `test/fixtures/red/**` (Create, partial) — async-op containment red fixture (DG-06.2)
-- [ ] `test/dialects/typescript/print-failure.test.ts` (Create) — REQ-TSD-04.2,
+- [x] `test/fixtures/red/**` (Create, partial) — async-op containment red fixture (DG-06.2)
+- [x] `test/dialects/typescript/print-failure.test.ts` (Create) — REQ-TSD-04.2,
   `.raw(sf => sf.forget())` forces a REAL ts-morph print throw
-- [ ] Fitness: static import-scan asserting `context.ts` takes no import from
-  `dialect-handle.ts` (F2 guard), red-proof via planted fixture
-- [ ] `test/fitness/fit-14-*` — VERIFIED: FIT-14 diffs TWO independent halves of
+- [x] Fitness: static import-scan asserting `context.ts` takes no import from
+  `dialect-handle.ts` (F2 guard), red-proof via planted fixture. Landed as
+  `test/fitness/fit-21-context-no-dialect-handle-import.test.ts` (next free FIT number after
+  the existing fit-01..fit-20 series).
+- [x] `test/fitness/fit-14-*` — VERIFIED: FIT-14 diffs TWO independent halves of
   `pkg-surface-baseline.json` — (a) the `exports`/`dependencies`/`files`/`bin`/`shebang` surface
   (`toEqual` exact match, REQ-FPS-02.1) and (b) the full publishable tarball manifest (`bun pm
   pack --dry-run` vs `baseline.tarball`, new/missing-entry diff, REQ-FPS-02.2) — NOT a single
@@ -170,7 +176,17 @@ DIFFERENT handle THEN it never executes — surfaces the original rejection via 
   rows to half (b)'s `tarball` array (it ships inside the `files: ["dist"]` glob regardless of
   export status): `dist/core/deep-equal.js`, `dist/core/deep-equal.d.ts`,
   `dist/core/deep-equal.d.ts.map`. Update `baseline.tarball` only; leave `baseline.exports`/
-  `baseline.dependencies` untouched
+  `baseline.dependencies` untouched. **DEVIATION (build-verified)**: `dialect-error.ts` — this
+  slice's OTHER new kit-internal core module — was not named in this task's tarball-row list
+  but is subject to the identical reasoning (kit-internal, `files: ["dist"]` glob catches it
+  regardless of export status); `bun run build` confirmed it also emits `dist/core/
+  dialect-error.js`/`.d.ts`/`.d.ts.map`, so those three rows were added alongside deep-equal's
+  to keep FIT-14 green. Also required an unrelated FIT-07 false-positive fix: `deep-equal.ts`'s
+  original `Record<string, unknown>` cast (copied verbatim from the existing conformance/
+  testing duplicates) textually tripped FIT-07's path-keyed-collection scan once the file
+  moved under `src/core/`; retyped via an index-signature object type instead (`{ [key:
+  string]: unknown }`) — identical runtime behavior, no semantic path-keyed store was ever
+  present.
 
 ---
 

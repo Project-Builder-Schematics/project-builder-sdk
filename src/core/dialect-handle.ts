@@ -8,6 +8,7 @@
 // TYPE (define-dialect.ts) are frozen.
 
 import { currentContext } from "./context.ts";
+import { dialectError, isContained } from "./dialect-error.ts";
 import type { DirectiveFactory } from "./directive-factory.ts";
 import type { OpPack, Handle } from "./define-dialect.ts";
 import type { Directive } from "./wire.ts";
@@ -15,16 +16,6 @@ import type { Directive } from "./wire.ts";
 interface DialectAst<Ast> {
   parse(source: string): Ast;
   print(ast: Ast): string;
-}
-
-// Load-bearing literal (design §4.4, slices "Frozen guard strings"): frozen prefix, `.cause`
-// always absent — a fresh Error is constructed at the wrap site (stack cleanliness by
-// construction), never re-wrapping the caught native/library error as `.cause` or any other
-// own property (REQ-DG-05, the named leak vector).
-const ERROR_PREFIX = "dialect operation failed: ";
-
-function dialectError(tail: string): Error {
-  return new Error(ERROR_PREFIX + tail);
 }
 
 // `.raw()`'s `fn` is typed `(ast: Ast) => void`, but TS's void-return compatibility lets an
@@ -40,17 +31,24 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 // A getter-backed modify directive: `content` resolves lazily, exactly once, memoized — at
 // whichever flush first `JSON.stringify`s the batch (ADR-0006's "serialize once at flush").
 // `dryRun()` never triggers this: `dryRunPlan` reads only `verb`/`path` (REQ-MC-05).
-function lazyModifyDirective(path: string, resolve: () => string): Directive {
+//
+// Row-145: `resolve` is nulled out immediately after its one use (rather than a separate
+// `resolved` boolean) — the memoized getter's closure retained the ts-morph `Project` (via
+// this print callback's own closure over the live AST) for the directive's entire lifetime
+// even after resolving; nulling the reference makes the `Project`/live AST GC-eligible as
+// soon as the content is known. Memory-only, no observable behavioral change (see
+// test/core/dialect-handle.test.ts's row-145 note — deliberately untested there).
+function lazyModifyDirective(path: string, resolveFn: () => string): Directive {
   let cached: string | undefined;
-  let resolved = false;
+  let resolve: (() => string) | undefined = resolveFn;
   return {
     op: "modify",
     modify: {
       path,
       get content(): string {
-        if (!resolved) {
+        if (resolve !== undefined) {
           cached = resolve();
-          resolved = true;
+          resolve = undefined;
         }
         return cached as string;
       },
@@ -71,6 +69,11 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   #live: Ast | undefined;
   #openDirective: Directive | undefined;
   #registered = false;
+  // Mutation-gate baseline (ADR-0037 clause 2), seeded from #ensureLive's own read — the
+  // ORIGINAL file content, before any op runs. #ensureOpen compares a fresh print against
+  // this to decide whether an op actually changed anything (REQ-TSD-08.4's zero-directive
+  // no-op) — never re-derived from a print-after-parse (would cost a redundant print).
+  #lastEmittedText: string | undefined;
 
   constructor(dialectAst: DialectAst<Ast>, ops: Ops, path: string) {
     this.#dialectAst = dialectAst;
@@ -88,8 +91,31 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // forgotten-`await` throwing chain; the real rejection stays observable on `#tail` for
   // author-`await` and `settle()`, and on the returned step-result promise for callers
   // (like `read()`) that surface the step's value.
+  //
+  // F2 poison flag (ADR-0037 amendment, REQ-DG-07.3): every step and every read() route
+  // through this ONE wrapper. SAME-handle fail-closed sequencing is emergent — a rejected
+  // `#tail` already skips `guardedStep` via ordinary promise-chain semantics, no flag
+  // needed. The flag exists for the CROSS-handle case: a different handle's `#tail` is
+  // independent, so without this check its step WOULD run (mutate/buffer) even though
+  // nothing ever commits. `ctx.runFailure` is consulted at step entry (never attempted as a
+  // fresh operation) and set FIRST-WINS on catch (the earliest rejection in the run is the
+  // one every later op/read surfaces, unchanged).
   #chain<T>(step: () => T | Promise<T>): Promise<T> {
-    const result = this.#tail.then(step);
+    const guardedStep = async (): Promise<T> => {
+      const ctx = currentContext();
+      if (ctx.runFailure !== undefined) {
+        throw ctx.runFailure.reason;
+      }
+      try {
+        return await step();
+      } catch (err) {
+        if (ctx.runFailure === undefined) {
+          ctx.runFailure = { reason: err };
+        }
+        throw ctx.runFailure.reason;
+      }
+    };
+    const result = this.#tail.then(guardedStep);
     this.#tail = result.then(() => undefined);
     this.#tail.catch(() => {
       // Eager shadow-catch — intentionally empty. See module doc + ADR-0037.
@@ -127,6 +153,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     } catch {
       throw dialectError(`could not parse "${this.#path}" as TypeScript`);
     }
+    this.#lastEmittedText = content;
   }
 
   #printContained(): string {
@@ -140,43 +167,68 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // FIT-19 orphan guard (ADR-0037): re-registers a FRESH directive whenever the prior one
   // is no longer present in the session's pending buffer (an IDENTITY check, never a value
   // check) — this is what turns a global flush mid-chain into the split-into-two-modifies
-  // contract (REQ-MC-02), with no edit lost and no double-buffer.
+  // contract (REQ-MC-02), with no edit lost and no double-buffer. Unconditional once a
+  // directive has EVER been registered (REQ-TSD-08.6: add-then-revert keeps the already-
+  // registered directive, not retroactive cancellation).
+  //
+  // Mutation gate (ADR-0037 clause 2, row-141): the FIRST registration only happens if the
+  // op actually changed the print vs #lastEmittedText — a true no-op (e.g. removeImport on
+  // an absent binding) never registers, so its run emits ZERO directives (REQ-TSD-08.4).
+  // Must be called AFTER the op has run (never before) so the print reflects its effect.
   #ensureOpen(): void {
     const { session } = currentContext();
-    if (this.#openDirective !== undefined && session.pendingSnapshot().includes(this.#openDirective)) {
+    if (this.#openDirective !== undefined && session.isPending(this.#openDirective)) {
+      return;
+    }
+    if (this.#openDirective === undefined && this.#printContained() === this.#lastEmittedText) {
       return;
     }
     this.#openDirective = lazyModifyDirective(this.#path, () => this.#printContained());
     session.buffer(this.#openDirective);
   }
 
+  // Shared containment primitive (ADR-0037 amendment clause 1): runs `fn`, awaits a
+  // thenable result INSIDE the try (so an async op's rejection is contained, never an
+  // unhandled rejection), and on catch discriminates by the WeakSet brand (`isContained`,
+  // NEVER `message.startsWith`) — a caught error already carrying the brand (an author's
+  // deliberate `dialectError` reject) is RETHROWN VERBATIM (REQ-DG-06.5, no double-wrap, no
+  // `.cause`); any foreign error is wrapped fresh via `dialectError(foreignTail)`.
+  async #invokeContained(fn: () => unknown, foreignTail: string): Promise<void> {
+    try {
+      const result: unknown = fn();
+      if (isThenable(result)) {
+        await result;
+      }
+    } catch (caught) {
+      if (isContained(caught)) throw caught;
+      throw dialectError(foreignTail);
+    }
+  }
+
   // Chaining is the WRAPPER's job (createDialectHandle, below) — these return void; the
   // wrapper's dispatchers always return the public handle object, never `this` controller.
-  runOp(fn: (ast: Ast, ...args: unknown[]) => void, args: unknown[]): void {
+  // `opName` names the tail for BOTH the foreign-wrap message (constraint: `{op}() on
+  // "{path}" threw`) and #ensureOpen runs AFTER the op (never before) — the mutation gate
+  // needs the op's effect already applied to compare against the baseline.
+  runOp(fn: (ast: Ast, ...args: unknown[]) => void, args: unknown[], opName: string): void {
     this.#enqueue(async () => {
       await this.#ensureLive();
+      await this.#invokeContained(() => fn(this.#live as Ast, ...args), `${opName}() on "${this.#path}" threw`);
       this.#ensureOpen();
-      fn(this.#live as Ast, ...args);
     });
   }
 
-  // Council fix pass (security note 1, ADR-0037): an ASYNC `fn` is awaited INSIDE this same
-  // containment — the enqueued step already runs in the async `#tail` chain, so awaiting is
-  // natural. Without this, `fn`'s returned promise floats unobserved: a rejection surfaces as
-  // an uncontained `unhandledRejection` (leaking the raw internal message) while the run
-  // COMMITS as if successful, and a resolve-after-delay's mutation may race the print.
+  // Council fix pass (security note 1, ADR-0037): an ASYNC `fn` is awaited INSIDE the SAME
+  // shared containment `runOp` uses (`#invokeContained`) — the enqueued step already runs
+  // in the async `#tail` chain, so awaiting is natural. Without this, `fn`'s returned
+  // promise floats unobserved: a rejection surfaces as an uncontained `unhandledRejection`
+  // (leaking the raw internal message) while the run COMMITS as if successful, and a
+  // resolve-after-delay's mutation may race the print.
   runRaw(fn: (ast: Ast) => void): void {
     this.#enqueue(async () => {
       await this.#ensureLive();
+      await this.#invokeContained(() => fn(this.#live as Ast), `raw() on "${this.#path}" threw`);
       this.#ensureOpen();
-      try {
-        const result: unknown = fn(this.#live as Ast);
-        if (isThenable(result)) {
-          await result;
-        }
-      } catch {
-        throw dialectError(`raw() on "${this.#path}" threw`);
-      }
     });
   }
 
@@ -290,7 +342,7 @@ export function createDialectHandle<Ast, Ops extends OpPack<Ast>>(
     Object.keys(ops).map((opName) => [
       opName,
       (...args: unknown[]) => {
-        controller.runOp(ops[opName] as (ast: Ast, ...a: unknown[]) => void, args);
+        controller.runOp(ops[opName] as (ast: Ast, ...a: unknown[]) => void, args, opName);
         return handle;
       },
     ])
