@@ -311,16 +311,16 @@ carries the `.raw()` trust sentence + "conformance ≠ safety" caveat verbatim (
 GIVEN the CI publish job THEN it retains `--provenance` for the release carrying `ts-morph`.
 
 ### Tasks
-- [ ] [must-fail-first] `docs/authoring-a-dialect.md` Modify — real content: kit-verbs
+- [x] [must-fail-first] `docs/authoring-a-dialect.md` Modify — real content: kit-verbs
   reference, `.raw()` + trust cross-ref, coalescing observable shape, worked `addImport`
   example, two-audience split (DAS-02, no author-style demo in the contributor section),
   two-realms hazard, Async-usage section (verbatim per §4.4b)
-- [ ] [must-fail-first] `SECURITY.md` Modify — `.raw()` trust sentence + "conformance ≠ safety"
+- [x] [must-fail-first] `SECURITY.md` Modify — `.raw()` trust sentence + "conformance ≠ safety"
   caveat, verbatim (constraint 4)
-- [ ] [must-fail-first] [permanent-fixture] `test/docs/security-authoring-guard.test.ts`
+- [x] [must-fail-first] [permanent-fixture] `test/docs/security-authoring-guard.test.ts`
   (Create) — exact-substring guards for all frozen strings (DAS-01.2/.3, DAS-02.1, STD-01) +
   workflow-substring guard for `--provenance` retention (TSD-06.2)
-- [ ] Register `src/dialects/typescript/**`, `src/core/dialect-handle.ts`,
+- [x] Register `src/dialects/typescript/**`, `src/core/dialect-handle.ts`,
   `package.json#dependencies` at low→medium in `project/sensitive-areas` (design §4.8,
   concrete paths not a category) — orchestrator/apply-time registry update, not a test
 
