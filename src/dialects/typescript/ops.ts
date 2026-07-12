@@ -5,6 +5,9 @@
 //
 // S-001: `addFunction` (REQ-TSD-09) + the shared `assertNoCollision` predicate it (and
 // S-003's addVariable/addClass) reuse (design §4.5 ADR-0039).
+//
+// S-003: `addVariable` (REQ-TSD-10) + `addClass` (REQ-TSD-11) — same insert-mechanism and
+// collision rule as addFunction, different declaration kinds.
 
 import type { SourceFile } from "ts-morph";
 import { dialectError } from "../../core/dialect-error.ts";
@@ -76,9 +79,58 @@ export function addFunction(
   options?: { export?: boolean },
   handlePath?: string
 ): void {
-  assertNoCollision(ast, name, "addFunction", handlePath as string);
+  assertNoCollision(ast, name, "addFunction", handlePath!);
   const exportPrefix = options?.export === true ? "export " : "";
   ast.addStatements(`${exportPrefix}function ${name}${source}`);
+}
+
+/**
+ * Inserts a new top-level variable declaration `{export }{kind} {name} = {initializer};` at
+ * the end of the file, in call order (ts-morph `addStatements`, REQ-TSD-10). `kind` defaults
+ * to `"const"`. Rejects with a pinned `dialectError` under the SAME collision-namespace rule
+ * as `addFunction` (ADR-0039) — `type`/`interface` are exempt.
+ *
+ * @example
+ * ast.find(path).addVariable("PI", "3.14159"); // -> const PI = 3.14159;
+ * ast.find(path).addVariable("counter", "0", { export: true, kind: "let" }); // -> export let counter = 0;
+ */
+export function addVariable(
+  ast: SourceFile,
+  name: string,
+  initializer: string,
+  options?: { export?: boolean; kind?: "const" | "let" | "var" },
+  handlePath?: string
+): void {
+  assertNoCollision(ast, name, "addVariable", handlePath!);
+  const exportPrefix = options?.export === true ? "export " : "";
+  const kind = options?.kind ?? "const";
+  ast.addStatements(`${exportPrefix}${kind} ${name} = ${initializer};`);
+}
+
+/**
+ * Inserts a new top-level class declaration `{export }class {name} {\n{source}\n}` at the
+ * end of the file, in call order (ts-morph `addStatements`, REQ-TSD-11). Rejects with a
+ * pinned `dialectError` under the SAME collision-namespace rule as `addFunction` (ADR-0039)
+ * — `type`/`interface` are exempt.
+ *
+ * `source` EXCLUDES the class's `{ … }` braces — contrast `addFunction`, whose `source`
+ * INCLUDES them (that op supplies no braces of its own; this one does).
+ *
+ * @example
+ * // source excludes braces:
+ * ast.find(path).addClass("Point", "  x = 0;"); // -> class Point {\n  x = 0;\n}
+ * // contrast addFunction, whose source INCLUDES braces (the op does NOT add them itself).
+ */
+export function addClass(
+  ast: SourceFile,
+  name: string,
+  source: string,
+  options?: { export?: boolean },
+  handlePath?: string
+): void {
+  assertNoCollision(ast, name, "addClass", handlePath!);
+  const exportPrefix = options?.export === true ? "export " : "";
+  ast.addStatements(`${exportPrefix}class ${name} {\n${source}\n}`);
 }
 
 /**

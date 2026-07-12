@@ -70,12 +70,20 @@ describe("REQ-STD-01 — SECURITY.md trust sentences", () => {
 describe("REQ-DAS-01.1 — authoring doc names exactly the shipped API", () => {
   it("names every shipped kit verb and dialect verb", () => {
     const content = doc();
-    // S-002 (DAS-01.1 guard-flip): removeImport (this slice's own op) + addFunction
-    // (already shipped by preceding S-001, safe to name now per Build Order) join the
-    // loop. addVariable/addClass are excluded — they ship in S-003, the slice that adds
-    // them to this loop; naming them now would violate REQ-DAS-01 (the loop names exactly
-    // the shipped API).
-    for (const name of ["defineDialect", "defineOpPack", "withOps", ".raw", "addImport", "removeImport", "addFunction"]) {
+    // S-002 (DAS-01.1 guard-flip): removeImport + addFunction joined the loop.
+    // S-003: addVariable/addClass complete the four-op loop in the SAME slice that ships
+    // them (REQ-DAS-01: the loop names exactly the shipped API — never an unshipped verb).
+    for (const name of [
+      "defineDialect",
+      "defineOpPack",
+      "withOps",
+      ".raw",
+      "addImport",
+      "removeImport",
+      "addFunction",
+      "addVariable",
+      "addClass",
+    ]) {
       expect(content).toContain(name);
     }
   });

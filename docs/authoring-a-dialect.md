@@ -6,8 +6,9 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.raw()` escape hatch, and the
-first real dialect, `@pbuilder/sdk/typescript`, whose op-pack is widening past its original thin
-starter shape (`addImport`) with `addFunction` and `removeImport`.
+first real dialect, `@pbuilder/sdk/typescript`, whose op-pack has widened past its original thin
+starter shape (`addImport`) to five structured ops: `addImport`, `addFunction`, `addVariable`,
+`addClass`, `removeImport`.
 
 ## Two audiences
 
@@ -50,6 +51,29 @@ type to share an identifier).
 await ts.find("src/index.ts").addFunction("hi", "(): void {}", { export: true });
 // -> export function hi(): void {}
 // contrast addClass, whose source EXCLUDES braces (the op adds them itself).
+```
+
+`addVariable(name, initializer, options?)` inserts a new top-level variable declaration at the end
+of the file, in call order: `{export }{kind} {name} = {initializer};`. `options?.kind` defaults to
+`"const"` (also accepts `"let"`/`"var"`); `options?.export` prepends `export `. Rejects under the
+SAME collision rule as `addFunction` — a value declaration or import binding already existing
+under `name` fails loud; `type`/`interface` do not collide.
+
+```ts
+await ts.find("src/index.ts").addVariable("counter", "0", { export: true, kind: "let" });
+// -> export let counter = 0;
+```
+
+`addClass(name, source, options?)` inserts a new top-level class declaration at the end of the
+file, in call order: `{export }class {name} {\n{source}\n}`. `source` EXCLUDES the class's
+`{ … }` braces — the op supplies them itself, a deliberate contrast with `addFunction`'s `source`,
+which INCLUDES its braces. Rejects under the SAME collision rule as `addFunction`.
+
+```ts
+// source excludes braces:
+await ts.find("src/index.ts").addClass("Point", "  x = 0;");
+// -> class Point {\n  x = 0;\n}
+// contrast addFunction, whose source INCLUDES braces (the op does NOT add them itself).
 ```
 
 `removeImport(name, from)` removes the named binding from `from`'s import clause. Idempotent:
@@ -142,8 +166,8 @@ A **forgotten-await** chain that throws still surfaces its error, contained, at 
 — never as an unhandled rejection. If you need to observe or handle a dialect failure locally,
 `await` the chain (or a promise derived from it) inside your own `try`/`catch`.
 
-This containment is not `.raw()`-specific: a NAMED op (`addImport`, `addFunction`,
-`removeImport`, or a third-party dialect's own op) that throws synchronously, or whose
+This containment is not `.raw()`-specific: a NAMED op (`addImport`, `addFunction`, `addVariable`,
+`addClass`, `removeImport`, or a third-party dialect's own op) that throws synchronously, or whose
 implementation is itself `async` and rejects, is contained exactly the same way — never an
 unhandled rejection, always the pinned error shape.
 
