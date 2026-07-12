@@ -53,3 +53,16 @@ port. Concretely:
   no new SDK vocabulary — they are engine rejections like any other.
 - Golden-IR fixtures may legitimately pin "odd" paths verbatim; correctness of the SDK is
   faithful transport, not judgment.
+
+## Amendment (2026-07-12, `schematic-local-files`) — emit-time chunking is a lowering heuristic, not size authority
+
+The `scaffold` expander MAY call `session.flush()` between file groups so a large scaffold
+does not aggregate past `BATCH_CAP_BYTES` (batch-cap REQ-04), and classification predicts
+which side of the budget a file's SERIALIZED form lands on (content-classification
+REQ-CCL-02). Both are **lowering heuristics** measured against serialized-batch reality —
+they do NOT make the SDK a size authority. The fake/engine `emit` cap remains the SOLE
+size judge (ADR-0019): the SDK never rejects on aggregate size, an over-cap single group
+still fails at the fake's `emit` unchanged (REQ-04.2), and the emit-time containment check
+is the REQ-ATH-11.2 run-boundary carve-out for the package read — DX/attribution, not the
+security control (the engine's apply-time re-derivation is, REQ-BRC-02). Pass-through for
+ENGINE-owned judgment is intact.

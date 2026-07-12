@@ -42,3 +42,14 @@ module) — never imported across, same no-coupling rule as the map (ADR-0024 pa
 - **Import `AuthoringVerb` from stage-2 core** — rejected: no-import fitness forbids
   core imports inside `src/dry-run/**`, and it would couple two independently-scheduled
   builds.
+
+## Amendment (2026-07-12, `schematic-local-files`) — seventh verb `copyIn`
+
+The frozen six-member `DryRunVerb` grows to SEVEN: `copyIn` is added (the anticipated MAJOR
+growth this ADR's consequences named), 1:1 with the new `copyIn` wire op (ADR-0043) in the
+`WIRE_TO_AUTHOR_VERB` total map. `DryRunEntry` also gains an additive **optional**
+`kind?: "rendered" | "copied"` tag (dry-run REQ-DRE-05, owner-ruled labels): present ONLY
+on content-materializing entries — `create` → `"rendered"`, `copyIn` → `"copied"` — and
+ABSENT for `modify`/`remove`/`rename`/`move`/`copy`, which neither render nor classify
+(design rev 2, council A4/T1). Derived purely from op; does not affect the verb union. The
+existing six members and the 1-op↔1-verb totality are otherwise unchanged.

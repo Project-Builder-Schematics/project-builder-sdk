@@ -71,3 +71,14 @@ fixtures, nothing else.
 ADR-0017 (normative fake semantics) gained a self-move identity exclusion amendment in
 this same Stage 1 hardening pass — see the amendment appended to
 `openspec/decisions/0017-normative-fake-semantics-fail-closed.md`.
+
+## Amendment (2026-07-12, `schematic-local-files`) — the anticipated additive by-reference widening
+
+The "future binary/base64 shape would be an *additive* wire change" this ADR anticipated
+has now materialized — as the `copyIn` op (ADR-0043), NOT a widened `create.template`. The
+**text-only invariant is PRESERVED**: `create.template`/`modify.content` remain exactly
+`string`; `copyIn` carries NO content, only a package-relative path REFERENCE (REQ-BRC-01.2)
+that the engine reads at apply time. Binaries never cross the wire as bytes. The 4 MiB
+serialized cap and its sole-authority-at-the-fake posture are unchanged; `copyIn`
+directives are tiny (path-only) and the scaffold expander's chunked flush keeps by-value
+groups under the same cap.
