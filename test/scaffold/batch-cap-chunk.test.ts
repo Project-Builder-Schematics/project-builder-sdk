@@ -146,9 +146,14 @@ describe("REQ-05.1 — cross-chunk atomicity: a later-chunk failure commits noth
   it("a scaffold spanning ≥2 flushes, where a SECOND-flush directive collides, ends with an empty result.tree", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
-    // Two ~1.5 MiB files force a chunk boundary between them (first flush covers the
-    // first file's group; the second is emitted on a LATER flush that will collide).
-    const perFile = Math.floor(1.5 * 1024 * 1024);
+    // Two ~2.2 MiB files: COMBINED (~4.4 MiB) exceeds BATCH_CAP_BYTES (4 MiB), so the
+    // accumulator genuinely flushes BETWEEN them — a.ts's group flushes mid-run BEFORE
+    // b.ts is even buffered. (A prior 1.5+1.5 MiB fixture stayed under the 4 MiB cap
+    // combined, so only ONE flush ever fired — at run end — and this scenario never
+    // actually exercised cross-chunk rollback; a mutant letting each flush commit
+    // independently would have passed unnoticed. 2.2+2.2 MiB forces a real second,
+    // separately-flushed group.)
+    const perFile = Math.floor(2.2 * 1024 * 1024);
     writeFileSync(join(dir, "files", "a.ts"), "A".repeat(perFile), "utf-8");
     writeFileSync(join(dir, "files", "b.ts"), "B".repeat(perFile), "utf-8");
     // Third, tiny BINARY file — walks last (alphabetical sort), classifies by-reference,
@@ -170,6 +175,14 @@ describe("REQ-05.1 — cross-chunk atomicity: a later-chunk failure commits noth
 
     expect(result.error).toBeInstanceOf(AuthoringError);
     expect((result.error as AuthoringError).reason).toEqual("path-collision");
+    // Genuine chunk boundary: a.ts's group flushed mid-run, separately from b.ts/c's
+    // run-end group — TWO emit() calls, not one. (This is what a 1.5+1.5 MiB fixture
+    // could never prove: combined under the cap, everything rides one run-end flush and
+    // this assertion would be vacuously 1.)
+    expect(result.emitted.length).toBeGreaterThan(1);
+    // Cross-chunk rollback: the SECOND flush's collision discards the WHOLE staging
+    // tree, including a.ts's content the FIRST (already-succeeded) flush staged —
+    // nothing commits from either chunk.
     expect(result.tree.size).toEqual(0);
 
     // The mixed batch was genuinely built and flushed (not skipped/mismeasured) — the
