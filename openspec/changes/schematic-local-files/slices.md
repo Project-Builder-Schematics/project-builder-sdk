@@ -31,22 +31,27 @@ NO `collection.json` ancestor fails loud pre-body (RBV-06.1 sentinel ordering); 
 oversized `templateFile` fails loud (`invalid-input`), never silently copies.
 
 ### Tasks
-- [ ] S-000.1 `RunContext` gains `packageDir`/`packageRoot` fields (`context.ts`, ADR-0046)
-- [ ] S-000.2 `defineFactory`: eager `collection.json` ancestor walk at the existing
+- [x] S-000.1 `RunContext` gains `packageDir`/`packageRoot` fields (`context.ts`, ADR-0046)
+- [x] S-000.2 `defineFactory`: eager `collection.json` ancestor walk at the existing
       pre-`als.run` chokepoint; missing ancestor → `invalid-input` fail-loud, pre-body
-- [ ] S-000.3 Migration: seed a `collection.json` marker in `test/fixtures/typed-factory/`,
+- [x] S-000.3 Migration: seed a `collection.json` marker in `test/fixtures/typed-factory/`,
       `test/fixtures/harness-opted-in/`, and each of the 7 temp-dir suites (ADR-0046 A2:
       `canary-no-echo`, `run-boundary-validation`, `reserved-lifecycle-names`,
-      `harness-opted-in`, `harness-in-memory-invariant`, `fit-12`, `fit-16`)
-- [ ] S-000.4 `src/scaffold/index.ts`: `readTemplateFile` — stat + read relative to
+      `harness-opted-in`, `harness-in-memory-invariant`, `fit-12`, `fit-16`) — executed as
+      5 real edits + 2 verified no-ops (see apply-progress: `harness-in-memory-invariant`
+      never opts into `packageDir`; `fit-12`/`fit-16` never invoke `defineFactory` at
+      runtime — both licensed no-ops per Executor Context §14's own escape clause)
+- [x] S-000.4 `src/scaffold/index.ts`: `readTemplateFile` — stat + read relative to
       `packageDir`, minimal sniff gate (whole-file UTF-8 + no null + budget, reused fully
       by S-001's classifier)
-- [ ] S-000.5 `commons`: `create(path, {templateFile, options, force?})` overload → existing
+- [x] S-000.5 `commons`: `create(path, {templateFile, options, force?})` overload → existing
       `create` directive; fail-loud `invalid-input` on sniff-fail (REQ-FEH-02)
-- [ ] S-000.6 `dry-run/plan.ts`: `DryRunEntry.kind?: "rendered"|"copied"`; `create` →
+- [x] S-000.6 `dry-run/plan.ts`: `DryRunEntry.kind?: "rendered"|"copied"`; `create` →
       `"rendered"`
-- [ ] S-000.7 `test/e2e/scaffold.e2e.test.ts` (new): happy-path render + fail-loud, through
-      fake + `dryRun()`
+- [x] S-000.7 `test/e2e/scaffold.e2e.test.ts` (new): happy-path render + fail-loud, through
+      fake + `dryRun()` — plus `test/scaffold/run-boundary.test.ts` (new, not named in this
+      task but required by this slice's own PRC-02.1/PRC-03.1/RBV-06.1 Covers entries per
+      design's Test Derivation table)
 
 ---
 
