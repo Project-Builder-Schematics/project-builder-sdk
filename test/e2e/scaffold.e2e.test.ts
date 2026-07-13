@@ -90,6 +90,21 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
     expect(err.message).not.toEqual("body-ran");
   });
 
+  it("REQ-FEH-01.1 (judgment-day iteration 2 fix): a BOM-prefixed templateFile preserves the BOM in the emitted create directive's template — exact content, never stripped", async () => {
+    const dir = scratchDir();
+    const content = "\uFEFFexport const x = 1;";
+    writeFileSync(join(dir, "bom.ts.template"), content, "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const run = defineFactory<void>(() => {
+      create("dest.ts", { templateFile: "bom.ts.template", options: {} });
+    }, { packageDir: dir });
+
+    await run(undefined, { client: fake });
+
+    expect(fake.committedTree()).toEqual(new Map([["dest.ts", content]]));
+  });
+
   it("S-005 (containment-routed): a templateFile that does not exist rejects source-not-found, naming the package-relative path (ENOENT branch)", async () => {
     const dir = scratchDir();
     const fake = new ContractFake({ seed: {} });
@@ -259,6 +274,22 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
     );
   });
 
+  it("REQ-FEH-01.1 (judgment-day iteration 2 fix): a BOM-prefixed file scaffolded by-value preserves the BOM — exact content, never stripped", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    const content = "\uFEFFexport const a = 1;";
+    writeFileSync(join(dir, "files", "bom.ts"), content, "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const run = defineFactory<void>(() => {
+      scaffold({ from: "files", to: "out" });
+    }, { packageDir: dir });
+
+    await run(undefined, { client: fake });
+
+    expect(fake.committedTree()).toEqual(new Map([["out/bom.ts", content]]));
+  });
+
   it("REQ-FSC-04.1: a truly-empty source folder no-ops — zero directives, no error", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "empty"));
@@ -326,6 +357,37 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
     expect(caught).toBeInstanceOf(AuthoringError);
     expect((caught as AuthoringError).reason).toEqual("invalid-input");
     expect((caught as Error).message).toContain("logo.svg.template");
+    expect(fake.committedTree().size).toEqual(0);
+  });
+
+  it("REQ-PRC-10.3 (judgment-day iteration 2 fix): a 'from' that is a regular file rejects AuthoringError, never a raw ENOTDIR leaking an absolute path", async () => {
+    const dir = scratchDir();
+    writeFileSync(join(dir, "config.json"), "{}", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "config.json", to: "out" });
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(AuthoringError);
+    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expect((caught as Error).message).toContain("config.json");
+    expect((caught as Error).message).not.toContain(dir);
+    expect(fake.committedTree().size).toEqual(0);
+  });
+
+  it("REQ-PRC-10.3 (judgment-day iteration 2 fix): a 'from' that does not exist rejects AuthoringError, never a raw ENOENT leaking an absolute path", async () => {
+    const dir = scratchDir();
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "does-not-exist", to: "out" });
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(AuthoringError);
+    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expect((caught as Error).message).toContain("does-not-exist");
+    expect((caught as Error).message).not.toContain(dir);
     expect(fake.committedTree().size).toEqual(0);
   });
 
