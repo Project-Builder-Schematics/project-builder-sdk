@@ -44,8 +44,19 @@ function hasBinaryMagicBytes(latin1Text: string): boolean {
 // quoted JSON string VALUE beginning with a leading slash is an absolute-path leak.
 const ABS_PATH_VALUE_RE = /:\s*"(\/[^"]*)"/g;
 
+// False-positive guard (author-emulation-e2e-scaffold, S-003): a genuine absolute
+// filesystem path (`/etc/passwd`, `/Users/...`) never contains a literal space or an
+// escaped newline. A `create.template` string VALUE that merely happens to start with
+// "/" (e.g. a "// Illustrative ..." comment opener in the author-emulation fixture's own
+// template content) does contain both, and is prose, not a path leak — the naive scan
+// mistook it for one since `[^"]*` also mismatches ANY escaped quote inside the value as
+// the terminator, cutting the "match" off mid-sentence at a `\"` it treated as closing.
+function isPlausibleAbsolutePath(candidate: string): boolean {
+  return !candidate.includes(" ") && !candidate.includes("\\n");
+}
+
 function absolutePathStrings(text: string): string[] {
-  return [...text.matchAll(ABS_PATH_VALUE_RE)].map((m) => m[1]!);
+  return [...text.matchAll(ABS_PATH_VALUE_RE)].map((m) => m[1]!).filter(isPlausibleAbsolutePath);
 }
 
 // Timestamp (ISO-8601) and UUID shapes — neither may survive into a deterministic record.
@@ -107,6 +118,15 @@ describe("FIT-24 — corpus purity (no binary / absolute-path / nondeterministic
   // RED-PROOF (no false positive): plain package-relative paths are never flagged.
   it("[red-proof] a package-relative path is NOT flagged as absolute", () => {
     const text = `{"path": "src/scaffold/index.ts"}`;
+    expect(absolutePathStrings(text)).toEqual([]);
+  });
+
+  // RED-PROOF (no false positive): a `create.template` string value starting with a
+  // "//"-comment opener and containing an escaped quote (the author-emulation fixture's
+  // own committed template content, e.g. `m-04.rename-chained-token.transcript.json`) is
+  // never mistaken for an absolute-path leak, even though it lexically starts with "/".
+  it('[red-proof] a "// comment"-style template value with an embedded escaped quote is NOT flagged as absolute', () => {
+    const text = `{"template": "// Illustrative \\"wiring\\" text ONLY\\nimport { x } from \\"y\\";\\n"}`;
     expect(absolutePathStrings(text)).toEqual([]);
   });
 });

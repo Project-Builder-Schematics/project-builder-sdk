@@ -92,20 +92,46 @@ function walkReachable(entryFiles: readonly string[]): Set<string> {
   return visited;
 }
 
-// Any fs-write call site whose source ALSO mentions the corpus dir path is a violation —
-// requiring co-occurrence avoids flagging unrelated write helpers (e.g. scratch-dir
-// helpers) that write elsewhere. Scoped to "corpus" ONLY — the gitignored reports dir is
-// deliberately excluded (FIT-27 must not over-reach onto it).
-const WRITE_CALL_RE = /\bwriteFileSync\s*\(|\.writeFile\s*\(|\bappendFileSync\s*\(|\bBun\.write\s*\(/;
+// A write call's OWN argument list mentioning the corpus dir path is a violation —
+// scoped to the CALL SITE's arguments (paren-depth-aware, not whole-file co-occurrence)
+// so a file that legitimately writes elsewhere (e.g. this suite's own report-writing,
+// REPORTS_DIR-targeted) while merely also REFERENCING the corpus dir path for an
+// unrelated read/compare is never flagged — that used to be a false-positive trigger
+// once S-003 added real report-writing to the e2e file (which reads CORPUS_DIR to
+// compare AND writes report files in the same module). Scoped to "corpus" ONLY — the
+// gitignored reports dir is deliberately excluded (FIT-27 must not over-reach onto it).
+const WRITE_CALL_RE = /\bwriteFileSync\s*\(|\.writeFile\s*\(|\bappendFileSync\s*\(|\bBun\.write\s*\(/g;
 const CORPUS_PATH_RE = /author-emulation\/corpus/;
 
 interface WriteViolation {
   file: string;
 }
 
+/** Paren-depth-aware extraction of a call's full argument-list text, starting at the
+ * `(` immediately following the matched call name. */
+function extractCallArgs(source: string, callMatchIndex: number): string {
+  const openParenIndex = source.indexOf("(", callMatchIndex);
+  if (openParenIndex === -1) return "";
+  let depth = 0;
+  for (let i = openParenIndex; i < source.length; i++) {
+    if (source[i] === "(") depth++;
+    else if (source[i] === ")") {
+      depth--;
+      if (depth === 0) return source.slice(openParenIndex + 1, i);
+    }
+  }
+  return source.slice(openParenIndex + 1); // unterminated (shouldn't happen in valid TS)
+}
+
 function writesToCorpusDir(source: string): boolean {
   const withoutComments = stripComments(source);
-  return WRITE_CALL_RE.test(withoutComments) && CORPUS_PATH_RE.test(withoutComments);
+  for (const match of withoutComments.matchAll(WRITE_CALL_RE)) {
+    const args = extractCallArgs(withoutComments, match.index);
+    if (CORPUS_PATH_RE.test(args)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function findCorpusWriteViolations(files: Iterable<string>): WriteViolation[] {
@@ -153,6 +179,20 @@ describe("FIT-27 — anti-tautology static scan (no test-reachable corpus writer
   // RED-PROOF (no false positive): a write call unrelated to the corpus dir is not flagged.
   it("[red-proof] a write call targeting an unrelated path is NOT flagged", () => {
     const source = `import { writeFileSync } from "node:fs";\nwriteFileSync("scratch/foo.txt", "x");`;
+    expect(writesToCorpusDir(source)).toBe(false);
+  });
+
+  // RED-PROOF (no false positive, S-003): a module that WRITES elsewhere (e.g. the
+  // reports dir) while merely REFERENCING the corpus dir path elsewhere in the same file
+  // (for an unrelated read/compare) is not flagged — the check is scoped to the write
+  // call's OWN argument list, not whole-file co-occurrence.
+  it("[red-proof] a write call targeting an unrelated path, in a file that ALSO references the corpus dir path for an unrelated read, is NOT flagged", () => {
+    const source = `
+import { readFileSync, writeFileSync } from "node:fs";
+const CORPUS_DIR = "./author-emulation/corpus/";
+const committed = readFileSync(CORPUS_DIR + "m-01.transcript.json", "utf-8");
+writeFileSync("test/e2e/author-emulation/reports/m-01.report.md", "report text");
+`;
     expect(writesToCorpusDir(source)).toBe(false);
   });
 });
