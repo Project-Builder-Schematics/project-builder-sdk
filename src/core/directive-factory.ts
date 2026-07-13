@@ -36,6 +36,12 @@ export interface CopyArgs {
   force?: boolean;
 }
 
+export interface CopyInArgs {
+  from: string;
+  to: string;
+  force?: boolean;
+}
+
 // Key-omission semantics are spec-pinned: `"force" in directive === false` when undefined —
 // never emit `force: undefined`.
 export function forceEntry(force: boolean | undefined): { force?: boolean } {
@@ -91,6 +97,20 @@ export class DirectiveFactory {
     return {
       op: "copy",
       copy: {
+        from: a.from,
+        to: a.to,
+        ...forceEntry(a.force),
+      },
+    };
+  }
+
+  // `copyIn` mirrors `copy` exactly (ADR-0043) — the distinction is entirely in the `op`
+  // name (package-read trust domain, REQ-BRC-02) and what the engine does with `from` at
+  // apply time (resolves against packageDir, not tree-relative).
+  copyIn(a: CopyInArgs): Directive {
+    return {
+      op: "copyIn",
+      copyIn: {
         from: a.from,
         to: a.to,
         ...forceEntry(a.force),

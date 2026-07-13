@@ -1,9 +1,9 @@
 /**
- * REQ-FSC-02/04/06 (S-001, design §Test Derivation): the expander's fan-out — mirrored
- * structure under `to` (REQ-FSC-02), the zero-entries-no-op vs filters-eliminate-all
- * distinction (REQ-FSC-04), and `force` pass-through to every emitted directive
- * (REQ-FSC-06.1 only — no by-reference fixture exists yet in this slice, REQ-FSC-06.2's
- * mixed by-value/by-reference collision scenario is S-003 scope). Integration level
+ * REQ-FSC-02/04/06 (S-001/S-003, design §Test Derivation): the expander's fan-out —
+ * mirrored structure under `to` (REQ-FSC-02), the zero-entries-no-op vs
+ * filters-eliminate-all distinction (REQ-FSC-04), and `force` pass-through to every
+ * emitted directive: REQ-FSC-06.1 (by-value only) plus REQ-FSC-06.2 (S-003 — mixed
+ * by-value/by-reference collision, now that `copyIn` emission exists). Integration level
  * (design): drives `runScaffold` through a real `defineFactory` run against a
  * `ContractFake`.
  *
@@ -131,6 +131,47 @@ describe("REQ-FSC-06.1 — force: true passes to every emitted directive", () =>
 
     expect(caught).toBeInstanceOf(AuthoringError);
     expect((caught as AuthoringError).reason).toEqual("path-collision");
+  });
+});
+
+describe("REQ-FSC-06.2 — scaffold-level collision: mixed by-value/by-reference, with and without force", () => {
+  it("a binary (by-reference) destination collision rejects without force; the same scaffold with force: true overwrites both entries", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "text.ts"), "export const a = 1;", "utf-8");
+    writeFileSync(join(dir, "files", "binary.png"), Buffer.from([0x89, 0x00, 0x50, 0x4e]));
+    const fakeNoForce = new ContractFake({ seed: { "out/binary.png": "pre-existing" } });
+
+    const runNoForce = defineFactory<void>(() => {
+      scaffold({ from: "files", to: "out" });
+    }, { packageDir: dir });
+
+    let caught: unknown;
+    try {
+      await runNoForce(undefined, { client: fakeNoForce });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(AuthoringError);
+    expect((caught as AuthoringError).reason).toEqual("path-collision");
+    expect((caught as AuthoringError).verb).toEqual("copyIn");
+    expect(fakeNoForce.committedTree().size).toEqual(0);
+
+    const fakeForce = new ContractFake({ seed: { "out/binary.png": "pre-existing", "out/text.ts": "stale" } });
+    const runForce = defineFactory<void>(() => {
+      scaffold({ from: "files", to: "out", force: true });
+    }, { packageDir: dir });
+
+    await runForce(undefined, { client: fakeForce });
+
+    // The by-value entry overwrote its stale seed (force wiring, REQ-FSC-06.1); the
+    // by-reference entry's collision was force-overwritten too (no rejection) but never
+    // lands bytes in result.tree (BRC-04/Q21, emit-only — REQ-FSC-06.2's own point: BOTH
+    // entries are overwrite-eligible under the single scaffold-level flag, even though
+    // only the by-value one is byte-observable here).
+    expect(fakeForce.committedTree().get("out/text.ts")).toEqual("export const a = 1;");
+    expect(fakeForce.committedTree().has("out/binary.png")).toBe(false);
   });
 });
 

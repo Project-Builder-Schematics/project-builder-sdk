@@ -8,7 +8,7 @@ import { forceEntry } from "../core/directive-factory.ts";
 import type { FoundHandle, WritableHandle } from "../core/handle-state.ts";
 import { AuthoringError } from "../core/authoring-error.ts";
 import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../core/authoring-error.ts";
-import { readTemplateFile, runScaffold } from "../scaffold/index.ts";
+import { readTemplateFile, runScaffold, runCopyIn } from "../scaffold/index.ts";
 import type { ScaffoldArgs } from "../scaffold/index.ts";
 
 export type { FoundHandle, WritableHandle };
@@ -235,6 +235,34 @@ export function scaffold(args: ScaffoldOptions): void {
 }
 
 /**
+ * Emits a by-reference copy of ONE package-local file (`from`, resolved against the active
+ * run's `packageDir`) to `to` — ALWAYS by-reference, NEVER classified or rendered
+ * (REQ-FEH-03), regardless of the source's own text-vs-binary shape: a text asset
+ * containing `{= =}`-like sequences (that `scaffold` would otherwise render as tokens)
+ * travels verbatim — the documented escape from `scaffold`'s by-value classification
+ * (`content-classification` REQ-CCL-04). Contrast with tree→tree `copy`: `copyIn`'s source
+ * is a PACKAGE-LOCAL path read at emission time, not an existing tree entry.
+ *
+ * `from`/`to` are mandatory; `force` defaults `false`. A missing `from`/`to` rejects
+ * fail-loud before any emission (REQ-FEH-04.1/.2). Collision without `force` rejects;
+ * `force: true` overwrites (`by-reference-copy-wire` REQ-BRC-05). Only usable inside a
+ * `defineFactory({ packageDir })` run — there is no resolution anchor to read a
+ * package-local file against otherwise (`invalid-input`, never a cwd fallback).
+ *
+ * Returns `void` (REQ-FEH-04.3) — NOT a `WritableHandle`, unlike `copy`: a by-reference
+ * destination's bytes exist only after the ENGINE applies the directive (the fake never
+ * materializes them, `author-test-harness` REQ-ATH-15) — a handle chaining over tree
+ * CONTENT would lie about content that was never staged. This asymmetry with `copy`
+ * (which DOES stage tree→tree content the fake can chain over) is deliberate.
+ *
+ * @example
+ * copyIn("assets/logo.svg", "src/generated/logo.svg");
+ */
+export function copyIn(from: string, to: string, opts?: { force?: boolean }): void {
+  runCopyIn({ from, to, force: opts?.force });
+}
+
+/**
  * Schedules an in-place content replacement for an existing file and returns a `WritableHandle`.
  * A rejected run (e.g. the target does not exist) throws `AuthoringError`.
  *
@@ -320,7 +348,9 @@ export type { DryRunEntry, DryRunVerb };
  * run still emit", not "what has this run emitted in total." A `read()` (or any flush)
  * empties the pending buffer, so directives already flushed no longer appear.
  *
- * Entries carry `verb` and `path` only — no content or byte preview.
+ * Entries carry verb and path — no content or byte preview — plus an optional `kind`
+ * (`"rendered" | "copied"`) present only on content-materializing entries: `create`
+ * (inline or `templateFile`) and `copyIn`.
  *
  * Call it inside an active `defineFactory` run, like every other `./commons` verb.
  *

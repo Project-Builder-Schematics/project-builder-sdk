@@ -14,6 +14,11 @@
  * throwing fail-loud (temporary — S-003 swaps this for real `copyIn` emission). Covers
  * (slices.md S-001): FSC-01..05, FSC-07..09, CCL-01..06 (through the e2e happy path +
  * fail-loud arms), AEC-12 (remaining fixtures).
+ *
+ * S-003 swaps the by-reference fail-loud throw for real `copyIn` emission and adds the
+ * `copyIn(from, to, {force})` escape-hatch OUTER LOOP (Flow Changes table): a mixed
+ * by-value/by-reference scaffold commits both, and a standalone `copyIn` call always
+ * copies verbatim, never renders (FEH-03/04/05, BRC-*, PRC-*).
  */
 import { describe, it, expect } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -21,7 +26,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, scaffold, dryRun, AuthoringError } from "../../src/commons/index.ts";
+import { create, scaffold, copyIn, dryRun, AuthoringError } from "../../src/commons/index.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 
 function packageDir(): string {
@@ -322,27 +327,30 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
     }
   });
 
-  it("classifier's by-reference verdict throws fail-loud in this slice (temporary — S-003 swaps this for real copyIn emission)", async () => {
+  it("S-003: classifier's by-reference verdict emits a real copyIn directive — mixed scaffold commits the by-value file and dry-run tags each entry with its own kind", async () => {
     const dir = packageDir();
     try {
       mkdirSync(join(dir, "files"));
+      writeFileSync(join(dir, "files", "text.ts"), "export const a = 1;", "utf-8");
       writeFileSync(join(dir, "files", "asset.png"), Buffer.from([0x89, 0x00, 0x50, 0x4e]));
       const fake = new ContractFake({ seed: {} });
 
       const run = defineFactory<void>(() => {
-        scaffold({ from: "files", to: "out" });
+        const result = scaffold({ from: "files", to: "out" });
+        expect(result).toBeUndefined(); // REQ-FSC-07.1: scaffold still returns void
+
+        const plan = dryRun();
+        expect(plan).toEqual([
+          { verb: "copyIn", path: "files/asset.png", kind: "copied" },
+          { verb: "create", path: "out/text.ts", kind: "rendered" },
+        ]);
       }, { packageDir: dir });
 
-      let caught: unknown;
-      try {
-        await run(undefined, { client: fake });
-      } catch (err) {
-        caught = err;
-      }
+      await run(undefined, { client: fake });
 
-      expect(caught).toBeInstanceOf(AuthoringError);
-      expect((caught as AuthoringError).reason).toEqual("invalid-input");
-      expect(fake.committedTree().size).toEqual(0);
+      // REQ-BRC-04/Q21: the by-reference entry's bytes never land in result.tree — only
+      // the by-value file is byte-observable.
+      expect(fake.committedTree()).toEqual(new Map([["out/text.ts", "export const a = 1;"]]));
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -413,6 +421,108 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
 
     const run = defineFactory<void>(() => {
       scaffold({ from: "files", to: "out" });
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client: fake });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(AuthoringError);
+    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
+    expect(fake.committedTree().size).toEqual(0);
+  });
+});
+
+describe("e2e — copyIn(from, to, { force }) escape hatch (S-003)", () => {
+  it("REQ-FEH-03.1 + REQ-DRE-05.2: copies a text file verbatim, unrendered — dry-run tags it 'copied', never lands in result.tree", async () => {
+    const dir = packageDir();
+    try {
+      writeFileSync(join(dir, "literal.txt"), "{= this looks like a token =}", "utf-8");
+      const fake = new ContractFake({ seed: {} });
+
+      const run = defineFactory<void>(() => {
+        const result = copyIn("literal.txt", "dest/literal.txt");
+        expect(result).toBeUndefined(); // REQ-FEH-04.3: copyIn returns void
+
+        expect(dryRun()).toEqual([{ verb: "copyIn", path: "literal.txt", kind: "copied" }]);
+      }, { packageDir: dir });
+
+      await run(undefined, { client: fake });
+
+      // REQ-BRC-04/Q21: never materialized, even though the source is plain text.
+      expect(fake.committedTree().size).toEqual(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("REQ-BRC-06.1: a missing package-local source rejects fail-loud with reason source-not-found", async () => {
+    const dir = packageDir();
+    try {
+      const fake = new ContractFake({ seed: {} });
+
+      const run = defineFactory<void>(() => {
+        copyIn("missing.svg", "dest/missing.svg");
+      }, { packageDir: dir });
+
+      let caught: unknown;
+      try {
+        await run(undefined, { client: fake });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(AuthoringError);
+      expect((caught as AuthoringError).reason).toEqual("source-not-found");
+      expect(fake.committedTree().size).toEqual(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("REQ-FEH-04.1/.2: missing 'to' or 'from' rejects fail-loud before any emission", async () => {
+    const dir = packageDir();
+    try {
+      writeFileSync(join(dir, "asset.svg"), "<svg/>", "utf-8");
+      const fake = new ContractFake({ seed: {} });
+
+      const runNoTo = defineFactory<void>(() => {
+        copyIn("asset.svg", undefined as unknown as string);
+      }, { packageDir: dir });
+      let caughtNoTo: unknown;
+      try {
+        await runNoTo(undefined, { client: fake });
+      } catch (err) {
+        caughtNoTo = err;
+      }
+      expect(caughtNoTo).toBeInstanceOf(AuthoringError);
+      expect((caughtNoTo as AuthoringError).reason).toEqual("invalid-input");
+
+      const runNoFrom = defineFactory<void>(() => {
+        copyIn(undefined as unknown as string, "dest/asset.svg");
+      }, { packageDir: dir });
+      let caughtNoFrom: unknown;
+      try {
+        await runNoFrom(undefined, { client: fake });
+      } catch (err) {
+        caughtNoFrom = err;
+      }
+      expect(caughtNoFrom).toBeInstanceOf(AuthoringError);
+      expect((caughtNoFrom as AuthoringError).reason).toEqual("invalid-input");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("design §Data Model 'no resolution anchor': copyIn inside a bare defineFactory(fn) run fails loud, never falls back to cwd", async () => {
+    const fake = new ContractFake({ seed: {} });
+
+    const run = defineFactory<void>(() => {
+      copyIn("asset.svg", "dest/asset.svg");
     });
 
     let caught: unknown;

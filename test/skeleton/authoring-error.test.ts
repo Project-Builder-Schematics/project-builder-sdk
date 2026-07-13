@@ -9,7 +9,7 @@ import { describe, it, expect } from "bun:test";
 import { toAuthoringError, AuthoringError, type AuthoringReason, type AuthoringVerb } from "../../src/core/authoring-error.ts";
 import { EmitRejection, type EmitRejectionCode } from "../../src/core/emit-rejection.ts";
 import type { Batch } from "../../src/core/wire.ts";
-import { batchOf, createOp, modifyOp, deleteOp, renameOp, copyOp, moveOp } from "../fake/directive-builders.ts";
+import { batchOf, createOp, modifyOp, deleteOp, renameOp, copyOp, moveOp, copyInOp } from "../fake/directive-builders.ts";
 
 function rejectAt(batch: Batch, code: EmitRejectionCode, failedIndex: number): AuthoringError {
   const rejection = new EmitRejection(code, "decoy message text — irrelevant to classification", {
@@ -34,6 +34,7 @@ describe("REQ-AEC-01.1 — every directive-level family classifies to its exact 
     { label: "rename-source-not-found", batch: batchOf(renameOp("a.ts", "b.ts")), code: "not-found", verb: "rename", path: "a.ts", reason: "path-not-found" },
     { label: "copy-collision", batch: batchOf(copyOp("a.ts", "b.ts")), code: "collision", verb: "copy", path: "a.ts", reason: "path-collision" },
     { label: "copy-source-not-found", batch: batchOf(copyOp("a.ts", "b.ts")), code: "not-found", verb: "copy", path: "a.ts", reason: "path-not-found" },
+    { label: "copyIn-collision", batch: batchOf(copyInOp("a.ts", "b.ts")), code: "collision", verb: "copyIn", path: "a.ts", reason: "path-collision" },
     { label: "move-collision", batch: batchOf(moveOp("a.ts", "dir")), code: "collision", verb: "move", path: "a.ts", reason: "path-collision" },
     { label: "move-source-not-found", batch: batchOf(moveOp("a.ts", "dir")), code: "not-found", verb: "move", path: "a.ts", reason: "path-not-found" },
   ];
@@ -259,5 +260,14 @@ describe('REQ-10.2 — the wire op "delete" translates to author verb "remove"',
   it("a directive with wire op delete derives author verb remove, never delete — translation-layer verb-map proof (remove never rejects live, REQ-16 non-site)", () => {
     const err = rejectAt(batchOf(deleteOp("a.ts")), "collision", 0);
     expect(err.verb).toEqual("remove");
+  });
+});
+
+describe('A1 — a copyIn destination collision attributes verb:"copyIn", path: copyIn.from', () => {
+  it("copyIn collision — verb is 'copyIn' (the author never called 'copy'), path is the SOURCE side per the frozen primaryPath table", () => {
+    const err = rejectAt(batchOf(copyInOp("assets/logo.svg", "dest/logo.svg")), "collision", 0);
+    expect(err.verb).toEqual("copyIn");
+    expect(err.path).toEqual("assets/logo.svg");
+    expect(err.reason).toEqual("path-collision");
   });
 });

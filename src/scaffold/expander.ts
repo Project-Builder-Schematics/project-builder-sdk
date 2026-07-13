@@ -1,9 +1,9 @@
 // src/scaffold/expander.ts (ADR-0044): the SINGLE owner of the scaffold fan-out — drives
-// `walk.ts` → `filename-pipeline.ts` → `classify-transport.ts` → emits `factory.create(...)`
-// directives via the run's session (Executor Context §18). `classify-transport.ts` stays a
-// PURE per-file decision; a by-reference VERDICT is handled HERE, not there — in S-001
-// (no `copyIn` wire op yet) a by-reference verdict fails loud. S-003.3 swaps this exact
-// throw site for real `factory.copyIn(...)` emission.
+// `walk.ts` → `filename-pipeline.ts` → `classify-transport.ts` → emits `factory.create(...)`/
+// `factory.copyIn(...)` directives via the run's session (Executor Context §18).
+// `classify-transport.ts` stays a PURE per-file decision; a by-reference VERDICT is handled
+// HERE, not there. S-003: the by-reference verdict now emits a real `copyIn` directive
+// (`from` package-relative, REQ-BRC-07) instead of S-001/S-002's fail-loud placeholder throw.
 //
 // S-004 (batch-cap chunked flush, REQ-04/05): the expander maintains a serialized-size
 // accumulator over the CURRENT `session` pending buffer and calls `session.flush()`
@@ -67,13 +67,6 @@ function filtersEliminatedEverythingMessage(include: string[] | undefined, exclu
   return (
     `invalid input: scaffold filters eliminated every entry — ` +
     `include: ${JSON.stringify(include ?? [])}, exclude: ${JSON.stringify(exclude ?? [])}`
-  );
-}
-
-function byReferenceNotYetSupportedMessage(relPath: string): string {
-  return (
-    `invalid input: source "${relPath}" classified by-reference — by-reference copy is not ` +
-    "yet available in this build (temporary restriction, landed in a later slice)"
   );
 }
 
@@ -159,19 +152,27 @@ export function runScaffold(args: ScaffoldArgs): void {
       isTemplateMarked: result.isTemplateMarked,
     });
 
-    if (verdict.verdict === "by-reference") {
-      throw invalidInput(byReferenceNotYetSupportedMessage(sourceRelPath));
-    }
-
     const destPath = posix.join(toPrefix, result.destRelPath);
     validateDestinationLexical(destPath);
 
-    const directive = factory.create({
-      pathTemplate: destPath,
-      template: verdict.content!,
-      options: args.options ?? {},
-      ...forceEntry(args.force),
-    });
+    // S-003: a by-reference verdict emits a real `copyIn` directive — `from` is the
+    // package-relative source path (REQ-BRC-07), never the resolved absolute path;
+    // containment already validated this source inside `classifyTransport`
+    // (`validateSourceContainment` runs BEFORE the stat/sniff/budget gates, REQ-PRC-08),
+    // so no second containment check is needed here.
+    const directive =
+      verdict.verdict === "by-value"
+        ? factory.create({
+            pathTemplate: destPath,
+            template: verdict.content!,
+            options: args.options ?? {},
+            ...forceEntry(args.force),
+          })
+        : factory.copyIn({
+            from: sourceRelPath,
+            to: destPath,
+            ...forceEntry(args.force),
+          });
 
     // REQ-04: if adding this directive to the CURRENTLY pending (not-yet-flushed) group
     // would push its serialized batch over the cap, flush the existing group first — never

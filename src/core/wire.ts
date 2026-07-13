@@ -31,7 +31,12 @@ export type Directive =
   | { op: "delete"; delete: { path: string } }
   | { op: "rename"; rename: { path: string; newName: string; force?: boolean } }
   | { op: "move"; move: { path: string; toDir: string; force?: boolean } }
-  | { op: "copy"; copy: { from: string; to: string; force?: boolean } };
+  | { op: "copy"; copy: { from: string; to: string; force?: boolean } }
+  // ADR-0043: by-reference package-local copy — additive 7th op. `from` is relative to the
+  // RESOLUTION anchor (packageDir), never absolute (REQ-BRC-07); no content field — the
+  // engine reads and copies the source at apply time, text-only invariant preserved
+  // (ADR-0019 amendment).
+  | { op: "copyIn"; copyIn: { from: string; to: string; force?: boolean } };
 
 /**
  * The all-or-nothing wire envelope the SDK emits per `emit()` call — a fixed-order set of

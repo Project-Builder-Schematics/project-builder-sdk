@@ -18,12 +18,16 @@ import { EmitRejection, type EmitRejectionCode } from "./emit-rejection.ts";
  * `undefined` for batch-level rejections (`unrepresentable-content`,
  * `changes-too-large`, `unknown`), which have no single offending directive.
  *
+ * `schematic-local-files` S-003 (A1): extended from six to seven — `copyIn` added,
+ * forced by the `Directive["op"]` union gaining the `copyIn` wire op (ADR-0043); a
+ * `copyIn` collision attributes `verb: "copyIn"` (the author never called `copy`).
+ *
  * @example
  * if (err instanceof AuthoringError && err.verb !== undefined) {
  *   console.error(`${err.verb} was rejected at ${err.path}`);
  * }
  */
-export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" | "copy";
+export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" | "copy" | "copyIn";
 
 /**
  * The closed, author-vocabulary cause of an `AuthoringError` (★D2, ADR-0020). Exactly
@@ -150,6 +154,8 @@ function primaryPath(directive: Directive): string {
       return directive.move.path;
     case "copy":
       return directive.copy.from;
+    case "copyIn":
+      return directive.copyIn.from;
   }
 }
 

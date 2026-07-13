@@ -10,6 +10,8 @@ import { currentContext } from "../core/context.ts";
 import { AuthoringError } from "../core/authoring-error.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
 import { isErrnoException } from "../core/fs-errors.ts";
+import { forceEntry } from "../core/directive-factory.ts";
+import { validateSourceContainment, validateDestinationLexical } from "./containment.ts";
 
 // S-001: the folder-scaffold orchestrator lives in expander.ts (the single owner of the
 // walk → filename-pipeline → classify → emit fan-out, ADR-0044); re-exported here so
@@ -142,4 +144,69 @@ export function readTemplateFile(relPath: string): string {
   }
 
   return content;
+}
+
+function missingCopyInArgMessage(field: "from" | "to"): string {
+  return `invalid input: copyIn requires "${field}"`;
+}
+
+function noResolutionAnchorForCopyInMessage(): string {
+  return (
+    "invalid input: copyIn requires defineFactory({ packageDir }) — " +
+    "there is no resolution anchor to read a package-local file against"
+  );
+}
+
+/**
+ * Emits a by-reference copy of ONE package-local file (`from`, resolved against the active
+ * run's `packageDir`) to `to` (REQ-FEH-03/04) — ALWAYS by-reference, never classified or
+ * rendered: a text asset containing `{= =}`-like sequences travels verbatim, the documented
+ * escape from `scaffold`'s by-value classification (`content-classification` REQ-CCL-04).
+ * `from`/`to` are mandatory; a missing one rejects fail-loud before any emission
+ * (REQ-FEH-04.1/.2). Source containment (existence, in-ceiling, regular-file) is validated
+ * SDK-side against real disk BEFORE any directive is emitted — a missing/outside-package/
+ * non-regular source surfaces the matching `source-*` reason
+ * (`package-root-containment` REQ-PRC-04, `by-reference-copy-wire` REQ-BRC-06); content is
+ * never read (`copyIn` never classifies, REQ-FEH-03).
+ */
+export function runCopyIn(args: { from: string | undefined; to: string | undefined; force?: boolean }): void {
+  if (args.from === undefined) {
+    throw new AuthoringError({
+      verb: undefined,
+      path: undefined,
+      reason: "invalid-input",
+      appliedCount: 0,
+      message: missingCopyInArgMessage("from"),
+    });
+  }
+  if (args.to === undefined) {
+    throw new AuthoringError({
+      verb: undefined,
+      path: undefined,
+      reason: "invalid-input",
+      appliedCount: 0,
+      message: missingCopyInArgMessage("to"),
+    });
+  }
+
+  const ctx = currentContext();
+  const { packageDir, session, factory } = ctx;
+  if (packageDir === undefined) {
+    throw new AuthoringError({
+      verb: undefined,
+      path: undefined,
+      reason: "invalid-input",
+      appliedCount: 0,
+      message: noResolutionAnchorForCopyInMessage(),
+    });
+  }
+  // packageRoot is ALWAYS resolved together with packageDir (context.ts's pre-`als.run`
+  // chokepoint sets both or throws before either is set, ADR-0046) — no reachable
+  // RunContext has packageDir set with packageRoot left undefined.
+  const packageRoot = ctx.packageRoot!;
+
+  validateSourceContainment({ packageDir, packageRoot, relPath: args.from });
+  validateDestinationLexical(args.to);
+
+  session.buffer(factory.copyIn({ from: args.from, to: args.to, ...forceEntry(args.force) }));
 }
