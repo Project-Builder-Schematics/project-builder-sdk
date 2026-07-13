@@ -47,7 +47,9 @@ describe("dryRunPlan — unit: op mapping (REQ-04.1, REQ-04.2)", () => {
 
     const result = dryRunPlan([directive]);
 
-    expect(result).toEqual([{ verb: "create", path: "src/foo.ts" }] satisfies DryRunEntry[]);
+    expect(result).toEqual([
+      { verb: "create", path: "src/foo.ts", kind: "rendered" },
+    ] satisfies DryRunEntry[]);
   });
 
   it("REQ-04.2 — all six ops map correctly with their primary path", () => {
@@ -63,7 +65,7 @@ describe("dryRunPlan — unit: op mapping (REQ-04.1, REQ-04.2)", () => {
     const result = dryRunPlan(directives);
 
     expect(result).toEqual([
-      { verb: "create", path: "src/a.ts" },
+      { verb: "create", path: "src/a.ts", kind: "rendered" },
       { verb: "modify", path: "src/b.ts" },
       { verb: "remove", path: "src/c.ts" },
       { verb: "rename", path: "src/d.ts" },
@@ -95,7 +97,7 @@ describe("dryRunPlan — integration: snapshot from real Session (REQ-04.3)", ()
     const plan = dryRunPlan(snapshot);
 
     expect(plan).toEqual([
-      { verb: "create", path: "src/x.ts" },
+      { verb: "create", path: "src/x.ts", kind: "rendered" },
       { verb: "modify", path: "src/y.ts" },
     ] satisfies DryRunEntry[]);
   });

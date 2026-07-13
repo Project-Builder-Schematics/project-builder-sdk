@@ -23,7 +23,7 @@ describe("e2e — dry-run plan exposure (REQ-DRE-01.1, REQ-DRE-01.5)", () => {
       modify("src/b.ts", "content");
 
       expect(dryRun()).toEqual([
-        { verb: "create", path: "src/a.ts" },
+        { verb: "create", path: "src/a.ts", kind: "rendered" },
         { verb: "modify", path: "src/b.ts" },
       ]);
     });

@@ -42,15 +42,24 @@ export type DryRunVerb = "create" | "modify" | "remove" | "rename" | "move" | "c
  * One entry of a rendered dry-run plan: the author verb and the primary path the
  * operation targets. Carries no content or byte preview.
  *
+ * `kind` is present ONLY on content-materializing entries (REQ-DRE-05, additive field —
+ * the existing `{verb, path}` shape is unchanged): `"rendered"` for `create` (every
+ * `create` IS a render request, whether the template came from an inline string or a
+ * `templateFile` — indistinguishable in kind, REQ-DRE-05.3), `"copied"` for a
+ * by-reference entry. Derived purely from the wire op — total, deterministic — and
+ * ABSENT for `modify`/`remove`/`rename`/`move`/`copy`, none of which render or classify
+ * (tagging a plain `remove` "rendered" would be a lie).
+ *
  * @example
  * const plan = dryRun(); // from "@pbuilder/sdk/commons"
  * for (const entry of plan) {
- *   console.log(entry.verb, entry.path);
+ *   console.log(entry.verb, entry.path, entry.kind);
  * }
  */
 export interface DryRunEntry {
   verb: DryRunVerb;
   path: string;
+  kind?: "rendered" | "copied";
 }
 
 // Frozen six-row wire→author verb map — delete→remove, identity elsewhere. EXPORTED
@@ -84,7 +93,9 @@ export function dryRunPlan(snapshot: readonly Directive[]): DryRunEntry[] {
   return snapshot.map((d): DryRunEntry => {
     const verb = WIRE_TO_AUTHOR_VERB[d.op];
     switch (d.op) {
-      case "create": return { verb, path: d.create.pathTemplate };
+      // "rendered" — every `create` IS a render request, inline `template` or
+      // `templateFile` alike (REQ-DRE-05.3's indistinguishability).
+      case "create": return { verb, path: d.create.pathTemplate, kind: "rendered" };
       case "modify": return { verb, path: d.modify.path };
       case "delete": return { verb, path: d.delete.path };
       case "rename": return { verb, path: d.rename.path };

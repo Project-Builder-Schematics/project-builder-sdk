@@ -8,6 +8,7 @@ import { forceEntry } from "../core/directive-factory.ts";
 import type { FoundHandle, WritableHandle } from "../core/handle-state.ts";
 import { AuthoringError } from "../core/authoring-error.ts";
 import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../core/authoring-error.ts";
+import { readTemplateFile } from "../scaffold/index.ts";
 
 export type { FoundHandle, WritableHandle };
 // ADR-0023: AuthoringError (+ its supporting types) is an author-facing DATA type, not
@@ -34,6 +35,27 @@ export type { ContentState } from "./classify-content.ts";
  */
 export interface CreateOptions {
   template: string;
+  options: JsonValue;
+  force?: boolean;
+}
+
+/**
+ * Options for the `create({ templateFile })` render request — an explicit, package-local
+ * alternative to an inline `template` string (REQ-FEH-01). `templateFile` is a
+ * package-relative path (resolved against the active run's `packageDir`), read at
+ * emission time; its content becomes the `create` directive's `template` field —
+ * the existing `create` IR, zero wire change. `templateFile` REQUESTS a render: a binary
+ * or oversized source fails loud (`invalid-input`), it never silently falls back to a
+ * by-reference copy (REQ-FEH-02).
+ *
+ * @example
+ * const opts: CreateFromTemplateFileOptions = {
+ *   templateFile: "tpl.ts.template",
+ *   options: { name: "greeting" },
+ * };
+ */
+export interface CreateFromTemplateFileOptions {
+  templateFile: string;
   options: JsonValue;
   force?: boolean;
 }
@@ -136,9 +158,20 @@ export function find(path: string): FoundHandle {
  * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
  * rejected run throws `AuthoringError`.
  *
+ * `templateFile` is a THIRD overload (REQ-FEH-01): pass a package-local path instead of an
+ * inline `template` string — its content is read at emission time and becomes the
+ * directive's `template` field. `template` and `templateFile` are mutually exclusive forms;
+ * only usable inside a `defineFactory({ packageDir })` run (there is no resolution anchor
+ * to read a package-local file against otherwise — `invalid-input`, never a cwd fallback).
+ *
  * @example
  * create("src/index.ts", {
  *   template: "export const version = '{{version}}';",
+ *   options: { version: "1.0.0" },
+ * });
+ * @example
+ * create("src/index.ts", {
+ *   templateFile: "index.ts.template",
  *   options: { version: "1.0.0" },
  * });
  */
@@ -147,11 +180,13 @@ export function create<S>(
   opts: { template: string; options: { [K in keyof S]: S[K] }; force?: boolean }
 ): WritableHandle;
 export function create(path: string, opts: CreateOptions): WritableHandle;
-export function create(path: string, opts: CreateOptions): WritableHandle {
+export function create(path: string, opts: CreateFromTemplateFileOptions): WritableHandle;
+export function create(path: string, opts: CreateOptions | CreateFromTemplateFileOptions): WritableHandle {
   const { session, factory } = currentContext();
+  const template = "templateFile" in opts ? readTemplateFile(opts.templateFile) : opts.template;
   session.buffer(factory.create({
     pathTemplate: path,
-    template: opts.template,
+    template,
     options: opts.options,
     ...forceEntry(opts.force),
   }));
