@@ -149,7 +149,7 @@ describe("REQ-CCL-06 — stat-size gate before any content read", () => {
     const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "huge.bin", isTemplateMarked: false });
 
     expect(result.verdict).toEqual("by-reference");
-    expect(result.content).toBeUndefined();
+    expect("content" in result).toBe(false);
   });
 });
 

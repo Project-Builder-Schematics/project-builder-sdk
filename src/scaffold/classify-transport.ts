@@ -20,15 +20,27 @@
 import { readFileSync } from "node:fs";
 import { AuthoringError } from "../core/authoring-error.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
-import { isSniffableText } from "./index.ts";
 import { validateSourceContainment } from "./containment.ts";
 
 export type ClassificationVerdict = "by-value" | "by-reference";
 
-export interface ClassifyResult {
-  verdict: ClassificationVerdict;
-  /** Present ONLY for `verdict: "by-value"` — the file's decoded UTF-8 content. */
-  content?: string;
+export type ClassifyResult =
+  | { verdict: "by-value"; /** The file's decoded UTF-8 content. */ content: string }
+  | { verdict: "by-reference" };
+
+// REQ-CCL-01's whole-file sniff, scoped to what a render REQUEST needs (S-000): valid UTF-8
+// across the ENTIRE buffer (never a prefix sample — REQ-CCL-03) and no null byte anywhere.
+// Lives here (the classify leaf) so the module graph stays acyclic — `index.ts` re-exports
+// it for the historical `scaffold/index.ts` surface. A render request has no by-reference
+// fallback (REQ-FEH-02), it fails loud.
+export function isSniffableText(buf: Buffer): boolean {
+  if (buf.includes(0)) return false;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(buf);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function templateSniffFailMessage(relPath: string, problem: string): string {

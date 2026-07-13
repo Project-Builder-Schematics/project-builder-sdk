@@ -10,6 +10,7 @@ import { AuthoringError, invalidInput } from "../core/authoring-error.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
 import { forceEntry } from "../core/directive-factory.ts";
 import { validateSourceContainment, validateDestinationLexical } from "./containment.ts";
+import { isSniffableText } from "./classify-transport.ts";
 
 // S-001: the folder-scaffold orchestrator lives in expander.ts (the single owner of the
 // walk → filename-pipeline → classify → emit fan-out, ADR-0044); re-exported here so
@@ -32,19 +33,10 @@ function templateFileOversizedMessage(relPath: string): string {
   return `invalid input: templateFile "${relPath}" exceeds the serialized frame budget`;
 }
 
-// REQ-CCL-01's whole-file sniff, scoped to what a render REQUEST needs (S-000): valid UTF-8
-// across the ENTIRE buffer (never a prefix sample — REQ-CCL-03) and no null byte anywhere.
-// Reused fully by S-001's `classify-transport.ts`, which layers the by-value/by-reference
-// VERDICT on top — a render request has no by-reference fallback (REQ-FEH-02), it fails loud.
-export function isSniffableText(buf: Buffer): boolean {
-  if (buf.includes(0)) return false;
-  try {
-    new TextDecoder("utf-8", { fatal: true }).decode(buf);
-    return true;
-  } catch {
-    return false;
-  }
-}
+// REQ-CCL-01's whole-file sniff — moved into `classify-transport.ts` (the classify leaf)
+// to break the `index → expander → classify-transport → index` import cycle; re-exported
+// so this module's surface is unchanged.
+export { isSniffableText } from "./classify-transport.ts";
 
 /**
  * Reads a package-local file (relative to the active run's `packageDir`) and returns its

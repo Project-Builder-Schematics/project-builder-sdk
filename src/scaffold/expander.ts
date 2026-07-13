@@ -143,7 +143,7 @@ export function runScaffold(args: ScaffoldArgs): void {
       verdict.verdict === "by-value"
         ? factory.create({
             pathTemplate: destPath,
-            template: verdict.content!,
+            template: verdict.content,
             options: args.options ?? {},
             ...forceEntry(args.force),
           })
