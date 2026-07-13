@@ -19,7 +19,9 @@
 
 import { readFileSync } from "node:fs";
 import { AuthoringError, invalidInput } from "../core/authoring-error.ts";
-import { BATCH_CAP_BYTES } from "../core/wire.ts";
+import type { Directive, JsonValue } from "../core/wire.ts";
+import { BATCH_CAP_BYTES, serializedBatchSize } from "../core/wire.ts";
+import { forceEntry } from "../core/directive-factory.ts";
 import { validateSourceContainment } from "./containment.ts";
 
 export type ClassificationVerdict = "by-value" | "by-reference";
@@ -61,6 +63,16 @@ interface ClassifyParams {
   relPath: string;
   isTemplateMarked: boolean;
   /**
+   * The `pathTemplate`/`options`/`force` the caller would put on the `create` directive
+   * IF this source classifies by-value — REQUIRED, never defaulted, so the budget check
+   * below can never silently regress to a content-only measure (REQ-CCL-02: the budget is
+   * evaluated against the PROSPECTIVE emitted directive, matching the emit authority
+   * exactly — see the `serializedBatchSize` call below).
+   */
+  destPath: string;
+  options: JsonValue;
+  force?: boolean;
+  /**
    * Render-request mode (`create({templateFile})`, REQ-FEH-02): a failed gate throws
    * `invalid-input` with THESE caller-pinned message texts instead of degrading to a
    * by-reference verdict — the same fail-loud carve-out `.template`-marked entries get,
@@ -82,7 +94,7 @@ interface ClassifyParams {
 export function classifyTransport(params: ClassifyParams & { failMessages: { binary: string; oversized: string } }): { verdict: "by-value"; content: string };
 export function classifyTransport(params: ClassifyParams): ClassifyResult;
 export function classifyTransport(params: ClassifyParams): ClassifyResult {
-  const { packageDir, packageRoot, relPath, isTemplateMarked, failMessages, realCeiling } = params;
+  const { packageDir, packageRoot, relPath, isTemplateMarked, destPath, options, force, failMessages, realCeiling } = params;
 
   // The fail-loud message pair for a render REQUEST (either kind); undefined ⇒ a failed
   // gate is an ordinary by-reference verdict.
@@ -127,11 +139,20 @@ export function classifyTransport(params: ClassifyParams): ClassifyResult {
     return { verdict: "by-reference" };
   }
 
-  // Serialized-form budget (REQ-CCL-02): measured the same way the fake measures a batch
-  // (`Buffer.byteLength(JSON.stringify(x), "utf8")`), never raw bytes alone. `>` (not
-  // `>=`) — exactly-at-budget still fits (REQ-CCL-02.3).
-  const serializedSize = Buffer.byteLength(JSON.stringify(content), "utf8");
-  if (serializedSize > BATCH_CAP_BYTES) {
+  // Serialized-form budget (REQ-CCL-02): measured against the PROSPECTIVE `create`
+  // DIRECTIVE this source would emit if classified by-value — envelope, `create` wrapper,
+  // `pathTemplate`, and `options` all included, never the content string alone — via the
+  // SAME `serializedBatchSize` helper the fake's real batch-cap check applies at emit time
+  // (`core/wire.ts`). A lone over-cap directive can never fit any flush group (the
+  // expander flushes a solo directive as its own group, REQ-04.2), so measuring the
+  // single-directive batch here is exactly what the emit authority will measure later.
+  // `>` (not `>=`) — exactly-at-budget still fits (REQ-CCL-02.3).
+  const prospectiveDirective: Directive = {
+    op: "create",
+    create: { pathTemplate: destPath, template: content, options, ...forceEntry(force) },
+  };
+  const directiveSize = serializedBatchSize([prospectiveDirective]);
+  if (directiveSize > BATCH_CAP_BYTES) {
     if (renderFail) {
       throw invalidInput(renderFail.oversized);
     }

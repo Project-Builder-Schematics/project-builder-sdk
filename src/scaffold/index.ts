@@ -7,6 +7,7 @@
 import { currentContext, requirePackageAnchors } from "../core/context.ts";
 import { invalidInput } from "../core/authoring-error.ts";
 import { forceEntry } from "../core/directive-factory.ts";
+import type { JsonValue } from "../core/wire.ts";
 import { validateSourceContainment, validateDestinationLexical } from "./containment.ts";
 import { classifyTransport } from "./classify-transport.ts";
 
@@ -52,14 +53,23 @@ export { isSniffableText } from "./classify-transport.ts";
  * (REQ-FEH-02): invalid UTF-8, a null byte, or an over-budget file all fail loud with
  * reason `invalid-input` via the pinned templateFile message pair (these are
  * RENDER-REQUEST failures, distinct from the source-* containment/existence failures).
+ *
+ * `destPath`/`options`/`force` are the SAME `pathTemplate`/`options`/`force` the caller
+ * (`commons/index.ts`'s `create({templateFile})` handler) will put on the `create`
+ * directive it builds from this call's return value — threaded through so the CCL-02
+ * budget gate below measures the PROSPECTIVE DIRECTIVE, matching the emit authority,
+ * never the template content alone.
  */
-export function readTemplateFile(relPath: string): string {
+export function readTemplateFile(relPath: string, destPath: string, options: JsonValue, force?: boolean): string {
   const { packageDir, packageRoot } = requirePackageAnchors(noResolutionAnchorMessage(relPath));
   return classifyTransport({
     packageDir,
     packageRoot,
     relPath,
     isTemplateMarked: false,
+    destPath,
+    options,
+    force,
     failMessages: {
       binary: templateFileBinaryMessage(relPath),
       oversized: templateFileOversizedMessage(relPath),

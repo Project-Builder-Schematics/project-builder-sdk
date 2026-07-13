@@ -3,14 +3,30 @@
  * stat-gate before any content read, whole-file UTF-8/null-byte sniff, serialized-budget
  * verdict, and the `.template` render-request fail-loud carve-out (REQ-CCL-05). Unit level
  * — `classifyTransport` is called directly against real scratch files; no `defineFactory`
- * run needed (it takes `packageDir` as a plain argument).
+ * run needed (it takes `packageDir` as a plain argument). `destPath`/`options` are now
+ * REQUIRED params (judgment-day iteration 1 fix, REQ-CCL-02): the budget gate measures the
+ * PROSPECTIVE `create` directive, not the content string alone, so every call site below
+ * threads a `destPath`/`options` pair even where the fixture's own budget math is
+ * irrelevant to what's being pinned (containment/sniff/stat-gate) — arbitrary but present.
+ *
+ * The REQ-CCL-02.3 boundary describe block below is the ONE deliberate exception to the
+ * "call classifyTransport directly" convention: the judgment-day-iteration-1 defect (a
+ * content-only budget measure diverging from the ACTUAL `create` directive the expander
+ * emits) is invisible to a classifyTransport-only verdict assertion — the two measures
+ * only diverge once the source is wrapped in the real directive (pathTemplate + options
+ * overhead) and driven through the real batch-cap emit check. It drives a real
+ * `defineFactory({ packageDir })` + `scaffold()` run instead.
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { writeFileSync, statSync } from "node:fs";
+import { writeFileSync, statSync, mkdirSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
 import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
-import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
+import { defineFactory } from "../../src/core/context.ts";
+import { scaffold } from "../../src/commons/index.ts";
+import { runFactoryForTest } from "../../src/testing/index.ts";
+import { collectOps } from "../support/spy-client.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { expectReason } from "../support/expect-reason.ts";
 
@@ -21,7 +37,14 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "a.ts"), "export const a = 1;", "utf-8");
 
-    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "a.ts", isTemplateMarked: false });
+    const result = classifyTransport({
+      packageDir: dir,
+      packageRoot: dir,
+      relPath: "a.ts",
+      isTemplateMarked: false,
+      destPath: "a.ts",
+      options: {},
+    });
 
     expect(result).toEqual({ verdict: "by-value", content: "export const a = 1;" });
   });
@@ -30,7 +53,14 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "bad.bin"), Buffer.from([0xff, 0xfe, 0x00, 0x01]));
 
-    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "bad.bin", isTemplateMarked: false });
+    const result = classifyTransport({
+      packageDir: dir,
+      packageRoot: dir,
+      relPath: "bad.bin",
+      isTemplateMarked: false,
+      destPath: "bad.bin",
+      options: {},
+    });
 
     expect(result.verdict).toEqual("by-reference");
   });
@@ -45,7 +75,14 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     for (const [name, bytes] of fixtures) {
       writeFileSync(join(dir, name), Buffer.from(bytes));
       expect(bytes.includes(0x00)).toBe(false);
-      const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: name, isTemplateMarked: false });
+      const result = classifyTransport({
+        packageDir: dir,
+        packageRoot: dir,
+        relPath: name,
+        isTemplateMarked: false,
+        destPath: name,
+        options: {},
+      });
       expect(result.verdict).toEqual("by-reference");
     }
   });
@@ -55,7 +92,14 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     const content = "café 日本語 😀";
     writeFileSync(join(dir, "multibyte.ts"), content, "utf-8");
 
-    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "multibyte.ts", isTemplateMarked: false });
+    const result = classifyTransport({
+      packageDir: dir,
+      packageRoot: dir,
+      relPath: "multibyte.ts",
+      isTemplateMarked: false,
+      destPath: "multibyte.ts",
+      options: {},
+    });
 
     expect(result).toEqual({ verdict: "by-value", content });
   });
@@ -64,11 +108,35 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "empty.ts"), "", "utf-8");
 
-    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "empty.ts", isTemplateMarked: false });
+    const result = classifyTransport({
+      packageDir: dir,
+      packageRoot: dir,
+      relPath: "empty.ts",
+      isTemplateMarked: false,
+      destPath: "empty.ts",
+      options: {},
+    });
 
     expect(result).toEqual({ verdict: "by-value", content: "" });
   });
 });
+
+// Same measurer classify-transport.ts's budget check and the fake's real batch-cap check
+// both use (`core/wire.ts`) — the batch shape for ONE `create` directive at `pathTemplate`
+// with EMPTY options and no `force` (scaffold's own defaults when the author passes
+// neither), given `content`. Mirrors batch-cap-chunk.test.ts's established pattern for the
+// SAME measurer — not duplicated as a shared helper (that file's own local convention).
+function soloDirectiveBatchSize(pathTemplate: string, content: string): number {
+  return serializedBatchSize([{ op: "create", create: { pathTemplate, template: content, options: {} } }]);
+}
+
+// The fixed per-directive envelope overhead (batch wrapper + `create` wrapper +
+// `pathTemplate` + empty `options`, structural characters) at `pathTemplate` — derived by
+// measuring an EMPTY-content directive, so exact content lengths for precise boundary
+// offsets fall out of simple subtraction.
+function soloDirectiveOverhead(pathTemplate: string): number {
+  return soloDirectiveBatchSize(pathTemplate, "");
+}
 
 describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
   it("REQ-CCL-02.1: same content, budget-crossing size flips classification", () => {
@@ -76,44 +144,104 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
     writeFileSync(join(dir, "under.ts"), "a".repeat(1000), "utf-8");
     writeFileSync(join(dir, "over.ts"), "a".repeat(BATCH_CAP_BYTES + 1000), "utf-8");
 
-    expect(classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "under.ts", isTemplateMarked: false }).verdict).toEqual(
-      "by-value"
-    );
-    expect(classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "over.ts", isTemplateMarked: false }).verdict).toEqual(
-      "by-reference"
-    );
+    expect(
+      classifyTransport({
+        packageDir: dir,
+        packageRoot: dir,
+        relPath: "under.ts",
+        isTemplateMarked: false,
+        destPath: "under.ts",
+        options: {},
+      }).verdict
+    ).toEqual("by-value");
+    expect(
+      classifyTransport({
+        packageDir: dir,
+        packageRoot: dir,
+        relPath: "over.ts",
+        isTemplateMarked: false,
+        destPath: "over.ts",
+        options: {},
+      }).verdict
+    ).toEqual("by-reference");
   });
 
-  it("REQ-CCL-02.2: raw size under budget, serialized size over → by-reference", () => {
+  it("REQ-CCL-02.2: raw size under budget, serialized DIRECTIVE size over → by-reference", () => {
     const dir = scratchDir();
     // Each "\n" raw byte escapes to two bytes ("\\n") once JSON-serialized — pushing the
-    // serialized form over budget while the raw content stays under it.
+    // serialized DIRECTIVE form (content + envelope + wrapper + pathTemplate + options)
+    // over budget while the raw content stays comfortably under it.
     const rawSize = Math.floor(BATCH_CAP_BYTES * 0.75);
-    writeFileSync(join(dir, "escapes.ts"), "\n".repeat(rawSize), "utf-8");
+    const destPath = "escapes.ts";
+    const content = "\n".repeat(rawSize);
+    writeFileSync(join(dir, "escapes.ts"), content, "utf-8");
     expect(rawSize).toBeLessThan(BATCH_CAP_BYTES);
+    // Pins the DIRECTIVE-inclusive quantity the verdict is actually based on (judgment-day
+    // iteration 1 fix) — not just the content's own serialized form.
+    expect(soloDirectiveBatchSize(destPath, content)).toBeGreaterThan(BATCH_CAP_BYTES);
 
-    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "escapes.ts", isTemplateMarked: false });
+    const result = classifyTransport({
+      packageDir: dir,
+      packageRoot: dir,
+      relPath: "escapes.ts",
+      isTemplateMarked: false,
+      destPath,
+      options: {},
+    });
 
     expect(result.verdict).toEqual("by-reference");
   });
+});
 
-  it("REQ-CCL-02.3: exactly-at-budget boundary is inclusive — `>` not `>=`", () => {
+describe("REQ-CCL-02.3 — exactly-at-budget boundary, directive-inclusive, driven through a REAL emit", () => {
+  it("judgment-day iteration 1 (the load-bearing proof): a file whose CONTENT serializes under budget but whose full `create` DIRECTIVE lands exactly ONE BYTE over the cap classifies by-reference and the scaffold run SUCCEEDS — not `changes-too-large`", async () => {
     const dir = scratchDir();
-    // Content is a bare ASCII run: JSON.stringify adds exactly 2 bytes for the wrapping
-    // quotes, so `rawSize = BATCH_CAP_BYTES - 2` serializes to EXACTLY BATCH_CAP_BYTES.
-    const atBudget = "a".repeat(BATCH_CAP_BYTES - 2);
-    const overBudget = "a".repeat(BATCH_CAP_BYTES - 1);
-    writeFileSync(join(dir, "at.ts"), atBudget, "utf-8");
-    writeFileSync(join(dir, "over.ts"), overBudget, "utf-8");
-    expect(Buffer.byteLength(JSON.stringify(atBudget), "utf8")).toEqual(BATCH_CAP_BYTES);
-    expect(Buffer.byteLength(JSON.stringify(overBudget), "utf8")).toEqual(BATCH_CAP_BYTES + 1);
+    mkdirSync(join(dir, "files"));
+    const destPath = "out/over.ts";
+    const overhead = soloDirectiveOverhead(destPath);
+    // Content sized so the DIRECTIVE (not the content alone) lands exactly one byte over
+    // BATCH_CAP_BYTES; the content's OWN serialized form stays comfortably under budget —
+    // this is exactly the file shape the pre-fix classifier misclassified by-value.
+    const content = "a".repeat(BATCH_CAP_BYTES - overhead + 1);
+    expect(Buffer.byteLength(JSON.stringify(content), "utf8")).toBeLessThan(BATCH_CAP_BYTES);
+    expect(soloDirectiveBatchSize(destPath, content)).toEqual(BATCH_CAP_BYTES + 1);
+    writeFileSync(join(dir, "files", "over.ts"), content, "utf-8");
 
-    expect(classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "at.ts", isTemplateMarked: false }).verdict).toEqual(
-      "by-value"
-    );
-    expect(classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "over.ts", isTemplateMarked: false }).verdict).toEqual(
-      "by-reference"
-    );
+    const run = defineFactory<void>(() => {
+      scaffold({ from: "files", to: "out" });
+    }, { packageDir: dir });
+    const result = await runFactoryForTest(run, undefined);
+
+    // Pre-fix (RED, judgment-day iteration 1 finding): the classifier measured only the
+    // content string, saw it comfortably under budget, classified by-value — the expander
+    // then flushed the lone over-cap `create` directive as its own group and the fake's
+    // emit rejected `changes-too-large`, committing 0 files.
+    // Post-fix (GREEN): the classifier measures the PROSPECTIVE directive, sees it one
+    // byte over, classifies by-reference — the expander emits a tiny `copyIn` instead and
+    // the run succeeds.
+    expect(result.error).toBeUndefined();
+    const copyInDirectives = collectOps(result.emitted, "copyIn");
+    expect(copyInDirectives).toHaveLength(1);
+    expect(copyInDirectives[0]?.copyIn).toEqual({ from: "files/over.ts", to: "out/over.ts" });
+    expect(result.tree.has("out/over.ts")).toBe(false); // Q21/BRC-04: copyIn never materializes tree content in the fake
+  });
+
+  it("a file whose full `create` DIRECTIVE lands exactly AT the cap still classifies by-value and commits via `create` (inclusive `>`, not `>=`)", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    const destPath = "out/at.ts";
+    const overhead = soloDirectiveOverhead(destPath);
+    const content = "a".repeat(BATCH_CAP_BYTES - overhead);
+    expect(soloDirectiveBatchSize(destPath, content)).toEqual(BATCH_CAP_BYTES);
+    writeFileSync(join(dir, "files", "at.ts"), content, "utf-8");
+
+    const run = defineFactory<void>(() => {
+      scaffold({ from: "files", to: "out" });
+    }, { packageDir: dir });
+    const result = await runFactoryForTest(run, undefined);
+
+    expect(result.error).toBeUndefined();
+    expect(result.tree.get("out/at.ts")).toEqual(content);
   });
 });
 
@@ -123,7 +251,14 @@ describe("REQ-CCL-03 — whole-file null-byte/UTF-8 scan (tail detection)", () =
     const buf = Buffer.concat([Buffer.from("a".repeat(4096), "utf-8"), Buffer.from([0x00])]);
     writeFileSync(join(dir, "tail-null.bin"), buf);
 
-    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "tail-null.bin", isTemplateMarked: false });
+    const result = classifyTransport({
+      packageDir: dir,
+      packageRoot: dir,
+      relPath: "tail-null.bin",
+      isTemplateMarked: false,
+      destPath: "tail-null.bin",
+      options: {},
+    });
 
     expect(result.verdict).toEqual("by-reference");
   });
@@ -133,7 +268,14 @@ describe("REQ-CCL-03 — whole-file null-byte/UTF-8 scan (tail detection)", () =
     const buf = Buffer.concat([Buffer.from("a".repeat(70 * 1024), "utf-8"), Buffer.from([0x00])]);
     writeFileSync(join(dir, "big-tail-null.bin"), buf);
 
-    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "big-tail-null.bin", isTemplateMarked: false });
+    const result = classifyTransport({
+      packageDir: dir,
+      packageRoot: dir,
+      relPath: "big-tail-null.bin",
+      isTemplateMarked: false,
+      destPath: "big-tail-null.bin",
+      options: {},
+    });
 
     expect(result.verdict).toEqual("by-reference");
   });
@@ -155,7 +297,14 @@ describe("REQ-CCL-06 — stat-size gate before any content read", () => {
     // stat gate itself — not a downstream check — is what stopped the read.
     const readSpy = spyOn(fs, "readFileSync");
     try {
-      const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "huge.bin", isTemplateMarked: false });
+      const result = classifyTransport({
+        packageDir: dir,
+        packageRoot: dir,
+        relPath: "huge.bin",
+        isTemplateMarked: false,
+        destPath: "huge.bin",
+        options: {},
+      });
 
       expect(result.verdict).toEqual("by-reference");
       expect("content" in result).toBe(false);
@@ -172,7 +321,15 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
     writeFileSync(join(dir, "logo.svg"), Buffer.from([0x00, 0x01, 0x02]));
 
     const err = expectReason(
-      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "logo.svg", isTemplateMarked: true }),
+      () =>
+        classifyTransport({
+          packageDir: dir,
+          packageRoot: dir,
+          relPath: "logo.svg",
+          isTemplateMarked: true,
+          destPath: "logo.svg",
+          options: {},
+        }),
       "invalid-input"
     );
     expect(err.message).toContain("logo.svg");
@@ -183,7 +340,15 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
     writeFileSync(join(dir, "huge.template"), "a".repeat(BATCH_CAP_BYTES + 1), "utf-8");
 
     expectReason(
-      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "huge.template", isTemplateMarked: true }),
+      () =>
+        classifyTransport({
+          packageDir: dir,
+          packageRoot: dir,
+          relPath: "huge.template",
+          isTemplateMarked: true,
+          destPath: "huge.template",
+          options: {},
+        }),
       "invalid-input"
     );
   });
@@ -192,7 +357,14 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
     const dir = scratchDir();
     writeFileSync(join(dir, "ok.ts.template"), "export const x = {= x =};", "utf-8");
 
-    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "ok.ts.template", isTemplateMarked: true });
+    const result = classifyTransport({
+      packageDir: dir,
+      packageRoot: dir,
+      relPath: "ok.ts.template",
+      isTemplateMarked: true,
+      destPath: "ok.ts.template",
+      options: {},
+    });
 
     expect(result).toEqual({ verdict: "by-value", content: "export const x = {= x =};" });
   });
@@ -203,7 +375,15 @@ describe("REQ-PRC-04 — source containment, delegated to containment.ts (S-002 
     const dir = scratchDir();
 
     expectReason(
-      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "../outside.txt", isTemplateMarked: false }),
+      () =>
+        classifyTransport({
+          packageDir: dir,
+          packageRoot: dir,
+          relPath: "../outside.txt",
+          isTemplateMarked: false,
+          destPath: "outside.txt",
+          options: {},
+        }),
       "source-outside-package"
     );
   });
@@ -212,7 +392,15 @@ describe("REQ-PRC-04 — source containment, delegated to containment.ts (S-002 
     const dir = scratchDir();
 
     expectReason(
-      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "/etc/passwd", isTemplateMarked: false }),
+      () =>
+        classifyTransport({
+          packageDir: dir,
+          packageRoot: dir,
+          relPath: "/etc/passwd",
+          isTemplateMarked: false,
+          destPath: "passwd",
+          options: {},
+        }),
       "source-outside-package"
     );
   });

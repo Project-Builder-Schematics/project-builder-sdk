@@ -192,7 +192,8 @@ export function create(path: string, opts: CreateOptions): WritableHandle;
 export function create(path: string, opts: CreateFromTemplateFileOptions): WritableHandle;
 export function create(path: string, opts: CreateOptions | CreateFromTemplateFileOptions): WritableHandle {
   const { session, factory } = currentContext();
-  const template = "templateFile" in opts ? readTemplateFile(opts.templateFile) : opts.template;
+  const template =
+    "templateFile" in opts ? readTemplateFile(opts.templateFile, path, opts.options, opts.force) : opts.template;
   session.buffer(factory.create({
     pathTemplate: path,
     template,

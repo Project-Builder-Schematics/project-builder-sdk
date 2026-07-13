@@ -143,15 +143,22 @@ export function runScaffold(args: ScaffoldArgs): void {
 
   for (const result of pipelineResults) {
     const sourceRelPath = posix.join(args.from, result.sourceRelPath);
+    // destPath computed BEFORE classify (reordered from the source-only call this
+    // replaces): REQ-CCL-02's budget is evaluated against the PROSPECTIVE `create`
+    // directive this source would emit, so classifyTransport needs the same
+    // pathTemplate/options/force this loop will put on that directive below.
+    const destPath = posix.join(toPrefix, result.destRelPath);
     const verdict = classifyTransport({
       packageDir,
       packageRoot,
       relPath: sourceRelPath,
       isTemplateMarked: result.isTemplateMarked,
       realCeiling,
+      destPath,
+      options: args.options ?? {},
+      force: args.force,
     });
 
-    const destPath = posix.join(toPrefix, result.destRelPath);
     validateDestinationLexical(destPath);
 
     // S-003: a by-reference verdict emits a real `copyIn` directive — `from` is the

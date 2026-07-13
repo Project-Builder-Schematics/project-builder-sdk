@@ -105,7 +105,15 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
     const dir = scratchDir();
 
     const err = expectReason(
-      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "missing.ts", isTemplateMarked: false }),
+      () =>
+        classifyTransport({
+          packageDir: dir,
+          packageRoot: dir,
+          relPath: "missing.ts",
+          isTemplateMarked: false,
+          destPath: "missing.ts",
+          options: {},
+        }),
       "source-not-found"
     );
     expect(err.message).toEqual("source file not found: missing.ts does not exist in the package");
@@ -122,6 +130,8 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
           packageRoot: dir,
           relPath: "../outside.txt",
           isTemplateMarked: false,
+          destPath: "outside.txt",
+          options: {},
         }),
       "source-outside-package"
     );
@@ -135,7 +145,15 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
     mkdirSync(join(dir, "adir"));
 
     const err = expectReason(
-      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "adir", isTemplateMarked: false }),
+      () =>
+        classifyTransport({
+          packageDir: dir,
+          packageRoot: dir,
+          relPath: "adir",
+          isTemplateMarked: false,
+          destPath: "adir",
+          options: {},
+        }),
       "source-not-regular-file"
     );
     expect(err.message).toEqual("source file invalid: adir is not a regular file");
