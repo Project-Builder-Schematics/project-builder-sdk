@@ -150,11 +150,11 @@ Owns fixture-package authoring for the data surface: typed options, template tre
 - GIVEN two distinct matrix rows' reports rendered in the same run WHEN `reports/` is inspected THEN both exist as distinctly named `<matrix-id>.<slug>.report.md` files, and a same-scenario re-run leaves exactly one file (RPT-03)
 
 ### Tasks
-- [ ] S-003.1 Run the BEFORE-STARTING re-verification (tripwire)
-- [ ] S-003.2 `test/fixtures/author-emulation/factory.ts` — single CRUD `defineFactory({packageDir})` + per-scenario runner variants; fixture-wide all 7 `ScaffoldArgs` fields non-default at least once (AEG-01.2); zero `modify` directives (AEG-02)
-- [ ] S-003.3 M-01, M-04, M-05, M-06, M-07 e2e scenarios via `SCENARIOS` entries (RED first)
-- [ ] S-003.4 M-02, M-03, M-09, M-14, M-19, M-20 e2e scenarios
-- [ ] S-003.5 Regen + commit the 11 corpus transcripts (`scripts/regen-corpus.ts`, review diff) + update `coverage-manifest.md` EXERCISED ledger
+- [x] S-003.1 Run the BEFORE-STARTING re-verification (tripwire)
+- [x] S-003.2 `test/fixtures/author-emulation/factory.ts` — single CRUD `defineFactory({packageDir})` + per-scenario runner variants; fixture-wide all 7 `ScaffoldArgs` fields non-default at least once (AEG-01.2); zero `modify` directives (AEG-02)
+- [x] S-003.3 M-01, M-04, M-05, M-06, M-07 e2e scenarios via `SCENARIOS` entries (RED first)
+- [x] S-003.4 M-02, M-03, M-09, M-14, M-19, M-20 e2e scenarios
+- [x] S-003.5 Regen + commit the 11 corpus transcripts (`scripts/regen-corpus.ts`, review diff) + update `coverage-manifest.md` EXERCISED ledger
 
 ---
 
