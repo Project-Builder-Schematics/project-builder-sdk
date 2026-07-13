@@ -373,8 +373,10 @@ export type { DryRunEntry, DryRunVerb };
  * empties the pending buffer, so directives already flushed no longer appear.
  *
  * Entries carry verb and path — no content or byte preview — plus an optional `kind`
- * (`"rendered" | "copied"`) present only on content-materializing entries: `create`
- * (inline or `templateFile`) and `copyIn`.
+ * (`"rendered" | "copied"`) present only on the package-local-read verbs whose transport
+ * is classified: `create` (inline or `templateFile`, `kind: "rendered"`) and `copyIn`
+ * (`kind: "copied"`). The tree→tree `copy` verb also materializes content but predates
+ * this axis and is never package-local-read/classified, so it carries no `kind`.
  *
  * Call it inside an active `defineFactory` run, like every other `./commons` verb.
  *

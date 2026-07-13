@@ -46,15 +46,18 @@ export type DryRunVerb = "create" | "modify" | "remove" | "rename" | "move" | "c
  * One entry of a rendered dry-run plan: the author verb and the primary path the
  * operation targets. Carries no content or byte preview.
  *
- * `kind` is present ONLY on content-materializing entries (REQ-DRE-05, additive field —
- * the existing `{verb, path}` shape is unchanged): `"rendered"` for `create` (every
- * `create` IS a render request, whether the template came from an inline string or a
- * `templateFile` — indistinguishable in kind, REQ-DRE-05.3), `"copied"` for a `copyIn`
- * entry (REQ-DRE-05.2) — including a `scaffold` entry that classified by-reference and
- * surfaces under author verb `"copyIn"` even though the author never called `copyIn`
- * directly (REQ-DRE-06). Derived purely from the wire op — total, deterministic — and
- * ABSENT for `modify`/`remove`/`rename`/`move`/`copy`, none of which render or classify
- * (tagging a plain `remove` "rendered" would be a lie).
+ * `kind` is present ONLY on the package-local-READ verbs whose transport is CLASSIFIED
+ * (REQ-DRE-05, additive field — the existing `{verb, path}` shape is unchanged):
+ * `"rendered"` for `create` (every `create` IS a render request, whether the template
+ * came from an inline string or a `templateFile` — indistinguishable in kind,
+ * REQ-DRE-05.3), `"copied"` for a `copyIn` entry (REQ-DRE-05.2) — including a `scaffold`
+ * entry that classified by-reference and surfaces under author verb `"copyIn"` even
+ * though the author never called `copyIn` directly (REQ-DRE-06). Derived purely from the
+ * wire op — total, deterministic — and ABSENT for `modify`/`remove`/`rename`/`move`/
+ * `copy`: the tree→tree `copy` verb predates this axis and materializes content too, but
+ * it is never package-local-read/classified, so it carries no `kind` (tagging a plain
+ * `remove` "rendered" would be a lie, but `copy`'s absence is a scope boundary, not a lie
+ * about its own behavior).
  *
  * @example
  * const plan = dryRun(); // from "@pbuilder/sdk/commons"

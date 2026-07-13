@@ -220,6 +220,12 @@ containment.ts`) is DX/attribution only. All three are an **archive-gated delive
 is a named acceptance criterion of this change's final slice, not prose intent. The owner
 signs off on each at this change's archive gate.
 
+**PC-PROTO-01** (referenced by all three rows below, gloss added at final-verify remediation
+ITEM 10b for readers landing here directly): the engine's upcoming transport-protocol
+ratification — real `ir.emit`/`tree.read` wire calls plus first-class error-mapping — that
+unblocks real cross-repo integration; see the fuller definition above (engine handoff
+`l1-completion-gaps` section).
+
 | Description | Type | Size | Gating? | Stage |
 |---|---|---|---|---|
 | **BRC-02 — engine ceiling re-derivation + TOCTOU closure**: the engine MUST re-derive its OWN containment ceiling for a by-reference (`copyIn`) source — open-then-fstat, never trusting the SDK-resolved `packageRoot`/`packageDir`. Anchor pin (ADR-0043 rev 2, seam clause S2): the emitted `copyIn.from` is relative to the RESOLUTION anchor (`packageDir`), not the containment ceiling (`packageRoot`) — the engine resolves `from` against its OWN re-derived `packageDir`, mirroring the SDK-side `package-root-containment` REQ-PRC-01 anchor distinction | security | M | Blocking engine apply-pass for `copyIn`/by-reference `scaffold` entries | **engine repo, cross-repo flag (with PC-PROTO-01)** |
