@@ -169,6 +169,13 @@ describe("REQ-05.1 — cross-chunk atomicity: a later-chunk failure commits noth
     const perFile = Math.floor(1.5 * 1024 * 1024);
     writeFileSync(join(dir, "files", "a.ts"), "A".repeat(perFile), "utf-8");
     writeFileSync(join(dir, "files", "b.ts"), "B".repeat(perFile), "utf-8");
+    // Third, tiny BINARY file — walks last (alphabetical sort), classifies by-reference,
+    // and lands in b.ts's group (negligible size next to the MiB-scale text files, well
+    // under any remaining cap headroom). Proves the S-004 chunked-flush accumulator
+    // (`candidateBatchSize`) correctly measures a MIXED create+copyIn batch — every prior
+    // REQ-04/05 fixture in this file is pure-create — rather than silently mismeasuring or
+    // dropping the copyIn directive when it shares a flush group with a create.
+    writeFileSync(join(dir, "files", "c-binary.png"), Buffer.from([0x89, 0x00, 0x50, 0x4e]));
 
     const run = defineFactory<void>(() => {
       scaffold({ from: "files", to: "out" });
@@ -182,5 +189,13 @@ describe("REQ-05.1 — cross-chunk atomicity: a later-chunk failure commits noth
     expect(result.error).toBeInstanceOf(AuthoringError);
     expect((result.error as AuthoringError).reason).toEqual("path-collision");
     expect(result.tree.size).toEqual(0);
+
+    // The mixed batch was genuinely built and flushed (not skipped/mismeasured) — the
+    // copyIn directive for the binary file is present among what was emitted, and (Q21/
+    // BRC-04) never materializes tree content regardless of the run's overall outcome.
+    const copyInDirectives = result.emitted.flatMap((b) => b.instructions).filter((d) => d.op === "copyIn");
+    expect(copyInDirectives).toHaveLength(1);
+    expect(copyInDirectives[0]?.copyIn).toEqual({ from: "files/c-binary.png", to: "out/c-binary.png" });
+    expect(result.tree.has("out/c-binary.png")).toBe(false);
   });
 });
