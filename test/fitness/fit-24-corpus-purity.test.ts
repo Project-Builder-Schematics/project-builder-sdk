@@ -42,21 +42,23 @@ function hasBinaryMagicBytes(latin1Text: string): boolean {
 
 // Package-relative paths in this corpus NEVER start with "/" (REQ-BRC-07/GCC-06) — any
 // quoted JSON string VALUE beginning with a leading slash is an absolute-path leak.
-const ABS_PATH_VALUE_RE = /:\s*"(\/[^"]*)"/g;
+// ESCAPE-AWARE (verify-in-loop-5 finding #3): `(?:[^"\\]|\\.)*` consumes escaped
+// sequences (\" \\ \n ...) as part of the value instead of mis-terminating at the first
+// `\"` — a naive `[^"]*` cut a "// Illustrative \"wiring\"..." template value off
+// mid-sentence and mistook the leading fragment for a path.
+const ABS_PATH_VALUE_RE = /:\s*"(\/(?:[^"\\]|\\.)*)"/g;
 
-// False-positive guard (author-emulation-e2e-scaffold, S-003): a genuine absolute
-// filesystem path (`/etc/passwd`, `/Users/...`) never contains a literal space or an
-// escaped newline. A `create.template` string VALUE that merely happens to start with
-// "/" (e.g. a "// Illustrative ..." comment opener in the author-emulation fixture's own
-// template content) does contain both, and is prose, not a path leak — the naive scan
-// mistook it for one since `[^"]*` also mismatches ANY escaped quote inside the value as
-// the terminator, cutting the "match" off mid-sentence at a `\"` it treated as closing.
-function isPlausibleAbsolutePath(candidate: string): boolean {
-  return !candidate.includes(" ") && !candidate.includes("\\n");
+// The ONLY exclusion is a `//`-prefixed value — a comment OPENER in template prose (the
+// author-emulation fixture's `create.template` content), never a filesystem path (no
+// absolute path begins with a double slash on the platforms this SDK targets).
+// Deliberately NOT a space/newline heuristic: an absolute path CONTAINING a space
+// (`/Users/John Smith/...`) is plausible on macOS and must stay detectable.
+function isCommentOpener(candidate: string): boolean {
+  return candidate.startsWith("//");
 }
 
 function absolutePathStrings(text: string): string[] {
-  return [...text.matchAll(ABS_PATH_VALUE_RE)].map((m) => m[1]!).filter(isPlausibleAbsolutePath);
+  return [...text.matchAll(ABS_PATH_VALUE_RE)].map((m) => m[1]!).filter((c) => !isCommentOpener(c));
 }
 
 // Timestamp (ISO-8601) and UUID shapes — neither may survive into a deterministic record.
@@ -128,5 +130,14 @@ describe("FIT-24 — corpus purity (no binary / absolute-path / nondeterministic
   it('[red-proof] a "// comment"-style template value with an embedded escaped quote is NOT flagged as absolute', () => {
     const text = `{"template": "// Illustrative \\"wiring\\" text ONLY\\nimport { x } from \\"y\\";\\n"}`;
     expect(absolutePathStrings(text)).toEqual([]);
+  });
+
+  // RED-PROOF (verify-in-loop-5 finding #3): an absolute path CONTAINING a space (a
+  // plausible macOS home path) IS flagged — the case the earlier space/newline
+  // plausibility heuristic silently un-flagged; the escape-aware regex + `//`-only
+  // exclusion keeps it detectable.
+  it("[red-proof] an absolute path containing a space IS flagged", () => {
+    const text = `{"path": "/Users/John Smith/leaked-secret.txt"}`;
+    expect(absolutePathStrings(text)).toEqual(["/Users/John Smith/leaked-secret.txt"]);
   });
 });
