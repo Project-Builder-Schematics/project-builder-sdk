@@ -88,12 +88,12 @@ Owns the report renderer + all RPT REQs. Bundled with FIT-25/26 because both mec
 - GIVEN `openspec/pending-changes.md` WHEN inspected THEN the `PC-SPEC-FSC-TOKENS` row above exists
 
 ### Tasks
-- [ ] S-001.1 `test/support/run-report-render.ts` — `renderReport(record, rawDirectives)` (R-D), 3 templates, exported `SEAM_DISCLAIMER`/`GAP_NOTICE` constants, `REPORTS_DIR`/`reportPathFor`; verb+path first, then the kind column (R-D build order)
-- [ ] S-001.2 RPT unit tests (synthetic records + rawDirectives; literal-constant asserts; no-parallel-map source scan)
-- [ ] S-001.3 `test/fitness/fit-25-single-capture-path.test.ts` + red-proof
-- [ ] S-001.4 `test/fitness/fit-26-report-hygiene-citations.test.ts` + red-proof
-- [ ] S-001.5 `corpus/coverage-manifest.md` full EXERCISED/NOT-EXERCISED/FRICTION structure + `corpus/README.md` scaffold→create/copyIn lowering section
-- [ ] S-001.6 Register the `PC-SPEC-FSC-TOKENS` row (verbatim above) in `openspec/pending-changes.md`
+- [x] S-001.1 `test/support/run-report-render.ts` — `renderReport(record, rawDirectives)` (R-D), 3 templates, exported `SEAM_DISCLAIMER`/`GAP_NOTICE` constants, `REPORTS_DIR`/`reportPathFor`; verb+path first, then the kind column (R-D build order)
+- [x] S-001.2 RPT unit tests (synthetic records + rawDirectives; literal-constant asserts; no-parallel-map source scan)
+- [x] S-001.3 `test/fitness/fit-25-single-capture-path.test.ts` + red-proof
+- [x] S-001.4 `test/fitness/fit-26-report-hygiene-citations.test.ts` + red-proof
+- [x] S-001.5 `corpus/coverage-manifest.md` full EXERCISED/NOT-EXERCISED/FRICTION structure + `corpus/README.md` scaffold→create/copyIn lowering section
+- [x] S-001.6 Register the `PC-SPEC-FSC-TOKENS` row (verbatim above) in `openspec/pending-changes.md`
 
 ---
 
