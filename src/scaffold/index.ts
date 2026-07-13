@@ -11,6 +11,12 @@ import { AuthoringError } from "../core/authoring-error.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
 import { isErrnoException } from "../core/fs-errors.ts";
 
+// S-001: the folder-scaffold orchestrator lives in expander.ts (the single owner of the
+// walk → filename-pipeline → classify → emit fan-out, ADR-0044); re-exported here so
+// `commons` reaches every scaffold-family orchestrator through this one leaf entrypoint.
+export { runScaffold } from "./expander.ts";
+export type { ScaffoldArgs } from "./expander.ts";
+
 function noResolutionAnchorMessage(relPath: string): string {
   return (
     `invalid input: templateFile "${relPath}" requires defineFactory({ packageDir }) — ` +

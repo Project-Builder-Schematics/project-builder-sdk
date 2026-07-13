@@ -8,7 +8,8 @@ import { forceEntry } from "../core/directive-factory.ts";
 import type { FoundHandle, WritableHandle } from "../core/handle-state.ts";
 import { AuthoringError } from "../core/authoring-error.ts";
 import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../core/authoring-error.ts";
-import { readTemplateFile } from "../scaffold/index.ts";
+import { readTemplateFile, runScaffold } from "../scaffold/index.ts";
+import type { ScaffoldArgs } from "../scaffold/index.ts";
 
 export type { FoundHandle, WritableHandle };
 // ADR-0023: AuthoringError (+ its supporting types) is an author-facing DATA type, not
@@ -191,6 +192,46 @@ export function create(path: string, opts: CreateOptions | CreateFromTemplateFil
     ...forceEntry(opts.force),
   }));
   return buildWritableHandle(path);
+}
+
+/**
+ * Author-facing options for the `scaffold` verb — walks a package-local folder and mirrors
+ * it into the target tree. `from`/`to` are mandatory. `options` defaults `{}`, `include`
+ * defaults to matching everything, `exclude` defaults to matching nothing (`exclude` wins
+ * on overlap), `rename` defaults to no remap, `force` defaults `false`.
+ *
+ * @example
+ * const opts: ScaffoldOptions = {
+ *   from: "files",
+ *   to: "src/generated",
+ *   options: { name: "Widget" },
+ *   exclude: ["*.spec.ts"],
+ * };
+ */
+export type ScaffoldOptions = ScaffoldArgs;
+
+/**
+ * Walks a package-local folder (`from`, resolved against the active run's `packageDir`)
+ * and mirrors every entry into `to`, applying the rename → filename-token-translation →
+ * `.template`-strip pipeline (REQ-FSC-05) and include/exclude glob filtering (REQ-FSC-03,
+ * `exclude` wins on overlap). Each source classifies by-value or by-reference
+ * (`content-classification`, entirely sniffed — never author-declared); by-value sources
+ * emit a `create` directive through the existing IR. A `from` folder with zero entries
+ * no-ops silently; `include`/`exclude` eliminating every entry rejects fail-loud, naming
+ * the filters (REQ-FSC-04 — two distinct outcomes, never collapsed). `force` (default
+ * `false`) passes through unchanged to every emitted directive, no per-file override
+ * (REQ-FSC-06). Two or more sources collapsing to the same destination reject fail-loud,
+ * naming every offending source (REQ-FSC-08). Only usable inside a
+ * `defineFactory({ packageDir })` run — there is no resolution anchor to walk a
+ * package-local folder against otherwise (`invalid-input`, never a cwd fallback).
+ *
+ * Returns `void` (REQ-FSC-07) — fire-and-forget, no chainable handle group.
+ *
+ * @example
+ * scaffold({ from: "files", to: "src/generated", options: { name: "Widget" } });
+ */
+export function scaffold(args: ScaffoldOptions): void {
+  runScaffold(args);
 }
 
 /**
