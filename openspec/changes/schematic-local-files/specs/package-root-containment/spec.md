@@ -1,8 +1,15 @@
 # Package Root Containment Specification
 
-**Spec version**: V3
-**Status**: signed (owner, 2026-07-12 — micro-unfreeze V2→V3, deltas pre-authorized)
+**Spec version**: V4
+**Status**: signed (owner, 2026-07-12 — micro-unfreeze V2→V3, deltas pre-authorized); V3→V4 is a POST-SIGNING FINAL-VERIFY REMEDIATION ADDITION (2026-07-13, owner-ratified fix-now), pending owner-signed micro-amend at archive
 **Change**: `schematic-local-files`
+
+V3 → V4 (final-verify remediation, owner-ratified 2026-07-13, PENDING owner sign-off
+at archive): REQ-PRC-10 added — `scaffold`'s walk ROOT (`from`) must be
+containment-checked BEFORE `walkFolder` enumerates it; the blind Council's final-verify
+pass found `runScaffold` walked an unvalidated root, letting an escaping/symlinked
+`from` enumerate (readdir/lstat, bounded by the 10k-entry cap) an out-of-ceiling
+subtree before any per-entry check could fire. REQ-IDs stable; additive only.
 
 V2 → V3 (owner micro-unfreeze, 2026-07-12): scenario REQ-PRC-07.2 added — a symlink
 lexically inside the ceiling whose out-of-ceiling target does NOT exist still rejects
@@ -231,8 +238,44 @@ evaluate.
 - WHEN each is called
 - THEN each rejects fail-loud before any directive is emitted
 
+### REQ-PRC-10: Scaffold Walk ROOT Is Containment-Checked Before Enumeration [ADDED V4 — post-signing remediation, pending owner sign-off]
+
+`scaffold`'s `from` (the walk ROOT, a directory — never file-checked) MUST pass the
+SAME lexical + realpath ceiling checks REQ-PRC-04 applies to individual sources
+(reusing the shared containment machinery — no parallel check) BEFORE `walkFolder`
+enumerates it. An escaping or out-of-ceiling root rejects `source-outside-package`
+with NO enumeration of the out-of-ceiling subtree (no `readdirSync`/`lstatSync` call
+against it) — closing the metadata-enumeration oracle / bounded-DoS gap the walk's
+10k-entry cap alone did not prevent (the cap still bounds an out-of-ceiling walk that
+DID start, it does not stop one from starting). A legitimately ABSENT in-ceiling root
+is UNAFFECTED by this check — `walkFolder`'s existing not-found behavior for a missing
+in-ceiling `from` is preserved unchanged; this REQ never invents a new not-found path.
+
+#### Scenario REQ-PRC-10.1: Lexically escaping `from` rejects before any enumeration [SDK]
+
+- GIVEN `scaffold({ from: "../secrets", to: "out" })` where `../secrets` resolves
+  outside the containment ceiling
+- WHEN called
+- THEN it rejects `source-outside-package` and zero `readdirSync`/`lstatSync` calls
+  are ever made against the out-of-ceiling subtree
+
+#### Scenario REQ-PRC-10.2: Symlinked `from` whose realpath escapes rejects before any enumeration [SDK]
+
+- GIVEN a `from` that is LEXICALLY inside the ceiling but is a symlinked directory
+  whose realpath resolves outside it
+- WHEN scaffolded
+- THEN it rejects `source-outside-package` — the realpath verdict governs, and the
+  walk never descends into the symlinked target
+
+#### Scenario REQ-PRC-10.3: Legitimately absent in-ceiling `from` is unaffected [SDK]
+
+- GIVEN a `from` that is lexically and really in-ceiling but does not exist on disk
+- WHEN scaffolded
+- THEN the new root check does not itself reject — whatever `walkFolder` already did
+  for a missing folder (pre-existing behavior) is unchanged
+
 ## Sensitive Areas Coverage
 
 | Area | REQ IDs | Flagged at triage? |
 |---|---|---|
-| security (input validation / containment) | REQ-PRC-01 through REQ-PRC-09 | Yes |
+| security (input validation / containment) | REQ-PRC-01 through REQ-PRC-10 | Yes |
