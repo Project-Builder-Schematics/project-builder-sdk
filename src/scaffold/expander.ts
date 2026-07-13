@@ -30,8 +30,8 @@ import { posix, join } from "node:path";
 import { currentContext, requirePackageAnchors } from "../core/context.ts";
 import { invalidInput } from "../core/authoring-error.ts";
 import { forceEntry } from "../core/directive-factory.ts";
-import type { Batch, Directive, JsonValue } from "../core/wire.ts";
-import { BATCH_CAP_BYTES } from "../core/wire.ts";
+import type { JsonValue } from "../core/wire.ts";
+import { BATCH_CAP_BYTES, serializedBatchSize } from "../core/wire.ts";
 import { walkFolder } from "./walk.ts";
 import { runFilenamePipeline, isIncluded, detectDestinationCollisions, translateTokens } from "./filename-pipeline.ts";
 import { classifyTransport } from "./classify-transport.ts";
@@ -70,15 +70,11 @@ function filtersEliminatedEverythingMessage(include: string[] | undefined, exclu
   );
 }
 
-// REQ-04's serialized-size heuristic (S-004): measures what the PENDING batch (already-
-// buffered directives + one candidate more) would serialize to, using the EXACT same shape
-// the fake measures at emit time (`Buffer.byteLength(JSON.stringify(batch), "utf8")`) — a
-// lowering heuristic, not a second size authority (ADR-0018 amendment); the fake's own
-// `emit` cap check remains the sole judge (ADR-0019).
-function candidateBatchSize(pending: readonly Directive[], next: Directive): number {
-  const candidate: Batch = { protocolVersion: 1, force: false, instructions: [...pending, next] };
-  return Buffer.byteLength(JSON.stringify(candidate), "utf8");
-}
+// REQ-04's serialized-size heuristic (S-004): tracks what the PENDING batch would
+// serialize to via `serializedBatchSize`'s envelope shape — the EXACT same measurement the
+// fake applies at emit time — a lowering heuristic, not a second size authority (ADR-0018
+// amendment); the fake's own `emit` cap check remains the sole judge (ADR-0019).
+const EMPTY_BATCH_SIZE = serializedBatchSize([]);
 
 /**
  * Walks a package-local folder and mirrors it into the target tree (REQ-FSC-01..09):
@@ -125,6 +121,15 @@ export function runScaffold(args: ScaffoldArgs): void {
   // validation steps) — resolve it once for the whole entry loop.
   const realCeiling = resolveRealCeiling(packageRoot);
 
+  // Running serialized-size counter over the CURRENT pending buffer — seeded from the real
+  // snapshot (directives buffered BEFORE this scaffold call count toward the first group)
+  // and maintained incrementally. Byte-identical to re-serializing the whole batch per
+  // append: JSON array bytes are additive — each extra element contributes exactly its own
+  // `JSON.stringify` bytes plus one comma when it is not the first.
+  const seedPending = session.pendingSnapshot();
+  let pendingCount = seedPending.length;
+  let pendingSize = serializedBatchSize(seedPending);
+
   for (const result of pipelineResults) {
     const sourceRelPath = posix.join(args.from, result.sourceRelPath);
     const verdict = classifyTransport({
@@ -161,12 +166,16 @@ export function runScaffold(args: ScaffoldArgs): void {
     // would push its serialized batch over the cap, flush the existing group first — never
     // preemptively when the pending buffer is empty (an over-cap SINGLE directive still
     // flushes as its own group and rejects at the fake's `emit`, unchanged REQ-04.2).
-    const pending = session.pendingSnapshot();
-    if (pending.length > 0 && candidateBatchSize(pending, directive) > BATCH_CAP_BYTES) {
+    const directiveSize = Buffer.byteLength(JSON.stringify(directive), "utf8");
+    if (pendingCount > 0 && pendingSize + directiveSize + 1 > BATCH_CAP_BYTES) {
       const flushPromise = session.flush();
       ctx.dialects.register({ settle: () => flushPromise });
+      pendingCount = 0;
+      pendingSize = EMPTY_BATCH_SIZE;
     }
 
     session.buffer(directive);
+    pendingCount += 1;
+    pendingSize += directiveSize + (pendingCount > 1 ? 1 : 0);
   }
 }

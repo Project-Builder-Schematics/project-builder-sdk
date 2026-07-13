@@ -19,21 +19,15 @@ import { defineFactory } from "../../src/core/context.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { scaffold, AuthoringError } from "../../src/commons/index.ts";
-import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 
 const scratchDir = scratchDirFactory("batch-cap-chunk-");
 
-// Mirrors expander.ts's own `candidateBatchSize` measurement exactly — the batch shape
-// for ONE `create` directive at `pathTemplate`, given `content`.
+// The SAME measurer the expander's accumulator consumes — the batch shape for ONE
+// `create` directive at `pathTemplate`, given `content`.
 function soloBatchSize(pathTemplate: string, content: string): number {
-  const batch: Batch = {
-    protocolVersion: 1,
-    force: false,
-    instructions: [{ op: "create", create: { pathTemplate, template: content, options: {} } }],
-  };
-  return Buffer.byteLength(JSON.stringify(batch), "utf8");
+  return serializedBatchSize([{ op: "create", create: { pathTemplate, template: content, options: {} } }]);
 }
 
 // The fixed per-directive JSON envelope overhead (path template + structural characters)

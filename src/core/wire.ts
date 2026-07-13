@@ -53,3 +53,12 @@ export type Batch = { protocolVersion: 1; force: boolean; instructions: Directiv
 // SDK-chosen placeholder, not engine-confirmed; cheap to change until the Stage 6
 // semver freeze.
 export const BATCH_CAP_BYTES = 4 * 1024 * 1024;
+
+// The one shared measurer of what `instructions` serialize to inside the wire envelope —
+// the SAME shape `Session.flush` emits and the fake's `emit` cap check measures
+// (ADR-0018/0019). The expander's chunk heuristic and the batch-cap tests both consume
+// this so the envelope shape can never drift between them.
+export function serializedBatchSize(instructions: readonly Directive[]): number {
+  const batch: Batch = { protocolVersion: 1, force: false, instructions: [...instructions] };
+  return Buffer.byteLength(JSON.stringify(batch), "utf8");
+}
