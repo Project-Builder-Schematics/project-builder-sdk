@@ -161,6 +161,17 @@ None beyond the two explicitly licensed by the slice contract itself: (1) the "M
 
 The FIRST implementation of `validateSourceContainment` compared a REALPATH'd candidate path directly against a NON-realpath'd `packageRoot` ceiling. On macOS, `mkdtempSync(tmpdir())` returns a path under `/var/...`, but `/var` is itself a symlink to `/private/var` — so `realpathSync` of ANY file under a temp scratch dir resolves to `/private/var/...`, which does not lexically start with the non-realpath'd `/var/...` ceiling. This produced a FALSE `source-outside-package` rejection for every legitimately in-ceiling source on this platform, caught immediately by the existing S-000/S-001 regression suite (`test/scaffold/expander.test.ts`, `test/e2e/scaffold.e2e.test.ts`) going from 72/72 green to 22 failures the first time the full scaffold test set ran against the new containment module. Fixed by maintaining TWO ceiling representations — `lexicalCeiling` (raw `packageRoot`, compared only against a likewise non-realpath'd candidate, pre-realpath) and `realCeiling` (`realpathSync(packageRoot)`, compared only against a realpath'd candidate, post-realpath) — never mixing the two spaces in one comparison.
 
+## TDD Cycle Evidence — S-002
+
+Method statement (honest, per the S-000 lesson — commits `6fa8c5f`/`e388c71` land test+prod files together, so `git log` cannot establish RED-first either way; the evidence below is transcribed from in-session runner output, working-tree order):
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated |
+|---|---|---|---|---|---|
+| S-002.1 (containment core) | `containment.test.ts` (PRC-04.1/.2/.3/.6/.7, PRC-05.1, PRC-07.1/.2, PRC-08.1) | unit | The test file was written against `containment.ts`'s intended contract; its FIRST run produced 3 real failures — 2 exposing the macOS `/var`→`/private/var` lexical/real ceiling bug (genuine production bug, see "Bug found and fixed" above), 1 a fixture bug (lstat stub keyed on the lexical path where the module lstats the realpath'd form). The pre-existing S-000/S-001 suite doubled as a live safety net: the first full scaffold-test run against the new module went 22 red for the same ceiling bug (quoted output: `Expected: "invalid-input" / Received: "source-outside-package"`; `AuthoringError: source file outside package: files/a.ts...`) | ✅ | PRC-07.1 both directions (existing + missing out-of-ceiling target); PRC-04.5 both directions (sibling-prefix out / true-child in / ceiling-equals) |
+| S-002.2 (reason union 8→12) | `authoring-reason.test.ts` (12-member pins), `authoring-error-source.test.ts::REQ-AEC-10/11` | contract + unit | The 12-member compile pins and four exact-message assertions structurally require all 12 union arms to exist. The `source-unreadable` fixture's first run failed for real (`Received: undefined` — spy keyed on the lexical path, module reads the realpath'd form), fixed by keying on `realpathSync(target)` | ✅ | Each of the 4 reasons has its own dedicated fixture asserting reason + origin + exact template text |
+| S-002.3 (placeholder-test updates) | `classify-transport.test.ts` (renamed PRC-04 block) | unit | Expectation flip `invalid-input` → `source-outside-package`: RED trivially against the S-001 placeholder (which threw `invalid-input`), GREEN only after S-002.1 landed — the exact update S-002.3 mandates | ✅ | `..`-segment and absolute-path variants (PRC-04.1 vs .6, kills the dotdot-only mutant) |
+| PRC-09 wiring | `expander.test.ts::REQ-PRC-09.1` | integration | **True RED**: the first fixture used ONE `..` level in the rename value and failed with `Received: undefined` (no throw) — `posix.join("out", "../escape.ts")` normalizes to `"escape.ts"`, within-workspace. Verified the join semantics via `node -e` BEFORE concluding fixture bug (not guard bug); fixed the fixture to two `..` levels → GREEN | ✅ | Unit-level guard tests in `containment.test.ts` cover the `..`/absolute/passing trio; this test pins the WIRING |
+
 ## Slice Audit (Step 7c) — S-002
 
 Self-audit (no `code-audit.md` sub-agent spawn available to this executor):
@@ -193,6 +204,12 @@ Resolved by reusing the EXISTING `DialectRegistry` (`src/core/context.ts`, ADR-0
 
 Flagging this explicitly (not silently) because it's a real architectural choice the design prose didn't spell out mechanically, even though the outcome matches the design's stated promise exactly ("run-level atomicity... needs NO new mechanism").
 
+## TDD Cycle Evidence — S-004
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated |
+|---|---|---|---|---|---|
+| S-004.1 + .2 | `batch-cap-chunk.test.ts` (REQ-04.1/.2/.3, REQ-05.1) | integration | Honest statement: the test file and the accumulator were written in one working pass, NOT literal test-first. RED validity rests on the tests' own self-checking structure: REQ-04.1 asserts `result.emitted.length > 1` — structurally false against the pre-S-004 expander (which emits exactly ONE batch per run), so the test cannot pass without the chunking change; REQ-04.2/.3's boundary contents are derived algorithmically (`soloBatchSize`/`soloEnvelopeOverhead`, measured via the SAME serialization the fake uses) with inline `expect(...).toEqual(BATCH_CAP_BYTES)`/`(+1)` self-assertions pinning each fixture to the exact boundary independent of the implementation under test | ✅ all 5 first-run green after implementation | REQ-04.3 brackets the `>` boundary from both sides (at-cap passes / one-over rejects); REQ-05.1 uses a collision-cause rejection — the in-loop verifier independently re-triangulated with a size-cause rejection on a later chunk, also green (verify-in-loop-4, adversarial table row 7) |
+
 ## Slice Audit (Step 7c) — S-004
 
 Self-audit (no `code-audit.md` sub-agent spawn available to this executor):
@@ -209,6 +226,24 @@ Self-audit (no `code-audit.md` sub-agent spawn available to this executor):
 | Test suite | 963 pass / 0 fail (full repo, `bun test`, 117 files) |
 | Typecheck | clean (`tsc --noEmit`) |
 
+## Fix iteration 1 (after verify-in-loop-4, verdict NEEDS_FIX, routing LOCAL)
+
+Report: `openspec/changes/schematic-local-files/verify-in-loop-4.md`. Three findings addressed, scope held exactly to the routing (the `readTemplateFile` deviation was ruled ADVISORY and routed to S-005 by the orchestrator — NOT touched here):
+
+1. **CRITICAL — lexical/real space-mixing in the broken-symlink absolute-target branch** (`containment.ts`). RED first: wrote the evaluator's exact fixture (in-ceiling broken symlink with an ABSOLUTE target) as a regression test and observed the real failure — `Expected: "source-not-found" / Received: "source-outside-package"` — before touching production code. Fix: `resolveBrokenSymlinkTargetLexically` → `resolveBrokenSymlinkTargetRealAncestor` — BOTH target forms (absolute and relative) now normalize to a lexical absolute form first, then route through `nearestExistingAncestorRealpath`, so the value compared against `realCeiling` is ALWAYS in real space. The sibling relative-target branch was re-audited per the routing and unified into the same normalization: its old `join(realpath'd-parent, target)` result stayed partially lexical when an EXISTING intermediate directory of the target was itself a symlink — same defect class, now closed by the shared ancestor-realpath step, not just the reported branch. A second regression test pins the relative-target positive control (it passed against the old code for the simple fixture shape, but now also guards the unified path).
+2. **W2 — case-fold coverage**: added a Q24 case-fold test to `containment.test.ts` asserting both directions per the CURRENT platform (folds on darwin/win32, not elsewhere), plus a case-identical control. RED proven by MUTATION (established S-000/S-001 precedent for characterization coverage): the fold was temporarily replaced with identity, exactly this test failed (`19 pass / 1 fail`, the Q24 test), mutant reverted (post-revert `git diff` shows no MUTANT marker), suite green.
+3. **W1 — TDD Cycle Evidence tables for S-002/S-004**: added above (honest method statements included — S-004's table explicitly states it was NOT literal test-first and explains where its RED validity actually comes from).
+
+W3 (`expect(fn).not.toThrow()` as sole assertion) was flagged by the verifier as mitigated-by-nature (a void, side-effect-free function's entire success contract IS not-throwing) and left as-is — no change made, recorded here so it doesn't read as overlooked.
+
+## Overall Progress (through fix iteration 1)
+
+| Metric | Value |
+|---|---|
+| Slices complete | 4 (S-000, S-001, S-002, S-004) |
+| Test suite | 966 pass / 0 fail (full repo, `bun test`, 117 files) |
+| Typecheck | clean (`tsc --noEmit`) |
+
 ## Next Step
 
-Ready for `/build --scope=slice:S-003` (Build Order step 4 — requires S-002, now complete: real `source-*` reasons exist before by-reference emission needs to attribute them). S-002 and S-004 are both complete and verified green together (963/0, full repo).
+Ready for verify in-loop iteration 2 on the S-002+S-004 batch. After pass: `/build --scope=slice:S-003` (Build Order step 4 — requires S-002: real `source-*` reasons exist before by-reference emission needs to attribute them). Open item routed to S-005 by the orchestrator: `readTemplateFile` containment (verify-in-loop-4 Deviation #1, ADVISORY — includes the `.d.ts` JSDoc doc-drift note).
