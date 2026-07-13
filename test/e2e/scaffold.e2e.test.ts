@@ -211,7 +211,7 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
 
     const err = expectAuthoringReason(caught, "invalid-input");
     expect(err.message).toEqual(
-      'invalid input: templateFile "escapes.ts.template" exceeds the serialized frame budget'
+      'invalid input: templateFile "escapes.ts.template" is too large to render inline (over the 4 MiB limit)'
     );
     expect(fake.committedTree().size).toEqual(0);
   });

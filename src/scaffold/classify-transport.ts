@@ -91,7 +91,7 @@ export function classifyTransport(params: ClassifyParams): ClassifyResult {
     (isTemplateMarked
       ? {
           binary: templateSniffFailMessage(relPath, "is not valid text (binary content)"),
-          oversized: templateSniffFailMessage(relPath, "exceeds the serialized frame budget"),
+          oversized: templateSniffFailMessage(relPath, "is too large to render inline (over the 4 MiB limit)"),
         }
       : undefined);
 

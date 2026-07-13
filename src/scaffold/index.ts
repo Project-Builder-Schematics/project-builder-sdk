@@ -28,7 +28,7 @@ function templateFileBinaryMessage(relPath: string): string {
 }
 
 function templateFileOversizedMessage(relPath: string): string {
-  return `invalid input: templateFile "${relPath}" exceeds the serialized frame budget`;
+  return `invalid input: templateFile "${relPath}" is too large to render inline (over the 4 MiB limit)`;
 }
 
 // REQ-CCL-01's whole-file sniff — moved into `classify-transport.ts` (the classify leaf)

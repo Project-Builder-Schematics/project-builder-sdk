@@ -170,7 +170,7 @@ export function find(path: string): FoundHandle {
  * explicit REQUEST to render one named file, unlike `scaffold`'s per-entry filename
  * processing. Because `templateFile` REQUESTS a render, it has no silent by-reference
  * fallback (REQ-FEH-02): a binary file (a null byte or invalid UTF-8 anywhere in the
- * whole file) or a file whose content exceeds the serialized frame budget both reject
+ * whole file) or a file too large to render inline (over the 4 MiB limit) both reject
  * fail-loud with reason `invalid-input` — never a silent copy.
  *
  * @example
