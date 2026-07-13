@@ -2,6 +2,34 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `schematic-local-files` (2026-07-13)
+
+### A "behavior-neutral" decode refactor silently stripped a leading BOM — prove neutrality, don't assume it
+**What**: A `/simplify` pass changed content decoding from `buf.toString("utf-8")` (BOM-preserving) to `TextDecoder("utf-8", { fatal: true })` (BOM-stripping — `ignoreBOM` defaults to `false`). The refactor was reviewed and shipped under the claim "decodes identically"; that claim was false for any BOM-prefixed file.
+**Why**: `TextDecoder`'s BOM-stripping default is a well-known but easy-to-miss gotcha; a refactor that swaps decode primitives for "the same" behavior needs a fixture that actually exercises the divergent case, not just a green suite that never fed it a BOM.
+**Where**: `src/scaffold/classify-transport.ts` (the whole-file sniff/decode path) — fixed by passing `ignoreBOM: true`.
+**Learned**: Any "decode-neutral" refactor claim MUST be backed by an explicit BOM fixture (and other encoding edge cases: CRLF, multi-byte boundaries) before being trusted — "the tests still pass" is not proof of neutrality if no test exercises the divergent input.
+
+### A budget-check heuristic measured the wrong quantity — a heuristic must measure what the real authority measures
+**What**: `classifyTransport`'s by-value/by-reference budget check measured the serialized CONTENT STRING against the cap, not the prospective `create` DIRECTIVE (envelope + wrapper + `pathTemplate` + `options`) that the real emit-time authority (the fake's cap enforcement) actually measures. A file whose raw content fit under cap but whose emitted directive exceeded it was misclassified by-value, then failed `changes-too-large` at emit — turning a should-succeed run into a failure exactly at the boundary.
+**Why**: The classifier is a LOWERING HEURISTIC predicting which side of the real cap a file will land on (ADR-0018/0019); if the heuristic's proxy diverges from what the authority actually measures, the prediction is wrong precisely at the boundary — the highest-value/highest-risk zone for this kind of check.
+**Where**: `src/scaffold/classify-transport.ts` — fixed by measuring `serializedBatchSize([prospectiveDirective])` instead of `JSON.stringify(content)`.
+**Learned**: When writing a heuristic that predicts an authority's future verdict, measure the SAME quantity the authority measures (or a provably tighter superset) — never a cheaper proxy that can diverge at the cap boundary. Verify with a worktree pre/post regression proof, not just unit coverage.
+
+### A fresh, blind, independent adversarial pass is load-bearing — internal consistency is not correctness
+**What**: Judgment-day (blind dual-judge adversarial review) caught three real defects — the classifier budget under-measurement, the BOM regression, and a raw Node error escaping the `AuthoringError` contract on a missing/non-directory walk root — that the full 4-persona blind council AND two independent final-verify passes had ALL missed.
+**Why**: In every case, the shipped code was internally consistent with its own tests: the tests and the implementation shared the same wrong mental model, so nothing in that closed loop could catch the divergence from the actual spec intent. Only a reviewer with NO exposure to the prior reasoning — fresh fixtures, fresh mutation probes, re-run after every fix — broke the loop.
+**Where**: Process-level, applies to any L-classified (sensitive-area) change with a non-trivial trust boundary.
+**Learned**: Don't treat a clean in-loop streak or a passing council review as proof of correctness for a security-relevant boundary — schedule a genuinely blind adversarial pass (no access to the orchestrator's transcript, prior findings, or builder narration) and RE-RUN it after every fix, not just once. The value is in the fresh, uncontaminated composition, not any single reviewer's skill.
+
+### Worktree engram-namespace gap during planning — committed openspec artifacts stayed the durable source of truth
+**What**: Plan-phase (explore/propose/spec/design) observations for this change landed under a different engram namespace than the one this archive session resolved to, so they weren't directly retrievable by this session's `mem_search`.
+**Why**: The change was planned in an isolated worktree whose engram project-name resolution diverged from the main checkout's.
+**Where**: Cross-worktree SDD sessions using `artifact_store: hybrid` or `engram`.
+**Learned**: When planning happens in a worktree, treat the committed OpenSpec files as the durable, canonical record — don't assume engram continuity across worktree boundaries. If hybrid mode is active, verify the engram namespace resolves identically before relying on cross-phase `mem_search` recall; when it doesn't, the filesystem artifacts are the fallback of record, not a degraded backup.
+
+Source: change `schematic-local-files` (2026-07-13)
+
 ## From `stage-5-first-dialect` (2026-07-12)
 
 ### ts-morph@28 strips leading BOM through getFullText — re-prepend logic is load-bearing
