@@ -130,22 +130,23 @@ source bytes), the fake/vehicle record dest-collision + emit-only (never `result
 throw is replaced by real emission.
 
 ### Tasks
-- [ ] S-003.1 `wire.ts`: add `{op:"copyIn"; copyIn:{from; to; force?}}` (ADR-0043);
+- [x] S-003.1 `wire.ts`: add `{op:"copyIn"; copyIn:{from; to; force?}}` (ADR-0043);
       `directive-factory.ts`: pure `copyIn()` method
-- [ ] S-003.2 `authoring-error.ts`: `AuthoringVerb` 6→7 (`+"copyIn"`); `verbFor`/
+- [x] S-003.2 `authoring-error.ts`: `AuthoringVerb` 6→7 (`+"copyIn"`); `verbFor`/
       `primaryPath` gain the `copyIn` arm (`path: directive.copyIn.from`)
-- [ ] S-003.3 `src/scaffold/classify-transport.ts` + `expander.ts`: swap the S-001
+- [x] S-003.3 `src/scaffold/classify-transport.ts` + `expander.ts`: swap the S-001
       fail-loud throw for `factory.copyIn(...)` emission; `commons.copyIn(from, to,
       opts?): void`
-- [ ] S-003.4 `testing/contract-fake.ts`: `copyIn` branch (dest-collision, emit-only,
+- [x] S-003.4 `testing/contract-fake.ts`: `copyIn` branch (dest-collision, emit-only,
       never writes `#tree`); `conformance/run-vehicle.ts`: `copyIn` case — ADDS collision
       machinery `applyDirective` currently lacks (today's `"copy"` branch applies silently)
-- [ ] S-003.5 `dry-run/plan.ts`: `DryRunVerb`+`"copyIn"`; `WIRE_TO_AUTHOR_VERB` 7th row;
+- [x] S-003.5 `dry-run/plan.ts`: `DryRunVerb`+`"copyIn"`; `WIRE_TO_AUTHOR_VERB` 7th row;
       `copyIn`→`"copied"`, mixed-scaffold entries show both tags
-- [ ] S-003.6 `test/scaffold/scaffold-fake.test.ts`, `test/fake/copyin-fidelity.test.ts`
+- [x] S-003.6 `test/scaffold/scaffold-fake.test.ts`, `test/fake/copyin-fidelity.test.ts`
       (BRC-06 missing-source → `source-not-found` through the harness), `test/skeleton/
       authoring-error.test.ts` (A1 verb/path pin)
-- [ ] S-003.7 ADR-0019/0025 amendments (additive widening; 7th verb + `kind`)
+- [x] S-003.7 ADR-0019/0025 amendments (additive widening; 7th verb + `kind`) — VERIFIED
+      NO-OP, see apply-progress.md (amendment sections already existed, dated 2026-07-12)
 
 ---
 
