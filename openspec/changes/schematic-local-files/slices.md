@@ -68,20 +68,24 @@ directives per the mirrored/renamed/token-translated/`.template`-stripped path, 
 by-reference verdict THROWS fail-loud (temporary — S-003 swaps this).
 
 ### Tasks
-- [ ] S-001.1 `src/scaffold/walk.ts`: enumeration, no symlinked-dir descent (`lstat`-based),
+- [x] S-001.1 `src/scaffold/walk.ts`: enumeration, no symlinked-dir descent (`lstat`-based),
       10 000-entry bound
-- [ ] S-001.2 `src/scaffold/filename-pipeline.ts`: rename → token-translation →
+- [x] S-001.2 `src/scaffold/filename-pipeline.ts`: rename → token-translation →
       `.template`-strip (pinned order); include/exclude glob; intra-collision detection
       naming all offending sources
-- [ ] S-001.3 `src/scaffold/classify-transport.ts`: stat-gate → whole-file sniff → budget →
+- [x] S-001.3 `src/scaffold/classify-transport.ts`: stat-gate → whole-file sniff → budget →
       verdict; MINIMAL lexical containment guard only (hardened in S-002); by-reference
       verdict = fail-loud throw
-- [ ] S-001.4 `commons.scaffold(args): void`; zero-files-after-filter no-op vs
+- [x] S-001.4 `commons.scaffold(args): void`; zero-files-after-filter no-op vs
       filters-eliminate-all fail-loud (`invalid-input`)
-- [ ] S-001.5 `test/scaffold/{walk,filename-pipeline,classify-transport,index}.test.ts`,
+- [x] S-001.5 `test/scaffold/{walk,filename-pipeline,classify-transport,index}.test.ts`,
       `test/scaffold/expander.test.ts` (FSC-06.1 only — force pass-through, no by-reference
-      fixture yet), `test/types/authoring-reason.test.ts` extended
-- [ ] S-001.6 ADR-0005 marked Superseded (by ADR-0044)
+      fixture yet); AEC-12 remaining fixtures pinned in `test/core/authoring-error-source.test.ts`
+      (design's Test Derivation table row governs over this line's literal
+      `test/types/authoring-reason.test.ts` — see apply-progress deviation note);
+      FSC-07.1 void-return pinned in `test/types/scaffold-return.test.ts`
+- [x] S-001.6 ADR-0005 marked Superseded (by ADR-0044) — already done when ADR-0044 was
+      authored at design time; verified, no further edit needed
 
 ---
 
