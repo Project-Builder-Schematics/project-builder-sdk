@@ -12,9 +12,10 @@ import * as fs from "node:fs";
 import { join, relative } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
 import { create } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { rejectedRun } from "../support/rejection-capture.ts";
+import { expectAuthoringReason } from "../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("run-boundary-");
 
@@ -24,35 +25,20 @@ describe("REQ-PRC-03.1 / REQ-RBV-06.1 — missing collection.json ancestor fails
     rmSync(join(dir, "collection.json")); // scratchDirFactory seeds a marker by default — remove it for this negative case
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       throw new Error("body-ran");
     }, { packageDir: dir });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
-    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
-    expect((caught as Error).message).not.toEqual("body-ran");
+    const err = expectAuthoringReason(caught, "invalid-input");
+    expect(err.message).not.toEqual("body-ran");
   });
 
   it("REQ-PRC-03.1: the rejection message is project-relative, never an absolute filesystem path", async () => {
     const dir = scratchDir();
     rmSync(join(dir, "collection.json"));
     const fake = new ContractFake({ seed: {} });
-    const run = defineFactory<void>(() => {}, { packageDir: dir });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
+    const caught = await rejectedRun(fake, () => {}, { packageDir: dir });
 
     const message = (caught as Error).message;
     expect(message).toContain(relative(process.cwd(), dir));

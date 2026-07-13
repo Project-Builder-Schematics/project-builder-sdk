@@ -13,7 +13,7 @@ import {
   detectDestinationCollisions,
   type PipelineResult,
 } from "../../src/scaffold/filename-pipeline.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
+import { expectReason } from "../support/expect-reason.ts";
 
 describe("translateTokens — REQ-FSC-05 step 2", () => {
   it("__name@dasherize__ translates to {= name | dasherize =} (the spec-pinned example)", () => {
@@ -98,18 +98,9 @@ describe("REQ-FSC-08.1 — intra-scaffold destination collision names both offen
       { sourceRelPath: "a.ts.template", destRelPath: "a.ts", isTemplateMarked: true },
     ];
 
-    let caught: unknown;
-    try {
-      detectDestinationCollisions(results);
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
-    const message = (caught as Error).message;
-    expect(message).toContain("a.ts");
-    expect(message).toContain("a.ts.template");
+    const err = expectReason(() => detectDestinationCollisions(results), "invalid-input");
+    expect(err.message).toContain("a.ts");
+    expect(err.message).toContain("a.ts.template");
   });
 
   it("no collision when every destination is unique — does not throw", () => {

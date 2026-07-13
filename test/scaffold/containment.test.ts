@@ -15,23 +15,10 @@ import {
   validateSourceContainment,
   validateDestinationLexical,
 } from "../../src/scaffold/containment.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { expectReason } from "../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("containment-");
-
-function expectReason(fn: () => unknown, reason: AuthoringError["reason"]): AuthoringError {
-  let caught: unknown;
-  try {
-    fn();
-  } catch (err) {
-    caught = err;
-  }
-  expect(caught).toBeInstanceOf(AuthoringError);
-  expect((caught as AuthoringError).reason).toEqual(reason);
-  expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
-  return caught as AuthoringError;
-}
 
 describe("REQ-PRC-01.1 — resolution anchor and containment ceiling are distinct", () => {
   it("a source under a nested packageDir passes both resolution (packageDir) and containment (packageRoot, an ancestor)", () => {
@@ -269,26 +256,11 @@ describe("REQ-PRC-08.1 — containment completes before any content read", () =>
 
 describe("REQ-PRC-09.1 — destination lexical guard (literal '../' or absolute 'to' rejected pre-emit)", () => {
   it("a literal '..' segment in the computed destination rejects invalid-input", () => {
-    let caught: unknown;
-    try {
-      validateDestinationLexical("../escape.svg");
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
-    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
+    expectReason(() => validateDestinationLexical("../escape.svg"), "invalid-input");
   });
 
   it("an absolute computed destination rejects invalid-input", () => {
-    let caught: unknown;
-    try {
-      validateDestinationLexical("/abs/path");
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expectReason(() => validateDestinationLexical("/abs/path"), "invalid-input");
   });
 
   it("a well-formed relative destination passes silently", () => {

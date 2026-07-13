@@ -8,8 +8,8 @@ import { describe, it, expect } from "bun:test";
 import { mkdirSync, writeFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { walkFolder } from "../../src/scaffold/walk.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { expectReason } from "../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("walk-");
 
@@ -55,16 +55,8 @@ describe("REQ-FSC-09.2 — entry-count bound exceeded fails loud, naming the bou
     writeFileSync(join(dir, "b.ts"), "B", "utf-8");
     // collection.json (seeded by scratchDirFactory) makes 3 entries total — over a bound of 2.
 
-    let caught: unknown;
-    try {
-      walkFolder(dir, 2);
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
-    expect((caught as Error).message).toContain("2");
+    const err = expectReason(() => walkFolder(dir, 2), "invalid-input");
+    expect(err.message).toContain("2");
   });
 
   it("a tree with exactly `bound` entries does not reject", () => {

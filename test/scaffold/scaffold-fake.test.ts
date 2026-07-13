@@ -19,17 +19,9 @@ import { defineFactory } from "../../src/core/context.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { scaffold, copyIn, create, AuthoringError } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
-import type { Directive } from "../../src/core/wire.ts";
+import { collectOps } from "../support/spy-client.ts";
 
 const scratchDir = scratchDirFactory("scaffold-fake-");
-
-function copyInsOf(batches: readonly { instructions: Directive[] }[]): Extract<Directive, { op: "copyIn" }>[] {
-  return batches.flatMap((b) => b.instructions).filter((d): d is Extract<Directive, { op: "copyIn" }> => d.op === "copyIn");
-}
-
-function createsOf(batches: readonly { instructions: Directive[] }[]): Extract<Directive, { op: "create" }>[] {
-  return batches.flatMap((b) => b.instructions).filter((d): d is Extract<Directive, { op: "create" }> => d.op === "create");
-}
 
 describe("REQ-BRC-01.1 — by-reference directive is distinguishable from by-value in the same batch", () => {
   it("a scaffold over one text file and one binary file emits a create AND a copyIn, each carrying its own shape", async () => {
@@ -45,8 +37,8 @@ describe("REQ-BRC-01.1 — by-reference directive is distinguishable from by-val
     const result = await runFactoryForTest(run, undefined);
     expect(result.error).toBeUndefined();
 
-    const [createDirective] = createsOf(result.emitted);
-    const [copyInDirective] = copyInsOf(result.emitted);
+    const [createDirective] = collectOps(result.emitted, "create");
+    const [copyInDirective] = collectOps(result.emitted, "copyIn");
 
     expect(createDirective?.create.pathTemplate).toEqual("out/text.ts");
     expect(copyInDirective?.copyIn).toEqual({ from: "files/binary.png", to: "out/binary.png" });
@@ -66,7 +58,7 @@ describe("REQ-BRC-01.2 — the directive carries a path REFERENCE, never the sou
     const result = await runFactoryForTest(run, undefined);
     expect(result.error).toBeUndefined();
 
-    const [copyInDirective] = copyInsOf(result.emitted);
+    const [copyInDirective] = collectOps(result.emitted, "copyIn");
     expect(Object.keys(copyInDirective!.copyIn).sort()).toEqual(["from", "to"]);
 
     const serialized = JSON.stringify(result.emitted);
@@ -154,7 +146,7 @@ describe("REQ-CCL-04.1 — template-like text renders via scaffold by-value; cop
     const result = await runFactoryForTest(run, undefined);
     expect(result.error).toBeUndefined();
 
-    const [copyInDirective] = copyInsOf(result.emitted);
+    const [copyInDirective] = collectOps(result.emitted, "copyIn");
     expect(copyInDirective?.copyIn).toEqual({ from: "literal.txt", to: "out/literal.txt" });
     // BRC-04/Q21: never lands in result.tree, even though the source is plain text.
     expect(result.tree.has("out/literal.txt")).toBe(false);

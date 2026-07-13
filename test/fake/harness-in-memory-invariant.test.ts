@@ -34,101 +34,17 @@
  * harness machinery itself) still fails closed — the widened allow-list is scoped
  * EXCLUSIVELY to reads within the collection root, never a blanket exemption.
  */
-import { describe, it, expect, spyOn } from "bun:test";
+import { describe, it, expect } from "bun:test";
 import * as fs from "node:fs";
-import * as net from "node:net";
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
-import { join, sep } from "node:path";
+import { join } from "node:path";
 import { defineFactory, runFactoryForTest } from "../../src/testing/index.ts";
 import { create, modify, find, remove, rename, move, copy, scaffold } from "../../src/commons/index.ts";
+import { isWithinCeiling } from "../../src/scaffold/containment.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { instrumentHarnessIO, type IoEvent } from "../support/harness-io-instrumentation.ts";
 
 const scratchDir = scratchDirFactory("harness-in-memory-invariant-");
-
-interface IoEvent {
-  surface: string;
-  key: string;
-  arg: unknown;
-}
-
-interface HarnessIoInstrumentation {
-  events: IoEvent[];
-  envGets: number;
-  argvGets: number;
-  restore(): void;
-}
-
-interface SpyEntry {
-  surface: string;
-  key: string;
-  spy: ReturnType<typeof spyOn>;
-}
-
-const BUN_IO_MEMBERS = ["write", "file", "spawn", "$", "connect"] as const;
-
-/** Pass-through spies on every function-typed, non-constructor export of a module namespace. */
-function spyOnModuleFunctions(moduleNamespace: Record<string, unknown>, surface: string): SpyEntry[] {
-  const entries: SpyEntry[] = [];
-  for (const key of Object.keys(moduleNamespace)) {
-    // Skip PascalCase exports (classes/constructors, e.g. fs.Stats, net.Socket) — the
-    // invariant concerns CALL SITES (operations), not construction of unused value types.
-    if (/^[A-Z]/.test(key)) continue;
-    if (typeof moduleNamespace[key] !== "function") continue;
-    entries.push({ surface, key, spy: spyOn(moduleNamespace, key) });
-  }
-  return entries;
-}
-
-/**
- * Arms call-interception spies across every I/O surface REQ-ATH-11 enumerates, for the
- * duration between this call and `.restore()`.
- */
-function instrumentHarnessIO(): HarnessIoInstrumentation {
-  const spyEntries: SpyEntry[] = [
-    ...spyOnModuleFunctions(fs as unknown as Record<string, unknown>, "node:fs"),
-    ...spyOnModuleFunctions(net as unknown as Record<string, unknown>, "node:net"),
-    ...BUN_IO_MEMBERS.map((member) => ({ surface: "Bun", key: member, spy: spyOn(Bun, member as never) })),
-    { surface: "global", key: "fetch", spy: spyOn(globalThis, "fetch") },
-  ];
-
-  let envGets = 0;
-  let argvGets = 0;
-  const realEnv = process.env;
-  const realArgv = process.argv;
-  const envProxy = new Proxy(realEnv, {
-    get(target, prop, receiver) {
-      envGets++;
-      return Reflect.get(target, prop, receiver);
-    },
-  });
-  const argvProxy = new Proxy(realArgv, {
-    get(target, prop, receiver) {
-      argvGets++;
-      return Reflect.get(target, prop, receiver);
-    },
-  });
-  (process as unknown as { env: typeof realEnv }).env = envProxy;
-  (process as unknown as { argv: typeof realArgv }).argv = argvProxy;
-
-  return {
-    get events(): IoEvent[] {
-      return spyEntries.flatMap(({ surface, key, spy }) =>
-        spy.mock.calls.map((call: unknown[]) => ({ surface, key, arg: call[0] }))
-      );
-    },
-    get envGets() {
-      return envGets;
-    },
-    get argvGets() {
-      return argvGets;
-    },
-    restore() {
-      for (const { spy } of spyEntries) spy.mockRestore();
-      (process as unknown as { env: typeof realEnv }).env = realEnv;
-      (process as unknown as { argv: typeof realArgv }).argv = realArgv;
-    },
-  };
-}
 
 describe("REQ-ATH-11.1 — in-memory-only invariant (harness machinery)", () => {
   it("[permanent-fixture][red-proof] a planted fs read during the run is detected by the instrumentation", async () => {
@@ -143,7 +59,7 @@ describe("REQ-ATH-11.1 — in-memory-only invariant (harness machinery)", () => 
 
       await runFactoryForTest(run, undefined);
 
-      const fsEvents = instrumentation.events.filter((event) => event.surface === "node:fs");
+      const fsEvents = instrumentation.events().filter((event) => event.surface === "node:fs");
       expect(fsEvents.length).toBeGreaterThan(0);
       expect(fsEvents.some((event) => event.key === "readFileSync")).toBe(true);
     } finally {
@@ -173,7 +89,7 @@ describe("REQ-ATH-11.1 — in-memory-only invariant (harness machinery)", () => 
       });
 
       expect(result.error).toBeUndefined();
-      expect(instrumentation.events).toEqual([]);
+      expect(instrumentation.events()).toEqual([]);
       expect(instrumentation.envGets).toEqual(0);
       expect(instrumentation.argvGets).toEqual(0);
     } finally {
@@ -193,9 +109,11 @@ describe("REQ-ATH-11.1 — in-memory-only invariant (harness machinery)", () => 
 // `collection.json` ancestor probe) use the LEXICAL `packageDir` join, while others (e.g.
 // containment's own `lstatSync`/`realpathSync`) resolve into REAL space. Never mixing a
 // lexical arg against only a real root (or vice versa) would false-flag legitimate reads.
+// The membership comparison itself is the production `isWithinCeiling` (segment-aware,
+// platform case-fold) — the dual-root LIST stays this test's own concern.
 function isWithinCollectionRoot(event: IoEvent, roots: readonly string[]): boolean {
   if (typeof event.arg !== "string") return false;
-  return roots.some((root) => event.arg === root || (event.arg as string).startsWith(root + sep));
+  return roots.some((root) => isWithinCeiling(event.arg as string, root));
 }
 
 describe("REQ-ATH-14 — in-memory-only invariant carve-out widened: package-root reads (S-005)", () => {
@@ -215,14 +133,14 @@ describe("REQ-ATH-14 — in-memory-only invariant carve-out widened: package-roo
 
       expect(result.error).toBeUndefined();
 
-      const fsEvents = instrumentation.events.filter((event) => event.surface === "node:fs");
+      const fsEvents = instrumentation.events().filter((event) => event.surface === "node:fs");
       // Sanity: scaffold DID perform real reads — a vacuous/broken rig would pass trivially.
       expect(fsEvents.length).toBeGreaterThan(0);
 
       const outsideRoot = fsEvents.filter((event) => !isWithinCollectionRoot(event, roots));
       expect(outsideRoot).toEqual([]);
 
-      const otherSurfaceEvents = instrumentation.events.filter((event) => event.surface !== "node:fs");
+      const otherSurfaceEvents = instrumentation.events().filter((event) => event.surface !== "node:fs");
       expect(otherSurfaceEvents).toEqual([]);
       expect(instrumentation.envGets).toEqual(0);
       expect(instrumentation.argvGets).toEqual(0);
@@ -249,7 +167,7 @@ describe("REQ-ATH-14 — in-memory-only invariant carve-out widened: package-roo
 
       await runFactoryForTest(run, undefined);
 
-      const outsideRoot = instrumentation.events.filter(
+      const outsideRoot = instrumentation.events().filter(
         (event) => event.surface === "node:fs" && !isWithinCollectionRoot(event, roots)
       );
       // The widened allow-list covers ONLY factory-attributable, within-collection-root

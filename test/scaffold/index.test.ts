@@ -13,8 +13,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { scaffold, copyIn, dryRun, AuthoringError } from "../../src/commons/index.ts";
+import { scaffold, copyIn, dryRun } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { rejectedRun } from "../support/rejection-capture.ts";
+import { expectAuthoringReason } from "../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("scaffold-index-");
 
@@ -27,20 +29,11 @@ describe("REQ-FSC-01.1 — missing mandatory 'from' rejects before any directory
     writeFileSync(join(dir, "files", "a.ts"), "content", "utf-8");
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       scaffold({ to: "out" } as unknown as Parameters<typeof scaffold>[0]);
     }, { packageDir: dir });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
-    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
+    expectAuthoringReason(caught, "invalid-input");
     expect(fake.committedTree().size).toEqual(0);
   });
 });
@@ -52,19 +45,11 @@ describe("REQ-FSC-01.3 — missing mandatory 'to' rejects before any directory r
     writeFileSync(join(dir, "files", "a.ts"), "content", "utf-8");
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       scaffold({ from: "files" } as unknown as Parameters<typeof scaffold>[0]);
     }, { packageDir: dir });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expectAuthoringReason(caught, "invalid-input");
   });
 });
 
@@ -119,19 +104,11 @@ describe("REQ-FEH-04 — copyIn's mandatory args and void return", () => {
     writeFileSync(join(dir, "asset.svg"), "<svg/>", "utf-8");
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       copyIn("asset.svg", undefined as unknown as string);
     }, { packageDir: dir });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expectAuthoringReason(caught, "invalid-input");
     expect(fake.committedTree().size).toEqual(0);
   });
 
@@ -139,19 +116,11 @@ describe("REQ-FEH-04 — copyIn's mandatory args and void return", () => {
     const dir = scratchDir();
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       copyIn(undefined as unknown as string, "dest/asset.svg");
     }, { packageDir: dir });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expectAuthoringReason(caught, "invalid-input");
     expect(fake.committedTree().size).toEqual(0);
   });
 
@@ -171,19 +140,10 @@ describe("REQ-FEH-04 — copyIn's mandatory args and void return", () => {
   it("design §Data Model 'no resolution anchor': copyIn inside a bare defineFactory(fn) run fails loud, never falls back to cwd", async () => {
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       copyIn("asset.svg", "dest/asset.svg");
     });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
-    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
+    expectAuthoringReason(caught, "invalid-input");
   });
 });

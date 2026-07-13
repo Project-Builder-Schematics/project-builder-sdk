@@ -13,6 +13,7 @@ import { defineFactory } from "../../src/core/context.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { copyIn, AuthoringError } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { collectOps } from "../support/spy-client.ts";
 
 const scratchDir = scratchDirFactory("copyin-fidelity-");
 
@@ -28,7 +29,7 @@ describe("REQ-ATH-15.1 — a valid by-reference directive lands in result.emitte
     const result = await runFactoryForTest(run, undefined);
 
     expect(result.error).toBeUndefined();
-    const copyInDirectives = result.emitted.flatMap((b) => b.instructions).filter((d) => d.op === "copyIn");
+    const copyInDirectives = collectOps(result.emitted, "copyIn");
     expect(copyInDirectives).toHaveLength(1);
     expect(result.tree.has("dest/asset.svg")).toBe(false);
     expect(result.tree.size).toEqual(0);

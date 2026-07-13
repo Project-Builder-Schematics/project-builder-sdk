@@ -9,9 +9,9 @@ import { describe, it, expect } from "bun:test";
 import { writeFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { expectReason } from "../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("classify-transport-");
 
@@ -158,32 +158,21 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
     const dir = scratchDir();
     writeFileSync(join(dir, "logo.svg"), Buffer.from([0x00, 0x01, 0x02]));
 
-    let caught: unknown;
-    try {
-      classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "logo.svg", isTemplateMarked: true });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
-    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
-    expect((caught as Error).message).toContain("logo.svg");
+    const err = expectReason(
+      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "logo.svg", isTemplateMarked: true }),
+      "invalid-input"
+    );
+    expect(err.message).toContain("logo.svg");
   });
 
   it("an over-budget .template-marked source fails loud, never by-reference", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "huge.template"), "a".repeat(BATCH_CAP_BYTES + 1), "utf-8");
 
-    let caught: unknown;
-    try {
-      classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "huge.template", isTemplateMarked: true });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expectReason(
+      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "huge.template", isTemplateMarked: true }),
+      "invalid-input"
+    );
   });
 
   it("a valid text .template-marked source still classifies by-value normally", () => {
@@ -200,29 +189,18 @@ describe("REQ-PRC-04 — source containment, delegated to containment.ts (S-002 
   it("REQ-PRC-04.1: a source-relative path containing a '..' segment rejects source-outside-package", () => {
     const dir = scratchDir();
 
-    let caught: unknown;
-    try {
-      classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "../outside.txt", isTemplateMarked: false });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("source-outside-package");
-    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
+    expectReason(
+      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "../outside.txt", isTemplateMarked: false }),
+      "source-outside-package"
+    );
   });
 
   it("REQ-PRC-04.6: an absolute source-relative path rejects source-outside-package (no '..' present)", () => {
     const dir = scratchDir();
 
-    let caught: unknown;
-    try {
-      classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "/etc/passwd", isTemplateMarked: false });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("source-outside-package");
+    expectReason(
+      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "/etc/passwd", isTemplateMarked: false }),
+      "source-outside-package"
+    );
   });
 });

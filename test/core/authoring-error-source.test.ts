@@ -18,21 +18,16 @@ import { describe, it, expect, spyOn } from "bun:test";
 import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
-import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { scaffold, AuthoringError } from "../../src/commons/index.ts";
 import { walkFolder } from "../../src/scaffold/walk.ts";
 import { detectDestinationCollisions, type PipelineResult } from "../../src/scaffold/filename-pipeline.ts";
 import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { rejectedRun } from "../support/rejection-capture.ts";
+import { expectAuthoringReason, expectReason } from "../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("aec-12-");
-
-function expectInvalidInputAuthoringRejected(err: unknown): void {
-  expect(err).toBeInstanceOf(AuthoringError);
-  expect((err as AuthoringError).reason).toEqual("invalid-input");
-  expect((err as AuthoringError).origin).toEqual("authoring-rejected");
-}
 
 describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authoring-rejected", () => {
   it("zero-files-after-filter (REQ-FSC-04.2)", async () => {
@@ -41,18 +36,11 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
     writeFileSync(join(dir, "files", "a.ts"), "A", "utf-8");
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       scaffold({ from: "files", to: "out", exclude: ["*.ts"] });
     }, { packageDir: dir });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
-
-    expectInvalidInputAuthoringRejected(caught);
+    expectAuthoringReason(caught, "invalid-input");
   });
 
   it(".template sniff-fail inside a scaffold walk (content-classification REQ-CCL-05.1)", async () => {
@@ -61,18 +49,11 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
     writeFileSync(join(dir, "files", "logo.svg.template"), Buffer.from([0x00, 0x01]));
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       scaffold({ from: "files", to: "out" });
     }, { packageDir: dir });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
-
-    expectInvalidInputAuthoringRejected(caught);
+    expectAuthoringReason(caught, "invalid-input");
   });
 
   it("intra-scaffold destination collision (folder-scaffold REQ-FSC-08.1)", () => {
@@ -81,14 +62,7 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
       { sourceRelPath: "a.ts.template", destRelPath: "same.ts", isTemplateMarked: true },
     ];
 
-    let caught: unknown;
-    try {
-      detectDestinationCollisions(results);
-    } catch (err) {
-      caught = err;
-    }
-
-    expectInvalidInputAuthoringRejected(caught);
+    expectReason(() => detectDestinationCollisions(results), "invalid-input");
   });
 
   it("walk entry-count bound exceeded (folder-scaffold REQ-FSC-09.2)", () => {
@@ -96,14 +70,8 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
     writeFileSync(join(dir, "a.ts"), "A", "utf-8");
     writeFileSync(join(dir, "b.ts"), "B", "utf-8");
 
-    let caught: unknown;
-    try {
-      walkFolder(dir, 1); // 2 real entries + collection.json > bound of 1
-    } catch (err) {
-      caught = err;
-    }
-
-    expectInvalidInputAuthoringRejected(caught);
+    // 2 real entries + collection.json > bound of 1
+    expectReason(() => walkFolder(dir, 1), "invalid-input");
   });
 
   it("the compile-time union pin still counts exactly twelve members — none of these modes minted a new reason", () => {
@@ -136,39 +104,28 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
   it("REQ-AEC-10.1/REQ-AEC-11.1: source-not-found — an in-ceiling missing source", () => {
     const dir = scratchDir();
 
-    let caught: unknown;
-    try {
-      classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "missing.ts", isTemplateMarked: false });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("source-not-found");
-    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
-    expect((caught as Error).message).toEqual("source file not found: missing.ts does not exist in the package");
-    expect((caught as Error).message).not.toContain(dir);
+    const err = expectReason(
+      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "missing.ts", isTemplateMarked: false }),
+      "source-not-found"
+    );
+    expect(err.message).toEqual("source file not found: missing.ts does not exist in the package");
+    expect(err.message).not.toContain(dir);
   });
 
   it("REQ-AEC-10.1/REQ-AEC-11.1: source-outside-package — a source resolving outside the containment ceiling", () => {
     const dir = scratchDir();
 
-    let caught: unknown;
-    try {
-      classifyTransport({
-        packageDir: dir,
-        packageRoot: dir,
-        relPath: "../outside.txt",
-        isTemplateMarked: false,
-      });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("source-outside-package");
-    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
-    expect((caught as Error).message).toEqual(
+    const err = expectReason(
+      () =>
+        classifyTransport({
+          packageDir: dir,
+          packageRoot: dir,
+          relPath: "../outside.txt",
+          isTemplateMarked: false,
+        }),
+      "source-outside-package"
+    );
+    expect(err.message).toEqual(
       "source file outside package: ../outside.txt resolves outside the package boundary"
     );
   });
@@ -177,17 +134,11 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
     const dir = scratchDir();
     mkdirSync(join(dir, "adir"));
 
-    let caught: unknown;
-    try {
-      classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "adir", isTemplateMarked: false });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("source-not-regular-file");
-    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
-    expect((caught as Error).message).toEqual("source file invalid: adir is not a regular file");
+    const err = expectReason(
+      () => classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "adir", isTemplateMarked: false }),
+      "source-not-regular-file"
+    );
+    expect(err.message).toEqual("source file invalid: adir is not a regular file");
   });
 
   it("REQ-AEC-10.1/REQ-AEC-11.1: source-unreadable — an injected read-failure (EACCES) seam, never chmod (S18)", async () => {
@@ -207,21 +158,12 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
     }) as typeof fs.readFileSync);
 
     try {
-      const run = defineFactory<void>(() => {
+      const caught = await rejectedRun(fake, () => {
         scaffold({ from: "files", to: "out" });
       }, { packageDir: dir });
 
-      let caught: unknown;
-      try {
-        await run(undefined, { client: fake });
-      } catch (err) {
-        caught = err;
-      }
-
-      expect(caught).toBeInstanceOf(AuthoringError);
-      expect((caught as AuthoringError).reason).toEqual("source-unreadable");
-      expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
-      expect((caught as Error).message).toEqual("source file unreadable: files/readable.ts could not be read");
+      const err = expectAuthoringReason(caught, "source-unreadable");
+      expect(err.message).toEqual("source file unreadable: files/readable.ts could not be read");
       expect(fake.committedTree().size).toEqual(0);
     } finally {
       readSpy.mockRestore();

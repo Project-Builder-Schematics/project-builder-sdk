@@ -21,6 +21,8 @@ import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { scaffold, dryRun, AuthoringError } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { rejectedRun } from "../support/rejection-capture.ts";
+import { expectAuthoringReason } from "../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("expander-");
 
@@ -70,20 +72,12 @@ describe("REQ-FSC-04 — zero-files-after-filter vs empty-source-folder are dist
     writeFileSync(join(dir, "files", "b.ts"), "B", "utf-8");
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       scaffold({ from: "files", to: "out", exclude: ["*.ts"] });
     }, { packageDir: dir });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
-    expect((caught as Error).message).toContain("*.ts");
+    const err = expectAuthoringReason(caught, "invalid-input");
+    expect(err.message).toContain("*.ts");
     expect(fake.committedTree().size).toEqual(0);
   });
 });
@@ -118,16 +112,9 @@ describe("REQ-FSC-06.1 — force: true passes to every emitted directive", () =>
     writeFileSync(join(dir, "files", "a.ts"), "A2", "utf-8");
     const fake = new ContractFake({ seed: { "out/a.ts": "A1" } });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       scaffold({ from: "files", to: "out" });
     }, { packageDir: dir });
-
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
 
     expect(caught).toBeInstanceOf(AuthoringError);
     expect((caught as AuthoringError).reason).toEqual("path-collision");
@@ -142,16 +129,9 @@ describe("REQ-FSC-06.2 — scaffold-level collision: mixed by-value/by-reference
     writeFileSync(join(dir, "files", "binary.png"), Buffer.from([0x89, 0x00, 0x50, 0x4e]));
     const fakeNoForce = new ContractFake({ seed: { "out/binary.png": "pre-existing" } });
 
-    const runNoForce = defineFactory<void>(() => {
+    const caught = await rejectedRun(fakeNoForce, () => {
       scaffold({ from: "files", to: "out" });
     }, { packageDir: dir });
-
-    let caught: unknown;
-    try {
-      await runNoForce(undefined, { client: fakeNoForce });
-    } catch (err) {
-      caught = err;
-    }
 
     expect(caught).toBeInstanceOf(AuthoringError);
     expect((caught as AuthoringError).reason).toEqual("path-collision");
@@ -187,20 +167,11 @@ describe("REQ-PRC-09.1 — destination lexical guard wiring: a rename map value 
     writeFileSync(join(dir, "files", "a.ts"), "A", "utf-8");
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       scaffold({ from: "files", to: "out", rename: { "a.ts": "../../escape.ts" } });
     }, { packageDir: dir });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
-    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
+    expectAuthoringReason(caught, "invalid-input");
     expect(fake.committedTree().size).toEqual(0);
   });
 });

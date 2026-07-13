@@ -21,6 +21,8 @@ import { ContractFake } from "../support/contract-fake.ts";
 import { scaffold, AuthoringError } from "../../src/commons/index.ts";
 import { BATCH_CAP_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { collectOps } from "../support/spy-client.ts";
+import { rejectedRun } from "../support/rejection-capture.ts";
 
 const scratchDir = scratchDirFactory("batch-cap-chunk-");
 
@@ -91,16 +93,9 @@ describe("REQ-04.2 — a single group whose OWN batch exceeds the cap still reje
     writeFileSync(join(dir, "files", "a.ts"), content, "utf-8");
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       scaffold({ from: "files", to: "out" });
     }, { packageDir: dir });
-
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
 
     expect(caught).toBeInstanceOf(AuthoringError);
     expect((caught as AuthoringError).reason).toEqual("changes-too-large");
@@ -138,16 +133,9 @@ describe("REQ-04.3 — exactly-at-cap group passes; one byte over rejects (inclu
     writeFileSync(join(dir, "files", "over.ts"), content, "utf-8");
     const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const caught = await rejectedRun(fake, () => {
       scaffold({ from: "files", to: "out" });
     }, { packageDir: dir });
-
-    let caught: unknown;
-    try {
-      await run(undefined, { client: fake });
-    } catch (err) {
-      caught = err;
-    }
 
     expect(caught).toBeInstanceOf(AuthoringError);
     expect((caught as AuthoringError).reason).toEqual("changes-too-large");
@@ -187,7 +175,7 @@ describe("REQ-05.1 — cross-chunk atomicity: a later-chunk failure commits noth
     // The mixed batch was genuinely built and flushed (not skipped/mismeasured) — the
     // copyIn directive for the binary file is present among what was emitted, and (Q21/
     // BRC-04) never materializes tree content regardless of the run's overall outcome.
-    const copyInDirectives = result.emitted.flatMap((b) => b.instructions).filter((d) => d.op === "copyIn");
+    const copyInDirectives = collectOps(result.emitted, "copyIn");
     expect(copyInDirectives).toHaveLength(1);
     expect(copyInDirectives[0]?.copyIn).toEqual({ from: "files/c-binary.png", to: "out/c-binary.png" });
     expect(result.tree.has("out/c-binary.png")).toBe(false);
