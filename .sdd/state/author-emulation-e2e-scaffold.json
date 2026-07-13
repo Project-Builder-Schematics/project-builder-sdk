@@ -3,7 +3,7 @@
   "triage": "L",
   "phase": "plan-complete",
   "spec_status": "signed",
-  "design": "complete rev 2+3 (design.md + obs #944; architecture_impact additive, 0 deviations; ADRs 0047-0049 draft; 39/39 REQs; M-09 Rev 3 Ruling = mandatory pre-apply, in flight)",
+  "design": "complete rev 2+3 (design.md + obs #944; architecture_impact additive, 0 deviations; ADRs 0047-0049 draft; 39/39 REQs; M-09 R-G ruling LANDED — contentDigest normalization, pre-apply gate CLEARED)",
   "steward_foresight": "ALIGNED (obs #945; CQ-1/2/3 owner-affirmed 2026-07-13)",
   "slices": true,
   "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004"],

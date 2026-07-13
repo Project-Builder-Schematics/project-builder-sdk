@@ -2,6 +2,11 @@
 
 **Triage**: L · **Spec**: V2 SIGNED (owner 2026-07-13) · **Persona lens**: none (architect-framed) · **Architecture impact**: additive
 **rev 2 — verify-plan-2 gap closure** (rulings R-D/R-E/R-F below; no other design content moved)
+**rev 3 — owner-ruled plan closure** (ruling R-G below — M-09 oversized-success corpus content policy; pre-apply obligation; no other design content moved)
+
+## Rev 3 Ruling — Verify-Plan-3 Gap Closure (2026-07-13)
+
+- **R-G (M-09 oversized-success corpus content policy — content-digest normalization)**: M-09 (aggregate-over-cap chunking success) is **by-value by construction**: by-reference cannot compose it — `copyIn` directives carry no content (~150 serialized bytes each) and `walk.ts` bounds a scaffold at 10,000 entries, so a by-reference aggregate tops out ≈1.5 MiB, structurally unable to reach `BATCH_CAP_BYTES`. **Ruling (direction (a))**: M-09's fixture is a FEW setup-materialized (AEG-07) mid-size by-value text templates — **6 files × ~0.8 MiB deterministic ASCII fill** (aggregate ≈4.8 MiB > 4 MiB cap → exactly 2 chunks; each file far under the per-file REQ-CCL-02 budget; trivially non-CI-hostile vs REQ-FSC-09.2's 10k hostile ceiling) — and the corpus record applies **content-digest normalization**: a `create` directive whose `template` exceeds the pinned `CONTENT_EMBED_BUDGET = 4096` bytes serializes `template` as the self-labeling object `{ contentDigest: { algo: "sha-256", bytes: <length>, sha256: <hex> } }` instead of the literal string. Deterministic (pure function of content — FIT-23 holds), text-only (hex — FIT-24 holds), drift-detectable (content change → digest change → corpus diff fails), and self-labeling so the engine reader can never mistake a digest for literal content (GCC-11 posture). This is a **v0 format definition** (GCC-06 note in §4.3), not a later format bump — `FORMAT_VERSION` stays 0, nothing has shipped. Every other row's templates sit far below 4 KiB and embed verbatim, unchanged. **Rejected alternative (b)** (many small files, e.g. ~200 × ~25 KiB, record embeds verbatim): the record's embedded content is ≥4 MiB **regardless of how it is sliced** — a committed multi-MiB JSON record is exactly the blob §4.9 bans and is unreviewable at the file level; splitting the content into smaller pieces changes nothing. **Chunk-grouping heuristic (Judge B q2 — cited so slices/apply can size fixtures)**: `origin/feat/schematic-local-files:src/scaffold/expander.ts:188` — greedy sequential accumulation: the expander tracks `serializedBatchSize` of the session's CURRENT pending buffer (seeded from directives already pending before the scaffold call, lines 136–142); before buffering each directive it checks `pendingCount > 0 && pendingSize + directiveSize + 1 > BATCH_CAP_BYTES` (line 188) and if so fires an unawaited mid-run `session.flush()` registered on the dialect join (lines 189–190) — never preemptively on an empty buffer; an over-cap SINGLE directive still flushes alone and rejects at the fake's `emit` (REQ-04.2; header lines 8–12: the SDK never rejects on aggregate size, ADR-0018 amendment). Apply-time sizing rule: N text files where Σ(serialized directive sizes) > 4 MiB and each single serialized directive < 4 MiB → deterministic 2-chunk split, one directive per file (M-09's GWT).
 
 ## Rev 2 Rulings — Verify-Plan-2 Gap Closure (2026-07-13)
 
@@ -90,6 +95,10 @@ interface TranscriptRecord {
 // NormativeDirective per-op key order (lowered wire shape):
 //   create : { op, pathTemplate, template, options, force }
 //   copyIn : { op, from, to, force }   // by-reference carries NO content field
+// R-G (GCC-06 v0 format note): `template` > CONTENT_EMBED_BUDGET (4096 bytes) serializes as
+// the self-labeling object { contentDigest: { algo: "sha-256", bytes, sha256 } } — key order
+// algo, bytes, sha256 — instead of the literal string. Deterministic, text-only,
+// drift-detectable; only M-09's setup-materialized fills trip it.
 ```
 
 **Envelope key order**: `formatVersion, scenarioId, slug, normative, informative`. **normative**: `outcome, directives, rejection`. **rejection**: `reason, verb, path`. **batchGrouping[]**: `directiveCount, protocolVersion` (surfaces `protocolVersion` beside the top-level `formatVersion` so GCC-02.1's two-visibly-independent-fields check has both to read).
@@ -210,7 +219,7 @@ No migration. No DB, feature flag, or deploy ordering. Rollback = delete the new
 
 ## 4.9 — Performance Considerations
 
-Negligible. Oversized/at-cap fixtures (M-07/M-11) are setup-materialized (deterministic byte fills), never committed — avoids repo bloat and keeps the corpus content-free for those rows (by-reference or rejection). No 4 MiB blob is committed.
+Negligible. Oversized/at-cap fixtures (M-07/M-11) are setup-materialized (deterministic byte fills), never committed — avoids repo bloat and keeps the corpus content-free for those rows (by-reference or rejection). M-09 (over-cap by-value SUCCESS) also setup-materializes its ~6 × ~0.8 MiB templates and its record embeds content-digest placeholders, never the fills (R-G). No multi-MiB file is committed — fixture or corpus.
 
 ## 4.10 — Architecture Impact
 
