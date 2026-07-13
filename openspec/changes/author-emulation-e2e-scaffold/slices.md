@@ -117,10 +117,10 @@ Owns fixture-package authoring for the data surface: typed options, template tre
 - GIVEN `author-emulation-setup.ts` WHEN invoked THEN it materializes+tears down an empty folder and a symlink (AEG-07.1), neither committed
 
 ### Tasks
-- [ ] S-002.1 `test/fixtures/author-emulation/schema.json` + `schema.generated.ts` (via the codegen invocation above)
-- [ ] S-002.2 `test/fixtures/author-emulation/files/**` incl. the chained-token filename + `.template` text files (illustrative "wiring" text only — never AST-verified, AEG-02)
-- [ ] S-002.3 `assets/logo.png` (tiny real binary) + `assets/blob.bin.template` + `.gitattributes` marking both patterns `binary`
-- [ ] S-002.4 `test/support/author-emulation-setup.ts` — empty-folder + symlink + deterministic byte-fill materialize/teardown
+- [x] S-002.1 `test/fixtures/author-emulation/schema.json` + `schema.generated.ts` (via the codegen invocation above)
+- [x] S-002.2 `test/fixtures/author-emulation/files/**` incl. the chained-token filename + `.template` text files (illustrative "wiring" text only — never AST-verified, AEG-02)
+- [x] S-002.3 `assets/logo.png` (tiny real binary) + `assets/blob.bin.template` + `.gitattributes` marking both patterns `binary`
+- [x] S-002.4 `test/support/author-emulation-setup.ts` — empty-folder + symlink + deterministic byte-fill materialize/teardown
 
 ---
 
