@@ -164,6 +164,14 @@ export function find(path: string): FoundHandle {
  * directive's `template` field. `template` and `templateFile` are mutually exclusive forms;
  * only usable inside a `defineFactory({ packageDir })` run (there is no resolution anchor
  * to read a package-local file against otherwise — `invalid-input`, never a cwd fallback).
+ * `templateFile`'s VALUE is a literal package-relative path, read verbatim by CONTENT —
+ * it is NOT run through `scaffold`'s filename pipeline (no rename remap, no `__x__` token
+ * translation, no `.template`-suffix strip applied to the path itself); this is an
+ * explicit REQUEST to render one named file, unlike `scaffold`'s per-entry filename
+ * processing. Because `templateFile` REQUESTS a render, it has no silent by-reference
+ * fallback (REQ-FEH-02): a binary file (a null byte or invalid UTF-8 anywhere in the
+ * whole file) or a file whose content exceeds the serialized frame budget both reject
+ * fail-loud with reason `invalid-input` — never a silent copy.
  *
  * @example
  * create("src/index.ts", {
@@ -224,6 +232,22 @@ export type ScaffoldOptions = ScaffoldArgs;
  * naming every offending source (REQ-FSC-08). Only usable inside a
  * `defineFactory({ packageDir })` run — there is no resolution anchor to walk a
  * package-local folder against otherwise (`invalid-input`, never a cwd fallback).
+ *
+ * `rename` is a static REMAP TABLE (`Record<originalSourceRelativePath,
+ * newDestinationRelativePath>`), matched against the ORIGINAL (pre-token-translation)
+ * source path — distinct from the `rename()` verb, which renames one already-targeted
+ * file's basename at emit time, not a folder-walk's per-entry destination.
+ *
+ * The walk never descends into a symlinked directory, even when its target resolves
+ * INSIDE the package boundary (skipped silently, no error — uniform with
+ * `package-root-containment`'s no-descent rule) and is capped at 10,000 enumerated
+ * entries per call, failing loud and naming the bound past that (REQ-FSC-09) — a
+ * resource guard no real schematic collection should approach.
+ *
+ * **Packaging caveat**: the empty-folder no-op (above) depends on `from` existing ON
+ * DISK at run time — npm tarball packaging commonly DROPS empty directories, so an
+ * empty `from` folder that relies on this no-op may not survive `npm publish` at all
+ * (REQ-FSC-04). Ship at least a placeholder file if the folder's presence matters.
  *
  * Returns `void` (REQ-FSC-07) — fire-and-forget, no chainable handle group.
  *

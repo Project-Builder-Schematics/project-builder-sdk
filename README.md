@@ -7,7 +7,8 @@
 ## What it is
 
 `@pbuilder/sdk` is the developer-facing library for authoring Project Builder **schematics** —
-programmable file mutations (create, delete, move, rename, modify). The SDK never touches the disk:
+programmable file mutations (create, delete, move, rename, copy, modify) plus package-local
+reads (`scaffold`, `copyIn`, `create({ templateFile })`). The SDK never touches the disk:
 it translates what you author into an **IR** (instruction record) and hands it to the Project Builder
 engine, which owns execution and is the only component that writes to disk.
 
@@ -22,6 +23,41 @@ collection
   ├── schema.json    # typed inputs (the contract with the user)
   └── factory.ts     # the authoring logic (written against @pbuilder/sdk)
 ```
+
+## Scaffolding a folder
+
+A schematic's own `collection` folder can hold static/templated files alongside
+`schema.json`/`factory.ts` — `scaffold` walks one of those folders and mirrors it into the
+target tree, without you writing a `create()` call per file:
+
+```ts
+import { defineFactory } from "@pbuilder/sdk/testing";
+import { scaffold } from "@pbuilder/sdk/commons";
+
+const run = defineFactory<{ name: string }>((input) => {
+  scaffold({ from: "files", to: "src/generated", options: { name: input.name } });
+}, { packageDir: import.meta.dir });
+```
+
+Each source file is classified automatically — never author-declared: valid, in-budget text
+renders by-value (through the same IR `create()` uses, `{= =}` tokens included); anything
+else (binary content, or a file over the size budget) travels by-reference instead, verbatim.
+
+Two escape hatches handle the single-file cases `scaffold` doesn't:
+
+- **`create(path, { templateFile })`** — an explicit RENDER request for one package-local
+  file; a binary or over-budget file rejects fail-loud (never silently falls back to a copy).
+- **`copyIn(from, to, { force? })`** — an explicit NEVER-RENDER copy of one package-local
+  file, verbatim — the escape for a text asset that would otherwise be classified by-value
+  (e.g. one containing `{= =}`-like sequences that must survive untouched).
+
+Two things worth knowing before you rely on `scaffold`:
+
+- **Packaging caveat**: an empty `from` folder scaffolds as a silent no-op — but npm tarball
+  packaging commonly drops empty directories, so an empty folder may not even survive
+  `npm publish`. Ship a placeholder file if the folder's presence matters.
+- **Symlinked directories are never traversed** (even when their target resolves inside the
+  package), and a single `scaffold` call is capped at 10,000 enumerated entries.
 
 ## Design at a glance
 
