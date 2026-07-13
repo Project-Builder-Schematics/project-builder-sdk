@@ -8,11 +8,11 @@ row is answerable for, independent of build state. `s-00` (this change's own wal
 skeleton, S-000) is not a scenario-matrix row and cites no `schematic-local-files` REQ-ID
 (REQ-GCC-12).
 
-**Build status (2026-07-14, S-003 landed)**: corpus FILES now exist for `s-00` +
-`m-01, m-02, m-03, m-04, m-05, m-06, m-07, m-09, m-14, m-19, m-20` (11 matrix rows, S-003
-— Generation & Classification Happy Paths). The remaining 10 rows
-(`m-08, m-10, m-11, m-12, m-13, m-15, m-16, m-17, m-18, m-21` — Batch-Cap, Containment &
-Rejection Boundaries) land in S-004.
+**Build status (2026-07-14, S-004 landed)**: corpus FILES now exist for ALL 21 matrix rows
+plus `s-00` — `m-01, m-02, m-03, m-04, m-05, m-06, m-07, m-09, m-14, m-19, m-20` (S-003 —
+Generation & Classification Happy Paths) and `m-08, m-10, m-11, m-12, m-13, m-15, m-16,
+m-17, m-18, m-21` (S-004 — Batch-Cap, Containment & Rejection Boundaries). The scaffold
+matrix is COMPLETE at this spec version (REQ-SCM-01, 21 rows).
 
 ## EXERCISED
 
@@ -54,9 +54,9 @@ row's `Citation(s)` column.
 | batch-cap REQ-05.1 | M-21 |
 | _(none — infra-spine skeleton, REQ-GCC-12)_ | s-00 |
 
-All 21 matrix rows (REQ-SCM-01) are represented above; corpus FILES for the 10 rows
-S-004 owns (`m-08, m-10, m-11, m-12, m-13, m-15, m-16, m-17, m-18, m-21`) land as that
-slice builds their rejection/boundary fixtures.
+All 21 matrix rows (REQ-SCM-01) are represented above, and every row now has a committed
+corpus file — the last 10 (`m-08, m-10, m-11, m-12, m-13, m-15, m-16, m-17, m-18, m-21`)
+landed in S-004.
 
 ## NOT-EXERCISED
 
@@ -93,3 +93,31 @@ engine-gated entries from `scenario-matrix` REQ-SCM-02.
   REPORTS_DIR-targeted) in the same module — whole-file co-occurrence, not per-call-site
   precision. Disposition: `accepted-as-is` — fixed directly (scoped the check to each
   write call's own argument list, with a pinning regression test).
+- **GCC-09.1's `path` illustration diverges from the landed API for `invalidInput()`-sourced
+  rejections (S-004)**: the signed spec's worked example shows M-13 with a concrete `path`,
+  but `invalidInput(message)` (`src/core/authoring-error.ts:276`) mints `verb: undefined,
+  path: undefined` unconditionally — every producer site that calls it (missing
+  `from`/`to`, filters-eliminated-everything M-13, intra-scaffold collision M-15, binary
+  `.template` in a walk M-08, `templateFile` binary/oversized M-12) commits `verb: null,
+  path: null`. Disposition: `accepted-as-is` — this is the R-F carried-note reconciliation
+  design.md anticipated, generalized from M-13 alone to all four `invalidInput()`-sourced
+  rows; the attribution triple is still asserted EXPLICITLY (SCM-05) at each row, `null`
+  values included, never skipped.
+- **Batch-cap ("cap") rejections never attribute a `verb`/`path`, even to a batch's SOLE
+  directive (S-004, M-10/M-11)**: `EmitRejection("cap", ...)` (`test/support/
+  contract-fake.ts`) is thrown WITHOUT a `pos` argument — `emit-rejection.ts`'s own
+  contract documents `"cap"`/`"unrepresentable"`/`"unknown"` as BATCH-level (no single
+  offending directive to blame), unlike `"collision"`/`"not-found"` which always pass
+  `pos`. M-10's giant `create()` and M-11's one-byte-over variant are each the ONLY
+  directive in their failing batch, yet still commit `verb: null, path: null`. Disposition:
+  `accepted-as-is` — matches the `AuthoringVerb` type's own JSDoc; not a capture bug.
+- **`scaffold`'s own by-value classifier structurally cannot produce an at/over-cap
+  `create` directive (S-004, M-10/M-11 fixture design)**: `classify-transport.ts`'s CCL-02
+  budget gate silently downgrades any non-`.template` file whose serialized directive
+  would exceed `BATCH_CAP_BYTES` to a by-reference `copyIn` (~150 bytes) rather than ever
+  emitting an over-cap `create` — so the batch-cap REQ-04.2/04.3 boundary rows could not be
+  built from scaffold's own walked files. Disposition: `accepted-as-is` — both fixtures use
+  a direct `create()` call (bypassing that classifier entirely, matching REQ-04.2's own
+  framing as "unchanged from REQ-01's existing per-batch behaviour"); M-10 chains a
+  trailing `scaffold()` call so the row still exercises the expander's chunking
+  accumulator noticing the pre-existing oversized pending directive.

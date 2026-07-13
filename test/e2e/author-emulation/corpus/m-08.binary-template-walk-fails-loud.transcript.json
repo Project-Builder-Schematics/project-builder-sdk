@@ -1,0 +1,17 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-08",
+  "slug": "binary-template-walk-fails-loud",
+  "normative": {
+    "outcome": "rejected",
+    "directives": [],
+    "rejection": {
+      "reason": "invalid-input",
+      "verb": null,
+      "path": null
+    }
+  },
+  "informative": {
+    "batchGrouping": []
+  }
+}

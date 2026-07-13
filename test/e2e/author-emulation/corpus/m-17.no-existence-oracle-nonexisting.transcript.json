@@ -1,0 +1,17 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-17",
+  "slug": "no-existence-oracle-nonexisting",
+  "normative": {
+    "outcome": "rejected",
+    "directives": [],
+    "rejection": {
+      "reason": "source-outside-package",
+      "verb": null,
+      "path": "../m17-nonexistent-outside.txt"
+    }
+  },
+  "informative": {
+    "batchGrouping": []
+  }
+}
