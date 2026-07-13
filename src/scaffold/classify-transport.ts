@@ -18,7 +18,7 @@
 // entries only (REQ-CCL-05/AEC-12) and by-reference for everything else.
 
 import { readFileSync } from "node:fs";
-import { AuthoringError } from "../core/authoring-error.ts";
+import { AuthoringError, invalidInput } from "../core/authoring-error.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
 import { validateSourceContainment } from "./containment.ts";
 
@@ -55,23 +55,45 @@ function templateSniffFailMessage(relPath: string, problem: string): string {
   );
 }
 
+interface ClassifyParams {
+  packageDir: string;
+  packageRoot: string;
+  relPath: string;
+  isTemplateMarked: boolean;
+  /**
+   * Render-request mode (`create({templateFile})`, REQ-FEH-02): a failed gate throws
+   * `invalid-input` with THESE caller-pinned message texts instead of degrading to a
+   * by-reference verdict — the same fail-loud carve-out `.template`-marked entries get,
+   * with the caller's own message family.
+   */
+  failMessages?: { binary: string; oversized: string };
+  /** Precomputed `resolveRealCeiling(packageRoot)` — threaded by loop callers (`runScaffold`). */
+  realCeiling?: string;
+}
+
 /**
  * Classifies ONE package-local source: stat-size gate before any content read
  * (REQ-CCL-06) → whole-file UTF-8/null-byte sniff (REQ-CCL-01/03) → serialized-budget
  * check (REQ-CCL-02) → verdict. A `.template`-marked source (`isTemplateMarked`, from the
  * filename pipeline's post-translation check) NEVER degrades to by-reference on a failed
- * gate — it fails loud instead (REQ-CCL-05), same posture `readTemplateFile` already
- * applies to `create({templateFile})` render requests (REQ-FEH-02).
+ * gate — it fails loud instead (REQ-CCL-05), same posture `readTemplateFile` applies to
+ * `create({templateFile})` render requests via `failMessages` (REQ-FEH-02).
  */
-export function classifyTransport(params: {
-  packageDir: string;
-  packageRoot: string;
-  relPath: string;
-  isTemplateMarked: boolean;
-  /** Precomputed `resolveRealCeiling(packageRoot)` — threaded by loop callers (`runScaffold`). */
-  realCeiling?: string;
-}): ClassifyResult {
-  const { packageDir, packageRoot, relPath, isTemplateMarked, realCeiling } = params;
+export function classifyTransport(params: ClassifyParams & { failMessages: { binary: string; oversized: string } }): { verdict: "by-value"; content: string };
+export function classifyTransport(params: ClassifyParams): ClassifyResult;
+export function classifyTransport(params: ClassifyParams): ClassifyResult {
+  const { packageDir, packageRoot, relPath, isTemplateMarked, failMessages, realCeiling } = params;
+
+  // The fail-loud message pair for a render REQUEST (either kind); undefined ⇒ a failed
+  // gate is an ordinary by-reference verdict.
+  const renderFail =
+    failMessages ??
+    (isTemplateMarked
+      ? {
+          binary: templateSniffFailMessage(relPath, "is not valid text (binary content)"),
+          oversized: templateSniffFailMessage(relPath, "exceeds the serialized frame budget"),
+        }
+      : undefined);
 
   // REQ-PRC-08: containment + regular-file eligibility complete BEFORE any content read.
   // Throws one of the four `source-*` reasons on failure — regardless of `isTemplateMarked`
@@ -83,14 +105,8 @@ export function classifyTransport(params: {
   // Stat-size gate BEFORE any content read (REQ-CCL-06): zero content-read calls for an
   // over-budget-by-stat file. Reuses containment's own `lstat` — no second stat call.
   if (stat.size > BATCH_CAP_BYTES) {
-    if (isTemplateMarked) {
-      throw new AuthoringError({
-        verb: undefined,
-        path: undefined,
-        reason: "invalid-input",
-        appliedCount: 0,
-        message: templateSniffFailMessage(relPath, "exceeds the serialized frame budget"),
-      });
+    if (renderFail) {
+      throw invalidInput(renderFail.oversized);
     }
     return { verdict: "by-reference" };
   }
@@ -105,14 +121,8 @@ export function classifyTransport(params: {
   }
   const content = decodeSniffableText(buf);
   if (content === null) {
-    if (isTemplateMarked) {
-      throw new AuthoringError({
-        verb: undefined,
-        path: undefined,
-        reason: "invalid-input",
-        appliedCount: 0,
-        message: templateSniffFailMessage(relPath, "is not valid text (binary content)"),
-      });
+    if (renderFail) {
+      throw invalidInput(renderFail.binary);
     }
     return { verdict: "by-reference" };
   }
@@ -122,14 +132,8 @@ export function classifyTransport(params: {
   // `>=`) — exactly-at-budget still fits (REQ-CCL-02.3).
   const serializedSize = Buffer.byteLength(JSON.stringify(content), "utf8");
   if (serializedSize > BATCH_CAP_BYTES) {
-    if (isTemplateMarked) {
-      throw new AuthoringError({
-        verb: undefined,
-        path: undefined,
-        reason: "invalid-input",
-        appliedCount: 0,
-        message: templateSniffFailMessage(relPath, "exceeds the serialized frame budget"),
-      });
+    if (renderFail) {
+      throw invalidInput(renderFail.oversized);
     }
     return { verdict: "by-reference" };
   }
