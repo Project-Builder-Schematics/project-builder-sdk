@@ -11,12 +11,13 @@
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { EngineClient } from "../../../src/core/engine-client.ts";
 import { defineFactory } from "../../../src/core/context.ts";
 import { create, copyIn, scaffold } from "../../../src/commons/index.ts";
 import type { ScaffoldOptions } from "../../../src/commons/index.ts";
-import { BATCH_CAP_BYTES } from "../../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, serializedBatchSize } from "../../../src/core/wire.ts";
+import type { Directive } from "../../../src/core/wire.ts";
 import { materializeByteFill, materializeGitHostileFixtures } from "../../support/author-emulation-setup.ts";
 import type { Input } from "./schema.generated.ts";
 
@@ -281,3 +282,231 @@ export const runM20Valid = defineFactory<Input>(
   },
   { packageDir: PACKAGE_DIR }
 );
+
+// =====================================================================================
+// S-004 — Batch-Cap, Containment & Rejection Boundaries (M-08, M-10, M-11, M-12, M-13,
+// M-15, M-16, M-17, M-18, M-21). Every rejection here passes through `AuthoringError`'s
+// `verb`/`path` VERBATIM (design.md R-F) — several producer sites (`invalidInput`, S-004
+// discovery) mint BOTH as `undefined`, serializing `null`/`null` in the corpus; SCM-05
+// still requires the full triple to be asserted EXPLICITLY at each of those `null`s, never
+// skipped (see the e2e file's per-row assertions).
+// =====================================================================================
+
+// --- M-08: binary `.template` in a scaffold walk fails loud (CCL-05.1) — `include`
+// isolates the ONE binary `.template` asset (`assets/blob.bin.template`, shipped S-002);
+// the walk rejects `invalid-input` before any directive is emitted (verb/path both
+// undefined — `classifyTransport`'s render-fail carve-out never attributes a directive).
+export const runM08 = defineFactory<Input>(
+  () => {
+    scaffold({ from: "assets", to: "m08-out", include: ["blob.bin.template"] });
+  },
+  { packageDir: PACKAGE_DIR }
+);
+
+/**
+ * The exact `template` STRING LENGTH that makes a solo `create` directive at
+ * `pathTemplate` serialize — inside its own one-directive batch, matching
+ * `Session.flush()`'s envelope (`{protocolVersion:1, force:false, instructions:[...]}`)
+ * byte-for-byte — to `targetBytes`. Uses the SAME `serializedBatchSize` the fake's own cap
+ * check and the expander's chunk heuristic both consume (`core/wire.ts`), so this can
+ * never drift from the real REQ-04.2/04.3 boundary (M-10/M-11). The filler is a plain
+ * ASCII character (`a`) — one JSON-serialized byte per character, no escaping — so the
+ * arithmetic (`targetBytes - overhead`) is exact, never approximate.
+ */
+function fillTemplateForBatchSize(pathTemplate: string, targetBytes: number): string {
+  const probe: Directive = { op: "create", create: { pathTemplate, template: "", options: {} } };
+  const overhead = serializedBatchSize([probe]);
+  return "a".repeat(targetBytes - overhead);
+}
+
+// --- M-10: a single group's own batch exceeds cap — still rejects (batch-cap REQ-04.2).
+// `scaffold`'s OWN by-value classifier (`classify-transport.ts` CCL-02) auto-downgrades any
+// oversized non-`.template` file to by-reference rather than ever emitting an over-cap
+// `create` — so the over-cap batch here is NOT one of scaffold's own walked files; it is a
+// PRECEDING direct `create()` call (bypassing that classifier entirely, exactly the
+// pre-existing REQ-01 per-batch cap check REQ-04.2 says stays "unchanged"). The scaffold
+// call that follows is what forces the expander's pending-size accumulator to notice the
+// already-oversized pending directive and flush it (design.md R-G "an over-cap SINGLE
+// directive still flushes alone and rejects at the fake's emit").
+export const M10_GIANT_PATH = "m10-giant.txt";
+
+export const runM10 = defineFactory<Input>(
+  () => {
+    create(M10_GIANT_PATH, { template: fillTemplateForBatchSize(M10_GIANT_PATH, BATCH_CAP_BYTES + 1024), options: {} });
+    scaffold({ from: "files", to: "m10-out", include: ["README.md.template"] });
+  },
+  { packageDir: PACKAGE_DIR }
+);
+
+// --- M-11: exactly-at-cap passes; one-byte-over rejects (batch-cap REQ-04.3, pins `>` not
+// `>=`). Same mechanical constraint as M-10 (scaffold's own classifier cannot produce an
+// at/over-cap `create` for ordinary content) — both variants are direct `create()` calls.
+// The AT-CAP variant is this row's corpus-committed scenario (SUCCESS); the ONE-BYTE-OVER
+// variant is an e2e-inline-only assertion (never corpus-captured — mirrors the M-02
+// mandatory-arg pattern: a second input variant of the SAME reason, asserted directly).
+export const M11_AT_CAP_PATH = "m11-at-cap.txt";
+export const M11_OVER_CAP_PATH = "m11-over-cap.txt";
+
+export const runM11AtCap = defineFactory<Input>(
+  () => {
+    create(M11_AT_CAP_PATH, { template: fillTemplateForBatchSize(M11_AT_CAP_PATH, BATCH_CAP_BYTES), options: {} });
+    scaffold({ from: "files", to: "m11-out", include: ["README.md.template"] });
+  },
+  { packageDir: PACKAGE_DIR }
+);
+
+export const runM11OverCap = defineFactory<Input>(
+  () => {
+    create(M11_OVER_CAP_PATH, { template: fillTemplateForBatchSize(M11_OVER_CAP_PATH, BATCH_CAP_BYTES + 1), options: {} });
+  },
+  { packageDir: PACKAGE_DIR }
+);
+
+// --- M-12: `templateFile` binary/oversized fails loud, never silently copies (FEH-02.1/.2).
+// `readTemplateFile` always passes `failMessages` (a render REQUEST never falls back to
+// by-reference, regardless of the source's own filename suffix) — the committed
+// `assets/logo.png` (a real binary, S-002) proves the BINARY variant with zero new fixture
+// content. The OVERSIZED variant is e2e-inline-only (mirrors M-11's over-cap split).
+export const runM12Binary = defineFactory<Input>(
+  () => {
+    create("m12-out/rendered.ts", { templateFile: "assets/logo.png", options: {} });
+  },
+  { packageDir: PACKAGE_DIR }
+);
+
+export const runM12Oversized = scratchFactoryRunner(
+  (dir) => {
+    mkdirSync(join(dir, "files"));
+    materializeByteFill(join(dir, "files", "huge-template.txt"), BATCH_CAP_BYTES + 1);
+  },
+  () => {
+    create("m12-out/rendered.ts", { templateFile: "files/huge-template.txt", options: {} });
+  }
+);
+
+// --- M-13: filters eliminate every entry — fail loud naming filters (FSC-04.2). `include`
+// matches none of `files/`'s three `.template` entries.
+export const runM13 = defineFactory<Input>(
+  () => {
+    scaffold({ from: "files", to: "m13-out", include: ["*.nonexistent-ext"] });
+  },
+  { packageDir: PACKAGE_DIR }
+);
+
+// --- M-15: intra-scaffold destination collision — fail loud naming both sources (FSC-08.1).
+// `rename` remaps two DISTINCT `files/` originals onto the SAME literal name (no tokens, so
+// translation is a no-op) — both collapse to `collide.ts` post-`.template`-strip, colliding
+// BEFORE any file is classified or emitted (`detectDestinationCollisions` runs pre-loop).
+export const runM15 = defineFactory<Input>(
+  () => {
+    scaffold({
+      from: "files",
+      to: "m15-out",
+      rename: {
+        "__name@dasherize__.controller.ts.template": "collide.ts.template",
+        "README.md.template": "collide.ts.template",
+      },
+    });
+  },
+  { packageDir: PACKAGE_DIR }
+);
+
+// --- M-16: traversal / absolute source path rejected (PRC-04.1/.6). `copyIn`'s
+// containment check screens BOTH forms lexically (`isLexicallyEscaping`), before any
+// realpath/existence probe. The TRAVERSAL (`../`) variant is this row's corpus-committed
+// scenario — its echoed `path` is a relative string, never absolute (corpus purity, FIT-24
+// holds). The ABSOLUTE-path variant (`/etc/passwd`, PRC-04.6's own worked example) is
+// e2e-inline-only: verbatim pass-through (R-F) would embed a genuine absolute-path-shaped
+// string in a committed record, which FIT-24 exists to catch — so this variant is asserted
+// directly against the caught error, never serialized to the corpus (same split discipline
+// as M-11/M-12's inline-only companion variants).
+export const runM16Traversal = defineFactory<Input>(
+  () => {
+    copyIn("../m16-traversal-outside.txt", "m16-out/file.txt");
+  },
+  { packageDir: PACKAGE_DIR }
+);
+
+export const runM16Absolute = defineFactory<Input>(
+  () => {
+    copyIn("/etc/passwd", "m16-abs-out/file.txt");
+  },
+  { packageDir: PACKAGE_DIR }
+);
+
+// --- M-17: no-existence-oracle for out-of-ceiling paths (PRC-07.1). Containment's lexical
+// `../`-screen (`resolveContainedRealpath` step 1, `isLexicallyEscaping`) rejects a
+// traversal candidate on STRING ARITHMETIC ALONE — no `existsSync`/`realpathSync` call for
+// that candidate happens before the verdict — so an existing and a non-existing
+// out-of-ceiling target are provably indistinguishable (the same property REQ-PRC-07.2's
+// realpath-ENOENT ordering pins one layer deeper, for a candidate that only escapes AFTER
+// symlink resolution — out of this row's scope, M-16 already covers the lexical form).
+// The NON-EXISTING variant (nothing ever materializes at the referenced sibling path) is
+// this row's corpus-committed scenario; the EXISTING variant (a real sibling file one
+// level above the scratch package root) is e2e-inline-only, asserted to carry the
+// IDENTICAL `reason`.
+export const runM17NonExisting = scratchFactoryRunner(
+  () => {
+    // Deliberately empty: `m17-nonexistent-outside.txt` is never created anywhere.
+  },
+  () => {
+    copyIn("../m17-nonexistent-outside.txt", "m17-out/file.txt");
+  }
+);
+
+function m17ExistingOutsideRunner(): (input: Input, deps: { client: EngineClient }) => Promise<void> {
+  return async (input, deps) => {
+    const dir = mkdtempSync(join(tmpdir(), "author-emulation-scratch-"));
+    writeFileSync(join(dir, "collection.json"), "{}", "utf-8");
+    const siblingPath = join(dirname(dir), "m17-existing-outside.txt");
+    writeFileSync(siblingPath, "outside content, out-of-ceiling regardless of existence.\n", "utf-8");
+    try {
+      const inner = defineFactory<Input>(
+        () => {
+          copyIn("../m17-existing-outside.txt", "m17-out/file.txt");
+        },
+        { packageDir: dir }
+      );
+      await inner(input, deps);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(siblingPath, { force: true });
+    }
+  };
+}
+
+export const runM17Existing = m17ExistingOutsideRunner();
+
+// --- M-18: missing in-ceiling source surfaces `source-not-found` (BRC-06.1). `missing.txt`
+// is lexically in-ceiling (no traversal) but never materialized.
+export const runM18 = scratchFactoryRunner(
+  () => {
+    // Deliberately empty: `missing.txt` is never created — genuinely absent, in-ceiling.
+  },
+  () => {
+    copyIn("missing.txt", "m18-out/file.txt");
+  }
+);
+
+// --- M-21: cross-chunk atomicity — later flush rejects, nothing commits (batch-cap
+// REQ-05.1). Reuses M-09's exact aggregate-over-cap sizing (6 files, ~0.8 MiB each — 2
+// flushes, the 6th/last-sorted file alone in the second) so the SAME scaffold call that
+// proves successful chunking (M-09) also proves atomicity when the SECOND flush's lone
+// directive collides against a SEEDED destination (`captureRun`'s `seed` param, wired via
+// this scenario's `SCENARIOS` entry) — a collision the first flush's own files never hit.
+export const runM21 = scratchFactoryRunner(
+  (dir) => {
+    mkdirSync(join(dir, "files"));
+    for (let i = 0; i < M09_FILE_COUNT; i++) {
+      materializeByteFill(join(dir, "files", `big-${i}.txt`), M09_FILE_SIZE_BYTES);
+    }
+  },
+  () => {
+    scaffold({ from: "files", to: "out" });
+  }
+);
+
+/** The destination path M-21 seeds a pre-existing collision at (the LAST/6th file in
+ * `walk.ts`'s sorted order — landing alone in the second flush, per M-09's own established
+ * 5-then-1 chunking split). */
+export const M21_COLLISION_SEED_PATH = "out/big-5.txt";
