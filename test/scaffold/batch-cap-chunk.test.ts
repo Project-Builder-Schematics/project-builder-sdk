@@ -11,6 +11,18 @@
  * overhead of ONE `create` directive (fixed `pathTemplate`, empty `options`, no `force`
  * key) is measured directly via the SAME serialization the production accumulator and the
  * fake's `emit` both use (`Buffer.byteLength(JSON.stringify(batch), "utf8")`).
+ *
+ * Judgment-day iteration 1 fix (content-classification REQ-CCL-02): classify-transport's
+ * per-file budget now measures the PROSPECTIVE `create` DIRECTIVE (envelope + wrapper +
+ * pathTemplate + options), not the content string alone — so a file `scaffold` walks can
+ * no longer classify by-value while its own emitted directive individually exceeds
+ * `BATCH_CAP_BYTES`: classify-transport now routes it by-reference FIRST. The REQ-04.2 /
+ * REQ-04.3 "solo group exceeds cap" scenarios below can therefore no longer be reconstructed
+ * from a SCAFFOLDED file alone — they reconstruct the over-cap group from a directive
+ * buffered OUTSIDE scaffold's own per-file classify gate (a direct `create()` call with an
+ * inline oversized `template`, which never goes through `classifyTransport`), seeded into
+ * the session BEFORE `scaffold()` runs — proving the expander's OWN flush/group mechanism
+ * still propagates a genuinely over-cap group's rejection, independent of classify-transport.
  */
 import { describe, it, expect } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -18,7 +30,7 @@ import { join } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { scaffold, AuthoringError } from "../../src/commons/index.ts";
+import { create, scaffold, AuthoringError } from "../../src/commons/index.ts";
 import { BATCH_CAP_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { collectOps } from "../support/spy-client.ts";
@@ -79,21 +91,24 @@ describe("REQ-04.1 — aggregate scaffold size exceeding the cap never blocks, a
 });
 
 describe("REQ-04.2 — a single group whose OWN batch exceeds the cap still rejects, unchanged", () => {
-  it("a lone file whose CONTENT passes the per-file classify budget, but whose wrapped solo-group batch exceeds BATCH_CAP_BYTES, rejects changes-too-large", async () => {
+  it("a directive buffered BEFORE scaffold runs, whose own solo batch alone exceeds BATCH_CAP_BYTES, flushes as its own over-cap group and rejects changes-too-large — proven independent of classify-transport (a direct create() call, never classified)", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
-    const pathTemplate = "out/a.ts";
+    writeFileSync(join(dir, "files", "tiny.ts"), "export const tiny = 1;", "utf-8");
+    const pathTemplate = "pre-existing.ts";
     const overhead = soloEnvelopeOverhead(pathTemplate);
-    // Content itself: `overhead` bytes UNDER the cap, so ITS OWN serialized form passes
-    // classify-transport's CCL-02 per-file budget (by-value) — the wrapped BATCH is what
-    // pushes it over.
-    const content = "a".repeat(BATCH_CAP_BYTES - overhead + 1);
-    expect(Buffer.byteLength(JSON.stringify(content), "utf8")).toBeLessThan(BATCH_CAP_BYTES);
-    expect(soloBatchSize(pathTemplate, content)).toEqual(BATCH_CAP_BYTES + 1);
-    writeFileSync(join(dir, "files", "a.ts"), content, "utf-8");
+    // An inline-template create() call never reaches classify-transport (no source file,
+    // no by-value/by-reference decision) — sized so its OWN solo batch already exceeds the
+    // cap, then buffered BEFORE scaffold's walk starts.
+    const bigTemplate = "a".repeat(BATCH_CAP_BYTES - overhead + 1);
+    expect(soloBatchSize(pathTemplate, bigTemplate)).toEqual(BATCH_CAP_BYTES + 1);
     const fake = new ContractFake({ seed: {} });
 
     const caught = await rejectedRun(fake, () => {
+      create(pathTemplate, { template: bigTemplate, options: {} });
+      // scaffold's expander seeds its pending-size accumulator from this ALREADY-buffered,
+      // already-over-cap directive (`session.pendingSnapshot()`) — its very first file
+      // triggers a flush of that pre-existing group before adding anything of its own.
       scaffold({ from: "files", to: "out" });
     }, { packageDir: dir });
 
@@ -123,17 +138,18 @@ describe("REQ-04.3 — exactly-at-cap group passes; one byte over rejects (inclu
     expect(fake.committedTree().get("out/at.ts")).toEqual(content);
   });
 
-  it("a solo-group batch landing ONE BYTE over BATCH_CAP_BYTES rejects changes-too-large", async () => {
+  it("a group landing ONE BYTE over BATCH_CAP_BYTES rejects changes-too-large (contrast fixture: a scaffolded file this close to the cap now classifies by-reference FIRST, per REQ-CCL-02 — so, symmetrically with REQ-04.2 above, the over-cap group is reconstructed from a directive buffered outside scaffold's own classify gate)", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
-    const pathTemplate = "out/over.ts";
+    writeFileSync(join(dir, "files", "tiny.ts"), "export const tiny = 1;", "utf-8");
+    const pathTemplate = "pre-existing-over.ts";
     const overhead = soloEnvelopeOverhead(pathTemplate);
-    const content = "a".repeat(BATCH_CAP_BYTES - overhead + 1);
-    expect(soloBatchSize(pathTemplate, content)).toEqual(BATCH_CAP_BYTES + 1);
-    writeFileSync(join(dir, "files", "over.ts"), content, "utf-8");
+    const bigTemplate = "a".repeat(BATCH_CAP_BYTES - overhead + 1);
+    expect(soloBatchSize(pathTemplate, bigTemplate)).toEqual(BATCH_CAP_BYTES + 1);
     const fake = new ContractFake({ seed: {} });
 
     const caught = await rejectedRun(fake, () => {
+      create(pathTemplate, { template: bigTemplate, options: {} });
       scaffold({ from: "files", to: "out" });
     }, { packageDir: dir });
 
