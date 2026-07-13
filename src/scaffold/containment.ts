@@ -87,21 +87,26 @@ function nearestExistingAncestorRealpath(absPath: string): string {
 
 // The BROKEN-SYMLINK half of the S1 ENOENT ordering fix (REQ-PRC-07.2): `symlinkAbsPath`
 // itself EXISTS (its `lstat` succeeded) and IS a symlink, but `realpath` failed because its
-// target does not exist — so there is nothing to realpath TO. Resolves the symlink's OWN
-// immediate `readlink` target LEXICALLY (never existence-probed, REQ-PRC-07: containment
-// precedes any existence check) so the ceiling verdict can be reached without knowing
-// whether the target exists. Single-hop only (the symlink's immediate target) — a target
-// that is ITSELF a further symlink chain is resolved as far as `readlink` reaches; deeper
-// multi-hop broken chains are not a scenario this domain pins.
-function resolveBrokenSymlinkTargetLexically(symlinkAbsPath: string): string {
+// target does not exist — so there is nothing to realpath TO directly. The returned value
+// is compared against the REALPATH'D ceiling, so it MUST be in real space: the raw
+// `readlink` target text is LEXICAL (verify-in-loop-4 CRITICAL — on macOS a raw absolute
+// target under `/var/...` never string-matches a `/private/var/...` real ceiling), and even
+// a relative target joined under a realpath'd parent stays partially lexical when an
+// EXISTING intermediate directory of the target is itself a symlink. Both target forms are
+// therefore normalized identically: lexical absolute form first (anchored on the symlink's
+// realpath'd parent for a relative target — the containing directory exists, the symlink's
+// own lstat succeeded), then `nearestExistingAncestorRealpath` brings the result into real
+// space. The missing tail cannot alter ceiling membership (`resolve` already collapsed any
+// `..`), and the target is never existence-probed beyond the same ancestor walk the
+// plain-missing case already uses (REQ-PRC-07: the containment verdict precedes existence
+// knowledge). Single-hop only (the symlink's immediate target); deeper multi-hop broken
+// chains are not a scenario this domain pins.
+function resolveBrokenSymlinkTargetRealAncestor(symlinkAbsPath: string): string {
   const target = readlinkSync(symlinkAbsPath);
-  if (isAbsolute(target)) {
-    return resolve(target);
-  }
-  // The symlink's OWN containing directory is a real, existing directory (the symlink
-  // entry itself lstat'd successfully) — safe to realpath.
-  const realParent = realpathSync(dirname(symlinkAbsPath));
-  return resolve(join(realParent, target));
+  const lexicalTargetAbs = isAbsolute(target)
+    ? resolve(target)
+    : resolve(join(realpathSync(dirname(symlinkAbsPath)), target));
+  return nearestExistingAncestorRealpath(lexicalTargetAbs);
 }
 
 /**
@@ -147,10 +152,12 @@ export function validateSourceContainment(params: {
 
   // Step 3: realpath — resolves symlinks. ENOENT ordering (S1, REQ-PRC-07.2): a missing
   // target may be classified source-not-found ONLY AFTER the location it would resolve TO
-  // is proven in-ceiling. Two distinct ENOENT shapes, resolved differently:
+  // is proven in-ceiling. Two distinct ENOENT shapes, both resolved into REAL space (the
+  // ceiling side of this comparison is `realCeiling` — never compare a lexical candidate
+  // against it):
   //  (a) `lexicalAbs` itself is a BROKEN SYMLINK (its own entry exists, lstat succeeds,
-  //      but the target it points to does not) — the target is resolved LEXICALLY
-  //      (`readlink`, never existence-probed) and checked against the ceiling.
+  //      but the target it points to does not) — the target's real-space nearest existing
+  //      ancestor is checked against the ceiling.
   //  (b) `lexicalAbs` does not exist AT ALL (no symlink indirection) — walk up to the
   //      nearest EXISTING ancestor and check ITS realpath against the ceiling.
   // Either way: out-of-ceiling ⇒ source-outside-package (never differentiates existence
@@ -167,11 +174,11 @@ export function validateSourceContainment(params: {
         selfIsBrokenSymlink = false; // lexicalAbs itself doesn't exist — case (b)
       }
 
-      const resolvedLexically = selfIsBrokenSymlink
-        ? resolveBrokenSymlinkTargetLexically(lexicalAbs)
+      const resolvedRealAncestor = selfIsBrokenSymlink
+        ? resolveBrokenSymlinkTargetRealAncestor(lexicalAbs)
         : nearestExistingAncestorRealpath(lexicalAbs);
 
-      if (!isWithinCeiling(resolvedLexically, realCeiling)) {
+      if (!isWithinCeiling(resolvedRealAncestor, realCeiling)) {
         throw sourceRejection("source-outside-package", relPath);
       }
       throw sourceRejection("source-not-found", relPath);

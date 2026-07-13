@@ -116,6 +116,19 @@ describe("REQ-PRC-04 — source containment (realpath, segment-aware, regular-fi
     expect(isWithinCeiling("/pkg", "/pkg")).toBe(true);
   });
 
+  it("Q24 case-folding: a case-mismatched candidate/ceiling pair folds on case-insensitive platforms ONLY (win32/darwin), never on case-sensitive ones", () => {
+    // Product ruling Q24 (design S4): segment comparison case-folds on case-insensitive
+    // platforms only. Both directions asserted per the CURRENT platform, so this test is
+    // meaningful wherever the suite runs — on darwin/win32 the folded pair is WITHIN
+    // (killing a fold-removal mutant); on linux it is OUTSIDE (killing an
+    // unconditional-fold mutant).
+    const foldsHere = process.platform === "darwin" || process.platform === "win32";
+    expect(isWithinCeiling("/PKG/x", "/pkg")).toBe(foldsHere);
+    expect(isWithinCeiling("/pkg/Sub/File.ts", "/PKG")).toBe(foldsHere);
+    // Case-identical pairs are within regardless of platform (fold is a no-op on them).
+    expect(isWithinCeiling("/pkg/x", "/pkg")).toBe(true);
+  });
+
   it("REQ-PRC-04.6: an absolute-path source with no '..' segment rejects source-outside-package", () => {
     const dir = scratchDir();
     expectReason(
@@ -176,6 +189,30 @@ describe("REQ-PRC-07 — no existence oracle for out-of-ceiling paths", () => {
     } finally {
       rmSync(external, { recursive: true, force: true });
     }
+  });
+
+  it("REQ-PRC-07.2 positive control (verify-in-loop-4 CRITICAL regression): a broken symlink whose ABSOLUTE target is lexically IN-ceiling classifies source-not-found, never source-outside-package", () => {
+    // The evaluator's repro: the symlink's raw absolute target text is in LEXICAL space
+    // (/var/... on macOS), while the ceiling comparison operates in REAL space
+    // (/private/var/...) — a branch that returns the raw target un-realpath'd
+    // false-rejects this in-ceiling case as source-outside-package.
+    const dir = scratchDir();
+    symlinkSync(join(dir, "sub", "never-created.txt"), join(dir, "broken-inside.txt"));
+
+    expectReason(
+      () => validateSourceContainment({ packageDir: dir, packageRoot: dir, relPath: "broken-inside.txt" }),
+      "source-not-found"
+    );
+  });
+
+  it("REQ-PRC-07.2 positive control (relative-target sibling branch): a broken symlink whose RELATIVE target is in-ceiling classifies source-not-found", () => {
+    const dir = scratchDir();
+    symlinkSync(join("sub", "never-created.txt"), join(dir, "broken-inside-rel.txt"));
+
+    expectReason(
+      () => validateSourceContainment({ packageDir: dir, packageRoot: dir, relPath: "broken-inside-rel.txt" }),
+      "source-not-found"
+    );
   });
 
   it("S1 ENOENT ordering — plain (non-symlink) case: a missing in-ceiling source classifies source-not-found", () => {
