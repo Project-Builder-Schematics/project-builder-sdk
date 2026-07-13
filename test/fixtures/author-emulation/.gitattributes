@@ -1,0 +1,3 @@
+# REQ-AEG-04: git must never attempt a text diff on these committed binary assets.
+assets/*.png binary
+assets/*.bin.template binary
