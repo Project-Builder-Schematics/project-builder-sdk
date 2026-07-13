@@ -251,6 +251,26 @@ export const runM19 = scratchFactoryRunner(
   }
 );
 
+// --- GCC-07.1 discriminator (design §4.6 "e2e M-01 (sorted-order assert)"): files are
+// CREATED in a deliberately non-alphabetical order (b, then a, then c) so the walk's
+// SORTED enumeration (walk.ts `readdirSync().sort()`) is distinguishable from creation
+// order — the e2e assert pins the sorted sequence against a hardcoded expected list.
+// Not a corpus scenario (no SCENARIOS entry): a discriminator over walk-order semantics,
+// not a new matrix row (REQ-SCM-01's count stays 21).
+export const WALK_ORDER_CREATION_SEQUENCE = ["b.ts", "a.ts", "c.ts"] as const;
+
+export const runWalkOrderDiscriminator = scratchFactoryRunner(
+  (dir) => {
+    mkdirSync(join(dir, "files"));
+    for (const name of WALK_ORDER_CREATION_SEQUENCE) {
+      writeFileSync(join(dir, "files", name), `export const marker = "${name}";\n`, "utf-8");
+    }
+  },
+  () => {
+    scaffold({ from: "files", to: "out" });
+  }
+);
+
 // --- M-20: ContractFake <-> conformance-vehicle parity on THIS change's OWN
 // by-reference fixture set (ATH-16.1) — the corpus captures the single VALID copyIn run;
 // the parity comparison itself (fake vs conformance vehicle, across valid/missing-source/

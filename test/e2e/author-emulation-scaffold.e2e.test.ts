@@ -27,8 +27,10 @@ import {
   runM02MissingTo,
   runM07,
   runM09,
+  runWalkOrderDiscriminator,
   M07_HUGE_FILE_NAME,
   M09_FILE_COUNT,
+  WALK_ORDER_CREATION_SEQUENCE,
 } from "../fixtures/author-emulation/factory.ts";
 import type { ScaffoldOptions } from "../../src/commons/index.ts";
 
@@ -162,6 +164,20 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
     expect(capture.rawDirectives).toHaveLength(M09_FILE_COUNT);
     const paths = capture.rawDirectives.map((d) => (d.op === "create" ? d.create.pathTemplate : undefined));
     expect(paths).toEqual(["out/big-0.txt", "out/big-1.txt", "out/big-2.txt", "out/big-3.txt", "out/big-4.txt", "out/big-5.txt"]);
+  });
+
+  it("GCC-07.1 — walk order is walk.ts's SORTED order, not filesystem creation order (design §4.6 M-01 sorted-order discriminator)", async () => {
+    const capture = await captureRun(runWalkOrderDiscriminator, { name: "Widgets" });
+
+    expect(capture.error).toBeUndefined();
+    // The fixture CREATES its files in the non-alphabetical sequence b, a, c
+    // (WALK_ORDER_CREATION_SEQUENCE) — the emitted directive order below is the
+    // HARDCODED sorted sequence, deliberately different from creation order, so a walk
+    // enumerating in creation/readdir-insertion order fails this assert while the
+    // spec-pinned sorted order (GCC-07: walk order is NORMATIVE) passes.
+    expect([...WALK_ORDER_CREATION_SEQUENCE]).not.toEqual([...WALK_ORDER_CREATION_SEQUENCE].sort());
+    const paths = capture.rawDirectives.map((d) => (d.op === "create" ? d.create.pathTemplate : undefined));
+    expect(paths).toEqual(["out/a.ts", "out/b.ts", "out/c.ts"]);
   });
 
   describe("M-04 — rename + chained-token translation + `.template` strip, PINNED order (REQ-FSC-05.1, REQ-SCM-03.1)", () => {
