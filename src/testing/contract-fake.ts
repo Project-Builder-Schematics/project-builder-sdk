@@ -266,5 +266,11 @@ export class ContractFake implements EngineClient {
       this.#tree.set(dst, content);
       return;
     }
+
+    // Exhaustiveness guard (final-verify remediation): an 8th wire op would otherwise
+    // compile through this if-chain and silently no-op — mirrors the `_exhaustive: never`
+    // idiom `authoring-error.ts`'s `messageFor`/`originFor` switches already use.
+    const _exhaustive: never = directive;
+    throw new Error(`unhandled directive op: ${(_exhaustive as Directive).op}`);
   }
 }

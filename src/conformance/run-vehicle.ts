@@ -77,6 +77,11 @@ function applyDirective(tree: Map<string, string>, directive: Directive): void {
     }
     return;
   }
+  // Exhaustiveness guard (final-verify remediation): an 8th wire op would otherwise
+  // compile through this if-chain and silently no-op — mirrors the `_exhaustive: never`
+  // idiom `authoring-error.ts`'s `messageFor`/`originFor` switches already use.
+  const _exhaustive: never = directive;
+  throw new Error(`unhandled directive op: ${(_exhaustive as Directive).op}`);
 }
 
 /**
