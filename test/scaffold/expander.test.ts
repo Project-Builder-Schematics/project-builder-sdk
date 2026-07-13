@@ -14,9 +14,11 @@
  * a `../` segment into the FINAL destination (design §Data Model S3: the guard applies
  * post-rename, post-token-translation).
  */
-import { describe, it, expect } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { describe, it, expect, spyOn } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import * as fs from "node:fs";
+import { join, relative } from "node:path";
+import { tmpdir } from "node:os";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { scaffold, dryRun, AuthoringError } from "../../src/commons/index.ts";
@@ -172,6 +174,92 @@ describe("REQ-PRC-09.1 — destination lexical guard wiring: a rename map value 
     }, { packageDir: dir });
 
     expectAuthoringReason(caught, "invalid-input");
+    expect(fake.committedTree().size).toEqual(0);
+  });
+});
+
+describe("SEC (owner-ratified final-verify remediation) — scaffold's walk ROOT is containment-checked before any enumeration", () => {
+  it("a lexically escaping `from` ('../<out-of-ceiling>') rejects source-outside-package and never enumerates the escaping tree", async () => {
+    const dir = scratchDir();
+    const external = mkdtempSync(join(tmpdir(), "expander-external-"));
+    try {
+      mkdirSync(join(external, "nested"), { recursive: true });
+      writeFileSync(join(external, "top-secret.txt"), "nope", "utf-8");
+      writeFileSync(join(external, "nested", "also-secret.txt"), "nope", "utf-8");
+      const relFrom = relative(dir, external);
+      const fake = new ContractFake({ seed: {} });
+
+      const readdirSpy = spyOn(fs, "readdirSync");
+      const lstatSpy = spyOn(fs, "lstatSync");
+      try {
+        const caught = await rejectedRun(fake, () => {
+          scaffold({ from: relFrom, to: "out" });
+        }, { packageDir: dir });
+
+        const err = expectAuthoringReason(caught, "source-outside-package");
+        expect(err.message).toContain(relFrom);
+        // The whole point: containment rejects the walk ROOT before `walkFolder` ever
+        // enumerates it — no readdirSync/lstatSync call may ever target the escaping
+        // subtree (an unrelated readdirSync against `packageDir` itself, from the run's
+        // own pre-existing reserved-lifecycle-name scan, is expected and fine).
+        for (const call of readdirSpy.mock.calls) {
+          expect(String(call[0])).not.toContain(external);
+        }
+        for (const call of lstatSpy.mock.calls) {
+          expect(String(call[0])).not.toContain(external);
+        }
+        expect(fake.committedTree().size).toEqual(0);
+      } finally {
+        readdirSpy.mockRestore();
+        lstatSpy.mockRestore();
+      }
+    } finally {
+      rmSync(external, { recursive: true, force: true });
+    }
+  });
+
+  it("a `from` that is lexically in-ceiling but whose realpath escapes (a symlinked directory pointing out) rejects source-outside-package before any enumeration", async () => {
+    const dir = scratchDir();
+    const external = mkdtempSync(join(tmpdir(), "expander-external-"));
+    try {
+      writeFileSync(join(external, "top-secret.txt"), "nope", "utf-8");
+      symlinkSync(external, join(dir, "link-out"));
+      const fake = new ContractFake({ seed: {} });
+
+      const readdirSpy = spyOn(fs, "readdirSync");
+      try {
+        const caught = await rejectedRun(fake, () => {
+          scaffold({ from: "link-out", to: "out" });
+        }, { packageDir: dir });
+
+        expectAuthoringReason(caught, "source-outside-package");
+        // The symlinked ROOT's TARGET is never enumerated — containment rejects it via
+        // realpath before `walkFolder` (and its readdirSync) ever runs. (The unrelated
+        // readdirSync(packageDir) from the run's reserved-lifecycle-name scan is fine.)
+        for (const call of readdirSpy.mock.calls) {
+          expect(String(call[0])).not.toContain(external);
+        }
+        expect(fake.committedTree().size).toEqual(0);
+      } finally {
+        readdirSpy.mockRestore();
+      }
+    } finally {
+      rmSync(external, { recursive: true, force: true });
+    }
+  });
+
+  it("a legitimately absent in-ceiling `from` is unaffected by the new root check — existing not-found behavior is preserved", async () => {
+    const dir = scratchDir();
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "does-not-exist", to: "out" });
+    }, { packageDir: dir });
+
+    // Not an AuthoringError — walkFolder's own readdirSync ENOENT propagates unchanged,
+    // exactly as it did before this remediation (no new source-not-found behavior invented
+    // for the scaffold root, per the owner-ratified scope).
+    expect(caught).not.toBeInstanceOf(AuthoringError);
     expect(fake.committedTree().size).toEqual(0);
   });
 });

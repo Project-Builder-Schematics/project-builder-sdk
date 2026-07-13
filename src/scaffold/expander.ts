@@ -35,7 +35,7 @@ import { BATCH_CAP_BYTES, serializedBatchSize } from "../core/wire.ts";
 import { walkFolder } from "./walk.ts";
 import { runFilenamePipeline, isIncluded, detectDestinationCollisions, translateTokens } from "./filename-pipeline.ts";
 import { classifyTransport } from "./classify-transport.ts";
-import { validateDestinationLexical, resolveRealCeiling } from "./containment.ts";
+import { validateDestinationLexical, validateSourceRootContainment, resolveRealCeiling } from "./containment.ts";
 
 /**
  * Argument shape for the `scaffold` author verb (REQ-FSC-01). `from`/`to` are mandatory;
@@ -102,6 +102,20 @@ export function runScaffold(args: ScaffoldArgs): void {
   const { session, factory } = ctx;
   const { packageDir, packageRoot } = requirePackageAnchors(noResolutionAnchorMessage());
 
+  // The ceiling's realpath is a RUN invariant (not one of the pinned per-candidate
+  // validation steps) — resolve it once for both the root check below and the whole
+  // entry loop.
+  const realCeiling = resolveRealCeiling(packageRoot);
+
+  // SEC (owner-ratified final-verify remediation): the walk ROOT itself must be
+  // containment-checked BEFORE `walkFolder` ever enumerates it — otherwise an escaping
+  // `from` (e.g. `../secrets`) would readdirSync/lstatSync the whole out-of-ceiling
+  // subtree (bounded by `walk.ts`'s 10k-entry cap) before any per-entry containment
+  // check had a chance to fire. Reuses the SAME lexical + realpath ceiling machinery the
+  // per-entry loop below already uses via `classifyTransport` → `validateSourceContainment`
+  // — no parallel check forked for this directory case.
+  validateSourceRootContainment({ packageDir, packageRoot, relPath: args.from, realCeiling });
+
   const fromAbs = join(packageDir, args.from);
   const walked = walkFolder(fromAbs);
   if (walked.length === 0) {
@@ -117,9 +131,6 @@ export function runScaffold(args: ScaffoldArgs): void {
   detectDestinationCollisions(pipelineResults);
 
   const toPrefix = translateTokens(args.to);
-  // The ceiling's realpath is a RUN invariant (not one of the pinned per-candidate
-  // validation steps) — resolve it once for the whole entry loop.
-  const realCeiling = resolveRealCeiling(packageRoot);
 
   // Running serialized-size counter over the CURRENT pending buffer — seeded from the real
   // snapshot (directives buffered BEFORE this scaffold call count toward the first group)

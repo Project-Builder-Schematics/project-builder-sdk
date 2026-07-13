@@ -116,33 +116,29 @@ export function resolveRealCeiling(packageRoot: string): string {
   return realpathSync(resolve(packageRoot));
 }
 
-/**
- * Validates ONE package-local SOURCE path against the dual-anchor containment model
- * (REQ-PRC-01..08) and returns its realpath'd absolute path plus the `lstat` used to
- * prove regular-file eligibility — callers (`classify-transport.ts`) reuse this `Stats`
- * for the CCL-06 size gate instead of stat'ing again. Throws one of the four `source-*`
- * `AuthoringError`s (REQ-AEC-10) on any failure; never reads file CONTENT.
- * `realCeiling` (optional) is the precomputed `resolveRealCeiling(packageRoot)` — passed
- * by per-entry loop callers; single-shot callers omit it and it is derived here.
- */
-export function validateSourceContainment(params: {
+// Result of resolving a package-relative path through the lexical + realpath ceiling
+// checks (steps 1-3 shared by every containment caller) WITHOUT the regular-file
+// allow-list (step 4, file-only callers add that themselves). `notFound` covers BOTH
+// ENOENT shapes once they are already proven in-ceiling (REQ-PRC-07.2) — the caller
+// decides what "not found" means for its own path kind (a single file rejects
+// `source-not-found`; a scaffold walk ROOT preserves whatever `walkFolder` already does
+// for a legitimately absent folder, REQ-FSC-09/SEC remediation).
+type ContainedRealpath = { realAbs: string } | { notFound: true };
+
+// Steps 1-3 of the containment pipeline (design §Classification pipeline order, pinned):
+// lexical `../`/absolute screen → pre-realpath segment-aware ceiling check → realpath +
+// ENOENT ordering (S1, REQ-PRC-07.2). Shared by `validateSourceContainment` (file source,
+// adds step 4's regular-file allow-list) and `validateSourceRootContainment` (scaffold's
+// walk ROOT — a directory, no step 4). Extracted so the ENOENT/symlink-ordering logic has
+// exactly ONE implementation — never forked in parallel for the directory case.
+function resolveContainedRealpath(params: {
   packageDir: string;
   packageRoot: string;
   relPath: string;
-  realCeiling?: string;
-}): { absPath: string; stat: Stats } {
-  const { packageDir, packageRoot, relPath } = params;
-  // Two ceiling REPRESENTATIONS, compared only against a candidate in the SAME space —
-  // never mixed. `lexicalCeiling` is the raw (non-realpath'd) packageRoot, used for the
-  // pre-realpath check against a likewise non-realpath'd candidate (step 2). `realCeiling`
-  // is the SAME directory, realpath'd, used for every POST-realpath comparison (steps
-  // 3+) — required because a symlinked ancestor of the whole run (e.g. macOS's
-  // `/var` → `/private/var`) makes the lexical and real forms of the SAME directory
-  // differ; comparing a realpath'd candidate against a non-realpath'd ceiling would
-  // false-reject every source. `packageRoot` always exists (context.ts's ancestor walk
-  // proved it via `existsSync`), so this realpath cannot ENOENT.
-  const lexicalCeiling = resolve(packageRoot);
-  const realCeiling = params.realCeiling ?? realpathSync(lexicalCeiling);
+  realCeiling: string;
+}): ContainedRealpath {
+  const { packageDir, relPath, realCeiling } = params;
+  const lexicalCeiling = resolve(params.packageRoot);
 
   // Step 1 (REQ-PRC-04 first clause): lexical `../`/absolute screen, independent of any
   // realpath check — a literal ".." segment or an absolute path resolves outside the
@@ -161,7 +157,7 @@ export function validateSourceContainment(params: {
   }
 
   // Step 3: realpath — resolves symlinks. ENOENT ordering (S1, REQ-PRC-07.2): a missing
-  // target may be classified source-not-found ONLY AFTER the location it would resolve TO
+  // target may be classified not-found ONLY AFTER the location it would resolve TO
   // is proven in-ceiling. Two distinct ENOENT shapes, both resolved into REAL space (the
   // ceiling side of this comparison is `realCeiling` — never compare a lexical candidate
   // against it):
@@ -171,7 +167,7 @@ export function validateSourceContainment(params: {
   //  (b) `lexicalAbs` does not exist AT ALL (no symlink indirection) — walk up to the
   //      nearest EXISTING ancestor and check ITS realpath against the ceiling.
   // Either way: out-of-ceiling ⇒ source-outside-package (never differentiates existence
-  // beyond the boundary, REQ-PRC-07.1); in-ceiling ⇒ source-not-found.
+  // beyond the boundary, REQ-PRC-07.1); in-ceiling ⇒ notFound.
   let realAbs: string;
   try {
     realAbs = realpathSync(lexicalAbs);
@@ -191,7 +187,7 @@ export function validateSourceContainment(params: {
       if (!isWithinCeiling(resolvedRealAncestor, realCeiling)) {
         throw sourceRejection("source-outside-package", relPath);
       }
-      throw sourceRejection("source-not-found", relPath);
+      return { notFound: true };
     }
     throw sourceRejection("source-unreadable", relPath);
   }
@@ -199,6 +195,35 @@ export function validateSourceContainment(params: {
   if (!isWithinCeiling(realAbs, realCeiling)) {
     throw sourceRejection("source-outside-package", relPath);
   }
+
+  return { realAbs };
+}
+
+/**
+ * Validates ONE package-local SOURCE path against the dual-anchor containment model
+ * (REQ-PRC-01..08) and returns its realpath'd absolute path plus the `lstat` used to
+ * prove regular-file eligibility — callers (`classify-transport.ts`) reuse this `Stats`
+ * for the CCL-06 size gate instead of stat'ing again. Throws one of the four `source-*`
+ * `AuthoringError`s (REQ-AEC-10) on any failure; never reads file CONTENT.
+ * `realCeiling` (optional) is the precomputed `resolveRealCeiling(packageRoot)` — passed
+ * by per-entry loop callers; single-shot callers omit it and it is derived here.
+ */
+export function validateSourceContainment(params: {
+  packageDir: string;
+  packageRoot: string;
+  relPath: string;
+  realCeiling?: string;
+}): { absPath: string; stat: Stats } {
+  const { packageDir, packageRoot, relPath } = params;
+  // `packageRoot` always exists (context.ts's ancestor walk proved it via `existsSync`),
+  // so this realpath cannot ENOENT.
+  const realCeiling = params.realCeiling ?? realpathSync(resolve(packageRoot));
+
+  const resolution = resolveContainedRealpath({ packageDir, packageRoot, relPath, realCeiling });
+  if ("notFound" in resolution) {
+    throw sourceRejection("source-not-found", relPath);
+  }
+  const { realAbs } = resolution;
 
   // Step 4 (REQ-PRC-04): lstat ALLOW-LIST — isFile() only, never a directory-blacklist
   // (PRC-04.4's FIFO kill: a FIFO/socket/device is equally ineligible).
@@ -219,6 +244,28 @@ export function validateSourceContainment(params: {
   }
 
   return { absPath: realAbs, stat };
+}
+
+/**
+ * Validates `scaffold`'s walk ROOT (`from`, a DIRECTORY — never file-checked) against the
+ * SAME lexical + realpath ceiling machinery `validateSourceContainment` uses (steps 1-3,
+ * via `resolveContainedRealpath` — no parallel check forked for the directory case).
+ * Rejects `source-outside-package` for an escaping or out-of-ceiling root; a
+ * legitimately ABSENT in-ceiling root is left alone (no-op) so `walkFolder`'s own
+ * existing not-found behavior is preserved unchanged — this function only ever narrows
+ * what `runScaffold` was already going to do, it never invents a new not-found path.
+ * MUST run before `walkFolder` so the 10k-entry bound can never fire on an out-of-ceiling
+ * tree (owner-ratified final-verify remediation, package-root-containment domain).
+ */
+export function validateSourceRootContainment(params: {
+  packageDir: string;
+  packageRoot: string;
+  relPath: string;
+  realCeiling?: string;
+}): void {
+  const { packageDir, packageRoot, relPath } = params;
+  const realCeiling = params.realCeiling ?? realpathSync(resolve(packageRoot));
+  resolveContainedRealpath({ packageDir, packageRoot, relPath, realCeiling });
 }
 
 function destinationEscapeMessage(relPath: string): string {
