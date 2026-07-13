@@ -209,6 +209,22 @@ Two distinct debts surfaced:
 | FIT-09/FIT-14 exports-guard extensibility refactor: split the frozen exact flat subpath list into a stable-core exact assert (`.`, `./commons`, `./conformance`, `./testing`) + an extensible dialect-set pattern assert, so a new dialect subpath is a one-row addition instead of a multi-file edit (package.json + FIT-09:77 + FIT-14:86-88 + baseline JSON). OWNER-RULED 2026-07-12: deferred — stage-5b adds no subpath (breadth within `./typescript`, exports byte-identical); first real consumer is a second dialect no plan contains yet | refactor | S | — | **second dialect (own trigger)** |
 | **Public-package plan (own /plan cycle, owner-carved 2026-07-12 at stage-6 explore gate; EXTENDED 2026-07-12 at stage-6 steward foresight, CQ2)**: everything that makes `@pbuilder/sdk` a package OTHER PEOPLE consume — GitHub Packages dual-name config (`@project-builder-schematics/sdk` publish-time rewrite, consumer `.npmrc` auth-wart docs), live npm publish readiness + go-live interlocks (GitHub Environment reviewer gate, tag-triggered publish), `defineFactory` home re-evaluation (row above), and whatever real engine integration reveals is missing. **Now ALSO absorbs the npm placeholder publish** (deferred at steward foresight, CQ2 — the `@pbuilder` scope is already owner-controlled, so an inert stub buys no security today): the stub itself, ADR-0040's reasoning, the fit-22 inertness suite, the RUNBOOK, and the `0.0.1` semver-floor decision. Rationale: "mientras funcione el bun link… por el momento es overkill porque no está preparado para que nadie lo use." Stage-6 now keeps only: hardening of the EXISTING publish.yml surface (W3 guard, SHA pins) and the local consumption story — ZERO registry writes | feature | L | L1-readiness (post engine integration) | **own change (post-6)** |
 
+## From author-emulation-e2e grooming (2026-07-13) — owner-stated program vision
+
+Owner vision stated in-session: before engine construction resumes (post stage-6), the SDK's
+trust must be stress-proven by AGGRESSIVE author-emulation e2e — write schematics the way a
+real author would (reference shape: nestjs-schematics `crud-graphql-mongo` — templates, naming
+transforms, module wiring, parametric options), drive them with scenario matrices from simplest
+to most complex, and capture the emitted IR array at the `EngineClient` seam into a report that
+serves three audiences: golden baselines in-repo, engine-handoff corpus, human inspection. The
+first change (`author-emulation-e2e-scaffold`, in planning) covers the `scaffold` mutation
+family only AND builds the shared IR-report infrastructure the rest reuse.
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| Author-emulation e2e per remaining mutation family: one change per author verb/family (`create`/`modify` incl. dialect chains, `move`/`rename`, `copy`, `remove`, `copyIn` standalone) following the scaffold change's pattern — realistic authored schematic + parametric scenario matrix (simple → complex) + IR capture into the shared report | test-coverage | M each | scaffold e2e change lands the shared report infra first | **own changes (post scaffold e2e)** |
+| Combination author-emulation e2e: compositions ACROSS mutation families, simple → complex (full realistic generators combining scaffold + dialect modify + move/copy + params), same IR-report vehicle — the closest pre-engine approximation of production authoring | test-coverage | L | all per-mutation e2e changes done | **own change (capstone, pre-engine-return)** |
+
 ## From `schematic-local-files` (2026-07-13) — engine-side seam obligations, registered at S-005 ahead of archive
 
 `schematic-local-files` delivers the SDK-side half of the row-208 primitive above (`scaffold`/
