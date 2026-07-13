@@ -1,0 +1,2 @@
+A small by-value text file (REQ-CCL-01.1) — scaffolded alongside a binary sibling in the
+SAME call so one scaffold emits both a `create` and a `copyIn` directive (M-05).
