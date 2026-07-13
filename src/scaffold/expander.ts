@@ -3,17 +3,39 @@
 // directives via the run's session (Executor Context §18). `classify-transport.ts` stays a
 // PURE per-file decision; a by-reference VERDICT is handled HERE, not there — in S-001
 // (no `copyIn` wire op yet) a by-reference verdict fails loud. S-003.3 swaps this exact
-// throw site for real `factory.copyIn(...)` emission; S-004 adds the serialized-size
-// accumulator + mid-walk `session.flush()` chunking on top of this same fan-out.
+// throw site for real `factory.copyIn(...)` emission.
+//
+// S-004 (batch-cap chunked flush, REQ-04/05): the expander maintains a serialized-size
+// accumulator over the CURRENT `session` pending buffer and calls `session.flush()`
+// BETWEEN groups when the next directive would push the pending batch's serialized form
+// over `BATCH_CAP_BYTES` — the SDK never rejects on aggregate size (ADR-0018 amendment);
+// an over-cap SINGLE group still rejects at the fake's `emit` unchanged (REQ-04.2).
+//
+// `scaffold(): void` is a PINNED synchronous author surface (design §Data Model, T2), yet
+// `Session.flush()` is `async` and `session.ts` is READ-ONLY for this change (design §A4)
+// — no synchronous flush variant may be added. The bridge is the EXISTING `DialectRegistry`
+// (`context.ts`, ADR-0037), documented as generic over "anything with a `settle()`": a
+// mid-run `session.flush()` call is fired here WITHOUT awaiting (its synchronous prefix —
+// draining `#pending`, building the batch, and the fake's entirely-synchronous `#apply`
+// loop — still runs to completion before `flush()`'s own `await` suspends it, so the
+// `#tree` mutation for this group happens in-order, synchronously, before the next group
+// starts buffering) and REGISTERED as a dialect handle. `defineFactory` already awaits
+// `ctx.dialects.drain()` BEFORE its own run-end `session.flush()` (which covers the final,
+// still-pending group) and BEFORE `commit()` — so a later-chunk rejection surfaces through
+// `drain()`, routes to `defineFactory`'s existing catch, and `discard()` clears the SAME
+// underlying `#tree` every chunk staged into: run-level all-or-nothing (REQ-05) holds with
+// NO new atomicity mechanism, exactly as the design promises.
 
 import { posix, join } from "node:path";
 import { currentContext } from "../core/context.ts";
 import { AuthoringError } from "../core/authoring-error.ts";
 import { forceEntry } from "../core/directive-factory.ts";
-import type { JsonValue } from "../core/wire.ts";
+import type { Batch, Directive, JsonValue } from "../core/wire.ts";
+import { BATCH_CAP_BYTES } from "../core/wire.ts";
 import { walkFolder } from "./walk.ts";
 import { runFilenamePipeline, isIncluded, detectDestinationCollisions, translateTokens } from "./filename-pipeline.ts";
 import { classifyTransport } from "./classify-transport.ts";
+import { validateDestinationLexical } from "./containment.ts";
 
 /**
  * Argument shape for the `scaffold` author verb (REQ-FSC-01). `from`/`to` are mandatory;
@@ -70,6 +92,30 @@ function invalidInput(message: string): AuthoringError {
  * every entry fail loud, naming them (REQ-FSC-04.2). `force` passes through unchanged to
  * every emitted directive (REQ-FSC-06).
  */
+// REQ-04's serialized-size heuristic (S-004): measures what the PENDING batch (already-
+// buffered directives + one candidate more) would serialize to, using the EXACT same shape
+// the fake measures at emit time (`Buffer.byteLength(JSON.stringify(batch), "utf8")`) — a
+// lowering heuristic, not a second size authority (ADR-0018 amendment); the fake's own
+// `emit` cap check remains the sole judge (ADR-0019).
+function candidateBatchSize(pending: readonly Directive[], next: Directive): number {
+  const candidate: Batch = { protocolVersion: 1, force: false, instructions: [...pending, next] };
+  return Buffer.byteLength(JSON.stringify(candidate), "utf8");
+}
+
+/**
+ * Walks a package-local folder and mirrors it into the target tree (REQ-FSC-01..09):
+ * every source-relative path enumerates (REQ-FSC-09), passes include/exclude filtering
+ * (REQ-FSC-03), runs the rename→token→`.template`-strip pipeline (REQ-FSC-05), and is
+ * checked for intra-scaffold destination collisions (REQ-FSC-08) BEFORE any file is
+ * classified. Each surviving source classifies by-value or by-reference
+ * (`content-classification`); by-value sources emit a `create` directive through the
+ * existing IR. A truly-empty `from` folder no-ops (REQ-FSC-04.1); filters eliminating
+ * every entry fail loud, naming them (REQ-FSC-04.2). `force` passes through unchanged to
+ * every emitted directive (REQ-FSC-06). The destination lexical guard (REQ-PRC-09) applies
+ * to the FINAL computed destination, immediately pre-emit. Aggregate size never blocks the
+ * scaffold outright (REQ-04) — the expander chunks via mid-run `session.flush()` calls
+ * (see the module header for the sync/async bridge); run-level atomicity (REQ-05) is free.
+ */
 export function runScaffold(args: ScaffoldArgs): void {
   if (args.from === undefined) {
     throw invalidInput(missingArgMessage("from"));
@@ -78,10 +124,15 @@ export function runScaffold(args: ScaffoldArgs): void {
     throw invalidInput(missingArgMessage("to"));
   }
 
-  const { packageDir, session, factory } = currentContext();
+  const ctx = currentContext();
+  const { packageDir, session, factory } = ctx;
   if (packageDir === undefined) {
     throw invalidInput(noResolutionAnchorMessage());
   }
+  // packageRoot is ALWAYS resolved together with packageDir (context.ts's pre-`als.run`
+  // chokepoint sets both or throws before either is set, REQ-PRC-01/ADR-0046) — no
+  // reachable RunContext has packageDir set with packageRoot left undefined.
+  const packageRoot = ctx.packageRoot!;
 
   const fromAbs = join(packageDir, args.from);
   const walked = walkFolder(fromAbs);
@@ -103,6 +154,7 @@ export function runScaffold(args: ScaffoldArgs): void {
     const sourceRelPath = posix.join(args.from, result.sourceRelPath);
     const verdict = classifyTransport({
       packageDir,
+      packageRoot,
       relPath: sourceRelPath,
       isTemplateMarked: result.isTemplateMarked,
     });
@@ -112,13 +164,25 @@ export function runScaffold(args: ScaffoldArgs): void {
     }
 
     const destPath = posix.join(toPrefix, result.destRelPath);
-    session.buffer(
-      factory.create({
-        pathTemplate: destPath,
-        template: verdict.content!,
-        options: args.options ?? {},
-        ...forceEntry(args.force),
-      })
-    );
+    validateDestinationLexical(destPath);
+
+    const directive = factory.create({
+      pathTemplate: destPath,
+      template: verdict.content!,
+      options: args.options ?? {},
+      ...forceEntry(args.force),
+    });
+
+    // REQ-04: if adding this directive to the CURRENTLY pending (not-yet-flushed) group
+    // would push its serialized batch over the cap, flush the existing group first — never
+    // preemptively when the pending buffer is empty (an over-cap SINGLE directive still
+    // flushes as its own group and rejects at the fake's `emit`, unchanged REQ-04.2).
+    const pending = session.pendingSnapshot();
+    if (pending.length > 0 && candidateBatchSize(pending, directive) > BATCH_CAP_BYTES) {
+      const flushPromise = session.flush();
+      ctx.dialects.register({ settle: () => flushPromise });
+    }
+
+    session.buffer(directive);
   }
 }
