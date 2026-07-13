@@ -14,6 +14,18 @@ This is the third golden idiom in this SDK's test suite, alongside `test/golden-
 files) — a genuinely different unit: the whole-run lowered-directive sequence, not a
 single directive or a single rendered file (ADR-0048).
 
+### `scaffold` Has No Wire Op — Its Lowering Into `create`/`copyIn` Is the Corpus Truth
+
+`scaffold` is an author-facing verb only — there is no `scaffold` entry in the wire
+`Directive` union (`src/core/wire.ts`). When a schematic calls `scaffold(...)`, the SDK
+WALKS the source tree and LOWERS each entry into one of the two wire directives this
+corpus knows: `create` (a file to be rendered, by-value or via `templateFile`) or
+`copyIn` (a file classified by-reference — binary or oversized, copied without a content
+read). A corpus record for a `scaffold` scenario therefore never contains a `scaffold`
+directive — it contains the ordered sequence of `create`/`copyIn` directives that
+lowering produced. Reading a raw corpus file is reading the ANSWER to "what did this
+scaffold call actually do at the wire?", not a re-statement of the author's call.
+
 ## Normative Status
 
 Each record self-labels its two regions via top-level keys, so a raw reader of the file
