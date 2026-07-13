@@ -120,6 +120,99 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
     }
   });
 
+  it("REQ-FEH-02 family: a templateFile that does not exist rejects invalid-input, naming the package-relative path (ENOENT branch)", async () => {
+    const dir = packageDir();
+    try {
+      const fake = new ContractFake({ seed: {} });
+
+      const run = defineFactory<void>(() => {
+        create("dest.ts", { templateFile: "missing.ts.template", options: {} });
+      }, { packageDir: dir });
+
+      let caught: unknown;
+      try {
+        await run(undefined, { client: fake });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(AuthoringError);
+      expect((caught as AuthoringError).reason).toEqual("invalid-input");
+      expect((caught as Error).message).toEqual(
+        'invalid input: templateFile "missing.ts.template" does not exist in the package'
+      );
+      expect((caught as Error).message).not.toContain(dir);
+      expect(fake.committedTree().size).toEqual(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("REQ-FEH-02 family: a non-ENOENT stat failure (ENOTDIR — path routed through a regular file) rejects invalid-input as unreadable, never as not-found", async () => {
+    const dir = packageDir();
+    try {
+      // `blocker.txt` is a regular FILE; statting a path that treats it as a directory
+      // throws ENOTDIR — a deterministic, chmod-free non-ENOENT errno (S18: chmod
+      // fixtures are unreliable under root-running CI).
+      writeFileSync(join(dir, "blocker.txt"), "content", "utf-8");
+      const fake = new ContractFake({ seed: {} });
+
+      const run = defineFactory<void>(() => {
+        create("dest.ts", { templateFile: "blocker.txt/nested.template", options: {} });
+      }, { packageDir: dir });
+
+      let caught: unknown;
+      try {
+        await run(undefined, { client: fake });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(AuthoringError);
+      expect((caught as AuthoringError).reason).toEqual("invalid-input");
+      expect((caught as Error).message).toEqual(
+        'invalid input: templateFile "blocker.txt/nested.template" could not be read'
+      );
+      expect(fake.committedTree().size).toEqual(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("REQ-CCL-02.2 posture: raw bytes under budget but JSON-serialized form over budget rejects invalid-input (kills a raw-bytes-only measurer)", async () => {
+    const dir = packageDir();
+    try {
+      // 3 MiB of "\n": raw size is under BATCH_CAP_BYTES (passes the stat gate and the
+      // sniff — newline is valid UTF-8, no null byte), but JSON.stringify escapes each
+      // to "\\n" (2 bytes), pushing the serialized form to ~6 MiB — over the cap. Only
+      // the serialized-size branch can reject this fixture.
+      const rawSize = 3 * 1024 * 1024;
+      expect(rawSize).toBeLessThan(BATCH_CAP_BYTES);
+      writeFileSync(join(dir, "escapes.ts.template"), "\n".repeat(rawSize), "utf-8");
+      const fake = new ContractFake({ seed: {} });
+
+      const run = defineFactory<void>(() => {
+        create("dest.ts", { templateFile: "escapes.ts.template", options: {} });
+      }, { packageDir: dir });
+
+      let caught: unknown;
+      try {
+        await run(undefined, { client: fake });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(AuthoringError);
+      expect((caught as AuthoringError).reason).toEqual("invalid-input");
+      expect((caught as Error).message).toEqual(
+        'invalid input: templateFile "escapes.ts.template" exceeds the serialized frame budget'
+      );
+      expect(fake.committedTree().size).toEqual(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("design §Data Model 'no resolution anchor': create({templateFile}) inside a bare defineFactory(fn) run fails loud, never falls back to cwd", async () => {
     const fake = new ContractFake({ seed: {} });
 
