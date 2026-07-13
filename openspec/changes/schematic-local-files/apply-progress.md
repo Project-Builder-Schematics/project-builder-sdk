@@ -395,3 +395,59 @@ All 6 slices (S-000..S-005) complete, all tasks checked. Ready for `sdd-verify -
 **Behavior-neutrality**: items 3/4/5/6/9 are test-only (zero production diff). Items 2/7/10 are message/doc text only (2 and 7 change externally-visible strings — 2 is an owner-ratified micro-unfreeze, 7 preserves the one substring every test/consumer could plausibly depend on). Item 8 is a structural no-op today (only fires for a hypothetical future 8th op). Item 1 is the only item with new runtime-reachable logic — it is strictly narrowing (adds a rejection path for previously-unvalidated escaping/symlinked scaffold roots; every previously-passing scaffold call is unaffected, confirmed by the full pre-existing scaffold/containment/e2e suites staying green).
 
 **Final verification**: `bun test` → 1048 pass / 0 fail (123 files, up from 1006/121 pre-remediation — 42 new tests: 3 (item 1) + 0 net (item 2 changed an existing assertion) + 0 net (item 3 strengthened an existing test) + 0 net (item 4 strengthened an existing test) + 0 net (item 5 strengthened an existing test) + 1 (item 6) + 38 (item 9) = 42). `tsc --noEmit` → clean. FIT-04 (`.d.ts` semver gate) and FIT-14 (`pkg-surface-baseline.json`) → both green, no baseline regen needed (the only public-surface-adjacent edits were comment-only JSDoc reframes, which FIT-04's diff strips).
+
+## Judgment-Day Iteration 1 Fix (2026-07-13)
+
+Blind adversarial review (2 judges): Judge A APPROVED (1 non-blocking DX followup, registered separately). Judge B **BLOCK — REAL**, verified independently against code + signed spec.
+
+### The defect
+
+`classify-transport.ts:130-139`'s by-value/by-reference budget decision measured `Buffer.byteLength(JSON.stringify(content), "utf8")` — the CONTENT STRING alone. But content-classification `spec.md` REQ-CCL-02 pins the budget as "evaluated against realistic SERIALIZED-batch size (envelope + JSON-escaping overhead included, never raw content bytes alone)" — and the file the SDK actually emits is a full `create` directive (`{ op: "create", create: { pathTemplate, template, options, force? } }`, `expander.ts`/`commons/index.ts`), whose real serialized size the fake's `emit` measures via `serializedBatchSize` (`core/wire.ts`) — envelope + `create` wrapper + `pathTemplate` + `options` included. The two measures diverged by exactly that overhead.
+
+**Consequence (judge-proven end-to-end)**: a file whose CONTENT serializes ≤ `BATCH_CAP_BYTES` but whose full CREATE DIRECTIVE exceeds it classified by-value (wrong) → the expander flushed that lone over-cap directive as its own group → the fake's `emit` rejected `changes-too-large` → the run committed 0 files, when the correct by-reference (`copyIn`) classification would have succeeded. The existing REQ-CCL-02.3 boundary test only asserted `classifyTransport`'s VERDICT directly (never drove a real emit), so it kept passing at the WRONG (content-only) boundary and never caught the divergence — the test's own bug hid the production bug.
+
+### The fix
+
+1. **`src/scaffold/classify-transport.ts`**: `ClassifyParams` gained REQUIRED `destPath: string` / `options: JsonValue` / optional `force?: boolean` — the same fields the caller would put on the prospective `create` directive. The budget check now builds that PROSPECTIVE directive and measures it via `serializedBatchSize([prospectiveDirective])` (reused from `core/wire.ts`, the SAME helper the fake's real batch-cap check applies — no second envelope shape hand-rolled, per the `/simplify` D10 consolidation this change already relies on). The false comment claiming parity with the fake's measure (lines 130-131) is now true. The REQ-CCL-06 stat-size early-out (`stat.size > BATCH_CAP_BYTES`) is UNCHANGED — it stays a conservative, content-only pre-read gate (stat.size is always ≤ the eventual directive size, so it can never false-positive) exactly as directed.
+2. **`src/scaffold/expander.ts`**: `destPath` computation moved BEFORE the `classifyTransport` call (was after); the call now threads `destPath`, `options: args.options ?? {}`, `force: args.force` — the exact values the loop puts on the `create` directive a few lines later. `validateDestinationLexical(destPath)` stays where it was (immediately pre-emit, per design's pinned destination-guard position).
+3. **`src/scaffold/index.ts`**: `readTemplateFile` gained `destPath`/`options`/`force` parameters, threaded into the same `classifyTransport` call, for the `create({ templateFile })` render-request path (REQ-CCL-05/FEH-02's fail-loud arm now measures the same directive-inclusive quantity).
+4. **`src/commons/index.ts`**: `create()`'s `templateFile` branch now calls `readTemplateFile(opts.templateFile, path, opts.options, opts.force)` — `path`/`opts.options`/`opts.force` are exactly what the SAME function builds into the `create` directive two lines later.
+5. No spec change — REQ-CCL-02 was already correctly worded; the CODE had diverged from the signed spec, not the reverse.
+
+### RED-first test (the load-bearing proof)
+
+`test/scaffold/classify-transport.test.ts`, describe block "REQ-CCL-02.3 — exactly-at-budget boundary, directive-inclusive, driven through a REAL emit" — deviates from this file's own "call classifyTransport directly" convention (documented inline) because the defect is invisible to a verdict-only unit assertion; it only manifests once the source is wrapped in the real directive and driven through the real batch-cap emit check.
+
+- Fixture: content sized so `serializedBatchSize([{op:"create", create:{pathTemplate:"out/over.ts", template: content, options: {}}}])` lands at exactly `BATCH_CAP_BYTES + 1`, while the content's OWN `JSON.stringify` size stays comfortably under the cap. Driven through a real `defineFactory({ packageDir }) + scaffold({from, to})` run via `runFactoryForTest`.
+- **RED (captured against the pre-fix code, verified for real — not asserted from memory)**: temporarily reverted `classify-transport.ts` to its pre-fix state (`git stash`) and ran the new test in isolation:
+  ```
+  error: expect(received).toBeUndefined()
+  Received: AuthoringError: changes could not be applied: changes-too-large
+         reason: "changes-too-large", origin: "write-rejected", appliedCount: 0
+        at flush (src/core/session.ts:70:13)
+        at runFactoryForTest (src/testing/index.ts:120:11)
+  (fail) ... judgment-day iteration 1 (the load-bearing proof) ... [9.76ms]
+   0 pass / 1 fail
+  ```
+- **GREEN (fix restored, `git stash pop`)**: same test — `1 pass / 0 fail`; the run now succeeds, emits exactly one `copyIn` directive (`{ from: "files/over.ts", to: "out/over.ts" }`), and (Q21/BRC-04) never materializes the copied content into the fake's committed tree.
+- A companion test in the same describe block pins the OTHER side of the inclusive boundary: a directive landing exactly AT `BATCH_CAP_BYTES` still classifies by-value and commits via `create` (`>` not `>=`, REQ-CCL-02.3).
+
+### Fixed the vacuous boundary tests
+
+- **REQ-CCL-02.3** (`classify-transport.test.ts`): replaced with the real-emit pair above (was two unit-level verdict-only assertions pinning the CONTENT-only boundary).
+- **REQ-CCL-02.2** (`classify-transport.test.ts`): kept as a unit-level `classifyTransport` call (generous margin, not a boundary case) but added an explicit assertion that the PROSPECTIVE DIRECTIVE's `serializedBatchSize` — not just the content's own serialized form — exceeds the cap, so the test provably exercises the directive-inclusive quantity the verdict is now based on.
+- Every other `classifyTransport` call site in `classify-transport.test.ts` and `test/core/authoring-error-source.test.ts` (containment/sniff/stat-gate/`.template` fixtures, unaffected by the budget quantity) was updated mechanically to satisfy the now-required `destPath`/`options` params.
+
+### Second-order regression found and fixed (not part of the original defect, but caused by correctly fixing it)
+
+`test/scaffold/batch-cap-chunk.test.ts`'s REQ-04.2 test and REQ-04.3's "one byte over rejects" test both constructed their "a single group whose own batch exceeds the cap still rejects" fixture using a SOLO scaffolded file sized so its content passed the (buggy) content-only per-file budget while its wrapped batch exceeded the cap — i.e., they pinned the EXACT SHAPE of the defect as "expected, unchanged" behavior. Post-fix, `classifyTransport` now measures the identical quantity these tests' own `soloBatchSize` helper measures, so a solo `create` directive from `scaffold` can never again individually exceed the cap — these two fixtures became structurally unreachable via `scaffold()` alone and started failing (`Received: undefined`, expected `AuthoringError`).
+
+**Fix**: reconstructed both fixtures using a directive buffered BEFORE `scaffold()` runs via a direct, inline-template `create()` call (which never reaches `classifyTransport` — no source file, no by-value/by-reference decision), sized so its own solo batch alone exceeds the cap. `scaffold`'s expander seeds its pending-size accumulator from `session.pendingSnapshot()`, so its very first (legitimately small, correctly classified) file triggers a flush of that pre-existing over-cap group — proving the expander's OWN flush/group mechanism still propagates a genuinely over-cap group's rejection, independent of (and no longer entangled with) classify-transport's per-file gate. Both tests pass; the "exactly at cap passes" sibling test in the same file was unaffected (never touched the boundary this fix moved) and stayed green throughout.
+
+### Verification
+
+- `bun test` (full suite): **1049 pass / 0 fail** (2018 expect() calls, 123 files) — up from 1048/0 (net +1: the REQ-CCL-02.3 unit tests were replaced 2-for-2 by real-emit tests, minus the deleted duplicate math, plus the new RED-proof test net of the folded-in boundary check).
+- `tsc --noEmit`: clean.
+- Fitness suite (`test/fitness/`): **276 pass / 0 fail** — FIT-01 (commons→scaffold→node:fs leaf rule), FIT-04 (`.d.ts` semver gate, 15/15), FIT-14 (`pkg-surface`, 13/13) all confirmed green; `readTemplateFile`'s new parameters are NOT part of the public package surface (internal `src/scaffold/index.ts` re-export consumed only by `commons/index.ts`), so no `.d.ts` baseline regen was needed.
+- **Regression check (no other caller pushed toward by-reference)**: every pre-existing by-value fixture across the full suite (REQ-CCL-01.x "comfortably small" files, `expander.test.ts`, `scaffold-fake.test.ts`, `index.test.ts`, the e2e scaffold suite) stayed green — the fix only ADDS the directive's fixed overhead to the measured quantity, which can only push borderline files from by-value to by-reference, never the reverse; no test anywhere asserted a by-value verdict for a file within the (small) overhead margin of the cap.
+- **Behavior-neutrality for re-verify/re-judge**: production behavior changes ONLY at the cap boundary — files whose CONTENT fits under budget but whose full directive doesn't now correctly route by-reference instead of failing the whole run. This is strictly the FIX the judge demanded, not a broader behavior change. No spec text changed. Two test files besides `classify-transport.test.ts` needed updates (`authoring-error-source.test.ts` — mechanical param threading only; `batch-cap-chunk.test.ts` — genuine fixture reconstruction, documented above) — flagging both explicitly for re-verify/re-judge attention since `batch-cap-chunk.test.ts` wasn't named in the original routing but was a necessary consequence of the correct fix.
