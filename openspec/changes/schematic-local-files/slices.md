@@ -187,20 +187,20 @@ harness-machinery reads (ATH-14); fake and conformance vehicle agree on every by
 fixture (ATH-16); the 3 engine pending-changes rows and JSDoc/README obligations exist.
 
 ### Tasks
-- [ ] S-005.1 `test/fake/harness-in-memory-invariant.test.ts`: widen allow-list to
+- [x] S-005.1 `test/fake/harness-in-memory-invariant.test.ts`: widen allow-list to
       within-ceiling factory reads (ATH-14.1/.2)
-- [ ] S-005.2 `test/conformance/copyin-parity.test.ts`: same fixture set through fake +
+- [x] S-005.2 `test/conformance/copyin-parity.test.ts`: same fixture set through fake +
       vehicle, same verdicts (ATH-16)
-- [ ] S-005.3 `test/scaffold/evidence-boundary.test.ts`: architectural scan — no test
+- [x] S-005.3 `test/scaffold/evidence-boundary.test.ts`: architectural scan — no test
       asserts by-reference bytes in `result.tree`/disk (BRC-04)
-- [ ] S-005.4 Document §Seam Contract obligations (BRC-02 engine ceiling re-derivation,
+- [x] S-005.4 Document §Seam Contract obligations (BRC-02 engine ceiling re-derivation,
       BRC-08 path-form + single-pass render, PRC-06 post-render containment) — prose only,
       not SDK-testable
-- [ ] S-005.5 Register 3 `openspec/pending-changes.md` rows (owner = engine repo, siblings
+- [x] S-005.5 Register 3 `openspec/pending-changes.md` rows (owner = engine repo, siblings
       to row 186): BRC-02, BRC-08, PRC-06 — named acceptance criterion, not prose intent
-- [ ] S-005.6 README + JSDoc (T3 checklist): `scaffold`/`copyIn`/`create({templateFile})`/
+- [x] S-005.6 README + JSDoc (T3 checklist): `scaffold`/`copyIn`/`create({templateFile})`/
       `DryRunEntry.kind` obligations per design §T3
-- [ ] S-005.7 Regenerate `.d.ts` baselines + `pkg-surface-baseline.json` (FIT-04/14, 7-member
+- [x] S-005.7 Regenerate `.d.ts` baselines + `pkg-surface-baseline.json` (FIT-04/14, 7-member
       `AuthoringVerb`/`DryRunVerb`)
 
 ---
