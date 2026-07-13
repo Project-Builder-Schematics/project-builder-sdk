@@ -232,6 +232,19 @@ export class ContractFake implements EngineClient {
       return;
     }
 
+    // ADR-0045 division of labor: the SDK's own pre-emit containment/stat validation is
+    // the legitimate origin of a missing-source rejection (REQ-BRC-06) — the fake is NOT
+    // required to re-check package disk, so unlike `copy` there is no `#requireExists`
+    // call here. Emit-only: a successful copyIn NEVER writes `#tree` (REQ-ATH-15.1, Q21 —
+    // no simulation surface ever materializes by-reference bytes) — only the destination
+    // collision is checked, mirroring `create`'s own collision semantics (REQ-BRC-05).
+    if (directive.op === "copyIn") {
+      const { to, force: opForce } = directive.copyIn;
+      const effective = this.#effectiveForce(envelopeForce, opForce);
+      this.#rejectIfCollides(to, effective, `copyIn collision — destination "${to}"`, pos);
+      return;
+    }
+
     if (directive.op === "move") {
       const { path: src, toDir, force: opForce } = directive.move;
       // The real engine cannot move a non-existent source (FAKE-06 fidelity).
@@ -253,5 +266,11 @@ export class ContractFake implements EngineClient {
       this.#tree.set(dst, content);
       return;
     }
+
+    // Exhaustiveness guard (final-verify remediation): an 8th wire op would otherwise
+    // compile through this if-chain and silently no-op — mirrors the `_exhaustive: never`
+    // idiom `authoring-error.ts`'s `messageFor`/`originFor` switches already use.
+    const _exhaustive: never = directive;
+    throw new Error(`unhandled directive op: ${(_exhaustive as Directive).op}`);
   }
 }

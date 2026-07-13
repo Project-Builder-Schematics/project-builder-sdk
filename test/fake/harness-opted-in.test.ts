@@ -43,97 +43,21 @@
  * taxonomy — these tests pin already-intended behaviour reached through a NEW entry point
  * (the harness facade), not drive new production logic.
  */
-import { describe, it, expect, spyOn } from "bun:test";
-import * as fs from "node:fs";
-import * as net from "node:net";
+import { describe, it, expect } from "bun:test";
 import { join } from "node:path";
 import { defineFactory, runFactoryForTest } from "../../src/testing/index.ts";
 import { create, AuthoringError } from "../../src/commons/index.ts";
+import { instrumentHarnessIO, type IoEvent } from "../support/harness-io-instrumentation.ts";
 
 const FIXTURE_DIR = join(import.meta.dir, "../fixtures/harness-opted-in");
 const SCHEMA_PATH = join(FIXTURE_DIR, "schema.json");
-
-interface IoEvent {
-  surface: string;
-  key: string;
-  arg: unknown;
-}
-
-interface SpyEntry {
-  surface: string;
-  key: string;
-  spy: ReturnType<typeof spyOn>;
-}
-
-const BUN_IO_MEMBERS = ["write", "file", "spawn", "$", "connect"] as const;
-
-/** Pass-through spies on every function-typed, non-constructor export of a module namespace. */
-function spyOnModuleFunctions(moduleNamespace: Record<string, unknown>, surface: string): SpyEntry[] {
-  const entries: SpyEntry[] = [];
-  for (const key of Object.keys(moduleNamespace)) {
-    if (/^[A-Z]/.test(key)) continue;
-    if (typeof moduleNamespace[key] !== "function") continue;
-    entries.push({ surface, key, spy: spyOn(moduleNamespace, key) });
-  }
-  return entries;
-}
-
-interface HarnessIoInstrumentation {
-  events(): IoEvent[];
-  envGets: number;
-  argvGets: number;
-  restore(): void;
-}
-
-/** Near-duplicate of harness-in-memory-invariant.test.ts's rig (S-002 precedent: kept
- * local rather than extracted — this file additionally records each call's first argument,
- * needed by the event-allowlist predicate below). */
-function instrumentHarnessIO(): HarnessIoInstrumentation {
-  const spyEntries: SpyEntry[] = [
-    ...spyOnModuleFunctions(fs as unknown as Record<string, unknown>, "node:fs"),
-    ...spyOnModuleFunctions(net as unknown as Record<string, unknown>, "node:net"),
-    ...BUN_IO_MEMBERS.map((member) => ({ surface: "Bun", key: member, spy: spyOn(Bun, member as never) })),
-    { surface: "global", key: "fetch", spy: spyOn(globalThis, "fetch") },
-  ];
-
-  let envGets = 0;
-  let argvGets = 0;
-  const realEnv = process.env;
-  const realArgv = process.argv;
-  const envProxy = new Proxy(realEnv, {
-    get(target, prop, receiver) {
-      envGets++;
-      return Reflect.get(target, prop, receiver);
-    },
-  });
-  const argvProxy = new Proxy(realArgv, {
-    get(target, prop, receiver) {
-      argvGets++;
-      return Reflect.get(target, prop, receiver);
-    },
-  });
-  (process as unknown as { env: typeof realEnv }).env = envProxy;
-  (process as unknown as { argv: typeof realArgv }).argv = argvProxy;
-
-  return {
-    events(): IoEvent[] {
-      return spyEntries.flatMap(({ surface, key, spy }) =>
-        spy.mock.calls.map((call: unknown[]) => ({ surface, key, arg: call[0] }))
-      );
-    },
-    get envGets() {
-      return envGets;
-    },
-    get argvGets() {
-      return argvGets;
-    },
-    restore() {
-      for (const { spy } of spyEntries) spy.mockRestore();
-      (process as unknown as { env: typeof realEnv }).env = realEnv;
-      (process as unknown as { argv: typeof realArgv }).argv = realArgv;
-    },
-  };
-}
+// ADR-0046 (schematic-local-files, S-000): the new pre-`als.run` packageRoot ceiling walk
+// (`resolvePackageRoot`, `src/core/context.ts`) adds a THIRD unconditional, factory-own
+// declared read — `existsSync(<packageDir>/collection.json)` — between the two reads this
+// file's header comment already documents. The fixture's own `collection.json` marker
+// (added alongside `schema.json`, S-000.3 migration) means the walk resolves on its FIRST
+// probe, at `packageDir` itself.
+const COLLECTION_JSON_PATH = join(FIXTURE_DIR, "collection.json");
 
 // The widened predicate (executor note above): the ONLY node:fs events an opted-in
 // factory's OWN declared behaviour is allowed to produce — the reserved-lifecycle-name
@@ -142,6 +66,7 @@ function isDeclaredOptedInRead(event: IoEvent): boolean {
   if (event.surface !== "node:fs") return false;
   if (event.key === "readdirSync") return event.arg === FIXTURE_DIR;
   if (event.key === "readFileSync") return event.arg === SCHEMA_PATH;
+  if (event.key === "existsSync") return event.arg === COLLECTION_JSON_PATH;
   return false;
 }
 
@@ -165,7 +90,11 @@ describe("REQ-ATH-11.2 — opted-in factory's own declared reads are observed, n
         expect(undeclaredFsEvents).toEqual([]);
 
         const declaredFsEvents = instrumentation.events().filter(isDeclaredOptedInRead);
-        expect(declaredFsEvents.map((event) => event.key).sort()).toEqual(["readFileSync", "readdirSync"]);
+        expect(declaredFsEvents.map((event) => event.key).sort()).toEqual([
+          "existsSync",
+          "readFileSync",
+          "readdirSync",
+        ]);
 
         const otherSurfaceEvents = instrumentation.events().filter((event) => event.surface !== "node:fs");
         expect(otherSurfaceEvents).toEqual([]);

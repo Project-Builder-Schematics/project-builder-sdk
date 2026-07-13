@@ -1,8 +1,18 @@
 # Batch-Cap Contract Specification
 
-**Spec version**: V2
-**Status**: signed (2026-07-04, stage-1-ir-bedrock)
-**Change**: `stage-1-ir-bedrock`
+**Spec version**: V3
+**Status**: signed (2026-07-13 — owner micro-unfreeze, `schematic-local-files` archive sync)
+**Change**: `stage-1-ir-bedrock` (amended by `schematic-local-files`, 2026-07-13)
+
+**V2 → V3 delta (owner micro-unfreeze, 2026-07-13, via `schematic-local-files`)**: adds
+REQ-04 (a `scaffold` call's AGGREGATE size, summed across the whole folder, is never by
+itself grounds for rejection — the walk may chunk-flush so each individual batch
+satisfies the existing per-batch cap, REQ-01) and REQ-05 (the author-visible
+cross-chunk atomicity promise — a later-chunk failure still commits nothing for the
+run, ADR-0015 discard semantics survive chunked flushing). This domain uses
+UNPREFIXED REQ-IDs (`REQ-01..05`) — ID-stability first, mirroring the
+`authoring-error-contract` REQ-AEC-05 naming-note precedent that the domain's own
+convention governs, not a global prefix scheme.
 
 ## Purpose
 
@@ -103,3 +113,58 @@ A `defineFactory` body that buffers zero directives MUST still resolve cleanly:
 - AND the `commit()` spy was invoked exactly once — the assertion observes the INVOCATION,
   not merely that the run resolves
 - AND the run resolves without error
+
+### REQ-04: Aggregate Scaffold Size Is Never, By Itself, Grounds for Rejection
+
+A `scaffold` call whose files, summed across the WHOLE folder, would exceed
+`BATCH_CAP_BYTES` if emitted as one batch MUST NOT be rejected outright on that
+aggregate basis alone. The `folder-scaffold` walk MAY call `session.flush()` between
+file groups so that each individually flushed batch independently satisfies the
+existing per-batch cap (REQ-01). This REQ pins ONLY the outcome — that a scaffold's
+aggregate byte size alone never blocks it before any batch is attempted; the exact
+chunking policy (group boundaries) is a DESIGN-OWNED decision, out of this spec's
+pinning scope. The author-visible atomicity promise across chunks is REQ-05.
+
+#### Scenario REQ-04.1: Scaffold whose aggregate exceeds the cap, but no single chunk does, succeeds — completely [SDK]
+
+- GIVEN a `scaffold` call over files whose combined serialized size exceeds
+  `BATCH_CAP_BYTES`, but no individual flushed group's serialized batch does
+- WHEN scaffolded
+- THEN it completes without a `changes-too-large` rejection
+- AND the flushed batches together contain exactly one directive per enumerated
+  source file — none dropped, none duplicated, none reordered relative to the walk
+  order
+
+#### Scenario REQ-04.2: A single group within scaffold whose own batch exceeds the cap still rejects [SDK]
+
+- GIVEN a `scaffold` call where one file group's own serialized batch (independent of
+  the aggregate) exceeds `BATCH_CAP_BYTES`
+- WHEN scaffolded
+- THEN that group's flush rejects `changes-too-large`, unchanged from REQ-01's
+  existing per-batch behaviour
+
+#### Scenario REQ-04.3: Exactly-at-cap chunk passes; one byte over rejects [SDK]
+
+- GIVEN two scaffold fixtures: one whose flushed group's serialized batch lands
+  EXACTLY at `BATCH_CAP_BYTES`, one exactly one byte over
+- WHEN each is flushed
+- THEN the at-cap batch passes and the one-over batch rejects — pinning `>` (not
+  `>=`) as the over-cap comparison, consistent with REQ-01.1
+
+### REQ-05: Cross-Chunk Atomicity — the Author-Visible Promise
+
+A `scaffold` whose chunked emission fails at a LATER flush MUST still commit NOTHING
+for the run: run-level all-or-nothing (ADR-0015 discard semantics — a rejected run
+discards everything, including chunks already emitted in earlier flushes) SURVIVES
+chunked flushing. This REQ pins the author-visible PROMISE only; the mechanism is the
+existing session/engine discard contract, and the chunk-boundary policy stays
+design-owned (REQ-04).
+
+#### Scenario REQ-05.1: Later-chunk failure commits nothing from earlier chunks [SDK]
+
+- GIVEN a `scaffold` whose emission spans at least two flushes, where a directive in
+  the SECOND flush rejects (e.g. a collision), run via `runFactoryForTest`
+- WHEN the run completes
+- THEN `result.tree` is empty — no path from the FIRST (successfully emitted) flush
+  is committed
+- AND `result.error` carries the attributed rejection

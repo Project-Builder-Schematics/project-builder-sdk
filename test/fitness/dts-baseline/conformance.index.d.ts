@@ -75,7 +75,11 @@ export interface OpPackFixture {
 /**
  * Runs the conformance suite for a dialect: asserts parse/print no-op round-trip fidelity
  * (REQ-DC-01) — `print(parse(sample)) === sample` BYTE-EXACT, never AST-equal, for every
- * sample in `fixture.samples`.
+ * sample in `fixture.samples` PLUS the six mandatory adversarial samples the kit injects on
+ * every run (REQ-DC-06 — additive, not opt-out-able). Before each round-trip check, verifies
+ * `fixture.dialect.ast.parse` is a REAL parser, not an identity/stub function (REQ-DC-08): a
+ * `parse` returning `null`/`undefined`, or the input string unchanged, fails BEFORE the
+ * round-trip assertion could vacuously pass.
  *
  * @example
  * await testDialect({
@@ -90,7 +94,10 @@ export declare function testDialect(fixture: DialectFixture): Promise<void>;
  * unchanged-elsewhere (REQ-DC-02) / coalescing-to-one content-verified (REQ-DC-03) via a
  * no-read run, seam-serializability (REQ-DC-04) over every emitted directive, and — for
  * every multi-op exercise — the read-boundary split (REQ-DC-05.2's live counterpart): a
- * mid-chain `read()` must force exactly TWO cumulative modify directives, never one.
+ * mid-chain `read()` must force exactly TWO cumulative modify directives, never one. Finally,
+ * asserts `fixture.baseDialect` survives the six mandatory adversarial samples' round-trip +
+ * real-base probe (REQ-DC-06/REQ-DC-08 — additive, not opt-out-able, same mechanism
+ * `testDialect` runs), unconditionally on every call whose exercises pass.
  *
  * @example
  * await testOpPack({

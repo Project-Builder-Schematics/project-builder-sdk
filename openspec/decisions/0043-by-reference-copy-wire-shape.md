@@ -1,6 +1,6 @@
 # ADR-0043: By-reference copy wire shape — a new `copyIn` op (not a `copy` discriminator)
 
-- Status: Proposed
+- Status: Accepted (2026-07-13, promoted at schematic-local-files archive)
 - Date: 2026-07-12
 - Deciders: Daniel (Hyperxq)
 - Origin: change `schematic-local-files` (design rev 1). Closes obs #915 ruling 19 (wire

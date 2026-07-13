@@ -1,8 +1,13 @@
 # Run-Boundary Input Validation Specification
 
-**Spec version**: V2
-**Status**: signed (owner, 2026-07-07, stage-4-typed-options)
-**Change**: `stage-4-typed-options`
+**Spec version**: V3
+**Status**: signed (2026-07-13 — owner micro-unfreeze, `schematic-local-files` archive sync)
+**Change**: `stage-4-typed-options` (amended by `schematic-local-files`, 2026-07-13)
+
+**V2 → V3 delta (owner micro-unfreeze, 2026-07-13, via `schematic-local-files`)**: adds
+REQ-RBV-06 (package-root/containment-ceiling discovery is a legitimate pre-`als.run`
+read, resolved at the SAME chokepoint as schema/reserved-name validation — a missing
+`collection.json` ancestor fails closed there too, no analogous opt-out).
 
 ## Purpose
 
@@ -220,11 +225,34 @@ author should notice), not a full close.
   distinguishes "schema declares zero properties" from REQ-RBV-03's "no schema.json
   present" warning
 
+### REQ-RBV-06: Package-Root Discovery Is a Legitimate Pre-`als.run` Read
+
+Resolving the containment ceiling (`package-root-containment` REQ-PRC-02 — walking
+ancestors for the nearest `collection.json`) MUST happen at the SAME pre-`als.run`
+chokepoint `defineFactory` already uses for schema/reserved-name validation
+(`context.ts`'s `validateAtRunBoundary`/`checkReservedNames`), not a separate,
+uncoordinated read site. A missing `collection.json` ancestor fails closed at this
+same site (`package-root-containment` REQ-PRC-03, reason `invalid-input` per
+REQ-AEC-12) — it does not silently degrade to "no containment" the way REQ-RBV-03's
+no-schema opt-out legitimately degrades for schema validation; there is no analogous
+opt-out for containment.
+
+#### Scenario REQ-RBV-06.1: Missing-ancestor rejection pre-empts the factory body — killable ordering observable [SDK]
+
+- GIVEN a factory defined via `defineFactory(fn, { packageDir })` in a package with
+  NO `collection.json` ancestor, whose body's FIRST statement throws a sentinel
+  `Error("body-ran")`
+- WHEN the factory runs
+- THEN the thrown value is the missing-ancestor fail-loud rejection — NOT the
+  sentinel — proving the ceiling walk resolved (and rejected) BEFORE
+  `als.run`/`fn(o)` executed; a mutant that defers the walk into the run would
+  surface `"body-ran"` instead
+
 ## Sensitive Areas Coverage
 
 | Area | REQ IDs | Flagged at triage? |
 |---|---|---|
-| security (input validation at the run boundary) | REQ-RBV-01, REQ-RBV-02, REQ-RBV-03, REQ-RBV-04, REQ-RBV-05 | Yes |
+| security (input validation at the run boundary) | REQ-RBV-01, REQ-RBV-02, REQ-RBV-03, REQ-RBV-04, REQ-RBV-05, REQ-RBV-06 | Yes |
 
 ## Next Step
 

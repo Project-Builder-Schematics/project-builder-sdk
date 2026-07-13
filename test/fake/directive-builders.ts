@@ -47,6 +47,12 @@ export function copyOp(from: string, to: string, force?: boolean): Directive {
   return { op: "copy", copy: op };
 }
 
+export function copyInOp(from: string, to: string, force?: boolean): Directive {
+  const op: { from: string; to: string; force?: boolean } = { from, to };
+  if (force !== undefined) op.force = force;
+  return { op: "copyIn", copyIn: op };
+}
+
 export function moveOp(path: string, toDir: string, force?: boolean): Directive {
   const move: { path: string; toDir: string; force?: boolean } = { path, toDir };
   if (force !== undefined) move.force = force;

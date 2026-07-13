@@ -1,6 +1,6 @@
 # ADR-0045: Package-read source validation & the SDK/fake division of labor
 
-- Status: Proposed
+- Status: Accepted (2026-07-13, promoted at schematic-local-files archive)
 - Date: 2026-07-12
 - Deciders: Daniel (Hyperxq)
 - Origin: change `schematic-local-files` (design rev 1).

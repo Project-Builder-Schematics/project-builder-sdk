@@ -1,9 +1,20 @@
 # Authoring Error Contract Specification
 
-**Spec version**: V3
-**Status**: signed (2026-07-10 — amendment applied via owner-authorized unfreeze, coordinated
-`sdd-spec` call from `stage-4-typed-options`)
-**Change**: `stage-2-error-attribution` (amended by `stage-4-typed-options`, 2026-07-10)
+**Spec version**: V4
+**Status**: signed (2026-07-13 — owner micro-unfreeze, `schematic-local-files` archive sync)
+**Change**: `stage-2-error-attribution` (amended by `stage-4-typed-options`, 2026-07-10; amended by
+`schematic-local-files`, 2026-07-13)
+
+**V3 → V4 delta (owner micro-unfreeze, 2026-07-13, via `schematic-local-files`)**: adds
+REQ-AEC-10 (extends the closed `reason` enum from eight to TWELVE values — four new
+`source-*` reasons for SDK-side pre-emit rejections detected by `scaffold`/`copyIn`/
+`create({templateFile})`), REQ-AEC-11 (message-template rows for the four new reasons,
+package-relative/no-echo, neutral `"source file …"` wording — no `"copy failed:"` prefix,
+which would misattribute non-`copy` verbs), and REQ-AEC-12 (three scaffold-family misuse
+modes reuse the EXISTING `invalid-input` reason — no new union member for those). Per
+REQ-AEC-10's own extension, REQ-AEC-01's enum literal and REQ-AEC-05.1's leak-scan family
+list are updated below to the twelve-member count (enumeration completeness only — no
+REQ-AEC-01/05 scenario ID or GIVEN/WHEN structure changed).
 
 **V2 → V3 delta (owner-authorized unfreeze, 2026-07-10)**: applies the sequenced amendment
 `stage-4-typed-options`'s spec recorded as PROPOSED (its "Domain: authoring-error-contract
@@ -31,12 +42,12 @@ build on — after this stage, growing it is a semver decision, not a free edit.
 
 ### REQ-AEC-01: Closed Reason Enum (★D2)
 
-`AuthoringError.reason` MUST be a closed union of exactly eight values, ALL in
+`AuthoringError.reason` MUST be a closed union of exactly twelve values, ALL in
 author vocabulary — zero engine/fake strings (`"serialization"`,
 `"round-trip"`, `"protocol"`, `"directive"`, `"batch"`, `"emit"` are
 explicitly BANNED as values):
 
-`"path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown" | "invalid-input" | "reserved-name"`
+`"path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-outside-package" | "source-not-regular-file" | "source-unreadable"`
 
 (Previously: `target-not-found` — renamed to `path-not-found` for parallelism
 with `path-collision` and to kill the target-vs-source ambiguity; and
@@ -44,7 +55,9 @@ with `path-collision` and to kill the target-vs-source ambiguity; and
 old name misdirected authors to split batches when they may need smaller
 content. V2 → V3 amendment, 2026-07-10, coordinated with `stage-4-typed-options`:
 added `invalid-input` and `reserved-name`, extending the closed union from six
-to eight values — see REQ-AEC-07/08.)
+to eight values — see REQ-AEC-07/08. V3 → V4 amendment, 2026-07-13, via
+`schematic-local-files`: added the four `source-*` reasons, extending the
+closed union from eight to twelve values — see REQ-AEC-10.)
 
 | Value | Covers |
 |---|---|
@@ -56,8 +69,12 @@ to eight values — see REQ-AEC-07/08.)
 | `unknown` | the rejection could not be classified (REQ-ERM-03 degradation) |
 | `invalid-input` | a factory run's resolved input fails schema-derived validation at the run boundary (REQ-AEC-07) |
 | `reserved-name` | a factory module declares a reserved lifecycle name (REQ-AEC-08) |
+| `source-not-found` | an in-ceiling package-local source path does not exist (REQ-AEC-10) |
+| `source-outside-package` | source resolves outside the containment ceiling (REQ-AEC-10) |
+| `source-not-regular-file` | source is not a regular file per the allow-list lstat (REQ-AEC-10) |
+| `source-unreadable` | an in-ceiling, regular-file source could not be read (REQ-AEC-10) |
 
-**Semver note**: adding a 9th value later is a MAJOR change, not additive.
+**Semver note**: adding a 13th value later is a MAJOR change, not additive.
 Authors are expected to write exhaustive `switch(reason)` blocks; TypeScript's
 exhaustiveness check breaks such a switch when a new member is added, even
 though nothing breaks at runtime. FIT-04's `.d.ts` gate MUST treat a `reason`
@@ -268,7 +285,9 @@ name is not the stable REQ-ID; `REQ-AEC-05` is.
 - GIVEN every rejection family (path-collision, path-not-found,
   unrepresentable-content, changes-too-large, outside-run, unknown,
   invalid-input, reserved-name — the last two added by the V2 → V3
-  amendment, REQ-AEC-07/08)
+  amendment, REQ-AEC-07/08 — plus source-not-found, source-outside-package,
+  source-not-regular-file, source-unreadable, added by the V3 → V4 amendment,
+  REQ-AEC-10)
 - WHEN each `AuthoringError`'s full object graph is scanned
 - THEN no dictionary string appears anywhere
 
@@ -414,3 +433,97 @@ Canary asymmetry: key NAMES may appear on an error surface (as `{field}` or
 - GIVEN a reserved-name rejection naming `pre-execute`
 - WHEN the message is inspected
 - THEN it is exactly `"reserved lifecycle name: pre-execute is reserved and cannot be declared by a factory module"`
+
+### REQ-AEC-10: Closed Reason Enum Extended — 4 By-Reference Reasons (V3 → V4 amendment, 2026-07-13, via `schematic-local-files`)
+
+`AuthoringError.reason` MUST extend from eight to TWELVE closed-union values, adding
+exactly: `"source-not-found"`, `"source-outside-package"`, `"source-not-regular-file"`,
+`"source-unreadable"`. All four cover failures detected by the SDK's OWN pre-emit
+read/stat of a package-local source (`scaffold` / `copyIn` / `create({templateFile})`) —
+never an engine round-trip refusal — so, per REQ-AEC-02's origin-derivation rule
+(ADR-0021), `origin` for all four is ALWAYS `"authoring-rejected"`, the same rationale
+as `invalid-input`/`reserved-name`.
+
+| Value | Covers |
+|---|---|
+| `source-not-found` | an IN-CEILING package-local source path that does not exist (`by-reference-copy-wire` REQ-BRC-06) — NEVER reachable for out-of-ceiling paths (`package-root-containment` REQ-PRC-07) |
+| `source-outside-package` | source resolves outside the containment ceiling (`package-root-containment` REQ-PRC-04/07) — fires BEFORE any existence probe, whether or not the target exists |
+| `source-not-regular-file` | source is not a regular file per the allow-list lstat (directory, FIFO, socket, device; symlinked-dir descent) (`package-root-containment` REQ-PRC-04.3/.4) |
+| `source-unreadable` | an in-ceiling, regular-file source that could not be read (permission, I/O error) |
+
+`originFor`'s exhaustive switch (`src/core/authoring-error.ts`) adds all four under the
+`authoring-rejected` arm; the compile-time exhaustiveness pin test extends to the
+twelve-member union.
+
+#### Scenario REQ-AEC-10.1: Each of the four new reasons classifies exactly and maps to authoring-rejected [SDK]
+
+- GIVEN one fixture per new reason: missing in-ceiling source, out-of-ceiling source,
+  directory-as-source, and an unreadable source exercised via the fake/conformance
+  simulation or an injected read-failure (EACCES) seam — never a chmod-based CI
+  fixture (chmod fixtures are unreliable under root-running CI and container umasks)
+- WHEN each is translated to an `AuthoringError`
+- THEN `reason` is exactly the corresponding new value and `origin` is
+  `"authoring-rejected"` for all four
+
+#### Scenario REQ-AEC-10.2: originFor exhaustiveness pin extends to 12 members [SDK]
+
+- GIVEN the compile-time exhaustiveness test (`test/types/authoring-reason.test.ts`)
+- WHEN the `reason` union is extended to twelve members
+- THEN `originFor`'s switch statement compiles only when all twelve arms are handled
+  — a missing arm fails the build
+
+### REQ-AEC-11: Message Template Rows for the 4 New Reasons (V3 → V4 amendment, 2026-07-13, via `schematic-local-files`)
+
+REQ-AEC-06/09's message-template table gains four rows, one per new reason, all
+package-relative and no-echo (never the raw source content, never an absolute path,
+never a raw OS errno string beyond a described category):
+
+| Family | Reason | Template |
+|---|---|---|
+| Source missing (in-ceiling only) | `source-not-found` | `"source file not found: {path} does not exist in the package"` |
+| Source outside package | `source-outside-package` | `"source file outside package: {path} resolves outside the package boundary"` |
+| Source not a regular file | `source-not-regular-file` | `"source file invalid: {path} is not a regular file"` |
+| Source unreadable | `source-unreadable` | `"source file unreadable: {path} could not be read"` |
+
+`{path}` is always package-relative (never absolute), per `package-root-containment`
+REQ-PRC-05.
+
+**No-existence-oracle clause**: for a path resolving OUTSIDE the containment ceiling, the
+ONLY reachable reason/template is `source-outside-package`, regardless of whether the
+target exists — the `source-not-found` row is reachable EXCLUSIVELY for in-ceiling paths.
+The not-found vs outside-package pair MUST NEVER differentiate existing from
+non-existing out-of-ceiling targets (`package-root-containment` REQ-PRC-07).
+
+#### Scenario REQ-AEC-11.1: Each new-reason message follows its exact template, path relative [SDK]
+
+- GIVEN one rejection per new reason, each with a known package-relative source path
+- WHEN each message is inspected
+- THEN it matches its exact template with the path substituted, and contains no
+  absolute filesystem path
+
+### REQ-AEC-12: Scaffold-Family Failures Reuse the EXISTING `invalid-input` Reason (V3 → V4 amendment, 2026-07-13, via `schematic-local-files`) [OWNER]
+
+The following scaffold-family failure modes MUST map to the EXISTING `invalid-input`
+reason (`origin: "authoring-rejected"` per REQ-AEC-07's established derivation) —
+owner-ruled 2026-07-12; they are author-misuse-of-the-authoring-surface failures, not
+new source-access families, so the MAJOR union extension stays EXACTLY the four
+`source-*` members of REQ-AEC-10 and the union arithmetic stays exactly TWELVE:
+
+| Failure mode | Ruled by | REQ |
+|---|---|---|
+| `templateFile` binary/oversized fail-loud | [OWNER] | `file-escape-hatches` REQ-FEH-02 |
+| Zero files after include/exclude filter | [OWNER] | `folder-scaffold` REQ-FSC-04 |
+| Missing `collection.json` ancestor | [OWNER] | `package-root-containment` REQ-PRC-03 |
+| `.template` sniff-fail inside a scaffold walk | same family | `content-classification` REQ-CCL-05 |
+| Intra-scaffold destination collision | same family | `folder-scaffold` REQ-FSC-08 |
+| Walk entry-count bound exceeded | same family | `folder-scaffold` REQ-FSC-09 |
+
+#### Scenario REQ-AEC-12.1: The three owner-ruled modes classify as invalid-input, authoring-rejected [SDK]
+
+- GIVEN one rejection per owner-ruled mode: a binary `templateFile`, a filter set
+  eliminating every entry, and a package with no `collection.json` ancestor
+- WHEN each is translated to an `AuthoringError`
+- THEN `reason` is exactly `"invalid-input"` and `origin` is
+  `"authoring-rejected"` for all three
+- AND the compile-time union pin still counts exactly twelve members — none of these
+  modes minted a new reason

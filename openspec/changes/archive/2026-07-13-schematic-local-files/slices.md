@@ -31,22 +31,27 @@ NO `collection.json` ancestor fails loud pre-body (RBV-06.1 sentinel ordering); 
 oversized `templateFile` fails loud (`invalid-input`), never silently copies.
 
 ### Tasks
-- [ ] S-000.1 `RunContext` gains `packageDir`/`packageRoot` fields (`context.ts`, ADR-0046)
-- [ ] S-000.2 `defineFactory`: eager `collection.json` ancestor walk at the existing
+- [x] S-000.1 `RunContext` gains `packageDir`/`packageRoot` fields (`context.ts`, ADR-0046)
+- [x] S-000.2 `defineFactory`: eager `collection.json` ancestor walk at the existing
       pre-`als.run` chokepoint; missing ancestor → `invalid-input` fail-loud, pre-body
-- [ ] S-000.3 Migration: seed a `collection.json` marker in `test/fixtures/typed-factory/`,
+- [x] S-000.3 Migration: seed a `collection.json` marker in `test/fixtures/typed-factory/`,
       `test/fixtures/harness-opted-in/`, and each of the 7 temp-dir suites (ADR-0046 A2:
       `canary-no-echo`, `run-boundary-validation`, `reserved-lifecycle-names`,
-      `harness-opted-in`, `harness-in-memory-invariant`, `fit-12`, `fit-16`)
-- [ ] S-000.4 `src/scaffold/index.ts`: `readTemplateFile` — stat + read relative to
+      `harness-opted-in`, `harness-in-memory-invariant`, `fit-12`, `fit-16`) — executed as
+      5 real edits + 2 verified no-ops (see apply-progress: `harness-in-memory-invariant`
+      never opts into `packageDir`; `fit-12`/`fit-16` never invoke `defineFactory` at
+      runtime — both licensed no-ops per Executor Context §14's own escape clause)
+- [x] S-000.4 `src/scaffold/index.ts`: `readTemplateFile` — stat + read relative to
       `packageDir`, minimal sniff gate (whole-file UTF-8 + no null + budget, reused fully
       by S-001's classifier)
-- [ ] S-000.5 `commons`: `create(path, {templateFile, options, force?})` overload → existing
+- [x] S-000.5 `commons`: `create(path, {templateFile, options, force?})` overload → existing
       `create` directive; fail-loud `invalid-input` on sniff-fail (REQ-FEH-02)
-- [ ] S-000.6 `dry-run/plan.ts`: `DryRunEntry.kind?: "rendered"|"copied"`; `create` →
+- [x] S-000.6 `dry-run/plan.ts`: `DryRunEntry.kind?: "rendered"|"copied"`; `create` →
       `"rendered"`
-- [ ] S-000.7 `test/e2e/scaffold.e2e.test.ts` (new): happy-path render + fail-loud, through
-      fake + `dryRun()`
+- [x] S-000.7 `test/e2e/scaffold.e2e.test.ts` (new): happy-path render + fail-loud, through
+      fake + `dryRun()` — plus `test/scaffold/run-boundary.test.ts` (new, not named in this
+      task but required by this slice's own PRC-02.1/PRC-03.1/RBV-06.1 Covers entries per
+      design's Test Derivation table)
 
 ---
 
@@ -63,20 +68,24 @@ directives per the mirrored/renamed/token-translated/`.template`-stripped path, 
 by-reference verdict THROWS fail-loud (temporary — S-003 swaps this).
 
 ### Tasks
-- [ ] S-001.1 `src/scaffold/walk.ts`: enumeration, no symlinked-dir descent (`lstat`-based),
+- [x] S-001.1 `src/scaffold/walk.ts`: enumeration, no symlinked-dir descent (`lstat`-based),
       10 000-entry bound
-- [ ] S-001.2 `src/scaffold/filename-pipeline.ts`: rename → token-translation →
+- [x] S-001.2 `src/scaffold/filename-pipeline.ts`: rename → token-translation →
       `.template`-strip (pinned order); include/exclude glob; intra-collision detection
       naming all offending sources
-- [ ] S-001.3 `src/scaffold/classify-transport.ts`: stat-gate → whole-file sniff → budget →
+- [x] S-001.3 `src/scaffold/classify-transport.ts`: stat-gate → whole-file sniff → budget →
       verdict; MINIMAL lexical containment guard only (hardened in S-002); by-reference
       verdict = fail-loud throw
-- [ ] S-001.4 `commons.scaffold(args): void`; zero-files-after-filter no-op vs
+- [x] S-001.4 `commons.scaffold(args): void`; zero-files-after-filter no-op vs
       filters-eliminate-all fail-loud (`invalid-input`)
-- [ ] S-001.5 `test/scaffold/{walk,filename-pipeline,classify-transport,index}.test.ts`,
+- [x] S-001.5 `test/scaffold/{walk,filename-pipeline,classify-transport,index}.test.ts`,
       `test/scaffold/expander.test.ts` (FSC-06.1 only — force pass-through, no by-reference
-      fixture yet), `test/types/authoring-reason.test.ts` extended
-- [ ] S-001.6 ADR-0005 marked Superseded (by ADR-0044)
+      fixture yet); AEC-12 remaining fixtures pinned in `test/core/authoring-error-source.test.ts`
+      (design's Test Derivation table row governs over this line's literal
+      `test/types/authoring-reason.test.ts` — see apply-progress deviation note);
+      FSC-07.1 void-return pinned in `test/types/scaffold-return.test.ts`
+- [x] S-001.6 ADR-0005 marked Superseded (by ADR-0044) — already done when ADR-0044 was
+      authored at design time; verified, no further edit needed
 
 ---
 
@@ -94,17 +103,17 @@ after the nearest existing ancestor proves in-ceiling), zero content reads befor
 verdict, package-relative messages only.
 
 ### Tasks
-- [ ] S-002.1 `src/scaffold/containment.ts`: realpath, segment-aware + case-fold ceiling
+- [x] S-002.1 `src/scaffold/containment.ts`: realpath, segment-aware + case-fold ceiling
       check, regular-file allow-list, destination lexical guard (PRC-09); REPLACES
       S-001.3's placeholder guard inside classify-transport
-- [ ] S-002.2 `authoring-error.ts`: `AuthoringReason` 8→12 (4 `source-*` members),
+- [x] S-002.2 `authoring-error.ts`: `AuthoringReason` 8→12 (4 `source-*` members),
       `originFor` arm, `messageFor` 4 neutral `"source file …"` templates (no `"copy
       failed:"` prefix)
-- [ ] S-002.3 `test/scaffold/containment.test.ts` (ENOENT-ancestor ordering S1,
+- [x] S-002.3 `test/scaffold/containment.test.ts` (ENOENT-ancestor ordering S1,
       sibling-prefix, absolute-source, FIFO-stub, lexical-vs-realpath); update S-001's
       placeholder-guard test expectations to the real reasons
-- [ ] S-002.4 ADR-0018 amendment note (containment is a lowering heuristic, not the size
-      authority — unrelated but same file touch)
+- [x] S-002.4 ADR-0018 amendment note (containment is a lowering heuristic, not the size
+      authority — unrelated but same file touch) — VERIFIED NO-OP, see apply-progress.md
 
 ---
 
@@ -121,22 +130,23 @@ source bytes), the fake/vehicle record dest-collision + emit-only (never `result
 throw is replaced by real emission.
 
 ### Tasks
-- [ ] S-003.1 `wire.ts`: add `{op:"copyIn"; copyIn:{from; to; force?}}` (ADR-0043);
+- [x] S-003.1 `wire.ts`: add `{op:"copyIn"; copyIn:{from; to; force?}}` (ADR-0043);
       `directive-factory.ts`: pure `copyIn()` method
-- [ ] S-003.2 `authoring-error.ts`: `AuthoringVerb` 6→7 (`+"copyIn"`); `verbFor`/
+- [x] S-003.2 `authoring-error.ts`: `AuthoringVerb` 6→7 (`+"copyIn"`); `verbFor`/
       `primaryPath` gain the `copyIn` arm (`path: directive.copyIn.from`)
-- [ ] S-003.3 `src/scaffold/classify-transport.ts` + `expander.ts`: swap the S-001
+- [x] S-003.3 `src/scaffold/classify-transport.ts` + `expander.ts`: swap the S-001
       fail-loud throw for `factory.copyIn(...)` emission; `commons.copyIn(from, to,
       opts?): void`
-- [ ] S-003.4 `testing/contract-fake.ts`: `copyIn` branch (dest-collision, emit-only,
+- [x] S-003.4 `testing/contract-fake.ts`: `copyIn` branch (dest-collision, emit-only,
       never writes `#tree`); `conformance/run-vehicle.ts`: `copyIn` case — ADDS collision
       machinery `applyDirective` currently lacks (today's `"copy"` branch applies silently)
-- [ ] S-003.5 `dry-run/plan.ts`: `DryRunVerb`+`"copyIn"`; `WIRE_TO_AUTHOR_VERB` 7th row;
+- [x] S-003.5 `dry-run/plan.ts`: `DryRunVerb`+`"copyIn"`; `WIRE_TO_AUTHOR_VERB` 7th row;
       `copyIn`→`"copied"`, mixed-scaffold entries show both tags
-- [ ] S-003.6 `test/scaffold/scaffold-fake.test.ts`, `test/fake/copyin-fidelity.test.ts`
+- [x] S-003.6 `test/scaffold/scaffold-fake.test.ts`, `test/fake/copyin-fidelity.test.ts`
       (BRC-06 missing-source → `source-not-found` through the harness), `test/skeleton/
       authoring-error.test.ts` (A1 verb/path pin)
-- [ ] S-003.7 ADR-0019/0025 amendments (additive widening; 7th verb + `kind`)
+- [x] S-003.7 ADR-0019/0025 amendments (additive widening; 7th verb + `kind`) — VERIFIED
+      NO-OP, see apply-progress.md (amendment sections already existed, dated 2026-07-12)
 
 ---
 
@@ -153,9 +163,9 @@ duplicated/reordered); a later-chunk rejection commits NOTHING from earlier chun
 (`result.tree` empty, existing discard contract, no new mechanism).
 
 ### Tasks
-- [ ] S-004.1 `src/scaffold/expander.ts`: serialized-size accumulator; `session.flush()`
+- [x] S-004.1 `src/scaffold/expander.ts`: serialized-size accumulator; `session.flush()`
       between groups when the next directive would exceed `BATCH_CAP_BYTES`
-- [ ] S-004.2 `test/scaffold/batch-cap-chunk.test.ts`: aggregate-over/single-group-over/
+- [x] S-004.2 `test/scaffold/batch-cap-chunk.test.ts`: aggregate-over/single-group-over/
       exactly-at-cap (`>` not `>=`); `runFactoryForTest` cross-chunk-failure → empty tree
 
 **Cuttable**: auto-chunking policy sophistication is cuttable to a simpler grouping
@@ -177,20 +187,20 @@ harness-machinery reads (ATH-14); fake and conformance vehicle agree on every by
 fixture (ATH-16); the 3 engine pending-changes rows and JSDoc/README obligations exist.
 
 ### Tasks
-- [ ] S-005.1 `test/fake/harness-in-memory-invariant.test.ts`: widen allow-list to
+- [x] S-005.1 `test/fake/harness-in-memory-invariant.test.ts`: widen allow-list to
       within-ceiling factory reads (ATH-14.1/.2)
-- [ ] S-005.2 `test/conformance/copyin-parity.test.ts`: same fixture set through fake +
+- [x] S-005.2 `test/conformance/copyin-parity.test.ts`: same fixture set through fake +
       vehicle, same verdicts (ATH-16)
-- [ ] S-005.3 `test/scaffold/evidence-boundary.test.ts`: architectural scan — no test
+- [x] S-005.3 `test/scaffold/evidence-boundary.test.ts`: architectural scan — no test
       asserts by-reference bytes in `result.tree`/disk (BRC-04)
-- [ ] S-005.4 Document §Seam Contract obligations (BRC-02 engine ceiling re-derivation,
+- [x] S-005.4 Document §Seam Contract obligations (BRC-02 engine ceiling re-derivation,
       BRC-08 path-form + single-pass render, PRC-06 post-render containment) — prose only,
       not SDK-testable
-- [ ] S-005.5 Register 3 `openspec/pending-changes.md` rows (owner = engine repo, siblings
+- [x] S-005.5 Register 3 `openspec/pending-changes.md` rows (owner = engine repo, siblings
       to row 186): BRC-02, BRC-08, PRC-06 — named acceptance criterion, not prose intent
-- [ ] S-005.6 README + JSDoc (T3 checklist): `scaffold`/`copyIn`/`create({templateFile})`/
+- [x] S-005.6 README + JSDoc (T3 checklist): `scaffold`/`copyIn`/`create({templateFile})`/
       `DryRunEntry.kind` obligations per design §T3
-- [ ] S-005.7 Regenerate `.d.ts` baselines + `pkg-surface-baseline.json` (FIT-04/14, 7-member
+- [x] S-005.7 Regenerate `.d.ts` baselines + `pkg-surface-baseline.json` (FIT-04/14, 7-member
       `AuthoringVerb`/`DryRunVerb`)
 
 ---

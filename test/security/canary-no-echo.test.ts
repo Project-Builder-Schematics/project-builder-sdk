@@ -37,8 +37,13 @@ beforeAll(() => {
 
 let dirs: string[] = [];
 
+// ADR-0046 migration (schematic-local-files, S-000): every scratch dir seeds a
+// `collection.json` marker directly inside it — `defineFactory({ packageDir })`'s new
+// pre-`als.run` ancestor walk (REQ-PRC-03) fails loud on any packageDir with no
+// collection.json ancestor, and every `runAgainst` call below opts into `packageDir`.
 function scratchDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "canary-"));
+  writeFileSync(join(dir, "collection.json"), "{}", "utf-8");
   dirs.push(dir);
   return dir;
 }
