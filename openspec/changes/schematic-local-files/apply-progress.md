@@ -451,3 +451,73 @@ Blind adversarial review (2 judges): Judge A APPROVED (1 non-blocking DX followu
 - Fitness suite (`test/fitness/`): **276 pass / 0 fail** — FIT-01 (commons→scaffold→node:fs leaf rule), FIT-04 (`.d.ts` semver gate, 15/15), FIT-14 (`pkg-surface`, 13/13) all confirmed green; `readTemplateFile`'s new parameters are NOT part of the public package surface (internal `src/scaffold/index.ts` re-export consumed only by `commons/index.ts`), so no `.d.ts` baseline regen was needed.
 - **Regression check (no other caller pushed toward by-reference)**: every pre-existing by-value fixture across the full suite (REQ-CCL-01.x "comfortably small" files, `expander.test.ts`, `scaffold-fake.test.ts`, `index.test.ts`, the e2e scaffold suite) stayed green — the fix only ADDS the directive's fixed overhead to the measured quantity, which can only push borderline files from by-value to by-reference, never the reverse; no test anywhere asserted a by-value verdict for a file within the (small) overhead margin of the cap.
 - **Behavior-neutrality for re-verify/re-judge**: production behavior changes ONLY at the cap boundary — files whose CONTENT fits under budget but whose full directive doesn't now correctly route by-reference instead of failing the whole run. This is strictly the FIX the judge demanded, not a broader behavior change. No spec text changed. Two test files besides `classify-transport.test.ts` needed updates (`authoring-error-source.test.ts` — mechanical param threading only; `batch-cap-chunk.test.ts` — genuine fixture reconstruction, documented above) — flagging both explicitly for re-verify/re-judge attention since `batch-cap-chunk.test.ts` wasn't named in the original routing but was a necessary consequence of the correct fix.
+
+## Judgment-Day Iteration 2 Fix (2026-07-13)
+
+A fresh blind judge found two REAL defects (owner-ratified scope, verified independently against code + spec + a runnable probe before this pass started). Both fixed here, one at a time, RED confirmed against the pre-fix code before each fix, `bun test` + `tsc --noEmit` run after each.
+
+### Defect 1 — UTF-8 BOM stripped, violating REQ-FEH-01.1 "exact content" (a `/simplify` D9 regression)
+
+**The defect**: `src/scaffold/classify-transport.ts`'s `decodeSniffableText` decoded with `new TextDecoder("utf-8", { fatal: true })` — `TextDecoder` defaults `ignoreBOM` to `false`, which STRIPS a leading UTF-8 BOM (U+FEFF) from the decoded string. That string becomes `verdict.content`, which flows straight into the `create` directive's `template` field for both `scaffold`'s by-value path (`expander.ts`) and `create({ templateFile })` (`readTemplateFile`, `index.ts`) — so a BOM-prefixed source file emitted a `template` that was NOT the file's exact content, violating `file-escape-hatches` REQ-FEH-01.1 ("the emitted `create` directive's `template` field is the file's exact content"). The pre-`/simplify` code used `buf.toString("utf-8")` (BOM-preserving, Node's own decoder never strips a BOM); the `/simplify` D9 refactor swapped in `TextDecoder` and left a comment claiming the two "decode identically" — false for a BOM-prefixed buffer.
+
+**The fix**: `decodeSniffableText` now decodes with `new TextDecoder("utf-8", { fatal: true, ignoreBOM: true })` — `ignoreBOM: true` means "do not strip the BOM" (a `TextDecoder` naming inversion worth flagging: the flag governs whether the decoder treats the BOM as a byte-order marker to consume, not whether it "ignores" BOM-handling altogether), so the BOM survives in the output while the fatal-validation + single-decode-pass posture is unchanged. The false "decode identically" comment was rewritten to state the real invariant. `isSniffableText` (the boolean validity wrapper) is unaffected — a BOM-prefixed buffer was and remains valid UTF-8 either way; only the returned STRING's leading character changes.
+
+**Scope check**: `rg "TextDecoder|\.decode\("` across `src/scaffold/` confirmed exactly one call site — `decodeSniffableText` — shared by both callers (`classifyTransport`'s by-value path and `readTemplateFile`'s render-request path), so one fix covers both.
+
+**RED-first evidence** (captured against the pre-fix code):
+```
+test/scaffold/classify-transport.test.ts — "a UTF-8 BOM-prefixed file preserves the BOM":
+- {
+-   "content": "﻿hi",
++   "content": "hi",
+    "verdict": "by-value",
+(fail) ... [3.81ms]
+
+test/e2e/scaffold.e2e.test.ts — templateFile + scaffold BOM round-trip (2 tests):
+  Map {
+-   "dest.ts" => "﻿export const x = 1;",
++   "dest.ts" => "export const x = 1;",
+  }
+(fail) x2
+```
+GREEN after the fix — all 3 tests pass (unit-level `classifyTransport` call in `classify-transport.test.ts` near the existing `café 日本語 😀` multibyte-fidelity fixture; e2e coverage for both `create({templateFile})` and `scaffold({from,to})` in `scaffold.e2e.test.ts`).
+
+### Defect 2 — raw Node error escaped the `AuthoringError` contract, leaking an absolute path
+
+**The defect**: `src/scaffold/walk.ts`'s `walkFolder` called `readdirSync(absDir)` on the walk ROOT with no try/catch. `runScaffold` (`expander.ts`) calls `walkFolder(fromAbs)` after `validateSourceRootContainment` — which proves the root is lexically + really IN-CEILING but, by design (REQ-PRC-10's own scope), never checks that the root exists or is a directory; that was deliberately left for `walkFolder` to answer. `walkFolder`'s answer, until this fix, was: let the raw Node error propagate. So `scaffold({ from: "config.json" })` (an in-ceiling regular FILE) threw a raw `ENOTDIR` `Error`, and `scaffold({ from: "does-not-exist" })` (a missing in-ceiling folder) threw a raw `ENOENT` `Error` — neither an `AuthoringError` (breaking the contract `test/conformance/copyin-parity.test.ts` asserts for every SDK-side rejection) nor package-relative (both raw messages echo the ABSOLUTE filesystem path, a no-echo violation every other scaffold-family rejection in this codebase holds).
+
+**The fix**:
+- `walk.ts`: `walkFolder` gained an optional third parameter, `rootRelPath?: string` — the author-facing, package-relative `from` the caller already has. The ROOT-level `readdirSync` (the `relDir === ""` iteration only — every recursive sub-directory read is untouched, since those enumerate directories this walk already proved are directories) is now wrapped in try/catch; on failure, `rootReadFailure` classifies by `err.code` (`isErrnoException`, `../core/fs-errors.ts`) — `ENOTDIR` → "must be a folder"; `ENOENT` → "does not exist"; any other errno → a generic "could not be read" fallback (robustness, not just the two named cases) — and throws `invalidInput(...)` (an `AuthoringError`, reason `invalid-input`) naming ONLY `rootRelPath`, never the absolute `fromAbs`/`absDir`. A caller that omits `rootRelPath` (only the direct-unit-test callers in `walk.test.ts` do — production always threads it) falls back to a locator-free message rather than ever risking a leak.
+- `expander.ts`: `walkFolder(fromAbs)` → `walkFolder(fromAbs, undefined, args.from)` (the `undefined` is the bound parameter, keeping its default — TS/JS defaults trigger on an explicit `undefined` argument).
+- Reused `invalidInput`/`isErrnoException` — no new AEC machinery, no new `AuthoringReason` (stays reason `invalid-input`, same family REQ-AEC-12 already assigns every other scaffold-family SDK-side misuse — `walk.ts`'s own pre-existing `boundExceededMessage` sets this precedent). Considered the four `source-*` reasons (`source-not-found`/`source-not-regular-file`) instead, but those are minted by `containment.ts` for a SOURCE FILE read failure under an already-containment-cleared directory walk; the scaffold walk ROOT is a distinct concept `validateSourceRootContainment`'s own contract deliberately keeps separate from per-entry source checks (its doc-comment: "never invents a new not-found path" — for the CONTAINMENT verdict; this fix answers the EXISTENCE/TYPE question `walkFolder` was always the intended owner of). `invalid-input` was the better fit and keeps the AEC-12 taxonomy count unchanged (still twelve `AuthoringReason` members, per the existing compile-time union pin in `authoring-error-source.test.ts`).
+
+**RED-first evidence** (captured against the pre-fix code, `test/e2e/scaffold.e2e.test.ts`):
+```
+scaffold({ from: "config.json", to: "out" }) (regular file):
+error: expect(received).toBeInstanceOf(expected)
+Received value: ENOTDIR: not a directory, scandir '/var/folders/.../scaffold-e2e-cB57UF/config.json'
+    at walkFolder (src/scaffold/walk.ts:51:19)
+
+scaffold({ from: "does-not-exist", to: "out" }) (missing folder):
+error: expect(received).toBeInstanceOf(expected)
+Received value: ENOENT: no such file or directory, scandir '/var/folders/.../scaffold-e2e-uUKifq/does-not-exist'
+    at walkFolder (src/scaffold/walk.ts:51:19)
+```
+Both confirm the exact defect: a raw Node `Error`, not `AuthoringError`, with the absolute scratch-dir path visible in the message. GREEN after the fix (4 new tests: 2 in `scaffold.e2e.test.ts`, 2 in `expander.test.ts`'s existing `REQ-PRC-10` describe block).
+
+**Pre-existing test that pinned the OLD (buggy) behavior — updated, not just added-around**: `test/scaffold/expander.test.ts`'s `"SEC (owner-ratified final-verify remediation)"` describe block had a test literally titled "a legitimately absent in-ceiling `from` is unaffected by the new root check — existing not-found behavior is preserved", asserting `expect(caught).not.toBeInstanceOf(AuthoringError)`. That assertion is the OLD (V4-scoped) contract this fix supersedes — left as-is it would have failed post-fix (correctly — it was asserting the bug). Rewritten to assert the NEW contract (`AuthoringError`, reason `invalid-input`, package-relative message, no absolute-path substring) and renamed to reference REQ-PRC-10.3's V5 amendment; a sibling test for the regular-file case was added alongside it.
+
+### REQ-PRC-10.3 spec amendment (owner-ratified, V4 → V5)
+
+`openspec/changes/schematic-local-files/specs/package-root-containment/spec.md`, REQ-PRC-10.3: the V4 text read "a legitimately ABSENT in-ceiling root is UNAFFECTED by this check — `walkFolder`'s existing not-found behavior for a missing in-ceiling `from` is preserved unchanged; this REQ never invents a new not-found path" — i.e. it explicitly pinned the pre-fix (buggy) raw-error behavior as the intended contract. Amended to: `walkFolder`'s answer for a missing-or-non-directory in-ceiling root MUST be an `AuthoringError` (reason `invalid-input`), package-relative path only — never a raw Node error. Scenario REQ-PRC-10.3 reworded (missing-folder case) and a new scenario REQ-PRC-10.3b added (regular-file-as-root case, not previously covered by any scenario). REQ-PRC-10.1/10.2 (the lexical-escape / symlink-escape scenarios, `source-outside-package`) are UNTOUCHED — this amendment only narrows the existence/type gap V4 deliberately left open. Spec version bumped V4 → V5, header updated to reflect two pending owner sign-offs (V3→V4 final-verify remediation + V4→V5 this fix), both still PENDING actual owner sign-off at archive per the existing convention in this file.
+
+### Scope discipline
+
+Touched only what the two defects required: `classify-transport.ts` (1 line + comment), `walk.ts` (new root-read guard, additive), `expander.ts` (1 call-site argument), plus tests and the one spec scenario. Did NOT touch the classifier budget fix (judgment-day iteration 1), the containment ceiling machinery itself, or any other final-verify-remediation message — confirmed via `git diff --stat` before persisting.
+
+### Verification
+
+- `bun test` (full suite): **1055 pass / 0 fail** (2040 expect() calls, 123 files) — up from 1049/0 (net +6: 1 unit BOM test, 2 e2e BOM tests, 2 new e2e/expander tests for the missing/file-root cases, 1 existing expander.test.ts assertion rewritten in place — net file count +5 new + 1 rewritten).
+- `tsc --noEmit`: clean.
+- Fitness suite (`test/fitness/`): **276 pass / 0 fail** — unchanged from iteration 1. Neither `decodeSniffableText` nor `walkFolder` is part of the public `commons/index.ts` surface (confirmed via `rg "walkFolder|decodeSniffableText" src/commons/index.ts` — zero hits) — FIT-04/FIT-14 (`.d.ts` semver gate / `pkg-surface-baseline.json`) unaffected, no baseline regen needed.
+- **Behavior-neutrality for re-verify/re-judge**: Defect 1's fix changes the DECODED STRING for BOM-prefixed files only (every non-BOM file — the overwhelming majority of the existing suite — is byte-identical before/after); Defect 2's fix changes what a missing/non-directory `from` throws (was: raw `Error`; now: `AuthoringError`) — a strictly NARROWING, more-specific rejection shape for a case that already rejected (just with the wrong error type and a path leak), so no previously-succeeding `scaffold` call is newly rejected. Flagging the `expander.test.ts` rewritten assertion explicitly for re-verify/re-judge attention, since it flips an existing test's expected outcome rather than only adding new tests.
