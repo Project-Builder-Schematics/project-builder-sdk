@@ -43,14 +43,14 @@ Proves the ENTIRE vehicle end-to-end with the thinnest real path: an existing fi
 - THEN the committed `s-00.infra-skeleton.transcript.json` is byte-identical on re-run (FIT-23), contains no binary/abs-path/nondeterministic field (FIT-24), and no test-reachable module writes the corpus dir except `scripts/regen-corpus.ts` (FIT-27) — all three RED-provable on the skeleton record alone (GCC-12)
 
 ### Tasks
-- [ ] S-000.1 `test/support/ir-transcript.ts` — `captureRun(run,input,seed?) → { record, rawDirectives, tree, emitted, error }` (R-D) wraps `runFactoryForTest`; `error === undefined` → `outcome:"committed"`, normalized lowered wire directives (all 7 ops); `AuthoringError` → `outcome:"rejected"`, empty directives + verbatim triple (R-F). No cross-family branching (ITC-05).
-- [ ] S-000.2 `test/support/corpus-format.ts` — `TranscriptRecord` + `FORMAT_VERSION`, `canonicalize()`, `buildRecord(capture,{scenarioId,slug})`, `serializeCorpus`, `parseCorpus` (pure, no fs)
-- [ ] S-000.3 `test/e2e/author-emulation/scenarios.ts` — data-only `SCENARIOS` registry (R-E), seeded with the `s-00` entry
-- [ ] S-000.4 `scripts/regen-corpus.ts` — sole corpus-dir writer, iterates `SCENARIOS`, outside test graph
-- [ ] S-000.5 `test/e2e/author-emulation-scaffold.e2e.test.ts` — iterates `SCENARIOS` (skeleton entry only at this point), compares `serializeCorpus(fresh)` vs committed bytes; no report call
-- [ ] S-000.6 Commit `corpus/s-00.infra-skeleton.transcript.json` + `corpus/README.md` (5 headings above) + `corpus/coverage-manifest.md` (skeleton state: NOT-EXERCISED 5 literals + FRICTION `none observed` placeholder)
-- [ ] S-000.7 `test/fitness/fit-23-corpus-determinism.test.ts`, `fit-24-corpus-purity.test.ts`, `fit-27-anti-tautology-scan.test.ts` + red-proof fixtures
-- [ ] S-000.8 `.gitignore` — add `test/e2e/author-emulation/reports/`
+- [x] S-000.1 `test/support/ir-transcript.ts` — `captureRun(run,input,seed?) → { record, rawDirectives, tree, emitted, error }` (R-D) wraps `runFactoryForTest`; `error === undefined` → `outcome:"committed"`, normalized lowered wire directives (all 7 ops); `AuthoringError` → `outcome:"rejected"`, empty directives + verbatim triple (R-F). No cross-family branching (ITC-05).
+- [x] S-000.2 `test/support/corpus-format.ts` — `TranscriptRecord` + `FORMAT_VERSION`, `canonicalize()`, `buildRecord(capture,{scenarioId,slug})`, `serializeCorpus`, `parseCorpus` (pure, no fs)
+- [x] S-000.3 `test/e2e/author-emulation/scenarios.ts` — data-only `SCENARIOS` registry (R-E), seeded with the `s-00` entry
+- [x] S-000.4 `scripts/regen-corpus.ts` — sole corpus-dir writer, iterates `SCENARIOS`, outside test graph
+- [x] S-000.5 `test/e2e/author-emulation-scaffold.e2e.test.ts` — iterates `SCENARIOS` (skeleton entry only at this point), compares `serializeCorpus(fresh)` vs committed bytes; no report call
+- [x] S-000.6 Commit `corpus/s-00.infra-skeleton.transcript.json` + `corpus/README.md` (5 headings above) + `corpus/coverage-manifest.md` (skeleton state: NOT-EXERCISED 5 literals + FRICTION `none observed` placeholder)
+- [x] S-000.7 `test/fitness/fit-23-corpus-determinism.test.ts`, `fit-24-corpus-purity.test.ts`, `fit-27-anti-tautology-scan.test.ts` + red-proof fixtures
+- [x] S-000.8 `.gitignore` — add `test/e2e/author-emulation/reports/`
 
 ---
 
