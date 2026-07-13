@@ -182,8 +182,7 @@ function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, pa
       return `${verb} failed at ${path}: ${reason}`;
     case "outside-run":
       return (
-        "@pbuilder/sdk: file verbs (create, find, modify, remove, rename, move, copy) " +
-        "can only be used while a schematic is running — " +
+        "@pbuilder/sdk: authoring verbs can only be used while a schematic is running — " +
         "call them inside your factory function, not at module load time."
       );
     case "unrepresentable-content":

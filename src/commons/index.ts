@@ -388,8 +388,8 @@ export type { DryRunEntry, DryRunVerb };
  * });
  *
  * @throws When called outside an active `defineFactory` run, propagates the standard
- * error — file verbs "can only be used while a schematic is running" (the message does
- * not yet name `dryRun`; see the ADR-0026 followup).
+ * error — authoring verbs "can only be used while a schematic is running" (ADR-0026: the
+ * message no longer enumerates individual verbs, so it covers `dryRun` too).
  */
 export function dryRun(): DryRunEntry[] {
   return dryRunPlan(currentContext().session.pendingSnapshot());
