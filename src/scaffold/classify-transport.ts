@@ -34,13 +34,17 @@ export type ClassifyResult =
 // across the ENTIRE buffer (never a prefix sample — REQ-CCL-03) and no null byte anywhere.
 // Lives here (the classify leaf) so the module graph stays acyclic — `index.ts` re-exports
 // the boolean form for the historical `scaffold/index.ts` surface. A render request has no
-// by-reference fallback (REQ-FEH-02), it fails loud. Returning the decoded string (instead
-// of decoding a second time at the caller) is safe: a buffer that survives the fatal decode
-// decodes identically under `buf.toString("utf-8")`.
+// by-reference fallback (REQ-FEH-02), it fails loud. `ignoreBOM: true` is REQUIRED (judgment-
+// day iteration 2 fix, REQ-FEH-01.1): `TextDecoder` defaults to stripping a leading UTF-8 BOM
+// (`ignoreBOM: false`), which would silently drop bytes from a file's exact content — this
+// decoded string becomes the `create` directive's `template` (both the by-value scaffold path
+// and `readTemplateFile`), so a BOM-prefixed source must decode BOM-preserving to honor "exact
+// content" (REQ-FEH-01.1). `ignoreBOM: true` still fatal-validates the whole buffer in one pass
+// — no second decode at the caller.
 export function decodeSniffableText(buf: Buffer): string | null {
   if (buf.includes(0)) return null;
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(buf);
   } catch {
     return null;
   }

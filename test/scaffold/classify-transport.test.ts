@@ -104,6 +104,24 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     expect(result).toEqual({ verdict: "by-value", content });
   });
 
+  it("REQ-FEH-01.1 (judgment-day iteration 2 fix): a UTF-8 BOM-prefixed file preserves the BOM — exact content, never stripped", () => {
+    const dir = scratchDir();
+    const content = "\uFEFFhi";
+    writeFileSync(join(dir, "bom.ts"), content, "utf-8");
+
+    const result = classifyTransport({
+      packageDir: dir,
+      packageRoot: dir,
+      relPath: "bom.ts",
+      isTemplateMarked: false,
+      destPath: "bom.ts",
+      options: {},
+    });
+
+    expect(result).toEqual({ verdict: "by-value", content });
+    expect((result as { verdict: "by-value"; content: string }).content.charCodeAt(0)).toEqual(0xfeff);
+  });
+
   it("REQ-CCL-01.5: empty (0-byte) file → by-value", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "empty.ts"), "", "utf-8");
