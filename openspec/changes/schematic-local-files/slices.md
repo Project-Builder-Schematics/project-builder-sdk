@@ -103,17 +103,17 @@ after the nearest existing ancestor proves in-ceiling), zero content reads befor
 verdict, package-relative messages only.
 
 ### Tasks
-- [ ] S-002.1 `src/scaffold/containment.ts`: realpath, segment-aware + case-fold ceiling
+- [x] S-002.1 `src/scaffold/containment.ts`: realpath, segment-aware + case-fold ceiling
       check, regular-file allow-list, destination lexical guard (PRC-09); REPLACES
       S-001.3's placeholder guard inside classify-transport
-- [ ] S-002.2 `authoring-error.ts`: `AuthoringReason` 8→12 (4 `source-*` members),
+- [x] S-002.2 `authoring-error.ts`: `AuthoringReason` 8→12 (4 `source-*` members),
       `originFor` arm, `messageFor` 4 neutral `"source file …"` templates (no `"copy
       failed:"` prefix)
-- [ ] S-002.3 `test/scaffold/containment.test.ts` (ENOENT-ancestor ordering S1,
+- [x] S-002.3 `test/scaffold/containment.test.ts` (ENOENT-ancestor ordering S1,
       sibling-prefix, absolute-source, FIFO-stub, lexical-vs-realpath); update S-001's
       placeholder-guard test expectations to the real reasons
-- [ ] S-002.4 ADR-0018 amendment note (containment is a lowering heuristic, not the size
-      authority — unrelated but same file touch)
+- [x] S-002.4 ADR-0018 amendment note (containment is a lowering heuristic, not the size
+      authority — unrelated but same file touch) — VERIFIED NO-OP, see apply-progress.md
 
 ---
 
@@ -162,9 +162,9 @@ duplicated/reordered); a later-chunk rejection commits NOTHING from earlier chun
 (`result.tree` empty, existing discard contract, no new mechanism).
 
 ### Tasks
-- [ ] S-004.1 `src/scaffold/expander.ts`: serialized-size accumulator; `session.flush()`
+- [x] S-004.1 `src/scaffold/expander.ts`: serialized-size accumulator; `session.flush()`
       between groups when the next directive would exceed `BATCH_CAP_BYTES`
-- [ ] S-004.2 `test/scaffold/batch-cap-chunk.test.ts`: aggregate-over/single-group-over/
+- [x] S-004.2 `test/scaffold/batch-cap-chunk.test.ts`: aggregate-over/single-group-over/
       exactly-at-cap (`>` not `>=`); `runFactoryForTest` cross-chunk-failure → empty tree
 
 **Cuttable**: auto-chunking policy sophistication is cuttable to a simpler grouping

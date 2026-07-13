@@ -9,9 +9,9 @@
 |---|---|---|---|
 | S-000 | walking-skeleton | ✅ complete | 7/7 |
 | S-001 | happy-path | ✅ complete | 6/6 |
-| S-002 | edge-case | ⬜ not started | 0/4 |
+| S-002 | edge-case | ✅ complete | 4/4 |
 | S-003 | happy-path | ⬜ not started | 0/7 |
-| S-004 | edge-case | ⬜ not started | 0/2 |
+| S-004 | edge-case | ✅ complete | 2/2 |
 | S-005 | edge-case | ⬜ not started | 0/7 |
 
 ## S-000 — Files Changed
@@ -133,6 +133,82 @@ Same self-audit posture as S-000 (no `code-audit.md` sub-agent spawn available t
 | Test suite | 935 pass / 0 fail (full repo, `bun test`, 115 files) |
 | Typecheck | clean (`tsc --noEmit`) |
 
+## S-002 — Files Changed
+
+| File | Action | What Was Done |
+|---|---|---|
+| `src/scaffold/containment.ts` | Created | New leaf module (ADR-0044/0045/0046). `isWithinCeiling(candidateAbs, ceilingAbs)`: segment-aware, case-fold-on-win32/darwin-only ceiling comparison (kills the bare-`startsWith` sibling-prefix mutant, PRC-04.5). `validateSourceContainment({packageDir, packageRoot, relPath})`: lexical `../`/absolute screen → pre-realpath segment-aware ceiling check → `realpathSync` → post-realpath ceiling check → `lstat` regular-file allow-list; returns `{absPath, stat}` (the `lstat` `Stats` is REUSED by `classify-transport.ts`'s CCL-06 gate, no second stat call). Throws one of the four `source-*` reasons. ENOENT branch distinguishes two shapes (S1 ordering, REQ-PRC-07.2): (a) a BROKEN SYMLINK (its own entry lstats successfully, but the target it points to doesn't exist) — the target is resolved LEXICALLY via `readlinkSync` (single-hop; never existence-probed) and checked against the ceiling; (b) a GENUINELY missing entry (no symlink involved) — walks up to the nearest EXISTING ancestor and checks ITS realpath. Either shape: out-of-ceiling → `source-outside-package`; in-ceiling → `source-not-found`. `validateDestinationLexical(relPath)`: lexical-only guard (PRC-09) reusing the existing `invalid-input` reason — applied to the FINAL SDK-computed destination, pre-emit. |
+| `src/scaffold/classify-transport.ts` | Modified | Removed the S-001 `placeholderContainmentGuard` and its own `statSync`-based existence/readability branching entirely. `classifyTransport` now takes `packageRoot` in addition to `packageDir`, delegates containment to `validateSourceContainment` FIRST (before any of its own stat/sniff/budget checks, PRC-08), and reuses the returned `stat` for the CCL-06 size gate. `readFileSync` is now wrapped in try/catch: a failure THIS LATE (containment already proved an in-ceiling regular file) classifies `source-unreadable` — distinct from a CONTENT-level classify failure, which stays `invalid-input` for `.template`-marked entries (CCL-05/AEC-12) and by-reference for everything else. |
+| `src/scaffold/expander.ts` | Modified | `runScaffold` now resolves `packageRoot` from `currentContext()` (asserted non-null once `packageDir` is confirmed defined — both are ALWAYS seeded together by `context.ts`'s pre-`als.run` chokepoint) and passes it to `classifyTransport`. Added `validateDestinationLexical(destPath)` immediately before each `session.buffer(factory.create(...))` call, applied to the FINAL computed destination (post-rename, post-token-translation). *(S-004 additions to this same file are listed separately below.)* |
+| `src/core/authoring-error.ts` | Modified | `AuthoringReason` 8→12: added `source-not-found`, `source-outside-package`, `source-not-regular-file`, `source-unreadable`. `originFor`: all four under the `authoring-rejected` arm. `messageFor`: four new arms deriving the AEC-11 V3 NEUTRAL "source file …" templates from `path` alone (no `"copy failed:"` prefix, no caller-supplied `message` needed — unlike `invalid-input`/`reserved-name`). JSDoc counts/examples updated 8→12 throughout. |
+| `test/scaffold/containment.test.ts` | Created | Unit suite: PRC-01.1 (distinct anchors), PRC-04.1 (traversal string), PRC-04.2/.7 (symlink realpath-outside), PRC-04.3 (directory-as-source), PRC-04.4 (FIFO via stubbed `lstatSync` — unfixturable in CI), PRC-04.5 (sibling-prefix, direct `isWithinCeiling` unit test), PRC-04.6 (absolute source, no `..`), PRC-05.1 (package-relative message), PRC-07.1 (existing-vs-non-existing out-of-ceiling indistinguishable), PRC-07.2/S1 (broken symlink to out-of-ceiling target → `source-outside-package` never `source-not-found`), plain ENOENT-ancestor ordering (missing in-ceiling file, incl. a missing ancestor DIRECTORY), PRC-08.1 (zero `readFileSync` calls, spy-verified), PRC-09.1 (destination guard, both escaping and passing cases). |
+| `test/scaffold/classify-transport.test.ts` | Modified | Every `classifyTransport(...)` call now passes `packageRoot` (all existing tests use `packageRoot: dir` since `scratchDirFactory` seeds the marker directly there — no behavior change for the CCL-0x tests). The "MINIMAL placeholder containment guard" describe block RENAMED to "REQ-PRC-04 — source containment, delegated to containment.ts" with both tests' expected reason updated `invalid-input` → `source-outside-package` (S-002.3's mandated update). |
+| `test/core/authoring-error-source.test.ts` | Modified | New describe block "REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons": one fixture per reason (missing in-ceiling source; lexically-escaping source; directory-as-source; an INJECTED `readFileSync` EACCES failure via `spyOn`, S18 precedent — never chmod), each asserting reason, origin, AND the exact AEC-11 message text. The union-arithmetic proof test updated "eight members" → "twelve members" with the 4 new cases added. |
+| `test/scaffold/expander.test.ts` | Modified | New describe block "REQ-PRC-09.1 — destination lexical guard wiring": a `rename` map value with TWO `..` levels (one level alone only cancels `to`'s own depth and lands within-workspace — not a PRC-09 violation per the spec's own "resolves outside the workspace tree" wording; verified via `node -e` before writing the fixture) proves the guard is actually WIRED into `expander.ts`'s emit path, not just unit-tested in isolation. |
+| `test/types/authoring-reason.test.ts` | Modified | Compile-time exhaustiveness pin extended 8→12 members (both the `switch` proof and the `expectTypeOf` union pin). |
+| `test/fitness/dts-baseline/core.authoring-error.d.ts` | Modified | Regenerated (`bun run build` + manual copy per FIT-04's own header instructions) — additive `AuthoringReason` union growth only, confirmed via `diff` before copying. |
+| `test/fitness/pkg-surface-baseline.json` | Modified | Added `dist/scaffold/containment.{d.ts,d.ts.map,js}` (FIT-14 flagged them as new, unauthorized tarball entries as soon as `src/scaffold/containment.ts` existed). |
+
+### S-002.4 — ADR-0018 amendment note: VERIFIED NO-OP
+
+The task called for an ADR-0018 amendment note stating "containment is a lowering heuristic, not the size authority." Reading `openspec/decisions/0018-boundary-pass-through.md`'s existing "Amendment (2026-07-12, `schematic-local-files`)" section (already committed at PLAN time, dated the same day as the V3 spec sign-off) — it ALREADY states: *"the emit-time containment check is the REQ-ATH-11.2 run-boundary carve-out for the package read — DX/attribution, not the security control (the engine's apply-time re-derivation is, REQ-BRC-02)"* — matching the design's own Amendments list wording exactly ("0018 chunking/containment are lowering heuristics not size/security authority"). No edit was needed; recorded here per the S-000 precedent for pre-satisfied checklist items rather than forcing a redundant edit.
+
+## Deviations from Design (S-002)
+
+None beyond the two explicitly licensed by the slice contract itself: (1) the "MINIMAL placeholder containment guard" test block's expectations were updated from `invalid-input` to the real `source-*` reasons — explicitly flagged in-contract by slices.md S-002.3 ("update S-001's placeholder-guard test expectations to the real reasons"), not smuggled scope. (2) `readTemplateFile` (`src/scaffold/index.ts`) was deliberately NOT routed through `validateSourceContainment` — S-002.1's task line scopes the replacement to "S-001.3's placeholder guard inside classify-transport" specifically, and design's own Test Derivation table assigns every PRC-04 scenario to `test/scaffold/containment.test.ts` only (never `test/scaffold/index.test.ts`). `create({templateFile})`'s own containment hardening is therefore out of S-002's pinned scope as written, even though `package-root-containment`'s Purpose section names `create({templateFile})` among the three protected surfaces — flagging this explicitly rather than silently deciding, in case a later slice (or final verify) needs to close this gap.
+
+## Bug found and fixed during S-002 (not spec-pinned, a genuine correctness bug)
+
+The FIRST implementation of `validateSourceContainment` compared a REALPATH'd candidate path directly against a NON-realpath'd `packageRoot` ceiling. On macOS, `mkdtempSync(tmpdir())` returns a path under `/var/...`, but `/var` is itself a symlink to `/private/var` — so `realpathSync` of ANY file under a temp scratch dir resolves to `/private/var/...`, which does not lexically start with the non-realpath'd `/var/...` ceiling. This produced a FALSE `source-outside-package` rejection for every legitimately in-ceiling source on this platform, caught immediately by the existing S-000/S-001 regression suite (`test/scaffold/expander.test.ts`, `test/e2e/scaffold.e2e.test.ts`) going from 72/72 green to 22 failures the first time the full scaffold test set ran against the new containment module. Fixed by maintaining TWO ceiling representations — `lexicalCeiling` (raw `packageRoot`, compared only against a likewise non-realpath'd candidate, pre-realpath) and `realCeiling` (`realpathSync(packageRoot)`, compared only against a realpath'd candidate, post-realpath) — never mixing the two spaces in one comparison.
+
+## Slice Audit (Step 7c) — S-002
+
+Self-audit (no `code-audit.md` sub-agent spawn available to this executor):
+- `src/scaffold/containment.ts` imports only `node:fs`/`node:path` builtins and `../core/*` (authoring-error, fs-errors) — matches the leaf pattern (ADR-0044), no reverse dependency.
+- `classify-transport.ts` now imports `containment.ts` (same-leaf sibling) instead of doing its own raw `statSync`-based existence check — tightens the leaf's internal cohesion, no new external dependency.
+- `AuthoringReason`'s exhaustiveness is enforced at BOTH runtime (`originFor`/`messageFor`'s `never`-default arms) and compile time (`test/types/authoring-reason.test.ts`) — both updated together, consistent with the file's own "MAJOR change" framing.
+- No architectural findings. No sensitive-area/spec-drift signal — GateGuard fired twice more on this slice (`src/core/authoring-error.ts`, `test/types/authoring-reason.test.ts` — both `auth` substring matches on file paths unrelated to authentication) and was answered per its own 4-point protocol both times.
+
+## Overall Progress (through S-002)
+
+| Metric | Value |
+|---|---|
+| Slices complete | 3 (S-000, S-001, S-002) |
+| S-002 tasks complete | 4/4 |
+| Test suite | 963 pass / 0 fail (full repo, `bun test`, 117 files) |
+| Typecheck | clean (`tsc --noEmit`) |
+
+## S-004 — Files Changed
+
+| File | Action | What Was Done |
+|---|---|---|
+| `src/scaffold/expander.ts` | Modified | Added `candidateBatchSize(pending, next)`: measures `Buffer.byteLength(JSON.stringify({protocolVersion:1, force:false, instructions:[...pending, next]}), "utf8")` — the EXACT same shape the fake measures at emit time, so the heuristic has zero calibration drift from the real authority (ADR-0019). Inside `runScaffold`'s per-file loop: after building each `create` directive, if `session.pendingSnapshot()` is non-empty AND adding the new directive would push the candidate batch's serialized size over `BATCH_CAP_BYTES`, the CURRENT pending group is flushed FIRST (`session.flush()`, fired WITHOUT awaiting) before the new directive is buffered. An over-cap SINGLE directive (pending empty) is never preemptively flushed — it buffers into its own group and genuinely rejects at the fake's `emit()`, unchanged (REQ-04.2). |
+| `test/scaffold/batch-cap-chunk.test.ts` | Created | REQ-04.1 (3 files ≈4.5 MiB combined over cap, no 2-file group over cap → all commit, `result.emitted.length > 1` proves chunking happened, exactly one directive per file in walk order); REQ-04.2 (a lone file whose CONTENT passes classify's own CCL-02 budget but whose WRAPPED solo-group batch exceeds the cap by envelope overhead alone → genuine `changes-too-large` rejection); REQ-04.3 (exactly-at-cap solo-group batch passes, one-byte-over rejects — both via algorithmically-derived content lengths, mirroring the established CCL-02.3 pattern, never hardcoded magic numbers); REQ-05.1 (`runFactoryForTest`, a 2-flush scaffold where the SECOND file's directive collides against a seeded destination → `result.tree.size === 0`, nothing from the FIRST, successfully-flushed chunk survives). |
+
+### The sync/async bridge — a design decision beyond the literal design doc text
+
+`scaffold(): void` is a PINNED synchronous author surface (design §Data Model, T2 — a `WritableHandle` asymmetry rationale applies the same "no lying about materialization timing" logic here), yet `Session.flush()` is `async` and `session.ts` is explicitly `Read-only` in the design's own File Changes table (§A4) — no synchronous flush variant could be added. The design's own "Batch-cap chunked flush" prose ("it calls `session.flush()` first") does not address this sync/async tension explicitly.
+
+Resolved by reusing the EXISTING `DialectRegistry` (`src/core/context.ts`, ADR-0037) — documented in its own source as generic over "anything with a `settle()`," not `dialect-handle.ts`-specific. Traced the actual JS semantics before committing to this: `Session.flush()`'s synchronous prefix (draining `#pending`, building the `Batch`, and `ContractFake.emit()`'s ENTIRELY synchronous body — verified by reading `src/testing/contract-fake.ts`, zero internal `await`s) runs to completion BEFORE `flush()`'s own `await this.#client.emit(batch)` line ever suspends it. So calling `session.flush()` synchronously WITHOUT awaiting, inside `runScaffold`'s loop, still mutates the fake's `#tree` in-order at the moment of the call — only the PROMISE's settlement (success or the `toAuthoringError`-wrapped rejection) is deferred. Registering `{ settle: () => flushPromise }` with `ctx.dialects` means `defineFactory`'s existing `await ctx.dialects.drain()` (which already runs BEFORE the run-end `session.flush()` and BEFORE `commit()`) surfaces a later-chunk rejection through the SAME catch → `discard()` path that already existed — `discard()` clears the ONE underlying `#tree` every chunk staged into, so run-level atomicity (REQ-05) holds with NO new mechanism, exactly as the design promises. Proven correct empirically too: `batch-cap-chunk.test.ts`'s REQ-05.1 case (2 flushes, second one collides) ends with an empty `result.tree` on the first attempt this was tested, no further debugging needed.
+
+Flagging this explicitly (not silently) because it's a real architectural choice the design prose didn't spell out mechanically, even though the outcome matches the design's stated promise exactly ("run-level atomicity... needs NO new mechanism").
+
+## Slice Audit (Step 7c) — S-004
+
+Self-audit (no `code-audit.md` sub-agent spawn available to this executor):
+- The chunked-flush accumulator lives entirely inside `expander.ts`'s existing fan-out function — no new module, no new public export, no touch to `session.ts` (respects the design's `Read-only` designation for that file).
+- `DialectRegistry` reuse is an EXISTING, already-public-within-`core` seam (`RunContext.dialects`) — not a new cross-layer dependency; `expander.ts` already imports `currentContext` from `core/context.ts`.
+- No architectural findings. No sensitive-area/spec-drift signal.
+
+## Overall Progress (through S-004)
+
+| Metric | Value |
+|---|---|
+| Slices complete | 4 (S-000, S-001, S-002, S-004) |
+| S-004 tasks complete | 2/2 |
+| Test suite | 963 pass / 0 fail (full repo, `bun test`, 117 files) |
+| Typecheck | clean (`tsc --noEmit`) |
+
 ## Next Step
 
-Ready for `/build --scope=slices:S-002,S-004` (per Build Order step 3 — both require only S-001, independent, may run in parallel; S-002 hardens containment and REPLACES S-001's placeholder guard + updates its test expectations, S-004 adds chunked flush inside `expander.ts`).
+Ready for `/build --scope=slice:S-003` (Build Order step 4 — requires S-002, now complete: real `source-*` reasons exist before by-reference emission needs to attribute them). S-002 and S-004 are both complete and verified green together (963/0, full repo).
