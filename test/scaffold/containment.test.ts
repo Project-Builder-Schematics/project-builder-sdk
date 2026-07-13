@@ -157,6 +157,11 @@ describe("REQ-PRC-07 — no existence oracle for out-of-ceiling paths", () => {
 
       expect(errExisting.reason).toEqual(errMissing.reason);
       expect(errExisting.origin).toEqual(errMissing.origin);
+      // Message shape itself is indistinguishable too, modulo the relPath substring — the
+      // scenario's explicit "message" clause: a message template that leaked existence
+      // (e.g. an extra clause only on the found/missing branch) would diverge here even
+      // though reason/origin already matched.
+      expect(errExisting.message.replace(existingRel, "<REL>")).toEqual(errMissing.message.replace(missingRel, "<REL>"));
     } finally {
       rmSync(external, { recursive: true, force: true });
     }
