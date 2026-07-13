@@ -178,11 +178,11 @@ Owns fixture-package authoring for the data surface: typed options, template tre
 - GIVEN M-21 WHEN run via `runFactoryForTest` THEN `result.tree` is empty and `result.error` carries the attributed rejection
 
 ### Tasks
-- [ ] S-004.1 Re-run the tripwire re-verification (incl. the M-13 `path` apply-note above)
-- [ ] S-004.2 M-08, M-10, M-11 e2e scenarios via `SCENARIOS` entries (RED first)
-- [ ] S-004.3 M-12, M-13, M-15 e2e scenarios (full attribution-triple assertions)
-- [ ] S-004.4 M-16, M-17, M-18, M-21 e2e scenarios
-- [ ] S-004.5 Regen + commit the 10 rejection/boundary corpus transcripts + finalize `coverage-manifest.md` EXERCISED ledger (all 21 rows) + FRICTION section real content (AEG-06 — `none observed` only if genuinely nothing surfaced; reckoning hook #2)
+- [x] S-004.1 Re-run the tripwire re-verification (incl. the M-13 `path` apply-note above)
+- [x] S-004.2 M-08, M-10, M-11 e2e scenarios via `SCENARIOS` entries (RED first)
+- [x] S-004.3 M-12, M-13, M-15 e2e scenarios (full attribution-triple assertions)
+- [x] S-004.4 M-16, M-17, M-18, M-21 e2e scenarios
+- [x] S-004.5 Regen + commit the 10 rejection/boundary corpus transcripts + finalize `coverage-manifest.md` EXERCISED ledger (all 21 rows) + FRICTION section real content (AEG-06 — `none observed` only if genuinely nothing surfaced; reckoning hook #2)
 
 ---
 
