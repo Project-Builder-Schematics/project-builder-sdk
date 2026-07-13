@@ -1,0 +1,17 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "red-00",
+  "slug": "abs-path-leak",
+  "normative": {
+    "outcome": "rejected",
+    "directives": [],
+    "rejection": {
+      "reason": "path-not-found",
+      "verb": "copyIn",
+      "path": "/etc/passwd"
+    }
+  },
+  "informative": {
+    "batchGrouping": []
+  }
+}
