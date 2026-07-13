@@ -10,7 +10,7 @@ import { AuthoringError, invalidInput } from "../core/authoring-error.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
 import { forceEntry } from "../core/directive-factory.ts";
 import { validateSourceContainment, validateDestinationLexical } from "./containment.ts";
-import { isSniffableText } from "./classify-transport.ts";
+import { decodeSniffableText } from "./classify-transport.ts";
 
 // S-001: the folder-scaffold orchestrator lives in expander.ts (the single owner of the
 // walk → filename-pipeline → classify → emit fan-out, ADR-0044); re-exported here so
@@ -75,11 +75,10 @@ export function readTemplateFile(relPath: string): string {
     // source — same posture as `classify-transport.ts`'s own post-containment read guard.
     throw new AuthoringError({ verb: undefined, path: relPath, reason: "source-unreadable", appliedCount: 0 });
   }
-  if (!isSniffableText(buf)) {
+  const content = decodeSniffableText(buf);
+  if (content === null) {
     throw invalidInput(templateFileBinaryMessage(relPath));
   }
-
-  const content = buf.toString("utf-8");
 
   // Serialized-form budget (REQ-CCL-02): JSON-escaping overhead can push a raw-under-budget
   // file over the cap (heavy quote/backslash/newline escaping) — measured the same way the

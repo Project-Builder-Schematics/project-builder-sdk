@@ -107,16 +107,29 @@ function resolveBrokenSymlinkTargetRealAncestor(symlinkAbsPath: string): string 
 }
 
 /**
+ * The realpath'd form of the containment ceiling — a RUN invariant (`packageRoot` is
+ * seeded once per run and always exists, so this realpath cannot ENOENT). Loop callers
+ * (`runScaffold`) compute it once and thread it through `classifyTransport` →
+ * `validateSourceContainment` instead of re-realpath'ing the same directory per entry.
+ */
+export function resolveRealCeiling(packageRoot: string): string {
+  return realpathSync(resolve(packageRoot));
+}
+
+/**
  * Validates ONE package-local SOURCE path against the dual-anchor containment model
  * (REQ-PRC-01..08) and returns its realpath'd absolute path plus the `lstat` used to
  * prove regular-file eligibility — callers (`classify-transport.ts`) reuse this `Stats`
  * for the CCL-06 size gate instead of stat'ing again. Throws one of the four `source-*`
  * `AuthoringError`s (REQ-AEC-10) on any failure; never reads file CONTENT.
+ * `realCeiling` (optional) is the precomputed `resolveRealCeiling(packageRoot)` — passed
+ * by per-entry loop callers; single-shot callers omit it and it is derived here.
  */
 export function validateSourceContainment(params: {
   packageDir: string;
   packageRoot: string;
   relPath: string;
+  realCeiling?: string;
 }): { absPath: string; stat: Stats } {
   const { packageDir, packageRoot, relPath } = params;
   // Two ceiling REPRESENTATIONS, compared only against a candidate in the SAME space —
@@ -129,7 +142,7 @@ export function validateSourceContainment(params: {
   // false-reject every source. `packageRoot` always exists (context.ts's ancestor walk
   // proved it via `existsSync`), so this realpath cannot ENOENT.
   const lexicalCeiling = resolve(packageRoot);
-  const realCeiling = realpathSync(lexicalCeiling);
+  const realCeiling = params.realCeiling ?? realpathSync(lexicalCeiling);
 
   // Step 1 (REQ-PRC-04 first clause): lexical `../`/absolute screen, independent of any
   // realpath check — a literal ".." segment or an absolute path resolves outside the

@@ -68,7 +68,15 @@ function escapeRegexChar(ch: string): string {
  * one follows — so a leading `**` combined with a following segment pattern also matches a
  * ROOT-level file (zero segments consumed), not only nested ones.
  */
+// Compiled-pattern memo: `isIncluded` runs per walked entry with the SAME include/exclude
+// pattern strings — no flags on the compiled regex, so a cached instance is stateless.
+const globRegexCache = new Map<string, RegExp>();
+
 function globToRegex(pattern: string): RegExp {
+  const cached = globRegexCache.get(pattern);
+  if (cached !== undefined) {
+    return cached;
+  }
   let out = "";
   let i = 0;
   while (i < pattern.length) {
@@ -88,7 +96,9 @@ function globToRegex(pattern: string): RegExp {
       i += 1;
     }
   }
-  return new RegExp(`^${out}$`);
+  const compiled = new RegExp(`^${out}$`);
+  globRegexCache.set(pattern, compiled);
+  return compiled;
 }
 
 /**

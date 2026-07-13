@@ -35,7 +35,7 @@ import { BATCH_CAP_BYTES } from "../core/wire.ts";
 import { walkFolder } from "./walk.ts";
 import { runFilenamePipeline, isIncluded, detectDestinationCollisions, translateTokens } from "./filename-pipeline.ts";
 import { classifyTransport } from "./classify-transport.ts";
-import { validateDestinationLexical } from "./containment.ts";
+import { validateDestinationLexical, resolveRealCeiling } from "./containment.ts";
 
 /**
  * Argument shape for the `scaffold` author verb (REQ-FSC-01). `from`/`to` are mandatory;
@@ -121,6 +121,9 @@ export function runScaffold(args: ScaffoldArgs): void {
   detectDestinationCollisions(pipelineResults);
 
   const toPrefix = translateTokens(args.to);
+  // The ceiling's realpath is a RUN invariant (not one of the pinned per-candidate
+  // validation steps) — resolve it once for the whole entry loop.
+  const realCeiling = resolveRealCeiling(packageRoot);
 
   for (const result of pipelineResults) {
     const sourceRelPath = posix.join(args.from, result.sourceRelPath);
@@ -129,6 +132,7 @@ export function runScaffold(args: ScaffoldArgs): void {
       packageRoot,
       relPath: sourceRelPath,
       isTemplateMarked: result.isTemplateMarked,
+      realCeiling,
     });
 
     const destPath = posix.join(toPrefix, result.destRelPath);

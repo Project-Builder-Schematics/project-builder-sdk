@@ -31,16 +31,21 @@ export type ClassifyResult =
 // REQ-CCL-01's whole-file sniff, scoped to what a render REQUEST needs (S-000): valid UTF-8
 // across the ENTIRE buffer (never a prefix sample — REQ-CCL-03) and no null byte anywhere.
 // Lives here (the classify leaf) so the module graph stays acyclic — `index.ts` re-exports
-// it for the historical `scaffold/index.ts` surface. A render request has no by-reference
-// fallback (REQ-FEH-02), it fails loud.
-export function isSniffableText(buf: Buffer): boolean {
-  if (buf.includes(0)) return false;
+// the boolean form for the historical `scaffold/index.ts` surface. A render request has no
+// by-reference fallback (REQ-FEH-02), it fails loud. Returning the decoded string (instead
+// of decoding a second time at the caller) is safe: a buffer that survives the fatal decode
+// decodes identically under `buf.toString("utf-8")`.
+export function decodeSniffableText(buf: Buffer): string | null {
+  if (buf.includes(0)) return null;
   try {
-    new TextDecoder("utf-8", { fatal: true }).decode(buf);
-    return true;
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function isSniffableText(buf: Buffer): boolean {
+  return decodeSniffableText(buf) !== null;
 }
 
 function templateSniffFailMessage(relPath: string, problem: string): string {
@@ -63,15 +68,17 @@ export function classifyTransport(params: {
   packageRoot: string;
   relPath: string;
   isTemplateMarked: boolean;
+  /** Precomputed `resolveRealCeiling(packageRoot)` — threaded by loop callers (`runScaffold`). */
+  realCeiling?: string;
 }): ClassifyResult {
-  const { packageDir, packageRoot, relPath, isTemplateMarked } = params;
+  const { packageDir, packageRoot, relPath, isTemplateMarked, realCeiling } = params;
 
   // REQ-PRC-08: containment + regular-file eligibility complete BEFORE any content read.
   // Throws one of the four `source-*` reasons on failure — regardless of `isTemplateMarked`
   // (a missing/outside-package/non-regular SOURCE is a source-read failure, not a
   // classify-level CCL-05 content failure; only steps AFTER containment get the
   // `.template` invalid-input carve-out below).
-  const { absPath, stat } = validateSourceContainment({ packageDir, packageRoot, relPath });
+  const { absPath, stat } = validateSourceContainment({ packageDir, packageRoot, relPath, realCeiling });
 
   // Stat-size gate BEFORE any content read (REQ-CCL-06): zero content-read calls for an
   // over-budget-by-stat file. Reuses containment's own `lstat` — no second stat call.
@@ -96,7 +103,8 @@ export function classifyTransport(params: {
     // genuine read-path failure (permission/I/O), never a missing/outside-package source.
     throw new AuthoringError({ verb: undefined, path: relPath, reason: "source-unreadable", appliedCount: 0 });
   }
-  if (!isSniffableText(buf)) {
+  const content = decodeSniffableText(buf);
+  if (content === null) {
     if (isTemplateMarked) {
       throw new AuthoringError({
         verb: undefined,
@@ -108,8 +116,6 @@ export function classifyTransport(params: {
     }
     return { verdict: "by-reference" };
   }
-
-  const content = buf.toString("utf-8");
 
   // Serialized-form budget (REQ-CCL-02): measured the same way the fake measures a batch
   // (`Buffer.byteLength(JSON.stringify(x), "utf8")`), never raw bytes alone. `>` (not
