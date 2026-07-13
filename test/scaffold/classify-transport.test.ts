@@ -5,8 +5,9 @@
  * — `classifyTransport` is called directly against real scratch files; no `defineFactory`
  * run needed (it takes `packageDir` as a plain argument).
  */
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, spyOn } from "bun:test";
 import { writeFileSync, statSync } from "node:fs";
+import * as fs from "node:fs";
 import { join } from "node:path";
 import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
@@ -146,10 +147,22 @@ describe("REQ-CCL-06 — stat-size gate before any content read", () => {
     const stSize = statSync(path).size;
     expect(stSize).toBeGreaterThan(BATCH_CAP_BYTES);
 
-    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "huge.bin", isTemplateMarked: false });
+    // Mutation-coverage (final-verify remediation): asserting only the verdict + absent
+    // `content` field lets a mutant that DELETES the stat gate survive — it would slurp the
+    // whole file via readFileSync and still land on "by-reference" via the post-read
+    // serialized-budget check (REQ-CCL-02), producing an identical `{ verdict }` shape.
+    // Spying on readFileSync (mirrors containment.test.ts's REQ-PRC-08.1 pattern) proves the
+    // stat gate itself — not a downstream check — is what stopped the read.
+    const readSpy = spyOn(fs, "readFileSync");
+    try {
+      const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "huge.bin", isTemplateMarked: false });
 
-    expect(result.verdict).toEqual("by-reference");
-    expect("content" in result).toBe(false);
+      expect(result.verdict).toEqual("by-reference");
+      expect("content" in result).toBe(false);
+      expect(readSpy).not.toHaveBeenCalled();
+    } finally {
+      readSpy.mockRestore();
+    }
   });
 });
 
