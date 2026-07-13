@@ -4,12 +4,10 @@
 // compliant by the fitness rule's own terms — it bans bare external PACKAGES, not `node:`
 // builtins).
 
-import { readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { currentContext } from "../core/context.ts";
 import { AuthoringError } from "../core/authoring-error.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
-import { isErrnoException } from "../core/fs-errors.ts";
 import { forceEntry } from "../core/directive-factory.ts";
 import { validateSourceContainment, validateDestinationLexical } from "./containment.ts";
 
@@ -24,14 +22,6 @@ function noResolutionAnchorMessage(relPath: string): string {
     `invalid input: templateFile "${relPath}" requires defineFactory({ packageDir }) — ` +
     "there is no resolution anchor to read a package-local file against"
   );
-}
-
-function templateFileNotFoundMessage(relPath: string): string {
-  return `invalid input: templateFile "${relPath}" does not exist in the package`;
-}
-
-function templateFileUnreadableMessage(relPath: string): string {
-  return `invalid input: templateFile "${relPath}" could not be read`;
 }
 
 function templateFileBinaryMessage(relPath: string): string {
@@ -60,14 +50,21 @@ export function isSniffableText(buf: Buffer): boolean {
  * Reads a package-local file (relative to the active run's `packageDir`) and returns its
  * content as the string to use for a `create({ templateFile })` render request.
  *
- * Stat-size gate BEFORE any content read (REQ-CCL-06 posture): an oversized file is
- * rejected on its stat size alone. A `templateFile` REQUESTS a render — unlike `scaffold`'s
- * by-value/by-reference classification of unmarked files, there is no silent by-reference
- * fallback here (REQ-FEH-02): invalid UTF-8, a null byte, or an over-budget file all fail
- * loud with reason `invalid-input`.
+ * Containment (S-005, verify-in-loop-4 Deviation #1 ruling): the path is validated through
+ * the SAME `validateSourceContainment` machinery `scaffold`/`copyIn` already use
+ * (`package-root-containment` REQ-PRC-01..08) BEFORE any content read — a missing/
+ * outside-package/non-regular/unreadable source surfaces the matching neutral `source-*`
+ * `AuthoringReason` (REQ-AEC-10/11), never a parallel templateFile-only check. Stat-size
+ * gate BEFORE any content read (REQ-CCL-06 posture), reusing containment's own `lstat`
+ * (no second stat call): an oversized file is rejected on its stat size alone. A
+ * `templateFile` REQUESTS a render — unlike `scaffold`'s by-value/by-reference
+ * classification of unmarked files, there is no silent by-reference fallback here
+ * (REQ-FEH-02): invalid UTF-8, a null byte, or an over-budget file all fail loud with
+ * reason `invalid-input` (these are RENDER-REQUEST failures, distinct from the source-*
+ * containment/existence failures above).
  */
 export function readTemplateFile(relPath: string): string {
-  const { packageDir } = currentContext();
+  const { packageDir, packageRoot } = currentContext();
   if (packageDir === undefined) {
     throw new AuthoringError({
       verb: undefined,
@@ -77,30 +74,11 @@ export function readTemplateFile(relPath: string): string {
       message: noResolutionAnchorMessage(relPath),
     });
   }
-
-  const abs = join(packageDir, relPath);
-
-  let stat: ReturnType<typeof statSync>;
-  try {
-    stat = statSync(abs);
-  } catch (err) {
-    if (isErrnoException(err) && err.code === "ENOENT") {
-      throw new AuthoringError({
-        verb: undefined,
-        path: undefined,
-        reason: "invalid-input",
-        appliedCount: 0,
-        message: templateFileNotFoundMessage(relPath),
-      });
-    }
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: templateFileUnreadableMessage(relPath),
-    });
-  }
+  // packageRoot is ALWAYS resolved together with packageDir (context.ts's pre-`als.run`
+  // chokepoint sets both or throws before either is set, ADR-0046) — same precedent as
+  // `runCopyIn` below; no reachable RunContext has packageDir set with packageRoot left
+  // undefined.
+  const { absPath, stat } = validateSourceContainment({ packageDir, packageRoot: packageRoot!, relPath });
 
   // Stat-size gate before any content read — a multi-GB asset never gets slurped into
   // memory just to be told it's over budget (REQ-CCL-06 posture, applied here as the
@@ -115,7 +93,15 @@ export function readTemplateFile(relPath: string): string {
     });
   }
 
-  const buf = readFileSync(abs);
+  let buf: Buffer;
+  try {
+    buf = readFileSync(absPath);
+  } catch {
+    // Containment already proved an in-ceiling regular file; a read failure THIS LATE is a
+    // genuine read-path failure (permission/I/O TOCTOU), never a missing/outside-package
+    // source — same posture as `classify-transport.ts`'s own post-containment read guard.
+    throw new AuthoringError({ verb: undefined, path: relPath, reason: "source-unreadable", appliedCount: 0 });
+  }
   if (!isSniffableText(buf)) {
     throw new AuthoringError({
       verb: undefined,

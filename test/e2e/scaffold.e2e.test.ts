@@ -21,9 +21,9 @@
  * copies verbatim, never renders (FEH-03/04/05, BRC-*, PRC-*).
  */
 import { describe, it, expect } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, scaffold, copyIn, dryRun, AuthoringError } from "../../src/commons/index.ts";
@@ -132,7 +132,7 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
     }
   });
 
-  it("REQ-FEH-02 family: a templateFile that does not exist rejects invalid-input, naming the package-relative path (ENOENT branch)", async () => {
+  it("S-005 (containment-routed): a templateFile that does not exist rejects source-not-found, naming the package-relative path (ENOENT branch)", async () => {
     const dir = packageDir();
     try {
       const fake = new ContractFake({ seed: {} });
@@ -149,9 +149,14 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
       }
 
       expect(caught).toBeInstanceOf(AuthoringError);
-      expect((caught as AuthoringError).reason).toEqual("invalid-input");
+      // Routed through `validateSourceContainment` (S-005, verify-in-loop-4 Deviation #1
+      // ruling): a missing-but-in-ceiling source now mints the neutral AEC-11 `source-*`
+      // reason/template, same machinery `copyIn`/`scaffold` already use — not a
+      // parallel, templateFile-only `invalid-input` message.
+      expect((caught as AuthoringError).reason).toEqual("source-not-found");
+      expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
       expect((caught as Error).message).toEqual(
-        'invalid input: templateFile "missing.ts.template" does not exist in the package'
+        "source file not found: missing.ts.template does not exist in the package"
       );
       expect((caught as Error).message).not.toContain(dir);
       expect(fake.committedTree().size).toEqual(0);
@@ -160,10 +165,10 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
     }
   });
 
-  it("REQ-FEH-02 family: a non-ENOENT stat failure (ENOTDIR — path routed through a regular file) rejects invalid-input as unreadable, never as not-found", async () => {
+  it("S-005 (containment-routed): a non-ENOENT realpath failure (ENOTDIR — path routed through a regular file) rejects source-unreadable, never source-not-found", async () => {
     const dir = packageDir();
     try {
-      // `blocker.txt` is a regular FILE; statting a path that treats it as a directory
+      // `blocker.txt` is a regular FILE; resolving a path that treats it as a directory
       // throws ENOTDIR — a deterministic, chmod-free non-ENOENT errno (S18: chmod
       // fixtures are unreliable under root-running CI).
       writeFileSync(join(dir, "blocker.txt"), "content", "utf-8");
@@ -181,14 +186,122 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
       }
 
       expect(caught).toBeInstanceOf(AuthoringError);
-      expect((caught as AuthoringError).reason).toEqual("invalid-input");
+      expect((caught as AuthoringError).reason).toEqual("source-unreadable");
       expect((caught as Error).message).toEqual(
-        'invalid input: templateFile "blocker.txt/nested.template" could not be read'
+        "source file unreadable: blocker.txt/nested.template could not be read"
       );
       expect(fake.committedTree().size).toEqual(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  describe("REQ-PRC-04/07 — create({templateFile}) source containment (S-005 routed fix, verify-in-loop-4 Deviation #1)", () => {
+    it("the verify-in-loop-4 exploit fixture: a relPath escaping via '../../../' to a file entirely outside packageRoot rejects source-outside-package, content is NEVER returned", async () => {
+      const dir = packageDir();
+      const secretDir = mkdtempSync(join(tmpdir(), "scaffold-e2e-outside-"));
+      try {
+        writeFileSync(join(secretDir, "secret.txt"), "TOP SECRET OUTSIDE THE CEILING", "utf-8");
+        const escapingRelPath = relative(dir, join(secretDir, "secret.txt"));
+        const fake = new ContractFake({ seed: {} });
+
+        const run = defineFactory<void>(() => {
+          create("dest.ts", { templateFile: escapingRelPath, options: {} });
+        }, { packageDir: dir });
+
+        let caught: unknown;
+        try {
+          await run(undefined, { client: fake });
+        } catch (err) {
+          caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(AuthoringError);
+        expect((caught as AuthoringError).reason).toEqual("source-outside-package");
+        expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
+        expect((caught as Error).message).not.toContain("TOP SECRET");
+        expect(fake.committedTree().size).toEqual(0);
+        expect(fake.stagingTree().size).toEqual(0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+        rmSync(secretDir, { recursive: true, force: true });
+      }
+    });
+
+    it("in-ceiling happy path is unaffected by the containment routing (REQ-FEH-01.1 unchanged)", async () => {
+      const dir = packageDir();
+      try {
+        writeFileSync(join(dir, "tpl.ts.template"), "export const x = {= x =};", "utf-8");
+        const fake = new ContractFake({ seed: {} });
+
+        const run = defineFactory<void>(() => {
+          create("dest.ts", { templateFile: "tpl.ts.template", options: { x: 1 } });
+        }, { packageDir: dir });
+
+        await run(undefined, { client: fake });
+
+        expect(fake.committedTree()).toEqual(new Map([["dest.ts", "export const x = {= x =};"]]));
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("PRC-07.2 broken-symlink oracle, out-of-ceiling target: rejects source-outside-package, never source-not-found", async () => {
+      const dir = packageDir();
+      const external = mkdtempSync(join(tmpdir(), "scaffold-e2e-external-"));
+      try {
+        // Target never created — the symlink is broken by construction, and its target
+        // lives entirely outside packageRoot.
+        symlinkSync(join(external, "never-created.txt"), join(dir, "broken-outside.template"));
+        const fake = new ContractFake({ seed: {} });
+
+        const run = defineFactory<void>(() => {
+          create("dest.ts", { templateFile: "broken-outside.template", options: {} });
+        }, { packageDir: dir });
+
+        let caught: unknown;
+        try {
+          await run(undefined, { client: fake });
+        } catch (err) {
+          caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(AuthoringError);
+        expect((caught as AuthoringError).reason).toEqual("source-outside-package");
+        expect(fake.committedTree().size).toEqual(0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+        rmSync(external, { recursive: true, force: true });
+      }
+    });
+
+    it("PRC-07.2 broken-symlink oracle, in-ceiling target: rejects source-not-found, never source-outside-package", async () => {
+      const dir = packageDir();
+      try {
+        // Target never created, but its lexical location is INSIDE packageRoot — the S1
+        // ENOENT-ordering fix (verify-in-loop-4 CRITICAL regression) must classify this
+        // as source-not-found, not a false source-outside-package.
+        symlinkSync(join(dir, "sub", "never-created.txt"), join(dir, "broken-inside.template"));
+        const fake = new ContractFake({ seed: {} });
+
+        const run = defineFactory<void>(() => {
+          create("dest.ts", { templateFile: "broken-inside.template", options: {} });
+        }, { packageDir: dir });
+
+        let caught: unknown;
+        try {
+          await run(undefined, { client: fake });
+        } catch (err) {
+          caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(AuthoringError);
+        expect((caught as AuthoringError).reason).toEqual("source-not-found");
+        expect(fake.committedTree().size).toEqual(0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   it("REQ-CCL-02.2 posture: raw bytes under budget but JSON-serialized form over budget rejects invalid-input (kills a raw-bytes-only measurer)", async () => {
