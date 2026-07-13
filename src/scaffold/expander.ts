@@ -74,17 +74,6 @@ function invalidInput(message: string): AuthoringError {
   return new AuthoringError({ verb: undefined, path: undefined, reason: "invalid-input", appliedCount: 0, message });
 }
 
-/**
- * Walks a package-local folder and mirrors it into the target tree (REQ-FSC-01..09):
- * every source-relative path enumerates (REQ-FSC-09), passes include/exclude filtering
- * (REQ-FSC-03), runs the rename→token→`.template`-strip pipeline (REQ-FSC-05), and is
- * checked for intra-scaffold destination collisions (REQ-FSC-08) BEFORE any file is
- * classified. Each surviving source classifies by-value or by-reference
- * (`content-classification`); by-value sources emit a `create` directive through the
- * existing IR. A truly-empty `from` folder no-ops (REQ-FSC-04.1); filters eliminating
- * every entry fail loud, naming them (REQ-FSC-04.2). `force` passes through unchanged to
- * every emitted directive (REQ-FSC-06).
- */
 // REQ-04's serialized-size heuristic (S-004): measures what the PENDING batch (already-
 // buffered directives + one candidate more) would serialize to, using the EXACT same shape
 // the fake measures at emit time (`Buffer.byteLength(JSON.stringify(batch), "utf8")`) — a

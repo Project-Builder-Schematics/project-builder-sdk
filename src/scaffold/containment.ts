@@ -30,11 +30,9 @@ import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { AuthoringError } from "../core/authoring-error.ts";
 import { isErrnoException } from "../core/fs-errors.ts";
 
-const CASE_INSENSITIVE_PLATFORMS = new Set(["win32", "darwin"]);
+const FOLD_CASE = process.platform === "win32" || process.platform === "darwin";
 
-function isCaseInsensitivePlatform(): boolean {
-  return CASE_INSENSITIVE_PLATFORMS.has(process.platform);
-}
+const fold = (p: string): string => (FOLD_CASE ? p.toLowerCase() : p);
 
 // Segment-aware ceiling comparison (REQ-PRC-04, kills the bare-`startsWith` mutant —
 // REQ-PRC-04.5's sibling-prefix scenario: `/pkg-evil/x`.startsWith(`/pkg`) would wrongly
@@ -43,7 +41,6 @@ function isCaseInsensitivePlatform(): boolean {
 // case-insensitive platforms ONLY (product ruling Q24 — win32/darwin); canonical-form
 // hardening (UNC/device/reserved-DOS/drive-relative) stays engine-side (BRC-08).
 export function isWithinCeiling(candidateAbs: string, ceilingAbs: string): boolean {
-  const fold = (p: string): string => (isCaseInsensitivePlatform() ? p.toLowerCase() : p);
   const candidate = fold(candidateAbs);
   const ceiling = fold(ceilingAbs);
   const ceilingWithSep = ceiling.endsWith(sep) ? ceiling : ceiling + sep;
