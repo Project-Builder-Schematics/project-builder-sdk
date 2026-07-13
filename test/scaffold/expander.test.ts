@@ -6,6 +6,13 @@
  * mixed by-value/by-reference collision scenario is S-003 scope). Integration level
  * (design): drives `runScaffold` through a real `defineFactory` run against a
  * `ContractFake`.
+ *
+ * REQ-PRC-09 (S-002): the destination lexical guard is unit-tested directly against
+ * `validateDestinationLexical` in `test/scaffold/containment.test.ts` (design's Test
+ * Derivation assignment) — the block below additionally proves the WIRING into
+ * `expander.ts`'s computed-destination emit path, via a `rename` map value that smuggles
+ * a `../` segment into the FINAL destination (design §Data Model S3: the guard applies
+ * post-rename, post-token-translation).
  */
 import { describe, it, expect } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -124,5 +131,35 @@ describe("REQ-FSC-06.1 — force: true passes to every emitted directive", () =>
 
     expect(caught).toBeInstanceOf(AuthoringError);
     expect((caught as AuthoringError).reason).toEqual("path-collision");
+  });
+});
+
+describe("REQ-PRC-09.1 — destination lexical guard wiring: a rename map value smuggling '../' into the FINAL destination is caught pre-emit", () => {
+  it("a rename value escaping past the workspace root (more '..' levels than `to`'s own depth) rejects invalid-input before any directive is emitted", async () => {
+    // `to: "out"` is ONE segment deep — a rename value with only ONE ".." cancels exactly
+    // against it (`posix.join("out", "../escape.ts")` === "escape.ts", still workspace-root-
+    // relative, not a PRC-09 violation). TWO ".." levels overshoot past the workspace root,
+    // surfacing as a literal leading ".." in the joined result — that IS the escape PRC-09
+    // guards against.
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "a.ts"), "A", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const run = defineFactory<void>(() => {
+      scaffold({ from: "files", to: "out", rename: { "a.ts": "../../escape.ts" } });
+    }, { packageDir: dir });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client: fake });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(AuthoringError);
+    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
+    expect(fake.committedTree().size).toEqual(0);
   });
 });

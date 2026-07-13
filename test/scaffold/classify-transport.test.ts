@@ -20,7 +20,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "a.ts"), "export const a = 1;", "utf-8");
 
-    const result = classifyTransport({ packageDir: dir, relPath: "a.ts", isTemplateMarked: false });
+    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "a.ts", isTemplateMarked: false });
 
     expect(result).toEqual({ verdict: "by-value", content: "export const a = 1;" });
   });
@@ -29,7 +29,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "bad.bin"), Buffer.from([0xff, 0xfe, 0x00, 0x01]));
 
-    const result = classifyTransport({ packageDir: dir, relPath: "bad.bin", isTemplateMarked: false });
+    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "bad.bin", isTemplateMarked: false });
 
     expect(result.verdict).toEqual("by-reference");
   });
@@ -44,7 +44,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     for (const [name, bytes] of fixtures) {
       writeFileSync(join(dir, name), Buffer.from(bytes));
       expect(bytes.includes(0x00)).toBe(false);
-      const result = classifyTransport({ packageDir: dir, relPath: name, isTemplateMarked: false });
+      const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: name, isTemplateMarked: false });
       expect(result.verdict).toEqual("by-reference");
     }
   });
@@ -54,7 +54,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     const content = "café 日本語 😀";
     writeFileSync(join(dir, "multibyte.ts"), content, "utf-8");
 
-    const result = classifyTransport({ packageDir: dir, relPath: "multibyte.ts", isTemplateMarked: false });
+    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "multibyte.ts", isTemplateMarked: false });
 
     expect(result).toEqual({ verdict: "by-value", content });
   });
@@ -63,7 +63,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "empty.ts"), "", "utf-8");
 
-    const result = classifyTransport({ packageDir: dir, relPath: "empty.ts", isTemplateMarked: false });
+    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "empty.ts", isTemplateMarked: false });
 
     expect(result).toEqual({ verdict: "by-value", content: "" });
   });
@@ -75,10 +75,10 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
     writeFileSync(join(dir, "under.ts"), "a".repeat(1000), "utf-8");
     writeFileSync(join(dir, "over.ts"), "a".repeat(BATCH_CAP_BYTES + 1000), "utf-8");
 
-    expect(classifyTransport({ packageDir: dir, relPath: "under.ts", isTemplateMarked: false }).verdict).toEqual(
+    expect(classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "under.ts", isTemplateMarked: false }).verdict).toEqual(
       "by-value"
     );
-    expect(classifyTransport({ packageDir: dir, relPath: "over.ts", isTemplateMarked: false }).verdict).toEqual(
+    expect(classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "over.ts", isTemplateMarked: false }).verdict).toEqual(
       "by-reference"
     );
   });
@@ -91,7 +91,7 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
     writeFileSync(join(dir, "escapes.ts"), "\n".repeat(rawSize), "utf-8");
     expect(rawSize).toBeLessThan(BATCH_CAP_BYTES);
 
-    const result = classifyTransport({ packageDir: dir, relPath: "escapes.ts", isTemplateMarked: false });
+    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "escapes.ts", isTemplateMarked: false });
 
     expect(result.verdict).toEqual("by-reference");
   });
@@ -107,10 +107,10 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
     expect(Buffer.byteLength(JSON.stringify(atBudget), "utf8")).toEqual(BATCH_CAP_BYTES);
     expect(Buffer.byteLength(JSON.stringify(overBudget), "utf8")).toEqual(BATCH_CAP_BYTES + 1);
 
-    expect(classifyTransport({ packageDir: dir, relPath: "at.ts", isTemplateMarked: false }).verdict).toEqual(
+    expect(classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "at.ts", isTemplateMarked: false }).verdict).toEqual(
       "by-value"
     );
-    expect(classifyTransport({ packageDir: dir, relPath: "over.ts", isTemplateMarked: false }).verdict).toEqual(
+    expect(classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "over.ts", isTemplateMarked: false }).verdict).toEqual(
       "by-reference"
     );
   });
@@ -122,7 +122,7 @@ describe("REQ-CCL-03 — whole-file null-byte/UTF-8 scan (tail detection)", () =
     const buf = Buffer.concat([Buffer.from("a".repeat(4096), "utf-8"), Buffer.from([0x00])]);
     writeFileSync(join(dir, "tail-null.bin"), buf);
 
-    const result = classifyTransport({ packageDir: dir, relPath: "tail-null.bin", isTemplateMarked: false });
+    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "tail-null.bin", isTemplateMarked: false });
 
     expect(result.verdict).toEqual("by-reference");
   });
@@ -132,7 +132,7 @@ describe("REQ-CCL-03 — whole-file null-byte/UTF-8 scan (tail detection)", () =
     const buf = Buffer.concat([Buffer.from("a".repeat(70 * 1024), "utf-8"), Buffer.from([0x00])]);
     writeFileSync(join(dir, "big-tail-null.bin"), buf);
 
-    const result = classifyTransport({ packageDir: dir, relPath: "big-tail-null.bin", isTemplateMarked: false });
+    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "big-tail-null.bin", isTemplateMarked: false });
 
     expect(result.verdict).toEqual("by-reference");
   });
@@ -146,7 +146,7 @@ describe("REQ-CCL-06 — stat-size gate before any content read", () => {
     const stSize = statSync(path).size;
     expect(stSize).toBeGreaterThan(BATCH_CAP_BYTES);
 
-    const result = classifyTransport({ packageDir: dir, relPath: "huge.bin", isTemplateMarked: false });
+    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "huge.bin", isTemplateMarked: false });
 
     expect(result.verdict).toEqual("by-reference");
     expect(result.content).toBeUndefined();
@@ -160,7 +160,7 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
 
     let caught: unknown;
     try {
-      classifyTransport({ packageDir: dir, relPath: "logo.svg", isTemplateMarked: true });
+      classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "logo.svg", isTemplateMarked: true });
     } catch (err) {
       caught = err;
     }
@@ -177,7 +177,7 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
 
     let caught: unknown;
     try {
-      classifyTransport({ packageDir: dir, relPath: "huge.template", isTemplateMarked: true });
+      classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "huge.template", isTemplateMarked: true });
     } catch (err) {
       caught = err;
     }
@@ -190,39 +190,39 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
     const dir = scratchDir();
     writeFileSync(join(dir, "ok.ts.template"), "export const x = {= x =};", "utf-8");
 
-    const result = classifyTransport({ packageDir: dir, relPath: "ok.ts.template", isTemplateMarked: true });
+    const result = classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "ok.ts.template", isTemplateMarked: true });
 
     expect(result).toEqual({ verdict: "by-value", content: "export const x = {= x =};" });
   });
 });
 
-describe("MINIMAL placeholder containment guard (S-001 — S-002 hardens this into containment.ts)", () => {
-  it("a source-relative path containing a '..' segment rejects invalid-input", () => {
+describe("REQ-PRC-04 — source containment, delegated to containment.ts (S-002 hardened the S-001 placeholder)", () => {
+  it("REQ-PRC-04.1: a source-relative path containing a '..' segment rejects source-outside-package", () => {
     const dir = scratchDir();
 
     let caught: unknown;
     try {
-      classifyTransport({ packageDir: dir, relPath: "../outside.txt", isTemplateMarked: false });
+      classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "../outside.txt", isTemplateMarked: false });
     } catch (err) {
       caught = err;
     }
 
     expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expect((caught as AuthoringError).reason).toEqual("source-outside-package");
     expect((caught as AuthoringError).origin).toEqual("authoring-rejected");
   });
 
-  it("an absolute source-relative path rejects invalid-input", () => {
+  it("REQ-PRC-04.6: an absolute source-relative path rejects source-outside-package (no '..' present)", () => {
     const dir = scratchDir();
 
     let caught: unknown;
     try {
-      classifyTransport({ packageDir: dir, relPath: "/etc/passwd", isTemplateMarked: false });
+      classifyTransport({ packageDir: dir, packageRoot: dir, relPath: "/etc/passwd", isTemplateMarked: false });
     } catch (err) {
       caught = err;
     }
 
     expect(caught).toBeInstanceOf(AuthoringError);
-    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expect((caught as AuthoringError).reason).toEqual("source-outside-package");
   });
 });

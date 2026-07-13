@@ -6,18 +6,22 @@
 // by-reference verdict means for THIS slice (S-001: fail-loud placeholder; S-003: real
 // `copyIn` emission).
 //
-// Containment: MINIMAL lexical guard only (S-001 placeholder — slices.md S-001.3). S-002's
-// `containment.ts` REPLACES this with the full realpath/segment-aware/case-fold ceiling
-// check; this guard is NOT a security control on its own — it only rejects an obviously
-// escaping source-relative path before any read, keeping SOME guard in front of the read
-// while containment.ts does not exist yet.
+// Containment (S-002): delegates to `containment.ts`'s `validateSourceContainment` —
+// realpath-based, segment-aware, case-fold ceiling check + regular-file allow-list
+// (REQ-PRC-01..08) — REPLACING S-001's MINIMAL lexical-only placeholder guard. Containment
+// runs BEFORE any of this module's own stat/sniff/budget checks (REQ-PRC-08); the `Stats`
+// containment already obtained via `lstat` is reused here for the CCL-06 size gate rather
+// than stat'ing the path a second time. A `readFileSync` failure AFTER containment has
+// already proven an in-ceiling regular file (e.g. a permission/I/O error between lstat and
+// read) classifies `source-unreadable` (REQ-AEC-10) — distinct from a CONTENT-level
+// classify failure (binary/oversized), which stays `invalid-input` for `.template`-marked
+// entries only (REQ-CCL-05/AEC-12) and by-reference for everything else.
 
-import { readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { AuthoringError } from "../core/authoring-error.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
-import { isErrnoException } from "../core/fs-errors.ts";
 import { isSniffableText } from "./index.ts";
+import { validateSourceContainment } from "./containment.ts";
 
 export type ClassificationVerdict = "by-value" | "by-reference";
 
@@ -27,37 +31,11 @@ export interface ClassifyResult {
   content?: string;
 }
 
-function placeholderGuardMessage(relPath: string): string {
-  return `invalid input: source "${relPath}" escapes the package (containment placeholder — hardened by a later slice)`;
-}
-
-// MINIMAL lexical guard (S-001 placeholder, hardened by S-002's containment.ts): rejects an
-// obviously escaping source-relative path — a literal ".." segment or an absolute path —
-// before any read. A symlink pointing outside the package sails through this guard
-// untouched; only containment.ts's realpath ceiling check closes that gap.
-function placeholderContainmentGuard(relPath: string): void {
-  const isAbsolute = relPath.startsWith("/") || /^[A-Za-z]:[\\/]/.test(relPath);
-  const segments = relPath.split(/[\\/]+/);
-  if (isAbsolute || segments.includes("..")) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: placeholderGuardMessage(relPath),
-    });
-  }
-}
-
 function templateSniffFailMessage(relPath: string, problem: string): string {
   return (
     `invalid input: source "${relPath}" is marked .template but ${problem} — ` +
     "render requests never silently fall back to a copy"
   );
-}
-
-function readFailureMessage(relPath: string, problem: string): string {
-  return `invalid input: source "${relPath}" ${problem}`;
 }
 
 /**
@@ -70,42 +48,21 @@ function readFailureMessage(relPath: string, problem: string): string {
  */
 export function classifyTransport(params: {
   packageDir: string;
+  packageRoot: string;
   relPath: string;
   isTemplateMarked: boolean;
 }): ClassifyResult {
-  const { packageDir, relPath, isTemplateMarked } = params;
-  placeholderContainmentGuard(relPath);
-  const abs = join(packageDir, relPath);
+  const { packageDir, packageRoot, relPath, isTemplateMarked } = params;
 
-  let stat: ReturnType<typeof statSync>;
-  try {
-    stat = statSync(abs);
-  } catch (err) {
-    const problem = isErrnoException(err) && err.code === "ENOENT" ? "does not exist" : "could not be read";
-    if (isTemplateMarked) {
-      throw new AuthoringError({
-        verb: undefined,
-        path: undefined,
-        reason: "invalid-input",
-        appliedCount: 0,
-        message: templateSniffFailMessage(relPath, problem),
-      });
-    }
-    // Non-template entries never fail on stat during the S-001 placeholder path — a
-    // broken/unreadable non-template source is out of this slice's tested surface
-    // (S-002's containment.ts owns source-not-found/source-unreadable attribution).
-    // Wrapped here only so a raw Node error never crosses the public API boundary.
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: readFailureMessage(relPath, problem),
-    });
-  }
+  // REQ-PRC-08: containment + regular-file eligibility complete BEFORE any content read.
+  // Throws one of the four `source-*` reasons on failure — regardless of `isTemplateMarked`
+  // (a missing/outside-package/non-regular SOURCE is a source-read failure, not a
+  // classify-level CCL-05 content failure; only steps AFTER containment get the
+  // `.template` invalid-input carve-out below).
+  const { absPath, stat } = validateSourceContainment({ packageDir, packageRoot, relPath });
 
   // Stat-size gate BEFORE any content read (REQ-CCL-06): zero content-read calls for an
-  // over-budget-by-stat file.
+  // over-budget-by-stat file. Reuses containment's own `lstat` — no second stat call.
   if (stat.size > BATCH_CAP_BYTES) {
     if (isTemplateMarked) {
       throw new AuthoringError({
@@ -119,7 +76,14 @@ export function classifyTransport(params: {
     return { verdict: "by-reference" };
   }
 
-  const buf = readFileSync(abs);
+  let buf: Buffer;
+  try {
+    buf = readFileSync(absPath);
+  } catch {
+    // Containment already proved an in-ceiling regular file; a read failure THIS LATE is a
+    // genuine read-path failure (permission/I/O), never a missing/outside-package source.
+    throw new AuthoringError({ verb: undefined, path: relPath, reason: "source-unreadable", appliedCount: 0 });
+  }
   if (!isSniffableText(buf)) {
     if (isTemplateMarked) {
       throw new AuthoringError({

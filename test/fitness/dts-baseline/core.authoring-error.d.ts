@@ -13,11 +13,15 @@ import type { Batch } from "./wire.ts";
 export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" | "copy";
 /**
  * The closed, author-vocabulary cause of an `AuthoringError` (★D2, ADR-0020). Exactly
- * eight values — adding a ninth is a MAJOR change: authors are expected to write
+ * twelve values — adding a thirteenth is a MAJOR change: authors are expected to write
  * exhaustive `switch(reason)` blocks, and TypeScript's exhaustiveness check breaks such
  * a switch on a new member even though nothing breaks at runtime. (V2 → V3 amendment,
  * 2026-07-10, coordinated with `stage-4-typed-options`: extended from six to eight —
- * `invalid-input` and `reserved-name` added, REQ-AEC-07/08.)
+ * `invalid-input` and `reserved-name` added, REQ-AEC-07/08. `schematic-local-files`
+ * S-002, REQ-AEC-10: extended from eight to twelve — `source-not-found`,
+ * `source-outside-package`, `source-not-regular-file`, `source-unreadable` added, all
+ * four covering the SDK's own pre-emit read/stat of a package-local source for
+ * `scaffold`/`copyIn`/`create({templateFile})`.)
  *
  * @example
  * switch (err.reason) {
@@ -31,11 +35,15 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *   case "unknown":
  *   case "invalid-input":
  *   case "reserved-name":
+ *   case "source-not-found":
+ *   case "source-outside-package":
+ *   case "source-not-regular-file":
+ *   case "source-unreadable":
  *     console.error(err.message);
  *     break;
  * }
  */
-export type AuthoringReason = "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown" | "invalid-input" | "reserved-name";
+export type AuthoringReason = "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-outside-package" | "source-not-regular-file" | "source-unreadable";
 /**
  * Distinguishes an engine-refused write from an SDK-side misuse (2.4, ADR-0021) —
  * DERIVED from `reason`, never producer-set.
