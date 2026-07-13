@@ -6,7 +6,7 @@
 // destination-collision detection (REQ-FSC-08). Zero I/O — pure string transforms over
 // already-enumerated `walk.ts` entries.
 
-import { AuthoringError } from "../core/authoring-error.ts";
+import { invalidInput } from "../core/authoring-error.ts";
 
 const TEMPLATE_SUFFIX = ".template";
 const TOKEN_PATTERN = /__([A-Za-z_][A-Za-z0-9_]*(?:@[A-Za-z_][A-Za-z0-9_]*)*)__/g;
@@ -134,12 +134,6 @@ export function detectDestinationCollisions(results: readonly PipelineResult[]):
     .sort((a, b) => a[0].localeCompare(b[0]));
 
   if (collisions.length > 0) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: collisionMessage(collisions),
-    });
+    throw invalidInput(collisionMessage(collisions));
   }
 }

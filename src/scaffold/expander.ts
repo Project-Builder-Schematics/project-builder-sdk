@@ -27,8 +27,8 @@
 // NO new atomicity mechanism, exactly as the design promises.
 
 import { posix, join } from "node:path";
-import { currentContext } from "../core/context.ts";
-import { AuthoringError } from "../core/authoring-error.ts";
+import { currentContext, requirePackageAnchors } from "../core/context.ts";
+import { invalidInput } from "../core/authoring-error.ts";
 import { forceEntry } from "../core/directive-factory.ts";
 import type { Batch, Directive, JsonValue } from "../core/wire.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
@@ -70,10 +70,6 @@ function filtersEliminatedEverythingMessage(include: string[] | undefined, exclu
   );
 }
 
-function invalidInput(message: string): AuthoringError {
-  return new AuthoringError({ verb: undefined, path: undefined, reason: "invalid-input", appliedCount: 0, message });
-}
-
 // REQ-04's serialized-size heuristic (S-004): measures what the PENDING batch (already-
 // buffered directives + one candidate more) would serialize to, using the EXACT same shape
 // the fake measures at emit time (`Buffer.byteLength(JSON.stringify(batch), "utf8")`) — a
@@ -107,14 +103,8 @@ export function runScaffold(args: ScaffoldArgs): void {
   }
 
   const ctx = currentContext();
-  const { packageDir, session, factory } = ctx;
-  if (packageDir === undefined) {
-    throw invalidInput(noResolutionAnchorMessage());
-  }
-  // packageRoot is ALWAYS resolved together with packageDir (context.ts's pre-`als.run`
-  // chokepoint sets both or throws before either is set, REQ-PRC-01/ADR-0046) — no
-  // reachable RunContext has packageDir set with packageRoot left undefined.
-  const packageRoot = ctx.packageRoot!;
+  const { session, factory } = ctx;
+  const { packageDir, packageRoot } = requirePackageAnchors(noResolutionAnchorMessage());
 
   const fromAbs = join(packageDir, args.from);
   const walked = walkFolder(fromAbs);

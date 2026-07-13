@@ -9,7 +9,7 @@ import { relative, dirname, join } from "node:path";
 import type { EngineClient } from "./engine-client.ts";
 import { DirectiveFactory } from "./directive-factory.ts";
 import { Session } from "./session.ts";
-import { AuthoringError } from "./authoring-error.ts";
+import { AuthoringError, invalidInput } from "./authoring-error.ts";
 import { schemaPathFor, findReservedSibling } from "./schema/schema-discovery.ts";
 import { parseSchema, SchemaParseFailure, formatLocator } from "./schema/schema-parse.ts";
 import { validateInput } from "./schema/schema-validate.ts";
@@ -62,13 +62,13 @@ export interface RunContext {
   // currentContext().
   runFailure?: { reason: unknown };
   // ADR-0046: seeded ONCE, eagerly, at the pre-`als.run` chokepoint below — never
-  // re-derived per scaffold/copyIn call within the same run (REQ-PRC-02). Both undefined
-  // for the bare `defineFactory(fn)` untyped opt-out (byte-for-byte unchanged behavior).
-  // `packageDir` (RESOLUTION anchor) and `packageRoot` (CONTAINMENT ceiling, the nearest
-  // `collection.json` ancestor of `packageDir`) are DISTINCT anchors (REQ-PRC-01) — never
-  // conflate them when `src/scaffold/` consumes this context.
-  packageDir?: string;
-  packageRoot?: string;
+  // re-derived per scaffold/copyIn call within the same run (REQ-PRC-02). Absent for the
+  // bare `defineFactory(fn)` untyped opt-out (byte-for-byte unchanged behavior); when
+  // present, BOTH anchors are set (the chokepoint resolves them together or throws before
+  // either exists). `packageDir` (RESOLUTION anchor) and `packageRoot` (CONTAINMENT
+  // ceiling, the nearest `collection.json` ancestor of `packageDir`) are DISTINCT anchors
+  // (REQ-PRC-01) — never conflate them when `src/scaffold/` consumes this context.
+  packageAnchors?: { packageDir: string; packageRoot: string };
 }
 
 const als = new AsyncLocalStorage<RunContext>();
@@ -88,6 +88,17 @@ export function currentContext(): RunContext {
     });
   }
   return ctx;
+}
+
+// The one gate every package-local read verb (`scaffold`/`copyIn`/`create({templateFile})`)
+// passes through: returns the run's two-anchor pair or throws the verb's own
+// no-resolution-anchor `invalid-input` when the run opted out of `packageDir`.
+export function requirePackageAnchors(missingAnchorMessage: string): { packageDir: string; packageRoot: string } {
+  const { packageAnchors } = currentContext();
+  if (packageAnchors === undefined) {
+    throw invalidInput(missingAnchorMessage);
+  }
+  return packageAnchors;
 }
 
 // packageDir accepts a directory URL (import.meta.dir is a Bun string; import.meta.url
@@ -284,8 +295,7 @@ export function defineFactory<O>(
   options?: { packageDir?: string | URL }
 ): (o: O, deps: { client: EngineClient }) => Promise<void> {
   return async (o, { client }) => {
-    let packageDir: string | undefined;
-    let packageRoot: string | undefined;
+    let packageAnchors: RunContext["packageAnchors"];
     if (options?.packageDir !== undefined) {
       const resolvedDir = resolvePackageDir(options.packageDir);
       checkReservedNames(resolvedDir);
@@ -293,15 +303,13 @@ export function defineFactory<O>(
       // ADR-0046 / REQ-RBV-06: the containment-ceiling walk shares the SAME pre-`als.run`
       // chokepoint as schema/reserved-name validation, not a separate, uncoordinated read
       // site — a missing ancestor fails closed here, before `fn` ever runs (REQ-RBV-06.1).
-      packageRoot = resolvePackageRoot(resolvedDir);
-      packageDir = resolvedDir;
+      packageAnchors = { packageDir: resolvedDir, packageRoot: resolvePackageRoot(resolvedDir) };
     }
     const ctx: RunContext = {
       session: new Session(client),
       factory: new DirectiveFactory(),
       dialects: new DialectRegistryImpl(),
-      packageDir,
-      packageRoot,
+      packageAnchors,
     };
     // ADR-01: no `finally` — success (commit) and failure (discard) are distinct paths.
     // The final flush is INSIDE the try, so a flush-time emit rejection (already an

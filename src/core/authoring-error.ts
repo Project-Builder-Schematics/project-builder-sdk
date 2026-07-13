@@ -271,6 +271,13 @@ export class AuthoringError extends Error {
   }
 }
 
+// The one shared constructor-call shape for an SDK-side `invalid-input` misuse rejection
+// (REQ-AEC-09 requires the caller-supplied message; every producer site passes the same
+// verb/path/appliedCount constants). Message TEXT stays owned by each call site.
+export function invalidInput(message: string): AuthoringError {
+  return new AuthoringError({ verb: undefined, path: undefined, reason: "invalid-input", appliedCount: 0, message });
+}
+
 // Translates a raw emit() rejection (ideally an EmitRejection, ADR-0022) plus the
 // flushed batch into a public AuthoringError. Any rejection that does not carry the
 // EmitRejection shape (string/number/undefined/a metadata-less Error) degrades to

@@ -27,7 +27,7 @@
 
 import { lstatSync, readlinkSync, realpathSync, existsSync, type Stats } from "node:fs";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
-import { AuthoringError } from "../core/authoring-error.ts";
+import { AuthoringError, invalidInput } from "../core/authoring-error.ts";
 import { isErrnoException } from "../core/fs-errors.ts";
 
 const FOLD_CASE = process.platform === "win32" || process.platform === "darwin";
@@ -226,12 +226,6 @@ function destinationEscapeMessage(relPath: string): string {
  */
 export function validateDestinationLexical(relPath: string): void {
   if (isLexicallyEscaping(relPath)) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: destinationEscapeMessage(relPath),
-    });
+    throw invalidInput(destinationEscapeMessage(relPath));
   }
 }

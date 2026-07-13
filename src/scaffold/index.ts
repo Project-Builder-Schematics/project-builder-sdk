@@ -5,8 +5,8 @@
 // builtins).
 
 import { readFileSync } from "node:fs";
-import { currentContext } from "../core/context.ts";
-import { AuthoringError } from "../core/authoring-error.ts";
+import { currentContext, requirePackageAnchors } from "../core/context.ts";
+import { AuthoringError, invalidInput } from "../core/authoring-error.ts";
 import { BATCH_CAP_BYTES } from "../core/wire.ts";
 import { forceEntry } from "../core/directive-factory.ts";
 import { validateSourceContainment, validateDestinationLexical } from "./containment.ts";
@@ -64,33 +64,14 @@ export function isSniffableText(buf: Buffer): boolean {
  * containment/existence failures above).
  */
 export function readTemplateFile(relPath: string): string {
-  const { packageDir, packageRoot } = currentContext();
-  if (packageDir === undefined) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: noResolutionAnchorMessage(relPath),
-    });
-  }
-  // packageRoot is ALWAYS resolved together with packageDir (context.ts's pre-`als.run`
-  // chokepoint sets both or throws before either is set, ADR-0046) — same precedent as
-  // `runCopyIn` below; no reachable RunContext has packageDir set with packageRoot left
-  // undefined.
-  const { absPath, stat } = validateSourceContainment({ packageDir, packageRoot: packageRoot!, relPath });
+  const { packageDir, packageRoot } = requirePackageAnchors(noResolutionAnchorMessage(relPath));
+  const { absPath, stat } = validateSourceContainment({ packageDir, packageRoot, relPath });
 
   // Stat-size gate before any content read — a multi-GB asset never gets slurped into
   // memory just to be told it's over budget (REQ-CCL-06 posture, applied here as the
   // render-request fail-loud carve-out rather than CCL-06's by-reference verdict).
   if (stat.size > BATCH_CAP_BYTES) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: templateFileOversizedMessage(relPath),
-    });
+    throw invalidInput(templateFileOversizedMessage(relPath));
   }
 
   let buf: Buffer;
@@ -103,13 +84,7 @@ export function readTemplateFile(relPath: string): string {
     throw new AuthoringError({ verb: undefined, path: relPath, reason: "source-unreadable", appliedCount: 0 });
   }
   if (!isSniffableText(buf)) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: templateFileBinaryMessage(relPath),
-    });
+    throw invalidInput(templateFileBinaryMessage(relPath));
   }
 
   const content = buf.toString("utf-8");
@@ -120,13 +95,7 @@ export function readTemplateFile(relPath: string): string {
   // alone. `>` (not `>=`) — exactly-at-budget still fits.
   const serializedSize = Buffer.byteLength(JSON.stringify(content), "utf8");
   if (serializedSize > BATCH_CAP_BYTES) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: templateFileOversizedMessage(relPath),
-    });
+    throw invalidInput(templateFileOversizedMessage(relPath));
   }
 
   return content;
@@ -157,39 +126,14 @@ function noResolutionAnchorForCopyInMessage(): string {
  */
 export function runCopyIn(args: { from: string | undefined; to: string | undefined; force?: boolean }): void {
   if (args.from === undefined) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: missingCopyInArgMessage("from"),
-    });
+    throw invalidInput(missingCopyInArgMessage("from"));
   }
   if (args.to === undefined) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: missingCopyInArgMessage("to"),
-    });
+    throw invalidInput(missingCopyInArgMessage("to"));
   }
 
-  const ctx = currentContext();
-  const { packageDir, session, factory } = ctx;
-  if (packageDir === undefined) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "invalid-input",
-      appliedCount: 0,
-      message: noResolutionAnchorForCopyInMessage(),
-    });
-  }
-  // packageRoot is ALWAYS resolved together with packageDir (context.ts's pre-`als.run`
-  // chokepoint sets both or throws before either is set, ADR-0046) — no reachable
-  // RunContext has packageDir set with packageRoot left undefined.
-  const packageRoot = ctx.packageRoot!;
+  const { session, factory } = currentContext();
+  const { packageDir, packageRoot } = requirePackageAnchors(noResolutionAnchorForCopyInMessage());
 
   validateSourceContainment({ packageDir, packageRoot, relPath: args.from });
   validateDestinationLexical(args.to);

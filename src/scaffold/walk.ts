@@ -6,7 +6,7 @@
 
 import { lstatSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { AuthoringError } from "../core/authoring-error.ts";
+import { invalidInput } from "../core/authoring-error.ts";
 
 export const DEFAULT_WALK_ENTRY_BOUND = 10_000;
 
@@ -67,13 +67,7 @@ export function walkFolder(fromAbs: string, bound: number = DEFAULT_WALK_ENTRY_B
 
       entries.push({ relPath, absPath });
       if (entries.length > bound) {
-        throw new AuthoringError({
-          verb: undefined,
-          path: undefined,
-          reason: "invalid-input",
-          appliedCount: 0,
-          message: boundExceededMessage(bound),
-        });
+        throw invalidInput(boundExceededMessage(bound));
       }
     }
   }
