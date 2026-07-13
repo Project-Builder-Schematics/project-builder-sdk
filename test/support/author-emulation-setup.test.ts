@@ -39,6 +39,9 @@ describe("author-emulation-setup — git-hostile materialization (REQ-AEG-07.1)"
     if (fixtures.symlinkPath !== undefined) {
       expect(existsSync(fixtures.symlinkPath)).toBe(false);
     }
+    // "exactly what materialize created" includes the symlink's target dir — leaving it
+    // behind is residue, not teardown.
+    expect(existsSync(fixtures.symlinkTargetPath)).toBe(false);
   });
 
   it("records a skip (never throws) when symlink creation fails on the platform", () => {

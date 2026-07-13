@@ -11,6 +11,9 @@ import { join } from "node:path";
 export interface GitHostileFixtures {
   emptyDirPath: string;
   symlinkPath: string | undefined;
+  /** The symlink's target directory — created unconditionally (even when the symlink
+   * itself is skipped), so teardown must always remove it. */
+  symlinkTargetPath: string;
   symlinkSkipped: boolean;
   symlinkSkipReason: string | undefined;
 }
@@ -36,19 +39,34 @@ export function materializeGitHostileFixtures(baseDir: string): GitHostileFixtur
 
   try {
     symlinkSync(targetPath, symlinkPath, "dir");
-    return { emptyDirPath, symlinkPath, symlinkSkipped: false, symlinkSkipReason: undefined };
+    return {
+      emptyDirPath,
+      symlinkPath,
+      symlinkTargetPath: targetPath,
+      symlinkSkipped: false,
+      symlinkSkipReason: undefined,
+    };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    return { emptyDirPath, symlinkPath: undefined, symlinkSkipped: true, symlinkSkipReason: reason };
+    return {
+      emptyDirPath,
+      symlinkPath: undefined,
+      symlinkTargetPath: targetPath,
+      symlinkSkipped: true,
+      symlinkSkipReason: reason,
+    };
   }
 }
 
-/** Tears down exactly what `materializeGitHostileFixtures` created. Idempotent (force). */
+/** Tears down exactly what `materializeGitHostileFixtures` created — the empty dir, the
+ * symlink (when created), and the symlink's target dir. Idempotent (force). The symlink
+ * is removed BEFORE its target so no rm ever dereferences a live link. */
 export function teardownGitHostileFixtures(fixtures: GitHostileFixtures): void {
   rmSync(fixtures.emptyDirPath, { recursive: true, force: true });
   if (fixtures.symlinkPath !== undefined && existsSync(fixtures.symlinkPath)) {
     rmSync(fixtures.symlinkPath, { force: true });
   }
+  rmSync(fixtures.symlinkTargetPath, { recursive: true, force: true });
 }
 
 // A fixed repeating byte sequence (never random/clock-derived) so two materializations at

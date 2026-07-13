@@ -5,6 +5,8 @@
  * tests.
  */
 import { describe, it, expect } from "bun:test";
+import { readFileSync } from "node:fs";
+import { dirname } from "node:path";
 import type { Directive } from "../../../src/core/wire.ts";
 import {
   renderReport,
@@ -14,6 +16,39 @@ import {
   GAP_NOTICE,
 } from "../../support/run-report-render.ts";
 import { FORMAT_VERSION, type TranscriptRecord } from "../../support/corpus-format.ts";
+import { specifiersResolvingInto } from "../../support/import-scan.ts";
+
+const RENDERER_SOURCE_PATH = new URL("../../support/run-report-render.ts", import.meta.url).pathname;
+const DRY_RUN_PLAN_PATH = new URL("../../../src/dry-run/plan.ts", import.meta.url).pathname;
+const PARALLEL_MAP_FIXTURE = new URL(
+  "../../fixtures/red/author-emulation/parallel-kind-map-renderer.ts",
+  import.meta.url
+).pathname;
+
+// A comment quoting "rendered"/"copied" as prose is not a mapping (fit-01/25/27 idiom).
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+}
+
+/**
+ * Detects a hand-rolled op→kind mapping in VALUE position — the parallel-map drift
+ * REQ-RPT-01.1 bans. Three shapes cover the realistic implementations of such a map;
+ * `renderEntryLine`'s legitimate TYPE annotation (`kind?: "rendered" | "copied"`) matches
+ * none of them (its key is `kind`, not a wire-op name, and a type union is not a
+ * key:value pair keyed by an op).
+ */
+function parallelKindMapMatches(source: string): string[] {
+  const withoutComments = stripComments(source);
+  const PATTERNS: readonly RegExp[] = [
+    // object-literal map: { create: "rendered", copyIn: "copied" }
+    /\b(create|copyIn|modify|delete|rename|move|copy)\s*:\s*["'`](rendered|copied)["'`]/g,
+    // switch-based map: case "create": return "rendered"
+    /case\s+["'`][^"'`]+["'`]\s*:\s*(?:return\s+)?["'`](rendered|copied)["'`]/g,
+    // ternary map: d.op === "create" ? "rendered" : "copied"
+    /\?\s*["'`](rendered|copied)["'`]\s*:\s*["'`](rendered|copied)["'`]/g,
+  ];
+  return PATTERNS.flatMap((re) => [...withoutComments.matchAll(re)].map((m) => m[0]));
+}
 
 function baseRecord(overrides: Partial<TranscriptRecord>): TranscriptRecord {
   return {
@@ -45,9 +80,9 @@ describe("run-report-render — header carries the seam disclaimer + 3-item gap 
 
   it("SEAM_DISCLAIMER and GAP_NOTICE are exported as the exact literal constants asserted above", () => {
     expect(SEAM_DISCLAIMER).toEqual("IR captured at the EngineClient seam — nothing was engine-rendered");
-    expect(GAP_NOTICE.includes("module-wiring")).toBe(true);
-    expect(GAP_NOTICE.includes("tsconfig-AST")).toBe(true);
-    expect(GAP_NOTICE.includes("template rendering")).toBe(true);
+    // Full-literal equality: a fourth item (or reworded third) silently joining the
+    // notice must fail loudly, not slip past a containment check.
+    expect(GAP_NOTICE).toEqual("NOT EXERCISED at this seam: module-wiring, tsconfig-AST, template rendering");
   });
 });
 
@@ -109,5 +144,34 @@ describe("run-report-render — REPORTS_DIR/reportPathFor are the single pinned 
     expect(reportPathFor("m-01", "happy-path-full-generator")).toEqual(
       `${REPORTS_DIR}/m-01.happy-path-full-generator.report.md`
     );
+  });
+});
+
+describe("run-report-render — no second op→kind lookup table exists in the renderer's source (RPT-01.1)", () => {
+  it("the renderer imports dryRunPlan from src/dry-run/plan.ts — the one kind mechanism", () => {
+    const source = readFileSync(RENDERER_SOURCE_PATH, "utf-8");
+    const resolved = specifiersResolvingInto(source, dirname(RENDERER_SOURCE_PATH), DRY_RUN_PLAN_PATH);
+    expect(resolved.length).toBeGreaterThan(0);
+  });
+
+  it("the renderer's source contains no value-position op→kind mapping", () => {
+    const source = readFileSync(RENDERER_SOURCE_PATH, "utf-8");
+    expect(parallelKindMapMatches(source)).toEqual([]);
+  });
+
+  // RED-PROOF: a renderer-shaped module carrying a literal { create: "rendered",
+  // copyIn: "copied" } map is detected — proves the scan discriminates a real parallel
+  // map from the legitimate type annotation.
+  it("[red-proof] a planted hand-rolled op→kind map is detected", () => {
+    const source = readFileSync(PARALLEL_MAP_FIXTURE, "utf-8");
+    const matches = parallelKindMapMatches(source);
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches.join(" ")).toContain("rendered");
+  });
+
+  // RED-PROOF (no false positive): the type-annotation shape alone never triggers.
+  it("[red-proof] a kind type annotation is NOT flagged as a parallel map", () => {
+    const source = `function f(entry: { verb: string; path: string; kind?: "rendered" | "copied" }) { return entry; }`;
+    expect(parallelKindMapMatches(source)).toEqual([]);
   });
 });

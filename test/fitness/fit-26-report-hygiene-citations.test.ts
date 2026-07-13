@@ -1,13 +1,16 @@
 /**
  * FIT-26 (REQ-FTG-04): report hygiene + every matrix row cites a REQ/boundary.
  *
- * Three invariants:
+ * Four invariants:
  *  (a) `.gitignore` carries the report output pattern (`run-report` REQ-RPT-02/03).
  *  (b) the report filename derives ONLY from `REPORTS_DIR`/`reportPathFor` — no ad-hoc
  *      path literal for the reports dir exists anywhere else in the change's tree.
  *  (c) every row of the signed `specs/scenario-matrix/spec.md` table cites at least one
  *      `schematic-local-files` REQ-ID or an explicit owner boundary (D1-D4) — a row
  *      without a citation fails this check (REQ-SCM-01's 21-row table).
+ *  (d) no report artifact is ever git-tracked (`run-report` REQ-RPT-04): nothing under
+ *      the reports dir and no `.report.md`-named file anywhere in the tracked tree —
+ *      the aggregate/rolled-up report REQ-RPT-04 bans would surface as either.
  * Plus the GCC-01 count check (design §4.4): committed corpus files map one-to-one with
  * `SCENARIOS` entries.
  *
@@ -18,6 +21,7 @@
  * table with one row's Citation(s) column stripped.
  */
 import { describe, it, expect } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 import { SCENARIOS } from "../e2e/author-emulation/scenarios.ts";
@@ -105,6 +109,36 @@ describe("FIT-26 (c) — every scenario-matrix row cites a REQ-ID or owner bound
   it("[red-proof] a matrix row missing its citation is detected", () => {
     const rows = extractMatrixRows(readFileSync(UNCITED_ROW_FIXTURE, "utf-8"));
     expect(uncitedRows(rows)).toEqual(["M-02"]);
+  });
+});
+
+describe("FIT-26 (d) — no report artifact is git-tracked (REQ-RPT-04)", () => {
+  const PROJECT_ROOT = new URL("../..", import.meta.url).pathname;
+
+  function trackedReportArtifacts(trackedPaths: readonly string[]): string[] {
+    return trackedPaths.filter((p) => p.startsWith(`${REPORTS_DIR}/`) || p.endsWith(".report.md"));
+  }
+
+  it("no tracked file lives under the reports dir and no .report.md file is tracked anywhere", () => {
+    const result = spawnSync("git", ["ls-files"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
+    expect(result.status).toBe(0);
+
+    const tracked = result.stdout.split("\n").filter((line) => line.length > 0);
+    expect(trackedReportArtifacts(tracked)).toEqual([]);
+  });
+
+  // RED-PROOF (discriminability, no fixture needed): both a per-scenario report inside
+  // the reports dir and a rolled-up aggregate placed OUTSIDE it are caught.
+  it("[red-proof] a tracked report path is detected, in or out of the reports dir", () => {
+    const simulated = [
+      "src/core/wire.ts",
+      `${REPORTS_DIR}/m-01.example.report.md`,
+      "docs/aggregate.report.md",
+    ];
+    expect(trackedReportArtifacts(simulated)).toEqual([
+      `${REPORTS_DIR}/m-01.example.report.md`,
+      "docs/aggregate.report.md",
+    ]);
   });
 });
 
