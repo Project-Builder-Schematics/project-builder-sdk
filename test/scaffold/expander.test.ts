@@ -248,7 +248,7 @@ describe("SEC (owner-ratified final-verify remediation) — scaffold's walk ROOT
     }
   });
 
-  it("a legitimately absent in-ceiling `from` is unaffected by the new root check — existing not-found behavior is preserved", async () => {
+  it("REQ-PRC-10.3 (owner-ratified V4 → V5 amendment, judgment-day iteration 2 fix): a legitimately absent in-ceiling `from` rejects AuthoringError naming the package-relative path — never a raw ENOENT leaking an absolute path", async () => {
     const dir = scratchDir();
     const fake = new ContractFake({ seed: {} });
 
@@ -256,10 +256,29 @@ describe("SEC (owner-ratified final-verify remediation) — scaffold's walk ROOT
       scaffold({ from: "does-not-exist", to: "out" });
     }, { packageDir: dir });
 
-    // Not an AuthoringError — walkFolder's own readdirSync ENOENT propagates unchanged,
-    // exactly as it did before this remediation (no new source-not-found behavior invented
-    // for the scaffold root, per the owner-ratified scope).
-    expect(caught).not.toBeInstanceOf(AuthoringError);
+    // V5: walkFolder's own readdirSync ENOENT no longer propagates raw — it is caught at
+    // the walk ROOT and routed through AuthoringError (reason invalid-input), package-
+    // relative path only, same no-echo posture every other scaffold-family rejection holds.
+    expect(caught).toBeInstanceOf(AuthoringError);
+    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expect((caught as Error).message).toContain("does-not-exist");
+    expect((caught as Error).message).not.toContain(dir);
+    expect(fake.committedTree().size).toEqual(0);
+  });
+
+  it("REQ-PRC-10.3 (owner-ratified V4 → V5 amendment, judgment-day iteration 2 fix): a `from` that resolves to a regular file rejects AuthoringError naming the package-relative path — never a raw ENOTDIR leaking an absolute path", async () => {
+    const dir = scratchDir();
+    writeFileSync(join(dir, "not-a-folder.json"), "{}", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "not-a-folder.json", to: "out" });
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(AuthoringError);
+    expect((caught as AuthoringError).reason).toEqual("invalid-input");
+    expect((caught as Error).message).toContain("not-a-folder.json");
+    expect((caught as Error).message).not.toContain(dir);
     expect(fake.committedTree().size).toEqual(0);
   });
 });

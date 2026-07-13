@@ -117,7 +117,7 @@ export function runScaffold(args: ScaffoldArgs): void {
   validateSourceRootContainment({ packageDir, packageRoot, relPath: args.from, realCeiling });
 
   const fromAbs = join(packageDir, args.from);
-  const walked = walkFolder(fromAbs);
+  const walked = walkFolder(fromAbs, undefined, args.from);
   if (walked.length === 0) {
     return; // REQ-FSC-04.1: a truly-empty source folder is a silent no-op.
   }
