@@ -4,9 +4,15 @@ Completeness is the literal checklist in `golden-corpus-contract` REQ-GCC-08 —
 manifest's four points (EXERCISED, NOT-EXERCISED, engine-gated entries, FRICTION), all
 present. The EXERCISED ledger below is PRE-MAPPED from the signed 21-row
 `specs/scenario-matrix/spec.md` table (design.md §4.4) — it documents which REQ-ID each
-row is answerable for, independent of build state. The corpus FILES for M-01..M-21 land
-in S-003/S-004; `s-00` (this change's own walking skeleton, S-000) is not a
-scenario-matrix row and cites no `schematic-local-files` REQ-ID (REQ-GCC-12).
+row is answerable for, independent of build state. `s-00` (this change's own walking
+skeleton, S-000) is not a scenario-matrix row and cites no `schematic-local-files` REQ-ID
+(REQ-GCC-12).
+
+**Build status (2026-07-14, S-003 landed)**: corpus FILES now exist for `s-00` +
+`m-01, m-02, m-03, m-04, m-05, m-06, m-07, m-09, m-14, m-19, m-20` (11 matrix rows, S-003
+— Generation & Classification Happy Paths). The remaining 10 rows
+(`m-08, m-10, m-11, m-12, m-13, m-15, m-16, m-17, m-18, m-21` — Batch-Cap, Containment &
+Rejection Boundaries) land in S-004.
 
 ## EXERCISED
 
@@ -48,8 +54,9 @@ row's `Citation(s)` column.
 | batch-cap REQ-05.1 | M-21 |
 | _(none — infra-spine skeleton, REQ-GCC-12)_ | s-00 |
 
-All 21 matrix rows (REQ-SCM-01) are represented above; corpus FILES for M-01..M-21 land
-as S-003/S-004 build the factory surface.
+All 21 matrix rows (REQ-SCM-01) are represented above; corpus FILES for the 10 rows
+S-004 owns (`m-08, m-10, m-11, m-12, m-13, m-15, m-16, m-17, m-18, m-21`) land as that
+slice builds their rejection/boundary fixtures.
 
 ## NOT-EXERCISED
 
@@ -67,4 +74,22 @@ engine-gated entries from `scenario-matrix` REQ-SCM-02.
 
 ## FRICTION
 
-none observed
+- **Missing `collection.json` marker (S-002 authoring gap)**: `test/fixtures/author-emulation/`
+  shipped without its own `collection.json` containment-ceiling marker (unlike
+  `test/fixtures/typed-factory/`), so every S-003 `defineFactory({packageDir})` call
+  against this fixture would have failed loud ("no collection.json found at or above
+  ...") before running at all. Disposition: `accepted-as-is` — fixed directly in S-003
+  (a one-line, zero-risk addition; the marker is presence-only, never parsed).
+- **FIT-24's absolute-path scan false-positived on legitimate template prose**: the
+  scanner's naive `[^"]*` match doesn't recognize JSON-escaped quotes, so a `create.template`
+  string starting with a `"// comment"` opener and containing an embedded quote (this
+  fixture's own `__name@dasherize__.controller.ts.template` content, shipped in S-002)
+  was misread as an absolute-path leak once its content first landed in a committed
+  corpus record (S-003, `m-01`/`m-04`). Disposition: `accepted-as-is` — fixed directly
+  (space/escaped-newline guard added, with a pinning regression test).
+- **FIT-27's corpus-write co-occurrence scan false-positived once real report-writing
+  landed**: the scanner flagged the e2e test file as a corpus-dir writer because it both
+  reads `CORPUS_DIR` (for the byte-compare) and calls `writeFileSync` (for report output,
+  REPORTS_DIR-targeted) in the same module — whole-file co-occurrence, not per-call-site
+  precision. Disposition: `accepted-as-is` — fixed directly (scoped the check to each
+  write call's own argument list, with a pinning regression test).

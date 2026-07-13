@@ -1,0 +1,100 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-09",
+  "slug": "aggregate-over-cap-chunking",
+  "normative": {
+    "outcome": "committed",
+    "directives": [
+      {
+        "op": "create",
+        "pathTemplate": "out/big-0.txt",
+        "template": {
+          "contentDigest": {
+            "algo": "sha-256",
+            "bytes": 838860,
+            "sha256": "6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf"
+          }
+        },
+        "options": {},
+        "force": false
+      },
+      {
+        "op": "create",
+        "pathTemplate": "out/big-1.txt",
+        "template": {
+          "contentDigest": {
+            "algo": "sha-256",
+            "bytes": 838860,
+            "sha256": "6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf"
+          }
+        },
+        "options": {},
+        "force": false
+      },
+      {
+        "op": "create",
+        "pathTemplate": "out/big-2.txt",
+        "template": {
+          "contentDigest": {
+            "algo": "sha-256",
+            "bytes": 838860,
+            "sha256": "6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf"
+          }
+        },
+        "options": {},
+        "force": false
+      },
+      {
+        "op": "create",
+        "pathTemplate": "out/big-3.txt",
+        "template": {
+          "contentDigest": {
+            "algo": "sha-256",
+            "bytes": 838860,
+            "sha256": "6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf"
+          }
+        },
+        "options": {},
+        "force": false
+      },
+      {
+        "op": "create",
+        "pathTemplate": "out/big-4.txt",
+        "template": {
+          "contentDigest": {
+            "algo": "sha-256",
+            "bytes": 838860,
+            "sha256": "6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf"
+          }
+        },
+        "options": {},
+        "force": false
+      },
+      {
+        "op": "create",
+        "pathTemplate": "out/big-5.txt",
+        "template": {
+          "contentDigest": {
+            "algo": "sha-256",
+            "bytes": 838860,
+            "sha256": "6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf"
+          }
+        },
+        "options": {},
+        "force": false
+      }
+    ]
+  },
+  "informative": {
+    "batchGrouping": [
+      {
+        "directiveCount": 4,
+        "protocolVersion": 1
+      },
+      {
+        "directiveCount": 2,
+        "protocolVersion": 1
+      }
+    ]
+  }
+}

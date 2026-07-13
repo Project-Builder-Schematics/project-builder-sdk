@@ -1,0 +1,12 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-14",
+  "slug": "empty-folder-noop",
+  "normative": {
+    "outcome": "committed",
+    "directives": []
+  },
+  "informative": {
+    "batchGrouping": []
+  }
+}

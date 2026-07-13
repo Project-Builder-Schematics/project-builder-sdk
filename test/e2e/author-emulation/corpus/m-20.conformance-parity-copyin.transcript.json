@@ -1,0 +1,24 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-20",
+  "slug": "conformance-parity-copyin",
+  "normative": {
+    "outcome": "committed",
+    "directives": [
+      {
+        "op": "copyIn",
+        "from": "assets/logo.png",
+        "to": "m20-out/logo.png",
+        "force": false
+      }
+    ]
+  },
+  "informative": {
+    "batchGrouping": [
+      {
+        "directiveCount": 1,
+        "protocolVersion": 1
+      }
+    ]
+  }
+}
