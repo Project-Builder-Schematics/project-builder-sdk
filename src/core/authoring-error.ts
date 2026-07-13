@@ -18,20 +18,28 @@ import { EmitRejection, type EmitRejectionCode } from "./emit-rejection.ts";
  * `undefined` for batch-level rejections (`unrepresentable-content`,
  * `changes-too-large`, `unknown`), which have no single offending directive.
  *
+ * `schematic-local-files` S-003 (A1): extended from six to seven — `copyIn` added,
+ * forced by the `Directive["op"]` union gaining the `copyIn` wire op (ADR-0043); a
+ * `copyIn` collision attributes `verb: "copyIn"` (the author never called `copy`).
+ *
  * @example
  * if (err instanceof AuthoringError && err.verb !== undefined) {
  *   console.error(`${err.verb} was rejected at ${err.path}`);
  * }
  */
-export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" | "copy";
+export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" | "copy" | "copyIn";
 
 /**
  * The closed, author-vocabulary cause of an `AuthoringError` (★D2, ADR-0020). Exactly
- * eight values — adding a ninth is a MAJOR change: authors are expected to write
+ * twelve values — adding a thirteenth is a MAJOR change: authors are expected to write
  * exhaustive `switch(reason)` blocks, and TypeScript's exhaustiveness check breaks such
  * a switch on a new member even though nothing breaks at runtime. (V2 → V3 amendment,
  * 2026-07-10, coordinated with `stage-4-typed-options`: extended from six to eight —
- * `invalid-input` and `reserved-name` added, REQ-AEC-07/08.)
+ * `invalid-input` and `reserved-name` added, REQ-AEC-07/08. `schematic-local-files`
+ * S-002, REQ-AEC-10: extended from eight to twelve — `source-not-found`,
+ * `source-outside-package`, `source-not-regular-file`, `source-unreadable` added, all
+ * four covering the SDK's own pre-emit read/stat of a package-local source for
+ * `scaffold`/`copyIn`/`create({templateFile})`.)
  *
  * @example
  * switch (err.reason) {
@@ -45,6 +53,10 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *   case "unknown":
  *   case "invalid-input":
  *   case "reserved-name":
+ *   case "source-not-found":
+ *   case "source-outside-package":
+ *   case "source-not-regular-file":
+ *   case "source-unreadable":
  *     console.error(err.message);
  *     break;
  * }
@@ -57,7 +69,11 @@ export type AuthoringReason =
   | "outside-run"
   | "unknown"
   | "invalid-input"
-  | "reserved-name";
+  | "reserved-name"
+  | "source-not-found"
+  | "source-outside-package"
+  | "source-not-regular-file"
+  | "source-unreadable";
 
 /**
  * Distinguishes an engine-refused write from an SDK-side misuse (2.4, ADR-0021) —
@@ -70,14 +86,17 @@ export type AuthoringReason =
 export type AuthoringOrigin = "write-rejected" | "authoring-rejected";
 
 // ADR-0021: origin is DERIVED from reason via an exhaustive switch with a `never`
-// default arm — adding a 9th reason breaks the BUILD here, forcing a deliberate origin
+// default arm — adding a 13th reason breaks the BUILD here, forcing a deliberate origin
 // assignment instead of an accidental default (mirrored by the compile-time pin in
 // test/types/authoring-reason.test.ts). `unknown` maps to "write-rejected" deliberately:
 // an unclassifiable rejection necessarily arrived through the emit/write seam (the only
 // place toAuthoringError runs), so the write side is the honest attribution (spec
 // cross-cutting note 7). `invalid-input`/`reserved-name` (V2 → V3 amendment, REQ-AEC-07/08)
 // are ALWAYS "authoring-rejected" — same rationale as outside-run: an SDK-side misuse
-// detection, not an engine round-trip refusal.
+// detection, not an engine round-trip refusal. The four `source-*` reasons
+// (`schematic-local-files` S-002, REQ-AEC-10) are likewise ALWAYS "authoring-rejected" —
+// every one is detected by the SDK's OWN pre-emit read/stat of a package-local source,
+// never an engine round-trip refusal.
 function originFor(reason: AuthoringReason): AuthoringOrigin {
   switch (reason) {
     case "path-collision":
@@ -89,6 +108,10 @@ function originFor(reason: AuthoringReason): AuthoringOrigin {
     case "outside-run":
     case "invalid-input":
     case "reserved-name":
+    case "source-not-found":
+    case "source-outside-package":
+    case "source-not-regular-file":
+    case "source-unreadable":
       return "authoring-rejected";
     default: {
       const _exhaustive: never = reason;
@@ -131,6 +154,8 @@ function primaryPath(directive: Directive): string {
       return directive.move.path;
     case "copy":
       return directive.copy.from;
+    case "copyIn":
+      return directive.copyIn.from;
   }
 }
 
@@ -144,6 +169,12 @@ function primaryPath(directive: Directive): string {
 // existing typed meaning. Those two reasons therefore have NO default template here: the
 // caller (the AuthoringError constructor) MUST supply an explicit `message` for them —
 // see the `default` arm below, which throws rather than silently returning a wrong string.
+//
+// REQ-AEC-11 (`schematic-local-files` S-002, V3 neutral wording — no `"copy failed:"`
+// prefix, dropped because these reasons also fire for `scaffold`/`create({templateFile})`,
+// not only the copy-family verbs) adds four MORE families, one per new `source-*` reason.
+// Unlike invalid-input/reserved-name, these ARE derivable from `path` alone (always
+// package-relative, REQ-PRC-05) — no caller-supplied `message` needed.
 function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, path: string | undefined): string {
   switch (reason) {
     case "path-collision":
@@ -151,8 +182,7 @@ function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, pa
       return `${verb} failed at ${path}: ${reason}`;
     case "outside-run":
       return (
-        "@pbuilder/sdk: file verbs (create, find, modify, remove, rename, move, copy) " +
-        "can only be used while a schematic is running — " +
+        "@pbuilder/sdk: authoring verbs can only be used while a schematic is running — " +
         "call them inside your factory function, not at module load time."
       );
     case "unrepresentable-content":
@@ -160,12 +190,20 @@ function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, pa
       return `changes could not be applied: ${reason}`;
     case "unknown":
       return `changes could not be applied: ${reason} — the SDK could not classify this failure`;
+    case "source-not-found":
+      return `source file not found: ${path} does not exist in the package`;
+    case "source-outside-package":
+      return `source file outside package: ${path} resolves outside the package boundary`;
+    case "source-not-regular-file":
+      return `source file invalid: ${path} is not a regular file`;
+    case "source-unreadable":
+      return `source file unreadable: ${path} could not be read`;
     case "invalid-input":
     case "reserved-name":
       throw new Error(
         `messageFor: reason "${reason}" has no default template (REQ-AEC-09) — construct AuthoringError with an explicit \`message\``
       );
-    // Parity with originFor: noImplicitReturns is off, so without this arm a 9th reason
+    // Parity with originFor: noImplicitReturns is off, so without this arm a 13th reason
     // would fall through to an implicit `undefined` return instead of a build break.
     default: {
       const _exhaustive: never = reason;
@@ -230,6 +268,13 @@ export class AuthoringError extends Error {
     this.origin = originFor(fields.reason);
     this.appliedCount = fields.appliedCount;
   }
+}
+
+// The one shared constructor-call shape for an SDK-side `invalid-input` misuse rejection
+// (REQ-AEC-09 requires the caller-supplied message; every producer site passes the same
+// verb/path/appliedCount constants). Message TEXT stays owned by each call site.
+export function invalidInput(message: string): AuthoringError {
+  return new AuthoringError({ verb: undefined, path: undefined, reason: "invalid-input", appliedCount: 0, message });
 }
 
 // Translates a raw emit() rejection (ideally an EmitRejection, ADR-0022) plus the

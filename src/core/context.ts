@@ -3,13 +3,13 @@
 // The EngineClient is injected by the caller (test passes the fake) — no module global.
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { relative } from "node:path";
+import { relative, dirname, join } from "node:path";
 import type { EngineClient } from "./engine-client.ts";
 import { DirectiveFactory } from "./directive-factory.ts";
 import { Session } from "./session.ts";
-import { AuthoringError } from "./authoring-error.ts";
+import { AuthoringError, invalidInput } from "./authoring-error.ts";
 import { schemaPathFor, findReservedSibling } from "./schema/schema-discovery.ts";
 import { parseSchema, SchemaParseFailure, formatLocator } from "./schema/schema-parse.ts";
 import { validateInput } from "./schema/schema-validate.ts";
@@ -61,6 +61,14 @@ export interface RunContext {
   // dialect-handle.ts (F2 fitness-guarded) — dialect-handle.ts reaches this via
   // currentContext().
   runFailure?: { reason: unknown };
+  // ADR-0046: seeded ONCE, eagerly, at the pre-`als.run` chokepoint below — never
+  // re-derived per scaffold/copyIn call within the same run (REQ-PRC-02). Absent for the
+  // bare `defineFactory(fn)` untyped opt-out (byte-for-byte unchanged behavior); when
+  // present, BOTH anchors are set (the chokepoint resolves them together or throws before
+  // either exists). `packageDir` (RESOLUTION anchor) and `packageRoot` (CONTAINMENT
+  // ceiling, the nearest `collection.json` ancestor of `packageDir`) are DISTINCT anchors
+  // (REQ-PRC-01) — never conflate them when `src/scaffold/` consumes this context.
+  packageAnchors?: { packageDir: string; packageRoot: string };
 }
 
 const als = new AsyncLocalStorage<RunContext>();
@@ -82,6 +90,17 @@ export function currentContext(): RunContext {
   return ctx;
 }
 
+// The one gate every package-local read verb (`scaffold`/`copyIn`/`create({templateFile})`)
+// passes through: returns the run's two-anchor pair or throws the verb's own
+// no-resolution-anchor `invalid-input` when the run opted out of `packageDir`.
+export function requirePackageAnchors(missingAnchorMessage: string): { packageDir: string; packageRoot: string } {
+  const { packageAnchors } = currentContext();
+  if (packageAnchors === undefined) {
+    throw invalidInput(missingAnchorMessage);
+  }
+  return packageAnchors;
+}
+
 // packageDir accepts a directory URL (import.meta.dir is a Bun string; import.meta.url
 // is a file URL some authors may pass instead) — never a file URL pointing at a file.
 function resolvePackageDir(packageDir: string | URL): string {
@@ -93,6 +112,41 @@ function resolvePackageDir(packageDir: string | URL): string {
 // leaks no absolute path.
 function relativeDir(packageDir: string): string {
   return relative(process.cwd(), packageDir);
+}
+
+function missingPackageRootMessage(packageDir: string): string {
+  return (
+    `invalid input: no collection.json found at or above ${relativeDir(packageDir)} — ` +
+    "cannot resolve the containment root for this factory's package"
+  );
+}
+
+// REQ-PRC-02/REQ-PRC-03 (ADR-0046): the CONTAINMENT ceiling — the nearest `collection.json`
+// ANCESTOR of `packageDir` (itself included), walked upward from `packageDir` to the
+// filesystem root. `collection.json` is a PRESENCE-ONLY marker (never parsed, never read as
+// JSON — charter L2 keeps the manifest out of scope). No ancestor found → fail loud
+// `invalid-input` (REQ-PRC-03.1) BEFORE any source file is read; the ONLY caller is the
+// pre-`als.run` chokepoint below, so this resolves exactly once per run (REQ-PRC-02.1) —
+// scaffold/copyIn never re-walk it themselves, they read the already-resolved
+// `RunContext.packageRoot`.
+function resolvePackageRoot(packageDir: string): string {
+  let dir = packageDir;
+  for (;;) {
+    if (existsSync(join(dir, "collection.json"))) {
+      return dir;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      throw new AuthoringError({
+        verb: undefined,
+        path: undefined,
+        reason: "invalid-input",
+        appliedCount: 0,
+        message: missingPackageRootMessage(packageDir),
+      });
+    }
+    dir = parent;
+  }
 }
 
 // Author-vocabulary description of a non-ENOENT read failure — never the raw errno
@@ -241,15 +295,21 @@ export function defineFactory<O>(
   options?: { packageDir?: string | URL }
 ): (o: O, deps: { client: EngineClient }) => Promise<void> {
   return async (o, { client }) => {
+    let packageAnchors: RunContext["packageAnchors"];
     if (options?.packageDir !== undefined) {
       const resolvedDir = resolvePackageDir(options.packageDir);
       checkReservedNames(resolvedDir);
       validateAtRunBoundary(resolvedDir, o);
+      // ADR-0046 / REQ-RBV-06: the containment-ceiling walk shares the SAME pre-`als.run`
+      // chokepoint as schema/reserved-name validation, not a separate, uncoordinated read
+      // site — a missing ancestor fails closed here, before `fn` ever runs (REQ-RBV-06.1).
+      packageAnchors = { packageDir: resolvedDir, packageRoot: resolvePackageRoot(resolvedDir) };
     }
     const ctx: RunContext = {
       session: new Session(client),
       factory: new DirectiveFactory(),
       dialects: new DialectRegistryImpl(),
+      packageAnchors,
     };
     // ADR-01: no `finally` — success (commit) and failure (discard) are distinct paths.
     // The final flush is INSIDE the try, so a flush-time emit rejection (already an

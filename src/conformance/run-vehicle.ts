@@ -64,6 +64,24 @@ function applyDirective(tree: Map<string, string>, directive: Directive): void {
     }
     return;
   }
+  // S-003 (ATH-16): the ONLY op this vehicle adds collision machinery for — every other
+  // branch above applies silently (header note). `copyIn`'s source is package-local, not
+  // a tree entry (ADR-0045: SDK-side containment is the legitimate source-existence
+  // check, this vehicle never re-checks it) — collision-only, and NEVER writes `to` into
+  // `tree` on success (emit-only, REQ-ATH-15.1/BRC-04 — no simulation surface ever
+  // materializes by-reference bytes).
+  if (directive.op === "copyIn") {
+    const { to, force } = directive.copyIn;
+    if (tree.has(to) && !force) {
+      throw new Error(`copyIn collision — destination "${to}" already exists (use force to overwrite)`);
+    }
+    return;
+  }
+  // Exhaustiveness guard (final-verify remediation): an 8th wire op would otherwise
+  // compile through this if-chain and silently no-op — mirrors the `_exhaustive: never`
+  // idiom `authoring-error.ts`'s `messageFor`/`originFor` switches already use.
+  const _exhaustive: never = directive;
+  throw new Error(`unhandled directive op: ${(_exhaustive as Directive).op}`);
 }
 
 /**

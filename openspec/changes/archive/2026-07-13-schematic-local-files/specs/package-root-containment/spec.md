@@ -1,8 +1,29 @@
 # Package Root Containment Specification
 
-**Spec version**: V3
-**Status**: signed (owner, 2026-07-12 — micro-unfreeze V2→V3, deltas pre-authorized)
+**Spec version**: V5
+**Status**: signed (owner, 2026-07-12 — micro-unfreeze V2→V3, deltas pre-authorized); V3→V4 is a POST-SIGNING FINAL-VERIFY REMEDIATION ADDITION (2026-07-13, owner-ratified fix-now); V4→V5 is a judgment-day iteration 2 owner-ratified fix-now amendment (2026-07-13), pending owner-signed micro-amend at archive
+
 **Change**: `schematic-local-files`
+
+V4 → V5 (judgment-day iteration 2 fix, owner-ratified 2026-07-13, PENDING owner
+sign-off at archive): REQ-PRC-10.3 amended — a blind adversarial judge found the
+walk ROOT's missing/non-directory case reached `walkFolder`'s raw `readdirSync`
+unguarded, throwing a plain Node `Error` (ENOENT/ENOTDIR) instead of an
+`AuthoringError` — breaking the no-echo guarantee every other scaffold-family
+rejection holds (the raw error's message echoes the ABSOLUTE filesystem path) and
+the `AuthoringError` contract itself (`copyin-parity` asserts `instanceof
+AuthoringError` for every SDK-side rejection). Scenario REQ-PRC-10.3 now requires
+BOTH a missing `from` and a `from` that resolves to a regular file to reject
+`AuthoringError` (reason `invalid-input`) naming only the package-relative path.
+REQ-ID stable (10.3 amended in place, scenario added); no other REQ-PRC-10
+scenario changes.
+
+V3 → V4 (final-verify remediation, owner-ratified 2026-07-13, PENDING owner sign-off
+at archive): REQ-PRC-10 added — `scaffold`'s walk ROOT (`from`) must be
+containment-checked BEFORE `walkFolder` enumerates it; the blind Council's final-verify
+pass found `runScaffold` walked an unvalidated root, letting an escaping/symlinked
+`from` enumerate (readdir/lstat, bounded by the 10k-entry cap) an out-of-ceiling
+subtree before any per-entry check could fire. REQ-IDs stable; additive only.
 
 V2 → V3 (owner micro-unfreeze, 2026-07-12): scenario REQ-PRC-07.2 added — a symlink
 lexically inside the ceiling whose out-of-ceiling target does NOT exist still rejects
@@ -231,8 +252,58 @@ evaluate.
 - WHEN each is called
 - THEN each rejects fail-loud before any directive is emitted
 
+### REQ-PRC-10: Scaffold Walk ROOT Is Containment-Checked Before Enumeration [ADDED V4 — post-signing remediation, pending owner sign-off; 10.3 AMENDED V5 — judgment-day iteration 2 fix, pending owner sign-off]
+
+`scaffold`'s `from` (the walk ROOT, a directory — never file-checked) MUST pass the
+SAME lexical + realpath ceiling checks REQ-PRC-04 applies to individual sources
+(reusing the shared containment machinery — no parallel check) BEFORE `walkFolder`
+enumerates it. An escaping or out-of-ceiling root rejects `source-outside-package`
+with NO enumeration of the out-of-ceiling subtree (no `readdirSync`/`lstatSync` call
+against it) — closing the metadata-enumeration oracle / bounded-DoS gap the walk's
+10k-entry cap alone did not prevent (the cap still bounds an out-of-ceiling walk that
+DID start, it does not stop one from starting). A root that IS in-ceiling but is not a
+readable directory (legitimately ABSENT, or resolves to a regular FILE) is left by the
+containment check for `walkFolder` itself to answer (V4's original scope: this REQ
+never invents a new CONTAINMENT verdict for those cases) — but `walkFolder`'s answer
+MUST itself be `AuthoringError` (reason `invalid-input`), naming only the
+package-relative root path, never a raw Node `Error` that echoes the absolute
+filesystem path (V5 amendment, scenario REQ-PRC-10.3 below).
+
+#### Scenario REQ-PRC-10.1: Lexically escaping `from` rejects before any enumeration [SDK]
+
+- GIVEN `scaffold({ from: "../secrets", to: "out" })` where `../secrets` resolves
+  outside the containment ceiling
+- WHEN called
+- THEN it rejects `source-outside-package` and zero `readdirSync`/`lstatSync` calls
+  are ever made against the out-of-ceiling subtree
+
+#### Scenario REQ-PRC-10.2: Symlinked `from` whose realpath escapes rejects before any enumeration [SDK]
+
+- GIVEN a `from` that is LEXICALLY inside the ceiling but is a symlinked directory
+  whose realpath resolves outside it
+- WHEN scaffolded
+- THEN it rejects `source-outside-package` — the realpath verdict governs, and the
+  walk never descends into the symlinked target
+
+#### Scenario REQ-PRC-10.3: Missing or non-directory in-ceiling `from` rejects AuthoringError, package-relative path only [SDK] [AMENDED V5]
+
+- GIVEN a `from` that is lexically and really in-ceiling but does not exist on disk
+- WHEN scaffolded
+- THEN it rejects `AuthoringError` (reason `invalid-input`) naming only the
+  package-relative `from` — never a raw ENOENT `Error`, never the absolute
+  filesystem path
+
+#### Scenario REQ-PRC-10.3b: In-ceiling `from` that resolves to a regular file rejects AuthoringError, package-relative path only [SDK] [ADDED V5]
+
+- GIVEN a `from` that is lexically and really in-ceiling but resolves to a regular
+  FILE, not a directory
+- WHEN scaffolded
+- THEN it rejects `AuthoringError` (reason `invalid-input`) naming only the
+  package-relative `from` — never a raw ENOTDIR `Error`, never the absolute
+  filesystem path
+
 ## Sensitive Areas Coverage
 
 | Area | REQ IDs | Flagged at triage? |
 |---|---|---|
-| security (input validation / containment) | REQ-PRC-01 through REQ-PRC-09 | Yes |
+| security (input validation / containment) | REQ-PRC-01 through REQ-PRC-10 | Yes |

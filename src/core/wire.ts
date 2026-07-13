@@ -31,7 +31,12 @@ export type Directive =
   | { op: "delete"; delete: { path: string } }
   | { op: "rename"; rename: { path: string; newName: string; force?: boolean } }
   | { op: "move"; move: { path: string; toDir: string; force?: boolean } }
-  | { op: "copy"; copy: { from: string; to: string; force?: boolean } };
+  | { op: "copy"; copy: { from: string; to: string; force?: boolean } }
+  // ADR-0043: by-reference package-local copy — additive 7th op. `from` is relative to the
+  // RESOLUTION anchor (packageDir), never absolute (REQ-BRC-07); no content field — the
+  // engine reads and copies the source at apply time, text-only invariant preserved
+  // (ADR-0019 amendment).
+  | { op: "copyIn"; copyIn: { from: string; to: string; force?: boolean } };
 
 /**
  * The all-or-nothing wire envelope the SDK emits per `emit()` call — a fixed-order set of
@@ -48,3 +53,12 @@ export type Batch = { protocolVersion: 1; force: boolean; instructions: Directiv
 // SDK-chosen placeholder, not engine-confirmed; cheap to change until the Stage 6
 // semver freeze.
 export const BATCH_CAP_BYTES = 4 * 1024 * 1024;
+
+// The one shared measurer of what `instructions` serialize to inside the wire envelope —
+// the SAME shape `Session.flush` emits and the fake's `emit` cap check measures
+// (ADR-0018/0019). The expander's chunk heuristic and the batch-cap tests both consume
+// this so the envelope shape can never drift between them.
+export function serializedBatchSize(instructions: readonly Directive[]): number {
+  const batch: Batch = { protocolVersion: 1, force: false, instructions: [...instructions] };
+  return Buffer.byteLength(JSON.stringify(batch), "utf8");
+}

@@ -84,7 +84,7 @@ here as completed, NOT pending.
 | Description | Type | Size | Gating? | Stage |
 |---|---|---|---|---|
 | (steward CQ-2, owner-ratified) Demo-moment narrative restructure: the objectives-plan end-state demo interleaves a dialect read BEFORE showing the dry-run plan — under eager-flush that shows a PARTIAL plan. Restructure the demo to call `dryRun()` before any read/dialect-open | docs | XS | When Stage 5/6 materialize the demo | **6.3** |
-| (design ADR-0026) Outside-run error enumeration omits `dryRun` — generalise the `context.ts` message (post-stage-2 shape: `AuthoringError` constructor prose) while preserving the pinned "…can only be used while a schematic is running…" substring | refactor | XS | After stage-2 AND stage-3 merge | **post-merge** |
+| ~~(design ADR-0026) Outside-run error enumeration omits `dryRun` — generalise the `context.ts` message (post-stage-2 shape: `AuthoringError` constructor prose) while preserving the pinned "…can only be used while a schematic is running…" substring~~ **DONE 2026-07-13 (`schematic-local-files` final-verify remediation, ITEM 7)** — `messageFor`'s `outside-run` template dropped the `(create, find, modify, remove, rename, move, copy)` enumeration entirely (now: "authoring verbs can only be used…"), so it covers `dryRun` and every future verb without a per-verb edit; pinned substring preserved byte-for-byte, no test changed | refactor | XS | ~~After stage-2 AND stage-3 merge~~ | ~~**post-merge**~~ **closed** |
 | (design ADR-0024/0025) Single-source extraction: wire→author verb map + `DryRunVerb`/`AuthoringVerb` union duplicated across `src/dry-run/plan.ts` and `src/core/authoring-error.ts` by deliberate no-coupling rule — extract to one home once both stages are merged. Includes hoisting stage-3's mid-file imports in `src/commons/index.ts` to the top cluster (architect note) | refactor | S | After stage-2 AND stage-3 merge | **post-merge** |
 | (archive 2026-07-07, judgment-day Judge A) Test hardening: REQ-DRE-02 `.d.ts` scans in `test/skeleton/dry-run-public-contract.test.ts` target the COMMITTED baseline, not fresh `dist/` output — point them at the freshly-built artifact so additive leaks can't ride a stale baseline | test | XS | — | **anytime** |
 | ~~(archive 2026-07-07, blind judges) /simplify candidates for the immediate post-archive pass: renderer switch should index `WIRE_TO_AUTHOR_VERB[d.op]` instead of per-arm hardcoded keys (CONFIRMED by both judges); `Object.freeze` the map so "frozen" is literal; `DryRunEntry` example self-containment~~ **DONE 2026-07-07 `a96acc7` (/simplify pass)** — commons `@example` runnability intentionally NOT changed: REQ-DRE-04.1 mandates the `defineFactory` token and the runner isn't public until Stage 6, so a fully-runnable example is impossible today | refactor | XS | — | ~~immediate post-archive /simplify pass~~ **closed** |
@@ -224,3 +224,40 @@ family only AND builds the shared IR-report infrastructure the rest reuse.
 |---|---|---|---|---|
 | Author-emulation e2e per remaining mutation family: one change per author verb/family (`create`/`modify` incl. dialect chains, `move`/`rename`, `copy`, `remove`, `copyIn` standalone) following the scaffold change's pattern — realistic authored schematic + parametric scenario matrix (simple → complex) + IR capture into the shared report | test-coverage | M each | scaffold e2e change lands the shared report infra first | **own changes (post scaffold e2e)** |
 | Combination author-emulation e2e: compositions ACROSS mutation families, simple → complex (full realistic generators combining scaffold + dialect modify + move/copy + params), same IR-report vehicle — the closest pre-engine approximation of production authoring | test-coverage | L | all per-mutation e2e changes done | **own change (capstone, pre-engine-return)** |
+
+## From `schematic-local-files` (2026-07-13) — engine-side seam obligations, registered at S-005 ahead of archive
+
+`schematic-local-files` delivers the SDK-side half of the row-208 primitive above (`scaffold`/
+`copyIn`/`create({ templateFile })`, package-local reads by reference or by render request).
+Design's own §Seam Contract section is explicit: **the engine, not the SDK, is the real
+security control** for these three obligations — SDK-side containment (`src/scaffold/
+containment.ts`) is DX/attribution only. All three are an **archive-gated deliverable**
+(design §Migration/Rollout, product ruling Q23) — registering them here (siblings to row 208)
+is a named acceptance criterion of this change's final slice, not prose intent. The owner
+signs off on each at this change's archive gate.
+
+**PC-PROTO-01** (referenced by all three rows below, gloss added at final-verify remediation
+ITEM 10b for readers landing here directly): the engine's upcoming transport-protocol
+ratification — real `ir.emit`/`tree.read` wire calls plus first-class error-mapping — that
+unblocks real cross-repo integration; see the fuller definition above (engine handoff
+`l1-completion-gaps` section).
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| **BRC-02 — engine ceiling re-derivation + TOCTOU closure**: the engine MUST re-derive its OWN containment ceiling for a by-reference (`copyIn`) source — open-then-fstat, never trusting the SDK-resolved `packageRoot`/`packageDir`. Anchor pin (ADR-0043 rev 2, seam clause S2): the emitted `copyIn.from` is relative to the RESOLUTION anchor (`packageDir`), not the containment ceiling (`packageRoot`) — the engine resolves `from` against its OWN re-derived `packageDir`, mirroring the SDK-side `package-root-containment` REQ-PRC-01 anchor distinction | security | M | Blocking engine apply-pass for `copyIn`/by-reference `scaffold` entries | **engine repo, cross-repo flag (with PC-PROTO-01)** |
+| **BRC-08 — non-canonical path-form rejection + single-pass literal-token render**: the engine MUST reject non-canonical path forms (UNC/device/reserved-DOS/drive-relative) for BOTH the by-reference source and the rendered destination, and MUST render a `create` directive's `pathTemplate` single-pass (substituted token values are literal segments, never re-scanned as further template syntax). Canonical-form hardening is explicitly OUT of SDK scope — `package-root-containment` REQ-PRC-04/Q24 case-folds on case-insensitive platforms SDK-side only; this row is the engine-side complement | security | M | Blocking engine apply-pass for `copyIn`/`scaffold`/`create({templateFile})` | **engine repo, cross-repo flag (with PC-PROTO-01)** |
+| **PRC-06 — post-render destination containment**: the engine MUST enforce destination containment POST-RENDER — after token substitution, the final on-disk destination path must be re-validated against the target workspace boundary. SDK-side `validateDestinationLexical` (`package-root-containment` REQ-PRC-09) is lexical-only, pre-render, and cannot see rendered token values — it is DX/attribution only, never the security control for a rendered destination | security | M | Blocking engine apply-pass for `scaffold`/`create` | **engine repo, cross-repo flag (with PC-PROTO-01)** |
+
+> **Archive sign-off (2026-07-13)**: owner RE-AFFIRMED at archive that the engine copy-apply
+> pass (PC-PROTO-01-tied) is **committed-next SCHEDULED** — not merely registered debt. These
+> three rows are the formal tether for that commitment; `schematic-local-files` archives on the
+> strength of this scheduling affirmation (steward reckoning conscience question 1). If the
+> engine-side pass does not land, the by-reference (binary) half of this change risks
+> crystallizing as outputs-without-outcome — re-open this note if the schedule slips.
+
+## From `schematic-local-files` (2026-07-13) — standalone project pending items
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| `typecheck:permissive-proof` fails 1x — `test/types/permissive-proof.ts:35` `TS2578` (unused `@ts-expect-error`). **CONFIRMED pre-existing on `main` @ `04c141e`** (byte-identical, verified in a clean worktree by `schematic-local-files` final-verify) — NOT attributable to `schematic-local-files`; registered here as a standalone project debt item | bugfix | XS | — | — |
+| Judge F (judgment-day iter 3) non-blocking observation: the archived `schematic-local-files` Executor-Context §5 note ("a rename smuggling `../` … is caught") is IMPRECISE — a `rename` value whose `..` segments are fully absorbed by a multi-segment `to` actually lands the file at the workspace root, not literally "caught" as escaping. This is WITHIN contract (REQ-FSC-02 permits remap, REQ-PRC-09's workspace boundary holds, the engine post-render check is the real control) — not a code defect, only an imprecise internal note. The note lives in the SEALED archive folder (`openspec/changes/archive/2026-07-13-schematic-local-files/slices.md` §Executor Context) — not edited (archived folders are never modified after the move); registered here instead so a future reader of that note isn't misled | docs | XS | — | — |
