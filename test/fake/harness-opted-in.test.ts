@@ -52,6 +52,13 @@ import { create, AuthoringError } from "../../src/commons/index.ts";
 
 const FIXTURE_DIR = join(import.meta.dir, "../fixtures/harness-opted-in");
 const SCHEMA_PATH = join(FIXTURE_DIR, "schema.json");
+// ADR-0046 (schematic-local-files, S-000): the new pre-`als.run` packageRoot ceiling walk
+// (`resolvePackageRoot`, `src/core/context.ts`) adds a THIRD unconditional, factory-own
+// declared read — `existsSync(<packageDir>/collection.json)` — between the two reads this
+// file's header comment already documents. The fixture's own `collection.json` marker
+// (added alongside `schema.json`, S-000.3 migration) means the walk resolves on its FIRST
+// probe, at `packageDir` itself.
+const COLLECTION_JSON_PATH = join(FIXTURE_DIR, "collection.json");
 
 interface IoEvent {
   surface: string;
@@ -142,6 +149,7 @@ function isDeclaredOptedInRead(event: IoEvent): boolean {
   if (event.surface !== "node:fs") return false;
   if (event.key === "readdirSync") return event.arg === FIXTURE_DIR;
   if (event.key === "readFileSync") return event.arg === SCHEMA_PATH;
+  if (event.key === "existsSync") return event.arg === COLLECTION_JSON_PATH;
   return false;
 }
 
@@ -165,7 +173,11 @@ describe("REQ-ATH-11.2 — opted-in factory's own declared reads are observed, n
         expect(undeclaredFsEvents).toEqual([]);
 
         const declaredFsEvents = instrumentation.events().filter(isDeclaredOptedInRead);
-        expect(declaredFsEvents.map((event) => event.key).sort()).toEqual(["readFileSync", "readdirSync"]);
+        expect(declaredFsEvents.map((event) => event.key).sort()).toEqual([
+          "existsSync",
+          "readFileSync",
+          "readdirSync",
+        ]);
 
         const otherSurfaceEvents = instrumentation.events().filter((event) => event.surface !== "node:fs");
         expect(otherSurfaceEvents).toEqual([]);
