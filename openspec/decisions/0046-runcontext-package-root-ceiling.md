@@ -1,6 +1,6 @@
 # ADR-0046: `RunContext.packageRoot` — eager ceiling seeding at the run boundary
 
-- Status: Proposed
+- Status: Accepted (2026-07-13, promoted at schematic-local-files archive)
 - Date: 2026-07-12
 - Deciders: Daniel (Hyperxq)
 - Origin: change `schematic-local-files` (design rev 1).
@@ -63,3 +63,22 @@ When `options.packageDir` is present, `defineFactory` walks ancestors for
 - **An explicit `{ scaffold: true }` opt-in flag to avoid tightening** — REJECTED for now:
   REQ-RBV-06.1 uses no such flag. Flagged for owner: if tightening is unacceptable, the
   REQ must be re-specced (route: spec).
+
+## Amendment (as-built, 2026-07-13, archive)
+
+The two fields shipped as a single FUSED object rather than the two independent
+optionals the Decision section above sketches:
+
+```ts
+interface RunContext { session; factory; dialects;
+  packageAnchors?: { packageDir: string; packageRoot: string };
+}
+```
+
+`requirePackageAnchors()` (`src/core/context.ts`) is the sole accessor, throwing
+`invalid-input` fail-loud when `packageAnchors` is absent. This is superior to the
+originally-sketched two-independent-optionals shape: both-or-neither is now
+STRUCTURAL (there is no representable state where `packageDir` is set without
+`packageRoot`, or vice versa) rather than merely a convention callers must uphold by
+discipline. No REQ or consequence above changes — this is a representation
+refinement discovered during implementation, not a decision reversal.
