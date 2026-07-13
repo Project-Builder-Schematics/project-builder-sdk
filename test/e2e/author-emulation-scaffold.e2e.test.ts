@@ -1,13 +1,13 @@
 /**
  * e2e — author-emulation scaffold family (S-000 walking skeleton + S-003 happy-path
- * matrix rows).
+ * matrix rows + S-004 batch-cap/containment/rejection-boundary rows).
  *
  * Drives the SCENARIOS registry through `captureRun`, and compares a FRESH serialization
  * against the committed corpus byte-for-byte — a drift fails the suite, and no code path
  * here writes a new corpus file to make it pass (GCC-05 tautology guard). For every
  * MATRIX row (never `s-00`, design ruling R-B), it also renders and writes the per-run
  * report (`renderReport`/`reportPathFor`) — the report side-output design.md assigns to
- * this file. Edge-case rows (m-08, m-10..m-13, m-15..m-18, m-21) land in S-004.
+ * this file.
  *
  * NEVER `scaffold.e2e.test.ts` — that filename is owned upstream by `schematic-local-files`
  * (ITC-04).
@@ -27,12 +27,18 @@ import {
   runM02MissingTo,
   runM07,
   runM09,
+  runM11OverCap,
+  runM12Oversized,
+  runM16Absolute,
+  runM17Existing,
   runWalkOrderDiscriminator,
   M07_HUGE_FILE_NAME,
   M09_FILE_COUNT,
+  M21_COLLISION_SEED_PATH,
   WALK_ORDER_CREATION_SEQUENCE,
 } from "../fixtures/author-emulation/factory.ts";
 import type { ScaffoldOptions } from "../../src/commons/index.ts";
+import { AuthoringError } from "../../src/core/authoring-error.ts";
 
 const CORPUS_DIR = new URL("./author-emulation/corpus/", import.meta.url).pathname;
 const REPORTS_ABS_DIR = join(process.cwd(), REPORTS_DIR);
@@ -227,5 +233,144 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
       const matchingFiles = readdirSync(REPORTS_ABS_DIR).filter((f) => f.startsWith(`${scenario.id}.${scenario.slug}.`));
       expect(matchingFiles).toHaveLength(1);
     });
+  });
+});
+
+describe("S-004 — matrix-row assertions beyond the generic corpus-compare (batch-cap, containment, rejection boundaries)", () => {
+  /** SCM-05: every rejection-outcome row's e2e assertion covers the FULL attribution
+   * triple — reason, verb, path — explicitly, even when verb/path are `null` (never
+   * "reason alone"). Looks the scenario up by id so it always exercises the SAME
+   * registry entry the generic corpus-compare loop above already byte-verified. */
+  async function assertRejectionTriple(
+    scenarioId: string,
+    expected: { reason: string; verb: string | null; path: string | null }
+  ): Promise<CaptureResult> {
+    const scenario = SCENARIOS.find((s) => s.id === scenarioId)!;
+    const capture = await captureRun(scenario.run, scenario.input, scenario.seed);
+    const record = buildRecord(capture, { scenarioId: scenario.id, slug: scenario.slug });
+    expect(record.normative.outcome).toEqual("rejected");
+    expect(record.normative.directives).toEqual([]);
+    expect(record.normative.rejection).toEqual(expected);
+    return capture;
+  }
+
+  it("M-08 / REQ-CCL-05.1 — binary `.template` in a scaffold walk fails loud, full triple asserted", async () => {
+    // `invalidInput()`'s producer site never attributes a directive (verb/path both
+    // `undefined` -> `null`) — the walk rejects before classify-transport ever returns.
+    await assertRejectionTriple("m-08", { reason: "invalid-input", verb: null, path: null });
+  });
+
+  it("M-10 / batch-cap REQ-04.2 — a single group's own batch exceeding cap still rejects, full triple asserted", async () => {
+    // `EmitRejection("cap", ...)` is thrown WITHOUT a `pos` (`emit-rejection.ts`'s own
+    // JSDoc: "cap"/"unrepresentable"/"unknown" are BATCH-level, no single offending
+    // directive) — `verb`/`path` are `undefined` -> `null` on every batch-cap rejection,
+    // never `M10_GIANT_PATH` despite it being the batch's only directive.
+    await assertRejectionTriple("m-10", { reason: "changes-too-large", verb: null, path: null });
+  });
+
+  describe("M-11 / batch-cap REQ-04.3 — exactly-at-cap passes; one-byte-over rejects (pins `>` not `>=`)", () => {
+    it("at-cap scenario commits (corpus-canonical)", async () => {
+      const scenario = SCENARIOS.find((s) => s.id === "m-11")!;
+      const capture = await captureRun(scenario.run, scenario.input, scenario.seed);
+      expect(capture.error).toBeUndefined();
+      expect(capture.record.normative.outcome).toEqual("committed");
+    });
+
+    it("one-byte-over rejects `changes-too-large` (e2e-inline-only, never corpus-captured — the boundary's OTHER side)", async () => {
+      const capture = await captureRun(runM11OverCap, { name: "Widgets" });
+      expect(capture.error).toBeInstanceOf(AuthoringError);
+      const err = capture.error as AuthoringError;
+      // Batch-level rejection (see M-10's comment) — verb/path are null despite
+      // `M11_OVER_CAP_PATH` being the batch's only directive.
+      expect({ reason: err.reason, verb: err.verb ?? null, path: err.path ?? null }).toEqual({
+        reason: "changes-too-large",
+        verb: null,
+        path: null,
+      });
+    });
+  });
+
+  describe("M-12 / REQ-FEH-02.1/.2 — templateFile binary/oversized fails loud, never silently copies", () => {
+    it("binary templateFile fails loud (corpus-canonical), full triple asserted", async () => {
+      await assertRejectionTriple("m-12", { reason: "invalid-input", verb: null, path: null });
+    });
+
+    it("oversized templateFile fails loud (e2e-inline-only, never corpus-captured — the OTHER FEH-02 variant)", async () => {
+      const capture = await captureRun(runM12Oversized, { name: "Widgets" });
+      expect(capture.error).toBeInstanceOf(AuthoringError);
+      expect((capture.error as AuthoringError).reason).toEqual("invalid-input");
+    });
+  });
+
+  it("M-13 / REQ-FSC-04.2 — filters eliminate every entry, full triple asserted", async () => {
+    // Same `invalidInput()` shape as M-08/M-12/M-15 (verb/path both null) — GCC-09.1's own
+    // illustration shows M-13 with a concrete `path`; the LANDED API mints none (see this
+    // slice's apply-progress note on the divergence).
+    await assertRejectionTriple("m-13", { reason: "invalid-input", verb: null, path: null });
+  });
+
+  it("M-15 / REQ-FSC-08.1 / SCM-05.1 — intra-scaffold destination collision, full triple asserted", async () => {
+    // `detectDestinationCollisions` names both offending sources in the free-text MESSAGE
+    // only (GCC-09 excludes message text from the record) — the attribution triple itself
+    // carries no path (invalidInput() shape).
+    await assertRejectionTriple("m-15", { reason: "invalid-input", verb: null, path: null });
+  });
+
+  describe("M-16 / REQ-PRC-04.1/.6 — traversal / absolute source path rejected, containment cited", () => {
+    it("traversal source rejects (corpus-canonical), full triple asserted", async () => {
+      await assertRejectionTriple("m-16", {
+        reason: "source-outside-package",
+        verb: null,
+        path: "../m16-traversal-outside.txt",
+      });
+    });
+
+    it("absolute source rejects with the SAME reason (e2e-inline-only — a literal absolute path embedded verbatim would trip FIT-24's purity guard, so this variant is never corpus-captured)", async () => {
+      const capture = await captureRun(runM16Absolute, { name: "Widgets" });
+      expect(capture.error).toBeInstanceOf(AuthoringError);
+      expect((capture.error as AuthoringError).reason).toEqual("source-outside-package");
+    });
+  });
+
+  describe("M-17 / REQ-PRC-07.1 — no-existence-oracle for out-of-ceiling paths", () => {
+    it("non-existing target rejects (corpus-canonical), full triple asserted", async () => {
+      await assertRejectionTriple("m-17", {
+        reason: "source-outside-package",
+        verb: null,
+        path: "../m17-nonexistent-outside.txt",
+      });
+    });
+
+    it("an EXISTING out-of-ceiling target rejects with the IDENTICAL reason and message shape (modulo path text) — proving the verdict never consults existence", async () => {
+      const nonExisting = await assertRejectionTriple("m-17", {
+        reason: "source-outside-package",
+        verb: null,
+        path: "../m17-nonexistent-outside.txt",
+      });
+      const existingCapture = await captureRun(runM17Existing, { name: "Widgets" });
+      expect(existingCapture.error).toBeInstanceOf(AuthoringError);
+      const existingErr = existingCapture.error as AuthoringError;
+      const nonExistingErr = nonExisting.error as AuthoringError;
+      expect(existingErr.reason).toEqual(nonExistingErr.reason);
+      // "Identical message shape, modulo path text": strip each error's OWN attributed
+      // path substring, then compare the remaining template text.
+      expect(existingErr.message.replace(existingErr.path ?? "", "<path>")).toEqual(
+        nonExistingErr.message.replace(nonExistingErr.path ?? "", "<path>")
+      );
+    });
+  });
+
+  it("M-18 / REQ-BRC-06.1 — missing in-ceiling source surfaces source-not-found, full triple asserted", async () => {
+    await assertRejectionTriple("m-18", { reason: "source-not-found", verb: null, path: "missing.txt" });
+  });
+
+  it("M-21 / batch-cap REQ-05.1 — cross-chunk atomicity: a later-flush rejection commits nothing from earlier chunks", async () => {
+    const capture = await assertRejectionTriple("m-21", {
+      reason: "path-collision",
+      verb: "create",
+      path: M21_COLLISION_SEED_PATH,
+    });
+    expect(capture.tree.size).toEqual(0); // first chunk discarded, run-level all-or-nothing
+    expect(capture.emitted.length).toBeGreaterThan(1); // proves >=2 flushes actually occurred
   });
 });
