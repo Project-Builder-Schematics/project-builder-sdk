@@ -2,7 +2,7 @@
   "change": "bare-factory-migration",
   "triage": "L",
   "phase": "apply",
-  "phase_status": "batch-1-applied (S-000 @ b59da38)",
+  "phase_status": "batch-1-PASS; batch-2 applied (S-001+S-002 @ 06cfb5e), verify-in-loop-3 running",
   "next_phase": "verify-in-loop",
   "plan_verify": "ready",
   "plan_verify_detail": {"iteration": 3, "verdict": "ready", "artifact": "openspec/changes/bare-factory-migration/verify-plan-3.md"},

@@ -54,8 +54,13 @@ phases:
     batches:
       - id: batch-1
         slices: [S-000]
-        status: applied
+        status: PASS (verify-in-loop-2, iteration 2/3; fix 5d4f154 closed R-10; R-9 folded 5 files into S-002)
         commit: b59da38
+      - id: batch-2
+        slices: [S-001, S-002]
+        status: applied (verify-in-loop-3 pending)
+        commits: [1358191, 591aba4, 06cfb5e]
+        note: "S-002 consumer set = 9 files per §21 R-9. Builder resumed from aborted-agent uncommitted diffs, re-verified all of it; 2 defects found+fixed: stale cross-change JSDoc pin in test/skeleton/dry-run-public-contract.test.ts (adjudication requested in verify), leftover manual defineFactory driver in batch-cap-chunk REQ-04.3 block. Suite 1217/56, remaining fails bucketed S-003..S-006."
         note: "Full suite 1162 pass / 99 fail — EXPECTED mid-hard-cut (old wrapped callers red until S-001..S-004); failures bucketed in apply-progress.md. ORCHESTRATOR RULING: 5 unclaimed old-convention files (test/fake/copyin-fidelity, test/scaffold/{batch-cap-chunk,classify-transport,scaffold-fake}, test/e2e/author-emulation/ir-transcript) FOLD INTO S-002 — same fix shape as its 4 harness files."
 current_phase: apply
 next_phase: verify-in-loop
