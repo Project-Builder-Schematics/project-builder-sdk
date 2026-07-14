@@ -2,12 +2,19 @@
 
 > The public TypeScript/Bun authoring layer for [Project Builder](https://github.com/Project-Builder-Schematics) schematics.
 
-**Status: early development.** Not yet published. APIs are unstable and will change.
+**Status: early development.** Not yet published to a registry — see the
+[quickstart](./docs/quickstart.md) for the local-install path (`bun link` or a packed
+tarball). APIs are unstable and will change.
+
+Start with the [quickstart](./docs/quickstart.md), or the [full doc index](./docs/README.md)
+for the reference set — verbs, error contract, dry-run, and
+[authoring a dialect](./docs/authoring-a-dialect.md) (structured, AST-aware mutation for one
+file type, e.g. `@pbuilder/sdk/typescript`).
 
 ## What it is
 
 `@pbuilder/sdk` is the developer-facing library for authoring Project Builder **schematics** —
-programmable file mutations (create, delete, move, rename, copy, modify) plus package-local
+programmable file mutations (create, remove, move, rename, copy, modify) plus package-local
 reads (`scaffold`, `copyIn`, `create({ templateFile })`). The SDK never touches the disk:
 it translates what you author into an **IR** (instruction record) and hands it to the Project Builder
 engine, which owns execution and is the only component that writes to disk.
@@ -65,6 +72,11 @@ Two things worth knowing before you rely on `scaffold`:
 - **AST-agnostic engine** — AST tooling (ts-morph, postcss, cheerio) lives in SDK dialect modules,
   never in the engine. New file types are new packages, not engine releases.
 - **Bun-native** — TypeScript runs directly, no transpile step.
+- **`dist/core/**` ships, documented, not stripped** — the published tarball intentionally
+  includes `dist/core/**`, because `./testing`'s runtime code imports `../core/context.ts`
+  at runtime and needs it physically present on disk. `@pbuilder/sdk/core` still stays
+  unreachable via `package.json#exports` regardless — the boundary is advisory-by-convention
+  (no import path resolves it), not enforced by tarball exclusion.
 
 ## Testing your factory
 
