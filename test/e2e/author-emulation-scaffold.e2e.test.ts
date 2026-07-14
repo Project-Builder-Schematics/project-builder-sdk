@@ -164,22 +164,28 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
 
   it("M-07 / REQ-CCL-06.1 / REQ-ATH-14.1 — oversized-by-stat file classifies by-reference with ZERO content reads", async () => {
     const io = instrumentHarnessIO();
-    const capture = await captureRun(runM07, { name: "Widgets" });
-    io.restore();
+    try {
+      const capture = await captureRun(runM07, { name: "Widgets" });
 
-    expect(capture.error).toBeUndefined();
-    expect(capture.record.normative.outcome).toEqual("committed");
+      expect(capture.error).toBeUndefined();
+      expect(capture.record.normative.outcome).toEqual("committed");
 
-    const readFileSyncCalls = io
-      .events()
-      .filter((e) => e.surface === "node:fs" && e.key === "readFileSync")
-      .filter((e) => typeof e.arg === "string" && e.arg.endsWith(M07_HUGE_FILE_NAME));
-    expect(readFileSyncCalls).toEqual([]);
+      // Read BEFORE restore(): `mockRestore()` clears each spy's `mock.calls`, so an
+      // events() read taken after restore would always see `[]` and this assertion could
+      // never fail (established idiom — harness-in-memory-invariant.test.ts).
+      const readFileSyncCalls = io
+        .events()
+        .filter((e) => e.surface === "node:fs" && e.key === "readFileSync")
+        .filter((e) => typeof e.arg === "string" && e.arg.endsWith(M07_HUGE_FILE_NAME));
+      expect(readFileSyncCalls).toEqual([]);
 
-    // The by-reference verdict still emits a real copyIn directive — zero content reads
-    // does not mean zero directive.
-    const copyInDirectives = capture.rawDirectives.filter((d) => d.op === "copyIn");
-    expect(copyInDirectives).toHaveLength(1);
+      // The by-reference verdict still emits a real copyIn directive — zero content reads
+      // does not mean zero directive.
+      const copyInDirectives = capture.rawDirectives.filter((d) => d.op === "copyIn");
+      expect(copyInDirectives).toHaveLength(1);
+    } finally {
+      io.restore();
+    }
   });
 
   it("M-09 / batch-cap REQ-04.1 — aggregate-over-cap scaffold completes with exactly one directive per file, none dropped/duplicated/reordered, across >1 flushed group", async () => {
