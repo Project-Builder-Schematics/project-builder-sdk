@@ -138,6 +138,18 @@ with the protocol, and conformance-tested on both sides:
    never mutates the input. Dual validation is intentional, not redundant: CLI = UX
    fail-fast before spawning; SDK = contract self-defense (the same factory runs under
    `runFactoryForTest` and the conformance run-vehicle with no CLI in front).
+3. **`collection.json` carries NO `schema` field** (deviation from Angular schematics,
+   decided 2026-07-14). A schematic entry declares only the factory pointer; the CLI derives
+   the schema location by the SDK's package-shape convention: `schema.json` adjacent to the
+   factory module (ADR-0031, canonical and non-configurable). Rationale: in this SDK the
+   adjacent `schema.json` is also the SOURCE of the generated `Input` type
+   (`pbuilder-codegen` → `schema.generated.ts`, digest-pinned by FIT-12) and of
+   `defineFactory`'s run-boundary validation — an independent `schema` pointer in
+   `collection.json` would let the CLI validate against a different file than the one the
+   factory compiled and self-validates against, turning the generated type into a lie.
+   Angular affords a free-floating schema because its factories are host-validated and
+   untyped; this SDK is typed end-to-end, and adjacency is what keeps the chain sound. One
+   fact, one owner: the package shape defines the location, the CLI consumes the convention.
 
 ## Platform and hazards
 
