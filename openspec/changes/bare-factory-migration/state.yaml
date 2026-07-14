@@ -40,11 +40,28 @@ phases:
     artifact: openspec/changes/bare-factory-migration/north-star.md
     engram: sdd/bare-factory-migration/north-star (obs #2110)
     conscience_questions: "2, BOTH ANSWERED by owner 2026-07-14: (1) runner plan confirmed still live (sequence migration→runner ratified); (2) packageDir-at-harness accepted as ceremony ELIMINATED (shipped artefact clean; harness option belongs to the test, scaffold-class only)"
-current_phase: steward-foresight
-next_phase: slice
+  slice:
+    status: complete
+    artifact: openspec/changes/bare-factory-migration/slices.md
+    rev: 3
+    slices: [S-000, S-001, S-002, S-003, S-004, S-005, S-006]
+  plan-verify:
+    status: ready
+    iteration: 3
+    artifacts: [verify-plan-1.md, verify-plan-2.md, verify-plan-3.md]
+  apply:
+    status: in-progress
+    batches:
+      - id: batch-1
+        slices: [S-000]
+        status: applied
+        commit: b59da38
+        note: "Full suite 1162 pass / 99 fail — EXPECTED mid-hard-cut (old wrapped callers red until S-001..S-004); failures bucketed in apply-progress.md. ORCHESTRATOR RULING: 5 unclaimed old-convention files (test/fake/copyin-fidelity, test/scaffold/{batch-cap-chunk,classify-transport,scaffold-fake}, test/e2e/author-emulation/ir-transcript) FOLD INTO S-002 — same fix shape as its 4 harness files."
+current_phase: apply
+next_phase: verify-in-loop
 in_loop_iteration: 0
 plan_verify_iteration: 0
-execution_mode: interactive
+execution_mode: automatic
 artifact_store: hybrid
 open_questions:
   product:
