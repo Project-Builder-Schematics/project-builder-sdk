@@ -54,7 +54,7 @@ that linked/installed consumer (package-name import), NEVER the `src/`-swap path
 | `test/build/build-config.test.ts` | Create | `prebuild` present, `declarationMap:false` (REQ-PPH-04.1, REQ-PPH-05.1) |
 | `test/fitness/fit-14-package-surface.test.ts` | Modify | no `.d.ts.map` ships, positive no-secrets scan, `dist/core/**` present (REQ-PPH-05.2/06.1, REQ-FPS-06.1/07) |
 | `test/fitness/pkg-surface-baseline.json` | Modify | regenerate AFTER prebuild-clean + declarationMap:false land (REQ-PPH-06) |
-| `test/fitness/fit-21-publish-workflow-guard.test.ts` | Create | W3 guard, SHA pins (both workflows), `--dry-run`, trigger-surface (REQ-PPH-01/02/03) |
+| `test/fitness/fit-23-publish-workflow-guard.test.ts` | Create | W3 guard, SHA pins (both workflows), `--dry-run`, trigger-surface (REQ-PPH-01/02/03) — **archive-time correction: shipped as `fit-23` (filename collision on `main` with `fit-21`/`fit-22` taken by `stage-5b-dialect-breadth`/`schematic-local-files`), same content and coverage** |
 | ~~`test/fitness/fit-22-placeholder-inertness.test.ts`~~ | ~~Create~~ | **DEFERRED to public-package plan (steward CQ2)** — was: full stub inertness + semver floor + runbook deprecate step (REQ-PPH-07/08, now deferred) |
 | `test/fitness/fit-09-pkg-exports-resolution.test.ts` | Read-only | five-subpath contract unchanged; confirms no exports drift |
 | `test/docs/quickstart-docs.test.ts` | Create | machine leg (scratch consumer) + consumer `tsc --noEmit` leg + install-ritual checks (REQ-AOD-01.3/07/11, 02) |
@@ -66,11 +66,11 @@ that linked/installed consumer (package-name import), NEVER the `src/`-swap path
 |---|---|---|---|---|
 | Author: local install via `bun run link:sdk` → typed factory → passing test | Modify | REQ-LC-01..05 | `test/e2e/installed-consumer.e2e.test.ts` (extend — link leg, exercises the same `link:sdk` script) | link leg added to the existing tarball vehicle at scenario parity |
 | Author: docs-only onboarding (install → typed factory using ONLY docs) | Create | REQ-AOD-01/07/08/11 | `test/docs/quickstart-docs.test.ts` (new) + `walkthrough-record.md` (human) | no docs-driven path existed |
-| Maintainer: build → pack → rehearsed (never-fired) publish | Modify | REQ-PPH-01/02/03 | `test/fitness/fit-21-publish-workflow-guard.test.ts` | config/CI flow — verification is `architectural` (a live run is deliberately never fired); see note below |
+| Maintainer: build → pack → rehearsed (never-fired) publish | Modify | REQ-PPH-01/02/03 | `test/fitness/fit-23-publish-workflow-guard.test.ts` | config/CI flow — verification is `architectural` (a live run is deliberately never fired); see note below |
 
 **Note (intentional heuristic deviation)**: the maintainer flow carries no live-runtime e2e row — by
 design the publish pipeline NEVER fires (REQ-PPH-03). Its executable proof is the workflow-guard fitness
-(fit-21) plus the CI `--dry-run` rehearsal. Fabricating a live-publish e2e would be theatre; the flow has
+(fit-23) plus the CI `--dry-run` rehearsal. Fabricating a live-publish e2e would be theatre; the flow has
 no runtime surface to drive.
 
 ## 4.2c Architecture Touchpoints
@@ -127,9 +127,9 @@ wrong and fails the human walkthrough (REQ-AOD-08).
 | REQ-LC-03.1 (tarball retained + `./typescript`) | e2e | `installed-consumer.e2e.test.ts` (tarball leg) | local-install |
 | REQ-LC-04.1/.2 · .3[red] (bin exec both legs) | e2e | `installed-consumer.e2e.test.ts` | local-install |
 | REQ-LC-05.1/.2 · .3[red] (dryRun invocation) | e2e | `installed-consumer.e2e.test.ts` | local-install |
-| REQ-PPH-01.1 · .2[red] · .3 (W3 guard + triggers) | architectural | `fit-21-publish-workflow-guard.test.ts` | maintainer |
-| REQ-PPH-02.1 · .2[red] (SHA pins) | architectural | `fit-21-publish-workflow-guard.test.ts` | maintainer |
-| REQ-PPH-03.1 · .2[red] (`--dry-run` pinned) | architectural | `fit-21-publish-workflow-guard.test.ts` | maintainer |
+| REQ-PPH-01.1 · .2[red] · .3 (W3 guard + triggers) | architectural | `fit-23-publish-workflow-guard.test.ts` | maintainer |
+| REQ-PPH-02.1 · .2[red] (SHA pins) | architectural | `fit-23-publish-workflow-guard.test.ts` | maintainer |
+| REQ-PPH-03.1 · .2[red] (`--dry-run` pinned) | architectural | `fit-23-publish-workflow-guard.test.ts` | maintainer |
 | REQ-PPH-04.1 (prebuild clean) | integration | `test/build/build-config.test.ts` | — |
 | REQ-PPH-05.1 (declarationMap false) | unit | `test/build/build-config.test.ts` | — |
 | REQ-PPH-05.2 (no `.d.ts.map` ships) | architectural | `fit-14-package-surface.test.ts` | — |
@@ -155,7 +155,7 @@ flow's deliberate no-runtime posture is verified `architectural` (note in 4.2b).
 
 ## 4.7 Fitness Functions
 
-- **Publish surface hardened & never-fired**: `fit-21` parses `publish.yml`/`ci.yml` with Bun's native `YAML.parse` (`import { YAML } from "bun"`, zero new dependency) and resolves the guard job by predicate — the job declaring `id-token: write` — before asserting on it; a commented `# if:` is simply absent from the parsed document, so it fails structurally, not by text-scan; every `uses:` is 40-hex SHA-pinned; `--dry-run` present; no `pull_request*`/`workflow_dispatch` trigger.
+- **Publish surface hardened & never-fired**: `fit-23` (shipped filename; named `fit-21` in this design's original plan-time text, see archive-time correction on the File Changes row above) parses `publish.yml`/`ci.yml` with Bun's native `YAML.parse` (`import { YAML } from "bun"`, zero new dependency) and resolves the guard job by predicate — the job declaring `id-token: write` — before asserting on it; a commented `# if:` is simply absent from the parsed document, so it fails structurally, not by text-scan; every `uses:` is 40-hex SHA-pinned; `--dry-run` present; no `pull_request*`/`workflow_dispatch` trigger.
 - ~~**Placeholder inert**: `fit-22`~~ — **DEFERRED to public-package plan (steward CQ2)**.
 - **Tarball hygiene**: `fit-14` — positive credential-filename scan (`.env*`, `.npmrc`, `*.pem`, `*.key`, `.netrc`, `id_rsa*`, `*.p12`, `*.pfx`, `credentials.json`), zero `.d.ts.map`, `dist/core/**` present. The primary assertion stays "nothing outside `dist/` ships" — the pattern set is a defense-in-depth positive scan, not the sole guard.
 - **Exports stable**: `fit-09`/`fit-14` — five-subpath map + single `ts-morph` dep unchanged.
@@ -198,7 +198,7 @@ None.
 
 ## 4.12 Design Notes / Risks (rev 2, still valid unless noted)
 
-- **fit-21 parser**: uses Bun's native `YAML.parse` (`import { YAML } from "bun"`), not a hand-rolled
+- **fit-23 parser** (named `fit-21` in this design's original plan-time text): uses Bun's native `YAML.parse` (`import { YAML } from "bun"`), not a hand-rolled
   comment-stripping text parser — zero new dependency, structurally correct parse; the job-resolution-
   by-predicate rule (find the job declaring `id-token: write`, assert on THAT job) is unchanged. See
   ADR-0042.

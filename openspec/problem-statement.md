@@ -75,6 +75,14 @@ A mutation is IR-correct when all three hold:
 3. **Fitness invariants** — commons-imports-no-AST, only-serializable-bytes-cross-the-seam, and
    no-tree-persistence-in-core stay structurally green.
 
+## Release posture (Stage 6 note, 2026-07-14)
+
+`stage-6-release-shape` delivers release-READINESS — a hardened-but-never-fired publish
+pipeline plus the local-consumption and docs-only-onboarding proof — never a public release.
+The first live publish is a separate, future gate; see `ROADMAP.md`'s Stage 6 note and
+`openspec/pending-changes.md`'s required-reviewers precondition. L2+ composition, cross-collection,
+and external collections/trust stay out of scope, as stated below.
+
 ## Out of scope
 
 - Executing mutations / owning the disk (engine territory).

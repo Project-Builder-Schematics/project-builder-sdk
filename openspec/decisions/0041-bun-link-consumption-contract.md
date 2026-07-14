@@ -1,6 +1,6 @@
 # ADR-0041: bun-link consumption contract — documented build-then-link ritual, no `prepare` script
 
-- Status: Proposed (draft)
+- Status: Accepted (2026-07-14, promoted at stage-6-release-shape archive)
 - Date: 2026-07-12
 - Change: `stage-6-release-shape`
 - Relates to: REQ-LC-01..05, REQ-AOD-02; ADR-0036 (packed-tarball e2e lifecycle)

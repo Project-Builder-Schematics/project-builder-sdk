@@ -15,10 +15,10 @@
 **Acceptance**: GIVEN a fresh build, WHEN a sibling consumer runs `bun run link:sdk`, imports 5 subpaths, invokes `dryRun()`, probes `/core`, THEN subpaths + bin resolve, `dryRun()` non-empty, `/core` unreachable, `bun unlink` clean.
 
 ### Tasks
-- [ ] S-000.1 Extract `test/support/scratch-consumer.ts` (build/pack/install/link + `runScratchScript`)
-- [ ] S-000.2 `package.json`: `prebuild` clean + `link:sdk` script (ADR-0041); `tsconfig.build.json`: `declarationMap: false`
-- [ ] S-000.3 `build-config.test.ts` (new, failing first)
-- [ ] S-000.4 `installed-consumer.e2e.test.ts`: bun-link leg — failing first
+- [x] S-000.1 Extract `test/support/scratch-consumer.ts` (build/pack/install/link + `runScratchScript`)
+- [x] S-000.2 `package.json`: `prebuild` clean + `link:sdk` script (ADR-0041); `tsconfig.build.json`: `declarationMap: false`
+- [x] S-000.3 `build-config.test.ts` (new, failing first)
+- [x] S-000.4 `installed-consumer.e2e.test.ts`: bun-link leg — failing first
 
 ---
 
@@ -31,9 +31,9 @@
 **Acceptance**: GIVEN the bun-link leg, WHEN write-only-commit/all-or-nothing-rejection scenarios run and tarball resolves `./typescript`, THEN both legs assert the SAME set (count parity), red-proofs catch breakage.
 
 ### Tasks
-- [ ] S-001.1 Bun-link leg: write-only commit + all-or-nothing rejection — failing first
-- [ ] S-001.2 Tarball leg: add `./typescript` probe
-- [ ] S-001.3 Bin-exec + `dryRun()` red-proofs
+- [x] S-001.1 Bun-link leg: write-only commit + all-or-nothing rejection — failing first
+- [x] S-001.2 Tarball leg: add `./typescript` probe
+- [x] S-001.3 Bin-exec + `dryRun()` red-proofs
 
 ---
 
@@ -46,9 +46,16 @@
 **Acceptance**: GIVEN `publish.yml`/`ci.yml` + fresh tarball, WHEN `fit-21` (Bun `YAML.parse`, job-by-predicate) and `fit-14` run, THEN guard + SHA pins + trigger-fence + `--dry-run` hold, baseline has zero `.d.ts.map`, `dist/core/**` present, no secrets.
 
 ### Tasks
-- [ ] S-002.1 `fit-21-publish-workflow-guard.test.ts` + `fit-14-package-surface.test.ts` additions — failing first
-- [ ] S-002.2 Harden `publish.yml` (guard, SHA pins, job-scoped `id-token`, trigger pin) + `ci.yml` SHA-pin
-- [ ] S-002.3 Regenerate `pkg-surface-baseline.json` against clean build (after S-000)
+- [x] S-002.1 `fit-23-publish-workflow-guard.test.ts` (renamed from `fit-21` — see note below) + `fit-14-package-surface.test.ts` additions — failing first
+- [x] S-002.2 Harden `publish.yml` (guard, SHA pins, job-scoped `id-token`, trigger pin) + `ci.yml` SHA-pin
+- [x] S-002.3 Regenerate `pkg-surface-baseline.json` against clean build (after S-000)
+
+**Naming deviation (apply-time)**: `fit-21`/`fit-22` are now taken by `fit-21-context-no-dialect-handle-import.test.ts`
+and `fit-22-scaffold-leaf-rule.test.ts` (landed on `main` from `stage-5b-dialect-breadth`/`schematic-local-files`
+after this change's plan-verify iteration 1). Per this file's own Executor Context preamble ("trust the repo, not
+this doc"), the new fitness test was created as `fit-23-publish-workflow-guard.test.ts` — same content/coverage,
+next actually-free FIT number. `design.md`/ADR-0042 still reference the `fit-21` name; this is the authoritative
+correction.
 
 ---
 
@@ -61,9 +68,9 @@
 **Acceptance**: GIVEN quickstart's fenced blocks + a scratch consumer, WHEN the machine leg runs them against the linked/installed package and `tsc --noEmit` runs inside it, THEN both pass, no `src/`-relative swap occurs, walkthrough-record template exists.
 
 ### Tasks
-- [ ] S-003.1 `quickstart-docs.test.ts` (new, failing first): machine leg + consumer-tsc leg + install checks
-- [ ] S-003.2 `docs/quickstart.md`: schema → codegen → typed `factory.ts` → passing test; link first, tarball alt
-- [ ] S-003.3 Scaffold `walkthrough-record.md` (owner fills at reckoning)
+- [x] S-003.1 `quickstart-docs.test.ts` (new, failing first): machine leg + consumer-tsc leg + install checks
+- [x] S-003.2 `docs/quickstart.md`: schema → codegen → typed `factory.ts` → passing test; link first, tarball alt
+- [x] S-003.3 Scaffold `walkthrough-record.md` (owner fills at reckoning)
 
 ---
 
@@ -76,9 +83,18 @@
 **Acceptance**: GIVEN the reference doc set, WHEN scanned for the six verbs + read-trichotomy, `AuthoringError` vocabulary, `dryRun()` import/iteration, dialect link, THEN all present in author vocabulary, dialect linked not duplicated, README states the `dist/core` rationale.
 
 ### Tasks
-- [ ] S-004.1 `doc-set-content.test.ts` (new, failing first): verb/error/dry-run/dialect tokens + FPS-06.2
-- [ ] S-004.2 `docs/authoring-verbs.md`, `authoring-errors.md`, `dry-run.md`, `docs/README.md`
-- [ ] S-004.3 `README.md`: quickstart link, dialect front-door, `dist/core` rationale
+- [x] S-004.1 `doc-set-content.test.ts` (new, failing first): verb/error/dry-run/dialect tokens + FPS-06.2
+- [x] S-004.2 `docs/authoring-verbs.md`, `authoring-errors.md`, `dry-run.md`, `docs/README.md`
+- [x] S-004.3 `README.md`: quickstart link, dialect front-door, `dist/core` rationale
+
+**Vocabulary-drift note (apply-time)**: the plan's Executor Context item 6 (2026-07-12) recorded
+`AuthoringVerb` at six values and `AuthoringReason` at eight. `schematic-local-files` landed on
+`main` after that (merge visible in this branch's own git log) and extended them to seven
+(`copyIn` added, ADR-0043) and twelve (four new `source-*` reasons, REQ-AEC-10) respectively. Per
+this file's own Executor Context preamble ("trust the repo, not this doc"), `authoring-verbs.md`
+documents all seven current verbs (REQ-AOD-03 names six as a floor, not a ceiling — satisfied by a
+superset) and `authoring-errors.md` documents all twelve current `reason` values. Same category of
+correction as S-002's fit-23 rename.
 
 ---
 
@@ -91,8 +107,8 @@
 **Acceptance**: GIVEN the planning docs, WHEN inspected, THEN rows 27/33/34/35/86/143 retired, 74/56/142/175 re-tagged, ROADMAP states readiness not a release, demo calls `dryRun()` first, sensitive-areas reflects S-002's posture, drops the blanket-wrong line.
 
 ### Tasks
-- [ ] S-005.1 Extend `doc-set-content.test.ts`: planning-doc + sensitive-areas assertions — failing first
-- [ ] S-005.2 `ROADMAP.md`, `pending-changes.md`, `problem-statement.md`, `objectives-plan.md`, `sensitive-areas.md`
+- [x] S-005.1 Extend `doc-set-content.test.ts`: planning-doc + sensitive-areas assertions — failing first
+- [x] S-005.2 `ROADMAP.md`, `pending-changes.md`, `problem-statement.md`, `objectives-plan.md`, `sensitive-areas.md`
 
 ---
 

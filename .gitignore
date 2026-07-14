@@ -28,3 +28,7 @@ coverage/
 
 # Author-emulation per-run reports (RPT-02) — gitignored side-output, corpus/ is committed
 test/e2e/author-emulation/reports/
+
+# E2E scratch dirs (.tmp-testing-e2e, .tmp-link-e2e, .tmp-quickstart-*, ...) and packed tarballs
+.tmp-*/
+*.tgz
