@@ -1,0 +1,35 @@
+# Orchestrator-owned DAG state for change author-write-surface (SDD Recovery Rule).
+change: author-write-surface
+triage: L        # sensitivity overrides: public-api (contract) + security (code execution)
+completed_phases:
+  - triage       # artefact: triage.md / engram sdd/author-write-surface/triage (obs #2111)
+  - explore      # artefact: explore.md / engram sdd/author-write-surface/explore (obs #2116), ready_for_proposal: yes
+  - propose      # artefact: proposal.md / engram sdd/author-write-surface/proposal (obs #2118), 7 modified capabilities, 3 ADRs flagged
+completed_phases_append:
+  - spec         # V3 SIGNED by owner 2026-07-14; dual re-verify SIGN (security, tech-writer); 22 modified + 2 new REQs; obs #2119; 3 nits carried to design (obs #2125)
+completed_phases_append_2:
+  - design            # design.md + V4 amendment (obs #2126); architecture_impact: modifying; ADR-01/02/03
+  - steward-foresight # verdict: aligned (obs #2127); owner answers obs #2128 — importable form DEFERRED (spec V4 excision, REQ-TSD-12 tombstoned), verb "modify" sustained
+completed_phases_append_3:
+  - slice        # slices.md v3 + orchestrator patches (obs #2129); 5 slices, 23/23 REQs, 0 orphans
+  - verify-plan  # 3 iterations (gaps/gaps/exhausted) + OWNER OVERRIDE -> ready (obs #2131); verify-plan-{1,2,3}.md
+current_phase: verify-plan
+current_status: ready (owner override 2026-07-14) — PLANNER COMPLETE
+in_loop_iteration: 0
+next_phase: build (sdd-apply, --scope=skeleton S-000 first; then S-001..S-004 sequential)
+spec_version: V4 (signed — owner 2026-07-14, scope-reduction ratified)
+owner_decisions_post_explore:
+  authoring_verb: keep-modify   # wire-altitude honesty rationale; spec must pin with scenario
+  reserved_raw: keep-blocked    # reserve-both; security guardrail
+  importable_form_home: dialect-subpath (@pbuilder/sdk/typescript)
+  fit04_tenth_pair: required (core/define-dialect.d.ts)
+notes: >
+  Scope RE-CUT ratified by owner 2026-07-14: change narrowed to the honest
+  write-verb rename core (replaceContent + modify(fn) absorbs raw + ./conformance
+  lockstep migration + reserved names + ADR-0039 guard move + FIT-04 baselines).
+  Deferred pieces registered in pending-changes.md ("author-write-surface triage
+  re-cut" section): kit subpath (ADR-0009), hasImport/queries (Group 5),
+  standalone-ops export (row-320 gate). Triage artefact amended in place.
+  Explore launched deep (L, abstraction entry A1, descent A1->A2->A3->A4) with
+  council: architect + qa-engineer + business-analyst + security-engineer.
+updated_at: "2026-07-14"
