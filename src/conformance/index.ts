@@ -93,7 +93,7 @@ export interface OpPackFixture {
 }
 
 // REQ-DC-04 (seam-serializability): `JSON.parse(JSON.stringify(directive))` must deep-equal
-// `directive` for EVERY emitted directive. Two DISTINCT failure modes a planted `.raw()` can
+// `directive` for EVERY emitted directive. Two DISTINCT failure modes a planted `.modify()` can
 // trigger (REQ-DC-04.1/.2): a closure attached to directive content is silently DROPPED by
 // JSON.stringify (caught by the deepEqual mismatch below); a live AST node with circular
 // parent pointers makes JSON.stringify itself THROW (caught by the try/catch below).
@@ -126,7 +126,7 @@ interface ExerciseRun {
 
 // Runs ONE exercise through a fresh, isolated run-vehicle (§4.4c): seeds `path` with `seed`,
 // chains the exercise's ops on `baseDialect.find(path)` (`{op,args}` -> `handle[op](...args)`;
-// `{raw}` -> `handle.raw(fn)`), optionally injects `handle.read()` right after the FIRST op
+// `{modify}` -> `handle.modify(fn)`), optionally injects `handle.read()` right after the FIRST op
 // (the read-boundary-split re-run), awaits, and returns every modify directive observed
 // across the whole run, in emission order.
 async function runExercise(

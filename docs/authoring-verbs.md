@@ -6,8 +6,8 @@ next `read()`, or at run end).
 
 ## The seven verbs
 
-The SDK ships seven author verbs — `create`, `modify`, `remove`, `rename`, `move`, `copy`,
-and `copyIn` — the last a by-reference sibling of `copy` that copies straight from the
+The SDK ships seven author verbs — `create`, `replaceContent`, `remove`, `rename`, `move`,
+`copy`, and `copyIn` — the last a by-reference sibling of `copy` that copies straight from the
 package rather than rendering a template.
 
 - **`create(path, { template, options })`** — schedules a file-creation directive. Rejected
@@ -24,13 +24,16 @@ package rather than rendering a template.
   });
   ```
 
-- **`modify(path, content)`** — schedules an in-place content replacement for an existing
-  file. A rejected run (e.g. the target does not exist) throws `AuthoringError`.
+- **`replaceContent(path, content)`** — schedules an in-place, wholesale content replacement
+  for an existing file. A rejected run (e.g. the target does not exist) throws `AuthoringError`.
+  Distinct from a dialect handle's `.modify(fn)` escape hatch (see
+  [Authoring a dialect](./authoring-a-dialect.md)), which mutates a live AST in place rather
+  than replacing text wholesale.
 
   ```ts
-  import { modify } from "@pbuilder/sdk/commons";
+  import { replaceContent } from "@pbuilder/sdk/commons";
 
-  modify("src/config.json", '{ "version": "2.0.0" }');
+  replaceContent("src/config.json", '{ "version": "2.0.0" }');
   ```
 
 - **`remove(path)`** — schedules a file deletion. Idempotent: removing an absent file is not
@@ -93,15 +96,15 @@ package rather than rendering a template.
 - **`present`** — any other string, including falsy-looking ones like `"0"` or `"false"`.
 
 ```ts
-import { find, create, modify } from "@pbuilder/sdk/commons";
+import { find, create, replaceContent } from "@pbuilder/sdk/commons";
 
 const content = await find("src/config.ts").read();
 if (content === undefined) {
   create("src/config.ts", { template, options });
 } else if (content === "") {
-  modify("src/config.ts", seedContent);
+  replaceContent("src/config.ts", seedContent);
 } else {
-  modify("src/config.ts", patch(content));
+  replaceContent("src/config.ts", patch(content));
 }
 ```
 

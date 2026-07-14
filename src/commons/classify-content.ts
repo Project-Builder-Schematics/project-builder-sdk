@@ -17,10 +17,10 @@
  *     create("src/config.ts", { template, options });
  *     break;
  *   case "empty":
- *     modify("src/config.ts", seedContent);
+ *     replaceContent("src/config.ts", seedContent);
  *     break;
  *   case "present":
- *     modify("src/config.ts", patch(content));
+ *     replaceContent("src/config.ts", patch(content));
  *     break;
  * }
  */

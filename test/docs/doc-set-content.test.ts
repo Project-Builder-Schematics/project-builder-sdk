@@ -51,7 +51,9 @@ describe("REQ-AOD-03 — six-verb reference with read-trichotomy", () => {
   const doc = readDoc("docs/authoring-verbs.md");
 
   it("REQ-AOD-03.1: all six author verbs are documented", () => {
-    for (const verb of ["create", "modify", "remove", "rename", "move", "copy"]) {
+    // author-write-surface S-004: `modify` retired in favour of `replaceContent` — the
+    // commons wholesale-replace verb (ADR-0050); this doc no longer names the old verb.
+    for (const verb of ["create", "replaceContent", "remove", "rename", "move", "copy"]) {
       expect(doc).toContain(`\`${verb}\``);
     }
   });

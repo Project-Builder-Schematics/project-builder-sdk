@@ -22,9 +22,10 @@ const security = () => readFileSync(SECURITY_PATH, "utf-8");
 const doc = () => readFileSync(DOC_PATH, "utf-8");
 const sensitiveAreas = () => readFileSync(SENSITIVE_AREAS_PATH, "utf-8");
 
-// Frozen strings — design.md §4.4b. Copied verbatim; do not paraphrase.
+// Frozen strings — design.md §4.4b, migrated by S-004 (author-write-surface, REQ-STD-01/
+// REQ-DAS-01.2) to the shipped `.modify(fn)` name. Copied verbatim; do not paraphrase.
 const RAW_TRUST_SENTENCE =
-  "The `.raw(ast => …)` escape hatch executes dialect and schematic code with full process " +
+  "The `.modify(ast => …)` escape hatch executes dialect and schematic code with full process " +
   "privilege — it is NOT a sandbox. The serialization seam (only plain strings cross to the " +
   "engine) is the ONLY containment guarantee; it bounds what data leaves a run, not what code " +
   "may do while running. Vet any dialect or op-pack before importing it.";
@@ -32,13 +33,13 @@ const RAW_TRUST_SENTENCE =
 const CONFORMANCE_NOT_SAFETY_CAVEAT =
   "Passing the conformance kit (`@pbuilder/sdk/conformance`) is not a security attestation: it " +
   "proves a dialect keeps the seam serializable and its ops faithful, not that the dialect's " +
-  "`.raw()` code is safe to execute.";
+  "`.modify()` code is safe to execute.";
 
 const TWO_REALMS_HAZARD =
   "Two ts-morph realms: if your schematic already depends on ts-morph directly, that is a " +
-  "separate realm from the SDK's internal ts-morph used inside `.raw(ast => …)`. A " +
+  "separate realm from the SDK's internal ts-morph used inside `.modify(ast => …)`. A " +
   "`Node`/`SourceFile` from your realm is not interchangeable with the AST the SDK hands your " +
-  "`.raw()` callback — even when both realms resolve the identical ts-morph version. Never pass " +
+  "`.modify()` callback — even when both realms resolve the identical ts-morph version. Never pass " +
   "ts-morph objects across the boundary; operate only on the `ast` the callback receives.";
 
 const GENERAL_TRUST_SENTENCE =
@@ -77,7 +78,7 @@ describe("REQ-DAS-01.1 — authoring doc names exactly the shipped API", () => {
       "defineDialect",
       "defineOpPack",
       "withOps",
-      ".raw",
+      ".modify",
       "addImport",
       "removeImport",
       "addFunction",

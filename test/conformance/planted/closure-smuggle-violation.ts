@@ -2,7 +2,7 @@
 // planted-violation suite (REQ-DC-05's own text: "REQ-DC-04.1's closure-smuggling fixture IS
 // the mandated serializability violation instance — it MUST NOT be omitted"). [permanent-fixture]
 //
-// A `.raw()`-equivalent op that attaches a CLOSURE onto what would become directive content.
+// A `.modify()`-equivalent op that attaches a CLOSURE onto what would become directive content.
 // `JSON.stringify` SILENTLY DROPS a function-valued property rather than throwing — the
 // deep-equal structural compare (never plain `===`/`JSON.stringify`-only) is what catches
 // this failure mode, distinct from the live-node-smuggle fixture's THROW (REQ-DC-04.2).

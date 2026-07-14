@@ -176,8 +176,9 @@ no hand-written input shape anywhere.
 
 ## Next steps
 
-- [Authoring verbs](./authoring-verbs.md) — the seven authoring verbs (`create`, `modify`,
-  `remove`, `rename`, `move`, `copy`, `copyIn`) and the `find().read()` read-trichotomy rule.
+- [Authoring verbs](./authoring-verbs.md) — the seven authoring verbs (`create`,
+  `replaceContent`, `remove`, `rename`, `move`, `copy`, `copyIn`) and the `find().read()`
+  read-trichotomy rule.
 - [Error contract](./authoring-errors.md) — what `AuthoringError` looks like and how to
   assert against it.
 - [Dry-run](./dry-run.md) — preview a factory's planned changes before anything commits.

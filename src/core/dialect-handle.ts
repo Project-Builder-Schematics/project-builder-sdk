@@ -19,7 +19,7 @@ interface DialectAst<Ast> {
   print(ast: Ast): string;
 }
 
-// `.raw()`'s `fn` is typed `(ast: Ast) => void`, but TS's void-return compatibility lets an
+// `.modify()`'s `fn` is typed `(ast: Ast) => void`, but TS's void-return compatibility lets an
 // author pass an async function anyway — this is the runtime check that catches that case.
 function isThenable(value: unknown): value is PromiseLike<unknown> {
   return (
