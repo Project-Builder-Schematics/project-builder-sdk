@@ -31,7 +31,7 @@ import { collectTsFiles } from "../support/import-scan.ts";
 
 const GITIGNORE = new URL("../../.gitignore", import.meta.url).pathname;
 const MATRIX_SPEC = new URL(
-  "../../openspec/changes/author-emulation-e2e-scaffold/specs/scenario-matrix/spec.md",
+  "../../openspec/specs/scenario-matrix/spec.md",
   import.meta.url
 ).pathname;
 const UNCITED_ROW_FIXTURE = new URL(
