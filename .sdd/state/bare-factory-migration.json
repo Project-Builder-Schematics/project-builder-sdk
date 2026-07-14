@@ -2,7 +2,7 @@
   "change": "bare-factory-migration",
   "triage": "L",
   "phase": "verify-final",
-  "phase_status": "verify-final PASS-WITH-FOLLOWUPS (56/56 scenarios); council 3x approve-with-notes; quality fixes @ 3dd170c (suite 1288/0); judgment-day running",
+  "phase_status": "judgment-day APPROVED round 1 (0 critical, 0 real warnings); arch-refresh + steward reckoning next",
   "next_phase": "verify-final",
   "plan_verify": "ready",
   "plan_verify_detail": {"iteration": 3, "verdict": "ready", "artifact": "openspec/changes/bare-factory-migration/verify-plan-3.md"},
