@@ -162,7 +162,7 @@ export function find(path: string): FoundHandle {
  * `templateFile` is a THIRD overload (REQ-FEH-01): pass a package-local path instead of an
  * inline `template` string — its content is read at emission time and becomes the
  * directive's `template` field. `template` and `templateFile` are mutually exclusive forms;
- * only usable inside a `defineFactory({ packageDir })` run (there is no resolution anchor
+ * only usable inside a factory run started with packageDir (there is no resolution anchor
  * to read a package-local file against otherwise — `invalid-input`, never a cwd fallback).
  * `templateFile`'s VALUE is a literal package-relative path, read verbatim by CONTENT —
  * it is NOT run through `scaffold`'s filename pipeline (no rename remap, no `__x__` token
@@ -231,7 +231,7 @@ export type ScaffoldOptions = ScaffoldArgs;
  * `false`) passes through unchanged to every emitted directive, no per-file override
  * (REQ-FSC-06). Two or more sources collapsing to the same destination reject fail-loud,
  * naming every offending source (REQ-FSC-08). Only usable inside a
- * `defineFactory({ packageDir })` run — there is no resolution anchor to walk a
+ * factory run started with packageDir — there is no resolution anchor to walk a
  * package-local folder against otherwise (`invalid-input`, never a cwd fallback).
  *
  * `rename` is a static REMAP TABLE (`Record<originalSourceRelativePath,
@@ -271,7 +271,7 @@ export function scaffold(args: ScaffoldOptions): void {
  * `from`/`to` are mandatory; `force` defaults `false`. A missing `from`/`to` rejects
  * fail-loud before any emission (REQ-FEH-04.1/.2). Collision without `force` rejects;
  * `force: true` overwrites (`by-reference-copy-wire` REQ-BRC-05). Only usable inside a
- * `defineFactory({ packageDir })` run — there is no resolution anchor to read a
+ * factory run started with packageDir — there is no resolution anchor to read a
  * package-local file against otherwise (`invalid-input`, never a cwd fallback).
  *
  * Returns `void` (REQ-FEH-04.3) — NOT a `WritableHandle`, unlike `copy`: a by-reference
@@ -379,18 +379,18 @@ export type { DryRunEntry, DryRunVerb };
  * (`kind: "copied"`). The tree→tree `copy` verb also materializes content but predates
  * this axis and is never package-local-read/classified, so it carries no `kind`.
  *
- * Call it inside an active `defineFactory` run, like every other `./commons` verb.
+ * Call it inside an active factory run, like every other `./commons` verb.
  *
  * @example
- * defineFactory(() => {
+ * const run = () => {
  *   create("src/index.ts", { template: "export const version = '1.0.0';", options: {} });
  *   find("src/legacy.ts").remove();
  *   for (const entry of dryRun()) {
  *     console.log(entry.verb, entry.path); // "create src/index.ts", then "remove src/legacy.ts"
  *   }
- * });
+ * };
  *
- * @throws When called outside an active `defineFactory` run, propagates the standard
+ * @throws When called outside an active factory run, propagates the standard
  * error — authoring verbs "can only be used while a schematic is running" (ADR-0026: the
  * message no longer enumerates individual verbs, so it covers `dryRun` too).
  */

@@ -9,7 +9,6 @@
 import { describe, it, expect } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { defineFactory } from "../../src/core/context.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { copyIn, AuthoringError } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
@@ -22,11 +21,11 @@ describe("REQ-ATH-15.1 — a valid by-reference directive lands in result.emitte
     const dir = scratchDir();
     writeFileSync(join(dir, "asset.svg"), "<svg/>", "utf-8");
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       copyIn("asset.svg", "dest/asset.svg");
-    }, { packageDir: dir });
+    };
 
-    const result = await runFactoryForTest(run, undefined);
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
 
     expect(result.error).toBeUndefined();
     const copyInDirectives = collectOps(result.emitted, "copyIn");
@@ -42,11 +41,11 @@ describe("REQ-ATH-15.2 / REQ-BRC-06.1 — a missing package-local source surface
     // No file written at "missing.svg" — an in-ceiling path (a direct child of the
     // package) that simply does not exist.
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       copyIn("missing.svg", "dest/missing.svg");
-    }, { packageDir: dir });
+    };
 
-    const result = await runFactoryForTest(run, undefined);
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
 
     expect(result.error).toBeInstanceOf(AuthoringError);
     expect((result.error as AuthoringError).reason).toEqual("source-not-found");

@@ -56,6 +56,9 @@ function batchGrouping(emitted: readonly Batch[]): BatchGroupingEntry[] {
  * capture path (FIT-25) — the corpus writer, report renderer, and e2e file all import
  * this module, never a second one.
  *
+ * `options` mirrors `runFactoryForTest`'s own options bag (bare-factory-migration,
+ * design §4.3) — `seed`/`packageDir` travel together, never a positional 3rd argument.
+ *
  * A thrown value that is not an `AuthoringError` is a factory bug, not a scenario this
  * module normalizes — it propagates unchanged rather than being mis-recorded as a
  * rejection.
@@ -63,9 +66,9 @@ function batchGrouping(emitted: readonly Batch[]): BatchGroupingEntry[] {
 export async function captureRun<O>(
   run: Parameters<typeof runFactoryForTest<O>>[0],
   input: O,
-  seed?: Record<string, string>
+  options?: { seed?: Record<string, string>; packageDir?: string }
 ): Promise<CaptureResult> {
-  const result = await runFactoryForTest(run, input, seed);
+  const result = await runFactoryForTest(run, input, options);
   const rawDirectives = result.emitted.flatMap((b) => b.instructions);
   const grouping = batchGrouping(result.emitted);
 

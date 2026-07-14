@@ -64,7 +64,7 @@ export { defineFactory } from "../core/context.ts";
  *
  * @param factory - the runner returned by `defineFactory`.
  * @param input - the resolved input passed through to `factory`.
- * @param seed - pre-existing tree content visible to the factory's own reads
+ * @param options.seed - pre-existing tree content visible to the factory's own reads
  * (`Record<string,string>`) — the SOLE seeding channel; never reflected in `result.tree`
  * unless the factory itself modifies the seeded path.
  *

@@ -1,67 +1,49 @@
 /**
- * REQ-ATH-11.2 + REQ-ATH-13(.1,.2) (S-006, GATED): a `packageDir`-opted-in factory
- * (`defineFactory(fn, { packageDir })`, stage-4 ADR-0029) run through `runFactoryForTest`
- * AS-IS — the harness needs ZERO code change (design §4.3's explicit claim). Verified at
- * this slice's build: neither `src/testing/index.ts` nor `src/core/context.ts` required
- * any edit for these scenarios to pass.
+ * REQ-ATH-17 (S-002, bare-factory-migration): a `packageDir`-opted-in factory run via
+ * `runFactoryForTest(fn, input, { packageDir })` — the harness needs ZERO production code
+ * change beyond what S-000 already shipped (design §4.3's explicit claim): `packageDir`
+ * simply moves from `defineFactory`'s own call site into `runFactoryForTest`'s options bag.
  *
- * **Executor note — ATH-11.2 predicate widened beyond the design §4.6b literal text**:
- * §4.6b's event-allowlist predicate names only "the `node:fs` read events whose resolved
- * target path equals `<packageDir>/schema.json`" as observed-not-flagged. Investigating the
- * ACTUAL merged discovery surface (this slice's gate — `stage-4-typed-options` archived)
- * shows `defineFactory`'s opted-in branch (`src/core/context.ts` lines ~202-206) makes TWO
- * unconditional `node:fs` reads, in order, both BEFORE `als.run`: `checkReservedNames` ->
- * `findReservedSibling` -> `readdirSync(packageDir)` (`src/core/schema/schema-discovery.ts`),
- * THEN `validateAtRunBoundary` -> `readFileSync(<packageDir>/schema.json)`. Both are the
- * factory's own declared opted-in behaviour (REQ-ATH-11's carve-out) — neither is harness
- * machinery, neither is optional, and an author cannot opt out of one without the other
- * (`options.packageDir !== undefined` gates both calls identically). The predicate below
- * therefore allows BOTH resolved paths (`<packageDir>` via `readdirSync`, and
- * `<packageDir>/schema.json` via `readFileSync`) rather than the single path §4.6b's prose
- * names — proven necessary by RED (see the "must-fail-first" note on the test below): the
- * literal single-path predicate fails this run for the wrong-classified `readdirSync` event
- * before any implementation change, confirming the widening is required, not cosmetic.
- * Every OTHER surface (net, Bun I/O, fetch, env/argv gets, and any OTHER fs call) still
- * fails closed, per the design's fail-closed guarantee.
+ * REQ-ATH-13 (schema-invalid/valid rejection through the harness) was REPEALED by spec V2
+ * — the migration structurally inverts its "packageDir lives in the factory's definition"
+ * premise. The observable guarantee it protected relocates to REQ-ATH-17.1/.2 (executed,
+ * pinned in `test/fake/harness-options-bag.test.ts`, S-000); this file keeps the additional
+ * input-shape variety below as plain regression coverage of the SAME REQ-ATH-17 guarantee,
+ * not a second, independent REQ.
  *
- * **Executor note — ATH-13 interim-shape reinterpretation (spec staleness, licensed)**:
- * REQ-ATH-13's card text describes an "interim" window where a schema-invalid rejection is
- * a plain `Error` (typed `unknown`) "until stage-4's S-006 lands," with scenarios
- * re-verifying against the `AuthoringError` shape "at that time." That time is NOW: this
- * gate's own verification confirms `stage-4-typed-options` has ARCHIVED, and
- * `src/core/schema/input-rejection.ts`'s header comment + implementation (git history:
- * `6bbd9f2 feat(schema): stage-4 S-006 — AuthoringError finalization for typed-input
- * rejections`) show `rejectionFor`/`rejectionForReservedName` already construct a full
- * `AuthoringError{origin:"authoring-rejected", reason}` — not a plain `Error`. This is
- * independently confirmed by the ALREADY-GREEN `test/skeleton/run-boundary-validation.test.ts`
- * REQ-RBV-01.2 case (same `PORT_SCHEMA`, same message, direct `defineFactory` call). The
- * interim window described by the card's literal text has therefore already closed on this
- * build's merge base — ATH-13.1/.2 below assert the `AuthoringError` shape REQ-ATH-13's own
- * text anticipates post-S-006, not the stale plain-Error/`unknown` interim. Both are
- * [characterization]: the underlying production behaviour predates this slice (it shipped
- * with stage-4's own now-archived S-006), so RED-first is waived per the slices RED-posture
- * taxonomy — these tests pin already-intended behaviour reached through a NEW entry point
- * (the harness facade), not drive new production logic.
+ * **Executor note — ATH-11.2/ATH-17.3 predicate widened beyond the design §4.6b literal
+ * text**: §4.6b's event-allowlist predicate names only "the `node:fs` read events whose
+ * resolved target path equals `<packageDir>/schema.json`" as observed-not-flagged.
+ * Investigating the ACTUAL merged discovery surface shows `defineFactory`'s opted-in
+ * branch (`src/core/context.ts`) makes THREE unconditional `node:fs`-family reads, in
+ * order, all BEFORE `als.run`: the `collection.json` ancestor-walk probe
+ * (`existsSync`), the reserved-lifecycle-name scan (`readdirSync`), then the schema read
+ * (`readFileSync`). All three are the factory's own declared opted-in behaviour (REQ-ATH-11's
+ * carve-out) — neither is harness machinery, neither is optional, and an author cannot opt
+ * out of one without the others (`options.packageDir !== undefined` gates all three
+ * identically). The predicate below therefore allows all three resolved paths rather than
+ * the single path §4.6b's prose names. Every OTHER surface (net, Bun I/O, fetch, env/argv
+ * gets, and any OTHER fs call) still fails closed, per the design's fail-closed guarantee.
  */
 import { describe, it, expect } from "bun:test";
 import { join } from "node:path";
-import { defineFactory, runFactoryForTest } from "../../src/testing/index.ts";
+import { runFactoryForTest } from "../../src/testing/index.ts";
 import { create, AuthoringError } from "../../src/commons/index.ts";
 import { instrumentHarnessIO, type IoEvent } from "../support/harness-io-instrumentation.ts";
 
 const FIXTURE_DIR = join(import.meta.dir, "../fixtures/harness-opted-in");
 const SCHEMA_PATH = join(FIXTURE_DIR, "schema.json");
-// ADR-0046 (schematic-local-files, S-000): the new pre-`als.run` packageRoot ceiling walk
+// ADR-0046 (schematic-local-files): the pre-`als.run` packageRoot ceiling walk
 // (`resolvePackageRoot`, `src/core/context.ts`) adds a THIRD unconditional, factory-own
-// declared read — `existsSync(<packageDir>/collection.json)` — between the two reads this
-// file's header comment already documents. The fixture's own `collection.json` marker
-// (added alongside `schema.json`, S-000.3 migration) means the walk resolves on its FIRST
-// probe, at `packageDir` itself.
+// declared read — `existsSync(<packageDir>/collection.json)` — alongside the reserved-name
+// scan and the schema read below. The fixture's own `collection.json` marker means the walk
+// resolves on its FIRST probe, at `packageDir` itself.
 const COLLECTION_JSON_PATH = join(FIXTURE_DIR, "collection.json");
 
-// The widened predicate (executor note above): the ONLY node:fs events an opted-in
-// factory's OWN declared behaviour is allowed to produce — the reserved-lifecycle-name
-// directory scan of `<packageDir>` itself, and the schema read of `<packageDir>/schema.json`.
+// The ONLY node:fs events an opted-in factory's OWN declared behaviour is allowed to
+// produce — the reserved-lifecycle-name directory scan of `<packageDir>` itself, the
+// containment-ceiling probe of `<packageDir>/collection.json`, and the schema read of
+// `<packageDir>/schema.json`.
 function isDeclaredOptedInRead(event: IoEvent): boolean {
   if (event.surface !== "node:fs") return false;
   if (event.key === "readdirSync") return event.arg === FIXTURE_DIR;
@@ -70,50 +52,50 @@ function isDeclaredOptedInRead(event: IoEvent): boolean {
   return false;
 }
 
-describe("REQ-ATH-11.2 — opted-in factory's own declared reads are observed, not flagged", () => {
-  it(
-    "[must-fail-first] REQ-ATH-11.2: only the declared opted-in reads are allowed; every other surface stays zero",
-    async () => {
-      const instrumentation = instrumentHarnessIO();
-      try {
-        const run = defineFactory<{ port: number }>(() => {
-          create("server.config.ts", { template: "static content", options: {} });
-        }, { packageDir: FIXTURE_DIR });
+describe("REQ-ATH-17.3 — positive fs-read oracle proves packageDir was actually forwarded", () => {
+  it("only the declared opted-in reads are allowed; every other surface stays zero", async () => {
+    const instrumentation = instrumentHarnessIO();
+    try {
+      const run = (): void => {
+        create("server.config.ts", { template: "static content", options: {} });
+      };
 
-        const result = await runFactoryForTest(run, { port: 8080 });
+      const result = await runFactoryForTest(run, { port: 8080 }, { packageDir: FIXTURE_DIR });
 
-        expect(result.error).toBeUndefined();
+      expect(result.error).toBeUndefined();
 
-        const undeclaredFsEvents = instrumentation.events().filter(
-          (event) => event.surface === "node:fs" && !isDeclaredOptedInRead(event)
-        );
-        expect(undeclaredFsEvents).toEqual([]);
+      const undeclaredFsEvents = instrumentation.events().filter(
+        (event) => event.surface === "node:fs" && !isDeclaredOptedInRead(event)
+      );
+      expect(undeclaredFsEvents).toEqual([]);
 
-        const declaredFsEvents = instrumentation.events().filter(isDeclaredOptedInRead);
-        expect(declaredFsEvents.map((event) => event.key).sort()).toEqual([
-          "existsSync",
-          "readFileSync",
-          "readdirSync",
-        ]);
+      // Mutation-resistant: proves existsSync/readFileSync/readdirSync ALL actually fired
+      // against the package directory — a mutant that silently drops the forwarded
+      // `packageDir` (passing `undefined` through) would leave this list empty.
+      const declaredFsEvents = instrumentation.events().filter(isDeclaredOptedInRead);
+      expect(declaredFsEvents.map((event) => event.key).sort()).toEqual([
+        "existsSync",
+        "readFileSync",
+        "readdirSync",
+      ]);
 
-        const otherSurfaceEvents = instrumentation.events().filter((event) => event.surface !== "node:fs");
-        expect(otherSurfaceEvents).toEqual([]);
-        expect(instrumentation.envGets).toEqual(0);
-        expect(instrumentation.argvGets).toEqual(0);
-      } finally {
-        instrumentation.restore();
-      }
+      const otherSurfaceEvents = instrumentation.events().filter((event) => event.surface !== "node:fs");
+      expect(otherSurfaceEvents).toEqual([]);
+      expect(instrumentation.envGets).toEqual(0);
+      expect(instrumentation.argvGets).toEqual(0);
+    } finally {
+      instrumentation.restore();
     }
-  );
+  });
 });
 
-describe("REQ-ATH-13 — opted-in factory support through the harness", () => {
-  it("[characterization] REQ-ATH-13.1: schema-invalid input rejects all-or-nothing via result.error", async () => {
-    const run = defineFactory<{ port?: number }>(() => {
+describe("REQ-ATH-17 — packageDir-opted-in factory support through the harness (regression, additional input-shape coverage over harness-options-bag.test.ts's S-000 pins)", () => {
+  it("schema-invalid input rejects all-or-nothing via result.error", async () => {
+    const run = (): void => {
       create("server.config.ts", { template: "static content", options: {} });
-    }, { packageDir: FIXTURE_DIR });
+    };
 
-    const result = await runFactoryForTest(run, {});
+    const result = await runFactoryForTest(run, {}, { packageDir: FIXTURE_DIR });
 
     expect(result.tree.size).toEqual(0);
     expect(result.emitted).toEqual([]);
@@ -124,15 +106,15 @@ describe("REQ-ATH-13 — opted-in factory support through the harness", () => {
     expect(err.message).toEqual("invalid input: port must be number");
   });
 
-  it("[characterization] REQ-ATH-13.2: schema-valid input runs the opted-in factory normally", async () => {
-    const run = defineFactory<{ port: number }>((input) => {
+  it("schema-valid input runs the opted-in factory normally", async () => {
+    const run = (input: { port: number }): void => {
       create("server.config.ts", {
         template: "export const port = {{port}};",
         options: { port: input.port },
       });
-    }, { packageDir: FIXTURE_DIR });
+    };
 
-    const result = await runFactoryForTest(run, { port: 8080 });
+    const result = await runFactoryForTest(run, { port: 8080 }, { packageDir: FIXTURE_DIR });
 
     // Template placeholders survive unrendered (REQ-ATH-10) — this asserts the run
     // COMMITTED, indistinguishable from REQ-ATH-01.1's non-opted-in happy path, not that

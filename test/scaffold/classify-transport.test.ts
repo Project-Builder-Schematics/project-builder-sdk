@@ -23,7 +23,6 @@ import * as fs from "node:fs";
 import { join } from "node:path";
 import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
 import { BATCH_CAP_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
-import { defineFactory } from "../../src/core/context.ts";
 import { scaffold } from "../../src/commons/index.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { collectOps } from "../support/spy-client.ts";
@@ -225,10 +224,10 @@ describe("REQ-CCL-02.3 — exactly-at-budget boundary, directive-inclusive, driv
     expect(soloDirectiveBatchSize(destPath, content)).toEqual(BATCH_CAP_BYTES + 1);
     writeFileSync(join(dir, "files", "over.ts"), content, "utf-8");
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
-    const result = await runFactoryForTest(run, undefined);
+    };
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
 
     // Pre-fix (RED, judgment-day iteration 1 finding): the classifier measured only the
     // content string, saw it comfortably under budget, classified by-value — the expander
@@ -253,10 +252,10 @@ describe("REQ-CCL-02.3 — exactly-at-budget boundary, directive-inclusive, driv
     expect(soloDirectiveBatchSize(destPath, content)).toEqual(BATCH_CAP_BYTES);
     writeFileSync(join(dir, "files", "at.ts"), content, "utf-8");
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
-    const result = await runFactoryForTest(run, undefined);
+    };
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
 
     expect(result.error).toBeUndefined();
     expect(result.tree.get("out/at.ts")).toEqual(content);

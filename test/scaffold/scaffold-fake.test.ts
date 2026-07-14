@@ -15,7 +15,6 @@
 import { describe, it, expect } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { defineFactory } from "../../src/core/context.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { scaffold, copyIn, create, AuthoringError } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
@@ -30,11 +29,11 @@ describe("REQ-BRC-01.1 — by-reference directive is distinguishable from by-val
     writeFileSync(join(dir, "files", "text.ts"), "export const a = 1;", "utf-8");
     writeFileSync(join(dir, "files", "binary.png"), Buffer.from([0x89, 0x00, 0x50, 0x4e]));
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
+    };
 
-    const result = await runFactoryForTest(run, undefined);
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
     expect(result.error).toBeUndefined();
 
     const [createDirective] = collectOps(result.emitted, "create");
@@ -51,11 +50,11 @@ describe("REQ-BRC-01.2 — the directive carries a path REFERENCE, never the sou
     const marker = Buffer.from([0xde, 0xad, 0xbe, 0xef, 0x01, 0x02, 0x03, 0x04]);
     writeFileSync(join(dir, "asset.bin"), marker);
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       copyIn("asset.bin", "dest/asset.bin");
-    }, { packageDir: dir });
+    };
 
-    const result = await runFactoryForTest(run, undefined);
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
     expect(result.error).toBeUndefined();
 
     const [copyInDirective] = collectOps(result.emitted, "copyIn");
@@ -73,19 +72,25 @@ describe("REQ-BRC-05.1 — by-reference collision without force rejects; with fo
     const dir = scratchDir();
     writeFileSync(join(dir, "asset.svg"), "<svg/>", "utf-8");
 
-    const runNoForce = defineFactory<void>(() => {
+    const runNoForce = (): void => {
       copyIn("asset.svg", "dest/asset.svg");
-    }, { packageDir: dir });
-    const resultNoForce = await runFactoryForTest(runNoForce, undefined, { "dest/asset.svg": "existing" });
+    };
+    const resultNoForce = await runFactoryForTest(runNoForce, undefined, {
+      packageDir: dir,
+      seed: { "dest/asset.svg": "existing" },
+    });
 
     expect(resultNoForce.error).toBeInstanceOf(AuthoringError);
     expect((resultNoForce.error as AuthoringError).reason).toEqual("path-collision");
     expect((resultNoForce.error as AuthoringError).verb).toEqual("copyIn");
 
-    const runForce = defineFactory<void>(() => {
+    const runForce = (): void => {
       copyIn("asset.svg", "dest/asset.svg", { force: true });
-    }, { packageDir: dir });
-    const resultForce = await runFactoryForTest(runForce, undefined, { "dest/asset.svg": "existing" });
+    };
+    const resultForce = await runFactoryForTest(runForce, undefined, {
+      packageDir: dir,
+      seed: { "dest/asset.svg": "existing" },
+    });
 
     expect(resultForce.error).toBeUndefined();
   });
@@ -96,11 +101,11 @@ describe("REQ-BRC-07.1 — emitted source path is package-relative, never absolu
     const dir = scratchDir();
     writeFileSync(join(dir, "asset.svg"), "<svg/>", "utf-8");
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       copyIn("asset.svg", "dest/asset.svg");
-    }, { packageDir: dir });
+    };
 
-    const result = await runFactoryForTest(run, undefined);
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
     expect(JSON.stringify(result.emitted)).not.toContain(dir);
   });
 
@@ -109,11 +114,11 @@ describe("REQ-BRC-07.1 — emitted source path is package-relative, never absolu
     mkdirSync(join(dir, "files"));
     writeFileSync(join(dir, "files", "binary.png"), Buffer.from([0x89, 0x00, 0x50, 0x4e]));
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
+    };
 
-    const result = await runFactoryForTest(run, undefined);
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
     expect(JSON.stringify(result.emitted)).not.toContain(dir);
   });
 });
@@ -126,11 +131,11 @@ describe("REQ-CCL-04.1 — template-like text renders via scaffold by-value; cop
     mkdirSync(join(dir, "files"));
     writeFileSync(join(dir, "files", "literal.txt"), content, "utf-8");
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
+    };
 
-    const result = await runFactoryForTest(run, undefined);
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
     expect(result.error).toBeUndefined();
     expect(result.tree.get("out/literal.txt")).toEqual(content);
   });
@@ -139,11 +144,11 @@ describe("REQ-CCL-04.1 — template-like text renders via scaffold by-value; cop
     const dir = scratchDir();
     writeFileSync(join(dir, "literal.txt"), content, "utf-8");
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       copyIn("literal.txt", "out/literal.txt");
-    }, { packageDir: dir });
+    };
 
-    const result = await runFactoryForTest(run, undefined);
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
     expect(result.error).toBeUndefined();
 
     const [copyInDirective] = collectOps(result.emitted, "copyIn");
@@ -158,18 +163,24 @@ describe("REQ-FEH-05.1 — create({templateFile}) collision without force reject
     const dir = scratchDir();
     writeFileSync(join(dir, "tpl.ts.template"), "export const x = {= x =};", "utf-8");
 
-    const runNoForce = defineFactory<void>(() => {
+    const runNoForce = (): void => {
       create("dest.ts", { templateFile: "tpl.ts.template", options: { x: 1 } });
-    }, { packageDir: dir });
-    const resultNoForce = await runFactoryForTest(runNoForce, undefined, { "dest.ts": "existing" });
+    };
+    const resultNoForce = await runFactoryForTest(runNoForce, undefined, {
+      packageDir: dir,
+      seed: { "dest.ts": "existing" },
+    });
 
     expect(resultNoForce.error).toBeInstanceOf(AuthoringError);
     expect((resultNoForce.error as AuthoringError).reason).toEqual("path-collision");
 
-    const runForce = defineFactory<void>(() => {
+    const runForce = (): void => {
       create("dest.ts", { templateFile: "tpl.ts.template", options: { x: 1 }, force: true });
-    }, { packageDir: dir });
-    const resultForce = await runFactoryForTest(runForce, undefined, { "dest.ts": "existing" });
+    };
+    const resultForce = await runFactoryForTest(runForce, undefined, {
+      packageDir: dir,
+      seed: { "dest.ts": "existing" },
+    });
 
     expect(resultForce.error).toBeUndefined();
     expect(resultForce.tree.get("dest.ts")).toEqual("export const x = {= x =};");
@@ -181,16 +192,22 @@ describe("REQ-FEH-05.2 — copyIn collision without force rejects; with force ov
     const dir = scratchDir();
     writeFileSync(join(dir, "asset.svg"), "<svg/>", "utf-8");
 
-    const runNoForce = defineFactory<void>(() => {
+    const runNoForce = (): void => {
       copyIn("asset.svg", "dest/asset.svg");
-    }, { packageDir: dir });
-    const resultNoForce = await runFactoryForTest(runNoForce, undefined, { "dest/asset.svg": "existing" });
+    };
+    const resultNoForce = await runFactoryForTest(runNoForce, undefined, {
+      packageDir: dir,
+      seed: { "dest/asset.svg": "existing" },
+    });
     expect((resultNoForce.error as AuthoringError).reason).toEqual("path-collision");
 
-    const runForce = defineFactory<void>(() => {
+    const runForce = (): void => {
       copyIn("asset.svg", "dest/asset.svg", { force: true });
-    }, { packageDir: dir });
-    const resultForce = await runFactoryForTest(runForce, undefined, { "dest/asset.svg": "existing" });
+    };
+    const resultForce = await runFactoryForTest(runForce, undefined, {
+      packageDir: dir,
+      seed: { "dest/asset.svg": "existing" },
+    });
     expect(resultForce.error).toBeUndefined();
   });
 });

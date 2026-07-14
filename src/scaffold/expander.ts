@@ -54,8 +54,8 @@ export interface ScaffoldArgs {
 
 function noResolutionAnchorMessage(): string {
   return (
-    "invalid input: scaffold requires defineFactory({ packageDir }) — " +
-    "there is no resolution anchor to read package-local files against"
+    "invalid input: scaffold has no package directory to resolve … against — " +
+    "pass `packageDir` to the call that runs this factory"
   );
 }
 

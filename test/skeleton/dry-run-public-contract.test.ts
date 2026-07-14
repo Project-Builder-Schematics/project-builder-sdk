@@ -59,7 +59,10 @@ describe("dry-run public contract — JSDoc discoverability scan (REQ-DRE-04)", 
     expect(exampleMatch).not.toBeNull();
     const exampleBlock = exampleMatch?.[1] ?? "";
     expect(exampleBlock).toContain("dryRun()");
-    expect(exampleBlock).toContain("defineFactory");
+    // bare-factory-migration (REQ-TES-10.1): the example factory is bare — no
+    // `defineFactory` wrapping — so the in-run-usage pin is the factory declaration
+    // itself, not the (now removed) wrapper token.
+    expect(exampleBlock).toContain("const run =");
     expect(exampleBlock).toContain("entry.verb");
     expect(exampleBlock).toContain("entry.path");
   });

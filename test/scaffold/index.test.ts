@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { scaffold, copyIn, dryRun } from "../../src/commons/index.ts";
+import { scaffold, copyIn, create, dryRun } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 import { expectAuthoringReason } from "../support/expect-reason.ts";
@@ -145,5 +145,37 @@ describe("REQ-FEH-04 — copyIn's mandatory args and void return", () => {
     });
 
     expectAuthoringReason(caught, "invalid-input");
+  });
+});
+
+describe("REQ-TES-09.1 — templateFile missing-packageDir rejection is rewritten (bare-shape contract)", () => {
+  it("names the caller-supplied-packageDir remedy, zero defineFactory tokens", async () => {
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      create("dest.ts", { templateFile: "tpl.ts.template", options: {} });
+    });
+
+    const err = expectAuthoringReason(caught, "invalid-input");
+    expect(err.message).not.toContain("defineFactory");
+    expect(err.message).toContain('templateFile "tpl.ts.template"');
+    expect(err.message).toContain("packageDir");
+    expect(err.message).toContain("invalid input: ");
+  });
+});
+
+describe("REQ-TES-09.2 — copyIn missing-packageDir rejection is rewritten (bare-shape contract)", () => {
+  it("names the caller-supplied-packageDir remedy, zero defineFactory tokens", async () => {
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      copyIn("asset.svg", "dest/asset.svg");
+    });
+
+    const err = expectAuthoringReason(caught, "invalid-input");
+    expect(err.message).not.toContain("defineFactory");
+    expect(err.message).toContain("copyIn");
+    expect(err.message).toContain("packageDir");
+    expect(err.message).toContain("invalid input: ");
   });
 });
