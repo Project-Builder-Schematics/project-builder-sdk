@@ -259,6 +259,11 @@ function checkReservedNames(packageDir: string): void {
  * `defineFactory(fn)` call is the untyped opt-out and runs exactly as before this option
  * existed (REQ-TFO-02).
  *
+ * @internal Sanctioned callers only — `src/core/**`, `src/testing/**`, and
+ * `src/conformance/**` (enforced by `test/fitness/fit-29-sanctioned-definefactory-caller.test.ts`).
+ * Author code never imports this directly; it calls `runFactoryForTest` (test-time) or the
+ * future production runner instead — both wrap this SAME seam internally.
+ *
  * @param fn - the authoring logic; receives the resolved, schema-validated input.
  * @param options.packageDir - opts into schema-derived input validation and reserved-name
  * enforcement (both structural checks against this package's `schema.json`/sibling files).
@@ -277,18 +282,18 @@ function checkReservedNames(packageDir: string): void {
  * @example
  * // 1. Generate the typed Input from schema.json:
  * //      pbuilder-codegen <package-dir>
- * // 2. Author against the generated type:
  * import type { Input } from "./schema.generated.ts";
  *
- * export const run = defineFactory<Input>(
- *   (input) => {
- *     create("server.config.ts", {
- *       template: "export const port = {{port}};",
- *       options: { port: input.port },
- *     });
- *   },
- *   { packageDir: import.meta.dir }
- * );
+ * // 2. Internal: wrap a bare author fn into a client-driven runner:
+ * const bareFactory = (input: Input) => {
+ *   create("server.config.ts", {
+ *     template: "export const port = {{port}};",
+ *     options: { port: input.port },
+ *   });
+ * };
+ *
+ * const runner = defineFactory<Input>(bareFactory, { packageDir: import.meta.dir });
+ * await runner(input, { client });
  */
 export function defineFactory<O>(
   fn: (o: O) => void | Promise<void>,

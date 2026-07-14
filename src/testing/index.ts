@@ -8,6 +8,7 @@
 // under `strictFunctionTypes` without a cast.
 import type { Batch, Directive } from "../core/wire.ts";
 import type { AuthoringError } from "../core/authoring-error.ts";
+import { defineFactory } from "../core/context.ts";
 import { ContractFake } from "./contract-fake.ts";
 
 interface RecordingClient {
@@ -44,16 +45,17 @@ export interface RunResult {
 }
 
 export type { Batch, Directive };
-export { defineFactory } from "../core/context.ts";
 
 /**
- * Runs an author factory in-memory against a normative fake engine and returns what
+ * Runs a bare author factory in-memory against a normative fake engine and returns what
  * actually happened — closing the gap where a write-only factory (one that buffers
  * directives but is never observed to commit them) has no author-facing test to catch it.
  *
- * `factory` is the RUNNER `defineFactory` produces, never the raw function passed to it.
- * The harness constructs its own in-memory fake and spy client internally — callers never
- * construct or pass a client.
+ * `fn` is the bare `(input) => void | Promise<void>` author function — never a
+ * `defineFactory`-wrapped runner. `runFactoryForTest` wraps `fn` internally by delegating to
+ * `defineFactory`, the SAME seam a future production runner will call (single-wrap-seam
+ * invariant) — it never reimplements the wrap. The harness constructs its own in-memory fake
+ * and spy client internally — callers never construct or pass a client.
  *
  * 0.x, semver-exempt: this module's result shape may still change before the SDK's first
  * stable release, independent of the kit's own semver policy.
@@ -61,24 +63,28 @@ export { defineFactory } from "../core/context.ts";
  * `./testing` is the supported author-facing test harness — distinct from `./conformance`,
  * which exercises dialect-authoring conformance, not factory behaviour.
  *
- * @param factory - the runner returned by `defineFactory`.
- * @param input - the resolved input passed through to `factory`.
- * @param seed - pre-existing tree content visible to the factory's own reads
+ * @param fn - the bare authoring function; receives the resolved input.
+ * @param input - the resolved input passed through to `fn`.
+ * @param options.seed - pre-existing tree content visible to the factory's own reads
  * (`Record<string,string>`) — the SOLE seeding channel; never reflected in `result.tree`
  * unless the factory itself modifies the seeded path.
+ * @param options.packageDir - opts the run into schema-derived run-boundary validation
+ * against an adjacent `schema.json` (pass `import.meta.dir`, never `import.meta.url`); when
+ * absent the run is the untyped, unvalidated tier, byte-identical to a run with no
+ * `packageDir` at all.
  *
  * @example
- * import { defineFactory, runFactoryForTest } from "@pbuilder/sdk/testing";
+ * import { runFactoryForTest } from "@pbuilder/sdk/testing";
  * import { create, AuthoringError } from "@pbuilder/sdk/commons";
  * import { expect, test } from "bun:test";
  *
  * test("factory writes a greeting file", async () => {
- *   const run = defineFactory<{ name: string }>((input) => {
+ *   const run = (input: { name: string }) => {
  *     create("src/greeting.ts", {
  *       template: "export const greeting = '{{name}}';",
  *       options: { name: input.name },
  *     });
- *   });
+ *   };
  *
  *   const result = await runFactoryForTest(run, { name: "hello" });
  *
@@ -93,11 +99,11 @@ export { defineFactory } from "../core/context.ts";
  * });
  */
 export async function runFactoryForTest<O>(
-  factory: (o: O, deps: { client: RecordingClient }) => Promise<void>,
+  fn: (input: O) => void | Promise<void>,
   input: O,
-  seed?: Record<string, string>
+  options?: { seed?: Record<string, string>; packageDir?: string | URL }
 ): Promise<RunResult> {
-  const fake = new ContractFake({ seed: seed ?? {} });
+  const fake = new ContractFake({ seed: options?.seed ?? {} });
   const emitted: Batch[] = [];
   const client: RecordingClient = {
     emit(batch) {
@@ -115,9 +121,14 @@ export async function runFactoryForTest<O>(
     },
   };
 
+  const run = defineFactory<O>(
+    fn,
+    options?.packageDir !== undefined ? { packageDir: options.packageDir } : undefined
+  );
+
   let error: AuthoringError | unknown;
   try {
-    await factory(input, { client });
+    await run(input, { client });
   } catch (caught) {
     error = caught;
   }

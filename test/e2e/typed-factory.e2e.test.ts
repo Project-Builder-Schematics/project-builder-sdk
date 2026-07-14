@@ -6,16 +6,22 @@
  * `instanceof AuthoringError`/origin/reason facets.
  */
 import { describe, it, expect } from "bun:test";
-import { run } from "../fixtures/typed-factory/factory.ts";
+import { run, PACKAGE_DIR } from "../fixtures/typed-factory/factory.ts";
+import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError } from "../../src/core/authoring-error.ts";
 import type { Input } from "../fixtures/typed-factory/schema.generated.ts";
+
+// REQ-FPS-04.1 (bare-factory-migration): the fixture's own export is bare — this e2e test
+// performs the ONE `defineFactory<Input>` wrap itself, exactly the runner/harness-internal
+// usage the migration relocates `defineFactory` to.
+const wrappedRun = defineFactory<Input>(run, { packageDir: PACKAGE_DIR });
 
 describe("e2e — typed factory (schema-derived Input, run-boundary rejection)", () => {
   it("runs to completion and commits when the resolved input satisfies the schema", async () => {
     const fake = new ContractFake({ seed: {} });
 
-    await run({ port: 8080 }, { client: fake });
+    await wrappedRun({ port: 8080 }, { client: fake });
 
     expect(fake.committedTree()).toEqual(
       new Map([["server.config.ts", "export const port = {{port}};"]])
@@ -27,7 +33,7 @@ describe("e2e — typed factory (schema-derived Input, run-boundary rejection)",
 
     let caught: unknown;
     try {
-      await run({} as Input, { client: fake });
+      await wrappedRun({} as Input, { client: fake });
     } catch (err) {
       caught = err;
     }

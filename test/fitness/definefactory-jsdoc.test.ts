@@ -39,6 +39,30 @@ describe("REQ-FPS-05.3 — reserved lifecycle names are documented at defineFact
   });
 });
 
+describe("REQ-FPS-05.2 (re-aim, bare-factory-migration) — defineFactory's JSDoc is marked @internal with a sanctioned-callers note", () => {
+  it("carries a literal @internal tag", () => {
+    expect(DEFINE_FACTORY_DOC).toMatch(/(?:^|\*|\s)@internal(?:\s|$)/m);
+  });
+
+  it("names the three sanctioned caller roots (enforced by FIT-29)", () => {
+    expect(DEFINE_FACTORY_DOC).toContain("src/core/");
+    expect(DEFINE_FACTORY_DOC).toContain("src/testing/");
+    expect(DEFINE_FACTORY_DOC).toContain("src/conformance/");
+  });
+
+  it("still carries a valid @example even though marked @internal (FIT-06's cascade obligation survives)", () => {
+    expect(DEFINE_FACTORY_DOC).toContain("@example");
+  });
+
+  it("the @example no longer frames defineFactory as the author's own path", () => {
+    expect(DEFINE_FACTORY_DOC).not.toMatch(/Author against/);
+  });
+
+  it("the @example shows the internal wrap+drive pattern — a runner driven with a client", () => {
+    expect(DEFINE_FACTORY_DOC).toContain("{ client }");
+  });
+});
+
 describe("REQ-FPS-05.4 — README incremental-shipping qualifying line (reverted by stage-4b REQ-TSD-03)", () => {
   // The scenario's own text anticipated this flip: "this line is REVERTED when
   // stage-4b-testing-harness lands (temporary, stage-scoped qualifier)". `stage-4b`'s

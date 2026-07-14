@@ -27,7 +27,6 @@
 import { describe, it, expect } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { defineFactory } from "../../src/core/context.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, scaffold, AuthoringError } from "../../src/commons/index.ts";
@@ -63,11 +62,11 @@ describe("REQ-04.1 — aggregate scaffold size exceeding the cap never blocks, a
       writeFileSync(join(dir, "files", name), String(i).repeat(perFile), "utf-8");
     }
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
+    };
 
-    const result = await runFactoryForTest(run, undefined);
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
 
     expect(result.error).toBeUndefined();
     expect(result.emitted.length).toBeGreaterThan(1); // proves chunking actually happened
@@ -127,15 +126,15 @@ describe("REQ-04.3 — exactly-at-cap group passes; one byte over rejects (inclu
     const content = "a".repeat(BATCH_CAP_BYTES - overhead);
     expect(soloBatchSize(pathTemplate, content)).toEqual(BATCH_CAP_BYTES);
     writeFileSync(join(dir, "files", "at.ts"), content, "utf-8");
-    const fake = new ContractFake({ seed: {} });
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
+    };
 
-    await run(undefined, { client: fake });
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
 
-    expect(fake.committedTree().get("out/at.ts")).toEqual(content);
+    expect(result.error).toBeUndefined();
+    expect(result.tree.get("out/at.ts")).toEqual(content);
   });
 
   it("a group landing ONE BYTE over BATCH_CAP_BYTES rejects changes-too-large (contrast fixture: a scaffolded file this close to the cap now classifies by-reference FIRST, per REQ-CCL-02 — so, symmetrically with REQ-04.2 above, the over-cap group is reconstructed from a directive buffered outside scaffold's own classify gate)", async () => {
@@ -180,14 +179,14 @@ describe("REQ-05.1 — cross-chunk atomicity: a later-chunk failure commits noth
     // dropping the copyIn directive when it shares a flush group with a create.
     writeFileSync(join(dir, "files", "c-binary.png"), Buffer.from([0x89, 0x00, 0x50, 0x4e]));
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
+    };
 
     // Seed a PRE-EXISTING "out/b.ts" so the second file's directive collides on emit —
     // "out/a.ts" has no seed, so the FIRST flush succeeds and stages content before the
     // SECOND flush (or the run-end flush) rejects.
-    const result = await runFactoryForTest(run, undefined, { "out/b.ts": "existing" });
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir, seed: { "out/b.ts": "existing" } });
 
     expect(result.error).toBeInstanceOf(AuthoringError);
     expect((result.error as AuthoringError).reason).toEqual("path-collision");

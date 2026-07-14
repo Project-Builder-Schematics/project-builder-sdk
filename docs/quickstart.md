@@ -133,22 +133,22 @@ export type Input = {
 Create `factory.ts` next to `schema.json`:
 
 ```ts filename=factory.ts
-import { defineFactory } from "@pbuilder/sdk/testing";
 import { create } from "@pbuilder/sdk/commons";
 import type { Input } from "./schema.generated.ts";
 
-export const run = defineFactory<Input>((input) => {
+export const run = (input: Input) => {
   create(`src/config/${input.serviceName}.ts`, {
     template: `export const port = ${input.port};`,
     options: {},
   });
-});
+};
 ```
 
-`defineFactory<Input>` types the callback's `input` parameter against the GENERATED type —
-never a hand-written generic. `create` is imported from `@pbuilder/sdk/commons`, the same
-entry every author-facing directive comes from. `defineFactory` currently ships from
-`./testing`; it will graduate to a core entry once an engine-backed surface lands.
+A factory is a plain function typed against the GENERATED `Input` — never a hand-written
+generic. `create` is imported from `@pbuilder/sdk/commons`, the same entry every
+author-facing directive comes from. The next step runs `run` through `runFactoryForTest`,
+which drives it against an in-memory fake — the factory itself never imports anything from
+`./testing`.
 
 ## 6. Test it
 

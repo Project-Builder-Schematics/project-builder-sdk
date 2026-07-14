@@ -114,6 +114,58 @@ describe("REQ-TSD-03 — README qualifying-line revert (sequence-gated)", () => 
   });
 });
 
+describe("REQ-TSD-05 — author-facing reference docs reflect the bare contract (bare-factory-migration)", () => {
+  const DRY_RUN_PATH = join(PROJECT_ROOT, "docs/dry-run.md");
+  const AUTHORING_VERBS_PATH = join(PROJECT_ROOT, "docs/authoring-verbs.md");
+  const AUTHORING_ERRORS_PATH = join(PROJECT_ROOT, "docs/authoring-errors.md");
+
+  it("REQ-TSD-05.3 [red-proof]: zero defineFactory tokens across the 3 doc files", () => {
+    for (const path of [DRY_RUN_PATH, AUTHORING_VERBS_PATH, AUTHORING_ERRORS_PATH]) {
+      expect(readFileSync(path, "utf-8")).not.toContain("defineFactory");
+    }
+  });
+
+  it("REQ-TSD-05.2: the 3 prose sites still state the run-scoped guarantee, reworded without naming defineFactory", () => {
+    expect(readFileSync(DRY_RUN_PATH, "utf-8")).toContain("can only be called inside an active run");
+    expect(readFileSync(AUTHORING_ERRORS_PATH, "utf-8")).toContain(
+      "An authoring verb was called outside an active run."
+    );
+    expect(readFileSync(AUTHORING_VERBS_PATH, "utf-8")).toContain("Only usable inside a run");
+  });
+
+  it("REQ-TSD-05.1: dry-run.md's code fence is bare and fence-compiles against runFactoryForTest's current signature", () => {
+    const doc = readFileSync(DRY_RUN_PATH, "utf-8");
+    // dry-run.md has 2 ```ts fences: a 1-line import snippet, and the runnable example this
+    // scenario targets — identified by name, not position, since fence ORDER is prose, not contract.
+    const fences = extractTsCodeBlocks(doc);
+    const fence = fences.find((f) => f.includes("runFactoryForTest"));
+    expect(fence).not.toBeUndefined();
+    expect(fence).not.toContain("defineFactory");
+    expect(fence).toMatch(/const run = \(\)\s*=>/);
+
+    const scratchDir = join(PROJECT_ROOT, ".tmp-dry-run-fence-compile");
+    mkdirSync(scratchDir, { recursive: true });
+    try {
+      writeFileSync(join(scratchDir, "fence.ts"), withRelativeImports(fence ?? ""));
+      writeFileSync(
+        join(scratchDir, "tsconfig.json"),
+        JSON.stringify({ extends: "../tsconfig.json", files: ["fence.ts"] }, null, 2)
+      );
+      const result = spawnSync("bunx", ["tsc", "--noEmit", "-p", join(scratchDir, "tsconfig.json")], {
+        cwd: PROJECT_ROOT,
+        encoding: "utf-8",
+      });
+      if (result.status !== 0) {
+        throw new Error(
+          `docs/dry-run.md's code fence did not fence-compile:\n${result.stdout}\n${result.stderr}`
+        );
+      }
+    } finally {
+      rmSync(scratchDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("REQ-TSD-04 — ADR-0009 amendment content (ADR-0033)", () => {
   it("REQ-TSD-04.1: ADR-0033 names the third audience, its entry, and the 0.x exemption", () => {
     const adr0033 = readFileSync(ADR_0033_PATH, "utf-8");

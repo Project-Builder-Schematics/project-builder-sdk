@@ -81,7 +81,7 @@ package rather than rendering a template.
   run's `packageDir`) into the tree, always by-reference — never classified or rendered, even
   when the source is plain text. This is `copy`'s sibling for package-local sources; contrast
   with `create({ templateFile })`, which explicitly RENDERS a package-local source instead.
-  Only usable inside a `defineFactory({ packageDir })` run.
+  Only usable inside a run whose `packageDir` option was provided.
 
   ```ts
   import { copyIn } from "@pbuilder/sdk/commons";

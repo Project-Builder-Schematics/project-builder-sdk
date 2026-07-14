@@ -23,12 +23,10 @@ type TypeScriptOps = {
  *
  * @example
  * import * as ts from "@pbuilder/sdk/typescript";
- * import { defineFactory } from "@pbuilder/sdk/testing";
  *
- * export const run = defineFactory(async () => {
+ * export const run = async () => {
  *   await ts.find("src/index.ts").addImport("readFileSync", "node:fs");
- * });
+ * };
  */
 export declare function find(path: string): Handle<"found", SourceFile, TypeScriptOps>;
 export {};
-//# sourceMappingURL=index.d.ts.map

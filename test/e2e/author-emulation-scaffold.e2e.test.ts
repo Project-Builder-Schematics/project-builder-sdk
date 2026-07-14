@@ -26,8 +26,9 @@ import {
 import { renderReport, reportPathFor, REPORTS_DIR } from "../support/run-report-render.ts";
 import { instrumentHarnessIO } from "../support/harness-io-instrumentation.ts";
 import { expectReasonAsync } from "../support/expect-reason.ts";
-import { SCENARIOS, type ScenarioEntry } from "./author-emulation/scenarios.ts";
+import { SCENARIOS, runOptionsFor, type ScenarioEntry } from "./author-emulation/scenarios.ts";
 import {
+  PACKAGE_DIR,
   SCAFFOLD_CALL_ARGS,
   runM02MissingFrom,
   runM02MissingTo,
@@ -69,7 +70,7 @@ const captureCache = new Map<string, Promise<CaptureResult>>();
 function cachedCapture(scenario: ScenarioEntry): Promise<CaptureResult> {
   const cached = captureCache.get(scenario.id);
   if (cached !== undefined) return cached;
-  const promise = captureRun(scenario.run, scenario.input, scenario.seed);
+  const promise = captureRun(scenario.run, scenario.input, runOptionsFor(scenario));
   captureCache.set(scenario.id, promise);
   return promise;
 }
@@ -151,13 +152,13 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
   describe("M-02 — ScaffoldArgs mandatory-arg rejections (REQ-FSC-01.1/.3)", () => {
     it("missing `from` rejects fail-loud before any directory read", async () => {
       await expectReasonAsync(async () => {
-        await runM02MissingFrom({ name: "Widgets" }, { client: undefined as never });
+        await runM02MissingFrom();
       }, "invalid-input");
     });
 
     it("missing `to` rejects fail-loud before any directory read", async () => {
       await expectReasonAsync(async () => {
-        await runM02MissingTo({ name: "Widgets" }, { client: undefined as never });
+        await runM02MissingTo();
       }, "invalid-input");
     });
   });
@@ -309,7 +310,7 @@ describe("S-004 — matrix-row assertions beyond the generic corpus-compare (bat
     });
 
     it("one-byte-over rejects `changes-too-large` (e2e-inline-only, never corpus-captured — the boundary's OTHER side)", async () => {
-      const capture = await captureRun(runM11OverCap, { name: "Widgets" });
+      const capture = await captureRun(runM11OverCap, { name: "Widgets" }, { packageDir: PACKAGE_DIR });
       expect(capture.error).toBeInstanceOf(AuthoringError);
       const err = capture.error as AuthoringError;
       // Batch-level rejection (see M-10's comment) — verb/path are null despite
@@ -358,7 +359,7 @@ describe("S-004 — matrix-row assertions beyond the generic corpus-compare (bat
     });
 
     it("absolute source rejects with the SAME reason (e2e-inline-only — a literal absolute path embedded verbatim would trip FIT-24's purity guard, so this variant is never corpus-captured)", async () => {
-      const capture = await captureRun(runM16Absolute, { name: "Widgets" });
+      const capture = await captureRun(runM16Absolute, { name: "Widgets" }, { packageDir: PACKAGE_DIR });
       expect(capture.error).toBeInstanceOf(AuthoringError);
       expect((capture.error as AuthoringError).reason).toEqual("source-outside-package");
     });
@@ -404,5 +405,45 @@ describe("S-004 — matrix-row assertions beyond the generic corpus-compare (bat
     });
     expect(capture.tree.size).toEqual(0); // first chunk discarded, run-level all-or-nothing
     expect(capture.emitted.length).toBeGreaterThan(1); // proves >=2 flushes actually occurred
+  });
+});
+
+// REQ-ATH-20.1/.3 (bare-factory-migration, ruling R-4): the scan oracle is the BARE
+// identifier (word-boundary), NEVER the substring with a trailing paren — the generic call
+// form `Identifier<Input>(` defeats a paren-anchored scan and would be vacuously green
+// pre-migration (§16b's finding). Scanned WHOLE-FILE (imports included) across BOTH
+// fixture files — the 28 `export const run*` bindings in author-emulation plus the 1 in
+// typed-factory, not merely the 21 SCENARIOS-registered subset.
+describe("REQ-ATH-20.1/.3 — author-emulation and typed-factory fixtures are fully bare", () => {
+  const AUTHOR_EMULATION_FACTORY_PATH = join(process.cwd(), "test/fixtures/author-emulation/factory.ts");
+  const TYPED_FACTORY_PATH = join(process.cwd(), "test/fixtures/typed-factory/factory.ts");
+  const BARE_IDENTIFIER_SCAN = /\bdefineFactory\b/;
+
+  it("REQ-ATH-20.1: zero occurrences of the bare identifier across both fixture files, whole-file", () => {
+    for (const path of [AUTHOR_EMULATION_FACTORY_PATH, TYPED_FACTORY_PATH]) {
+      const source = readFileSync(path, "utf-8");
+      expect({ path, matched: BARE_IDENTIFIER_SCAN.test(source) }).toEqual({ path, matched: false });
+    }
+  });
+
+  it("REQ-ATH-20.3 [red-proof]: a stray wrapped export is caught by the identifier scan", () => {
+    const revertedExport =
+      'export const runX = defineFactory<Input>((input) => { create("a.ts", { template: "x", options: {} }); }, { packageDir: PACKAGE_DIR });';
+    expect(BARE_IDENTIFIER_SCAN.test(revertedExport)).toBe(true);
+  });
+
+  // R-4's own rationale: a PAREN-anchored scan (`defineFactory(`) is vacuously green
+  // against the generic call form `defineFactory<Input>(` — the `<` sits between the
+  // identifier and the paren, so the literal substring never appears at a real call site.
+  // The word-boundary form catches it regardless.
+  it("[no-false-negative] the generic call form (`defineFactory<Input>(`) is caught — a paren-anchored scan would miss it", () => {
+    expect("defineFactory<Input>(fn, { packageDir });".includes("defineFactory(")).toBe(false);
+    expect(BARE_IDENTIFIER_SCAN.test("defineFactory<Input>(fn, { packageDir });")).toBe(true);
+  });
+
+  it("[no-false-positive] the word-boundary form does not match when the identifier is fused into a longer name", () => {
+    // A hypothetical merged identifier with no separating non-word character — the exact
+    // shape a naive `.includes("defineFactory")` substring check WOULD wrongly flag.
+    expect(BARE_IDENTIFIER_SCAN.test("const somedefineFactoryHelper = 1;")).toBe(false);
   });
 });

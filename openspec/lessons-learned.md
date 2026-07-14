@@ -589,3 +589,18 @@ claim about a test's existence, not about the clause's implementation — only a
 who re-derives the obligation from the spec text catches the difference.
 
 Source: change `stage-2-error-attribution` (2026-07-06)
+
+## From `bare-factory-migration` (2026-07-15)
+
+### Design inventory claims derived from narrow searches undercount reality
+**What**: Two independent design-inventory undercounts surfaced during build + verify: R-9's harness-convention consumer scan (`fd . test/fake | rg harness`) found only 4 files; build execution evidence revealed 5 unclaimed consumers. Section 14's docs-table inventory missed `src/dialects/typescript/index.ts`'s `@example`, caught only at S-006 discovery. Both cases: narrow search patterns yielded incomplete results.
+**Why**: The first search was too syntactically specific (`| rg harness` on filename only); the second relied on a manual table scan without cross-checking the actual source. Executor-side re-derivation (running build + typecheck to catch all consumers; FIT-06 origin-cascade scan) + multi-pattern sweeps caught both omissions late.
+**Where**: Design phase, inventory-gathering tasks (file counts, cross-file coverage tables, change-scope determination). Executor-side verify catches these but only after slicing commits.
+**Learned**: Design inventory claims must be derived twice — once via explicit search queries, once via automated cross-cutting scans (build/typecheck/fitness-layer) — and reconcile before signing the spec. A single narrow search is necessary but not sufficient. Executor-side re-derivation during apply/verify can catch remaining gaps, but earlier re-checking at spec-sign time improves slice accuracy and reduces in-loop iterations.
+
+### The vacuous-oracle trap: substring-match safety depends on context
+**What**: REQ-ATH-20.1's `defineFactory` token scan uses bare-identifier word-boundary matching (not substring). The original scenario intended `defineFactory(` (call form), which was vacuously zero pre-migration — every fixture had the wrapped-runner shape and no call to `defineFactory` existed. The spec was correct semantically, but the token itself was safe by luck, not design. FIT-16's own comment warned about this trap.
+**Why**: A token appearing nowhere means a scan for it vacuously passes; the distinction between "safe by design" and "safe by non-occurrence" is invisible post-migration, when bare factories ARE the norm and `defineFactory` disappears from author fixtures. Rename/API-change migration can silently create scenarios whose guarantees only hold because a token doesn't appear, not because the code actively forbids it.
+**Where**: Any spec that scans for a particular token or identifier as an invariant; especially REQs that emerged mid-cycle (REQ-ATH-20 was added at spec V2, not V1).
+**Learned**: When a spec scenario depends on a token absence, explicitly state whether the absence is enforced by code structure (active guard, allowlist, ban), verified by type system, or merely observed as a side effect of today's implementation. If it's the latter, register a "drift risk" as a future architecture guard or refactoring candidate, not a permanent invariant.
+

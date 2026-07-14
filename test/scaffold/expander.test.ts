@@ -282,3 +282,19 @@ describe("SEC (owner-ratified final-verify remediation) — scaffold's walk ROOT
     expect(fake.committedTree().size).toEqual(0);
   });
 });
+
+describe("REQ-TES-09.3 — scaffold missing-packageDir rejection is rewritten (bare-shape contract)", () => {
+  it("names the caller-supplied-packageDir remedy, zero defineFactory tokens", async () => {
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "files", to: "out" });
+    });
+
+    const err = expectAuthoringReason(caught, "invalid-input");
+    expect(err.message).not.toContain("defineFactory");
+    expect(err.message).toContain("scaffold");
+    expect(err.message).toContain("packageDir");
+    expect(err.message).toContain("invalid input: ");
+  });
+});

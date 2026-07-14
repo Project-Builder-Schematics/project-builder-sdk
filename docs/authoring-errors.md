@@ -52,7 +52,7 @@ error if a value is missed:
 | `path-not-found` | The target path does not exist. |
 | `unrepresentable-content` | The content could not be represented in the engine's format. |
 | `changes-too-large` | The run's total change size exceeds the engine's cap. |
-| `outside-run` | An authoring verb was called outside an active `defineFactory` run. |
+| `outside-run` | An authoring verb was called outside an active run. |
 | `unknown` | The rejection could not be classified. |
 | `invalid-input` | The SDK rejected a call's arguments before any engine round-trip. |
 | `reserved-name` | The call used a name reserved by the SDK or engine. |

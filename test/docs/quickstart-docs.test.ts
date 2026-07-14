@@ -202,10 +202,12 @@ describe("REQ-AOD-01/07 — quickstart machine leg (schema -> codegen -> typed f
     expect(codegenResult.status).toEqual(0);
     expect(codegenResult.stdout).toContain("pbuilder-codegen: wrote schema.generated.ts");
 
-    // REQ-AOD-01.2: factory.ts consumes the GENERATED type, not a hand-written generic.
+    // REQ-AOD-01.2: factory.ts consumes the GENERATED type as a BARE exported function —
+    // no defineFactory call, zero defineFactory tokens anywhere in the example.
     const factoryTs = files.get("factory.ts") ?? "";
     expect(factoryTs).toMatch(/import\s+type\s+\{\s*Input\s*\}\s+from\s+["']\.\/schema\.generated\.ts["']/);
-    expect(factoryTs).toContain("defineFactory<Input>");
+    expect(factoryTs).toMatch(/export const run\s*=\s*\(input:\s*Input\)/);
+    expect(factoryTs).not.toContain("defineFactory");
 
     // REQ-AOD-01.3/REQ-AOD-07.1: the test example runs green, unmodified beyond the fences
     // themselves, against the bun-link-installed package's own node_modules.

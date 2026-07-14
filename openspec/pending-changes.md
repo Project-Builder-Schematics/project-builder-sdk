@@ -196,6 +196,19 @@ owner-nod items, not gaps.
 | Long-term form of ship-the-fake: `ContractFake` currently ships inside the production npm tarball behind six structural containment guards (ADR-0034) — is a permanent containment surface the right long-term shape, or should it become a separate `@pbuilder/testing` package (or BYO-fake docs)? Accepted 0.x expedient by owner ruling (ADR-0034); flagged for a deliberate long-term-form nod (steward CQ3, owner-nod pending, non-blocking) | other | L | — | **re-evaluate alongside `@pbuilder/sdk-kit` extraction (6.2)** |
 | `RunResult.error`'s typed union `AuthoringError \| unknown` collapses to `unknown` at the type-checker (no narrowing value from the union today) — revisit the result-shape typing once `./testing` graduates past its semver-exempt window (arch note, verify-report) — **trigger RE-POINTED at the sdk-kit extraction / public-package plan (`stage-6-release-shape`, 2026-07-14, REQ-AOD-09.5), superseding the V1 "next 0.x result-shape iteration" trigger** | refactor | XS | — | **sdk-kit extraction / public-package plan** |
 
+## From `bare-factory-migration` (2026-07-15) — accepted as non-blocking at archive
+
+Verify verdict `pass-with-followups`. Judgment-day APPROVED. Steward reckoning DELIVERED (4 CQs affirmed). Architecture audit clean. Three ADRs promoted to project-level. Four non-blocking followups registered below.
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| R-11 scratch-replica drift risk — the scratch-anchor replica in `test/fixtures/author-emulation/factory.ts` path skips `validateAtRunBoundary`, hardcodes the containment ceiling (`packageRoot === packageDir`), and lacks `checkReservedNames` scan-failure wrapper. Register a lockstep pin test OR a shared helper between `defineFactory`'s gate and the replica. Behavior preservation proven today (git-clean regen); the two paths can silently diverge in a future change. | refactor | S | — | **backlog** |
+| Cosmetic comment-level tokens — 4 prose/comment mentions of `defineFactory` remain in `test/fake/harness-opted-in.test.ts` (:5, :17) and `test/scaffold/classify-transport.test.ts` (:5, :18), describing the migration itself. No spec scenario scans test comments; optional cleanup only. | docs | XS | — | **optional cleanup** |
+| (FIT-29 namespace-import bypass) `import * as ctx from "..."` escape hatch documented or extended scan — both judgment-day judges noted theoretical: FIT-29's `specifiersResolvingInto` scan targets named imports only; namespace imports (`import * as`) would bypass the guard if an untrusted file re-exported a piped `defineFactory` binding. Verify-final ruled the risk theoretical (no production code currently namespace-imports); register as forward-looking hardening (no current violation). | security | S | — | **backlog (hardening)** |
+| Spec REQ-ATH-01/17 `packageDir` type reconciliation — spec declares `packageDir?: string | URL`, runtime accepts only `string` (URL forwarding not implemented). Align the type or document the limitation (two implementations possible: explicit narrowing in JSDoc + @ts-expect-error, or genuine URL support at the validation boundary). | refactor | S | — | **doc-only or refactor, next harness touch** |
+
+(Observation: TSD-01.4 seeded-read oracle tightening (co-occurrence check → structural match) and comments-only `defineFactory` tokens on REQ-FPS-05.2 `@example` are noted in verify-report but NOT registered as pending — the former is a refinement candidate when the second story-docs evolution occurs; the latter is correct-by-design (re-aimed internal example per REQ-FPS-05.2). Double-fault frozen/sealed-E1 branch in `context.ts:342-345` has no coverage — pre-existing, outside this change's scope.)
+
 ## From stage-6 planning grooming (2026-07-12) — owner-validated gaps
 
 Owner use case validated in-session: schematics need to copy asset files from the schematic

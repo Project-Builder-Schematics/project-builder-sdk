@@ -16,7 +16,7 @@
  * facade's own wrapping introduces no new leak.
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory, runFactoryForTest } from "../../src/testing/index.ts";
+import { runFactoryForTest } from "../../src/testing/index.ts";
 import { create, find, AuthoringError } from "../../src/commons/index.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 import type { JsonValue } from "../../src/core/wire.ts";
@@ -87,10 +87,10 @@ describe("REQ-ATH-12 — scan mechanism red-proof", () => {
 
 describe("REQ-ATH-12.1 — harness result carries no leaked fragment", () => {
   it("collision rejection (REQ-ATH-03) leaks nothing", async () => {
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       create("a.ts", { template: "new", options: {} });
-    });
-    const result = await runFactoryForTest(run, undefined, { "a.ts": "old" });
+    };
+    const result = await runFactoryForTest(run, undefined, { seed: { "a.ts": "old" } });
 
     expect(result.error).toBeInstanceOf(AuthoringError);
     expect(scanForLeaks(result.error, LEAK_DICTIONARY)).toEqual([]);
@@ -98,9 +98,9 @@ describe("REQ-ATH-12.1 — harness result carries no leaked fragment", () => {
 
   it("factory throw (REQ-ATH-06) leaks nothing", async () => {
     const thrown = new Error("boom");
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       throw thrown;
-    });
+    };
     const result = await runFactoryForTest(run, undefined);
 
     expect(result.error).toBe(thrown);
@@ -109,9 +109,9 @@ describe("REQ-ATH-12.1 — harness result carries no leaked fragment", () => {
 
   it("batch-cap rejection (REQ-ATH-09) leaks nothing", async () => {
     const overTemplate = "a".repeat(BATCH_CAP_BYTES + 1);
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       create("cap.ts", { template: overTemplate, options: {} });
-    });
+    };
     const result = await runFactoryForTest(run, undefined);
 
     expect(result.error).toBeInstanceOf(AuthoringError);
@@ -120,9 +120,9 @@ describe("REQ-ATH-12.1 — harness result carries no leaked fragment", () => {
   });
 
   it("unrepresentable-content rejection (REQ-ATH-09.1) leaks nothing", async () => {
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       create("bad.ts", { template: "x", options: { fn: () => {} } as unknown as JsonValue });
-    });
+    };
     const result = await runFactoryForTest(run, undefined);
 
     expect(result.error).toBeInstanceOf(AuthoringError);
@@ -136,10 +136,10 @@ describe("REQ-ATH-12.2 — author-provided content is not mistaken for a leak", 
     const authorPath = "author-owned-path-marker.ts";
     expect(LEAK_DICTIONARY.some((fragment) => authorPath.includes(fragment))).toBe(false);
 
-    const run = defineFactory<void>(() => {
+    const run = (): void => {
       create(authorPath, { template: "new", options: {} });
-    });
-    const result = await runFactoryForTest(run, undefined, { [authorPath]: "old" });
+    };
+    const result = await runFactoryForTest(run, undefined, { seed: { [authorPath]: "old" } });
 
     expect(result.error).toBeInstanceOf(AuthoringError);
     expect((result.error as AuthoringError).message).toContain(authorPath);
@@ -157,13 +157,12 @@ describe("REQ-ATH-12.2 — author-provided content is not mistaken for a leak", 
     // scoping this scenario's scan to `result.error` per REQ-ATH-12's own stated scope
     // (the "report string" surface it also mentions does not exist, TW-m2).
     let seededContent: string | undefined;
-    const run = defineFactory<void>(async () => {
+    const run = async (): Promise<void> => {
       seededContent = await find("seeded.ts").read();
       create("colliding.ts", { template: "new", options: {} });
-    });
+    };
     const result = await runFactoryForTest(run, undefined, {
-      "seeded.ts": authorMarker,
-      "colliding.ts": "old",
+      seed: { "seeded.ts": authorMarker, "colliding.ts": "old" },
     });
 
     expect(seededContent).toEqual(authorMarker);
