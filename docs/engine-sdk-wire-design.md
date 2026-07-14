@@ -1,10 +1,13 @@
 # Engine ↔ SDK Wire Design
 
-**Status**: design record — captures the agreed communication design ahead of implementation.
-The wire methods (`ir.emit` / `tree.read`) are not yet on the engine (ROADMAP §6); no real
-client ships in `src/` (the normative implementation is the contract fake,
-`src/testing/contract-fake.ts`). This document is contributor-facing; it is not part of the
-author reading path in `docs/README.md`.
+**Status**: pre-implementation design record — captures the agreed communication design
+BEFORE any plan/build has run for the wire. It is the INPUT to that future change, not its
+outcome: when the wire change ships, the signed spec, design, and ADRs it produces become
+normative, and this document MUST be reconciled against what was actually built (updating
+the doc is in scope of that change's archive, not optional). The wire methods
+(`ir.emit` / `tree.read`) are not yet on the engine (ROADMAP §6); no real client ships in
+`src/` (the normative implementation is the contract fake, `src/testing/contract-fake.ts`).
+Contributor-facing; not part of the author reading path in `docs/README.md`.
 
 ## Topology
 
