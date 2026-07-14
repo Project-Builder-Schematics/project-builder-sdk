@@ -38,12 +38,11 @@ A schematic's own `collection` folder can hold static/templated files alongside
 target tree, without you writing a `create()` call per file:
 
 ```ts
-import { defineFactory } from "@pbuilder/sdk/testing";
 import { scaffold } from "@pbuilder/sdk/commons";
 
-const run = defineFactory<{ name: string }>((input) => {
+export const run = (input: { name: string }) => {
   scaffold({ from: "files", to: "src/generated", options: { name: input.name } });
-}, { packageDir: import.meta.dir });
+};
 ```
 
 Each source file is classified automatically — never author-declared: valid, in-budget text
@@ -88,22 +87,22 @@ This is distinct from `./conformance`: `./testing` tests **your own factory's** 
 `./conformance` conformance-tests a **dialect or op-pack** implementation (parse/print
 fidelity), not a factory.
 
-Import `defineFactory` and `runFactoryForTest` from `@pbuilder/sdk/testing`, run your factory
-against an in-memory fake, and assert on the result. Templates are stored **verbatim** —
-`{{...}}` interpolation is the engine's job, not the harness's:
+Import `runFactoryForTest` from `@pbuilder/sdk/testing`, pass it a bare
+`(input) => void | Promise<void>` factory function, and assert on the result. Templates are
+stored **verbatim** — `{{...}}` interpolation is the engine's job, not the harness's:
 
 ```ts
-import { defineFactory, runFactoryForTest } from "@pbuilder/sdk/testing";
+import { runFactoryForTest } from "@pbuilder/sdk/testing";
 import { create } from "@pbuilder/sdk/commons";
 import { expect, test } from "bun:test";
 
 test("factory writes a greeting file", async () => {
-  const run = defineFactory<{ name: string }>((input) => {
+  const run = (input: { name: string }) => {
     create("src/greeting.ts", {
       template: `export const greeting = '${input.name}';`,
       options: {},
     });
-  });
+  };
 
   const result = await runFactoryForTest(run, { name: "world" });
 
@@ -112,23 +111,23 @@ test("factory writes a greeting file", async () => {
 });
 ```
 
-`runFactoryForTest`'s third parameter, `seed`, pre-populates the in-memory tree so your
-factory can read existing files back before writing new ones:
+`runFactoryForTest`'s third parameter is an options bag — `seed` pre-populates the
+in-memory tree so your factory can read existing files back before writing new ones:
 
 ```ts
-import { defineFactory, runFactoryForTest } from "@pbuilder/sdk/testing";
+import { runFactoryForTest } from "@pbuilder/sdk/testing";
 import { find, create } from "@pbuilder/sdk/commons";
 import { expect, test } from "bun:test";
 
 test("factory derives a file from a seeded config", async () => {
-  const run = defineFactory(async () => {
+  const run = async () => {
     const raw = await find("config.json").read();
     const { name } = JSON.parse(raw ?? "{}") as { name: string };
     create("src/greeting.ts", { template: `export const greeting = '${name}';`, options: {} });
-  });
+  };
 
   const seed = { "config.json": JSON.stringify({ name: "seeded" }) };
-  const result = await runFactoryForTest(run, undefined, seed);
+  const result = await runFactoryForTest(run, undefined, { seed });
 
   expect(result.error).toBeUndefined();
   expect(result.tree.get("src/greeting.ts")).toEqual("export const greeting = 'seeded';");
@@ -136,6 +135,10 @@ test("factory derives a file from a seeded config", async () => {
   expect(result.tree.has("config.json")).toBe(false);
 });
 ```
+
+`packageDir` is the options bag's other field — pass `import.meta.dir` to opt a factory
+into schema-derived run-boundary validation against an adjacent `schema.json`; omit it for
+the untyped, unvalidated escape hatch shown above.
 
 ## Development
 

@@ -133,6 +133,16 @@ describe("REQ-FPS-06.2 — dist/core document-not-strip rationale", () => {
   });
 });
 
+// design-added (bare-factory-migration §4.6): the whole-README zero-`defineFactory` guarantee
+// is broader than REQ-TSD-01.5's heading-scoped scan of the "## Testing your factory" section
+// alone — the scaffolding-folder example (outside that section) must also be bare (tech-writer
+// finding, design.md §4.2 README.md row).
+describe("bare-factory-migration — README.md carries zero defineFactory tokens anywhere", () => {
+  it("the whole file, not just the testing section, is bare", () => {
+    expect(readDoc("README.md")).not.toContain("defineFactory");
+  });
+});
+
 describe("README front-door", () => {
   const readme = readDoc("README.md");
 

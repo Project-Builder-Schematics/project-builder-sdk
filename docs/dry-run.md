@@ -16,17 +16,19 @@ optional `kind` (`"rendered" | "copied"`) present only on the package-local-read
 transport is classified — `create` (`kind: "rendered"`) and `copyIn` (`kind: "copied"`).
 
 ```ts
-import { defineFactory } from "@pbuilder/sdk/testing";
+import { runFactoryForTest } from "@pbuilder/sdk/testing";
 import { create, find, dryRun } from "@pbuilder/sdk/commons";
 
-const run = defineFactory(() => {
+const run = () => {
   create("src/index.ts", { template: "export const version = '1.0.0';", options: {} });
   find("src/legacy.ts").remove();
 
   for (const entry of dryRun()) {
     console.log(entry.verb, entry.path); // "create src/index.ts", then "remove src/legacy.ts"
   }
-});
+};
+
+await runFactoryForTest(run, undefined, { seed: { "src/legacy.ts": "" } });
 ```
 
 ## Call it before any read
@@ -37,9 +39,9 @@ pending buffer, so directives already flushed no longer appear in `dryRun()`'s r
 it before any `read()` or dialect `find()` opens, if you want it to see everything the run
 has scheduled so far.
 
-`dryRun()` can only be called inside an active `defineFactory` run — calling it outside one
-throws the same "authoring verbs can only be used while a schematic is running" error every
-other `./commons` verb throws.
+`dryRun()` can only be called inside an active run — calling it outside one throws the same
+"authoring verbs can only be used while a schematic is running" error every other
+`./commons` verb throws.
 
 ## Next steps
 
