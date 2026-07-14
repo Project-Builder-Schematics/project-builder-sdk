@@ -1,9 +1,9 @@
 {
   "change": "bare-factory-migration",
   "triage": "L",
-  "phase": "verify-final",
-  "phase_status": "ALL GATES GREEN: judgment-day APPROVED, steward DELIVERED, arch audit clean; archive running",
-  "next_phase": "verify-final",
+  "phase": "archive",
+  "phase_status": "ARCHIVED @ 09f0b2f (openspec/changes/archive/2026-07-15-bare-factory-migration); engram mirror completion in flight",
+  "next_phase": "none — cycle closed",
   "plan_verify": "ready",
   "plan_verify_detail": {"iteration": 3, "verdict": "ready", "artifact": "openspec/changes/bare-factory-migration/verify-plan-3.md"},
   "arch_impact": "modifying",
