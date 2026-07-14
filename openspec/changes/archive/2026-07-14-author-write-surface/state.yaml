@@ -13,10 +13,40 @@ completed_phases_append_2:
 completed_phases_append_3:
   - slice        # slices.md v3 + orchestrator patches (obs #2129); 5 slices, 23/23 REQs, 0 orphans
   - verify-plan  # 3 iterations (gaps/gaps/exhausted) + OWNER OVERRIDE -> ready (obs #2131); verify-plan-{1,2,3}.md
-current_phase: verify-plan
-current_status: ready (owner override 2026-07-14) — PLANNER COMPLETE
-in_loop_iteration: 0
-next_phase: build (sdd-apply, --scope=skeleton S-000 first; then S-001..S-004 sequential)
+current_phase: verify-in-loop
+current_status: verify-in-loop PASS (iteration 1/3, obs #2137 + verify-in-loop-1.md).
+  Independent re-run: suite 1259/0, typecheck clean; frozen contracts byte-verified; zero
+  scope creep. 1 non-blocking WARNING carried to verify-final: REQ-FIT-04 V2 non-vacuousness
+  clause for new core.define-dialect.d.ts baseline lacks a dedicated assertion.
+  Apply history: S-000 (d6fd01b), S-001 (4b40af2), S-002 (5cadef6+e002a0a), S-003 (287a3a9),
+  S-004 (abde019+03865a0+2917fc8); 41 tasks, 19 executor-discovered (obs #2134, #2135).
+in_loop_iteration: 1
+simplify_pass: commit 045aa11 (2026-07-14, post-verify-in-loop, user-requested) — 8 fixes
+  from 4-angle review (reuse/simplification/efficiency/altitude); suite re-verified 1259/0,
+  typecheck clean, FIT-04 16/16, .d.ts declaration-identical. Skipped by convention: shared
+  frozen-message builders (byte-exact pins are deliberate), shared comment-span tokenizer
+  (support-module refactor beyond diff).
+evaluate_progress:
+  verify_final: pass-with-followups (obs #2140, verify-report.md; 23/23 REQs; suite 1259/0 x2)
+  council: architect aligned, security aligned, qa concerns (fixed), tech-writer concerns (fixed)
+  council_fix_batch: commit 100b623 (corpus floors, REQ-AEC-13 breadcrumb + 4th guard surface,
+    FIT-04 content pins, stale comment, BaseHandleSurfaceKey warning) — suite 1267/0
+  judgment_day: APPROVED round 1 (2 blind opus judges; 0 CRITICAL, 0 real WARNING;
+    1 SUGGESTION applied inline commit 4544eb5 — REQ-DG-02.8 isContained pin; 3 INFO)
+  arch_refresh: DONE (modifying folded into openspec/architecture.md + obs #2001;
+    sensitive-areas.md .raw() spelling drift noted as followup)
+  steward_reckoning: aligned-pending-human (obs #2141) -> OWNER ANSWERED 3/3 affirmative
+    2026-07-14 (verbs usable; wire verb:"modify" label sustained — third ratification;
+    value significant). GATE PASSED.
+  pending_debt_for_archive: flaky installed-consumer tarball leg (~25%), replaceContent("")
+    boundary untested, defineDialect reserved-guard asymmetry (latent), sensitive-areas.md
+    .raw() spelling drift
+arch_audit: CLEAN (obs #2065 + openspec/architecture-audit.md; 9 categories, 0 violations)
+archived: 2026-07-14 — commit 0c5f273 (folder move + 7-domain spec sync + pending-changes
+  registration + archive-report). Lessons persisted obs #2142 (project/lessons-learned).
+  CHANGE CLOSED. PR opened from worktree-improve-raw by orchestrator post-archive.
+next_phase: none — change complete
+execution_mode: automatic (session 2026-07-14)
 spec_version: V4 (signed — owner 2026-07-14, scope-reduction ratified)
 owner_decisions_post_explore:
   authoring_verb: keep-modify   # wire-altitude honesty rationale; spec must pin with scenario
