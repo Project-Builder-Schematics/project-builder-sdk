@@ -269,6 +269,25 @@ unblocks real cross-repo integration; see the fuller definition above (engine ha
 |---|---|---|---|---|
 | `PC-SPEC-FSC-TOKENS`: `folder-scaffold` REQ-FSC-05 specifies only SINGLE-filter token translation (`__x@filter__` → `{= x | filter =}`), leaving multi-filter chaining (`__name@singular@dasherize__` → `{= name | singular | dasherize =}`) under-specified upstream (owner ruling D3, obs #941). Escalation target for `author-emulation-e2e-scaffold` matrix row M-04's hardcoded-literal assertion (REQ-SCM-03): if the landed pipeline does not chain, M-04 goes RED and STAYS RED — the gap escalates through this row, never a weakened assertion | spec-gap | S | — | **schematic-local-files spec followup (own unfreeze)** |
 
+## From `author-emulation-e2e-scaffold` (2026-07-14) — accepted as non-blocking at archive
+
+Verify verdict `pass-with-followups`. Judgment-day APPROVED (R1: 0 critical findings). Architecture audit: notes (additive Testing-section delta, 0 violations). Steward reckoning DELIVERED (CQ-1/2/3 owner-ratified per state.yaml 2026-07-13).
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| Cold-start suite non-determinism root-cause investigation — transient author-emulation test failures observed at cold start, never under warm conditions; corpus proven byte-deterministic under strong regen guard (fresh-process `regen-corpus.ts` → `git diff` empty); issue is test-harness/CI-reliability concern, not a corpus or deliverable defect | test-infra | S | — | — |
+| Batch-cap `4*1024*1024` literal in M-09 assertion → reference the SDK's exported `BATCH_CAP_BYTES` constant | refactor | XS | — | — |
+| Judgment-day INFO (both judges converged): FIT-24 shape-scan narrower than REQ-GCC-06 wording — the spec names duration/PID/hostname as non-deterministic fields, but the corpus scan covers only `fs.writeFileSync` binary bytes + absolute-path patterns; neither duration/PID/hostname appears in practice. Document the asymmetry or broaden the scan | test-coverage | XS | — | — |
+| Judgment-day INFO: FIT-24 interior-absolute-path detection + `/*` block-comment-opener refinements (edge cases in path-escape detection; low severity) | test-coverage | XS | — | — |
+| FIT-27 write-primitive coverage gap — anti-tautology scan covers `fs.writeFileSync` only; does not scan `copyFileSync`/`cpSync`/`renameSync` or stream-based writes (low coverage today, edge-case risk for future corpus mutations) | test-coverage | XS | — | — |
+| `test/support/import-scan.ts` `walkReachable` extension: extensionless-import resolution (`.ts` files importing `.js` files without extension); edge case not covered by FIT-01 | test-coverage | XS | — | — |
+| Coverage-manifest GCC-08.1/SCM-02.1 fitness test — automated enforcer that all four manifest checklist items exist (EXERCISED, NOT-EXERCISED literals, FRICTION section); currently a manual verify-final audit step, not a test | test-coverage | S | — | — |
+| GCC-03 informative-latitude test methodology (corpus-format unit) — test compares a run's output to itself under different chunk-aggregation patterns; self-comparison design limits falsifiability. Rewrite against a real multi-chunk baseline or explicitly ratify the byte-exact comparison policy as intentional | test | XS | — | — |
+| Root `.gitattributes` eol=lf rule for cross-platform corpus determinism — Windows CRLF line-ending mode in `.gitattributes` could introduce platform-specific corpus divergence; add `* eol=lf` to enforce Unix line-endings on checkout | refactor | XS | — | — |
+| /simplify skipped findings: (a) `gated` field in design review — removal needs spec-level decision before implementation (XS); (b) FIT-27 parameter-flow taint hardening — avoid importing capture path transitively in test-tree without an explicit guardian (S) | refactor | S | — | — |
+
+**PC-SPEC-FSC-TOKENS** (already registered above under "From `author-emulation-e2e-scaffold` (2026-07-14) — REQ-SCM-03 upstream spec-gap escalation"): `folder-scaffold` REQ-FSC-05 specifies single-filter token translation only, leaving multi-filter chaining under-specified upstream. M-04 matrix row currently GREEN (pipeline chains work); escalation target if pipeline changes. No action at this archive — condition remains as stated above.
+
 ## From `stage-6-release-shape` (2026-07-14) — accepted as non-blocking at archive
 
 Verify verdict `pass-with-followups`. Judgment-day APPROVED (round 1, 2 inline fixes, no re-judge needed). Steward reckoning DELIVERED (G-2 owner walkthrough PASS; CQ1/CQ3 reaffirmed).
