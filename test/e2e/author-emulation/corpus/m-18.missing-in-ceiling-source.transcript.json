@@ -1,0 +1,17 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-18",
+  "slug": "missing-in-ceiling-source",
+  "normative": {
+    "outcome": "rejected",
+    "directives": [],
+    "rejection": {
+      "reason": "source-not-found",
+      "verb": null,
+      "path": "missing.txt"
+    }
+  },
+  "informative": {
+    "batchGrouping": []
+  }
+}

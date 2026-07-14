@@ -1,0 +1,17 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-13",
+  "slug": "filters-eliminate-everything",
+  "normative": {
+    "outcome": "rejected",
+    "directives": [],
+    "rejection": {
+      "reason": "invalid-input",
+      "verb": null,
+      "path": null
+    }
+  },
+  "informative": {
+    "batchGrouping": []
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-10",
+  "slug": "single-group-over-cap-rejects",
+  "normative": {
+    "outcome": "rejected",
+    "directives": [],
+    "rejection": {
+      "reason": "changes-too-large",
+      "verb": null,
+      "path": null
+    }
+  },
+  "informative": {
+    "batchGrouping": [
+      {
+        "directiveCount": 1,
+        "protocolVersion": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-16",
+  "slug": "traversal-source-rejected",
+  "normative": {
+    "outcome": "rejected",
+    "directives": [],
+    "rejection": {
+      "reason": "source-outside-package",
+      "verb": null,
+      "path": "../m16-traversal-outside.txt"
+    }
+  },
+  "informative": {
+    "batchGrouping": []
+  }
+}

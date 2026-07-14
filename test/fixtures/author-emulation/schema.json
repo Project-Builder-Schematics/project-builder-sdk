@@ -1,0 +1,12 @@
+{
+  "properties": {
+    "name": { "type": "string", "label": "Entity name", "required": true },
+    "withTests": { "type": "boolean", "label": "Include generated tests", "required": false },
+    "visibility": {
+      "type": "enum",
+      "label": "Module visibility",
+      "choices": ["public", "internal"],
+      "required": false
+    }
+  }
+}

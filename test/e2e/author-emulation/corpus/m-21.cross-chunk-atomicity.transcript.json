@@ -1,0 +1,26 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-21",
+  "slug": "cross-chunk-atomicity",
+  "normative": {
+    "outcome": "rejected",
+    "directives": [],
+    "rejection": {
+      "reason": "path-collision",
+      "verb": "create",
+      "path": "out/big-5.txt"
+    }
+  },
+  "informative": {
+    "batchGrouping": [
+      {
+        "directiveCount": 4,
+        "protocolVersion": 1
+      },
+      {
+        "directiveCount": 2,
+        "protocolVersion": 1
+      }
+    ]
+  }
+}

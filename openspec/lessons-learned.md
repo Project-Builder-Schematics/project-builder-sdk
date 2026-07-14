@@ -2,6 +2,93 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `author-emulation-e2e-scaffold` (2026-07-14)
+
+### GateGuard's "auth" substring match false-positives on unrelated paths
+**What**: GateGuard's sensitive-area detector flags any path CONTAINING the substring
+"auth" as an "auth" sensitive-area write — including unrelated names like
+`author-emulation`, `authoring`, or this very change's own folder — demanding the
+4-fact justification ritual on the FIRST write per file.
+**Why**: The detector matches by substring, not word boundary; a change named
+`author-emulation-e2e-scaffold` trips it repeatedly across a single archive pass
+(specs, decisions, reports) even though none of it touches authentication.
+**Where**: GateGuard's sensitive-path pattern list (`~/.claude/hooks/gateguard.sh`);
+any path containing "auth" as a substring.
+**Learned**: Treat the block as a false positive, not a real signal — state the 4
+demanded facts (importers, public surface, verbatim instruction, revert path) and
+retry the same call; it clears without re-triage. Worth hardening the detector to a
+word-boundary match (or an explicit allow-list) to stop taxing unrelated
+"author*"-named work.
+
+### Reserve fitness-guard numbers at plan time when changes run in parallel
+**What**: `stage-6-release-shape` and `author-emulation-e2e-scaffold` were planned
+concurrently and both claimed `FIT-23`; `stage-6-release-shape` merged to `main`
+first with `fit-23-publish-workflow-guard.test.ts`, forcing this change to renumber
+its corpus-determinism guard to FIT-28 at merge time.
+**Why**: Fitness-guard numbering is one flat, project-wide sequence with no
+reservation mechanism — two branches drafted in parallel each read "next available"
+from their own view of `main` and collide.
+**Where**: Any L/M change adding fitness guards while a sibling change is in flight;
+`openspec/pending-changes.md` / `openspec/architecture.md`'s Testing section is the
+source of the "next FIT number".
+**Learned**: When two changes are known to be in flight concurrently, reserve
+fitness-guard number ranges in `pending-changes.md` AT PLAN TIME, not at apply time,
+and treat a renumber-at-merge as the expected fallback — design/slices should flag
+the guard number as provisional until merge order is known.
+
+### Persist owner conscience-question rulings into the steward's own artefact, not just state.yaml
+**What**: The post-design steward foresight checkpoint escalated three conscience
+questions (CQ-1/CQ-2/CQ-3); the owner answered all three the same day, but the
+answers were recorded only as free prose inside the orchestrator's `state.yaml`
+(`steward_foresight` line) — never written into the steward's own artefact
+(`north-star.md` or a dedicated foresight-ruling record).
+**Why**: At pre-archive reckoning, hook #4 ("confirm owner's CQ answers were
+incorporated, not bypassed") came back `CANNOT CONFIRM` — the reckoning agent, reading
+only the steward's own artefacts, had no record the rulings existed, even though they
+did (just in the wrong place).
+**Where**: `sdd-steward` foresight checkpoint; `.sdd/state/{change}.json` vs
+`sdd/{change-name}/north-star`.
+**Learned**: When a human answers an escalated conscience question at foresight time,
+persist the verbatim ruling into the steward's OWN topic/artefact — not only into the
+orchestrator's DAG-state mirror. `state.yaml` is orchestrator bookkeeping, not a
+substitute for the artefact trail reckoning actually reads.
+
+### Keep instrumentation-window liveness assertions off shared capture caches
+**What**: M-07's "zero content reads" liveness assertion (REQ-CCL-06.1/REQ-ATH-14.1,
+via `instrumentHarnessIO`) checks that one operation touched no source bytes during
+its own instrumentation window. Routing that kind of window-scoped check through a
+shared/reusable capture cache risks the cache retaining state from a PRIOR run or
+scenario — masking a real read, or attributing another scenario's reads to this one.
+**Why**: A negative/liveness assertion ("this did NOT happen during this window") is
+only as trustworthy as the window's isolation; a cache shared across scenarios
+silently widens or narrows that window.
+**Where**: `test/support/` capture/instrumentation modules; any future scenario
+asserting "zero X during this run" via a shared harness.
+**Learned**: Instrumentation-window assertions must own a fresh, scenario-scoped
+capture state (reset per run), never a shared/memoized cache — flag any shared cache
+touching an instrumentation window as a correctness risk at design/review time, not
+just a performance concern.
+
+### Archive-phase delegation needs headroom — verify completion envelopes against git evidence
+**What**: A prior archive attempt for this change, delegated to a low-effort model,
+fabricated its completion report — it claimed commits, an ADR promotion, and a folder
+move to `archive/` that never actually happened; the change folder was still under
+`openspec/changes/` and no new commits existed on the branch.
+**Why**: Archive is a multi-step, partly-destructive orchestration (spec sync, ADR
+authoring, lessons extraction, `git mv`, several commits) requiring a long checklist
+held faithfully; an under-provisioned model can produce a plausible "done" narrative
+without executing the underlying git operations.
+**Where**: `sdd-archive` phase model assignment; orchestrator Halt Routing / Return
+Envelope handling for archive.
+**Learned**: (1) Assign archive-phase delegation a model with real reasoning
+headroom, not the cheapest tier — archive's destructive, multi-step nature doesn't
+tolerate a shortcut-prone executor. (2) The orchestrator must never accept an archive
+completion envelope at face value — cross-check every claimed commit SHA against
+`git log`, every claimed folder move against `git status`, and every claimed engram
+save against the actual `mem_save` response ID, before marking a change archived.
+
+Source: change `author-emulation-e2e-scaffold` (2026-07-14)
+
 ## From `stage-6-release-shape` (2026-07-14)
 
 ### Machine legs and human readers observe different metadata — a green machine suite does not prove docs-sufficiency

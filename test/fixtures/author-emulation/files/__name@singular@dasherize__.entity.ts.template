@@ -1,0 +1,12 @@
+// Illustrative "wiring" text ONLY (REQ-AEG-02, D2 honest gap) — never executed, never
+// AST-verified. A real schematic would register this module with the host app's dependency
+// graph; this fixture stops at emitting the text, matching the SDK's own capabilities.
+import { Module } from "@framework/core";
+import { {{name}}Service } from "./{{name}}.service";
+import { {{name}}Controller } from "./{{name}}.controller";
+
+@Module({
+  providers: [{{name}}Service],
+  controllers: [{{name}}Controller],
+})
+export class {{name}}Module {}

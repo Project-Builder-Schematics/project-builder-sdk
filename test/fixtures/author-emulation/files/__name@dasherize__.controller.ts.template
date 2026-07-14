@@ -1,0 +1,13 @@
+// Illustrative "wiring" text ONLY (REQ-AEG-02) — never executed, never AST-verified.
+import { Controller, Get } from "@framework/core";
+import { {{name}}Service } from "./{{name}}.service";
+
+@Controller("{{name}}")
+export class {{name}}Controller {
+  constructor(private readonly service: {{name}}Service) {}
+
+  @Get()
+  list() {
+    return this.service.findAll();
+  }
+}

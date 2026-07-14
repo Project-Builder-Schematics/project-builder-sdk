@@ -1,0 +1,24 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-06",
+  "slug": "binary-by-reference",
+  "normative": {
+    "outcome": "committed",
+    "directives": [
+      {
+        "op": "copyIn",
+        "from": "assets/logo.png",
+        "to": "m06-out/logo.png",
+        "force": false
+      }
+    ]
+  },
+  "informative": {
+    "batchGrouping": [
+      {
+        "directiveCount": 1,
+        "protocolVersion": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-15",
+  "slug": "intra-scaffold-collision",
+  "normative": {
+    "outcome": "rejected",
+    "directives": [],
+    "rejection": {
+      "reason": "invalid-input",
+      "verb": null,
+      "path": null
+    }
+  },
+  "informative": {
+    "batchGrouping": []
+  }
+}
