@@ -7,8 +7,8 @@
 | Slice | Scope tag | Status | Notes |
 |---|---|---|---|
 | S-000 | walking-skeleton | done | see below |
-| S-001 | happy-path | not started | |
-| S-002 | happy-path | not started | scope should ABSORB the gap files below (see Scope Gap) |
+| S-001 | happy-path | done | see below |
+| S-002 | happy-path | done | 9-file consumer set per §21 R-9; see below |
 | S-003 | happy-path | not started | |
 | S-004 | happy-path | not started | |
 | S-005 | happy-path | not started | |
@@ -189,3 +189,163 @@ converted — that stays S-002 scope.
 new failures introduced). Every failure traces to one of the three buckets already documented
 above (14 files) — zero unexplained failures, zero diff in regression sentinels, zero touch to
 the frozen `defineFactory` body.
+
+## S-001 — Wrap-Parity Proof (REQ-ATH-19)
+
+### Tasks completed
+
+- [x] `test/support/wrap-parity-support.ts` (NEW): `runViaManualWrap<O>(fn, input, options?)`
+  — calls `defineFactory(fn, {packageDir})` DIRECTLY (never re-wraps via
+  `runFactoryForTest`, ADR-C), hand-builds a `RecordingClient`-shaped object (four
+  members, structurally mirroring `src/testing/index.ts:100-116`, the private interface
+  is never imported) over a fresh `ContractFake({seed})` or a caller-supplied fake.
+  `FaultyDiscardFake` (extends `ContractFake`, overrides `discard()` to always reject
+  with a caller-supplied error) is the E1/E2 double-fault fixture.
+- [x] `test/fake/harness-wrap-parity.test.ts` (NEW):
+  - REQ-ATH-19.1: a dialect-USING factory (`ts.find("a.ts").addImport(...)`, chosen
+    specifically because a no-dialect factory cannot distinguish "drain ran" from "drain
+    was a no-op") run via `runFactoryForTest` AND via `runViaManualWrap` — asserts
+    `{tree, emitted}` structurally identical between both paths, including the
+    drain→flush ordering.
+  - REQ-ATH-19.2: factory throws `E1`; the harness path intercepts
+    `ContractFake.prototype.discard` via `spyOn(...).mockImplementationOnce` (production
+    `ContractFake.discard()` never itself rejects — there is no injection point into
+    `runFactoryForTest`'s internally-built fake, so the shared prototype method is
+    intercepted for this one call, then restored in a `finally`); the manual path drives
+    a `FaultyDiscardFake(e2)` instance directly. Both assert `error === E1` and
+    `error.cause === E2`.
+
+### Verification run (this slice, in isolation)
+
+```
+bun test test/fake/harness-wrap-parity.test.ts    # 2 pass, 0 fail
+```
+
+Regression sentinels + frozen `defineFactory` body: unaffected (this slice adds
+test-only infrastructure; touches no production file).
+
+## S-002 — Harness Rule Completion + Error Strings + Commons JSDoc
+
+**Consumer set**: 9 files per §21 R-9 — the 4 original harness files
+(`test/fake/harness-{leak-scan,result,opted-in,in-memory-invariant}.test.ts`) + the 5
+folded files (`test/fake/copyin-fidelity.test.ts`, `test/scaffold/{batch-cap-chunk,
+classify-transport,scaffold-fake}.test.ts`, `test/e2e/author-emulation/ir-transcript.
+test.ts`). Verified via `rg -n "defineFactory" <file>` on all 9 post-conversion: zero
+executable references remain (2 files carry inert PROSE mentions of the identifier in
+comments — `harness-opted-in.test.ts:5,17`, `classify-transport.test.ts:18` — neither is
+an import or call site).
+
+### Tasks completed
+
+- [x] All 9 consumer files converted: test factories are now bare `(input) => ...`
+  functions; `packageDir`/`seed` moved from the `defineFactory(fn, {packageDir})` call
+  site into `runFactoryForTest`'s (or `rejectedRun`'s) options bag. `defineFactory`
+  imports dropped from all 9.
+- [x] `test/support/ir-transcript.ts`'s `captureRun<O>(run, input, options?: {seed?,
+  packageDir?})` — options-bag signature (design §4.3), needed to convert
+  `test/e2e/author-emulation/ir-transcript.test.ts` (one of the R-9 5). Raw-rethrow
+  divergence (line 108, unchanged) verified untouched by diff. NOTE: `scripts/
+  regen-corpus.ts` and `test/e2e/author-emulation/corpus-format.test.ts` still call
+  `captureRun(scenario.run, scenario.input, scenario.seed)` positionally — this was
+  ALREADY broken pre-S-002 (their `scenario.run` doesn't fit the bare-fn shape either,
+  self-healing bucket, S-004/S-005 owned) — this edit does not add a NEW break, confirmed
+  via typecheck (same 5 files, same error count, before and after this slice).
+- [x] `harness-result.test.ts`: sync-throw / async-reject / non-function-export /
+  zero-arg-factory tests (ATH-01.2/.3, ATH-06.1/.2, ATH-18.1/.2).
+- [x] `harness-in-memory-invariant.test.ts`: carve-out reads widened to package-root
+  scope (ATH-11.1/.2, ATH-14.1/.2).
+- [x] `harness-opted-in.test.ts`: positive fs-read oracle proving `packageDir` was
+  actually forwarded (ATH-17.1/.2/.3).
+- [x] 3 scaffold/expander error strings reworded to ADR-B's verbatim runtime-neutral
+  pattern (`"<verb> has no package directory to resolve … against — pass \`packageDir\`
+  to the call that runs this factory"`, `"invalid input: "` prefix kept, each site's own
+  detail clause preserved): `src/scaffold/index.ts` (`readTemplateFile`, `copyIn`),
+  `src/scaffold/expander.ts` (`scaffold`). Per-message tests added: `test/scaffold/
+  index.test.ts` (REQ-TES-09.1/.2), `test/scaffold/expander.test.ts` (REQ-TES-09.3) — each
+  asserts `not.toContain("defineFactory")` + the caller-supplied-`packageDir` remedy +
+  the verb name + the `"invalid input: "` prefix.
+- [x] `src/commons/index.ts` JSDoc: all 6 pre-change `defineFactory` mentions (§14 table
+  lines 165, 234, 274, 382, 385, 393) reworded — "inside a `defineFactory` run" →
+  "inside a factory run started with packageDir"; `dryRun`'s `@example` rewritten from a
+  `defineFactory(() => {...})`-wrapped snippet to a bare `const run = () => {...}` one.
+  New `test/commons/jsdoc-bare-contract.test.ts` (REQ-TES-10.1): token-scan asserting
+  `not.toContain("defineFactory")` anywhere in the file.
+- [x] FIT-06 regex update (R-6, same commit as the JSDoc rewrite):
+  `test/fitness/fit-06-example-jsdoc.test.ts`'s REQ-TSD-02.1 assertion changed from
+  `toMatch(/@param\s+seed\b/)` to `toMatch(/@param\s+options\.seed\b/)`, matching
+  `src/testing/index.ts`'s own `@param options.seed` JSDoc line (already landed in
+  S-000).
+
+### Discoveries + fixes made during this slice (not silent — recorded here)
+
+1. **`test/skeleton/dry-run-public-contract.test.ts` — REQ-DRE-04.1 regression from a
+   PRIOR (already-archived) change.** This test (from `dry-run-exposure`, Stage 3) pinned
+   `dryRun`'s `@example` block to literally contain `"defineFactory"`. REQ-TES-10.1
+   mandates removing that exact token from that exact JSDoc block — the two requirements
+   are mutually exclusive as originally written. This is NOT one of the ~85 deep-import
+   sentinel files (it does not import `defineFactory` at all; it text-scans `src/commons/
+   index.ts`), so it falls outside the regression-sentinel zero-diff set (`test/golden-ir
+   /**`, `test/core/**`, `test/conformance/**`, `test/dialects/**` — this batch's Hard
+   Constraints list; `test/skeleton/**` is NOT in it, unlike design.md §4.8's broader,
+   directory-level phrasing). Fix: swapped the stale `toContain("defineFactory")` pin for
+   `toContain("const run =")` — same intent (prove the example shows an in-run factory
+   declaration), updated for the bare-shape contract. Verified: this was the ONLY
+   full-suite failure outside the already-documented self-healing/future-slice buckets
+   before the fix; 0 unexplained failures after.
+2. **`test/scaffold/batch-cap-chunk.test.ts` — one incomplete conversion.** 3 of its 4
+   `describe` blocks were already bare + `runFactoryForTest`/`rejectedRun`; the
+   REQ-04.3 exactly-at-cap test still built a manual `defineFactory<void>(...)` +
+   `ContractFake` + `run(undefined, {client: fake})` driver. Converted to the same bare +
+   `runFactoryForTest(run, undefined, {packageDir: dir})` shape as its siblings; assertion
+   moved from `fake.committedTree()` to `result.tree` (the now-unused `ContractFake`
+   import for this specific test path was left in place — still used by the file's other
+   two `rejectedRun`-based tests). `defineFactory` import removed from the file (zero
+   remaining uses).
+
+### Verification run (this slice + S-001, isolation set)
+
+```
+bun test test/fake/harness-wrap-parity.test.ts test/fake/harness-result.test.ts \
+         test/fake/harness-in-memory-invariant.test.ts test/fake/harness-opted-in.test.ts \
+         test/fake/harness-leak-scan.test.ts test/fake/copyin-fidelity.test.ts \
+         test/scaffold/batch-cap-chunk.test.ts test/scaffold/classify-transport.test.ts \
+         test/scaffold/scaffold-fake.test.ts test/e2e/author-emulation/ir-transcript.test.ts \
+         test/commons/jsdoc-bare-contract.test.ts test/scaffold/index.test.ts \
+         test/scaffold/expander.test.ts test/fitness/fit-06-example-jsdoc.test.ts
+# 110 pass, 0 fail (14 files)
+
+bun test test/fitness/fit-29-sanctioned-definefactory-caller.test.ts \
+         test/fitness/fit-08-no-kit-bleed.test.ts test/fitness/fit-04-dts-semver-gate.test.ts \
+         test/fitness/fit-16-reserved-name-scan.test.ts
+# 68 pass, 0 fail — unaffected by this batch's production edits
+
+bun test test/skeleton/dry-run-public-contract.test.ts    # 7 pass, 0 fail (post-fix)
+
+bun run typecheck
+# 12 errors, same 5 pre-existing S-004/S-005-owned files (scripts/regen-corpus.ts,
+# test/e2e/author-emulation-scaffold.e2e.test.ts, test/e2e/author-emulation/
+# corpus-format.test.ts, test/fitness/fit-24-corpus-purity.test.ts, test/fitness/
+# fit-28-corpus-determinism.test.ts) — zero new errors traceable to S-001/S-002
+```
+
+Regression sentinels: `git diff --stat -- test/golden-ir test/core test/conformance
+test/dialects` → empty. `src/core/context.ts`: empty diff (untouched entirely, not just
+the frozen body — this batch needed no JSDoc edit there).
+
+## Suite State at End of Batch 2 (S-001 + S-002)
+
+`bun test`: **1217 pass, 56 fail** (was 1165/99 at end of S-000). Every remaining failure
+traces to one of the already-documented future-slice/self-healing buckets, now fully and
+exactly accounted for — zero unexplained failures:
+
+| Bucket | File | Fails | Owner |
+|---|---|---|---|
+| self-healing (S-004 fixture flip) | `test/e2e/author-emulation-scaffold.e2e.test.ts` | 45 | S-004 |
+| explicitly planned red | `test/e2e/installed-consumer.e2e.test.ts` | 6 | S-006 |
+| self-healing | `test/fitness/fit-28-corpus-determinism.test.ts` | 2 | S-004/S-005 |
+| explicitly planned red | `.tmp-readme-copy-runnable/example-0.test.ts` | 2 | S-003 |
+| self-healing | `test/fitness/fit-24-corpus-purity.test.ts` | 1 | S-004/S-005 |
+| self-healing | `test/e2e/author-emulation/corpus-format.test.ts` | 1 | S-004/S-005 |
+
+No file owned by S-001/S-002 appears in this table. `bun run typecheck`: 12 errors, all 5
+in the self-healing bucket (`scripts/regen-corpus.ts` + 4 test files above), zero new.
