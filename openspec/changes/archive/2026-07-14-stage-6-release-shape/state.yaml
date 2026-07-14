@@ -21,7 +21,22 @@ in_loop_iteration: 0
 next_phase: OWNER CHECKPOINT — steward reckoning ESCALATED (obs #2066). Pipeline state: /simplify done; verify-final pass-with-followups + council F1-F7 fixes (suite 1117/0); judgment-day APPROVED round 1 (2 inline fixes); arch audit notes/zero-violations (refresh additive at archive). BLOCKED on: (1) owner performs G-2 human walkthrough of docs/quickstart.md and fills walkthrough-record.md with real PASS/FAIL + 3 attestations (REQ-AOD-08); (2) owner reaffirms CQ1 (live bun-link consumer today); (3) owner confirms CQ3 (adjusted significance bar). On PASS + reaffirmations → re-run reckoning → sdd-archive (with additive baseline refresh + drift-syncs + followups registration). BUILD LOOP COMPLETE: 6/6 slices, verify-in-loop-1..4 ALL PASS at iteration 1 (zero fix loops), suite 1109/0, typecheck clean. Semantic ledger check passed (6 retired rows have real deliverables; 74/56/142/175 still open). Carried to /evaluate: REQ-AOD-08 walkthrough is a steward-reckoning deliverable (G-2) — final-verify pass does NOT discharge it; wire-term ban case-sensitivity mutation probe; design/ADR-0042 fit-21→fit-23 prose drift-sync at archive; planner-phase engram-mirror gap before archive. Reckoning obligations carried: completed walkthrough-record demanded before archive (G-2); design §4.12 followup candidates (deprecation-check CI) registered at archive. Engram-mirror gap flagged by executor — planner phases (triage..design) may lack engram mirrors despite hybrid mode; spot-check before archive.
 execution_mode: interactive
 artifact_store: hybrid
-spec_status: none
+spec_status: archived
+archive_note: >
+  ARCHIVED 2026-07-14. Change folder moved to
+  openspec/changes/archive/2026-07-14-stage-6-release-shape/. Specs synced into 4 main
+  domains (local-consumption, publish-pipeline-hardening, author-onboarding-docs,
+  factory-package-shape). Drift-syncs applied at archive: fit-21→fit-23 filename correction
+  (design.md + ADR-0042 prose), REQ-AOD-03 six-verb→seven-verb reconciliation (main spec),
+  north-star.md §2 editorial note on the deferred npm-placeholder seam. ADR-0041, ADR-0042,
+  and the ADR-0034 amendment promoted Accepted; ADR-0040 confirmed staying Deferred. 2 lessons
+  persisted to openspec/lessons-learned.md; 8 followups + 1 row enrichment (defineFactory
+  graduation direction) registered in openspec/pending-changes.md. openspec/architecture.md
+  refreshed ADDITIVE (publish pipeline hardening, fit-23/scratch-consumer/docs-as-test
+  testing layer, docs/ author doc set convention, ADR ledger) — no topology rewrite.
+  Final suite: 1122 pass / 0 fail, typecheck clean. All phases complete: triage → explore →
+  propose → spec → design → slice → plan-verify → apply → verify-final (pass-with-followups)
+  → judgment-day (APPROVED round 1) → steward reckoning (DELIVERED) → archive.
 notes: >
   Triage L by council convergence (executor + blind architect + blind pm): two sensitivity
   overrides live (deployment/publish.yml + security/supply-chain tarball boundary) AND

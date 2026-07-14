@@ -1,7 +1,8 @@
 {
   "change": "stage-6-release-shape",
   "triage": "L",
-  "phase": "verify-final",
+  "phase": "archived",
+  "phase_status": "ARCHIVED 2026-07-14: specs synced (4 domains: local-consumption 5, publish-pipeline-hardening 6-active+2-deferred, author-onboarding-docs 12, factory-package-shape +2), drift-syncs applied (fit-21→fit-23 in design.md+ADR-0042; REQ-AOD-03 six→seven verbs; north-star §2 npm-placeholder-deferred editorial note), ADR-0041/0042/0034-amendment promoted Accepted (ADR-0040 stays Deferred), 2 lessons persisted, 8 followups + 1 row-enrichment registered in pending-changes.md, architecture.md refreshed ADDITIVE (publish pipeline hardening, fit-23 + scratch-consumer + docs-as-test testing layer, docs/ author doc set convention, ADR ledger), change folder moved to openspec/changes/archive/2026-07-14-stage-6-release-shape/. Final suite 1122/0, typecheck clean.",
   "apply": "BUILD COMPLETE: 6/6 slices, verify-in-loop-1..4 all PASS iteration 1; /simplify applied (6 fixes + fit-23 tightening, suite 1109/0 x3 post-fix, typecheck clean, zero REQ-tagged renames)",
   "spec_status": "signed",
   "design": "complete rev 3 (design.md; architecture_impact additive, 0 deviations; ADRs 0040-0042 draft + ADR-0034 amendment; ADR-0040 status Deferred after CQ2 descope; 29 file rows, 3 flows)",
@@ -12,10 +13,12 @@
   "plan_verify": "READY (iteration 3/3, 2026-07-12; trajectory 18→3→0 — Judge A no findings + Judge B ready to execute)",
   "plan_complete": true,
   "build_gate": "SATISFIED (branch feat/stage-6-release-shape fast-forwarded to main @ 5b05221, plan artefacts present)",
-  "verify_final": "pass-with-followups (24/25 REQs machine-proven; adversarial_review REQUIRED; council F1-F7 fixes APPLIED — suite 1117/0 x2, fit-23 all-jobs + fork-reachable id-token fence, wire-ban full doc set, gitignore, seven-verbs consistency, runnable error example)",
+  "verify_final": "pass-with-followups",
+  "verify_final_detail": "24/25 REQs machine-proven; adversarial_review REQUIRED (satisfied: judgment-day APPROVED round 1); council F1-F7 fixes applied; suite 1122/0 after walkthrough-gap fix Run 6",
   "judgment_day": "APPROVED (round 1: 0 CRITICAL, 0 real WARNING; 2 inline trivial fixes, suite 1117/0 post-fix; report: judgment-day-report.md)",
-  "arch_audit": "notes — zero violations, gate passes (obs #2065); baseline refresh ADDITIVE recommended at archive",
+  "adversarial_review": "APPROVED",
+  "arch_audit": "clean — zero violations (obs #2065); additive baseline refresh applied at archive 2026-07-14 (publish pipeline, testing layer, docs/ convention, ADR ledger; no topology rewrite)",
   "steward_reckoning": "DELIVERED (re-run 2026-07-14, supersedes escalated-to-owner): G-2 discharged via FAIL→fix→PASS walkthrough trajectory + 3 attestations; CQ1 reaffirmed, CQ3 confirmed; steward re-verified fix (56/0 doc tests) and zero src//workflow drift since prior pass. Archive unblocked.",
-  "completed_phases": ["triage", "explore", "propose", "spec", "design", "slice", "plan-verify"],
+  "completed_phases": ["triage", "explore", "propose", "spec", "design", "slice", "plan-verify", "apply", "verify-final", "archive"],
   "updated_at": "2026-07-14"
 }
