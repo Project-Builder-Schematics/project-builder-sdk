@@ -2,7 +2,7 @@
  * S-002 — MC-01/02/05/06/07 RESTATED against the REAL TypeScript (ts-morph) dialect, not the
  * S-001 toy dialect (design §4.6 Test Derivation: "MC-01/MC-02/MC-06 span S-001
  * (mechanism-level) + S-002 (e2e-level restatement)"). Also closes verify-in-loop-1 followup
- * F1: REQ-DG-03.2's `.raw()`-before-a-named-op ordering, content-verified on the real
+ * F1: REQ-DG-03.2's `.modify()`-before-a-named-op ordering, content-verified on the real
  * dialect (S-001's toy-dialect test only covered the reverse order).
  *
  * Every assertion is content-verified via a spy on the batch `emit` call (never count-only,
@@ -23,7 +23,7 @@ describe("real dialect — coalescing (REQ-MC-01 restatement)", () => {
       await ts
         .find("a.ts")
         .addImport("join", "node:path")
-        .raw((ast) => {
+        .modify((ast) => {
           ast.addStatements("export const z = 3;");
         });
     });
@@ -55,13 +55,13 @@ describe("real dialect — coalescing (REQ-MC-01 restatement)", () => {
     expect(b?.modify.content).toBe('import { join } from "node:path";\n\nconst other = true;\n');
   });
 
-  it("F1 (verify-in-loop-1 followup, REQ-DG-03.2): .raw() BEFORE a named op on the same chain still coalesces into ONE modify", async () => {
+  it("F1 (verify-in-loop-1 followup, REQ-DG-03.2): .modify() BEFORE a named op on the same chain still coalesces into ONE modify", async () => {
     const { client, emitted } = makeSpyClient({ "a.ts": golden("add-import-before.txt") });
 
     const run = defineFactory<void>(async () => {
       await ts
         .find("a.ts")
-        .raw((ast) => {
+        .modify((ast) => {
           ast.addStatements("export const z = 3;");
         })
         .addImport("join", "node:path");
@@ -81,7 +81,7 @@ describe("real dialect — split by read (REQ-MC-02 restatement)", () => {
     const run = defineFactory<void>(async () => {
       const handle = ts.find("a.ts").addImport("readFileSync", "node:fs");
       await handle.read();
-      handle.raw((ast) => {
+      handle.modify((ast) => {
         ast.addStatements("const y = 2;");
       });
       await handle;
@@ -115,7 +115,7 @@ describe("real dialect — split by read (REQ-MC-02 restatement)", () => {
       const handleA = ts.find("a.ts").addImport("readFileSync", "node:fs");
       await handleA;
       await ts.find("b.ts").read(); // unrelated path, but flush is GLOBAL (ADR-0015)
-      handleA.raw((ast) => {
+      handleA.modify((ast) => {
         ast.addStatements("const y = 2;");
       });
       await handleA;

@@ -664,7 +664,7 @@ describe("dialect handle — REQ-DG-07.2 (concrete collision trigger, S-001)", (
     expect(err.message).toBe(
       'dialect operation failed: addFunction("foo") on "a.ts" — a value or import binding named "foo" already ' +
         "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
-        "or edit it with .raw()."
+        "or edit it with .modify()."
     );
     expect(err.cause).toBeUndefined();
     expect(collectModifies(emitted)).toHaveLength(0);

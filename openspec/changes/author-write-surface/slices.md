@@ -724,20 +724,38 @@ names, and the sanctioned-import scan (FIT-08 inherited) stays clean.
 
 ### Tasks
 
-- [ ] S-003.1 `[adapt]` `src/dialects/typescript/ops.ts:73` collision hint
+- [x] S-003.1 `[adapt]` `src/dialects/typescript/ops.ts:73` collision hint
   `...or edit it with .raw().` → `...or edit it with .modify().` (exact string, see Exact Literals).
-- [ ] S-003.2 `[adapt]` `src/dialects/typescript/index.ts:19-22` module JSDoc `.raw()` → `.modify()`
+- [x] S-003.2 `[adapt]` `src/dialects/typescript/index.ts:19-22` module JSDoc `.raw()` → `.modify()`
   (comment-only, does not trip FIT-04 — see FIT-04 table; caught by S-004's `.raw(` sweep instead
   if left unmigrated here, but do it here in lockstep, don't rely on the sweep to catch it late).
-- [ ] S-003.3 `[adapt]` `test/dialects/typescript/*` call-site adapt: `ops-declarations.test.ts`
+  Live location verified at `:48-49` (line-number drift from the spec's `:19-22`, same sentence).
+- [x] S-003.3 `[adapt]` `test/dialects/typescript/*` call-site adapt: `ops-declarations.test.ts`
   (lines 59,145,186,209) + `ops-declarations-cuttable.test.ts` (lines 63,129) — the 6 pinned
   `.raw()` collision-hint occurrences (see Exact Literals); `ops-exact-set.test.ts:20`'s
-  `BASE_HANDLE_KEYS` Set gains `"replaceContent"` (9 members); `print-failure.test.ts:18`,
+  `BASE_HANDLE_KEYS` Set gains `"replaceContent"` (9 members, `"raw"` RETAINED per the same
+  convention `RESERVED_HANDLE_NAMES` follows — it still filters a base-handle key name, not a
+  live method); `print-failure.test.ts:18`,
   `coalescing.test.ts` (lines 26,64,84,118), `dialect.test.ts` (lines 98,173) — all `.raw(` calls
-  → `.modify(`.
-- [ ] S-003.4 `[adapt]` Confirm FIT-08 import-graph scan (`test/fitness/fit-08-no-kit-bleed.test.ts`)
+  → `.modify(`. Adjacent prose-only `.raw()` mentions in the SAME touched files (file-header
+  comments, `it`/`describe` titles) renamed in lockstep for internal consistency — zero assertion
+  impact, boy-scout scope, not a separate task.
+- [x] S-003.4 `[adapt]` Confirm FIT-08 import-graph scan (`test/fitness/fit-08-no-kit-bleed.test.ts`)
   unaffected by the rename — it scans import statements, not call names; should require no edit,
-  only a re-run to confirm green.
+  only a re-run to confirm green. **Confirmed**: `bun test test/fitness/fit-08-no-kit-bleed.test.ts`
+  → 21 pass / 0 fail, zero edits needed.
+- [x] S-003.5 `[adapt]` **EXECUTOR-DISCOVERED GAP, not in the original task list** — neither this
+  file's S-003 tasks nor the Exact Literals section's "6 pinned occurrences across 2 files" claim
+  enumerated `test/core/dialect-handle.test.ts:667`, which independently pins the SAME
+  `addFunction`/`.raw()` collision-hint tail against the REAL shipped TypeScript dialect
+  (`describe("dialect handle — REQ-DG-07.2 (concrete collision trigger, S-001)")`) — this is a
+  `test/core/` consumer of the S-003-owned literal, not a `test/dialects/typescript/` file, so the
+  `rg -n '"or edit it with \.raw\(\)\."' test/` sweep implied by S-003.3 would have caught it had
+  it been re-run repo-wide instead of scoped to the two named files. Left unfixed, running the
+  full suite after S-003.1-.4 would have regressed this test from green to red (confirmed live:
+  1244 pass / 1 fail before this fix, 1245 pass / 0 fail after). Fixed as a mechanical `[adapt]`
+  string-literal swap, same commit as S-003.1-.4, identical target string as the Exact Literals
+  section's `raw`-collision hint clause.
 
 ---
 

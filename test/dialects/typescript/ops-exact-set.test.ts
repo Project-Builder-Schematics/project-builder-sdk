@@ -17,7 +17,17 @@ import * as ts from "../../../src/dialects/typescript/index.ts";
 import { makeSpyClient } from "../../support/spy-client.ts";
 import { defineFactory } from "../../../src/core/context.ts";
 
-const BASE_HANDLE_KEYS = new Set(["read", "raw", "modify", "rename", "move", "copy", "remove", "then"]);
+const BASE_HANDLE_KEYS = new Set([
+  "read",
+  "raw",
+  "modify",
+  "replaceContent",
+  "rename",
+  "move",
+  "copy",
+  "remove",
+  "then",
+]);
 
 describe("REQ-TSD-01.1 — exact shipped op-set", () => {
   it("sorted Object.keys of the dialect's op-pack surface EQUALS the exact five-op allow-list", async () => {

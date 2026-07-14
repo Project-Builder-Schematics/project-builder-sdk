@@ -60,7 +60,7 @@ describe("addVariable — REQ-TSD-10", () => {
     expect(err.message).toBe(
       'dialect operation failed: addVariable("bar") on "a.ts" — a value or import binding named "bar" already ' +
         "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
-        "or edit it with .raw()."
+        "or edit it with .modify()."
     );
     expect(err.cause).toBeUndefined();
   });
@@ -126,7 +126,7 @@ describe("addClass — REQ-TSD-11", () => {
     expect(err.message).toBe(
       'dialect operation failed: addClass("Baz") on "a.ts" — a value or import binding named "Baz" already ' +
         "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
-        "or edit it with .raw()."
+        "or edit it with .modify()."
     );
     expect(err.cause).toBeUndefined();
   });
