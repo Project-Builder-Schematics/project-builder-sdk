@@ -36,7 +36,7 @@ import * as fs from "node:fs";
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runFactoryForTest } from "../../src/testing/index.ts";
-import { create, modify, find, remove, rename, move, copy, scaffold } from "../../src/commons/index.ts";
+import { create, replaceContent, find, remove, rename, move, copy, scaffold } from "../../src/commons/index.ts";
 import { isWithinCeiling } from "../../src/scaffold/containment.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { instrumentHarnessIO, type IoEvent } from "../support/harness-io-instrumentation.ts";
@@ -70,7 +70,7 @@ describe("REQ-ATH-11.1 — in-memory-only invariant (harness machinery)", () => 
       const run = async (): Promise<void> => {
         create("created.ts", { template: "new-content", options: {} });
         const seeded = await find("seeded.ts").read();
-        modify("seeded.ts", `${seeded}-modified`);
+        replaceContent("seeded.ts", `${seeded}-modified`);
         remove("to-delete.ts");
         rename("to-rename.ts", "renamed.ts");
         move("to-move.ts", "moved-dir");

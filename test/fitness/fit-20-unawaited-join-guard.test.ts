@@ -62,7 +62,7 @@ describe("[permanent-fixture] FIT-20 — unawaited-join guard (ADR-0037, REQ-MC-
 
     const run = defineFactory<void>(async () => {
       // Deliberately NOT awaited — the throwing chain's promise is dropped.
-      toyDialect.find("a.toy").raw(() => {
+      toyDialect.find("a.toy").modify(() => {
         throw new Error("boom");
       });
       // fn stays "in flight" long enough for the chain's own async hops (read-through,
@@ -83,7 +83,7 @@ describe("[permanent-fixture] FIT-20 — unawaited-join guard (ADR-0037, REQ-MC-
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toBe('dialect operation failed: raw() on "a.toy" threw');
+    expect((caught as Error).message).toBe('dialect operation failed: modify() on "a.toy" threw');
     expect(unhandledRejections).toEqual([]);
   });
 });

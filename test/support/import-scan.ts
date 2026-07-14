@@ -75,21 +75,26 @@ export function walkReachable(entryFiles: readonly string[]): Set<string> {
   return visited;
 }
 
-/**
- * Recursively collects every `.ts` file under `dir`. Byte-identical to FIT-01's own
- * `collectTs` (pre-dates this change, deliberately left untouched there) — this hoisted
- * copy serves FIT-26's `collectTsFiles` and FIT-27's `collectTs` call sites.
- */
-export function collectTsFiles(dir: string): string[] {
+/** Recursively collects every file under `dir` whose extension is `ext` (e.g. `".ts"`). */
+export function collectFiles(dir: string, ext: string): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     const st = statSync(full);
     if (st.isDirectory()) {
-      files.push(...collectTsFiles(full));
-    } else if (extname(full) === ".ts") {
+      files.push(...collectFiles(full, ext));
+    } else if (extname(full) === ext) {
       files.push(full);
     }
   }
   return files;
+}
+
+/**
+ * Recursively collects every `.ts` file under `dir`. Behaviour-identical to FIT-01's own
+ * `collectTs` (pre-dates this change, deliberately left untouched there) — this hoisted
+ * delegate serves FIT-26's `collectTsFiles` and FIT-27's `collectTs` call sites.
+ */
+export function collectTsFiles(dir: string): string[] {
+  return collectFiles(dir, ".ts");
 }

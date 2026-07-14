@@ -14,8 +14,9 @@ file type, e.g. `@pbuilder/sdk/typescript`).
 ## What it is
 
 `@pbuilder/sdk` is the developer-facing library for authoring Project Builder **schematics** —
-programmable file mutations (create, remove, move, rename, copy, modify) plus package-local
-reads (`scaffold`, `copyIn`, `create({ templateFile })`). The SDK never touches the disk:
+programmable file mutations (create, remove, move, rename, copy, replaceContent) plus
+package-local reads (`scaffold`, `copyIn`, `create({ templateFile })`). The SDK never touches
+the disk:
 it translates what you author into an **IR** (instruction record) and hands it to the Project Builder
 engine, which owns execution and is the only component that writes to disk.
 

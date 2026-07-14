@@ -5,7 +5,7 @@
  *
  * S-003 — REQ-TSD-03 edge scenarios (create/move/copy interaction, two-distinguishable-
  * edits, not-found, empty file, CRLF/BOM, the 4 MiB serialized-side boundary, duplicate
- * addImport) + REQ-TSD-04 (`.raw()`/parse-failure containment against a REAL ts-morph
+ * addImport) + REQ-TSD-04 (`.modify()`/parse-failure containment against a REAL ts-morph
  * error).
  *
  * Every content assertion is byte-exact against a committed golden (constraint 7) — never a
@@ -95,7 +95,7 @@ describe("TypeScript dialect — REQ-TSD-02 ts-morph determinism pins", () => {
         await ts
           .find("a.ts")
           .addImport("readFileSync", "node:fs")
-          .raw((ast) => {
+          .modify((ast) => {
             ast.addStatements("const y = 2;");
           });
       });
@@ -163,14 +163,14 @@ describe("TypeScript dialect — REQ-TSD-03 edge scenarios (S-003)", () => {
     ]);
   });
 
-  it("REQ-TSD-03.3: two distinguishable edits (named op + .raw, disjoint footprints), no read between them, ONE modify reflecting both", async () => {
+  it("REQ-TSD-03.3: two distinguishable edits (named op + .modify, disjoint footprints), no read between them, ONE modify reflecting both", async () => {
     const { client, emitted } = makeSpyClient({ "a.ts": golden("add-import-before.txt") });
 
     const run = defineFactory<void>(async () => {
       await ts
         .find("a.ts")
         .addImport("existsSync", "node:fs")
-        .raw((ast) => {
+        .modify((ast) => {
           ast.addStatements("export const w = 4;");
         });
     });
@@ -312,7 +312,7 @@ describe("TypeScript dialect — REQ-TSD-03 edge scenarios (S-003)", () => {
   });
 });
 
-describe("TypeScript dialect — REQ-TSD-04 .raw() and unparseable-content containment (S-003)", () => {
+describe("TypeScript dialect — REQ-TSD-04 .modify() and unparseable-content containment (S-003)", () => {
   it("REQ-TSD-04.1: a real ts-morph parse failure on malformed TypeScript is contained per REQ-DG-05's contract", async () => {
     // Genuinely syntactically invalid TypeScript (unclosed function params, missing
     // expression) — ts-morph's parser is fault-tolerant and records diagnostics rather than

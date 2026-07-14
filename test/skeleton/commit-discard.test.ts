@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, modify } from "../../src/commons/index.ts";
+import { create, replaceContent } from "../../src/commons/index.ts";
 
 describe("SEAM-03 — all-or-nothing commit (success)", () => {
   it("REQ-06.1 / REQ-02.1 / REQ-02.2 — write-only typed factory commits the created path", async () => {
@@ -35,7 +35,7 @@ describe("SEAM-03 — all-or-nothing commit (success)", () => {
 
     const run = defineFactory<void>(() => {
       create("src/new.ts", { template: "new-content", options: {} });
-      modify("src/existing.ts", "modified-content");
+      replaceContent("src/existing.ts", "modified-content");
     });
 
     await run(undefined, { client: fake });

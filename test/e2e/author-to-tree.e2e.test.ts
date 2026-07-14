@@ -11,10 +11,10 @@
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, find, modify, move } from "../../src/commons/index.ts";
+import { create, find, replaceContent, move } from "../../src/commons/index.ts";
 
 describe("e2e — author-to-tree (pyramid REQ-04.1)", () => {
-  it("create then modify commits a golden end-state tree", async () => {
+  it("create then replaceContent commits a golden end-state tree", async () => {
     const fake = new ContractFake({ seed: {} });
 
     const run = defineFactory<void>(() => {
@@ -22,7 +22,7 @@ describe("e2e — author-to-tree (pyramid REQ-04.1)", () => {
         template: "export const greeting = '{{value}}';",
         options: { value: "hello" },
       });
-      modify("src/greeting.ts", "export const greeting = 'hello, world';");
+      replaceContent("src/greeting.ts", "export const greeting = 'hello, world';");
     });
 
     await run(undefined, { client: fake });

@@ -17,7 +17,7 @@ import { describe, it, expect } from "bun:test";
 import { currentContext } from "../../src/core/context.ts";
 import { AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, modify, find, rename, move, copy } from "../../src/commons/index.ts";
+import { create, replaceContent, find, rename, move, copy } from "../../src/commons/index.ts";
 import type { AuthoringReason, AuthoringVerb } from "../../src/commons/index.ts";
 import type { JsonValue } from "../../src/core/wire.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
@@ -55,7 +55,7 @@ describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () 
     const caught = await rejectedRun(fake, () => {
       create("a.ts", { template: "A", options: {} });
       create("b.ts", { template: "B", options: {} });
-      modify("missing.ts", "patched"); // no such target → rejects at index 2
+      replaceContent("missing.ts", "patched"); // no such target → rejects at index 2
     });
 
     expect(caught).toBeInstanceOf(AuthoringError);
@@ -113,7 +113,7 @@ describe("REQ-14.2 — every directive-level verb + failure form attributes corr
       label: "modify-not-found: verb modify, path is the missing target",
       seed: {},
       run: () => {
-        modify("missing.ts", "patched");
+        replaceContent("missing.ts", "patched");
       },
       expected: { verb: "modify", path: "missing.ts", reason: "path-not-found" },
     },
@@ -214,16 +214,16 @@ describe("REQ-14.3 — batch-level rejections never fabricate a verb or path", (
 
 describe("REQ-15.1 / REQ-15.2 — appliedCount is per-flush, and a later-flush failure discards the whole run", () => {
   it("a later flush's failure reports only its OWN flush's applied directives and wipes the earlier flush's staged writes", async () => {
-    // Precondition (REQ-15.1): B must be seeded so `modify B` APPLIES in the failing
-    // flush — without it, `modify B` itself would reject at index 0 and appliedCount:1
-    // would be unreachable.
+    // Precondition (REQ-15.1): B must be seeded so `replaceContent B` APPLIES in the
+    // failing flush — without it, `replaceContent B` itself would reject at index 0 and
+    // appliedCount:1 would be unreachable.
     const fake = new ContractFake({ seed: { "B.ts": "seed-B" } });
 
     const caught = await rejectedRun(fake, async () => {
       create("A.ts", { template: "A", options: {} });
       await find("A.ts").read(); // flush #1 — A applies and succeeds, already staged
-      modify("B.ts", "patched-B");
-      modify("C.ts", "patched-C"); // C has no target → flush #2 rejects at index 1
+      replaceContent("B.ts", "patched-B");
+      replaceContent("C.ts", "patched-C"); // C has no target → flush #2 rejects at index 1
     });
 
     expect(caught).toBeInstanceOf(AuthoringError);

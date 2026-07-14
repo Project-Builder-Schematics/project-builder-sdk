@@ -1,11 +1,12 @@
 /**
  * S-001 — the coalescing dialect handle, driven against the toy dialect (test/fixtures/
  * toy-dialect). Covers REQ-MC-01/02/04/05/07 (modify-coalescing spec) and REQ-DG-05
- * (dialect-generics spec — .raw()/parse-failure containment, generic mechanism proof; the
+ * (dialect-generics spec — .modify()/parse-failure containment, generic mechanism proof; the
  * real TypeScript dialect restates the SAME contract in S-002/S-003, constraint 3).
  *
- * S-000 (stage-5b-dialect-breadth) additionally covers REQ-DG-06 (runOp containment parity
- * with .raw()) and REQ-DG-07.3 (fail-closed poison flag, same+different handle) against a
+ * S-000 (stage-5b-dialect-breadth, `author-write-surface` ADR-0050 rename) additionally
+ * covers REQ-DG-06 (runOp containment parity with .modify()) and REQ-DG-07.3 (fail-closed
+ * poison flag, same+different handle) against a
  * dedicated synthetic op-pack (constraint 7 — no op-level collision reject exists yet at
  * this point in the build), plus the mutation-gated #ensureOpen mechanism and a no-reparse
  * proof.
@@ -60,6 +61,11 @@ const synthOpsPack = defineOpPack<
     syncPush: (ast: SynthAst, line: string) => void;
     deliberateReject: (ast: SynthAst) => void;
     countedPush: (ast: SynthAst, line: string) => void;
+    // REQ-DG-06.6 (NEW, killer scenario): a PLAIN, foreign error whose message happens to
+    // start with the frozen `dialectError` prefix byte-for-byte — never minted by this
+    // module, never added to the `isContained` WeakSet. Proves the containment discriminant
+    // is the brand by IDENTITY, never a `message.startsWith(...)` string test.
+    foreignPrefixedThrow: (ast: SynthAst) => void;
   }
 >({
   syncThrow() {
@@ -85,6 +91,11 @@ const synthOpsPack = defineOpPack<
     countedPushCalls.count += 1;
     ast.push(line);
   },
+  foreignPrefixedThrow() {
+    throw new Error(
+      "dialect operation failed: " + "a message a foreign caller happened to construct with this exact prefix"
+    );
+  },
 });
 
 const synthDialect = withOps(makeSynthDialect(), synthOpsPack);
@@ -94,7 +105,7 @@ describe("dialect handle — coalescing (REQ-MC-01)", () => {
     const { client, emitted } = makeSpyClient({ "a.toy": "seed" });
 
     const run = defineFactory<void>(async () => {
-      await toyDialect.find("a.toy").push("push-line").raw((ast) => {
+      await toyDialect.find("a.toy").push("push-line").modify((ast) => {
         (ast as ToyAst).push("raw-line");
       });
     });
@@ -131,7 +142,7 @@ describe("dialect handle — split by read (REQ-MC-02)", () => {
     const run = defineFactory<void>(async () => {
       const handle = toyDialect.find("a.toy").push("push-line");
       await handle.read();
-      handle.raw((ast) => {
+      handle.modify((ast) => {
         (ast as ToyAst).push("raw-line");
       });
       await handle;
@@ -167,7 +178,7 @@ describe("dialect handle — split by read (REQ-MC-02)", () => {
       // edit, THEN a read", a precondition ordering, not a same-tick race.
       await handleA;
       await toyDialect.find("b.toy").read(); // unrelated path, but flush is GLOBAL (ADR-0015)
-      handleA.raw((ast) => {
+      handleA.modify((ast) => {
         (ast as ToyAst).push("raw-line");
       });
       await handleA;
@@ -267,13 +278,13 @@ describe("dialect handle — same-path scoping (REQ-MC-07)", () => {
   });
 });
 
-describe("dialect handle — .raw() and parse-failure containment (REQ-DG-05)", () => {
-  it("REQ-DG-05.1: a throwing .raw callback is contained — frozen prefix + tail, no .cause", async () => {
+describe("dialect handle — .modify() and parse-failure containment (REQ-DG-05)", () => {
+  it("REQ-DG-05.1: a throwing .modify callback is contained — frozen prefix + tail, no .cause", async () => {
     const SECRET_MARKER = "PLANTED_NATIVE_INTERNAL_9f3a";
     const { client } = makeSpyClient({ "a.toy": "seed" });
 
     const run = defineFactory<void>(async () => {
-      toyDialect.find("a.toy").raw(() => {
+      toyDialect.find("a.toy").modify(() => {
         const native = new Error(`boom ${SECRET_MARKER}`);
         (native as unknown as Record<string, unknown>).internalNode = { marker: SECRET_MARKER };
         throw native;
@@ -289,7 +300,7 @@ describe("dialect handle — .raw() and parse-failure containment (REQ-DG-05)", 
 
     expect(caught).toBeInstanceOf(Error);
     const err = caught as Error;
-    expect(err.message).toBe('dialect operation failed: raw() on "a.toy" threw');
+    expect(err.message).toBe('dialect operation failed: modify() on "a.toy" threw');
     expect(err.cause).toBeUndefined();
 
     // council fix pass (QA F2): sweep EVERY own property (not just message/.cause) for the
@@ -319,8 +330,8 @@ describe("dialect handle — .raw() and parse-failure containment (REQ-DG-05)", 
   });
 });
 
-describe("dialect handle — async .raw() containment (council fix pass, security note 1, ADR-0037)", () => {
-  it("an async .raw callback that rejects is contained the same as a sync throw, with no unhandledRejection", async () => {
+describe("dialect handle — async .modify() containment (council fix pass, security note 1, ADR-0037)", () => {
+  it("an async .modify callback that rejects is contained the same as a sync throw, with no unhandledRejection", async () => {
     const unhandled: unknown[] = [];
     const onUnhandledRejection = (reason: unknown) => unhandled.push(reason);
     process.on("unhandledRejection", onUnhandledRejection);
@@ -330,7 +341,7 @@ describe("dialect handle — async .raw() containment (council fix pass, securit
     const run = defineFactory<void>(async () => {
       // Deliberately not awaited by the author — the run-boundary join must still observe
       // the async rejection through the SAME containment as a sync throw.
-      toyDialect.find("a.toy").raw(async () => {
+      toyDialect.find("a.toy").modify(async () => {
         await new Promise((resolve) => setTimeout(resolve, 5));
         throw new Error("boom-async");
       });
@@ -351,16 +362,52 @@ describe("dialect handle — async .raw() containment (council fix pass, securit
 
     expect(caught).toBeInstanceOf(Error);
     const err = caught as Error;
-    expect(err.message).toBe('dialect operation failed: raw() on "a.toy" threw');
+    expect(err.message).toBe('dialect operation failed: modify() on "a.toy" threw');
     expect(err.cause).toBeUndefined();
     expect(unhandled).toEqual([]);
   });
 
-  it("an async .raw callback that resolves after a delay has its mutation included in the coalesced modify", async () => {
+  // REQ-DG-05.4 (NEW): mirrors REQ-DG-06.2's pattern (unhandledRejection observed + zero
+  // batches emitted) for the escape hatch itself, not just a named runOp — an async rejection
+  // from `.modify(fn)` must never commit as a false success.
+  it("REQ-DG-05.4: an async .modify(fn) rejection is contained, zero unhandledRejection, zero batches", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandledRejection);
+
     const { client, emitted } = makeSpyClient({ "a.toy": "seed" });
 
     const run = defineFactory<void>(async () => {
-      await toyDialect.find("a.toy").raw(async (ast) => {
+      await toyDialect.find("a.toy").modify(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        throw new Error("boom-async-reject");
+      });
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    } finally {
+      process.off("unhandledRejection", onUnhandledRejection);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    expect(err.message).toBe('dialect operation failed: modify() on "a.toy" threw');
+    expect(err.cause).toBeUndefined();
+    expect(unhandled).toEqual([]);
+    expect(collectModifies(emitted)).toHaveLength(0);
+  });
+
+  it("an async .modify callback that resolves after a delay has its mutation included in the coalesced modify", async () => {
+    const { client, emitted } = makeSpyClient({ "a.toy": "seed" });
+
+    const run = defineFactory<void>(async () => {
+      await toyDialect.find("a.toy").modify(async (ast) => {
         await new Promise((resolve) => setTimeout(resolve, 5));
         (ast as ToyAst).push("async-line");
       });
@@ -373,7 +420,7 @@ describe("dialect handle — async .raw() containment (council fix pass, securit
   });
 });
 
-describe("dialect handle — runOp containment, parity with .raw() (REQ-DG-06)", () => {
+describe("dialect handle — runOp containment, parity with .modify() (REQ-DG-06)", () => {
   it("REQ-DG-06.1: a sync throw from a named op is contained — pinned prefix, tail naming the op", async () => {
     const { client } = makeSpyClient({ "a.synth": "seed" });
 
@@ -488,6 +535,29 @@ describe("dialect handle — runOp containment, parity with .raw() (REQ-DG-06)",
     expect(caught).toBeInstanceOf(Error);
     expect((caught as Error).message).toBe("dialect operation failed: synthetic collision");
   });
+
+  it("REQ-DG-06.6: a foreign error with a coincidentally-prefixed message is wrapped fresh, never rethrown verbatim", async () => {
+    const { client } = makeSpyClient({ "a.synth": "seed" });
+
+    const run = defineFactory<void>(async () => {
+      await synthDialect.find("a.synth").foreignPrefixedThrow();
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    // The tail is the generic foreign-wrap shape — NOT the foreign error's own message
+    // content, proving the discriminant is the `isContained` brand by identity, never a
+    // `message.startsWith(...)` string test.
+    expect(err.message).toBe('dialect operation failed: foreignPrefixedThrow() on "a.synth" threw');
+    expect(err.cause).toBeUndefined();
+  });
 });
 
 describe("dialect handle — fail-closed run semantics (REQ-DG-07.3, poison flag)", () => {
@@ -594,7 +664,7 @@ describe("dialect handle — REQ-DG-07.2 (concrete collision trigger, S-001)", (
     expect(err.message).toBe(
       'dialect operation failed: addFunction("foo") on "a.ts" — a value or import binding named "foo" already ' +
         "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
-        "or edit it with .raw()."
+        "or edit it with .modify()."
     );
     expect(err.cause).toBeUndefined();
     expect(collectModifies(emitted)).toHaveLength(0);
@@ -698,17 +768,17 @@ describe("dialect handle — no-reparse across a mixed-op chain", () => {
   });
 });
 
-describe("dialect handle — REQ-MC-08 (row-136 reject, S-002 commit 2 of 2 — replaces the commit-1 characterization)", () => {
-  // S-002 commit 1's [characterization] test asserted TODAY's silent last-write-wins
-  // (`.modify()` after an open AST op quietly won array-order, the AST edit lost with no
-  // error). That test is REPLACED here — same slice, this commit's diff — by REQ-MC-08's
-  // reject scenarios (ADR-0039): the pending AST edit is never silently discarded again.
+describe("dialect handle — REQ-MC-08 (row-136 reject, amended by ADR-0050 to .replaceContent())", () => {
+  // The pre-existing silent last-write-wins was already replaced by REQ-MC-08's reject
+  // scenarios (ADR-0039) in an earlier slice. `author-write-surface` (S-000, ADR-0050) only
+  // moves the guard's home from `.modify()`/`runModify` to `.replaceContent()`/
+  // `runReplaceContent` — the pending AST edit is still never silently discarded.
 
-  it("REQ-MC-08.1: .modify() while an AST op is open on the SAME handle REJECTS, naming the conflict", async () => {
+  it("REQ-MC-08.1: .replaceContent() while an AST op is open on the SAME handle REJECTS, naming the conflict", async () => {
     const fake = new ContractFake({ seed: { "a.ts": "const x = 1;\n" } });
 
     const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("readFileSync", "node:fs").modify("raw override content");
+      await ts.find("a.ts").addImport("readFileSync", "node:fs").replaceContent("raw override content");
     });
 
     let caught: unknown;
@@ -721,54 +791,77 @@ describe("dialect handle — REQ-MC-08 (row-136 reject, S-002 commit 2 of 2 — 
     expect(caught).toBeInstanceOf(Error);
     const err = caught as Error;
     expect(err.message).toBe(
-      'dialect operation failed: cannot .modify() "a.ts" while a structured edit is pending on the same handle — the pending edit would be lost; call .read() to commit it first, then .modify()'
+      'dialect operation failed: cannot .replaceContent() "a.ts" while a structured edit is pending — the pending edit would be lost; call .read() to commit it first, then .replaceContent()'
     );
     expect(err.cause).toBeUndefined();
     // The AST edit is never silently discarded — nothing commits at all (fail-closed).
     expect(fake.committedTree().size).toBe(0);
   });
 
-  it("REQ-MC-08.2: .modify() with NO pending AST op is unaffected — succeeds exactly as today", async () => {
+  it("REQ-MC-08.2: .replaceContent() with NO pending AST op is unaffected — succeeds exactly as today", async () => {
     const fake = new ContractFake({ seed: { "a.ts": "const x = 1;\n" } });
 
     const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").modify("plain overwrite");
+      await ts.find("a.ts").replaceContent("plain overwrite");
     });
     await run(undefined, { client: fake });
 
     expect(fake.committedTree().get("a.ts")).toBe("plain overwrite");
   });
 
-  it("REQ-MC-08.3: .read() drains the pending AST op first — .modify() after it is the documented escape, both directives commit", async () => {
+  it("REQ-MC-08.3: .read() drains the pending AST op first — .replaceContent() after it is the documented escape, both directives commit", async () => {
     const fake = new ContractFake({ seed: { "a.ts": "const x = 1;\n" } });
 
     const run = defineFactory<void>(async () => {
       const handle = ts.find("a.ts").addImport("readFileSync", "node:fs");
       await handle.read();
-      handle.modify("post-read overwrite");
+      handle.replaceContent("post-read overwrite");
       await handle;
     });
     await run(undefined, { client: fake });
 
     // The addImport edit committed via its own drain-triggered flush (at the .read()),
-    // then the post-read .modify() overwrites on top — both directives landed, neither
-    // silently dropped.
+    // then the post-read .replaceContent() overwrites on top — both directives landed,
+    // neither silently dropped.
     expect(fake.committedTree().get("a.ts")).toBe("post-read overwrite");
   });
 
-  it("REQ-MC-08.4: reverse order (.modify() THEN an AST op) stays defined, unaffected by the reject", async () => {
+  it("REQ-MC-08.4: reverse order (.replaceContent() THEN an AST op) stays defined, unaffected by the reject", async () => {
     const fake = new ContractFake({ seed: { "a.ts": "const x = 1;\n" } });
 
     const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").modify("const y = 2;\n").addImport("readFileSync", "node:fs");
+      await ts.find("a.ts").replaceContent("const y = 2;\n").addImport("readFileSync", "node:fs");
     });
     await run(undefined, { client: fake });
 
-    // The AST op runs AFTER .modify() buffered its own directive — #ensureLive() reads
-    // through the flush-before-read seam (the modify already committed by then), so the
-    // AST op parses the POST-modify content ("const y = 2;\n") and the addImport edit
+    // The AST op runs AFTER .replaceContent() buffered its own directive — #ensureLive()
+    // reads through the flush-before-read seam (the replace already committed by then), so
+    // the AST op parses the POST-replace content ("const y = 2;\n") and the addImport edit
     // lands on top of it — the same insertion shape the existing golden fixtures pin.
     expect(fake.committedTree().get("a.ts")).toBe('import { readFileSync } from "node:fs";\n\nconst y = 2;\n');
+  });
+
+  // REQ-MC-08.5 (NEW): the ADR-0039 guard is scoped to `.replaceContent()`'s SEMANTICS
+  // (wholesale replace clobbering a pending structured edit) — it must never fire for
+  // `.modify(fn)`, which coalesces freely with a pending AST op into ONE directive.
+  it("REQ-MC-08.5: .modify(fn) is unaffected by the ADR-0039 guard — coalesces with a pending AST op into ONE directive, never rejects", async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": "const x = 1;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await ts
+        .find("a.ts")
+        .addImport("readFileSync", "node:fs")
+        .modify((ast) => {
+          ast.addStatements("export const z = 3;");
+        });
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe(
+      'import { readFileSync } from "node:fs";\n\nconst x = 1;\nexport const z = 3;\n'
+    );
   });
 });
 
@@ -859,7 +952,7 @@ describe("dialect handle — REQ-DG-07.1 (row-136 concrete trigger, S-002)", () 
 
     const run = defineFactory<void>(async () => {
       await toyDialect.find("a.ts").push("push-line");
-      await ts.find("b.ts").addImport("readFileSync", "node:fs").modify("raw override");
+      await ts.find("b.ts").addImport("readFileSync", "node:fs").replaceContent("raw override");
     });
 
     let caught: unknown;

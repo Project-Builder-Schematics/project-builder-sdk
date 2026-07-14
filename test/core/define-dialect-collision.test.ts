@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
-import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps, RESERVED_HANDLE_NAMES } from "../../src/core/define-dialect.ts";
 import { isContained } from "../../src/core/dialect-error.ts";
 import { parse, print } from "../../src/dialects/typescript/ast.ts";
 import { packA as collidingPackA, packB as collidingPackB } from "../fixtures/red/dialect-generics/colliding-op-packs.ts";
@@ -99,14 +99,48 @@ describe("withOps — REQ-DG-02.5: op named `then` collides with the base handle
     expect(isContained(caught)).toBe(false);
   });
 
-  it("every base-handle verb is reserved (read/raw/modify/rename/move/copy/remove), not just then", () => {
-    for (const verb of ["read", "raw", "modify", "rename", "move", "copy", "remove"]) {
+  it("REQ-DG-02.6: every reserved handle verb collides, `raw` alone naming the live escape hatch", () => {
+    for (const verb of RESERVED_HANDLE_NAMES) {
       const reservedPack = defineOpPack<SourceFile, Record<string, (ast: SourceFile) => void>>({
         [verb](_ast) {},
       });
-      expect(() => withOps(realBaseDialect(), reservedPack)).toThrow(
-        `op-pack composition failed: op "${verb}" collides with a reserved handle verb`
-      );
+      const expectedMessage =
+        verb === "raw"
+          ? 'op-pack composition failed: op "raw" collides with a reserved handle verb — the live AST-fn escape hatch is .modify(fn)'
+          : `op-pack composition failed: op "${verb}" collides with a reserved handle verb`;
+      expect(() => withOps(realBaseDialect(), reservedPack)).toThrow(expectedMessage);
     }
+  });
+
+  it("REQ-DG-02.7: RESERVED_HANDLE_NAMES is the exact shipped 9-member ordered array", () => {
+    expect(RESERVED_HANDLE_NAMES).toEqual([
+      "then",
+      "read",
+      "raw",
+      "modify",
+      "replaceContent",
+      "rename",
+      "move",
+      "copy",
+      "remove",
+    ]);
+  });
+
+  it("REQ-DG-02.8: an op-pack declaring `modify` collides with the reserved handle verb, generic message (no hint)", () => {
+    const modifyPack = defineOpPack<SourceFile, { modify: (ast: SourceFile) => void }>({
+      modify(_ast) {},
+    });
+    let caught: unknown;
+    try {
+      withOps(realBaseDialect(), modifyPack);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toBe(
+      'op-pack composition failed: op "modify" collides with a reserved handle verb'
+    );
+    // Scenario's own second clause: plain Error, not isContained (REQ-DG-02.4 closure).
+    expect(isContained(caught)).toBe(false);
   });
 });

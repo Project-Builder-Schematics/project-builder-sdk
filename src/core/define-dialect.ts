@@ -48,20 +48,21 @@ type OpMethods<Ast, Ops extends OpPack<Ast>> = {
 // dialect return so `Handle` stays structurally a `WriteOps`-shaped surface while authored
 // chains keep the thenable dialect return (ADR-0037 clause 1b).
 type DialectWriteOps<Ast, Ops extends OpPack<Ast>> = {
-  modify(content: string): Edited<Ast, Ops>;
+  replaceContent(content: string): Edited<Ast, Ops>;
   rename(newName: string, opts?: { force?: boolean }): Edited<Ast, Ops>;
   move(toDir: string, opts?: { force?: boolean }): Edited<Ast, Ops>;
   copy(to: string, opts?: { force?: boolean }): Edited<Ast, Ops>;
 };
 
-// The open, awaitable dialect handle (ADR-0010, ADR-0037). Awaitable via `PromiseLike<void>`
-// — `.then` delegates to the internal `#tail` promise queue (dialect-handle.ts).
+// The open, awaitable dialect handle (ADR-0010, ADR-0037, ADR-0050). Awaitable via
+// `PromiseLike<void>` — `.then` delegates to the internal `#tail` promise queue
+// (dialect-handle.ts).
 export type Handle<
   State extends "found" | "writable" = "found",
   Ast = any,
   Ops extends OpPack<Ast> = OpPack<Ast>,
 > = ReadOps &
-  DialectWriteOps<Ast, Ops> & { raw(fn: (ast: Ast) => void): Edited<Ast, Ops> } & OpMethods<Ast, Ops> &
+  DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops> } & OpMethods<Ast, Ops> &
   // The false branch is an intentional no-op ({}): intersecting with it adds no constraint.
   (State extends "found" ? { remove(): void } : {}) &
   PromiseLike<void>;
@@ -116,12 +117,52 @@ type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) exten
   ? I
   : never;
 
-// The base handle's own vocabulary (S-004, REQ-DG-02, ADR-0010 amendment) — an op-pack op
-// sharing any of these names would silently shadow a base verb; `then` in particular would
-// break the handle's `PromiseLike` join. Superset of the spec's illustrative
-// then/read/modify/raw, covering every DialectWriteOps verb too (Stage-4 reserved-names
-// precedent).
-const RESERVED_HANDLE_NAMES = new Set(["then", "read", "raw", "modify", "rename", "move", "copy", "remove"]);
+/**
+ * The base handle's own vocabulary (REQ-DG-02, ADR-0010 amendment) — an op-pack op sharing
+ * any of these names would silently shadow a base verb; `then` in particular would break the
+ * handle's `PromiseLike` join. `raw` stays reserved even though the verb itself is retired
+ * (ADR-0050) — a muscle-memory guardrail against authors reaching for the old name. Exported,
+ * ordered array (REQ-DG-02.7 pins this exact order via `toEqual`); `assertNoCompositionCollision`
+ * below consumes it through the derived, non-exported `RESERVED_SET`.
+ *
+ * @internal Exported for test/conformance observability only (so collision/exact-set tests can
+ * import it instead of hand-typing a second literal) — NOT a supported public API member, not
+ * semver-covered beyond the FIT-04 baseline pin it already sits inside (ORCHESTRATOR RULING R2).
+ */
+export const RESERVED_HANDLE_NAMES = [
+  "then",
+  "read",
+  "raw",
+  "modify",
+  "replaceContent",
+  "rename",
+  "move",
+  "copy",
+  "remove",
+] as const;
+
+const RESERVED_SET: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
+
+// Compile-time, one-directional exhaustiveness tie: every verb on the base handle surface
+// (the concrete intersection members of `Handle`, NOT the string-indexed `OpMethods` arm)
+// must appear in `RESERVED_HANDLE_NAMES` — extras like the retired `raw` are allowed.
+// Adding a new base verb without reserving it fails here, at the declaration site.
+// "modify" and "remove" are hand-listed because they are inline intersection members on
+// `Handle` (see define-dialect's `Handle` type), not derived from an interface `keyof` —
+// any future inline addition to that intersection must be added here too, or this
+// exhaustiveness guard silently stops covering it.
+type BaseHandleSurfaceKey =
+  | keyof ReadOps
+  | keyof DialectWriteOps<any, OpPack>
+  | "modify"
+  | "remove"
+  | keyof PromiseLike<void>;
+const _reservedCoversSurface: [
+  Exclude<BaseHandleSurfaceKey, (typeof RESERVED_HANDLE_NAMES)[number]>,
+] extends [never]
+  ? true
+  : never = true;
+void _reservedCoversSurface;
 
 /**
  * Eager, synchronous, fail-closed check run at `withOps` composition time (REQ-DG-02,
@@ -134,8 +175,9 @@ function assertNoCompositionCollision(baseOpNames: readonly string[], packs: rea
   const claimed = new Set(baseOpNames);
   for (const pack of packs) {
     for (const name of Object.keys(pack)) {
-      if (RESERVED_HANDLE_NAMES.has(name)) {
-        throw new Error(`op-pack composition failed: op "${name}" collides with a reserved handle verb`);
+      if (RESERVED_SET.has(name)) {
+        const hint = name === "raw" ? " — the live AST-fn escape hatch is .modify(fn)" : "";
+        throw new Error(`op-pack composition failed: op "${name}" collides with a reserved handle verb${hint}`);
       }
       if (claimed.has(name)) {
         throw new Error(`op-pack composition failed: duplicate op "${name}" declared by more than one pack.`);

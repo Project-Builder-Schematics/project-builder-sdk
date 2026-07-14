@@ -1,0 +1,11 @@
+{
+  "change": "author-write-surface",
+  "triage": "L",
+  "phase": "verify-plan",
+  "spec_status": "signed",
+  "slices": true,
+  "plan_verify": "ready",
+  "verify_final": "none",
+  "arch_audit": "none",
+  "updated_at": "2026-07-14"
+}

@@ -359,3 +359,32 @@ CLI/engine; the wire spec is a deliverable of the change, not a prerequisite fro
 | `StdioEngineClient` — first real `EngineClient` implementation (JSON-RPC over stdio, NDJSON framing, `session.init` version handshake, engine rejections mapped to ADR-0022 `EmitRejection`). Ships together with: the `pbuilder-runner` bin (argv contract `--factory <url>#<export>` / `--input` / `--input-file`; resolved PROJECT-LOCAL per the single-SDK-instance pin — engine must never bundle its own SDK copy, or the module-level ALS splits and every verb throws `outside-run`; wraps the author's BARE factory export with the runner-internal `defineFactory`, supplying `packageDir = dirname(factory)` via the adjacency convention), a normative wire spec (versioned with the handshake), and a scripted fake-engine conformance harness (spawned process speaking NDJSON over real stdio — no Go required to verify). Consumes the `defineFactory` graduation direction (obs #2070, stage-4b row above) | feature | L | Before any engine-backed release | **not now — later engine-backed milestone (ROADMAP §6)** |
 | Factory scaffold (`pbuilder-codegen` extension or `init-schematic`) emitting a typed bare `factory.ts` (`(input: Input) => void`) plus adjacent `schema.json` — DX counterpart of the bare-export contract (authors never write `defineFactory` boilerplate; the typed signature is the compile-time anchor the wrapper's generic used to provide) | feature | S | — | with the runner change |
 | Author-surface migration to the bare-factory shape (blast radius measured 2026-07-14): rewrite the 5 author-facing docs showing the wrap (`README.md` ×7, `docs/quickstart.md` ×4, `docs/dry-run.md` ×3, `docs/authoring-verbs.md`, `docs/authoring-errors.md`) + their fenced-snippet compile tests; change `runFactoryForTest` to accept the bare `(input) => void` shape, wrapping internally via the SAME code path the runner uses (parity-by-identity, FIT-18 philosophy); drop `defineFactory` from public subpath exports + exports-guard baselines (FIT-09/FIT-14, `./testing` facade re-export). Transition guard in the runner: brand-detect an already-wrapped export and reject with an educational error (double-wrap = cryptic destructuring TypeError otherwise); guard retires once the export is gone. NOT migration work: the ~67 internal test files calling `defineFactory` directly — it remains internal API | docs | M | — | **with the `defineFactory` graduation (public-package plan) — consumes obs #2070** |
+
+## From `author-write-surface` triage re-cut (2026-07-14) — deferred by owner decision after blind council review
+
+The original scope bundled four changes; PM + architect independently converged on cutting to
+the honest write-verb rename core (that change proceeds: `openspec/changes/author-write-surface/`).
+The three deferred pieces map to EXISTING ledger homes — this section is traceability, not new rows:
+
+| Deferred piece | Existing home | Extra condition registered here |
+|---|---|---|
+| Public dialect-kit subpath (`defineDialect`/`defineOpPack`/`withOps`), ADR-0009 revisit | Public-package plan / `@pbuilder/sdk-kit` extraction rows | Must state the subpath's semver posture, rework FIT-08 (no-kit-bleed) as allowlist-inversion, and confirm the `Session.emit`/`EngineClient` single-chokepoint survives exposure (architect triage note, 2026-07-14) |
+| `hasImport` + query helpers | Group 5 (boolean-returning ops) | Unchanged gate: return-channel ADR ratified BEFORE implementation; sequenced after Groups 1-4 |
+| Standalone op-function exports from `./typescript` (composition inside `modify(fn)` callbacks) | Follows the row-320 CONFIRMED identifier-injection validator | Do NOT widen the confirmed-vulnerable surface before the shared TS-identifier validator lands; note `modify(fn)` already gives authors full ts-morph natively, so urgency is low |
+
+## From `author-write-surface` (2026-07-14) — accepted as non-blocking at archive
+
+Verify verdict `pass-with-followups` (2 followups fixed at close: FIT-04 content assertion + stale comment). Judgment-day APPROVED (1 suggestion applied). Steward reckoning DELIVERED (3 conscience questions owner-ratified, outcome aligned).
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| Flaky `test/e2e/installed-consumer.e2e.test.ts` tarball leg — ~25% failure rate on CI; pre-existing issue, masks archive signals; root cause not in this change (manifest/corpus/build-pipe stability) | test-infra | M | — | **next build-infra / e2e harness pass** |
+| `replaceContent("")` empty-content boundary untested — completeness gap in REQ-MC-01/MC-03 (empty string mutation coverage); pre-existing compliance gap | test-coverage | S | — | **test-pyramid-hardening pass** |
+| `defineDialect` own-ops bypass the reserved-name guard that `withOps` enforces — latent gap in REQ-DG-02 collision namespace (own-provided ops can shadow reserved names without hitting the assertion, in-trust model); add symmetric guard or document caveat before dialect publishing | refactor | M | — | **before public `defineDialect` / op-pack publishing** |
+| `openspec/sensitive-areas.md` spelling refresh: update `.raw()` escape-hatch documentation to `.modify()` (one-line) — consistency patch after honest-verb rename lands | docs | XS | — | **first sensitive-areas refresh pass** |
+
+## From `author-write-surface` foresight gate (2026-07-14) — deferred by owner at steward checkpoint
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| Importable `modify(handle, fn)` form from `./typescript` + the run-identity guard subsystem (cross-run loud reject via controller `#origin` stamp). Steward foresight (obs #2127) flagged it as ergonomics-not-honesty with the largest net-new complexity in the rename; owner deferred (obs #2128). PRIOR ART preserved: REQ-TSD-12 V3 spec text (engram obs #2119 history) + design `#origin`/`#bindOrigin` mechanism (design.md / obs #2126) — a future change starts from ratified spec+design, not zero | feature | S-M | Lands AFTER `author-write-surface` merges (needs the renamed `.modify(fn)` surface) | **own change, post-rename** |

@@ -56,7 +56,7 @@ describe("addFunction — REQ-TSD-09", () => {
     expect(err.message).toBe(
       'dialect operation failed: addFunction("foo") on "a.ts" — a value or import binding named "foo" already ' +
         "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
-        "or edit it with .raw()."
+        "or edit it with .modify()."
     );
     expect(err.cause).toBeUndefined();
   });
@@ -142,7 +142,7 @@ describe("addFunction — REQ-TSD-09", () => {
     expect(err.message).toBe(
       'dialect operation failed: addFunction("Foo") on "a.ts" — a value or import binding named "Foo" already ' +
         "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
-        "or edit it with .raw()."
+        "or edit it with .modify()."
     );
     expect(err.cause).toBeUndefined();
   });
@@ -183,7 +183,7 @@ describe("addFunction — REQ-TSD-09", () => {
     expect(err.message).toBe(
       'dialect operation failed: addFunction("Foo") on "a.ts" — a value or import binding named "Foo" already ' +
         "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
-        "or edit it with .raw()."
+        "or edit it with .modify()."
     );
     expect(err.cause).toBeUndefined();
   });
@@ -206,7 +206,7 @@ describe("addFunction — REQ-TSD-09", () => {
     expect(err.message).toBe(
       'dialect operation failed: addVariable("Foo") on "a.ts" — a value or import binding named "Foo" already ' +
         "exists; TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, " +
-        "or edit it with .raw()."
+        "or edit it with .modify()."
     );
     expect(err.cause).toBeUndefined();
   });

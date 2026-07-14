@@ -86,6 +86,39 @@ for the SDK's own dialect — a documented limit, not a silent gap. (−) FIT-14
 **Alternatives considered**: **Static leaf entry point** — rejected (public surface + not the
 vehicle's job). **Type-brand real-base** — rejected (fakeable theatre).
 
+## Amendment (2026-07-14, `author-write-surface`, S-002): `{raw}`→`{modify}` chain-step discriminant rename
+
+**Status**: Accepted (amends Accepted ADR-0012)
+
+**Context**: `author-write-surface` renames the dialect `Handle`'s universal AST-escape-hatch
+method `raw(fn)` → `modify(fn)` (ADR-0050) for honesty — the old name described the argument
+shape, not the operation. `OpExercise.chain`'s published discriminated-union step type left the
+escape-hatch variant typed `{raw: (ast: unknown) => void}` and dispatched via
+`handle.raw(step.raw)`; left unmigrated, the kit would validate a verb that no longer exists on
+`Handle`.
+
+**Decision**: Rename the discriminant key `{raw}` → `{modify}` and the dispatch target
+`handle.raw` → `handle.modify`, in `src/conformance/index.ts`'s `OpExercise.chain` type and
+`runExercise`'s dispatch, in lockstep with the same commit that renames the handle method. Add a
+discriminant-misroute negative test (REQ-DC-02.2): a chain step shaped `{op, args}` (no `modify`
+key) must never be misrouted through the `.modify()` branch. The discriminated-union dispatch
+mechanism itself (routing on which key is present) is unchanged — only the discriminant key and
+its target method name rename.
+
+**Consequences**: (+) the conformance kit exercises the real, honest verb name — a contributor
+copying `OpExercise` examples writes `.modify(fn)`, matching `Handle`'s actual member. (+) the
+discriminant-misroute negative closes a coverage gap this change's council review surfaced —
+routing is now explicitly proven, not merely implied by the existing single-op/multi-op
+exercises. (−) a published type shape changes (`OpExercise.chain`'s union member) — acceptable
+pre-1.0, `@pbuilder/sdk/conformance` is 0.x. (enables) third-party op-pack authors write
+exercises against the honest step shape, with no dead `raw` vocabulary surviving anywhere in the
+kit's public surface.
+
+**Alternatives**: keep `{raw}` as a back-compat alias on the chain-step union — reintroduces the
+exact dishonest name into a public contract this change exists to remove, for zero real
+consumers (pre-1.0, no external adopters). Dual-accept `{raw}|{modify}` — a dead union member
+with no test ever exercising it, pure surface bloat.
+
 ## Context
 
 An open ecosystem (ADR-0009) cannot have the core team review every community dialect/op-pack. The

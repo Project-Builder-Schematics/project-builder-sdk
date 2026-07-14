@@ -1,6 +1,6 @@
 /**
  * S-000 — REQ-TSD-04.2: a real ts-morph print failure is contained the same way as a real
- * parse failure (REQ-TSD-04.1) or a `.raw()` throw (REQ-DG-05). `sf.forget()` forces
+ * parse failure (REQ-TSD-04.1) or a `.modify()` throw (REQ-DG-05). `sf.forget()` forces
  * `SourceFile#getFullText()` to throw against the REAL ts-morph printer (no mock) — this is
  * the mechanism the design selects to drive a live AST into a print-throwing state.
  */
@@ -15,7 +15,7 @@ describe("TypeScript dialect — REQ-TSD-04.2 print failure containment", () => 
     const { client } = makeSpyClient({ "a.ts": golden("add-import-before.txt") });
 
     const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").raw((sf) => {
+      await ts.find("a.ts").modify((sf) => {
         sf.forget();
       });
     });

@@ -6,7 +6,7 @@
  *   - a chain with no read coalesces to exactly one modify (byte-exact)
  *   - a mid-chain read splits into exactly two modifies, cumulative, no edit lost
  *   - an unawaited handle still commits at run end (the run-boundary join)
- *   - a throwing `.raw()` callback rejects the run with the frozen-prefix Error, no
+ *   - a throwing `.modify()` callback rejects the run with the frozen-prefix Error, no
  *     unhandledRejection, `.cause` absent
  *
  * THROWAWAY (ratified slices constraint 2): this file drives the toy dialect only — it is
@@ -24,7 +24,7 @@ describe("e2e — toy dialect skeleton (S-001 walking skeleton)", () => {
 
     const run = defineFactory<void>(() => {
       // Deliberately NOT awaited — the run-boundary join must still commit this.
-      toyDialect.find("a.toy").push("named-op").raw((ast) => {
+      toyDialect.find("a.toy").push("named-op").modify((ast) => {
         (ast as ToyAst).push("raw-op");
       });
     });
@@ -42,7 +42,7 @@ describe("e2e — toy dialect skeleton (S-001 walking skeleton)", () => {
       const midChainContent = await handle.read();
       expect(midChainContent).toBe("seed\nfirst"); // read-your-own-writes (REQ-MC-02.2)
 
-      handle.raw((ast) => {
+      handle.modify((ast) => {
         (ast as ToyAst).push("second");
       });
       await handle;
@@ -53,11 +53,11 @@ describe("e2e — toy dialect skeleton (S-001 walking skeleton)", () => {
     expect(fake.committedTree()).toEqual(golden);
   });
 
-  it("a throwing .raw() callback rejects the run contained — frozen prefix, no .cause, nothing committed", async () => {
+  it("a throwing .modify() callback rejects the run contained — frozen prefix, no .cause, nothing committed", async () => {
     const fake = new ContractFake({ seed: { "a.toy": "seed" } });
 
     const run = defineFactory<void>(async () => {
-      await toyDialect.find("a.toy").raw(() => {
+      await toyDialect.find("a.toy").modify(() => {
         throw new Error("boom");
       });
     });
@@ -71,7 +71,7 @@ describe("e2e — toy dialect skeleton (S-001 walking skeleton)", () => {
 
     expect(caught).toBeInstanceOf(Error);
     const err = caught as Error;
-    expect(err.message).toBe('dialect operation failed: raw() on "a.toy" threw');
+    expect(err.message).toBe('dialect operation failed: modify() on "a.toy" threw');
     expect(err.cause).toBeUndefined();
     // All-or-nothing (ADR-01): the run rejected, so nothing was committed.
     expect(fake.committedTree()).toEqual(new Map());
