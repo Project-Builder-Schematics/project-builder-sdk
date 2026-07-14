@@ -58,22 +58,21 @@ phases:
         commit: b59da38
       - id: batch-2
         slices: [S-001, S-002]
-        status: applied (verify-in-loop-3 pending)
+        status: PASS (verify-in-loop-3)
         commits: [1358191, 591aba4, 06cfb5e]
         note: "S-002 consumer set = 9 files per §21 R-9. Builder resumed from aborted-agent uncommitted diffs, re-verified all of it; 2 defects found+fixed, both adjudicated LEGITIMATE in verify-in-loop-3. Suite 1217/56."
       - id: batch-3
         slices: [S-003, S-004]
-        status: applied (verify-in-loop-4 running)
+        status: PASS (verify-in-loop-4)
         commits: [6111d90, c875910, 96d9a3a]
         note: "PASS (verify-in-loop-4). R-3 deviation ACCEPTED → R-11 in slices.md supersedes R-3; drift-risk followup registered for archive. Suite 1275/6."
       - id: batch-4
         slices: [S-005, S-006]
         status: PASS (verify-in-loop-5 — /build loop CLOSED)
         commits: [5321802, 18ca3d7]
-        note: "HARD CUT COMPLETE. Suite 1285/0, typecheck 0, build clean. 3 disclosed discoveries pending adjudication: ts-dialect JSDoc example missed by §14 inventory (fixed), installed-consumer latent positional-seed bug (fixed), S-005 vacuous-red documented. USER DIRECTIVE: /simplify runs AFTER batch-4 verify PASS, BEFORE verify --mode=final."
-        note: "Full suite 1162 pass / 99 fail — EXPECTED mid-hard-cut (old wrapped callers red until S-001..S-004); failures bucketed in apply-progress.md. ORCHESTRATOR RULING: 5 unclaimed old-convention files (test/fake/copyin-fidelity, test/scaffold/{batch-cap-chunk,classify-transport,scaffold-fake}, test/e2e/author-emulation/ir-transcript) FOLD INTO S-002 — same fix shape as its 4 harness files."
-current_phase: apply
-next_phase: verify-in-loop
+        note: "HARD CUT COMPLETE. Suite 1285/0, typecheck 0, build clean. All 3 disclosed discoveries adjudicated LEGITIMATE in verify-in-loop-5 (ts-dialect JSDoc §14 inventory gap, installed-consumer latent positional-seed bug, S-005 vacuous-red documented). Carried-to-final list in verify-in-loop-5.md (6 items, incl. adversarial_review required). USER DIRECTIVE: /simplify BEFORE verify --mode=final."
+current_phase: simplify (user-directed, pre-verify-final)
+next_phase: verify-final
 in_loop_iteration: 0
 plan_verify_iteration: 0
 execution_mode: automatic
