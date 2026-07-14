@@ -19,7 +19,7 @@ export type { ScaffoldArgs } from "./expander.ts";
 
 function noResolutionAnchorMessage(relPath: string): string {
   return (
-    `invalid input: templateFile "${relPath}" has no package directory to resolve … against — ` +
+    `invalid input: templateFile "${relPath}" has no package directory to resolve it against — ` +
     "pass `packageDir` to the call that runs this factory"
   );
 }
@@ -83,7 +83,7 @@ function missingCopyInArgMessage(field: "from" | "to"): string {
 
 function noResolutionAnchorForCopyInMessage(): string {
   return (
-    "invalid input: copyIn has no package directory to resolve … against — " +
+    "invalid input: copyIn has no package directory to resolve its source against — " +
     "pass `packageDir` to the call that runs this factory"
   );
 }

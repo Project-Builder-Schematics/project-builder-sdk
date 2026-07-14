@@ -54,7 +54,7 @@ export interface ScaffoldArgs {
 
 function noResolutionAnchorMessage(): string {
   return (
-    "invalid input: scaffold has no package directory to resolve … against — " +
+    "invalid input: scaffold has no package directory to resolve package-local files against — " +
     "pass `packageDir` to the call that runs this factory"
   );
 }

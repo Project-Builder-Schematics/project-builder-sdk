@@ -26,7 +26,7 @@ import {
 import { renderReport, reportPathFor, REPORTS_DIR } from "../support/run-report-render.ts";
 import { instrumentHarnessIO } from "../support/harness-io-instrumentation.ts";
 import { expectReasonAsync } from "../support/expect-reason.ts";
-import { SCENARIOS, type ScenarioEntry } from "./author-emulation/scenarios.ts";
+import { SCENARIOS, runOptionsFor, type ScenarioEntry } from "./author-emulation/scenarios.ts";
 import {
   PACKAGE_DIR,
   SCAFFOLD_CALL_ARGS,
@@ -70,10 +70,7 @@ const captureCache = new Map<string, Promise<CaptureResult>>();
 function cachedCapture(scenario: ScenarioEntry): Promise<CaptureResult> {
   const cached = captureCache.get(scenario.id);
   if (cached !== undefined) return cached;
-  const promise = captureRun(scenario.run, scenario.input, {
-    seed: scenario.seed,
-    packageDir: scenario.packageDir,
-  });
+  const promise = captureRun(scenario.run, scenario.input, runOptionsFor(scenario));
   captureCache.set(scenario.id, promise);
   return promise;
 }

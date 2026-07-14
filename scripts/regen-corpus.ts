@@ -7,7 +7,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { captureRun } from "../test/support/ir-transcript.ts";
 import { buildRecord, corpusFileNameFor, serializeCorpus } from "../test/support/corpus-format.ts";
-import { SCENARIOS } from "../test/e2e/author-emulation/scenarios.ts";
+import { SCENARIOS, runOptionsFor } from "../test/e2e/author-emulation/scenarios.ts";
 
 const CORPUS_DIR = new URL("../test/e2e/author-emulation/corpus/", import.meta.url).pathname;
 
@@ -16,10 +16,7 @@ async function main(): Promise<void> {
     // Matrix rows (m-01..m-21) regenerate once S-003/S-004 land their factory surface.
     if (scenario.gated) continue;
 
-    const capture = await captureRun(scenario.run, scenario.input, {
-      seed: scenario.seed,
-      packageDir: scenario.packageDir,
-    });
+    const capture = await captureRun(scenario.run, scenario.input, runOptionsFor(scenario));
     const record = buildRecord(capture, { scenarioId: scenario.id, slug: scenario.slug });
     const text = serializeCorpus(record);
 

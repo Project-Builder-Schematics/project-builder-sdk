@@ -137,7 +137,7 @@ describe("REQ-TSD-05 — author-facing reference docs reflect the bare contract 
     const doc = readFileSync(DRY_RUN_PATH, "utf-8");
     // dry-run.md has 2 ```ts fences: a 1-line import snippet, and the runnable example this
     // scenario targets — identified by name, not position, since fence ORDER is prose, not contract.
-    const fences = [...doc.matchAll(/```ts\n([\s\S]*?)```/g)].map((m) => m[1] ?? "");
+    const fences = extractTsCodeBlocks(doc);
     const fence = fences.find((f) => f.includes("runFactoryForTest"));
     expect(fence).not.toBeUndefined();
     expect(fence).not.toContain("defineFactory");

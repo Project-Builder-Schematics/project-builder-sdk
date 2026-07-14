@@ -60,6 +60,14 @@ export interface ScenarioEntry {
   gated: boolean;
 }
 
+/** The `runFactoryForTest`/`captureRun` options bag a scenario carries — the single
+ * place that maps `ScenarioEntry` fields onto the harness options shape. */
+export function runOptionsFor(
+  scenario: Pick<ScenarioEntry, "seed" | "packageDir">
+): { seed?: Record<string, string>; packageDir?: string } {
+  return { seed: scenario.seed, packageDir: scenario.packageDir };
+}
+
 // S-003's own default fixture input — `visibility`/`withTests` omitted where a scenario
 // doesn't care, `satisfies` pins each literal against the generated `Input` type.
 const M01_INPUT = { name: "Widgets", withTests: true, visibility: "public" } satisfies AuthorEmulationInput;
