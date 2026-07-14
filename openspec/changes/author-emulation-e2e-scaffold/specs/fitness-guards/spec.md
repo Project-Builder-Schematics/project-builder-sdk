@@ -12,13 +12,14 @@ regenerate-and-diff (QA-M-e). All V1 REQ-IDs preserved.
 
 ## Purpose
 
-Pins the five fitness functions (FIT-23..27 — FIT-22 is already taken by
-`schematic-local-files`'s `fit-22-scaffold-leaf-rule.test.ts` on origin) that guard the
-invariants this change's shared infra depends on.
+Pins the five fitness functions (FIT-24..28 — FIT-22/23 are already taken upstream:
+`schematic-local-files`'s `fit-22-scaffold-leaf-rule.test.ts` and
+`stage-6-release-shape`'s `fit-23-publish-workflow-guard.test.ts`, both on origin) that
+guard the invariants this change's shared infra depends on.
 
 ## Requirements
 
-### REQ-FTG-01: FIT-23 — Corpus Byte-Determinism
+### REQ-FTG-01: FIT-28 — Corpus Byte-Determinism
 
 A fitness test MUST run the full non-engine-gated scenario set twice IN-PROCESS and
 assert the resulting corpus content is byte-identical both times — guards against
@@ -26,13 +27,13 @@ non-determinism silently creeping into the walk/capture/render pipeline
 (`golden-corpus-contract` REQ-GCC-04). This same-process double-run is deliberately
 the FAST, WEAK guard; the STRONG guard is the out-of-band regenerate-and-diff flow
 (REQ-GCC-05 — fresh process, fresh state). Before `schematic-local-files` merges,
-FIT-23 runs (and is RED-provable) against the REQ-GCC-12 skeleton record alone.
+FIT-28 runs (and is RED-provable) against the REQ-GCC-12 skeleton record alone.
 
-#### Scenario REQ-FTG-01.1: FIT-23 fails on injected non-determinism [SDK]
+#### Scenario REQ-FTG-01.1: FIT-28 fails on injected non-determinism [SDK]
 
 - GIVEN a deliberately injected source of nondeterminism (e.g. an unsorted walk order,
   or a timestamp leaked into a record)
-- WHEN FIT-23 runs
+- WHEN FIT-28 runs
 - THEN it fails, naming the scenario whose corpus differed between the two runs
 
 ### REQ-FTG-02: FIT-24 — Corpus Purity

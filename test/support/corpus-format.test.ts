@@ -36,7 +36,7 @@ describe("embedTemplate — R-G content-digest normalization boundary", () => {
     expect(Object.keys(digest).sort()).toEqual(["algo", "bytes", "sha256"]);
   });
 
-  it("is a pure function of content alone — same content, same digest, across independent calls (FIT-23 determinism)", () => {
+  it("is a pure function of content alone — same content, same digest, across independent calls (FIT-28 determinism)", () => {
     const content = "PBUILDER-FIXTURE-FILL-".repeat(1000); // well over budget
     const first = embedTemplate(content);
     const second = embedTemplate(content);

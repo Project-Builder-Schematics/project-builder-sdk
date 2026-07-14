@@ -1,5 +1,5 @@
 /**
- * FIT-23 (REQ-FTG-01): corpus byte-determinism — the full non-engine-gated scenario set
+ * FIT-28 (REQ-FTG-01): corpus byte-determinism — the full non-engine-gated scenario set
  * run TWICE in-process must produce byte-identical corpus content. This is the FAST, WEAK
  * guard (same-process double-run); the STRONG guard is the out-of-band regenerate-and-diff
  * flow (REQ-GCC-05 — fresh process, fresh state). Pre-merge, this runs (and is RED-provable)
@@ -36,7 +36,7 @@ async function renderTwice(
   return [first, second];
 }
 
-describe("FIT-23 — corpus byte-determinism (in-process double-run, REQ-FTG-01)", () => {
+describe("FIT-28 — corpus byte-determinism (in-process double-run, REQ-FTG-01)", () => {
   it("every non-engine-gated scenario produces byte-identical corpus content across two in-process runs", async () => {
     for (const scenario of SCENARIOS) {
       if (scenario.gated) continue; // Matrix rows (m-01..m-21) land in S-003/S-004.
@@ -47,7 +47,7 @@ describe("FIT-23 — corpus byte-determinism (in-process double-run, REQ-FTG-01)
   });
 
   // RED-PROOF: a factory that embeds a fresh value per run fails the double-run
-  // comparison — proves FIT-23's check is a real, discriminating guard.
+  // comparison — proves FIT-28's check is a real, discriminating guard.
   it("[red-proof] a factory embedding a fresh value per run fails the double-run comparison", async () => {
     const [first, second] = await renderTwice({
       run: nondeterministicRun,

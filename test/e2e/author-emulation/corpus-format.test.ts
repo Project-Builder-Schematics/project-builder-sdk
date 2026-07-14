@@ -1,7 +1,7 @@
 /**
  * Unit tests for `test/support/corpus-format.ts` — pure data-model contracts the e2e
  * byte-compare doesn't itself exercise (design.md §4.6, UNGATED rows GCC-02.1/GCC-03.1),
- * plus the ADR-0049 recursive `options` key-sort — the silent-FIT-23-breaker path the
+ * plus the ADR-0049 recursive `options` key-sort — the silent-FIT-28-breaker path the
  * live s-00 scenario's single-key options cannot discriminate.
  */
 import { describe, it, expect } from "bun:test";

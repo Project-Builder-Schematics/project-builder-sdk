@@ -58,7 +58,7 @@ function isReportableMatrixRow(scenario: ScenarioEntry): boolean {
 // scenario's RESULT (corpus content, directive shape, rejection triple, report content)
 // shares ONE `captureRun` per scenario id rather than re-materializing its fixtures
 // (some, e.g. M-07/M-09/M-21, are multi-MiB scratch dirs) on every re-run. Safe because
-// FIT-23 independently certifies `captureRun` is byte-identical across re-runs of the
+// FIT-28 independently certifies `captureRun` is byte-identical across re-runs of the
 // SAME scenario — reusing the result changes nothing about what gets asserted.
 // EXCEPTION: the M-07 block below wraps its OWN `captureRun` in `instrumentHarnessIO()`
 // to observe fs calls DURING that exact invocation — routing it through this cache would
@@ -254,7 +254,7 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
 
     it("re-running the SAME scenario's report write leaves exactly one file at its pinned path", async () => {
       // The property under test is the WRITE's own overwrite behavior (mkdirSync +
-      // writeFileSync at the same pinned path), not capture determinism (FIT-23 already
+      // writeFileSync at the same pinned path), not capture determinism (FIT-28 already
       // owns that) — rendering twice from the SAME capture exercises it identically.
       const scenario = SCENARIOS.find((s) => s.id === "m-01")!;
       const capture = await cachedCapture(scenario);

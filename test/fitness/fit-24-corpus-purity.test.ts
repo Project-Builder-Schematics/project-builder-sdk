@@ -101,7 +101,7 @@ describe("FIT-24 — corpus purity (no binary / absolute-path / nondeterministic
     expect(absolutePathStrings(text)).toContain("/etc/passwd");
   });
 
-  // RED-PROOF: a corpus record embedding a fresh UUID (the FIT-23 companion factory) is
+  // RED-PROOF: a corpus record embedding a fresh UUID (the FIT-28 companion factory) is
   // detected as a nondeterministic field.
   it("[red-proof] a corpus record embedding a fresh UUID is detected", async () => {
     const capture = await captureRun(nondeterministicRun, { tag: "red-proof" });

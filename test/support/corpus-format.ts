@@ -1,6 +1,6 @@
 // ADR-0049: canonical serialization binds the reader too. This module owns the
 // TranscriptRecord data model (design.md §4.3) and the ONE pure `canonicalize()` shared
-// by the regen writer (scripts/regen-corpus.ts) and every verifier (fit-23/24, the e2e
+// by the regen writer (scripts/regen-corpus.ts) and every verifier (fit-24/28, the e2e
 // byte-compare) — no second implementation can drift from this one. No fs anywhere here
 // (FIT-27's write-boundary partition depends on this module staying pure).
 import { createHash } from "node:crypto";
@@ -10,7 +10,7 @@ export const FORMAT_VERSION = 0;
 
 // design.md R-G: a `create.template` over this many bytes serializes as a self-labeling
 // digest object instead of the literal string — keeps the corpus content-free for large
-// fixture content (M-09) while staying deterministic (sha256 of the same bytes, FIT-23)
+// fixture content (M-09) while staying deterministic (sha256 of the same bytes, FIT-28)
 // and drift-detectable (a content change flips the digest).
 export const CONTENT_EMBED_BUDGET = 4096;
 
@@ -79,7 +79,7 @@ export interface TranscriptRecord extends CapturedRecord {
 /**
  * Embeds `content` per R-G: verbatim under `CONTENT_EMBED_BUDGET`, a self-labeling
  * sha-256 digest object over it — never a multi-KB blob inline in the committed corpus.
- * Pure function of `content` alone (FIT-23 determinism holds).
+ * Pure function of `content` alone (FIT-28 determinism holds).
  */
 export function embedTemplate(content: string): string | ContentDigest {
   const bytes = Buffer.byteLength(content, "utf8");
@@ -89,7 +89,7 @@ export function embedTemplate(content: string): string | ContentDigest {
 }
 
 // JS engines silently reorder integer-like string keys ("0", "1", ...) to the front in
-// numeric order regardless of insertion order — the silent FIT-23 breaker design.md warns
+// numeric order regardless of insertion order — the silent FIT-28 breaker design.md warns
 // about. Recursive lexicographic re-sort makes `options` serialization stable regardless
 // of what shape the author's options object happens to take.
 function sortKeysDeep(value: JsonValue): JsonValue {

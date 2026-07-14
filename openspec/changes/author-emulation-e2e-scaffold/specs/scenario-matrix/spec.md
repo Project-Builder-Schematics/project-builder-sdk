@@ -162,7 +162,7 @@ assertion checking `reason` alone is incomplete.
   this worktree's `src/` (verified via `origin/feat/schematic-local-files`, not yet
   merged to this worktree's base). Rows M-01 through M-21 are all BUILD-GATED on
   `schematic-local-files` merging; the infra spine (capture module, corpus/report
-  renderer, FIT-23/24/27 via the REQ-GCC-12 skeleton record) is buildable NOW against
+  renderer, FIT-24/27/28 via the REQ-GCC-12 skeleton record) is buildable NOW against
   the 6 existing wire ops + `runFactoryForTest` (V2 micro-unfreeze 1, owner-approved
   2026-07-13: wrap target corrected makeSpyClient → runFactoryForTest, see
   `ir-transcript-capture` REQ-ITC-01); `sdd-slice` splits accordingly, with

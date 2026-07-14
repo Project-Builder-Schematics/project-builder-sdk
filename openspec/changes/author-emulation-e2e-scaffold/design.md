@@ -6,7 +6,7 @@
 
 ## Rev 3 Ruling — Verify-Plan-3 Gap Closure (2026-07-13)
 
-- **R-G (M-09 oversized-success corpus content policy — content-digest normalization)**: M-09 (aggregate-over-cap chunking success) is **by-value by construction**: by-reference cannot compose it — `copyIn` directives carry no content (~150 serialized bytes each) and `walk.ts` bounds a scaffold at 10,000 entries, so a by-reference aggregate tops out ≈1.5 MiB, structurally unable to reach `BATCH_CAP_BYTES`. **Ruling (direction (a))**: M-09's fixture is a FEW setup-materialized (AEG-07) mid-size by-value text templates — **6 files × ~0.8 MiB deterministic ASCII fill** (aggregate ≈4.8 MiB > 4 MiB cap → exactly 2 chunks; each file far under the per-file REQ-CCL-02 budget; trivially non-CI-hostile vs REQ-FSC-09.2's 10k hostile ceiling) — and the corpus record applies **content-digest normalization**: a `create` directive whose `template` exceeds the pinned `CONTENT_EMBED_BUDGET = 4096` bytes serializes `template` as the self-labeling object `{ contentDigest: { algo: "sha-256", bytes: <length>, sha256: <hex> } }` instead of the literal string. Deterministic (pure function of content — FIT-23 holds), text-only (hex — FIT-24 holds), drift-detectable (content change → digest change → corpus diff fails), and self-labeling so the engine reader can never mistake a digest for literal content (GCC-11 posture). This is a **v0 format definition** (GCC-06 note in §4.3), not a later format bump — `FORMAT_VERSION` stays 0, nothing has shipped. Every other row's templates sit far below 4 KiB and embed verbatim, unchanged. **Rejected alternative (b)** (many small files, e.g. ~200 × ~25 KiB, record embeds verbatim): the record's embedded content is ≥4 MiB **regardless of how it is sliced** — a committed multi-MiB JSON record is exactly the blob §4.9 bans and is unreviewable at the file level; splitting the content into smaller pieces changes nothing. **Chunk-grouping heuristic (Judge B q2 — cited so slices/apply can size fixtures)**: `origin/feat/schematic-local-files:src/scaffold/expander.ts:188` — greedy sequential accumulation: the expander tracks `serializedBatchSize` of the session's CURRENT pending buffer (seeded from directives already pending before the scaffold call, lines 136–142); before buffering each directive it checks `pendingCount > 0 && pendingSize + directiveSize + 1 > BATCH_CAP_BYTES` (line 188) and if so fires an unawaited mid-run `session.flush()` registered on the dialect join (lines 189–190) — never preemptively on an empty buffer; an over-cap SINGLE directive still flushes alone and rejects at the fake's `emit` (REQ-04.2; header lines 8–12: the SDK never rejects on aggregate size, ADR-0018 amendment). Apply-time sizing rule: N text files where Σ(serialized directive sizes) > 4 MiB and each single serialized directive < 4 MiB → deterministic 2-chunk split, one directive per file (M-09's GWT).
+- **R-G (M-09 oversized-success corpus content policy — content-digest normalization)**: M-09 (aggregate-over-cap chunking success) is **by-value by construction**: by-reference cannot compose it — `copyIn` directives carry no content (~150 serialized bytes each) and `walk.ts` bounds a scaffold at 10,000 entries, so a by-reference aggregate tops out ≈1.5 MiB, structurally unable to reach `BATCH_CAP_BYTES`. **Ruling (direction (a))**: M-09's fixture is a FEW setup-materialized (AEG-07) mid-size by-value text templates — **6 files × ~0.8 MiB deterministic ASCII fill** (aggregate ≈4.8 MiB > 4 MiB cap → exactly 2 chunks; each file far under the per-file REQ-CCL-02 budget; trivially non-CI-hostile vs REQ-FSC-09.2's 10k hostile ceiling) — and the corpus record applies **content-digest normalization**: a `create` directive whose `template` exceeds the pinned `CONTENT_EMBED_BUDGET = 4096` bytes serializes `template` as the self-labeling object `{ contentDigest: { algo: "sha-256", bytes: <length>, sha256: <hex> } }` instead of the literal string. Deterministic (pure function of content — FIT-28 holds), text-only (hex — FIT-24 holds), drift-detectable (content change → digest change → corpus diff fails), and self-labeling so the engine reader can never mistake a digest for literal content (GCC-11 posture). This is a **v0 format definition** (GCC-06 note in §4.3), not a later format bump — `FORMAT_VERSION` stays 0, nothing has shipped. Every other row's templates sit far below 4 KiB and embed verbatim, unchanged. **Rejected alternative (b)** (many small files, e.g. ~200 × ~25 KiB, record embeds verbatim): the record's embedded content is ≥4 MiB **regardless of how it is sliced** — a committed multi-MiB JSON record is exactly the blob §4.9 bans and is unreviewable at the file level; splitting the content into smaller pieces changes nothing. **Chunk-grouping heuristic (Judge B q2 — cited so slices/apply can size fixtures)**: `origin/feat/schematic-local-files:src/scaffold/expander.ts:188` — greedy sequential accumulation: the expander tracks `serializedBatchSize` of the session's CURRENT pending buffer (seeded from directives already pending before the scaffold call, lines 136–142); before buffering each directive it checks `pendingCount > 0 && pendingSize + directiveSize + 1 > BATCH_CAP_BYTES` (line 188) and if so fires an unawaited mid-run `session.flush()` registered on the dialect join (lines 189–190) — never preemptively on an empty buffer; an over-cap SINGLE directive still flushes alone and rejects at the fake's `emit` (REQ-04.2; header lines 8–12: the SDK never rejects on aggregate size, ADR-0018 amendment). Apply-time sizing rule: N text files where Σ(serialized directive sizes) > 4 MiB and each single serialized directive < 4 MiB → deterministic 2-chunk split, one directive per file (M-09's GWT).
 
 ## Rev 2 Rulings — Verify-Plan-2 Gap Closure (2026-07-13)
 
@@ -44,7 +44,7 @@ Test/docs/tooling change only — no `src/` runtime edit, no public-API change, 
 | `test/e2e/author-emulation/corpus/README.md` | Create | 5 literal-heading sections + family-prefix reservation (GCC-11, R-C) |
 | `test/e2e/author-emulation/scenarios.ts` | Create | Shared scenario REGISTRY (R-E) — data-only `SCENARIOS` export iterated by BOTH `scripts/regen-corpus.ts` and the e2e file; FIT-26/GCC-01 counts read it |
 | `test/e2e/author-emulation-scaffold.e2e.test.ts` | Create | Skeleton + 21 matrix scenarios; drives `captureRun`, compares `serializeCorpus(fresh)` vs committed; writes per-row reports |
-| `test/fitness/fit-23-corpus-determinism.test.ts` | Create | FIT-23 in-process double-run byte-identity (REQ-FTG-01) |
+| `test/fitness/fit-28-corpus-determinism.test.ts` | Create | FIT-28 in-process double-run byte-identity (REQ-FTG-01) — renumbered from `fit-23` (collision with `stage-6-release-shape`'s `fit-23-publish-workflow-guard.test.ts` on `main`) |
 | `test/fitness/fit-24-corpus-purity.test.ts` | Create | FIT-24 binary/abs-path/nondeterministic-field scan (REQ-FTG-02) |
 | `test/fitness/fit-25-single-capture-path.test.ts` | Create | FIT-25 import-scan: 3 consumers → one capture module, no second (REQ-FTG-03) |
 | `test/fitness/fit-26-report-hygiene-citations.test.ts` | Create | FIT-26 gitignore + pinned report-name fn + every matrix row cited (REQ-FTG-04) |
@@ -103,7 +103,7 @@ interface TranscriptRecord {
 
 **Envelope key order**: `formatVersion, scenarioId, slug, normative, informative`. **normative**: `outcome, directives, rejection`. **rejection**: `reason, verb, path`. **batchGrouping[]**: `directiveCount, protocolVersion` (surfaces `protocolVersion` beside the top-level `formatVersion` so GCC-02.1's two-visibly-independent-fields check has both to read).
 
-**Canonical serialization (ADR-0049)**: UTF-8 **no BOM**, **LF**, 2-space pretty JSON, exactly one trailing newline; objects built key-by-key in the pinned order (never JS iteration order); `create.options` subtree recursively **lexicographically key-sorted** (JS integer-like-key reordering is the silent FIT-23 breaker); `force` always emitted as a boolean (default `false`). ONE pure `canonicalize()` is shared by the regen writer AND every verifier (no fs) so writer/verifier drift is impossible.
+**Canonical serialization (ADR-0049)**: UTF-8 **no BOM**, **LF**, 2-space pretty JSON, exactly one trailing newline; objects built key-by-key in the pinned order (never JS iteration order); `create.options` subtree recursively **lexicographically key-sorted** (JS integer-like-key reordering is the silent FIT-28 breaker); `force` always emitted as a boolean (default `false`). ONE pure `canonicalize()` is shared by the regen writer AND every verifier (no fs) so writer/verifier drift is impossible.
 
 ## 4.4 — Interface Contracts
 
@@ -122,7 +122,7 @@ interface TranscriptRecord {
 - **NOT-EXERCISED** ledger: exactly the 5 literal tokens — `module-wiring`, `tsconfig-AST`, `template rendering`, `REQ-BRC-08`, `REQ-PRC-06`.
 - **FRICTION** section: ≥1 entry `{friction, disposition}` or the literal `none observed`.
 
-### FIT failure-message taxonomy (FIT-23..27)
+### FIT failure-message taxonomy (FIT-24..28)
 Every fitness failure names: guard id + broken invariant + named offender + rule cite (e.g. `FIT-27: test-reachable corpus writer — test/support/foo.ts:12 writes corpus/ — REQ-FTG-05`).
 
 ## 4.5 — Architecture Decisions
@@ -146,7 +146,7 @@ Every fitness failure names: guard id + broken invariant + named offender + rule
 ### ADR-0049: Canonical Serialization Binds the Reader Too
 
 **Status**: Proposed
-**Context**: Determinism (GCC-04/FIT-23) and purity (GCC-06/FIT-24) require byte-identical corpus output across runs and a raw-file reader (the future engine) able to parse without hidden conventions. JS object key order and integer-like-key reordering silently break byte-determinism.
+**Context**: Determinism (GCC-04/FIT-28) and purity (GCC-06/FIT-24) require byte-identical corpus output across runs and a raw-file reader (the future engine) able to parse without hidden conventions. JS object key order and integer-like-key reordering silently break byte-determinism.
 **Decision**: One pure `canonicalize()` (UTF-8 no BOM, LF, 2-space, one trailing newline, pinned key order built explicitly, `options` recursively lexicographically key-sorted, `force` always boolean) shared by the regen writer AND every verifier. The serialization is part of the contract the engine reader honors, not an internal test detail.
 **Consequences**: (+) writer/verifier drift impossible; the reader has a stable grammar. (−) any format-key change is a `formatVersion`-relevant event, not a silent refactor. (+) `options` sorting kills the most common determinism regression.
 **Alternatives**: **`JSON.stringify` default order** — non-deterministic across engines/keys; rejected. **Serialization as a test-only concern** — leaves the engine reader guessing; rejected (binds the reader too).
@@ -171,7 +171,7 @@ Level `e2e` = matrix scenario via `captureRun`+corpus compare; `architectural` =
 | GCC-01.1 file count = rows+skeleton | architectural | fit-26 / manifest | UNGATED (skeleton) |
 | GCC-02.1 formatVersion independent | unit | corpus-format unit (both fields present) | UNGATED |
 | GCC-03.1 chunk-only ≠ drift | unit | corpus-format unit (normative compare) | UNGATED |
-| GCC-04.1 byte determinism | architectural | fit-23 | UNGATED (skeleton) |
+| GCC-04.1 byte determinism | architectural | fit-28 | UNGATED (skeleton) |
 | GCC-05.1 drift fails, no self-heal | architectural | fit-27 + e2e compare | UNGATED |
 | GCC-06.1 pure text, rel-path | architectural | fit-24 | UNGATED |
 | GCC-06.2 no nondeterministic field | architectural | fit-24 | UNGATED |
@@ -180,7 +180,7 @@ Level `e2e` = matrix scenario via `captureRun`+corpus compare; `architectural` =
 | GCC-09.1 rejection record shape | e2e | e2e M-13 | GATED |
 | GCC-10.1 pinned names | architectural | fit-26 / path scan | UNGATED |
 | GCC-11.1 README 5 sections+self-label | architectural | verify-final README grep | UNGATED |
-| GCC-12.1 skeleton pre-merge RED-provable | e2e | e2e s-00 + fit-23/24/27 | UNGATED |
+| GCC-12.1 skeleton pre-merge RED-provable | e2e | e2e s-00 + fit-24/27/28 | UNGATED |
 | RPT-01.1 kind derived not duplicated | unit+arch | report render unit (mixed rawDirectives incl. copyIn, kind column) + fit-26 no-parallel-map source scan | GATED (R-D-b; no-parallel-map scan part UNGATED) |
 | RPT-02.1 git clean after run | architectural | fit-26 (.gitignore) + e2e | UNGATED |
 | RPT-03.1 idempotent name, no collide | e2e | e2e report path (re-run + two matrix rows) | GATED |
@@ -194,7 +194,7 @@ Level `e2e` = matrix scenario via `captureRun`+corpus compare; `architectural` =
 | AEG-05.1 chained-token filename ships | architectural | fixture files scan | UNGATED |
 | AEG-06.1 FRICTION section present | architectural | verify-final manifest check | UNGATED |
 | AEG-07.1 empty+symlink setup-materialized | architectural | setup module + tracked-file scan | UNGATED |
-| FTG-01.1 fit-23 red on nondeterminism | architectural | fit-23 red-proof | UNGATED |
+| FTG-01.1 fit-28 red on nondeterminism | architectural | fit-28 red-proof | UNGATED |
 | FTG-02.1 fit-24 red on abs path | architectural | fit-24 red-proof | UNGATED |
 | FTG-03.1 fit-25 red on 2nd module | architectural | fit-25 red-proof | UNGATED |
 | FTG-04.1 fit-26 red on uncited row | architectural | fit-26 red-proof | UNGATED |
@@ -205,7 +205,7 @@ All 39 REQs (43 scenarios) covered. Both Flow Changes (Create) gain e2e rows. UN
 
 ## 4.7 — Fitness Functions
 
-- FIT-23 corpus byte-determinism (in-process double-run) — `fit-23-*`.
+- FIT-28 corpus byte-determinism (in-process double-run) — `fit-28-*`.
 - FIT-24 corpus purity (no binary/abs-path/nondeterministic field) — `fit-24-*`.
 - FIT-25 single capture path (import-scan, three consumers → one module, no second) — `fit-25-*`, reuses `test/support/import-scan.ts`.
 - FIT-26 report hygiene (`.gitignore` + pinned `REPORTS_DIR`/`reportPathFor` + no aggregate) + every matrix row cites a REQ/boundary — `fit-26-*`.

@@ -14,7 +14,7 @@
 
 **Scope**: walking-skeleton · **Dimension**: — · **Requires**: nothing
 **Covers**: ITC-01, ITC-02(path only), ITC-03, ITC-04, ITC-05, GCC-01(partial)/02/03/04/05/06/07(N/A)/09/10/11/12, RPT-02, FTG-01, FTG-02, FTG-05
-**Test layers**: e2e (skeleton) + architectural (FIT-23/24/27) + unit (corpus-format)
+**Test layers**: e2e (skeleton) + architectural (FIT-24/27/28) + unit (corpus-format)
 **Spec sections consumed** (MUST read): `specs/ir-transcript-capture/spec.md` (ITC-01..05), `specs/golden-corpus-contract/spec.md` (GCC-01..12), `specs/fitness-guards/spec.md` (FTG-01/02/05), `design.md` Rev 2 Rulings + §4.3 + §4.4 + ADR-0047/0048/0049. All spec paths relative to `openspec/changes/author-emulation-e2e-scaffold/`.
 
 Proves the ENTIRE vehicle end-to-end with the thinnest real path: an existing fixture (`test/fixtures/typed-factory/`, using only the 6 pre-existing wire ops — the `s-00` skeleton scenario deliberately stays off scaffold/copyIn/create(templateFile) per GCC-12, unchanged even though the gate is satisfied) run through the new capture path, corpus-compared, fitness-guarded. Per R-B, `s-00` gets NO report — the report renderer is explicitly NOT in this slice.
@@ -32,7 +32,7 @@ Proves the ENTIRE vehicle end-to-end with the thinnest real path: an existing fi
 - **README 5 literal headings (GCC-11 grep targets)**: `## What This Corpus Is` · `## Normative Status` · `## How It Is Regenerated` · `## The NOT-EXERCISED Ledger` · `## Reference`. Must include the `formatVersion`↔`protocolVersion` independence sentence (GCC-02) and the family-prefix reservation sentence (R-C: this family owns `m-*`; future families get their own prefixes).
 - **coverage-manifest.md structure (GCC-08)**: EXERCISED table (every matrix-cited REQ-ID → row ids); NOT-EXERCISED ledger with exactly the 5 literals `module-wiring`, `tsconfig-AST`, `template rendering`, `REQ-BRC-08`, `REQ-PRC-06`; FRICTION section (≥1 `{friction, disposition}` entry or the literal `none observed`).
 - **FIT invariants owned here** (failure messages: guard id + broken invariant + named offender + rule cite, design §4.4 taxonomy):
-  - FIT-23 (REQ-FTG-01): in-process double-run of the scenario set → byte-identical corpus output; red-proof = injected nondeterministic field fixture.
+  - FIT-28 (REQ-FTG-01): in-process double-run of the scenario set → byte-identical corpus output; red-proof = injected nondeterministic field fixture. Renumbered from `fit-23` (collision with `stage-6-release-shape`'s `fit-23-publish-workflow-guard.test.ts` on `main`).
   - FIT-24 (REQ-FTG-02): scan every committed corpus file for binary magic bytes, absolute-path-shaped strings, timestamp/duration/uuid/PID shapes; red-proofs = planted abs-path-corpus + nondeterministic-field fixtures.
   - FIT-27 (REQ-FTG-05): static import-graph scan (reuse `test/support/import-scan.ts` + `scan-roots.ts`) — NO test-reachable module writes the corpus dir; `scripts/regen-corpus.ts` outside the test graph, imported by no test, not on the CI test command; scoped to corpus dir ONLY (reports dir excluded); red-proof = planted corpus-write-in-support fixture.
 - Red-proof fixtures live under `test/fixtures/red/author-emulation/**`, excluded from tsconfig (repo FIT-21 idiom).
@@ -40,7 +40,7 @@ Proves the ENTIRE vehicle end-to-end with the thinnest real path: an existing fi
 **Acceptance**:
 - GIVEN the existing `typed-factory` fixture run via `runFactoryForTest`
 - WHEN `captureRun` wraps it and `canonicalize`/`serializeCorpus` renders the result
-- THEN the committed `s-00.infra-skeleton.transcript.json` is byte-identical on re-run (FIT-23), contains no binary/abs-path/nondeterministic field (FIT-24), and no test-reachable module writes the corpus dir except `scripts/regen-corpus.ts` (FIT-27) — all three RED-provable on the skeleton record alone (GCC-12)
+- THEN the committed `s-00.infra-skeleton.transcript.json` is byte-identical on re-run (FIT-28), contains no binary/abs-path/nondeterministic field (FIT-24), and no test-reachable module writes the corpus dir except `scripts/regen-corpus.ts` (FIT-27) — all three RED-provable on the skeleton record alone (GCC-12)
 
 ### Tasks
 - [x] S-000.1 `test/support/ir-transcript.ts` — `captureRun(run,input,seed?) → { record, rawDirectives, tree, emitted, error }` (R-D) wraps `runFactoryForTest`; `error === undefined` → `outcome:"committed"`, normalized lowered wire directives (all 7 ops); `AuthoringError` → `outcome:"rejected"`, empty directives + verbatim triple (R-F). No cross-family branching (ITC-05).
@@ -49,7 +49,7 @@ Proves the ENTIRE vehicle end-to-end with the thinnest real path: an existing fi
 - [x] S-000.4 `scripts/regen-corpus.ts` — sole corpus-dir writer, iterates `SCENARIOS`, outside test graph
 - [x] S-000.5 `test/e2e/author-emulation-scaffold.e2e.test.ts` — iterates `SCENARIOS` (skeleton entry only at this point), compares `serializeCorpus(fresh)` vs committed bytes; no report call
 - [x] S-000.6 Commit `corpus/s-00.infra-skeleton.transcript.json` + `corpus/README.md` (5 headings above) + `corpus/coverage-manifest.md` (skeleton state: NOT-EXERCISED 5 literals + FRICTION `none observed` placeholder)
-- [x] S-000.7 `test/fitness/fit-23-corpus-determinism.test.ts`, `fit-24-corpus-purity.test.ts`, `fit-27-anti-tautology-scan.test.ts` + red-proof fixtures
+- [x] S-000.7 `test/fitness/fit-28-corpus-determinism.test.ts` (renamed from `fit-23`), `fit-24-corpus-purity.test.ts`, `fit-27-anti-tautology-scan.test.ts` + red-proof fixtures
 - [x] S-000.8 `.gitignore` — add `test/e2e/author-emulation/reports/`
 
 ---

@@ -96,7 +96,7 @@ action (a maintainer-run regeneration script living OUTSIDE the test-imported gr
 never something the test itself can trigger. Mechanical enforcement is
 `fitness-guards` REQ-FTG-05 (FIT-27) — this REQ pins the WHAT; FIT-27 pins the
 static-scan HOW. The regenerate-and-diff flow of that out-of-band script is the STRONG
-determinism guard (fresh process, fresh state); FIT-23's same-process double-run
+determinism guard (fresh process, fresh state); FIT-28's same-process double-run
 (REQ-FTG-01) is the fast, weak guard — both exist deliberately.
 
 #### Scenario REQ-GCC-05.1: Drifted corpus fails the suite; no self-heal exists [SDK]
@@ -238,7 +238,7 @@ Verify-final performs a mechanical presence + section check.
 The corpus MUST include exactly one NON-matrix skeleton record
 (`s-00.infra-skeleton.transcript.json`) captured from a factory using only the SIX
 pre-existing wire ops (no `scaffold`/`copyIn`/`create({templateFile})`), so the corpus
-format, determinism (FIT-23), purity (FIT-24), and tautology-guard (FIT-27) REQs are
+format, determinism (FIT-28), purity (FIT-24), and tautology-guard (FIT-27) REQs are
 all RED-provable BEFORE `schematic-local-files` merges — decoupling the infra spine
 from the scaffold merge gate and serving as the walking skeleton's committed evidence.
 The skeleton record is subject to every REQ-GCC-04/05/06 obligation but is NOT a
@@ -247,7 +247,7 @@ scenario-matrix row and never cites scaffold REQs.
 #### Scenario REQ-GCC-12.1: Skeleton record exists and passes all corpus guards pre-merge [SDK]
 
 - GIVEN the worktree BEFORE `schematic-local-files` is merged
-- WHEN the skeleton scenario and FIT-23/24 run against the existing six ops
+- WHEN the skeleton scenario and FIT-24/28 run against the existing six ops
 - THEN the skeleton corpus file is produced deterministically, passes purity, and a
   deliberate drift to it fails the suite
 
