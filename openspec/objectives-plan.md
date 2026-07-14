@@ -334,6 +334,8 @@ the seam. The engine, whenever it arrives at the wire, receives a contract that 
 frozen, documented, and exhaustively pinned — integration becomes the engine's conformance
 problem, not a renegotiation of the SDK.
 
-**The demo moment:** a ~10-line typed factory that creates a file from a schema option, adds an
-import to an existing module via the dialect, shows its dry-run plan, and emits one clean batch
-— IR generation (O1) and the authoring experience (O2), both real, no engine required.
+**The demo moment:** a ~10-line typed factory that creates a file from a schema option, calls
+`dryRun()` to show its coalesced-IR plan in the author's own vocabulary BEFORE opening a dialect
+handle or reading anything, then opens `app.module.ts` via the dialect handle and adds an import,
+and emits one clean batch — IR generation (O1) and the authoring experience (O2), both real, no
+engine required.

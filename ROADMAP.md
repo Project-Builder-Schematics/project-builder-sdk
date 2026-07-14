@@ -269,6 +269,8 @@ Stage 2, dry-run exposure → Stage 3, frame-cap/tarball hardening → Stages 1.
 fake is the legitimate counterpart; `read-staged` and any *engine-backed* release remain later
 milestones gated on §6, outside the current plan.
 
+**Stage 6 — release shape (2026-07-14):** `stage-6-release-shape` delivers RELEASE-READINESS, not a release — a hardened-but-never-fired publish pipeline (`--dry-run` pinned), `bun link`/tarball local-consumption parity, and a docs-only onboarding path. The first LIVE publish is a separate, future gate (see `openspec/pending-changes.md`'s required-reviewers precondition) — this stage does not cross it.
+
 **The demo moment:** an author writes a ~10-line `factory.ts` that `create`s a file from a typed
 `schema.json` option and `addImport`s a module into `app.module.ts`, runs it, sees a **dry-run plan
 rendered from the SDK's own coalesced-IR view** (author-side, AST-blind — no engine plan channel
