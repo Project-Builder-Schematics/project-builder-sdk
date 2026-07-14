@@ -1,133 +1,54 @@
-# Specification: foundations-skeleton
+# Delta for foundations-skeleton
 
-**Spec version**: V4 (stage-5-first-dialect update — REQ-PKG-01 wired dialect subpath, REQ-STD-01 expanded to full authoring docs, REQ-FIT-01/03/04/05/06 extended for typescript subpath)
-**Domains**: PKG · KIT · FAKE · SKEL · GIR · FIT · STD · CONF
-**Sensitive**: deployment/publish, supply-chain → security REQs inline.
+**Spec version**: V4
+**Status**: signed (owner, 2026-07-14 — V4 scope-reduction per foresight obs #2128)
+**Change**: `author-write-surface`
 
----
+(V4: owner-directed scope reduction at the post-design foresight gate (obs #2128) — the
+importable `modify(handle, fn)` form is DEFERRED (`typescript-dialect` REQ-TSD-12 tombstoned),
+so `dialect-authoring-standards` REQ-DAS-01 no longer mandates that doc content to exist. The
+`modify(` sweep's V3 `modify(handle` exclusion clause is now MOOT — removed below. The sweep's
+other two exclusions (`.modify(` chained, `factory.modify(`) are unaffected. Also fixes, in
+passing (co-located edit), the exclusion-list parenthetical grammar nit carried from V3 (obs
+#2125, nit 3): the "(not preceded by `.`...)" qualifier was mis-attached to `.modify(fn)` itself
+— it now correctly qualifies the FREE-call predicate being targeted.)
 
-## PKG — publishable package
+## Glossary (pinned once, referenced by all domains)
 
-### REQ-PKG-01: Subpath exports, no kit leak
+- **`replaceContent(content)`** — the wholesale-replace verb: replaces a file's ENTIRE text in
+  one shot. String-only; never a function argument.
+- **`.modify(fn)`** — the AST escape hatch: a callback that mutates the SAME already-parsed,
+  already-live AST instance a dialect handle's named ops mutate, in place. Function-only; never
+  a string argument.
 
-`package.json#exports` MUST expose `.` (umbrella → commons surface), `./commons`,
-`./conformance`, `./testing`, `./typescript`, and MUST NOT expose `./core`/`./internal`/
-`./kit`. The dialect subpath is now WIRED — exactly `./typescript` (frozen, ADR-0014
-amendment; `typescript-dialect` REQ-TSD-01) — no other dialect subpath exists and no general
-dialect-naming convention is established by this wiring.
+These two names are never interchangeable and never overloaded onto one method. Every domain
+spec in this change uses "wholesale-replace" as the fixed adjective for `replaceContent` — never
+"wholesale-text-replace", "wholesale string replace", or "wholesale-string-replace" (V1 drift,
+corrected in V2 across `dialect-generics` and `authoring-error-contract`).
 
-(Previously: "The reserved dialect subpath is documented, NOT wired." — this change is the
-trigger event ADR-0014 anticipated. V4: added `./testing` to the enumeration — it landed on
-`main` via `stage-4b-testing-harness` ahead of this branch and was omitted from the original
-V1-V3 text; this REQ never claimed exhaustiveness, but the enumeration itself was stale.)
-
-- GIVEN the package, WHEN a consumer imports `@pbuilder/sdk/core`, THEN resolution fails;
-  AND `@pbuilder/sdk/commons` resolves.
-- GIVEN the package, WHEN a consumer imports `@pbuilder/sdk/typescript`, THEN resolution
-  succeeds (NEW scenario).
-
-### REQ-PKG-02: Publish build emits ESM + `.d.ts`, separate from the dev tsconfig
-A `tsconfig.build.json` distinct from the `noEmit` dev `tsconfig` MUST emit ESM + `.d.ts` per subpath.
-- GIVEN the build script, WHEN run, THEN `dist/commons/index.{js,d.ts}` exist; AND `tsc --noEmit` still typechecks `src/` without emitting.
-
-### REQ-PKG-03: CI publishes a dev prerelease with provenance, isolated from PR/forks
-CI on **`main`** (the protected ref) MUST publish with `--provenance` via npm **trusted publishing (OIDC, no long-lived token)**; the publish job MUST be unreachable by PR/fork builds. To stay idempotent (a fixed version cannot be re-published), the version is **`0.0.0-dev.<short-sha>`** on the `dev` dist-tag. npm trusted-publishing is an **external registry-side precondition**: CI acceptance asserts the workflow config + a **publish dry-run** + the provenance flag; a real publish runs once registry trust is established.
-- GIVEN a push to `main`, THEN the publish job runs a provenance dry-run.
-- GIVEN a fork PR, THEN the publish job does not run and has no credential.
-
----
-
-## KIT — the core (ADR-0009 boundary)
-
-### REQ-KIT-01: `EngineClient` port
-`core` MUST define `EngineClient { emit(batch): Promise<void>; read(path): Promise<string> }` as the sole transport seam; the fake and the future real client both implement it. The return is a **bare `Promise<string>`** — the fake's `served:"tree"|"disk"` signal (REQ-FAKE-02) is **fake-internal test state** (e.g. `fake.lastServed`), queried out-of-band by fake tests, NEVER part of `EngineClient.read`.
-
-### REQ-KIT-02: `Session` — buffer + flush-before-read, NO tree
-`Session` MUST hold only the pending-directive buffer + the `EngineClient`; `read(path)` MUST flush pending THEN delegate to `EngineClient.read`; it MUST hold no path-keyed collection.
-- GIVEN a buffered `create(P)`, WHEN `read(P)`, THEN `emit` (flush) fires BEFORE `read` (spied); AND a fitness test asserts no `Map<path,*>`/tree field in `core`.
+## MODIFIED Requirements
 
 ### REQ-KIT-03: `DirectiveFactory` — pure, ADR-0028 shapes, AST-blind
+
 `DirectiveFactory` MUST expose one pure method per wire op returning the exact ADR-0028 directive; it MUST NOT render templates or touch an AST.
+
+(Previously: the author-facing wholesale-replace verb was named `modify(path, content)`. Renamed to `replaceContent(path, content)` — the honest name for wholesale replacement — freeing `modify` for the AST-escape-hatch verb on dialect handles, `dialect-generics` REQ-DG-03. `DirectiveFactory`'s own internal pure method stays named `factory.modify(...)`: it is kit-internal, never author-facing, and produces the unchanged wire op `{op:"modify"}` — only the AUTHOR-facing verb renames, not the internal factory method or the wire op. V2: added the full doc/JSDoc-migration coverage the V1 rename left unstated — see the NEW bullets below.)
+
 - GIVEN `create({pathTemplate, template, options})`, THEN it returns `{op:"create", create:{pathTemplate, template, options}}` with `template` byte-identical (unrendered).
 - `remove(a)` emits wire op **`delete`** (`{op:"delete", delete:{path}}`) — author verb `remove` ≠ wire op `delete` (ADR-0028 vocabulary); the golden asserts `op:"delete"`.
-- **Author surface (frozen public API — positional + trailing options)**: `find(path): FoundHandle` · `create(path, {template, options, force?}): WritableHandle` · `modify(path, content): WritableHandle` · `remove(path): void` (also `find(path).remove()`) · `rename(path, newName, {force?}?): WritableHandle` · `move(path, toDir): WritableHandle` · `copy(from, to, {force?}?): WritableHandle`.
-- **Author→factory mapping**: `create(path,{template,options,force?})`→`factory.create({pathTemplate:path,template,options,force})`; `modify(path,content)`→`factory.modify({path,content})`; `remove(path)`→`factory.remove({path})`→`op:"delete"`; `rename(path,newName,{force?})`→`factory.rename({path,newName,force})`; `move(path,toDir)`→`factory.move({path,toDir})`; `copy(from,to,{force?})`→`factory.copy({from,to,force})`.
-
-### REQ-KIT-04: Handle state machine — open, type-enforced
-`find(path)` returns `FoundHandle` (has `remove`); writes return `WritableHandle` (no `remove`); `remove()` returns `void`. Both handles expose `read(): Promise<string>` (delegates to `Session.read`, flush-before-read). The handle is OPEN (ops composed per ADR-0010), not a sealed subclass.
-- type-level: `create().remove` MUST NOT typecheck; `find().remove()` MUST; each negative paired with a positive `expectTypeOf`; the permissive-Handle mutation proof MUST flip the negatives green.
-
-### REQ-KIT-05: Ambient `RunContext` (AsyncLocalStorage)
-`find`/`create` MUST resolve `Session`/`DirectiveFactory` from an ALS `RunContext = { session, factory }` activated by `defineFactory`; `currentContext()` MUST throw outside a run. `defineFactory<O>(fn)` MUST return a runner `(o, deps:{client: EngineClient}) => Promise<void>` that builds `RunContext` from `new Session(deps.client)` + a `DirectiveFactory` and runs `fn(o)` inside the ALS — the `EngineClient` is **injected by the caller** (the test passes the fake), never a module global.
-- GIVEN a verb called outside a run, THEN it throws a clear error.
-- GIVEN the runner invoked with the fake as `deps.client`, THEN the verb uses the fake (no global).
-- **Run-end flush (NOT read-coupled)**: the runner MUST flush the session after `fn` resolves (in a `finally`-safe path). A **write-only factory** — `create`/`modify`/`remove`/… with NO `read` — MUST still emit its batch. `read`-triggered flush (REQ-KIT-02) is an ADDITIONAL trigger, never the only one; a buffered write is never silently dropped at run end.
-- GIVEN a factory that only `create`s `P` (never reads), WHEN the runner resolves, THEN `emit` fired with `P`'s directive (a subsequent `read(P)` returns the written content).
-
----
-
-## FAKE — the contract fake (the downstream oracle)
-
-The fake is seeded via its constructor: `new ContractFake({ seed: Record<path, content> })`. It is a **single-phase, eager-apply, flat in-memory tree** — it does NOT model engine-internal staging.
-
-### REQ-FAKE-01: Eager batch apply in array order
-`emit(batch)` MUST apply instructions to the tree in array order before resolving.
-- GIVEN `[create A, modify A]`, THEN a later read of A sees the modified content (reordering the fake fails the test).
-
-### REQ-FAKE-02: Tree-first read + served-from tag (fake-internal)
-`read(P)` MUST return staged content if P was touched, else the disk seed; the fake MUST expose `served:"tree"|"disk"` as **fake-internal test state**, not in the port return.
-- GIVEN seed P differs from staged P, THEN read returns staged with `served:"tree"`; an untouched seeded path returns `served:"disk"`.
-
-### REQ-FAKE-03: Flush-before-read round-trip (no SDK shadow)
-A read after buffered writes MUST observe them via flush; the SDK MUST hold no copy.
-
-### REQ-FAKE-04: Fail-closed + force precedence (all 3 rows)
-`effective = envelope.force OR op.force`. `create`/`rename`/`copy` over an existing target → error unless `effective`.
-- the 3 rows asserted: (no force → error), (op.force=true → overwrite), (**envelope.force=true**, op.force=false → overwrite).
-
-### REQ-FAKE-05: Idempotent delete
-`delete` of an absent target MUST succeed (≤ warning), never error; double-delete still succeeds.
-
-### REQ-FAKE-06: Fidelity to the engine's OBSERVABLE contract (not its internals)
-The fake's conformance suite MUST assert the engine's **observable wire/conversation contract** — REQ-FAKE-01..05 (eager array-order apply, Tree-first read, flush-before-read, fail-closed + force per ADR-0028, idempotent delete) — via an **independent** suite (not the SDK tests that consume the fake). It MUST NOT model engine-internal staging (`StatusMovedAway`/`MovedHere` tombstones, `opLog`, the commit pass, the `*ConflictError{RuleID}` taxonomy) — those never cross the seam and are outside the SDK's observation. The oracle is the conversation contract (ADR-0028 + engine design.md §4), NOT a 1:1 port of the engine's two-phase internals.
-
-### REQ-FAKE-07: `modify` of a non-existent path errors — but staging counts as existence
-
-> RED posture: **must-fail-first** for the rejection scenario — today's fake silently
-> materializes `modify` of a missing path, so REQ-FAKE-07.1 fails red against the current
-> fake before the fix lands. REQ-FAKE-07.2/07.3 are green-path guards that must survive the
-> fix (07.3 kills the seed-only existence-check mutant).
-
-`modify` MUST require the target path to already exist (in `#tree` staging or `#seed`, and
-not `#deleted`) — `modify` never materializes a new file; creating content at a new path is
-`create`'s job (ADR-0017 rule 2). Existence includes paths created EARLIER IN THE SAME
-BATCH: the fake applies eagerly in array order, so a `modify` after a `create` of the same
-path in one batch sees the staged entry.
-
-- GIVEN a `ContractFake` with an empty seed and tree, WHEN `emit` is called with a `modify`
-  directive targeting an untouched path, THEN `emit(batch)` rejects AND the path is not
-  present in the tree afterward.
-- GIVEN a `ContractFake` seeded with path P, WHEN `emit` is called with `modify` on P,
-  THEN it succeeds (existing behavior unchanged).
-- GIVEN a `ContractFake` with an EMPTY seed, WHEN `emit` is called with a single batch
-  `[create("X", content1), modify("X", content2)]`, THEN it succeeds AND a subsequent read
-  of `X` returns `content2` — the existence check consults staging, not only the seed (kills
-  the seed-only existence-check mutant).
-
----
-
-## SKEL — the walking skeleton
-
-### REQ-SKEL-01: Byte-exact read-your-own-write
-A `defineFactory` that `create`s `P` with content `X`, run against the fake, then `find(P).read()` MUST return `X` byte-exact (served by the fake). The assertion MUST be content equality — NOT "did not throw" / `toBeDefined`. `find().read()` is a REAL read path in the skeleton; other handle write-ops defer to S-003.
-- flow: `commons.create` → `RunContext` → `DirectiveFactory` → `Session`(buffer/flush) → `EngineClient` → fake(apply) → `read` → up.
-
----
-
-## GIR — golden-IR
-
-### REQ-GIR-01: Golden-IR per op, exact-key
-Each `DirectiveFactory` op MUST deep-equal (exact keys, no extras) a committed, hand-written fixture. `create` proves the template unrendered. `remove`→`{op:"delete", delete:{path}}`; `rename`={path,newName}; `move`={path,toDir}; `copy`={from,to} (shape-only — apply deferred). Envelope={protocolVersion:1, force, instructions[]} ordered. Never auto-recorded snapshots.
+- **Author surface (frozen public API — positional + trailing options)**: `find(path): FoundHandle` · `create(path, {template, options, force?}): WritableHandle` · `replaceContent(path, content): WritableHandle` · `remove(path): void` (also `find(path).remove()`) · `rename(path, newName, {force?}?): WritableHandle` · `move(path, toDir): WritableHandle` · `copy(from, to, {force?}?): WritableHandle`.
+- **Author→factory mapping**: `create(path,{template,options,force?})`→`factory.create({pathTemplate:path,template,options,force})`; `replaceContent(path,content)`→`factory.modify({path,content})` (internal factory method name unchanged, see Previously note); `remove(path)`→`factory.remove({path})`→`op:"delete"`; `rename(path,newName,{force?})`→`factory.rename({path,newName,force})`; `move(path,toDir)`→`factory.move({path,toDir})`; `copy(from,to,{force?})`→`factory.copy({from,to,force})`.
+- GIVEN `FoundHandle`/`WritableHandle` (the commons handle types), WHEN their shape is inspected, THEN they expose `.replaceContent(content: string)` and NEVER `.modify` — a compile-time negative pin (`handle.modify` fails to typecheck) proves commons handles carry only the string-replace verb; the AST-fn verb `.modify(fn)` exists exclusively on dialect handles (`dialect-generics` REQ-DG-03), never on commons handles.
+- GIVEN the top-level commons verb after rename, WHEN `replaceContent("src/config.json", content)` is called inside a run, THEN it schedules the SAME wire directive `{op:"modify", modify:{path,content}}` the old `modify(path,content)` scheduled — byte-identical wire shape, only the author-facing call name changed (inherited author-visible outcome, carried forward from the pre-rename behaviour, now under the new name).
+- NEW (V2, item 22 — confirming the inherited author-visible outcome explicitly): GIVEN an existing file at `path` with arbitrary prior content, WHEN `replaceContent(path, newContent)` flushes, THEN the file's content becomes BYTE-EXACT `newContent` — a full wholesale replacement of the entire prior content, never a merge or partial patch — the SAME outcome the pre-rename `modify(path, content)` produced, now reachable only under the new name.
+- NEW (V2, doc/JSDoc-migration coverage — every author-facing `modify(content)`/`modify(path, content)` surface enumerated, each a RED-guard obligation, not a bare rename):
+  - `docs/authoring-verbs.md`: the verb-list bullet (`- **\`modify(path, content)\`**` and its code fence, line ~27-34) reads `replaceContent(path, content)`; the "seven verbs" summary line (line ~9) lists `replaceContent` in place of `modify`; the read-trichotomy example's two calls (lines ~102, ~104) both read `replaceContent(...)`. A guard test scanning this file fails RED if `modify(` (as a bare two-arg commons call, not `.modify(fn)`) is still present anywhere in it. NEW (V2, discoverability): the `replaceContent` entry ALSO carries a cross-reference line pointing to `.modify(fn)` in `docs/authoring-a-dialect.md` — a first-contact reader scanning the commons verb list is pointed at the AST escape hatch's existence, not left to discover it only by reading the dialect doc separately; a guard test fails RED if this cross-reference line is absent.
+  - `src/core/handle-state.ts`: `WritableHandle`'s JSDoc (`@example` at lines ~12-13, plus the verb-list comment at lines ~8 and ~16) reads `replaceContent`, not `modify`, in both the prose verb list and the `@example`'s call — the `@example` as shipped in V1 (`modify("src/config.ts", ...)`) would call a function that no longer exists on `WritableHandle` after this rename ships, i.e. it would document non-compiling usage. A guard test asserts the file contains no bare `modify(` call in its comments.
+  - `README.md` (line ~17) and `docs/quickstart.md` (line ~179): both verb lists (`create, remove, move, rename, copy, modify` / `` `create`, `modify`, ... ``) read `replaceContent` in place of `modify`. A guard test scanning both files fails RED if either list still names `modify` as a verb.
+  - `src/commons/index.ts`: the `find()` JSDoc `@example`'s three-branch read-trichotomy snippet (lines ~142-143, currently `modify("src/config.ts", seedContent)` / `modify("src/config.ts", patch(c))`) and the top-level `modify()` function's own JSDoc `@example` (line ~295, `modify("src/config.json", ...)`) both read `replaceContent(...)`. A guard test scanning this file's JSDoc comments fails RED if a bare `modify(` call remains in either `@example`.
+- NEW (V2, second grep sweep — the `modify(` sweep; V3's predicate-narrowing exclusion REMOVED in V4, see below): `rg` for the commons verb-call pattern `modify(` used as a free two-argument call across `docs/**`, `README.md`, and every JSDoc comment under `src/**` MUST return 0 hits post-change; a guard test enforces this as a repo-wide fitness check, not a one-time manual scrub. The predicate targets ONLY the OLD commons string-form call — `modify(path, content)` / `modify("...", "...")` (a FREE call, i.e. NOT preceded by `.` — two STRING arguments, the retired wholesale-replace verb) — and EXCLUDES: `.modify(fn)` (the dialect AST escape hatch, chained form, always dot-prefixed, so never a "free call" to begin with); `factory.modify(` (the kit-internal `DirectiveFactory` method). (V4: the V3 exclusion for `modify(handle` + the importable-form doc snippets is REMOVED — it existed only to clear content `dialect-authoring-standards` REQ-DAS-01 mandated for the now-deferred importable form (`typescript-dialect` REQ-TSD-12, retired per obs #2128); with that mandate gone, the exclusion is moot and its absence is not a regression.)
+- NEW (V3, third grep sweep — the real `.raw(` sweep, symmetric to the `modify(` sweep above; NO such sweep previously existed — earlier V2 drafting cited "the existing `.raw(` sweep" as justification for the `modify(` sweep's shape, but no repo-wide `.raw(` guard was ever specified anywhere in this change; that citation is corrected here, not merely restated): `rg '\.raw\('` across `docs/**`, `README.md`, `SECURITY.md`, `ROADMAP.md`, and every JSDoc/comment under `src/**` MUST return 0 hits post-change; a guard test enforces this as a repo-wide fitness check, failing RED otherwise. This sweep forces two surfaces this change would otherwise leave stale: (1) `src/dialects/typescript/index.ts` lines ~48-49 — the module-level JSDoc above `ts.find`'s opening example currently promises "the universal `.raw()` escape hatch"; author-facing, flows into IntelliSense hover text against the already-committed `typescript.index.d.ts` baseline (REQ-FIT-04) — MUST read `.modify()` post-change (pinned as `typescript-dialect` REQ-TSD-01.4). (2) `src/core/dialect-handle.ts` line ~22 — a kit-internal comment above the `isThenable` helper naming `.raw()`'s callback signature; never author-facing, lower severity, but caught by the same repo-wide sweep and MUST migrate to `.modify()` wording for internal consistency. SECURITY.md's and `docs/authoring-a-dialect.md`'s own `.raw()` migrations are already separately pinned (REQ-STD-01's absence check; the doc's REQ-DAS-01 rewrite) — this sweep is the repo-wide backstop that also catches ROADMAP.md and the two `src/**` comment surfaces neither of those REQs enumerate.
+- NEW (V2, compile negative, pairs with `dialect-authoring-standards` REQ-KIT-03 rename and `typescript-dialect`'s export surface): `import { modify } from "@pbuilder/sdk/commons"` MUST NOT resolve or typecheck after this change — the commons subpath's named export is `replaceContent`, not `modify`; a compile-time negative pin proves the old import is gone, not merely undocumented.
 
 ### REQ-GIR-02: Chained-handle Batch fixtures
 
@@ -141,184 +62,87 @@ FACTORY-PRODUCED batch captured (via `emit` spy) from a REAL `defineFactory` run
 comparison is run-output vs. the hand-written fixture, never fixture vs. itself. The full
 `instructions[]` array deep-equals the fixture, exact keys, in author order.
 
+(Previously: the second scenario's example chain called `.modify(content)` on the returned
+handle. Renamed to `.replaceContent(content)` — the committed fixture keeps its file name
+`create-then-modify` as a WIRE-level label (the emitted directive's `op` stays `"modify"`,
+byte-identical) even though the author-facing call is now `.replaceContent(...)`.)
+
 - GIVEN a real `defineFactory` run that calls `rename(path, newName)` then chains
   `.move(toDir)` on the returned handle, WHEN the emitted batch (captured by spy) is
   compared to the hand-written `rename-then-move` fixture, THEN `instructions` deep-equals
   `[{op:"rename",...}, {op:"move",...}]` in order.
 - GIVEN a real `defineFactory` run that calls `create(path, opts)` then chains
-  `.modify(content)` on the returned handle, WHEN the emitted batch is compared to the
-  hand-written `create-then-modify` fixture, THEN `instructions` deep-equals
-  `[{op:"create",...}, {op:"modify",...}]` in order.
-
-### REQ-GIR-03: Emission determinism proof + envelope key-order golden pin
-
-> RED posture: **characterization / RED-waived** — determinism is a property of TODAY'S
-> factory/session code; the proof pins pre-existing behavior (prove+freeze precedent from
-> `typed-options-and-read` #2). The committed golden byte-string is new but freezes what
-> already holds.
-
-Running the same `defineFactory` body with the same inputs twice against a fresh
-`ContractFake` each time MUST produce byte-identical serialized `Batch` output
-(`JSON.stringify` string equality, not `toEqual`). Self-consistency alone is insufficient —
-the serialized output ALSO MUST equal one committed golden byte-string, which fixes the
-envelope key order `protocolVersion, force, instructions` literally in the pinned string.
-
-- GIVEN a factory buffering ≥2 directives, WHEN run twice (spy on `emit`) with fresh fakes,
-  THEN `JSON.stringify(batch1) === JSON.stringify(batch2)`.
-- GIVEN the same run, WHEN its serialized `Batch` is compared to a committed golden string
-  constant, THEN it matches exactly, including key order `protocolVersion` before `force`
-  before `instructions`.
-
----
-
-## FIT — fitness functions (each with a red-proof)
-
-### REQ-FIT-01: commons imports zero AST libs, TRANSITIVELY
-
-Import-GRAPH walk over `src/commons/**`'s relative-import closure (not just each file's own
-direct specifiers): the walk FOLLOWS every relative-import edge to any depth — legitimate
-non-core SDK-internal targets reached this way (e.g. `../core`, `../dry-run`) are traversal
-edges, NOT violations — and FAILS on any BARE non-builtin specifier reached at ANY depth
-through that chain (esp. ts-morph/postcss/cheerio/babel). The invariant is "zero external
-packages reachable from commons", NOT "commons only imports core" — a target-allow-list
-reading (relative imports must resolve into core) is REJECTED, since it would flag today's
-legitimate `../dry-run` imports as violations. MUST land and be GREEN (walking-skeleton slice
-S-000) BEFORE ts-morph enters `package.json#dependencies` — this ordering is load-bearing,
-not incidental.
-
-(Previously: scanned each commons file's own direct import specifiers only — a relative
-import that ITSELF imported an AST lib, transitively, was invisible to the scanner. This
-closes tracked debt row W2. V4: reconciled the walk-semantics description to the
-verify-plan-5 ratified ruling — a target-allow-list reading was drafted then explicitly
-REJECTED before sign-off; the shipped scanner always implemented the ratified "zero external
-packages reachable" invariant, not the target-allow-list text this REQ previously carried.)
-
-- EVERY FIT REQ (shared, unchanged): a meta-test MUST demonstrate the function fails RED
-  against a deliberate violation.
-- NEW: GIVEN a fixture where `src/commons/leaf.ts` has no direct AST import but relatively
-  imports `src/commons/helper.ts`, which DOES import `ts-morph`, WHEN the scanner runs, THEN
-  it fails RED — the TRANSITIVE planted red-proof (proves the walk, not just direct-import
-  scanning).
-
-### REQ-FIT-02: no dialect imports another dialect (leaf rule).
-
-### REQ-FIT-03: Per-subpath payload budgets
-
-`bun build` of the `/commons` entry MUST stay under **50 KB** minified AND contain no AST-lib
-module specifier (unchanged). The NEW `/typescript` entry gets its OWN budget line, sized in
-design to accommodate the pinned ts-morph dependency and codified as a committed numeric
-constant — NOT an exemption from budgeting. Both entries MUST ship a fixture AST-import
-(commons) / oversized-bundle (typescript) proving each budget fires red independently.
-
-(Previously: a single `/commons` budget; no other subpath existed to budget.)
-
-- GIVEN `/commons`'s build output, THEN it stays under 50 KB minified (unchanged).
-- NEW: GIVEN `/typescript`'s build output, THEN it stays under its own committed budget
-  constant; a fixture exceeding it fails red.
+  `.replaceContent(content)` on the returned handle, WHEN the emitted batch is compared to
+  the hand-written `create-then-modify` fixture, THEN `instructions` deep-equals
+  `[{op:"create",...}, {op:"modify",...}]` in order — the fixture name and wire `op` both
+  stay `"modify"` (wire IR untouched); only the author-facing call renamed.
 
 ### REQ-FIT-04: public `.d.ts` semver gate
 
 Committed baseline + CI diff; a breaking export change without a version bump fails. The
-baseline pair set MUST include a NEW `typescript.index.d.ts` baseline for the `./typescript`
-subpath (alongside the existing `index`/`commons.index`/`conformance.index`/`core.*` pairs)
-— its FIRST commit is additive by definition (a brand-new subpath); subsequent changes to it
-are gated the same as every other baseline.
+baseline pair set already includes a committed `typescript.index.d.ts` baseline for the
+`./typescript` subpath (alongside the existing `index`/`commons.index`/`conformance.index`/
+`core.*` pairs — 9 pairs total, `typescript.index.d.ts` among them, pre-existing before this
+change). This change ADDS exactly ONE new pair, the 10th: `core.define-dialect.d.ts`.
 
-(Previously: no `./typescript` baseline existed because the subpath was unwired.)
+(Previously (V1, CORRECTED in V2): V1 mischaracterised `typescript.index.d.ts` as a NEW
+baseline this change adds. It is NOT new — `DTS_PAIRS` already lists it, and it is already
+committed; verified live against the current tree. The ONLY new pair this change adds is
+`core.define-dialect.d.ts` — the 9 existing pairs, `typescript.index.d.ts` included, are
+untouched by this REQ beyond their normal CI diff. V1's underlying concern stands: of the 9
+existing pairs, none showed `Handle`'s literal shape — verified live during exploration —
+which is why the 10th pair is required, not why a 10th `typescript` pair is needed.)
 
-- GIVEN the `./typescript` subpath's emitted `.d.ts`, THEN a committed
-  `typescript.index.d.ts` baseline exists and CI diffs against it on every change (NEW
-  scenario).
-
-### REQ-FIT-05: only serializable bytes cross the seam
-
-`JSON.parse(JSON.stringify(directive))` deep-equals. Extends to the COALESCED dialect
-`modify` directive path (`modify-coalescing` REQ-MC-01/02): the directive's `content` MUST
-be a plain resolved string by construction (`DirectiveFactory` stays AST-blind, ADR-0006) —
-this REQ's assertion runs against dialect-produced directives too, not only hand-built ones.
-
-(Previously: asserted only against `DirectiveFactory`'s hand-built directive shapes; no
-dialect-produced directive existed yet.)
-
-- GIVEN a coalesced `modify` directive produced by a real TypeScript-dialect chain, THEN
-  `JSON.parse(JSON.stringify(directive))` deep-equals the directive (NEW scenario).
-
-### REQ-FIT-06: every public export carries a JSDoc `@example` — gate covers every WIRED public subpath
-
-The `@example` gate MUST cover every WIRED public subpath uniformly — it is not left to
-authoring convention per-subpath. `./typescript`'s entry verb, `find` (`dialect-generics`
-REQ-DG-01.2), is gate-covered by this SAME fitness function, exactly as `./commons`'s and
-`./conformance`'s public exports already are: the new subpath's `@example` obligation is
-enforced structurally the moment the subpath is wired, not deferred to convention.
-
-(Previously: the gate covered `./commons`/`./conformance`/`core` public exports; no dialect
-subpath existed to cover.)
-
-- GIVEN `@pbuilder/sdk/typescript`'s `find`, THEN it carries a JSDoc `@example` demonstrating
-  a runnable chain, gated by the SAME REQ-FIT-06 fitness function as every other public
-  export (NEW scenario).
-- GIVEN a fixture where `find`'s `@example` is removed, WHEN REQ-FIT-06's fitness function
-  runs, THEN it fails RED — proving `./typescript` is gate-covered, not convention-covered.
-### REQ-FIT-07: no `Map<path,*>`/tree field in `core` (ADR-0008).
-### REQ-FIT-08: no author subpath re-exports a kit symbol (ADR-0009).
-
-### REQ-FIT-09: Structural `EngineClient` port guard
-
-> Naming note: the test FILE follows the existing file-count convention —
-> `test/fitness/fit-10-*.test.ts` (the 10th fitness test file; `fit-09` is already
-> `fit-09-pkg-exports-resolution.test.ts`, which tests REQ-PKG-01, not a `REQ-FIT-*`). The
-> FIT domain's own REQ-ID sequence stops at REQ-FIT-08, so THIS requirement is **REQ-FIT-09**
-> — not "FIT-10" as informally referenced in explore/proposal. Design/apply MUST use
-> REQ-FIT-09 as the stable ID; the file name staying `fit-10-*` is not an ID mismatch.
->
-> RED posture: the planted-bypass red-proof is a **PERMANENT string-fixture test** (like
-> FIT-01/FIT-08's red-proofs — a fixture SOURCE STRING scanned in-test, never a committed
-> poisoned module). It stays in the suite forever, NOT a transient red-phase gate.
-
-No module under `src/**` OUTSIDE `src/core` MUST name the `EngineClient` symbol (type or
-value import) or call a `.emit(`/`.commit(`/`.discard(` site reachable from it — a static
-scan (mirroring FIT-01/FIT-08's regex approach) enforces this. ALLOW-LISTED:
-`test/support/contract-fake.ts`'s single legitimate `import type { EngineClient }` (the
-downstream oracle implementing the port). `Directive`/`JsonValue` (shared wire types from
-`wire.ts`) are exempt everywhere — they are data shapes, not the port. The allow-list
-MECHANISM (path list vs. structural exception) is a design decision, not specified here.
-
-- EVERY FIT REQ: a meta-test MUST demonstrate the function fails RED against a deliberate violation.
-- **Activation is per-slice**: a fitness function wires into CI when the surface it polices first lands (FIT-01/05/07 from S-000; FIT-04/06 with the build at S-004; FIT-08 once subpaths exist; FIT-09 at S-1.8) — NOT all at commit one, so the suite stays green under Strict TDD.
-
----
-
-## STD — standards, docs, ADRs
+- GIVEN the `./typescript` subpath's emitted `.d.ts`, THEN the ALREADY-COMMITTED
+  `typescript.index.d.ts` baseline (one of the 9 pre-existing `DTS_PAIRS` entries) continues to
+  exist and CI continues to diff against it on every change — this change does not add or
+  recreate this pair.
+- GIVEN `core/define-dialect.ts`'s emitted `.d.ts`, THEN a committed `core.define-dialect.d.ts`
+  baseline exists as the NEW 10th `DTS_PAIRS` entry, and CI diffs against it; the pair's FIRST
+  commit — landing in this change — is additive by definition, but it is now permanently gated
+  for every subsequent change to `Handle`/`DialectWriteOps`.
+- NEW (V2): the `core.define-dialect.d.ts` baseline's committed content MUST genuinely EXHIBIT
+  the `Handle` shape this change ships — its text MUST contain both `replaceContent` and
+  `modify(fn: ...)` (or the equivalent AST-fn signature) among `Handle`'s members, and MUST
+  contain ZERO occurrences of `raw` as a member name — a vacuous placeholder baseline (e.g. an
+  empty module or a baseline that doesn't actually re-export `Handle`) fails this assertion even
+  though a file technically exists at the path.
 
 ### REQ-STD-01: Public-repo standards + contributor on-ramp doc
 
 CONTRIBUTING, CODE_OF_CONDUCT, SECURITY (MUST state the explicit-trust posture: importing any
 dialect/op-pack runs its code with full process privilege; no sandbox/signing in v1; vet
 before importing), issue/PR templates, CI runs on forks/PRs. SECURITY.md MUST ALSO carry a
-`.raw()`-SPECIFIC verbatim trust sentence (full-privilege, not-a-sandbox, seam-is-the-only-
+`.modify(fn)`-SPECIFIC verbatim trust sentence (full-privilege, not-a-sandbox, seam-is-the-only-
 guarantee) PLUS a "conformance ≠ safety" caveat (passing the conformance kit,
 `dialect-conformance`, is not a security attestation). A guard test MUST pin BOTH the general
-explicit-trust sentence and the new `.raw()`-specific sentence + caveat as EXACT substrings.
+explicit-trust sentence and the `.modify(fn)`-specific sentence + caveat as EXACT substrings.
 `docs/authoring-a-dialect.md` graduates from a titled stub to REAL, ACCURATE content per
 `dialect-authoring-standards` REQ-DAS-01/02 — the guard test also asserts the file exists
 with its mandated sections.
 
-(Previously: the doc was a stub with content deferred to T-M2 and the guard covered only the
-general explicit-trust sentence; this change lands the guard test itself, closing
-pending-changes row W5.)
+(Previously: the `.raw()`-specific trust sentence (`RAW_TRUST_SENTENCE` in
+`test/docs/security-authoring-guard.test.ts`) named the escape hatch as `.raw(ast => …)`.
+Renamed: the sentence and its test constant now name the escape hatch as `.modify(ast => …)`
+— same trust posture (full process privilege, not a sandbox, serialization-seam-is-the-only-
+guarantee), same "conformance ≠ safety" caveat, byte-exact substrings re-pinned against the
+new wording. This is a rename of an existing frozen sentence, not new security policy.)
 
 - GIVEN the repo, THEN `docs/authoring-a-dialect.md` exists with the REQ-DAS-01 mandated
   sections; AND SECURITY.md states the explicit-trust posture verbatim.
-- GIVEN SECURITY.md, THEN it ALSO contains the `.raw()`-specific trust sentence and the
-  "conformance ≠ safety" caveat verbatim, and a guard test fails RED if either substring is
-  removed (NEW scenario).
+- GIVEN SECURITY.md, THEN it ALSO contains the `.modify(fn)`-specific trust sentence and the
+  "conformance ≠ safety" caveat verbatim (both renamed from their `.raw()`-worded originals),
+  and a guard test fails RED if either substring is removed or reverts to the old `.raw()`
+  wording.
+- NEW (V2, absence check, mirrors `dialect-authoring-standards` REQ-DAS-01.1's doc-scan
+  discipline): GIVEN SECURITY.md post-change, WHEN it is scanned for the literal substring
+  `.raw`, THEN ZERO occurrences exist anywhere — header or body — not merely "the new sentence
+  is present"; a guard test fails RED if a stray `.raw()` reference survives the migration
+  alongside the renamed sentence.
 
-### REQ-STD-02: The two ADRs
-`verb→IR lowering table` + `single-package + subpath-exports shape` (monorepo-deferral trigger = first external/2nd dialect) MUST be written to `openspec/decisions`.
+## Sensitive Areas Coverage
 
----
-
-## CONF — conformance scaffold
-
-### REQ-CONF-01: Scaffold + meta-tests (impl deferred)
-`@pbuilder/sdk/conformance` MUST export `testDialect`/`testOpPack` signatures + a meta-test placeholder asserting the kit's own properties (remove a property → meta-test red). Full dialect-testing impl deferred (no dialect exists yet).
+| Area | REQ IDs | Flagged at triage? |
+|---|---|---|
+| public-api (contract) — Author surface rename, FIT-04 10th baseline pair | REQ-KIT-03, REQ-GIR-02, REQ-FIT-04 | Yes |
+| security (code execution) — SECURITY.md trust sentence renamed onto `.modify(fn)` | REQ-STD-01 | Yes |

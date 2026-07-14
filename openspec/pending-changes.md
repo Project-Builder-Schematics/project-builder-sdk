@@ -359,6 +359,17 @@ The three deferred pieces map to EXISTING ledger homes — this section is trace
 | `hasImport` + query helpers | Group 5 (boolean-returning ops) | Unchanged gate: return-channel ADR ratified BEFORE implementation; sequenced after Groups 1-4 |
 | Standalone op-function exports from `./typescript` (composition inside `modify(fn)` callbacks) | Follows the row-320 CONFIRMED identifier-injection validator | Do NOT widen the confirmed-vulnerable surface before the shared TS-identifier validator lands; note `modify(fn)` already gives authors full ts-morph natively, so urgency is low |
 
+## From `author-write-surface` (2026-07-14) — accepted as non-blocking at archive
+
+Verify verdict `pass-with-followups` (2 followups fixed at close: FIT-04 content assertion + stale comment). Judgment-day APPROVED (1 suggestion applied). Steward reckoning DELIVERED (3 conscience questions owner-ratified, outcome aligned).
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| Flaky `test/e2e/installed-consumer.e2e.test.ts` tarball leg — ~25% failure rate on CI; pre-existing issue, masks archive signals; root cause not in this change (manifest/corpus/build-pipe stability) | test-infra | M | — | **next build-infra / e2e harness pass** |
+| `replaceContent("")` empty-content boundary untested — completeness gap in REQ-MC-01/MC-03 (empty string mutation coverage); pre-existing compliance gap | test-coverage | S | — | **test-pyramid-hardening pass** |
+| `defineDialect` own-ops bypass the reserved-name guard that `withOps` enforces — latent gap in REQ-DG-02 collision namespace (own-provided ops can shadow reserved names without hitting the assertion, in-trust model); add symmetric guard or document caveat before dialect publishing | refactor | M | — | **before public `defineDialect` / op-pack publishing** |
+| `openspec/sensitive-areas.md` spelling refresh: update `.raw()` escape-hatch documentation to `.modify()` (one-line) — consistency patch after honest-verb rename lands | docs | XS | — | **first sensitive-areas refresh pass** |
+
 ## From `author-write-surface` foresight gate (2026-07-14) — deferred by owner at steward checkpoint
 
 | Description | Type | Size | Gating? | Stage |
