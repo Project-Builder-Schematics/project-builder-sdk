@@ -68,7 +68,7 @@ function buildWritableHandle(path: string): WritableHandle {
       const { session } = currentContext();
       return session.read(path);
     },
-    modify(content: string): WritableHandle {
+    replaceContent(content: string): WritableHandle {
       const { session, factory } = currentContext();
       session.buffer(factory.modify({ path, content }));
       return buildWritableHandle(path);
@@ -99,7 +99,7 @@ function buildFoundHandle(path: string): FoundHandle {
       const { session } = currentContext();
       return session.read(path);
     },
-    modify(content: string): WritableHandle {
+    replaceContent(content: string): WritableHandle {
       const { session, factory } = currentContext();
       session.buffer(factory.modify({ path, content }));
       return buildWritableHandle(path);
@@ -139,8 +139,8 @@ function buildFoundHandle(path: string): FoundHandle {
  * @example
  * const c = await find("src/config.ts").read();
  * if (c === undefined) create("src/config.ts", { template, options });
- * else if (c === "") modify("src/config.ts", seedContent);
- * else modify("src/config.ts", patch(c));
+ * else if (c === "") replaceContent("src/config.ts", seedContent);
+ * else replaceContent("src/config.ts", patch(c));
  */
 export function find(path: string): FoundHandle {
   return buildFoundHandle(path);
@@ -292,9 +292,9 @@ export function copyIn(from: string, to: string, opts?: { force?: boolean }): vo
  * A rejected run (e.g. the target does not exist) throws `AuthoringError`.
  *
  * @example
- * modify("src/config.json", '{ "version": "2.0.0" }');
+ * replaceContent("src/config.json", '{ "version": "2.0.0" }');
  */
-export function modify(path: string, content: string): WritableHandle {
+export function replaceContent(path: string, content: string): WritableHandle {
   const { session, factory } = currentContext();
   session.buffer(factory.modify({ path, content }));
   return buildWritableHandle(path);

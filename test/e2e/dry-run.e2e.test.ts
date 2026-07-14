@@ -12,7 +12,7 @@
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, modify, find, dryRun } from "../../src/commons/index.ts";
+import { create, replaceContent, find, dryRun } from "../../src/commons/index.ts";
 
 describe("e2e — dry-run plan exposure (REQ-DRE-01.1, REQ-DRE-01.5)", () => {
   it("REQ-DRE-01.1 — buffered create+modify surface in author vocabulary, buffer order", async () => {
@@ -20,7 +20,7 @@ describe("e2e — dry-run plan exposure (REQ-DRE-01.1, REQ-DRE-01.5)", () => {
 
     const run = defineFactory<void>(async () => {
       create("src/a.ts", { template: "export const a = 1;", options: {} });
-      modify("src/b.ts", "content");
+      replaceContent("src/b.ts", "content");
 
       expect(dryRun()).toEqual([
         { verb: "create", path: "src/a.ts", kind: "rendered" },

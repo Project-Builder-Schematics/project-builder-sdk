@@ -15,6 +15,10 @@ buffer, rendered in author vocabulary. Each entry carries a `verb` and a `path`,
 optional `kind` (`"rendered" | "copied"`) present only on the package-local-read verbs whose
 transport is classified — `create` (`kind: "rendered"`) and `copyIn` (`kind: "copied"`).
 
+`verb` reuses the WIRE mutation label `"modify"` for both `.replaceContent()` and a dialect's
+`.modify(fn)` calls — the two calls lower to the same directive, so `dryRun()` cannot (and
+does not need to) distinguish them; this is deliberate, not a naming mismatch.
+
 ```ts
 import { defineFactory } from "@pbuilder/sdk/testing";
 import { create, find, dryRun } from "@pbuilder/sdk/commons";

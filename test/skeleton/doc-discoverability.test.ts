@@ -43,7 +43,7 @@ describe("REQ-AEC-04.3 — AuthoringError @example shows the consumption pattern
 describe("REQ-AEC-04.4 — the five rejecting verbs cross-reference AuthoringError", () => {
   const verbAnchors: Record<string, RegExp> = {
     create: /^export function create<S>\($/,
-    modify: /^export function modify\(/,
+    replaceContent: /^export function replaceContent\(/,
     rename: /^export function rename\(/,
     move: /^export function move\(/,
     copy: /^export function copy\(/,

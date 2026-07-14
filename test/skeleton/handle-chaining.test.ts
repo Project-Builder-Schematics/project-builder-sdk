@@ -25,12 +25,12 @@ function collectDirectives(emitted: Batch[]): Directive[] {
 }
 
 describe("handle chaining — verb dispatch (S-003 / KIT-04)", () => {
-  test("modify dispatches op:modify with correct path and content; handle.read() sees updated content", async () => {
+  test("replaceContent dispatches op:modify with correct path and content; handle.read() sees updated content", async () => {
     const { spy, emitted } = makeSpy({ "src/foo.ts": "original" });
 
     const factory = defineFactory(async () => {
-      const { modify } = await import("../../src/commons/index.ts");
-      const handle = modify("src/foo.ts", "updated content");
+      const { replaceContent } = await import("../../src/commons/index.ts");
+      const handle = replaceContent("src/foo.ts", "updated content");
       const content = await handle.read();
       expect(content).toBe("updated content");
     });
@@ -183,13 +183,13 @@ describe("handle chaining — verb dispatch (S-003 / KIT-04)", () => {
     }
   });
 
-  test("handle.modify() chains — dispatches op:modify twice with correct payloads", async () => {
+  test("handle.replaceContent() chains — dispatches op:modify twice with correct payloads", async () => {
     const { spy, emitted } = makeSpy({ "src/foo.ts": "v1" });
 
     const factory = defineFactory(async () => {
-      const { modify } = await import("../../src/commons/index.ts");
-      const h2 = modify("src/foo.ts", "v2");
-      await h2.modify("v3").read();
+      const { replaceContent } = await import("../../src/commons/index.ts");
+      const h2 = replaceContent("src/foo.ts", "v2");
+      await h2.replaceContent("v3").read();
     });
     await factory({}, { client: spy });
 
@@ -295,8 +295,8 @@ describe("handle chaining — verb dispatch (S-003 / KIT-04)", () => {
     const { spy, emitted } = makeSpy({ "src/foo.ts": "v1", "dummy": "x" });
 
     const factory = defineFactory(async () => {
-      const { modify, find } = await import("../../src/commons/index.ts");
-      modify("src/foo.ts", "v2").move("lib", { force: true });
+      const { replaceContent, find } = await import("../../src/commons/index.ts");
+      replaceContent("src/foo.ts", "v2").move("lib", { force: true });
       await find("dummy").read();
     });
     await factory({}, { client: spy });
@@ -333,8 +333,8 @@ describe("handle chaining — verb dispatch (S-003 / KIT-04)", () => {
     const { spy, emitted } = makeSpy({ "src/foo.ts": "v1", "dummy": "x" });
 
     const factory = defineFactory(async () => {
-      const { modify, find } = await import("../../src/commons/index.ts");
-      modify("src/foo.ts", "v2").move("lib");
+      const { replaceContent, find } = await import("../../src/commons/index.ts");
+      replaceContent("src/foo.ts", "v2").move("lib");
       await find("dummy").read();
     });
     await factory({}, { client: spy });

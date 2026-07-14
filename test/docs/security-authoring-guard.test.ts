@@ -17,14 +17,19 @@ const SECURITY_PATH = join(PROJECT_ROOT, "SECURITY.md");
 const DOC_PATH = join(PROJECT_ROOT, "docs/authoring-a-dialect.md");
 const PUBLISH_WORKFLOW_PATH = join(PROJECT_ROOT, ".github/workflows/publish.yml");
 const SENSITIVE_AREAS_PATH = join(PROJECT_ROOT, "openspec/sensitive-areas.md");
+const AUTHORING_ERRORS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-errors.md");
+const DRY_RUN_DOC_PATH = join(PROJECT_ROOT, "docs/dry-run.md");
+const AUTHORING_ERROR_SRC_PATH = join(PROJECT_ROOT, "src/core/authoring-error.ts");
+const AUTHORING_VERBS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-verbs.md");
 
 const security = () => readFileSync(SECURITY_PATH, "utf-8");
 const doc = () => readFileSync(DOC_PATH, "utf-8");
 const sensitiveAreas = () => readFileSync(SENSITIVE_AREAS_PATH, "utf-8");
 
-// Frozen strings — design.md §4.4b. Copied verbatim; do not paraphrase.
+// Frozen strings — design.md §4.4b, migrated by S-004 (author-write-surface, REQ-STD-01/
+// REQ-DAS-01.2) to the shipped `.modify(fn)` name. Copied verbatim; do not paraphrase.
 const RAW_TRUST_SENTENCE =
-  "The `.raw(ast => …)` escape hatch executes dialect and schematic code with full process " +
+  "The `.modify(ast => …)` escape hatch executes dialect and schematic code with full process " +
   "privilege — it is NOT a sandbox. The serialization seam (only plain strings cross to the " +
   "engine) is the ONLY containment guarantee; it bounds what data leaves a run, not what code " +
   "may do while running. Vet any dialect or op-pack before importing it.";
@@ -32,13 +37,13 @@ const RAW_TRUST_SENTENCE =
 const CONFORMANCE_NOT_SAFETY_CAVEAT =
   "Passing the conformance kit (`@pbuilder/sdk/conformance`) is not a security attestation: it " +
   "proves a dialect keeps the seam serializable and its ops faithful, not that the dialect's " +
-  "`.raw()` code is safe to execute.";
+  "`.modify()` code is safe to execute.";
 
 const TWO_REALMS_HAZARD =
   "Two ts-morph realms: if your schematic already depends on ts-morph directly, that is a " +
-  "separate realm from the SDK's internal ts-morph used inside `.raw(ast => …)`. A " +
+  "separate realm from the SDK's internal ts-morph used inside `.modify(ast => …)`. A " +
   "`Node`/`SourceFile` from your realm is not interchangeable with the AST the SDK hands your " +
-  "`.raw()` callback — even when both realms resolve the identical ts-morph version. Never pass " +
+  "`.modify()` callback — even when both realms resolve the identical ts-morph version. Never pass " +
   "ts-morph objects across the boundary; operate only on the `ast` the callback receives.";
 
 const GENERAL_TRUST_SENTENCE =
@@ -77,7 +82,7 @@ describe("REQ-DAS-01.1 — authoring doc names exactly the shipped API", () => {
       "defineDialect",
       "defineOpPack",
       "withOps",
-      ".raw",
+      ".modify",
       "addImport",
       "removeImport",
       "addFunction",
@@ -120,6 +125,34 @@ describe("REQ-DAS-02.1 — contributor section has no author-style demo", () => 
     expect(section).toContain("testOpPack");
     expect(section).toContain("expectTypeOf");
   });
+});
+
+// author-write-surface S-004.4: `"modify"` is the WIRE-altitude label shared by BOTH
+// `.replaceContent()`- and `.modify(fn)`-produced directives (REQ-AEC-13, Decided item 2 —
+// the mismatch is deliberate, `AuthoringVerb`/`DryRunVerb` are NEVER renamed). A substance
+// check (mirrors REQ-DAS-01.3's own pattern), not a byte-exact pin — design.md states this
+// requirement as SUBSTANCE only, no verbatim sentence is prescribed.
+//
+// Fourth surface, `docs/authoring-verbs.md` (spec.md:40-42, REQ-AEC-13's "Documentation
+// surfaces" list): the rationale breadcrumb belongs on the `replaceContent` entry itself, not
+// only in JSDoc — a reader of the published docs site never sees JSDoc.
+describe("REQ-AEC-13.3 — the shared `\"modify\"` wire label is documented in all 4 surfaces", () => {
+  const surfaces = [
+    { name: "docs/authoring-errors.md", read: () => readFileSync(AUTHORING_ERRORS_DOC_PATH, "utf-8") },
+    { name: "docs/dry-run.md", read: () => readFileSync(DRY_RUN_DOC_PATH, "utf-8") },
+    { name: "src/core/authoring-error.ts (AuthoringVerb JSDoc)", read: () => readFileSync(AUTHORING_ERROR_SRC_PATH, "utf-8") },
+    { name: "docs/authoring-verbs.md (replaceContent entry)", read: () => readFileSync(AUTHORING_VERBS_DOC_PATH, "utf-8") },
+  ];
+
+  for (const surface of surfaces) {
+    it(`${surface.name} states the "modify" wire label substantively`, () => {
+      const content = surface.read();
+      expect(content).toContain('"modify"');
+      expect(content).toContain(".replaceContent()");
+      expect(content).toContain(".modify(fn)");
+      expect(content).toMatch(/\bwire\b/i);
+    });
+  }
 });
 
 describe("REQ-TSD-06.2 — publish workflow retains --provenance", () => {

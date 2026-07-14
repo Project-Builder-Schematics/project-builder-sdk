@@ -70,7 +70,7 @@ function assertNoCollision(ast: SourceFile, name: string, opName: string): void 
   if (!collides) return;
   throw dialectError(
     `${opName}("${name}") on "${handlePathFor(ast)}" — a value or import binding named "${name}" already exists; ` +
-      `TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, or edit it with .raw().`
+      `TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, or edit it with .modify().`
   );
 }
 

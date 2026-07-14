@@ -6,7 +6,7 @@
 import { describe, it, expect, spyOn } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, modify } from "../../src/commons/index.ts";
+import { create, replaceContent } from "../../src/commons/index.ts";
 
 describe("REQ-KIT-05 — run-end flush (write-only factory)", () => {
   it("a factory that only create()s (no read) emits its directive to the client", async () => {
@@ -25,11 +25,11 @@ describe("REQ-KIT-05 — run-end flush (write-only factory)", () => {
     expect(fake.committedTree().get("src/generated.ts")).toEqual("export const x = 1;");
   });
 
-  it("a factory that only modify()s (no read) emits its directive to the client", async () => {
+  it("a factory that only replaceContent()s (no read) emits its directive to the client", async () => {
     const fake = new ContractFake({ seed: { "src/existing.ts": "old content" } });
 
     const run = defineFactory<void>(() => {
-      modify("src/existing.ts", "new content");
+      replaceContent("src/existing.ts", "new content");
     });
 
     await run(undefined, { client: fake });

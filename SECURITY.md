@@ -31,11 +31,11 @@ This is an explicit, documented trade-off: the extensibility model favours a low
 community contribution. Sandboxing and signing are tracked as future work; until they ship, the
 trust boundary is **you, at import time**.
 
-## `.raw()` and the conformance kit
+## `.modify()` and the conformance kit
 
-The `.raw(ast => …)` escape hatch executes dialect and schematic code with full process privilege — it is NOT a sandbox. The serialization seam (only plain strings cross to the engine) is the ONLY containment guarantee; it bounds what data leaves a run, not what code may do while running. Vet any dialect or op-pack before importing it.
+The `.modify(ast => …)` escape hatch executes dialect and schematic code with full process privilege — it is NOT a sandbox. The serialization seam (only plain strings cross to the engine) is the ONLY containment guarantee; it bounds what data leaves a run, not what code may do while running. Vet any dialect or op-pack before importing it.
 
-Passing the conformance kit (`@pbuilder/sdk/conformance`) is not a security attestation: it proves a dialect keeps the seam serializable and its ops faithful, not that the dialect's `.raw()` code is safe to execute.
+Passing the conformance kit (`@pbuilder/sdk/conformance`) is not a security attestation: it proves a dialect keeps the seam serializable and its ops faithful, not that the dialect's `.modify()` code is safe to execute.
 
 ## Publish pipeline
 

@@ -17,7 +17,7 @@ export interface DialectFixture {
 }
 /**
  * One op-invocation recipe `testOpPack` applies to a seeded target: seed the file, run the
- * op `chain` (named pack ops and/or the universal `.raw`), and assert the coalesced
+ * op `chain` (named pack ops and/or the universal `.modify`), and assert the coalesced
  * `modify`'s content is BYTE-EXACT `expect` — a full-output comparison, never a substring,
  * so one assertion proves both the op's intended effect AND that every other region is
  * byte-stable (REQ-DC-02's unchanged-elsewhere).
@@ -34,12 +34,12 @@ export interface OpExercise {
     seed: string;
     /** Optional target path; the kit defaults to a stable name using `baseDialect.extensions[0]`. */
     path?: string;
-    /** Ops applied in order: a named pack op (`op` + `args`), or the universal `.raw`. */
+    /** Ops applied in order: a named pack op (`op` + `args`), or the universal `.modify`. */
     chain: ReadonlyArray<{
         readonly op: string;
         readonly args: readonly unknown[];
     } | {
-        readonly raw: (ast: unknown) => void;
+        readonly modify: (ast: unknown) => void;
     }>;
     /** BYTE-EXACT printed content of the coalesced `modify` directive after the chain runs. */
     expect: string;
@@ -113,4 +113,3 @@ export declare function testDialect(fixture: DialectFixture): Promise<void>;
  * });
  */
 export declare function testOpPack(fixture: OpPackFixture): Promise<void>;
-//# sourceMappingURL=index.d.ts.map

@@ -19,7 +19,7 @@ interface DialectAst<Ast> {
   print(ast: Ast): string;
 }
 
-// `.raw()`'s `fn` is typed `(ast: Ast) => void`, but TS's void-return compatibility lets an
+// `.modify()`'s `fn` is typed `(ast: Ast) => void`, but TS's void-return compatibility lets an
 // author pass an async function anyway — this is the runtime check that catches that case.
 function isThenable(value: unknown): value is PromiseLike<unknown> {
   return (
@@ -191,9 +191,10 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
 
   // Shared predicate (row-141/row-136): is this handle's own AST-op directive still
   // buffered, undrained? #ensureOpen consults it to skip re-registration while the prior
-  // directive is still pending; runModify consults the SAME check to reject a conflicting
-  // .modify() (ADR-0039). `session` is passed in rather than re-derived via currentContext()
-  // — both call sites already have it in scope from their own context lookup.
+  // directive is still pending; runReplaceContent consults the SAME check to reject a
+  // conflicting .replaceContent() (ADR-0039). `session` is passed in rather than re-derived
+  // via currentContext() — both call sites already have it in scope from their own context
+  // lookup.
   #hasOpenPendingDirective(session: Session): boolean {
     return this.#openDirective !== undefined && session.isPending(this.#openDirective);
   }
@@ -288,28 +289,29 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // promise floats unobserved: a rejection surfaces as an uncontained `unhandledRejection`
   // (leaking the raw internal message) while the run COMMITS as if successful, and a
   // resolve-after-delay's mutation may race the print.
-  runRaw(fn: (ast: Ast) => void): void {
+  runModify(fn: (ast: Ast) => void): void {
     this.#enqueue(async () => {
       await this.#ensureLive();
-      await this.#invokeContained(() => fn(this.#live as Ast), `raw() on "${this.#path}" threw`);
+      await this.#invokeContained(() => fn(this.#live as Ast), `modify() on "${this.#path}" threw`);
       this.#ensureOpen();
     });
   }
 
-  // S-002 / ADR-0039 (row-136): rejects when this handle's own open AST-op directive is
-  // STILL PENDING (undrained) — the IDENTICAL predicate #ensureOpen already tests. Supersedes
-  // the pre-existing silent last-write-wins (S-002 commit 1's characterization test, now
-  // replaced by REQ-MC-08's reject scenarios in this same commit). Checked INSIDE the
-  // enqueued step (not at call time): #openDirective is only set once addImport's own
-  // async step has actually run, which #tail sequencing guarantees has happened by the time
-  // THIS step executes. `.read()` remains the documented escape (it drains the pending
-  // directive first, so a `.modify()` chained after a `.read()` is unaffected).
-  runModify(content: string): void {
+  // ADR-0039 (row-136, amended by ADR-0050): rejects when this handle's own open AST-op
+  // directive is STILL PENDING (undrained) — the IDENTICAL predicate #ensureOpen already
+  // tests. This guard follows the SEMANTICS (wholesale replace clobbering a pending
+  // structured edit), not the verb spelling — it lives here, never on `.modify(fn)`
+  // (REQ-MC-08.5: `.modify(fn)` coalesces freely, no guard). Checked INSIDE the enqueued
+  // step (not at call time): #openDirective is only set once addImport's own async step has
+  // actually run, which #tail sequencing guarantees has happened by the time THIS step
+  // executes. `.read()` remains the documented escape (it drains the pending directive
+  // first, so a `.replaceContent()` chained after a `.read()` is unaffected).
+  runReplaceContent(content: string): void {
     this.#enqueue(() => {
       const { session, factory } = currentContext();
       if (this.#hasOpenPendingDirective(session)) {
         throw dialectError(
-          `cannot .modify() "${this.#path}" while a structured edit is pending on the same handle — the pending edit would be lost; call .read() to commit it first, then .modify()`
+          `cannot .replaceContent() "${this.#path}" while a structured edit is pending — the pending edit would be lost; call .read() to commit it first, then .replaceContent()`
         );
       }
       session.buffer(factory.modify({ path: this.#path, content }));
@@ -381,17 +383,17 @@ export function createDialectHandle<Ast, Ops extends OpPack<Ast>>(
 
   // Every chaining method returns `handle` (the PUBLIC wrapper below), never the
   // controller directly — the author-facing chain must keep landing on an object that
-  // carries `.raw`/`.push`(op methods)/etc., which the controller itself does not expose.
+  // carries `.modify`/`.push`(op methods)/etc., which the controller itself does not expose.
   // Safe forward reference: these are closures, only evaluated when called — by then
   // `handle` below is already assigned.
   const base = {
     read: () => controller.read(),
-    raw: (fn: (ast: Ast) => void) => {
-      controller.runRaw(fn);
+    modify: (fn: (ast: Ast) => void) => {
+      controller.runModify(fn);
       return handle;
     },
-    modify: (content: string) => {
-      controller.runModify(content);
+    replaceContent: (content: string) => {
+      controller.runReplaceContent(content);
       return handle;
     },
     rename: (newName: string, opts?: { force?: boolean }) => {

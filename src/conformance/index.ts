@@ -40,7 +40,7 @@ export interface DialectFixture {
 
 /**
  * One op-invocation recipe `testOpPack` applies to a seeded target: seed the file, run the
- * op `chain` (named pack ops and/or the universal `.raw`), and assert the coalesced
+ * op `chain` (named pack ops and/or the universal `.modify`), and assert the coalesced
  * `modify`'s content is BYTE-EXACT `expect` — a full-output comparison, never a substring,
  * so one assertion proves both the op's intended effect AND that every other region is
  * byte-stable (REQ-DC-02's unchanged-elsewhere).
@@ -57,8 +57,8 @@ export interface OpExercise {
   seed: string;
   /** Optional target path; the kit defaults to a stable name using `baseDialect.extensions[0]`. */
   path?: string;
-  /** Ops applied in order: a named pack op (`op` + `args`), or the universal `.raw`. */
-  chain: ReadonlyArray<{ readonly op: string; readonly args: readonly unknown[] } | { readonly raw: (ast: unknown) => void }>;
+  /** Ops applied in order: a named pack op (`op` + `args`), or the universal `.modify`. */
+  chain: ReadonlyArray<{ readonly op: string; readonly args: readonly unknown[] } | { readonly modify: (ast: unknown) => void }>;
   /** BYTE-EXACT printed content of the coalesced `modify` directive after the chain runs. */
   expect: string;
 }
@@ -93,7 +93,7 @@ export interface OpPackFixture {
 }
 
 // REQ-DC-04 (seam-serializability): `JSON.parse(JSON.stringify(directive))` must deep-equal
-// `directive` for EVERY emitted directive. Two DISTINCT failure modes a planted `.raw()` can
+// `directive` for EVERY emitted directive. Two DISTINCT failure modes a planted `.modify()` can
 // trigger (REQ-DC-04.1/.2): a closure attached to directive content is silently DROPPED by
 // JSON.stringify (caught by the deepEqual mismatch below); a live AST node with circular
 // parent pointers makes JSON.stringify itself THROW (caught by the try/catch below).
@@ -126,7 +126,7 @@ interface ExerciseRun {
 
 // Runs ONE exercise through a fresh, isolated run-vehicle (§4.4c): seeds `path` with `seed`,
 // chains the exercise's ops on `baseDialect.find(path)` (`{op,args}` -> `handle[op](...args)`;
-// `{raw}` -> `handle.raw(fn)`), optionally injects `handle.read()` right after the FIRST op
+// `{modify}` -> `handle.modify(fn)`), optionally injects `handle.read()` right after the FIRST op
 // (the read-boundary-split re-run), awaits, and returns every modify directive observed
 // across the whole run, in emission order.
 async function runExercise(
@@ -143,7 +143,7 @@ async function runExercise(
     // boundary posture, design §4.3).
     let handle = dialect.find(path) as any;
     for (const [index, step] of exercise.chain.entries()) {
-      handle = "raw" in step ? handle.raw(step.raw) : handle[step.op](...step.args);
+      handle = "modify" in step ? handle.modify(step.modify) : handle[step.op](...step.args);
       if (opts.injectReadAfterFirstOp && index === 0) {
         await handle.read();
       }

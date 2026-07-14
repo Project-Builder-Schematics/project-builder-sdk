@@ -77,7 +77,7 @@ from `schema.json`** (the line between authoring a schematic and writing a scrip
 
 ```
 T-M2   Modify primitive + dialects    — factory-of-factories: per-file-type AST + L1 named ops
-                                         + L2 .raw (deferred past the 1st dialect); owns coalescing
+                                         + L2 .modify (deferred past the 1st dialect); owns coalescing
                                          + flush-boundary correctness (incl. the 4 MiB frame cap)
 T-M3   Smart refactor: rename/move/delete with reference updates — the 🏆 marquee; lands LAST
 ```
@@ -118,7 +118,7 @@ import { addRule }                            from '@pbuilder/sdk/css';       //
 
 - `@pbuilder/sdk/commons` → the agnostic verbs + queries. No AST, no library coupling.
 - `@pbuilder/sdk/<dialect>` → a file-type/library-specific module bringing its AST plus **L1 named ops**
-  and the **L2 `.raw`** escape hatch. **Importing the dialect IS the dialect selection.**
+  and the **L2 `.modify`** escape hatch. **Importing the dialect IS the dialect selection.**
 
 **Two read surfaces, kept distinct — and at different readiness:**
 
@@ -139,7 +139,7 @@ plumbing, full TypeScript types from `schema.json`.
 - **Typed options** — `schema.json` drives both the user prompts and the `options` type. One source,
   parity enforced. The load-bearing differentiator, not a footnote.
 - **L1 named ops** (80–90%) — auditable, dialect-typed, portable across AST libraries.
-- **L2 `.raw(ast => …)`** — the escape hatch; only final bytes cross the seam, never the AST or closure.
+- **L2 `.modify(ast => …)`** — the escape hatch; only final bytes cross the seam, never the AST or closure.
 
 Beyond Angular: **traceability** (a dry-run that speaks the author's vocabulary — `rename` shows as
 rename) and **error attribution** (engine rejections tied to the authoring action), plus
@@ -250,7 +250,7 @@ Sequenced value-vs-risk, evidence-first. The first move proves the riskiest assu
                       the tree state when some ops already applied eagerly) + the 4 MiB frame-cap behaviour
                       for large content. read-staged ships when §6 lands.
 
-3. T-M2 · first dialect   ONE dialect (Angular/ts-morph), L1 named ops, .raw deferred. The "wow".
+3. T-M2 · first dialect   ONE dialect (Angular/ts-morph), L1 named ops, .modify deferred. The "wow".
                       Owns coalescing + flush-boundary golden tests (before read, at schematic boundary,
                       near the 4 MiB cap). Validates the dialect contract against a real consumer.
 
@@ -274,7 +274,7 @@ milestones gated on §6, outside the current plan.
 **The demo moment:** an author writes a ~10-line `factory.ts` that `create`s a file from a typed
 `schema.json` option and `addImport`s a module into `app.module.ts`, runs it, sees a **dry-run plan
 rendered from the SDK's own coalesced-IR view** (author-side, AST-blind — no engine plan channel
-assumed), and the engine applies it. It skips L2/L3/L4 and `.raw` — every piece is on the v1 critical
+assumed), and the engine applies it. It skips L2/L3/L4 and `.modify` — every piece is on the v1 critical
 path, so the demo is free, and it's unmistakably *this* product.
 
 ---
@@ -283,7 +283,7 @@ path, so the demo is free, and it's unmistakably *this* product.
 
 - **Monorepo migration** — single package + subpaths is correct for v1; workspaces come with the second
   dialect.
-- **L2 `.raw` in the first dialect** — ship L1 named ops first; `.raw` welds an AST-library version into
+- **L2 `.modify` in the first dialect** — ship L1 named ops first; `.modify` welds an AST-library version into
   the public contract, a semver liability.
 - **Dialect trust / signing / tiers** — the security model for third-party packages. L4 ships a minimal
   posture only (v1: explicit-trust, no execution of unverified external dialects); the full model defers.

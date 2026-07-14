@@ -54,8 +54,8 @@ export interface CreateFromTemplateFileOptions {
  * @example
  * const c = await find("src/config.ts").read();
  * if (c === undefined) create("src/config.ts", { template, options });
- * else if (c === "") modify("src/config.ts", seedContent);
- * else modify("src/config.ts", patch(c));
+ * else if (c === "") replaceContent("src/config.ts", seedContent);
+ * else replaceContent("src/config.ts", patch(c));
  */
 export declare function find(path: string): FoundHandle;
 /**
@@ -189,9 +189,9 @@ export declare function copyIn(from: string, to: string, opts?: {
  * A rejected run (e.g. the target does not exist) throws `AuthoringError`.
  *
  * @example
- * modify("src/config.json", '{ "version": "2.0.0" }');
+ * replaceContent("src/config.json", '{ "version": "2.0.0" }');
  */
-export declare function modify(path: string, content: string): WritableHandle;
+export declare function replaceContent(path: string, content: string): WritableHandle;
 /**
  * Schedules a file deletion. Idempotent — deleting an absent file is not an error.
  *
@@ -269,4 +269,3 @@ export type { DryRunEntry, DryRunVerb };
  * message no longer enumerates individual verbs, so it covers `dryRun` too).
  */
 export declare function dryRun(): DryRunEntry[];
-//# sourceMappingURL=index.d.ts.map
