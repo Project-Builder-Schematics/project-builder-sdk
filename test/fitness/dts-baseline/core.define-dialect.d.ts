@@ -71,7 +71,7 @@ type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) exten
  * handle's `PromiseLike` join. `raw` stays reserved even though the verb itself is retired
  * (ADR-0050) — a muscle-memory guardrail against authors reaching for the old name. Exported,
  * ordered array (REQ-DG-02.7 pins this exact order via `toEqual`); `assertNoCompositionCollision`
- * below checks it via `.includes`, not `.has` (no longer a `Set`).
+ * below consumes it through the derived, non-exported `RESERVED_SET`.
  *
  * @internal Exported for test/conformance observability only (so collision/exact-set tests can
  * import it instead of hand-typing a second literal) — NOT a supported public API member, not

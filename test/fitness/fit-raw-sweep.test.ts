@@ -4,21 +4,23 @@
  * `author-write-surface` campaign (ADR-0050).
  *
  * **Sweep 1 — `.raw` retirement.** Pattern A (`\.raw\(`, call-shaped — requires the paren)
- * over every `src/**` file's JSDoc/comments + `README.md`; Pattern B (bare `.raw`,
- * word-boundary, NO paren required — catches paren-less prose mentions) over `ROADMAP.md`,
- * `SECURITY.md`, and every `docs/**` file. Pattern B is the widened predicate slices.md's
- * "Sweep Implementation Spec" section calls for (nit 2) — Pattern A alone misses ROADMAP's 5
- * paren-less mentions (L80/121/253/277/286). Both patterns MUST return zero hits — no
- * exclusions; `.raw` no longer exists anywhere on `Handle` (S-000), so every remaining
- * occurrence in scope is retired vocabulary, never a legitimate surviving reference.
+ * over every `src/**` file's JSDoc/comments; Pattern B (bare `.raw`, word-boundary, NO paren
+ * required — catches paren-less prose mentions, strictly wider than Pattern A) UNIFORMLY over
+ * every markdown file in scope: `*.md` at the repo root (non-recursive glob — no hand-pinned
+ * file list) plus every `docs/**` file. Pattern B is the widened predicate slices.md's
+ * "Sweep Implementation Spec" section calls for (nit 2) — Pattern A alone misses ROADMAP's
+ * paren-less mentions. Both patterns MUST return zero hits — no exclusions; `.raw` no longer
+ * exists anywhere on `Handle` (S-000), so every remaining occurrence in scope is retired
+ * vocabulary, never a legitimate surviving reference.
  *
  * **Sweep 2 — free `modify(` retirement.** Bans the OLD commons string-form call
  * `modify(path, content)` as a FREE call (i.e. NOT preceded by `.` or another identifier
- * character) across `docs/**`, `README.md`, and every JSDoc/comment under `src/**`. Two
- * exclusions, both by CONSTRUCTION of the "not preceded by `.`" predicate, never a separate
- * allowlist: `.modify(fn)` (the dialect AST escape hatch) and `factory.modify(` (the
- * kit-internal `DirectiveFactory` method, REQ-KIT-03's "Author→factory mapping" row) — both
- * are always dot-prefixed, so the free-call regex never matches them to begin with.
+ * character) across the same uniform markdown scope (root `*.md` + `docs/**`) and every
+ * JSDoc/comment under `src/**`. Two exclusions, both by CONSTRUCTION of the "not preceded
+ * by `.`" predicate, never a separate allowlist: `.modify(fn)` (the dialect AST escape
+ * hatch) and `factory.modify(` (the kit-internal `DirectiveFactory` method, REQ-KIT-03's
+ * "Author→factory mapping" row) — both are always dot-prefixed, so the free-call regex
+ * never matches them to begin with.
  *
  * **`src/**` scans comments/JSDoc only, never live code** — `modify(a: ModifyArgs)` (a
  * method SIGNATURE, `directive-factory.ts`), `{ modify(fn): ... }` (a type MEMBER,
@@ -33,9 +35,10 @@
  * for exactly that reason (design.md §4.8, slices.md Build Order table).
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { extname, join } from "node:path";
-import { collectTsFiles } from "../support/import-scan.ts";
+import { collectFiles, collectTsFiles } from "../support/import-scan.ts";
+import { PROJECT_ROOT } from "../support/jsdoc-scan.ts";
 
 /**
  * Blanks every character NOT inside a `//` or `/* *\/` comment to a space, preserving every
@@ -72,40 +75,27 @@ function maskToCommentsOnly(source: string): string {
   return result;
 }
 
-const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 const SRC_ROOT = join(PROJECT_ROOT, "src");
 const DOCS_ROOT = join(PROJECT_ROOT, "docs");
-const README_PATH = join(PROJECT_ROOT, "README.md");
-const ROADMAP_PATH = join(PROJECT_ROOT, "ROADMAP.md");
-const SECURITY_PATH = join(PROJECT_ROOT, "SECURITY.md");
 
-/** Recursively collects every `.md` file under `dir` — `docs/**` is flat today, but this
- * walks in case it grows subdirectories (mirrors `collectTsFiles`'s own shape). */
-function collectMarkdownFiles(dir: string): string[] {
-  const files: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    const st = statSync(full);
-    if (st.isDirectory()) {
-      files.push(...collectMarkdownFiles(full));
-    } else if (extname(full) === ".md") {
-      files.push(full);
-    }
-  }
-  return files;
-}
+/** Non-recursive by design — recursing from the repo root would sweep node_modules, test
+ * fixtures, and openspec planning artefacts; `docs/**` recurses via `collectFiles`. */
+const ROOT_MARKDOWN_FILES = readdirSync(PROJECT_ROOT)
+  .filter((entry) => extname(entry) === ".md")
+  .map((entry) => join(PROJECT_ROOT, entry));
 
 function relPath(path: string): string {
   return path.replace(`${PROJECT_ROOT}/`, "");
 }
 
-// Pattern A — call-shaped, requires the paren.
-const RAW_CALL_PATTERN = /\.raw\(/g;
+// Pattern A — call-shaped, requires the paren. No `g` flag: each pattern below runs as a
+// per-line boolean (`.test`), never as a stateful global scan.
+const RAW_CALL_PATTERN = /\.raw\(/;
 // Pattern B — bare substring, word-boundary so it never matches a `.rawSomething` identifier.
-const RAW_BARE_PATTERN = /\.raw\b/g;
+const RAW_BARE_PATTERN = /\.raw\b/;
 // Free `modify(` — NOT preceded by `.` or another identifier character (excludes
 // `.modify(fn)` and `factory.modify(` by construction, never a separate allowlist).
-const FREE_MODIFY_CALL_PATTERN = /(?<![.\w])modify\(/g;
+const FREE_MODIFY_CALL_PATTERN = /(?<![.\w])modify\(/;
 
 interface Violation {
   file: string;
@@ -118,7 +108,6 @@ function findMatches(source: string, file: string, pattern: RegExp): Violation[]
   const lines = source.split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    pattern.lastIndex = 0;
     if (pattern.test(line)) {
       violations.push({ file: relPath(file), line: i + 1, snippet: line.trim() });
     }
@@ -130,23 +119,31 @@ function describeViolations(violations: Violation[]): string[] {
   return violations.map((v) => `${v.file}:${v.line}: ${v.snippet}`);
 }
 
-/** src/** files scan comments/JSDoc only — see `maskToCommentsOnly`'s own doc comment. */
-function findMatchesInComments(file: string, pattern: RegExp): Violation[] {
-  return findMatches(maskToCommentsOnly(readFileSync(file, "utf-8")), file, pattern);
+interface ScanText {
+  file: string;
+  text: string;
 }
 
+// Corpora built ONCE at module scope — the sweep assertions below share these cached texts
+// instead of re-globbing/re-reading/re-masking the same files per `it` block.
+// src/** scans comments/JSDoc only — see `maskToCommentsOnly`'s own doc comment.
+const SRC_COMMENT_TEXTS: ScanText[] = collectTsFiles(SRC_ROOT).map((file) => ({
+  file,
+  text: maskToCommentsOnly(readFileSync(file, "utf-8")),
+}));
+const MARKDOWN_TEXTS: ScanText[] = [...ROOT_MARKDOWN_FILES, ...collectFiles(DOCS_ROOT, ".md")].map((file) => ({
+  file,
+  text: readFileSync(file, "utf-8"),
+}));
+
 describe("REQ-KIT-03 — `.raw` retirement sweep (S-004)", () => {
-  it("Pattern A: zero call-shaped `.raw(` occurrences across src/**'s comments + README.md", () => {
-    const violations = [
-      ...collectTsFiles(SRC_ROOT).flatMap((f) => findMatchesInComments(f, RAW_CALL_PATTERN)),
-      ...findMatches(readFileSync(README_PATH, "utf-8"), README_PATH, RAW_CALL_PATTERN),
-    ];
+  it("Pattern A: zero call-shaped `.raw(` occurrences across src/**'s comments", () => {
+    const violations = SRC_COMMENT_TEXTS.flatMap(({ file, text }) => findMatches(text, file, RAW_CALL_PATTERN));
     expect(describeViolations(violations)).toEqual([]);
   });
 
-  it("Pattern B: zero bare `.raw` occurrences across ROADMAP.md, SECURITY.md, docs/**", () => {
-    const files = [ROADMAP_PATH, SECURITY_PATH, ...collectMarkdownFiles(DOCS_ROOT)];
-    const violations = files.flatMap((f) => findMatches(readFileSync(f, "utf-8"), f, RAW_BARE_PATTERN));
+  it("Pattern B: zero bare `.raw` occurrences across root *.md and docs/**", () => {
+    const violations = MARKDOWN_TEXTS.flatMap(({ file, text }) => findMatches(text, file, RAW_BARE_PATTERN));
     expect(describeViolations(violations)).toEqual([]);
   });
 
@@ -177,13 +174,10 @@ describe("REQ-KIT-03 — `.raw` retirement sweep (S-004)", () => {
 });
 
 describe("REQ-KIT-03 — free `modify(` retirement sweep (S-004)", () => {
-  it("zero free `modify(` calls across docs/**, README.md, src/**'s comments", () => {
+  it("zero free `modify(` calls across root *.md, docs/**, src/**'s comments", () => {
     const violations = [
-      ...findMatches(readFileSync(README_PATH, "utf-8"), README_PATH, FREE_MODIFY_CALL_PATTERN),
-      ...collectMarkdownFiles(DOCS_ROOT).flatMap((f) =>
-        findMatches(readFileSync(f, "utf-8"), f, FREE_MODIFY_CALL_PATTERN)
-      ),
-      ...collectTsFiles(SRC_ROOT).flatMap((f) => findMatchesInComments(f, FREE_MODIFY_CALL_PATTERN)),
+      ...MARKDOWN_TEXTS.flatMap(({ file, text }) => findMatches(text, file, FREE_MODIFY_CALL_PATTERN)),
+      ...SRC_COMMENT_TEXTS.flatMap(({ file, text }) => findMatches(text, file, FREE_MODIFY_CALL_PATTERN)),
     ];
     expect(describeViolations(violations)).toEqual([]);
   });

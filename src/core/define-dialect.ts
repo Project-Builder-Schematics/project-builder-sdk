@@ -123,7 +123,7 @@ type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) exten
  * handle's `PromiseLike` join. `raw` stays reserved even though the verb itself is retired
  * (ADR-0050) — a muscle-memory guardrail against authors reaching for the old name. Exported,
  * ordered array (REQ-DG-02.7 pins this exact order via `toEqual`); `assertNoCompositionCollision`
- * below checks it via `.includes`, not `.has` (no longer a `Set`).
+ * below consumes it through the derived, non-exported `RESERVED_SET`.
  *
  * @internal Exported for test/conformance observability only (so collision/exact-set tests can
  * import it instead of hand-typing a second literal) — NOT a supported public API member, not
@@ -141,6 +141,25 @@ export const RESERVED_HANDLE_NAMES = [
   "remove",
 ] as const;
 
+const RESERVED_SET: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
+
+// Compile-time, one-directional exhaustiveness tie: every verb on the base handle surface
+// (the concrete intersection members of `Handle`, NOT the string-indexed `OpMethods` arm)
+// must appear in `RESERVED_HANDLE_NAMES` — extras like the retired `raw` are allowed.
+// Adding a new base verb without reserving it fails here, at the declaration site.
+type BaseHandleSurfaceKey =
+  | keyof ReadOps
+  | keyof DialectWriteOps<any, OpPack>
+  | "modify"
+  | "remove"
+  | keyof PromiseLike<void>;
+const _reservedCoversSurface: [
+  Exclude<BaseHandleSurfaceKey, (typeof RESERVED_HANDLE_NAMES)[number]>,
+] extends [never]
+  ? true
+  : never = true;
+void _reservedCoversSurface;
+
 /**
  * Eager, synchronous, fail-closed check run at `withOps` composition time (REQ-DG-02,
  * ADR-0010 amendment): throws on a cross-pack op-name duplicate (including a collision
@@ -150,10 +169,9 @@ export const RESERVED_HANDLE_NAMES = [
  */
 function assertNoCompositionCollision(baseOpNames: readonly string[], packs: readonly OpPack[]): void {
   const claimed = new Set(baseOpNames);
-  const reserved: readonly string[] = RESERVED_HANDLE_NAMES;
   for (const pack of packs) {
     for (const name of Object.keys(pack)) {
-      if (reserved.includes(name)) {
+      if (RESERVED_SET.has(name)) {
         const hint = name === "raw" ? " — the live AST-fn escape hatch is .modify(fn)" : "";
         throw new Error(`op-pack composition failed: op "${name}" collides with a reserved handle verb${hint}`);
       }
