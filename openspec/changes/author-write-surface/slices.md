@@ -594,31 +594,55 @@ handles.
 
 ### Tasks
 
-- [ ] S-001.1 `[adapt]` `src/core/base-handle.ts`: `WriteOps.modify(content): WritableHandleRef`
+- [x] S-001.1 `[adapt]` `src/core/base-handle.ts`: `WriteOps.modify(content): WritableHandleRef`
   → `replaceContent(content): WritableHandleRef`.
-- [ ] S-001.2 `[adapt]` `src/commons/index.ts`: 3 call sites (`buildWritableHandle`'s `modify`
+- [x] S-001.2 `[adapt]` `src/commons/index.ts`: 3 call sites (`buildWritableHandle`'s `modify`
   method at line 71, `buildFoundHandle`'s `modify` method at line 102, top-level `modify(path,
   content)` function at line 297) → `replaceContent`; named export renames from `modify` to
   `replaceContent`; 3 JSDoc `@example`s (lines 142-143's read-trichotomy, line 295's own
   `@example`) → `replaceContent(...)`.
-- [ ] S-001.3 `[adapt]` `src/core/handle-state.ts`: JSDoc `@example` (lines 8, 12-13) and
+- [x] S-001.3 `[adapt]` `src/core/handle-state.ts`: JSDoc `@example` (lines 8, 12-13) and
   verb-list comments (lines 3, 16, 30-31) `modify` → `replaceContent`. Confirmed NO `.d.ts`
   interface-body change (the interfaces extend `WriteOps`, carry no member text of their own) —
   do not expect `core.handle-state.d.ts` to churn structurally (see FIT-04 table above); this
   task is comment-only.
-- [ ] S-001.4 `[adapt]` `test/golden-ir/chained-batch.test.ts:32`: `.modify("export const x = 2;")`
+- [x] S-001.4 `[adapt]` `test/golden-ir/chained-batch.test.ts:32`: `.modify("export const x = 2;")`
   → `.replaceContent("export const x = 2;")`. The `CREATE_THEN_MODIFY` fixture in
   `test/golden-ir/fixtures.ts:87-94` is NOT edited — same data, same name (Decided item 3).
-- [ ] S-001.5 `[RED]` Compile-negative: create `test/types/no-commons-modify-import.ts` (NOT
+- [x] S-001.5 `[RED]` Compile-negative: create `test/types/no-commons-modify-import.ts` (NOT
   `.test.ts` — see Compile-negative Convention section above for why) with a `@ts-expect-error`
   above `import { modify } from "../../src/commons/index.ts"; void modify;` — proves the old
   commons import no longer resolves, enforced by `bun run typecheck`, never executed by `bun test`.
-- [ ] S-001.6 `[RED]` **Regenerate `test/fitness/dts-baseline/commons.index.d.ts` AND
+- [x] S-001.6 `[RED]` **Regenerate `test/fitness/dts-baseline/commons.index.d.ts` AND
   `test/fitness/dts-baseline/core.base-handle.d.ts`** — both churn (confirmed live, see FIT-04
   table above): `bun run build`, then `cp dist/commons/index.d.ts test/fitness/dts-baseline/commons.index.d.ts`
   and `cp dist/core/base-handle.d.ts test/fitness/dts-baseline/core.base-handle.d.ts`. Review
   the diff before committing — it must show exactly the `modify`→`replaceContent` rename, nothing
   else. Land in the SAME commit as S-001.1/S-001.2.
+- [x] S-001.7 `[adapt]` **EXECUTOR-DISCOVERED GAP, not in the original task list** — neither this
+  file's S-001 tasks nor `design.md`'s File Changes table (`~12 more test/fixture files` row)
+  enumerated every consumer of the commons `modify` export/method; live grep against
+  `src/commons/index.ts`'s `modify` symbol turned up 9 further files with a REAL import/call
+  dependency (not just prose) plus 2 files `design.md` names but this document never turned into
+  a task (`test/e2e/author-to-tree.e2e.test.ts`, `test/skeleton/handle-chaining.test.ts`).
+  Left unfixed, S-001.1/.2 alone would have broken these files' imports outright (a named import
+  that fails to resolve throws a hard ESM `SyntaxError` at module load — see the Compile-negative
+  Convention section) — far outside the declared 10-failure S-000 baseline. Fixed as mechanical
+  `[adapt]` call-site/import renames, same commit as S-001.1/.2, wire-level `op:"modify"` /
+  `AuthoringVerb`/`DryRunVerb` `"modify"` literals left untouched (Decided item 2): `src/commons/index.ts` (own JSDoc — S-001.2 also covered this), `test/fake/batch-cap.test.ts`,
+  `test/fake/harness-result.test.ts`, `test/fake/harness-in-memory-invariant.test.ts`,
+  `test/e2e/dry-run.e2e.test.ts`, `test/e2e/author-to-tree.e2e.test.ts`,
+  `test/skeleton/write-only-factory.test.ts`, `test/skeleton/dry-run-accessor.test.ts`,
+  `test/skeleton/commit-discard.test.ts`, `test/skeleton/handle-chaining.test.ts`,
+  `test/skeleton/error-attribution.test.ts`, `test/skeleton/doc-discoverability.test.ts` (JSDoc
+  verb-anchor regex `modify:` → `replaceContent:`). `src/commons/classify-content.ts`'s JSDoc
+  `@example` (comment-only, doesn't affect FIT-04's normalized diff or compilation) and
+  `docs/**`/`README.md`/`SECURITY.md`/`ROADMAP.md` prose are correctly OUT of this slice —
+  confirmed S-004 scope (`REQ-KIT-03`'s doc/JSDoc-migration bullets, `test/docs/doc-set-content.test.ts`
+  still legitimately asserts `docs/authoring-verbs.md` contains `` `modify` `` until S-004 lands).
+  Recommend `slices.md`/`design.md`'s file inventories be corrected for future slices with a
+  similar shape (S-002's conformance rename, S-003's dialect rename) to avoid the same
+  under-enumeration.
 
 ---
 

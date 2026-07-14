@@ -5,15 +5,15 @@
 import type { ReadOps, WriteOps } from "./base-handle.ts";
 
 /**
- * Returned by every write verb (`create`, `modify`, `rename`, `move`, `copy`).
+ * Returned by every write verb (`create`, `replaceContent`, `rename`, `move`, `copy`).
  * Supports chaining — each method returns a fresh `WritableHandle` for the result path.
  * Does NOT have `remove()`: a write makes remove incoherent (ADR-0004 chaining table).
  *
  * @example
- * const h = modify("src/config.ts", "export const version = '2.0.0';");
+ * const h = replaceContent("src/config.ts", "export const version = '2.0.0';");
  * const c = await h.read(); // string | undefined — branch with === undefined / === ""
  */
-// WritableHandle: returned by every write op (create, modify, rename, move, copy).
+// WritableHandle: returned by every write op (create, replaceContent, rename, move, copy).
 // No `remove` — a write makes remove incoherent (ADR-0004 chaining table).
 export interface WritableHandle extends ReadOps, WriteOps {}
 

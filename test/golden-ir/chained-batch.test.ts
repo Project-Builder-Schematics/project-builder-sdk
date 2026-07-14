@@ -23,13 +23,13 @@ describe("Chained-handle Batch fixtures (GIR-02)", () => {
     expect(emitted[0]).toEqual(RENAME_THEN_MOVE);
   });
 
-  it("create(path, opts).modify(content) — emitted batch matches the create-then-modify fixture", async () => {
+  it("create(path, opts).replaceContent(content) — emitted batch matches the create-then-modify fixture", async () => {
     const { client, emitted } = makeSpyClient();
 
     const factory = defineFactory(async () => {
       const { create } = await import("../../src/commons/index.ts");
       await create("src/gen.ts", { template: "export const x = 1;", options: {} })
-        .modify("export const x = 2;")
+        .replaceContent("export const x = 2;")
         .read();
     });
     await factory({}, { client });

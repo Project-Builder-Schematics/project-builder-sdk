@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { defineFactory, runFactoryForTest } from "../../src/testing/index.ts";
-import { create, find, modify, AuthoringError } from "../../src/commons/index.ts";
+import { create, find, replaceContent, AuthoringError } from "../../src/commons/index.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 import type { Batch, JsonValue } from "../../src/core/wire.ts";
 
@@ -83,11 +83,11 @@ describe("REQ-ATH-03 — all-or-nothing rejection surfaces as empty tree + attri
 });
 
 describe("REQ-ATH-04 — seeded read visibility", () => {
-  it("REQ-ATH-04.1: seed is readable; a modify of seeded content lands in tree, the seed itself never does", async () => {
+  it("REQ-ATH-04.1: seed is readable; a replaceContent of seeded content lands in tree, the seed itself never does", async () => {
     let observed: string | undefined;
     const run = defineFactory<void>(async () => {
       observed = await find("a.ts").read();
-      modify("a.ts", "hello-modified");
+      replaceContent("a.ts", "hello-modified");
     });
 
     const result = await runFactoryForTest(run, undefined, { "a.ts": "hello" });
@@ -156,11 +156,11 @@ describe("REQ-ATH-07 — fresh fake per call, no cross-call state", () => {
   it("REQ-ATH-07.2: concurrent calls stay isolated", async () => {
     const runA = defineFactory<void>(async () => {
       const current = await find("shared.ts").read();
-      modify("shared.ts", `${current}-A`);
+      replaceContent("shared.ts", `${current}-A`);
     });
     const runB = defineFactory<void>(async () => {
       const current = await find("shared.ts").read();
-      modify("shared.ts", `${current}-B`);
+      replaceContent("shared.ts", `${current}-B`);
     });
 
     const pending1 = runFactoryForTest(runA, undefined, { "shared.ts": "seedA" });

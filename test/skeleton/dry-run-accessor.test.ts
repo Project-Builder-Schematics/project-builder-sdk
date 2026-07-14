@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
-import { create, find, modify, dryRun } from "../../src/commons/index.ts";
+import { create, find, replaceContent, dryRun } from "../../src/commons/index.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
 
 describe("dry-run accessor — outside-run propagation (REQ-DRE-01.4)", () => {
@@ -35,7 +35,7 @@ describe("dry-run accessor — buffer-state variants (REQ-DRE-01.2, REQ-DRE-01.3
     const run = defineFactory<void>(async () => {
       create("src/a.ts", { template: "export const a = 1;", options: {} });
       await find("src/a.ts").read();
-      modify("src/b.ts", "content");
+      replaceContent("src/b.ts", "content");
 
       expect(dryRun()).toEqual([{ verb: "modify", path: "src/b.ts" }]);
     });

@@ -8,7 +8,7 @@ import { describe, it, expect, spyOn } from "bun:test";
 import { AuthoringError } from "../../src/core/authoring-error.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
-import { modify } from "../../src/commons/index.ts";
+import { replaceContent } from "../../src/commons/index.ts";
 import {
   batchOfSerializedBytes,
   batchOverSerializedBytes,
@@ -17,8 +17,8 @@ import {
 } from "./batch-cap-fixtures.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 
-// `modify` requires an existing target (ADR-0017 rule 2) — these fixtures exercise the
-// size cap, not modify-existence, so every fake here is seeded with FIXTURE_PATH present.
+// `replaceContent` requires an existing target (ADR-0017 rule 2) — these fixtures exercise
+// the size cap, not modify-existence, so every fake here is seeded with FIXTURE_PATH present.
 function seededFake(): ContractFake {
   return new ContractFake({ seed: { [FIXTURE_PATH]: "" } });
 }
@@ -63,7 +63,7 @@ describe("REQ-01.3 — SDK never pre-validates; the rejection originates from th
     // fabricated (REQ-14.3), reason is the closed value, appliedCount is 0, and the
     // message follows the batch-level template (REQ-AEC-06.2), never the fake's text.
     const caught = await rejectedRun(fake, () => {
-      modify(path, content);
+      replaceContent(path, content);
     });
     expect(caught).toBeInstanceOf(AuthoringError);
     const authoringError = caught as AuthoringError;

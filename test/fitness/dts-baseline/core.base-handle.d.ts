@@ -2,7 +2,7 @@ export interface ReadOps {
     read(): Promise<string | undefined>;
 }
 export interface WriteOps {
-    modify(content: string): WritableHandleRef;
+    replaceContent(content: string): WritableHandleRef;
     rename(newName: string, opts?: {
         force?: boolean;
     }): WritableHandleRef;
@@ -15,4 +15,3 @@ export interface WriteOps {
 }
 export interface WritableHandleRef extends ReadOps, WriteOps {
 }
-//# sourceMappingURL=base-handle.d.ts.map
