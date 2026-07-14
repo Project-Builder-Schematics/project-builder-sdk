@@ -1,0 +1,38 @@
+# Orchestrator-owned DAG state — sub-agents never write this file
+change: ts-dialect-backend-ops
+triage: L
+scope_version: 2 # Group 1 (import/export variants) only — full catalog in pending-changes.md
+completed_phases:
+  - triage
+  - explore
+current_phase: explore
+current_phase_status: paused # owner-paused 2026-07-14, after explore, before propose
+in_loop_iteration: 0
+plan_verify_iteration: 0
+next_phase: propose
+execution_mode: automatic
+artifact_store: hybrid
+personas:
+  always: [architect, qa-engineer, business-analyst, pm]
+  conditional: [security-engineer, tech-writer]
+
+# Propose is BLOCKED on four owner decisions surfaced by the explore council:
+blocking_decisions:
+  - id: a
+    question: Fold pending-changes row (22) identifier validation into this change?
+    context: security-engineer marks halt-worthy — injection empirically CONFIRMED against
+      ts-morph@28 (name-position args splice raw; from-position args are escaped). Path is
+      registered `security (code execution): high`. Row deferred 3x already.
+  - id: b
+    question: addTypeImport emitted form — separate `import type { X }` statement vs inline
+      `import { type X }` modifier?
+    context: the ONLY Group-1 decision that reaches the emitted bytes (frozen by golden
+      fixtures + conformance corpus) — architect names it the hardest to reverse.
+  - id: c
+    question: removeExport scope (named re-exports only? also `export *`? also local
+      `export { x }`?) and whether the add/remove asymmetry is accepted for v1.
+    context: 4 new add-import forms ship with no remove counterparts (only named removeImport
+      exists) — BA warns authors hit this on their first re-runnable barrel schematic.
+  - id: d
+    question: does addExportAll cover the `export * as ns from "m"` form (via options)?
+    context: the `as ns` form creates a value binding -> pulls collision checking into scope.

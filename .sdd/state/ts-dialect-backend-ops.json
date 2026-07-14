@@ -1,0 +1,14 @@
+{
+  "change": "ts-dialect-backend-ops",
+  "triage": "L",
+  "phase": "explore",
+  "phase_status": "paused",
+  "spec_status": "none",
+  "slices": null,
+  "plan_verify": null,
+  "verify_final": null,
+  "arch_audit": null,
+  "in_loop_iteration": 0,
+  "scope_version": 2,
+  "notes": "Planning PAUSED by owner after explore. Scope V2 = Group 1 (import/export variants). Four owner decisions block propose: (a) fold in identifier validation (row 22, injection CONFIRMED), (b) addTypeImport emitted form (separate vs inline modifier), (c) removeExport scope + add/remove asymmetry, (d) addExportAll `as ns` form. Full op catalog (Groups 1-6) registered in openspec/pending-changes.md."
+}
