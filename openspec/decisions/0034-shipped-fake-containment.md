@@ -70,9 +70,9 @@ Containment is structural and fail-closed across six guards:
 
 ---
 
-## AMENDMENT (draft — `stage-6-release-shape`, 2026-07-12): `dist/core/**` document-not-strip + `declarationMap: false`
+## AMENDMENT (`stage-6-release-shape`, 2026-07-12): `dist/core/**` document-not-strip + `declarationMap: false`
 
-- Status: Proposed (draft)
+- Status: Accepted (2026-07-14, promoted at stage-6-release-shape archive)
 - Relates to: REQ-FPS-06, REQ-PPH-05; extends this ADR's ship-unmapped posture
 
 **Context**: Stage 6 finalizes the tarball surface. `./testing` re-exports `defineFactory` from a

@@ -1,6 +1,6 @@
 # ADR-0042: publish rehearsal interlock — three-part in-repo guard + go-live-precondition debt
 
-- Status: Proposed (draft)
+- Status: Accepted (2026-07-14, promoted at stage-6-release-shape archive)
 - Date: 2026-07-12
 - Change: `stage-6-release-shape`
 - Relates to: REQ-PPH-01, REQ-PPH-02, REQ-PPH-03, REQ-AOD-09.6
@@ -14,7 +14,10 @@ mutation-resistant: a commented-out `# if:` guard or a stray substring match mus
 
 ## Decision
 
-A three-part in-repo interlock, all asserted by `fit-21-publish-workflow-guard.test.ts` using Bun's
+A three-part in-repo interlock, all asserted by `fit-23-publish-workflow-guard.test.ts` (named
+`fit-21-publish-workflow-guard.test.ts` in this ADR's original plan-time text; shipped as `fit-23`
+after a filename collision on `main` with `fit-21`/`fit-22` taken by `stage-5b-dialect-breadth`/
+`schematic-local-files` — same content, same coverage) using Bun's
 NATIVE `YAML.parse` (`import { YAML } from "bun"`, available in the pinned Bun line) — zero new
 dependency, structurally correct parse (a commented-out `# if:` line is simply absent from the
 parsed document; there is no text-scan to fool). The job-resolution-by-predicate rule is unchanged:

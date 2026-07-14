@@ -1,7 +1,7 @@
 {
   "name": "@pbuilder/sdk",
   "version": "0.0.0",
-  "description": "The public TypeScript/Bun authoring layer for Project Builder schematics. Authors file mutations (create, delete, move, rename, modify), lowers them to IR, and talks to the Project Builder engine over JSON-RPC.",
+  "description": "The public TypeScript/Bun authoring layer for Project Builder schematics. Authors file mutations (create, modify, remove, rename, move, copy, copyIn), lowers them to IR, and talks to the Project Builder engine over JSON-RPC.",
   "license": "MIT",
   "type": "module",
   "private": false,
@@ -60,7 +60,9 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "typecheck:permissive-proof": "tsc --noEmit -p tsconfig.permissive-proof.json",
-    "build": "tsc -p tsconfig.build.json && bun build bin/pbuilder-codegen.ts --outfile dist/bin/pbuilder-codegen.js --target node --banner \"#!/usr/bin/env node\""
+    "prebuild": "rm -rf dist",
+    "build": "tsc -p tsconfig.build.json && bun build bin/pbuilder-codegen.ts --outfile dist/bin/pbuilder-codegen.js --target node --banner \"#!/usr/bin/env node\"",
+    "link:sdk": "bun run build && bun link"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

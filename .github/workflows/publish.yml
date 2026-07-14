@@ -7,25 +7,37 @@ on:
     branches:
       - main
 
-# id-token: write is required for npm trusted publishing (OIDC provenance).
-# No NPM_TOKEN secret is used — the registry validates identity via the OIDC token.
+# contents: read is the workflow-level default. id-token: write lives ONLY on the `publish`
+# job's own permissions block below (least privilege, ADR-0042 decision #1) — a job-level
+# `permissions` block replaces the workflow default for that job, so `publish` restates
+# `contents: read` alongside it.
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   publish:
     name: Publish dev prerelease
     runs-on: ubuntu-latest
 
+    # W3 repo-owner guard (REQ-PPH-01, ADR-0042): a fork's push runs under the fork's own
+    # OIDC identity, which npm trusted publishing does not trust for @pbuilder/sdk — this
+    # guard stops OIDC token minting inside forks before it ever reaches the publish step.
+    if: github.repository == 'Project-Builder-Schematics/project-builder-sdk'
+
+    # id-token: write is required for npm trusted publishing (OIDC provenance).
+    # No NPM_TOKEN secret is used — the registry validates identity via the OIDC token.
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"

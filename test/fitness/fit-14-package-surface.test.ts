@@ -69,6 +69,24 @@ function findMissingTarballEntries(baseline: string[], current: string[]): strin
   return baseline.filter((path) => !currentSet.has(path));
 }
 
+// REQ-FPS-07: positive credential-filename scan — asserted explicitly, never merely
+// inferred from the baseline diff above (S-002.1).
+const SECRET_FILENAME_PATTERNS: RegExp[] = [
+  /(^|\/)\.env(\..+)?$/,
+  /(^|\/)\.npmrc$/,
+  /\.pem$/,
+  /\.key$/,
+  /(^|\/)\.netrc$/,
+  /(^|\/)id_rsa/,
+  /\.p12$/,
+  /\.pfx$/,
+  /(^|\/)credentials\.json$/,
+];
+
+function scanForSecrets(paths: string[]): string[] {
+  return paths.filter((path) => SECRET_FILENAME_PATTERNS.some((pattern) => pattern.test(path)));
+}
+
 describe("FIT-14 — package surface guard (baseline diff)", () => {
   const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as PkgSurfaceBaseline;
   const pkgJson = JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
@@ -77,6 +95,19 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     bin: Record<string, string>;
     dependencies?: Record<string, string>;
   };
+
+  // Computed once (S-002.1) and reused by the tarball-drift test below plus the new
+  // REQ-PPH-05.2/REQ-FPS-07.1 checks — avoids a second redundant `bun pm pack --dry-run`.
+  let freshTarball: string[] = [];
+  beforeAll(() => {
+    const result = spawnSync("bun", ["pm", "pack", "--dry-run"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
+    if (result.status !== 0) {
+      throw new Error(
+        `FIT-14: bun pm pack --dry-run failed.\nstdout: ${result.stdout}\nstderr: ${result.stderr}`
+      );
+    }
+    freshTarball = parsePackedFileList(result.stdout);
+  });
 
   it("exports map is unchanged from the committed baseline (REQ-FPS-02.1)", () => {
     expect(pkgJson.exports).toEqual(baseline.exports);
@@ -119,15 +150,33 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
   });
 
   it("the publishable tarball contains no file beyond the committed baseline (REQ-FPS-02.2)", () => {
-    const result = spawnSync("bun", ["pm", "pack", "--dry-run"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
-    expect(result.status).toEqual(0);
-    const current = parsePackedFileList(result.stdout);
-
-    const newEntries = findNewTarballEntries(baseline.tarball, current);
-    const missingEntries = findMissingTarballEntries(baseline.tarball, current);
+    const newEntries = findNewTarballEntries(baseline.tarball, freshTarball);
+    const missingEntries = findMissingTarballEntries(baseline.tarball, freshTarball);
 
     expect(newEntries).toEqual([]);
     expect(missingEntries).toEqual([]);
+  });
+
+  it("REQ-PPH-05.2: the fresh build's tarball ships zero .d.ts.map entries", () => {
+    expect(freshTarball.filter((path) => path.endsWith(".d.ts.map"))).toEqual([]);
+  });
+
+  it("REQ-PPH-06.1: the committed baseline's tarball ships zero .d.ts.map entries", () => {
+    expect(baseline.tarball.filter((path) => path.endsWith(".d.ts.map"))).toEqual([]);
+  });
+
+  it("REQ-FPS-06.1: the committed baseline still includes dist/core/** entries (documented, not stripped)", () => {
+    expect(baseline.tarball.some((path) => path.startsWith("dist/core/"))).toBe(true);
+  });
+
+  it("REQ-FPS-07.1: the fresh tarball listing is positively scanned and contains no secret-like filenames", () => {
+    expect(scanForSecrets(freshTarball)).toEqual([]);
+  });
+
+  // RED-PROOF: a simulated tarball listing containing a .env file is caught (REQ-FPS-07.2).
+  it("[red-proof] REQ-FPS-07.2: a simulated tarball listing containing a .env file is caught", () => {
+    const simulated = [...freshTarball, ".env"];
+    expect(scanForSecrets(simulated)).toEqual([".env"]);
   });
 
   it("the codegen bin's file is present in the tarball listing", () => {

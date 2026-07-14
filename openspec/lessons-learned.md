@@ -2,6 +2,22 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `stage-6-release-shape` (2026-07-14)
+
+### Machine legs and human readers observe different metadata — a green machine suite does not prove docs-sufficiency
+**What**: A human walkthrough (steward reckoning's G-2 gate) of the docs-only onboarding path found 5 real gaps — no consumer workspace set up, no tsconfig instruction, the `bun link` flow only learned by watching console output rather than reading the doc, a missing `@types/bun`/`bun:test` ambient-types step, and fence-block filenames that exist only as machine-consumed metadata (`filename=` annotations) invisible to a human reader — that 11 prior verification agents (council + in-loop + final verify) had structurally no way to see.
+**Why**: The machine legs (fenced-block extraction, consumer `tsc --noEmit`) consume metadata a harness provisions for them — a repo-ambient tsconfig, fence-filename annotations, pre-installed `@types/bun` — that a real human copy-pasting from the rendered doc never has access to. A green machine-verification suite proves the CODE in the doc is correct; it says nothing about whether a stranger following the PROSE can reach the same state.
+**Where**: Any docs-as-test suite (`test/docs/quickstart-docs.test.ts` and similar machine legs) for an onboarding/quickstart doc. Countermeasure shipped this change: the machine consumer-`tsc` leg now uses the doc's OWN extracted tsconfig (not a harness-provisioned one) and typechecks `factory.test.ts` directly.
+**Learned**: For any "docs teach a working setup" requirement, budget a genuinely human-vantage walkthrough (not just a machine leg) before archive — a passing machine suite is necessary but not sufficient proof that a human reader, with no side-channel knowledge, reaches the same result.
+
+### A 3-iteration plan-verify investment paid off as a clean downstream build
+**What**: `stage-6-release-shape`'s plan-verify gate took 3 iterations to reach `ready` (findings dropped 18 → 3 → 0). Downstream, all 4 in-loop verifies passed at iteration 1 (zero fix loops) and judgment-day was APPROVED at round 1 (only 2 inline fixes, no re-judge cycle needed).
+**Why**: The plan-verify iterations resolved ambiguity BEFORE any code was written — REQ bodies, ADR contents, file locations, and domain terms that would otherwise have been discovered (and cost a fix-and-reverify cycle) during apply or in-loop verify instead surfaced and were closed at the cheapest point in the pipeline.
+**Where**: Any M/L change entering the plan-verify gate — especially one with a large executor-self-sufficiency surface (Judge B's isolation questions).
+**Learned**: Don't treat plan-verify iterations as pipeline overhead to minimize — a thorough plan-verify pass (even 3 iterations) is a leading indicator of a clean, low-friction build. Budget the iterations rather than rushing to `ready` on a plan that still has open Judge B questions.
+
+Source: change `stage-6-release-shape` (2026-07-14)
+
 ## From `schematic-local-files` (2026-07-13)
 
 ### A "behavior-neutral" decode refactor silently stripped a leading BOM — prove neutrality, don't assume it

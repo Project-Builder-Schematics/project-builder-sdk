@@ -25,3 +25,7 @@ coverage/
 
 # Claude Code worktrees (embedded repos, never committable)
 .claude/worktrees/
+
+# E2E scratch dirs (.tmp-testing-e2e, .tmp-link-e2e, .tmp-quickstart-*, ...) and packed tarballs
+.tmp-*/
+*.tgz
