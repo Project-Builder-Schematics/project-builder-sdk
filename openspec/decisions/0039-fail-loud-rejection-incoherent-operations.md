@@ -50,3 +50,29 @@ accepted as the cost of the unforgeable WeakSet brand.
 **Document row-136 as UB** — rejected: ships the silent-data-loss footgun ADR-0037 explicitly
 refused for the await problem. **Grow `AuthoringError.reason`** — rejected: closed-union MAJOR,
 deferred out by the row-141 split.
+
+## Amendment (2026-07-14, author-write-surface, S-000)
+
+**Status**: Accepted (amends Accepted ADR-0039).
+
+**Context**: ADR-0050 renames the wholesale-replace verb `.modify(content)` → `.replaceContent
+(content)` and reassigns `.modify` to the AST escape hatch (`.raw(fn)` → `.modify(fn)`). This
+guard tracks the SEMANTICS it protects (wholesale replace clobbering a pending structured edit),
+not the method name it happened to live inside — it must follow the rename.
+
+**Decision**: The guard target renames `.modify()`/`runModify` → `.replaceContent()`/
+`runReplaceContent` (`src/core/dialect-handle.ts`); the check itself
+(`#hasOpenPendingDirective`) is unchanged. The reject message text also drops the `"on the same
+handle"` clause — not a pure verb swap — becoming byte-exact:
+
+`` `cannot .replaceContent() "${this.#path}" while a structured edit is pending — the pending edit would be lost; call .read() to commit it first, then .replaceContent()` ``
+
+The guard is proven ABSENT from the new `.modify(fn)` (REQ-MC-08.5) — `.modify(fn)` coalesces
+freely with any pending AST-op directive on the same handle, never rejecting; only
+`.replaceContent()`'s wholesale-overwrite semantics trigger the reject.
+
+**Consequences**: (+) the guard tracks meaning, not spelling — a future verb rename would move
+it again without re-litigating the semantics. (−) the reject message is load-bearing text,
+pinned byte-exact in `test/core/dialect-handle.test.ts`; this amendment moves that pin.
+(enables) `.modify(fn)` chains coalesce freely, never mistaken for a conflicting wholesale
+replace.

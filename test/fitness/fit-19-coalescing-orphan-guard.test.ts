@@ -32,7 +32,7 @@ describe("[permanent-fixture] FIT-19 — coalescing orphan guard (ADR-0037)", ()
     const run = defineFactory<void>(async () => {
       const handle = toyDialect.find("a.toy").push("first-edit");
       await handle.read(); // drains the open directive (global flush, ADR-0015)
-      handle.raw((ast) => {
+      handle.modify((ast) => {
         (ast as ToyAst).push("second-edit");
       });
       await handle;

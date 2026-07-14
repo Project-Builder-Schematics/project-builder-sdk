@@ -496,13 +496,13 @@ row above.
 
 ### Tasks
 
-- [ ] S-000.1 `[adapt]` `src/core/define-dialect.ts`: `DialectWriteOps.modify(content)` →
+- [x] S-000.1 `[adapt]` `src/core/define-dialect.ts`: `DialectWriteOps.modify(content)` →
   `replaceContent`; `Handle`'s `raw(fn)` member → `modify(fn:(ast)=>void)`; export
   `RESERVED_HANDLE_NAMES` as the ordered 9-array (see Exact Literals) with an `@internal` JSDoc
   tag (ORCHESTRATOR RULING R2, Decided item 6 — test/conformance observability only, not
   supported public API); `assertNoCompositionCollision` switches `.has` → `.includes`; append the
   `raw`-collision hint clause.
-- [ ] S-000.1b `[adapt]` **Author and commit `openspec/decisions/0050-handle-unfreeze-honest-write-verb-rename.md`** —
+- [x] S-000.1b `[adapt]` **Author and commit `openspec/decisions/0050-handle-unfreeze-honest-write-verb-rename.md`** —
   next free ADR number (0049 is the last existing entry in `openspec/decisions/`). Content:
   adapt design.md §4.5 ADR-01 verbatim (Context/Decision/Consequences/Alternatives — the four
   rejected alternatives are: keep `raw`; name it `edit`; name it `transform`; polymorphic
@@ -512,26 +512,26 @@ row above.
   ADR-0050 also carries exactly ONE line recording ORCHESTRATOR RULING R2 (Decided item 6
   above): `RESERVED_HANDLE_NAMES` is exported `@internal` for test/conformance observability
   only, not a supported public API member, not semver-covered beyond the FIT-04 baseline pin.
-- [ ] S-000.2 `[adapt]`/`[RED]` `src/core/dialect-handle.ts`: `runRaw` → `runModify(fn)` + tail
+- [x] S-000.2 `[adapt]`/`[RED]` `src/core/dialect-handle.ts`: `runRaw` → `runModify(fn)` + tail
   literal `raw() on` → `modify() on` (4 pinned test files, see Exact Literals); `runModify(content)`
   → `runReplaceContent(content)` + ADR-0039 message rewrite (byte-exact, see Exact Literals) — a
   GREEN characterisation test pinning the CURRENT silent last-write-wins lands first, then is
   REPLACED by REQ-MC-08's reject scenarios in this same slice; base dispatchers in `createDialectHandle`'s
   `base` object literal (`raw`/`modify` keys) → `modify`/`replaceContent` keys.
-- [ ] S-000.2b `[adapt]` **Amend `openspec/decisions/0039-fail-loud-rejection-incoherent-operations.md` IN PLACE** —
+- [x] S-000.2b `[adapt]` **Amend `openspec/decisions/0039-fail-loud-rejection-incoherent-operations.md` IN PLACE** —
   append a new `## Amendment (2026-07-14, author-write-surface, S-000)` section (repo convention,
   see `0012-conformance-kit.md`'s two amendment sections for the pattern): guard target renames
   `.modify()`/`runModify` → `.replaceContent()`/`runReplaceContent`; the message text drops
   "on the same handle" (byte-exact new text, see Exact Literals); land in the SAME commit as S-000.2.
-- [ ] S-000.3 `[adapt]` Foreign-wrap tail `modify() on "{path}" threw` — update all 4 pinned test
+- [x] S-000.3 `[adapt]` Foreign-wrap tail `modify() on "{path}" threw` — update all 4 pinned test
   files listed in Exact Literals (dialect-modify.e2e, toy-dialect-skeleton.e2e, dialect-handle.test
   ×2 occurrences, fit-20-unawaited-join-guard).
-- [ ] S-000.4 `[RED]` Create `test/fitness/dts-baseline/core.define-dialect.d.ts` (new, 10th
+- [x] S-000.4 `[RED]` Create `test/fitness/dts-baseline/core.define-dialect.d.ts` (new, 10th
   pair) + add its `DTS_PAIRS` entry to `test/fitness/fit-04-dts-semver-gate.test.ts` (exact entry
   shape in the FIT-04 Mechanics section above). Regen via `bun run build` then hand-copy
   `dist/core/define-dialect.d.ts`; verify the copied content actually shows `replaceContent` +
   `modify(fn:...)` + zero `raw` before committing (REQ-FIT-04's V2 non-vacuousness check).
-- [ ] S-000.5 `[adapt]`/`[RED]` `test/core/define-dialect-collision.test.ts`: reserved loop drops
+- [x] S-000.5 `[adapt]`/`[RED]` `test/core/define-dialect-collision.test.ts`: reserved loop drops
   `raw` from ITS OWN non-reserved-fixture-name choice (unaffected, it uses `annotate`/`stamp`/`then`
   fixtures, not `raw` itself, as collision names) — real work is REQ-DG-02.6/.7/.8: rewrite the
   `:102-111` loop to iterate the imported `RESERVED_HANDLE_NAMES` (special-casing `raw`'s expected
@@ -539,7 +539,7 @@ row above.
   explicit `modify`-name collision scenario (.8, mirrors `.6`'s `raw`/`replaceContent` pair).
   `test/types/define-dialect.test.ts`: `.modify` fn-only pin, `.replaceContent` string-only pin,
   `.raw` absent (type-level `expectTypeOf` AND `'raw' in handle === false` at runtime, REQ-DG-03.4).
-- [ ] S-000.6 `[adapt]`/`[RED]` `test/core/dialect-handle.test.ts`: containment scenarios
+- [x] S-000.6 `[adapt]`/`[RED]` `test/core/dialect-handle.test.ts`: containment scenarios
   (REQ-MC-01/02/03/06 call-site renames), REQ-DG-05.3 (foreign-wrap never interpolates caught
   message), REQ-DG-05.4 (NEW — async-rejecting `.modify(fn)` containment, mirror REQ-DG-06.2's
   pattern with `process.on('unhandledRejection')` observed), REQ-MC-08.5 (NEW — guard absent
@@ -547,10 +547,10 @@ row above.
   already-imported `import * as ts from "../../src/dialects/typescript/index.ts"` (line 21):
   `ts.find(path).addImport("readFileSync", "node:fs").modify(ast => ...)` must NOT reject and
   must coalesce into ONE directive), REQ-MC-08.6 (NEW — `.replaceContent(fn)` compile-negative).
-- [ ] S-000.6b `[adapt]` Rename the `describe("dialect handle — runOp containment, parity with
+- [x] S-000.6b `[adapt]` Rename the `describe("dialect handle — runOp containment, parity with
   .raw() (REQ-DG-06)")` block title at `test/core/dialect-handle.test.ts:376` → `parity with
   .modify()` — the block name itself still names the retired verb.
-- [ ] S-000.6c `[RED]` REQ-DG-06.6 killer scenario (verbatim above) — add a new op to the
+- [x] S-000.6c `[RED]` REQ-DG-06.6 killer scenario (verbatim above) — add a new op to the
   inline `synthOpsPack` (`test/core/dialect-handle.test.ts:53-88`, e.g.
   `foreignPrefixedThrow: (ast: SynthAst) => { throw new Error("dialect operation failed: " +
   "a message a foreign caller happened to construct with this exact prefix"); }`) and a new
@@ -559,10 +559,10 @@ row above.
   threw` (NOT the foreign error's own text) and that the foreign message content never appears
   in the surfaced error — proving the `isContained` WeakSet-brand discriminant by identity, not
   by prefix-matching.
-- [ ] S-000.7 `[adapt]` Extend `test/e2e/dialect-modify.e2e.test.ts` — rename `.raw(` call sites
+- [x] S-000.7 `[adapt]` Extend `test/e2e/dialect-modify.e2e.test.ts` — rename `.raw(` call sites
   to `.modify(` (lines 29, 45, 65, 97 per live grep), verify `{op:"modify"}` byte-identical in
   the emitted batch (wire proof, Decided item 3).
-- [ ] S-000.8 `[adapt]` `test/fitness/fit-19-coalescing-orphan-guard.test.ts:35`:
+- [x] S-000.8 `[adapt]` `test/fitness/fit-19-coalescing-orphan-guard.test.ts:35`:
   `handle.raw((ast) => { (ast as ToyAst).push("second-edit"); })` → `handle.modify((ast) => {
   ... })`. Surfaced by the `test/fitness/` inventory audit below — this live call site was not
   enumerated by any prior revision's task list; it is a `[permanent-fixture]` belt-and-suspenders

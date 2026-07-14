@@ -127,6 +127,16 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     distFile: join(DIST_DIR, "dialects/typescript/index.d.ts"),
     label: "typescript",
   },
+  {
+    // author-write-surface, S-000, REQ-FIT-04: `core/define-dialect.ts`'s FIRST baseline —
+    // `Handle` is the ONE type architecture.md marks FROZEN; ADR-0050 unfreezes it for the
+    // `.raw(fn)`->`.modify(fn)` / `.modify(content)`->`.replaceContent(content)` rename, and
+    // this pair re-freezes it. The baseline's content must exhibit both `replaceContent` and
+    // `modify(fn:...)` among `Handle`'s members, with ZERO occurrences of `raw`.
+    baselineFile: join(BASELINE_DIR, "core.define-dialect.d.ts"),
+    distFile: join(DIST_DIR, "core/define-dialect.d.ts"),
+    label: "core/define-dialect",
+  },
 ];
 
 // Companion negative declaration-scan (SEC-M2, ADR-0034 guard 6): FIT-10 scans SOURCES only

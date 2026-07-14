@@ -8,7 +8,7 @@
  * file does not either).
  *
  * Flow 1: chain typed dialect ops on one file -> one modify (REQ-MC-01, REQ-TSD-01/03)
- * Flow 2: .raw() either order coalesces the same (REQ-DG-03)
+ * Flow 2: .modify() either order coalesces the same (REQ-DG-03)
  * Flow 3: mid-chain read splits into exactly two modify (REQ-MC-02)
  * Flow 4: forgotten-await chain still completes + commits at run end (REQ-MC-06)
  */
@@ -19,14 +19,14 @@ import * as ts from "../../src/dialects/typescript/index.ts";
 import { golden } from "../support/golden.ts";
 
 describe("e2e — dialect modify (S-002, real TypeScript dialect)", () => {
-  it("Flow 1: addImport + .raw() on one file coalesce into a single committed modify", async () => {
+  it("Flow 1: addImport + .modify() on one file coalesce into a single committed modify", async () => {
     const fake = new ContractFake({ seed: { "a.ts": golden("add-import-before.txt") } });
 
     const run = defineFactory<void>(async () => {
       await ts
         .find("a.ts")
         .addImport("join", "node:path")
-        .raw((ast) => {
+        .modify((ast) => {
           ast.addStatements("export const z = 3;");
         });
     });
@@ -36,13 +36,13 @@ describe("e2e — dialect modify (S-002, real TypeScript dialect)", () => {
     expect(fake.committedTree()).toEqual(goldenTree);
   });
 
-  it("Flow 2: .raw() before a named op coalesces the same as after (REQ-DG-03.2)", async () => {
+  it("Flow 2: .modify() before a named op coalesces the same as after (REQ-DG-03.2)", async () => {
     const fake = new ContractFake({ seed: { "a.ts": golden("add-import-before.txt") } });
 
     const run = defineFactory<void>(async () => {
       await ts
         .find("a.ts")
-        .raw((ast) => {
+        .modify((ast) => {
           ast.addStatements("export const z = 3;");
         })
         .addImport("join", "node:path");
@@ -62,7 +62,7 @@ describe("e2e — dialect modify (S-002, real TypeScript dialect)", () => {
       const midChainContent = await handle.read();
       expect(midChainContent).toBe(golden("split-directive-1.txt")); // read-your-own-writes
 
-      handle.raw((ast) => {
+      handle.modify((ast) => {
         ast.addStatements("const y = 2;");
       });
       await handle;
@@ -94,7 +94,7 @@ describe("e2e — dialect modify (S-002, real TypeScript dialect)", () => {
 
     const run = defineFactory<void>(() => {
       // Deliberately not awaited.
-      ts.find("a.ts").raw(() => {
+      ts.find("a.ts").modify(() => {
         throw new Error("boom");
       });
     });
@@ -111,7 +111,7 @@ describe("e2e — dialect modify (S-002, real TypeScript dialect)", () => {
     }
 
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toBe('dialect operation failed: raw() on "a.ts" threw');
+    expect((caught as Error).message).toBe('dialect operation failed: modify() on "a.ts" threw');
     expect((caught as Error).cause).toBeUndefined();
     expect(unhandled).toEqual([]);
     expect(fake.committedTree()).toEqual(new Map());

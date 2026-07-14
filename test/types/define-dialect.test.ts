@@ -1,6 +1,6 @@
 // Type-level tests for defineDialect / defineOpPack / withOps — real generics (S-001,
-// ADR-0010 / ADR-0037). Covers REQ-DG-01.1/.2, REQ-DG-02.1, REQ-DG-03 (.raw presence), and
-// the thenable-handle type.
+// ADR-0010 / ADR-0037 / ADR-0050). Covers REQ-DG-01.1/.2, REQ-DG-02.1, REQ-DG-03
+// (.modify(fn)/.replaceContent(content) shape, .raw absence), and the thenable-handle type.
 //
 // REQ-DG-02.1 (compile-time intersection pin) is UNCHANGED by S-004: op-pack composition
 // still type-checks only through attached ops. REQ-DG-02.2–02.5 (runtime collision +
@@ -11,7 +11,7 @@
 // Negative assertions use the "dead call in a never-invoked arrow" pattern (house
 // convention, test/types/handle-types.test.ts): tsc still evaluates and enforces the
 // expect-error directive even though the arrow never runs.
-import { describe, test } from "bun:test";
+import { describe, test, expect } from "bun:test";
 import { expectTypeOf } from "expect-type";
 import {
   defineDialect,
@@ -108,11 +108,57 @@ describe("defineDialect / defineOpPack / withOps — real generics (S-001)", () 
     expectTypeOf<Parameters<typeof standalonePack.push>>().toEqualTypeOf<[Ast, string]>();
   });
 
-  // .raw() presence — the universal L2 escape hatch (REQ-DG-03) on every handle.
-  test(".raw is present on the handle surface", () => {
-    expectTypeOf<Handle<"found", Ast, {}>>().toHaveProperty("raw");
-    type RawFn = Handle<"found", Ast, {}>["raw"];
-    expectTypeOf<Parameters<RawFn>>().toEqualTypeOf<[(ast: Ast) => void]>();
+  // REQ-DG-03: `.modify(fn)` is the universal L2 escape hatch (ADR-0050) — a distinct,
+  // non-overloaded, fn-only method on every handle.
+  test("REQ-DG-03: .modify(fn) is fn-only on the handle surface", () => {
+    expectTypeOf<Handle<"found", Ast, {}>>().toHaveProperty("modify");
+    type ModifyFn = Handle<"found", Ast, {}>["modify"];
+    expectTypeOf<Parameters<ModifyFn>>().toEqualTypeOf<[(ast: Ast) => void]>();
+  });
+
+  // REQ-DG-03.3 / REQ-MC-08.6: `.replaceContent(content)` is the distinct, string-only
+  // wholesale-replace verb — never an overload of `.modify`.
+  test("REQ-DG-03.3 / REQ-MC-08.6: .replaceContent(content) is string-only on the handle surface", () => {
+    expectTypeOf<Handle<"found", Ast, {}>>().toHaveProperty("replaceContent");
+    type ReplaceContentFn = Handle<"found", Ast, {}>["replaceContent"];
+    expectTypeOf<Parameters<ReplaceContentFn>>().toEqualTypeOf<[string]>();
+  });
+
+  // REQ-DG-03.3: `.modify` rejects a string argument — proves it is fn-only, not polymorphic.
+  test("REQ-DG-03.3: .modify(fn) rejects a string argument (compile-negative)", () => {
+    const _negativeProof = (h: Handle<"found", Ast, {}>) => {
+      // @ts-expect-error — `.modify` is fn-only; a wholesale-replace string belongs to `.replaceContent`.
+      h.modify("not a function");
+    };
+    void _negativeProof;
+  });
+
+  // REQ-MC-08.6: `.replaceContent` rejects a function argument — proves it is string-only,
+  // not polymorphic.
+  test("REQ-MC-08.6: .replaceContent(content) rejects a function argument (compile-negative)", () => {
+    const _negativeProof = (h: Handle<"found", Ast, {}>) => {
+      // @ts-expect-error — `.replaceContent` is string-only; an AST-fn belongs to `.modify`.
+      h.replaceContent((ast: Ast) => void ast);
+    };
+    void _negativeProof;
+  });
+
+  // REQ-DG-03.4: `.raw` is retired (ADR-0050) — absent at the type level (compile-negative)
+  // AND at runtime (the base object literal no longer carries a `raw` key).
+  test("REQ-DG-03.4: .raw is absent from the handle surface (type + runtime)", () => {
+    const _negativeProof = (h: Handle<"found", Ast, {}>) => {
+      // @ts-expect-error — `.raw` was retired in favor of `.modify(fn)` (ADR-0050).
+      h.raw(() => {});
+    };
+    void _negativeProof;
+
+    const base = defineDialect({
+      extensions: [".toy"],
+      ast: { parse: (s: string): Ast => ({ lines: s.split("\n") }), print: (a: Ast): string => a.lines.join("\n") },
+      ops: {},
+    });
+    const handle = base.find("dummy.toy");
+    expect("raw" in handle).toBe(false);
   });
 
   // The handle is the first thenable object on the author surface (ADR-0037) —
