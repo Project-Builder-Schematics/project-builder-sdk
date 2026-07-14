@@ -1,0 +1,70 @@
+change: bare-factory-migration
+triage: L
+sensitive_override: public-api (contract) — review-required row in openspec/sensitive-areas.md
+phases:
+  triage:
+    status: complete
+    artifact: openspec/changes/bare-factory-migration/triage.md
+    engram: sdd/bare-factory-migration/triage (obs #2095)
+    council: [architect, pm]
+  explore:
+    status: complete
+    artifact: openspec/changes/bare-factory-migration/explore.md
+    engram: sdd/bare-factory-migration/explore (obs #2098)
+    council: [architect, qa-engineer, business-analyst]
+    ready_for_proposal: yes
+  propose:
+    status: complete
+    artifact: openspec/changes/bare-factory-migration/proposal.md
+    engram: sdd/bare-factory-migration/proposal (obs #2100)
+    council: [business-analyst, pm, architect]
+    note: "Builder carried 3 technical OQs forward; council synthesis (post-builder) closes 2 by owner rulings (brand-guard OUT per hard-cut + zero-external-authors; packageDir stays OPTIONAL per byte-identical untyped default) and converges 3-for-3 on the third: FIT-16 3rd-signal is RETIRED in this change (rationale in ADR-A consequences), threat-model re-home registered as runner-plan followup. Design inherits ZERO live OQs; may re-open only via halt with evidence."
+  spec:
+    status: SIGNED (V2, owner, 2026-07-14 — V1 signed same day; V2 unfreeze licensed by plan-verify iter 1 gaps #2/#3, adds REQ-ATH-20 corpus end-state + REQ-TSD-05 three-docs coverage, zero V1 alterations. NOTE for archive: engram spec topic never carried V1's sign event — this state entry is the authoritative signature record for BOTH signatures.)
+    artifact: openspec/changes/bare-factory-migration/specs/ (5 delta domains)
+    engram: sdd/bare-factory-migration/spec (obs #2102)
+    council: [business-analyst, qa-engineer]
+    domains: [testing-entry-surface, author-test-harness, factory-package-shape, testing-story-docs, author-onboarding-docs]
+    note: "Proposal declared 1 modified capability; spec self-corrected to 5 signed-spec domains (BA halt finding + builder direct reading). Both council rounds incorporated mid-task via orchestrator SendMessage. ATH-13 REMOVED (not inverted in place); ATH-19 wrap-parity is NEW infra (manual-wrap comparison harness) — real slicing cost. author-onboarding-docs V2 scope fence ('no defineFactory relocation') is explicitly lifted by this delta — re-signs here."
+  design:
+    status: complete
+    artifact: openspec/changes/bare-factory-migration/design.md
+    engram: sdd/bare-factory-migration/design (obs #2108)
+    council: [architect, tech-writer]
+    architecture_impact: modifying
+    adrs: [ADR-A defineFactory core-internal + FIT-16 retirement in consequences, ADR-B caller-supplied packageDir + runtime-neutral error wording, ADR-C options-bag + single-wrap-seam delegation]
+    new_infra: [FIT-29 sanctioned-caller import guard (production-only scan), test/fake/harness-wrap-parity.test.ts + wrap-parity-support.ts, verify-phase git-diff frozen-set manifest]
+  steward-foresight:
+    status: complete
+    verdict: aligned
+    artifact: openspec/changes/bare-factory-migration/north-star.md
+    engram: sdd/bare-factory-migration/north-star (obs #2110)
+    conscience_questions: "2, BOTH ANSWERED by owner 2026-07-14: (1) runner plan confirmed still live (sequence migration→runner ratified); (2) packageDir-at-harness accepted as ceremony ELIMINATED (shipped artefact clean; harness option belongs to the test, scaffold-class only)"
+current_phase: steward-foresight
+next_phase: slice
+in_loop_iteration: 0
+plan_verify_iteration: 0
+execution_mode: interactive
+artifact_store: hybrid
+open_questions:
+  product:
+    - id: OQ-P1
+      question: "Do the defineFactory({packageDir})-naming error strings in src/scaffold/index.ts / expander.ts get rewritten in this change or deferred as a followup?"
+      status: "RESOLVED by owner 2026-07-14: rewritten IN this change — author-facing regression the moment the shape flips; scope amended accordingly"
+  technical:
+    - "Brand/arity transition guard on runFactoryForTest for already-wrapped runners vs hard-cut TypeError (QA recommends arity guard fn.length >= 2 with educational error)"
+    - "Retire or redesign FIT-16's 3rd-signal (goes silently vacuous once bare factories carry neither defineFactory nor packageDir tokens) + its red fixture"
+    - "Should packageDir become required on runFactoryForTest (decides scenarios.ts FactoryRunner type + all 21 scenario entries)? Architect recommends optional: absence = untyped tier (REQ-TFO-02 relocated to caller, byte-for-byte current default)"
+notes_for_spec_design:
+  - "OWNER CLARIFICATION (2026-07-14, during propose): the SDK is pre-adoption — there are ZERO external schematic authors. The only 'old wrapped' code is in-repo references (all migrated in this change, compile-enforced). Consequences: (a) the existing-author migration scenario collapses to in-repo concerns only — no external migration UX REQ; (b) the docs migration note shrinks to a CHANGELOG line at most; (c) reinforces hard cut with no runtime double-wrap guard (no external trapeze artist to catch)."
+  - "RESOLVED BY ORCHESTRATOR (owner direction obs #2070): Reading A — defineFactory is REMOVED from ./testing exports (breaking removal, installed-consumer.e2e.test.ts:249 inverts to false). Not additive sugar."
+  - "Opt-out tier relocation is the riskiest semantic: runFactoryForTest without packageDir = untyped run byte-for-byte as today; with packageDir = schema-validated; runner always supplies it. Spec must pin explicitly."
+  - "Sanctioned-caller fitness guard for defineFactory (testing/, conformance/, bin/ only) is MANDATORY (architect halt condition)"
+  - "dts-baseline regen must pair with a positive assertion on the new runFactoryForTest signature (removal-only gate launders bugs)"
+  - "Add runFactoryForTest-through packageDir validation test (mutation leak: validation silently off passes entire suite today)"
+  - "Already-wrapped-runner scenario + non-function export scenario required in spec (new failure modes)"
+  - "Corpus: ~21-30 wrap sites in test/fixtures/author-emulation/factory.ts + scratchFactoryRunner; regen via scripts/regen-corpus.ts must be byte-identical (FIT-28); tighten scenarios.ts FactoryRunner any-type"
+  - "Docs: quickstart/README machine-compiled snippets migrate in lockstep; authoring-verbs.md:78 + authoring-errors.md prose mentions tracked explicitly (not compile-enforced)"
+  - "File count ~30 (not 13-15); recommend 6-7 slices; export removal as final separate slice; walking skeleton = signature + 1 opted-in + 1 untyped fixture + 1 doc snippet + dts regen"
+  - "Spikes first: harness-opted-in canary end-to-end (anchor relocation oracle) + one corpus scenario byte-identity"
+  - "Regression sentinels (must stay green AND unedited): golden-ir/*, skeleton/*, conformance/*, core/context tests"
