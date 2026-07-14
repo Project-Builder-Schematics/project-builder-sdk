@@ -130,8 +130,17 @@ describe("withOps — REQ-DG-02.5: op named `then` collides with the base handle
     const modifyPack = defineOpPack<SourceFile, { modify: (ast: SourceFile) => void }>({
       modify(_ast) {},
     });
-    expect(() => withOps(realBaseDialect(), modifyPack)).toThrow(
+    let caught: unknown;
+    try {
+      withOps(realBaseDialect(), modifyPack);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toBe(
       'op-pack composition failed: op "modify" collides with a reserved handle verb'
     );
+    // Scenario's own second clause: plain Error, not isContained (REQ-DG-02.4 closure).
+    expect(isContained(caught)).toBe(false);
   });
 });
