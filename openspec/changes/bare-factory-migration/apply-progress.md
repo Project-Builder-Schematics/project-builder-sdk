@@ -9,9 +9,9 @@
 | S-000 | walking-skeleton | done | see below |
 | S-001 | happy-path | done | see below |
 | S-002 | happy-path | done | 9-file consumer set per §21 R-9; see below |
-| S-003 | happy-path | not started | |
-| S-004 | happy-path | not started | |
-| S-005 | happy-path | not started | |
+| S-003 | happy-path | done | see below |
+| S-004 | happy-path | done | scratchFactoryRunner redesigned — see deviation note below |
+| S-005 | happy-path | not started | corpus already byte-identical post-S-004 (verified, no regen run yet) |
 | S-006 | edge-case | not started | |
 
 ## S-000 — Walking Skeleton — bare signature + delegation + FIT-29
@@ -349,3 +349,191 @@ exactly accounted for — zero unexplained failures:
 
 No file owned by S-001/S-002 appears in this table. `bun run typecheck`: 12 errors, all 5
 in the self-healing bucket (`scripts/regen-corpus.ts` + 4 test files above), zero new.
+
+## S-003 — Author Docs — Bare-Shape Rewrite
+
+### Tasks completed
+
+- [x] README.md: scaffolding-folder example (`:40-47`) rewritten bare (tech-writer finding,
+  outside REQ-TSD-01.5's heading-scoped scan — covered instead by a NEW whole-file scan,
+  see below). Testing section (`## Testing your factory`): prose + both code examples
+  rewritten bare, `seed` moved into the options bag (`{ seed }`), a new closing paragraph
+  documents `packageDir`. Zero `defineFactory` tokens remain anywhere in the file (verified).
+- [x] `docs/dry-run.md`: runnable fence rewritten bare (`runFactoryForTest` + `(input) =>`
+  shape, `seed`-via-options-bag anchoring `find("src/legacy.ts").remove()`'s target so the
+  fence actually exercises the removal path); prose at `:40` reworded ("an active run").
+- [x] `docs/authoring-verbs.md:78`, `docs/authoring-errors.md:51`: prose reworded to the
+  same guarantee without naming the wrap primitive.
+- [x] `src/testing/index.ts`: `runFactoryForTest`'s JSDoc rewritten — description paragraph
+  fixed (the STALE "`factory` is the RUNNER ... produces" sentence, orphaned by S-000's
+  rename, corrected to describe `fn` as the bare author function); `@param fn`/`@param
+  options.packageDir` added; `@example` rewritten fully bare (zero wrap-primitive tokens).
+- [x] `src/core/context.ts` JSDoc (`:248-292`, frozen body `:293-346` untouched): added a
+  literal `@internal` tag + a sanctioned-callers note naming `src/core/**`/`src/testing/**`/
+  `src/conformance/**` (FIT-29's allowlist). Kept the EXISTING `@example` (already showed
+  the internal bin-invocation + typed wrap pattern — no rewrite needed there).
+- [x] `test/fitness/fit-06-example-jsdoc.test.ts`: REQ-TSD-02.1's "@example is complete"
+  assertion flipped from `toContain("defineFactory")` (asserting the OLD wrapped contract)
+  to `not.toContain("defineFactory")` + a bare-arrow-shape match — this is the ONE
+  pre-existing assertion in this file that encoded the wrapped contract; everything else
+  (PUBLIC_PATHS widening, `@param options.seed` regex) already landed in S-000/S-002.
+- [x] `test/fitness/definefactory-jsdoc.test.ts`: 3 new tests (REQ-FPS-05.2 re-aim) —
+  literal `@internal` tag present, sanctioned-caller roots named, `@example` still present
+  despite the internal tag (FIT-06's cascade obligation survives per REQ-TSD-02.3).
+- [x] `test/docs/testing-story-docs.test.ts`: new REQ-TSD-05 describe block — zero-token
+  scan across the 3 doc files (`.3`), prose-reworded assertion (`.2`), and a NEW
+  fence-compile check for `dry-run.md` (`.1`): extracts the fence BY CONTENT (searches for
+  the one containing `runFactoryForTest`, not by position — dry-run.md has 2 ```ts fences),
+  writes it to a scratch dir with an isolated `tsconfig.json` (`{extends: "../tsconfig.json",
+  files: ["fence.ts"]}` — same pattern as this repo's project tsconfig with no `include`,
+  meaning `files` fully scopes the compile to just this one file + its import graph), and
+  runs `bunx tsc --noEmit` against it. "Fence-compiles" is interpreted as a real, isolated
+  `tsc` type-check — not a `bun test`/execution pass (dry-run.md's fence has no
+  `test()`/`expect()` wrapper, unlike README's copy-runnable examples) — this is a
+  DELIBERATE, recorded interpretation since design/spec don't pin the mechanism.
+- [x] `test/docs/doc-set-content.test.ts`: new describe block — whole-README zero-
+  `defineFactory` scan (design §4.6's "design-added" row), the mechanism covering the
+  scaffolding-example fix that sits OUTSIDE REQ-TSD-01.5's heading-scoped scan.
+
+### Verification run (this slice, in isolation)
+
+```
+bun test test/docs/doc-set-content.test.ts test/docs/testing-story-docs.test.ts \
+         test/fitness/fit-06-example-jsdoc.test.ts test/fitness/definefactory-jsdoc.test.ts
+# 56 pass, 0 fail
+```
+
+Regression sentinels: empty diff. `src/core/context.ts` diff confined entirely to the JSDoc
+range `:248-292` (frozen `:293-346` body byte-identical, verified via diff inspection).
+
+### Suite state at end of S-003
+
+`bun test`: 1225 pass, 55 fail (was 1217/56) — the `.tmp-readme-copy-runnable/example-0.test.ts`
+2-fail bucket is GONE (README's example now passes verbatim). `bun run typecheck`: 12 errors,
+same 5 self-healing files, zero new.
+
+## S-004 — Fixture Rewrite — typed-factory + author-emulation, bare
+
+### Tasks completed
+
+- [x] `test/fixtures/typed-factory/factory.ts`: `run` converted to a bare
+  `(input: Input): void` export; gained a `PACKAGE_DIR` constant (mirrors the
+  author-emulation fixture's own convention) for its 2 consumers to thread explicitly.
+- [x] `test/e2e/typed-factory.e2e.test.ts`: now performs the ONE `defineFactory<Input>(run,
+  {packageDir: PACKAGE_DIR})` wrap itself (REQ-FPS-04.1's "the e2e test that drives it
+  performs the wrap internally" clause) — this file was NOT in any slice's named file list,
+  but is a direct, necessary consumer of the fixture's shape change (discovered via `grep`
+  for `typed-factory/factory` importers before editing, per R-2's "match existing patterns,
+  verify before writing" discipline).
+- [x] `test/fixtures/author-emulation/factory.ts`: all 28 `export const run*` bindings
+  converted to bare. The 19 direct `defineFactory<Input>(fn, {packageDir: PACKAGE_DIR})`
+  exports (M01, M02Defaults/MissingFrom/MissingTo, M03-M06, M08, M10, M11AtCap/OverCap,
+  M12Binary, M13, M15, M16Traversal/Absolute, M20Valid) became plain exported functions —
+  `packageDir` moved entirely to the `ScenarioEntry`/call-site level. The 9 scratch-backed
+  exports (M07, M09, M14, M17NonExisting/Existing, M18, M19, M21, WalkOrderDiscriminator)
+  keep calling `scratchFactoryRunner`, whose OWN internals changed — see the deviation note
+  below, this is the significant design decision of this slice.
+
+#### Deviation from ruling R-3 — recorded, not silent
+
+Slices.md §20 ruling R-3 states `scratchFactoryRunner` "STAYS a direct `defineFactory`
+caller." Verified at build time (per slices.md §10's explicit invitation to confirm this at
+build time and record the decision) that this is **mechanically impossible to reconcile
+with correct corpus capture**: `src/core/session.ts`'s `Session` class holds its
+`EngineClient` in a truly private field (`#client`, ES private, no accessor anywhere on
+`RunContext` or `Session`'s public API). A nested wrap-primitive call inside a bare-exported
+scratch function would need to build its OWN independent client/fake (mirroring
+`wrap-parity-support.ts`'s manual-wrap pattern) — and its directives would land in THAT
+independent fake, never in the OUTER `runFactoryForTest` wrap's `result.tree`/`emitted`,
+which is what `captureRun`/the corpus actually reads. There is no way to relay "the ambient
+client" into a nested call from bare, arity-1 factory code — by design, author code never
+sees the client at all.
+
+**Implemented instead**: `scratchFactoryRunner` no longer nests a second wrap-primitive
+call. It reuses the SAME ambient run `runFactoryForTest`/`captureRun` already established
+for the scenario: it creates the scratch dir + `collection.json` (unchanged), replicates the
+wrap primitive's OWN reserved-name check via the SAME exported utilities it calls
+(`findReservedSibling` + `rejectionForReservedName` from `src/core/schema/*` — never a
+private reimplementation), computes `packageRoot === packageDir` directly (faithful: the
+scratch dir's `collection.json` sits AT its own root, so the real containment-ceiling walk
+would resolve to the same value), then temporarily reassigns `currentContext().packageAnchors`
+for the duration of `body`'s execution, restoring the previous value (always `undefined`
+today, since these rows carry no static `ScenarioEntry.packageDir`) in a `finally`. The
+schema-boundary check (`validateAtRunBoundary`) is NOT replicated — it is unexported, and
+every scenario here omits `schema.json` (the same ENOENT opt-out the real check itself
+takes), so skipping it only drops a console warning, never an observable result difference.
+Verified byte-identical: every "matches the committed corpus" e2e assertion for the 7
+scratch-backed corpus rows (m-07, m-09, m-14, m-17, m-19, m-21, plus s-00's own path via the
+skeleton fixture) passes unchanged against the ALREADY-COMMITTED corpus with zero regen.
+
+- [x] `test/e2e/author-emulation/scenarios.ts`: `FactoryRunner` narrowed to
+  `(input: any) => void | Promise<void>`; `ScenarioEntry.packageDir?: string` added;
+  threaded `packageDir: PACKAGE_DIR` (or `SKELETON_PACKAGE_DIR` for s-00) at the 16 direct
+  entries (s-00 + 15 matrix rows); the 7 scratch-backed entries (m-07/m-09/m-14/m-17/m-18/
+  m-19/m-21) carry no `packageDir` — their factories resolve it dynamically, internally.
+- [x] `scripts/regen-corpus.ts`, `test/e2e/author-emulation/corpus-format.test.ts`,
+  `test/e2e/author-emulation-scaffold.e2e.test.ts`, `test/fitness/fit-28-corpus-determinism.
+  test.ts`: all 4 `captureRun(scenario.run, scenario.input, scenario.seed)` positional-3rd
+  call sites converted to the options bag `{seed: scenario.seed, packageDir:
+  scenario.packageDir}` (`captureRun`'s own signature already landed in S-002).
+- [x] `test/e2e/author-emulation-scaffold.e2e.test.ts` direct (non-SCENARIOS) call sites:
+  `runM02MissingFrom`/`runM02MissingTo` calls dropped their `{client: undefined as never}`
+  2nd arg entirely (both fixtures ignore `input` too — their missing-arg rejection fires
+  before any run-context/anchor access, verified via `src/scaffold/expander.ts`'s
+  `runScaffold`, so no wrapping/packageDir is needed to invoke them directly);
+  `runM11OverCap`/`runM16Absolute` (direct, non-scratch) gained an explicit
+  `{packageDir: PACKAGE_DIR}` third arg at their `captureRun(...)` call sites, since their
+  own export no longer bakes it in.
+- [x] `test/fixtures/red/author-emulation/nondeterministic-factory.ts`: converted to bare
+  (unblocks `fit-24`/`fit-28`'s red-proof tests — not one of the 28+1 REQ-ATH-20.1-counted
+  exports, but a direct consumer of the same bare `captureRun`/`FactoryRunner` contract,
+  discovered broken via the self-healing bucket, in scope to fix per this batch's mandate).
+- [x] `test/fitness/fit-16-reserved-name-scan.test.ts`: 3rd signal (`hasUntetheredDefineFactory`)
+  RETIRED in the same commit as `test/fixtures/red/reserved/untethered-factory.ts`'s deletion
+  — 2 ALWAYS_ON_SCAN_ROOTS-loop assertions removed, 2 red-proof `it` blocks removed, the
+  now-dead `hasUntetheredDefineFactory` function removed. Reserved-sibling walk (the OTHER
+  signal) untouched, still green.
+- [x] REQ-ATH-20.1/.3 whole-file bare-identifier scan: added to
+  `test/e2e/author-emulation-scaffold.e2e.test.ts` (no dedicated FIT-number per design;
+  co-located with this file's other S-004 matrix-row assertions rather than a new fitness
+  file). Scans BOTH fixture files for the bare identifier `\bdefineFactory\b` (word-boundary,
+  never the `defineFactory(`-with-paren substring the spec's ORIGINAL V2 wording used before
+  ruling R-4's amendment — verified per §16b's finding that the paren-anchored form is
+  vacuously green against the generic `Identifier<Input>(` call shape). Includes a red-proof
+  (a reverted export string), a no-false-negative check (the generic call form IS caught),
+  and a no-false-positive check (a fused/merged identifier with no word boundary is NOT
+  caught).
+
+### Verification run (this slice, in isolation)
+
+```
+bun test test/fitness/fit-16-reserved-name-scan.test.ts test/fitness/fit-24-corpus-purity.test.ts \
+         test/fitness/fit-28-corpus-determinism.test.ts test/e2e/author-emulation-scaffold.e2e.test.ts \
+         test/e2e/author-emulation/corpus-format.test.ts test/e2e/typed-factory.e2e.test.ts \
+         test/fitness/fit-29-sanctioned-definefactory-caller.test.ts test/fitness/fit-08-no-kit-bleed.test.ts
+# 114 pass, 0 fail
+bun run typecheck   # zero errors — the ENTIRE self-healing bucket (5 files) is now clean
+```
+
+Corpus freshness (S-005 preview, not yet formally run): every "matches the committed
+corpus" assertion (22 of them, across all non-gated scenarios) already passes against the
+committed `test/e2e/author-emulation/corpus/*.json` with ZERO regen — the fixture rewrite
+preserved directive-emission behavior byte-for-byte, as intended.
+
+Regression sentinels: `git diff --stat -- test/golden-ir test/core test/conformance
+test/dialects test/skeleton` → empty. `src/core/context.ts`: zero diff vs. the S-003 commit
+(S-004 touches no production file at all — test/fixtures/**, test/e2e/**, test/fitness/**,
+scripts/** only).
+
+## Suite State at End of Batch 3 (S-003 + S-004)
+
+`bun test`: **1275 pass, 6 fail** (was 1217/56 at end of batch 2). Every remaining failure is
+the SAME pre-existing S-006-owned bucket, verified byte-identical (same 6 test names) to the
+pre-batch-3 baseline — zero unexplained failures, zero regressions:
+
+| Bucket | File | Fails | Owner |
+|---|---|---|---|
+| explicitly planned red | `test/e2e/installed-consumer.e2e.test.ts` | 6 | S-006 |
+
+`bun run typecheck`: **0 errors** — the self-healing bucket this change itself created at
+S-000 (5 files) is now fully resolved; no new errors introduced.
