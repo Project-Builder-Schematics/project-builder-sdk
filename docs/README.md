@@ -15,3 +15,10 @@ quickstart; the rest is reference, read in whatever order you need it.
 5. **[Authoring a dialect](./authoring-a-dialect.md)** — structured, AST-aware mutation for
    one file type (e.g. `@pbuilder/sdk/typescript`), for when the verbs above aren't enough.
    This SDK ships that content only once — this index links it rather than repeating it.
+
+## Contributor notes
+
+Design records for SDK contributors — not part of the author reading path above.
+
+- **[Engine ↔ SDK wire design](./engine-sdk-wire-design.md)** — stdio JSON-RPC transport,
+  single-initiator protocol, runner contract, and the Go↔TS cross-language contracts.
