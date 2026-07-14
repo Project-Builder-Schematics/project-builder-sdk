@@ -2,7 +2,7 @@
   "change": "bare-factory-migration",
   "triage": "L",
   "phase": "verify-final",
-  "phase_status": "judgment-day APPROVED round 1 (0 critical, 0 real warnings); arch-refresh + steward reckoning next",
+  "phase_status": "ALL GATES GREEN: judgment-day APPROVED, steward DELIVERED, arch audit clean; archive running",
   "next_phase": "verify-final",
   "plan_verify": "ready",
   "plan_verify_detail": {"iteration": 3, "verdict": "ready", "artifact": "openspec/changes/bare-factory-migration/verify-plan-3.md"},
@@ -12,7 +12,7 @@
   "spec_status": "signed",
   "spec_version": "V2 (owner, 2026-07-14)",
   "verify_final": "pass-with-followups",
-  "arch_audit": null,
+  "arch_audit": "clean",
   "in_loop_iteration": 0,
   "execution_mode": "interactive",
   "artifact_store": "hybrid"
