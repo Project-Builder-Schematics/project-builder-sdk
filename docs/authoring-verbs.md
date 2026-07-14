@@ -28,7 +28,10 @@ package rather than rendering a template.
   for an existing file. A rejected run (e.g. the target does not exist) throws `AuthoringError`.
   Distinct from a dialect handle's `.modify(fn)` escape hatch (see
   [Authoring a dialect](./authoring-a-dialect.md)), which mutates a live AST in place rather
-  than replacing text wholesale.
+  than replacing text wholesale. A rejected `.replaceContent()` reports `verb: "modify"` on
+  its `AuthoringError`, not `"replaceContent"` — both `.replaceContent()` and `.modify(fn)`
+  lower to the same wire directive, so the label names the wire mutation, not the author-facing
+  call (see [Error contract](./authoring-errors.md)). This is deliberate, not a stale rename.
 
   ```ts
   import { replaceContent } from "@pbuilder/sdk/commons";

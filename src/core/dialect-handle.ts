@@ -191,9 +191,10 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
 
   // Shared predicate (row-141/row-136): is this handle's own AST-op directive still
   // buffered, undrained? #ensureOpen consults it to skip re-registration while the prior
-  // directive is still pending; runModify consults the SAME check to reject a conflicting
-  // .modify() (ADR-0039). `session` is passed in rather than re-derived via currentContext()
-  // — both call sites already have it in scope from their own context lookup.
+  // directive is still pending; runReplaceContent consults the SAME check to reject a
+  // conflicting .replaceContent() (ADR-0039). `session` is passed in rather than re-derived
+  // via currentContext() — both call sites already have it in scope from their own context
+  // lookup.
   #hasOpenPendingDirective(session: Session): boolean {
     return this.#openDirective !== undefined && session.isPending(this.#openDirective);
   }

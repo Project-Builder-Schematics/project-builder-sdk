@@ -20,6 +20,7 @@ const SENSITIVE_AREAS_PATH = join(PROJECT_ROOT, "openspec/sensitive-areas.md");
 const AUTHORING_ERRORS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-errors.md");
 const DRY_RUN_DOC_PATH = join(PROJECT_ROOT, "docs/dry-run.md");
 const AUTHORING_ERROR_SRC_PATH = join(PROJECT_ROOT, "src/core/authoring-error.ts");
+const AUTHORING_VERBS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-verbs.md");
 
 const security = () => readFileSync(SECURITY_PATH, "utf-8");
 const doc = () => readFileSync(DOC_PATH, "utf-8");
@@ -131,11 +132,16 @@ describe("REQ-DAS-02.1 — contributor section has no author-style demo", () => 
 // the mismatch is deliberate, `AuthoringVerb`/`DryRunVerb` are NEVER renamed). A substance
 // check (mirrors REQ-DAS-01.3's own pattern), not a byte-exact pin — design.md states this
 // requirement as SUBSTANCE only, no verbatim sentence is prescribed.
-describe("REQ-AEC-13.3 — the shared `\"modify\"` wire label is documented in all 3 surfaces", () => {
+//
+// Fourth surface, `docs/authoring-verbs.md` (spec.md:40-42, REQ-AEC-13's "Documentation
+// surfaces" list): the rationale breadcrumb belongs on the `replaceContent` entry itself, not
+// only in JSDoc — a reader of the published docs site never sees JSDoc.
+describe("REQ-AEC-13.3 — the shared `\"modify\"` wire label is documented in all 4 surfaces", () => {
   const surfaces = [
     { name: "docs/authoring-errors.md", read: () => readFileSync(AUTHORING_ERRORS_DOC_PATH, "utf-8") },
     { name: "docs/dry-run.md", read: () => readFileSync(DRY_RUN_DOC_PATH, "utf-8") },
     { name: "src/core/authoring-error.ts (AuthoringVerb JSDoc)", read: () => readFileSync(AUTHORING_ERROR_SRC_PATH, "utf-8") },
+    { name: "docs/authoring-verbs.md (replaceContent entry)", read: () => readFileSync(AUTHORING_VERBS_DOC_PATH, "utf-8") },
   ];
 
   for (const surface of surfaces) {

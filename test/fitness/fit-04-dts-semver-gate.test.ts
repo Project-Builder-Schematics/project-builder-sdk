@@ -228,6 +228,44 @@ export declare function newHelper(path: string): void;`;
     expect(removals.some((l) => l.includes("rename"))).toBe(true);
   });
 
+  // Non-vacuousness pin for the core/define-dialect baseline (verify-final followup): the
+  // pair above is a FIRST-commit baseline (S-000, ADR-0050 rename), so its removal-only diff
+  // is vacuously true — it can never catch a resurfaced `.raw(fn)` member because there is no
+  // PRIOR baseline to diff against. This describe asserts the baseline's actual CONTENT
+  // directly instead, so a regression that reintroduces a live `raw(` handle member (or drops
+  // `replaceContent`/`modify(fn)`) still fails even on this first commit.
+  describe("core/define-dialect.d.ts baseline content pin (S-000, ADR-0050 rename)", () => {
+    const defineDialectBaseline = readFileSync(join(BASELINE_DIR, "core.define-dialect.d.ts"), "utf-8");
+
+    it("contains the replaceContent wholesale-replace member", () => {
+      expect(defineDialectBaseline).toContain("replaceContent");
+    });
+
+    it("contains the modify(fn) AST escape-hatch member", () => {
+      expect(defineDialectBaseline).toContain("modify(fn:");
+    });
+
+    it("does not contain a live raw( method member on Handle", () => {
+      // `\braw\(` is call/method-member SHAPED (requires the paren immediately after the
+      // word): it would match a resurfaced live `raw(fn: ...)` handle member, but NOT the
+      // quoted string literal `"raw"` inside `RESERVED_HANDLE_NAMES`'s array (there, `raw` is
+      // followed by a comma and closing quote, never a paren) — so that array literal staying
+      // in the baseline is expected and must never trip this assertion.
+      expect(defineDialectBaseline).not.toMatch(/\braw\(/);
+    });
+
+    it("[red-proof] a fixture reintroducing a live raw( member is caught by the pattern", () => {
+      const fixture = "export type Handle = { raw(fn: (ast: Ast) => void): Edited };";
+      expect(fixture).toMatch(/\braw\(/);
+    });
+
+    it("[red-proof] the RESERVED_HANDLE_NAMES string literal alone does not false-positive", () => {
+      const fixture =
+        'export declare const RESERVED_HANDLE_NAMES: readonly ["then", "read", "raw", "modify"];';
+      expect(fixture).not.toMatch(/\braw\(/);
+    });
+  });
+
   // RED-PROOF (A2): a doc-only @example edit does NOT trip the gate.
   it("[red-proof] a JSDoc @example change does NOT trigger the gate", () => {
     const simulatedBaseline = `/**

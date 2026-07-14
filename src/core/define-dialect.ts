@@ -147,6 +147,10 @@ const RESERVED_SET: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
 // (the concrete intersection members of `Handle`, NOT the string-indexed `OpMethods` arm)
 // must appear in `RESERVED_HANDLE_NAMES` — extras like the retired `raw` are allowed.
 // Adding a new base verb without reserving it fails here, at the declaration site.
+// "modify" and "remove" are hand-listed because they are inline intersection members on
+// `Handle` (see define-dialect's `Handle` type), not derived from an interface `keyof` —
+// any future inline addition to that intersection must be added here too, or this
+// exhaustiveness guard silently stops covering it.
 type BaseHandleSurfaceKey =
   | keyof ReadOps
   | keyof DialectWriteOps<any, OpPack>

@@ -136,6 +136,21 @@ const MARKDOWN_TEXTS: ScanText[] = [...ROOT_MARKDOWN_FILES, ...collectFiles(DOCS
   text: readFileSync(file, "utf-8"),
 }));
 
+// Non-vacuousness floors (QA council, live-proven leak: swapping either corpus glob for `[]`
+// left every sweep assertion below green, since `.flatMap`/`.every` over an empty array
+// vacuously passes — a partial-glob regression would sail through undetected). Floors sit
+// well below today's actual counts (42 src/** files, ~12 markdown files) so routine file
+// additions/removals never churn them, while an empty or badly-scoped corpus still fails.
+describe("corpus non-vacuousness floors (regression guard for the sweeps below)", () => {
+  it("SRC_COMMENT_TEXTS has more than 20 files — an emptied/partial src/** glob must fail, never pass vacuously", () => {
+    expect(SRC_COMMENT_TEXTS.length).toBeGreaterThan(20);
+  });
+
+  it("MARKDOWN_TEXTS has more than 3 files — an emptied/partial markdown glob must fail, never pass vacuously", () => {
+    expect(MARKDOWN_TEXTS.length).toBeGreaterThan(3);
+  });
+});
+
 describe("REQ-KIT-03 — `.raw` retirement sweep (S-004)", () => {
   it("Pattern A: zero call-shaped `.raw(` occurrences across src/**'s comments", () => {
     const violations = SRC_COMMENT_TEXTS.flatMap(({ file, text }) => findMatches(text, file, RAW_CALL_PATTERN));
