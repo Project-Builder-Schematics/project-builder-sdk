@@ -11,8 +11,8 @@
 | S-002 | happy-path | done | 9-file consumer set per §21 R-9; see below |
 | S-003 | happy-path | done | see below |
 | S-004 | happy-path | done | scratchFactoryRunner redesigned — see deviation note below |
-| S-005 | happy-path | not started | corpus already byte-identical post-S-004 (verified, no regen run yet) |
-| S-006 | edge-case | not started | |
+| S-005 | happy-path | done | regen executed, git-clean no-op (see below) |
+| S-006 | edge-case | done | export removal, hard-cut ATOMIC — FINAL slice, see below |
 
 ## S-000 — Walking Skeleton — bare signature + delegation + FIT-29
 
@@ -537,3 +537,169 @@ pre-batch-3 baseline — zero unexplained failures, zero regressions:
 
 `bun run typecheck`: **0 errors** — the self-healing bucket this change itself created at
 S-000 (5 files) is now fully resolved; no new errors introduced.
+
+## S-005 — Corpus Regen — byte-identical freshness
+
+### Failing-first finding — the RED leg is vacuous (documented, not manufactured)
+
+Per Executor Context §12/precedent set by the batch-3 evaluator's verify-in-loop-4 finding:
+ran `bun test test/fitness/fit-28-corpus-determinism.test.ts` BEFORE any regen — **2 pass, 0
+fail**, and `git status --porcelain test/e2e/author-emulation/corpus/` was already empty. The
+corpus was ALREADY byte-identical to what S-004's bare fixtures produce — S-004's own
+"Corpus freshness (S-005 preview)" note (above) already flagged this. Manufacturing a fake
+red (e.g. temporarily corrupting a committed record) would test nothing this slice's real
+acceptance criterion cares about; the documented-vacuous-red precedent from verify-in-loop-4
+applies identically here. This slice's value is the EXECUTED freshness proof below, not a
+red/green transition.
+
+### Executed proof (REQ-ATH-20.2)
+
+```
+bun scripts/regen-corpus.ts
+# wrote all 22 records (s-00 + 21 matrix rows) — exit 0
+
+git status --porcelain test/e2e/author-emulation/corpus/
+# (empty — git-clean, byte-identical regen, no diff)
+
+bun test test/fitness/fit-28-corpus-determinism.test.ts   # fresh-process double-run, post-regen
+# 2 pass, 0 fail (unchanged from pre-regen)
+
+bun run typecheck   # 0 errors
+git diff --stat -- test/golden-ir test/core test/conformance test/dialects test/skeleton   # empty
+```
+
+No file changed as a result of this slice (the regen script's OUTPUT is identical to the
+already-committed corpus) — the freshness guarantee (REQ-ATH-20.2) is proven by execution,
+not by a diff. Nothing to mark `[x]` beyond running the script and recording this evidence.
+
+## S-006 — Export Removal — FINAL (hard cut, ATOMIC)
+
+### PRE-GATE (design-mandated, run FIRST)
+
+Verified via `rg -n "import.*defineFactory" test/fake/harness-*.test.ts` (empty) and a
+targeted re-check of the 5 folded R-9 files + `test/e2e/author-emulation/ir-transcript.
+test.ts` (all clean, zero `defineFactory` imports — S-002 already converted them). No
+build-order violation found; proceeded.
+
+### Tasks completed
+
+- [x] `src/testing/index.ts`: removed `export { defineFactory } from "../core/context.ts";`
+  (the public re-export). The internal `import { defineFactory } from "../core/context.ts"`
+  (used at the delegation call site, `:125`) is UNTOUCHED — `defineFactory` remains reachable
+  only from `src/core/**` (declaration/barrel), `src/testing/**` (internal use), and
+  `src/conformance/**` (FIT-29's allowlist, unchanged).
+- [x] `test/fitness/fit-08-no-kit-bleed.test.ts`: `./testing`'s `SCANNED` entry narrowed —
+  `valueAllow: ["runFactoryForTest"]` (dropped `"defineFactory"`), `typeAllow` unchanged
+  (`["Batch", "Directive"]`). REQ-TES-03.1's fixture updated to the post-removal shape
+  (no `defineFactory` re-export line); NEW red-proof `REQ-TES-03.1b` (a fixture re-exporting
+  `defineFactory` is now flagged); NEW test pinning REQ-TES-03.3's "shallow-fix rejection"
+  clause (the narrowed allowlist can't be achieved by dropping `./testing` from `SCANNED`
+  entirely — the path stays present AND its allowlist is the real, narrow one).
+- [x] `src/dialects/typescript/index.ts` — **discovery, not in design's §14 doc inventory**:
+  `find`'s JSDoc `@example` still showed `import { defineFactory } from "@pbuilder/sdk/testing"`
+  wrapping the example factory. Left as-is, this becomes a BROKEN example the moment the
+  export is removed (the import would fail to resolve) — fixed to the bare-shape convention
+  every other doc surface in this migration already uses (`export const run = async () => {
+  ... }`, no wrap, no `defineFactory` import). No REQ/FIT scans this file's JSDoc content
+  today (FIT-06 only checks `@example` PRESENCE, and `normalizeDeclarations()` strips comments
+  from FIT-04's diff) — so this was a silent gap, not a red test; fixed under the Boy Scout
+  rule (trivial, no frozen-range/production-behavior touch) rather than expanding scope via a
+  halt.
+- [x] `test/e2e/installed-consumer.e2e.test.ts` (the 6 pre-existing reds this slice inverts):
+  - `assertWriteOnlyCommit`/`assertAllOrNothingRejection`/`assertDryRunNonEmpty`: scratch
+    scripts converted from `defineFactory(() => {...})`-wrapped runners to bare
+    `() => {...}` functions passed directly to `runFactoryForTest`; `assertAllOrNothingRejection`'s
+    seed argument moved from a bare positional object into the options-bag `{ seed: {...} }`
+    shape (it was building the OLD positional-seed shape, which the new options-bag signature
+    would have silently misrouted — fixed as part of this same conversion).
+  - Resolution probe test (tarball leg): `results.testing?.hasDefineFactory` flipped
+    `true` → `false`; title/comment reworded from "REQ-TES-02.1" (repealed) to
+    "REQ-TES-08.1" (`defineFactory` unreachable, the restated positive-boundary REQ);
+    describe-block title + its cross-leg red-proof string-match updated in lockstep
+    (`"REQ-TES-02/06, ADR-0036"` → `"REQ-TES-06/08, ADR-0036"`).
+  - NEW shared scenario `assertDefineFactoryImportFailsToResolve` (REQ-TES-06.4): writes a
+    scratch `.mjs` with a STATIC `import { defineFactory } from "@pbuilder/sdk/testing"` and
+    asserts the spawned process exits non-zero with `defineFactory` named in stderr — uses
+    `spawnCapture` directly (not `runScratchScript`, which throws on non-zero exit; the wrong
+    shape for a scenario whose entire point is a failing resolution). Added as a 5th shared
+    scenario helper (both legs call it, `SHARED_SCENARIO_HELPERS` + the parity red-proof's
+    expected-count updated in lockstep) rather than a single-leg one-off, preserving
+    REQ-LC-02.3's structural parity invariant.
+- [x] dts REMOVAL regen (event 2 of 2, design §4.8): `bun run build`, then copied
+  `dist/testing/index.d.ts` → `test/fitness/dts-baseline/testing.index.d.ts` and
+  `dist/dialects/typescript/index.d.ts` → `test/fitness/dts-baseline/typescript.index.d.ts`
+  (the dialect file's baseline needed regen too, since its JSDoc fix above changed its
+  emitted comment text). Diff is the `export { defineFactory }` line disappearing plus the
+  JSDoc catching up to S-000/S-002/S-003's already-landed rewrites (the baseline had been
+  stale on JSDoc CONTENT since S-000 only regenerated for the signature change, and
+  `normalizeDeclarations()` strips comments from the removal-diff check, so the staleness was
+  invisible to FIT-04 until this regen). REQ-TES-05.3's positive-signature assertion
+  (`fit-04-dts-semver-gate.test.ts`, already added in S-000) needed NO edit — it still passes
+  unchanged, satisfying "paired with the positive assertion, not a removal-only diff" without
+  new code, since the signature itself didn't change again in this event.
+- [x] `test/fitness/fit-29-sanctioned-definefactory-caller.test.ts` — **expected fallout,
+  fixed same commit**: its S-000-era positive-control test hard-coded that
+  `src/testing/index.ts` resolves `defineFactory` from `../core/context.ts` TWICE (the
+  internal import AND the public re-export, per S-000's Deviation #1). With the re-export
+  gone, only one occurrence remains; updated the expected array from
+  `["../core/context.ts", "../core/context.ts"]` to `["../core/context.ts"]` and reworded the
+  comment.
+
+### Failing-first (captured before the fix)
+
+```
+bun test test/fitness/fit-08-no-kit-bleed.test.ts
+# (after narrowing SCANNED's valueAllow, before touching src/testing/index.ts)
+# 22 pass, 1 fail — "src/testing/index.ts exports only its allowlist":
+#   kit symbol leaked: defineFactory in export { defineFactory }
+
+bun test test/e2e/installed-consumer.e2e.test.ts   # pre-existing baseline, captured first
+# 8 pass, 6 fail (assertWriteOnlyCommit/assertAllOrNothingRejection ×2 legs, dryRun ×2 legs —
+# all a double-wrap TypeError: runFactoryForTest's new signature wrapping an
+# already-defineFactory-wrapped runner a second time)
+
+bun test test/fitness/fit-04-dts-semver-gate.test.ts
+# (after removing the export from src/testing/index.ts, before regenerating the baseline)
+# 15 pass, 1 fail — "testing: no breaking removals vs committed baseline":
+#   removed: export { defineFactory } from "../core/context.ts";
+```
+
+### Verification run (post-fix, this slice)
+
+```
+bun test test/fitness/fit-08-no-kit-bleed.test.ts                              # 23 pass, 0 fail
+bun test test/fitness/fit-04-dts-semver-gate.test.ts                           # 16 pass, 0 fail
+bun test test/e2e/installed-consumer.e2e.test.ts                              # 16 pass, 0 fail
+bun test test/fitness/fit-29-sanctioned-definefactory-caller.test.ts          # 23 pass, 0 fail
+bun run typecheck                                                              # 0 errors
+bun run build                                                                  # clean
+```
+
+Regression sentinels: `git diff --stat -- test/golden-ir test/core test/conformance
+test/dialects test/skeleton` → empty. `src/core/context.ts`: zero diff (frozen `:293-346`
+body AND its `:248-292` JSDoc both untouched — this slice's only production edits were
+`src/testing/index.ts`'s export line and `src/dialects/typescript/index.ts`'s JSDoc example).
+`package.json#exports`, `pkg-surface-baseline.json`, FIT-09, FIT-14: untouched (§19
+reconciliation confirmed — no subpath removed, only `./testing`'s named-symbol allowlist
+narrowed, FIT-08's territory).
+
+Repo-wide `defineFactory` scan (outside `src/core/**`, `src/testing/index.ts`,
+`src/conformance/index.ts`, `test/support/wrap-parity-support.ts`, `test/fitness/**`, the
+regression-sentinel dirs, and prose/historical docs) — every remaining hit is either (a) an
+internal comment inside `src/core/session.ts`/`src/scaffold/expander.ts` describing runtime
+coupling accurately, (b) `docs/engine-sdk-wire-design.md` — an engineering design doc (not one
+of the 5 author-facing surfaces REQ-TSD-01/05 scan) correctly describing `defineFactory` as
+runner-internal machinery authors never call, or (c) `CONTRIBUTING.md`/
+`test/e2e/author-emulation/corpus/coverage-manifest.md` — accurate test-taxonomy prose and a
+historical friction-log entry from a PRIOR change, neither claiming author-facing reachability
+via `./testing`. None require edits.
+
+## Suite State at End of Batch 4 (S-005 + S-006 — MIGRATION COMPLETE)
+
+`bun test`: **1285 pass, 0 fail** (was 1275 pass/6 fail — installed-consumer's 6 reds
+inverted to green, FIT-08 gained 2 tests, installed-consumer gained 2 tests, net 1281+4=1285).
+`bun run typecheck`: **0 errors**. `bun run build`: clean. Regression sentinels: zero diff.
+`src/core/context.ts:293-346`: byte-identical to before this change started. The migration's
+end state (REQ-ATH-20, REQ-TES-03/05/06/08) is fully green — `defineFactory` is unreachable
+from `./testing`, `runFactoryForTest` is the sole author-facing entry, and the corpus is
+proven byte-identical fresh from bare fixtures.
