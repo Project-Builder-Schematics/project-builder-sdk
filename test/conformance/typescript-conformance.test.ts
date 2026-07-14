@@ -54,7 +54,7 @@ describe("REQ-DC-01 — byte-exact round-trip fidelity (real TypeScript dialect)
 });
 
 describe("REQ-DC-02/03 — single-op fidelity + coalescing-to-one (real TypeScript dialect)", () => {
-  it("addImport single-op exercise (DC-02) + addImport+.raw multi-op exercise (DC-03/read-split) both pass", async () => {
+  it("addImport single-op exercise (DC-02) + addImport+.modify multi-op exercise (DC-03/read-split) both pass", async () => {
     const fixture: OpPackFixture = {
       opPack: addImportPack,
       baseDialect: realTypescriptDialect,
@@ -67,13 +67,13 @@ describe("REQ-DC-02/03 — single-op fidelity + coalescing-to-one (real TypeScri
         },
         {
           // DC-03 (+ DC-05.2's live read-split counterpart, exercised internally by
-          // testOpPack for every chain.length >= 2 exercise): addImport + .raw, two
+          // testOpPack for every chain.length >= 2 exercise): addImport + .modify, two
           // distinguishable ops, byte-exact coalesced content.
           seed: golden("add-import-before.txt"),
           chain: [
             { op: "addImport", args: ["join", "node:path"] },
             {
-              raw: (ast: unknown): void => {
+              modify: (ast: unknown): void => {
                 (ast as SourceFile).addStatements("export const z = 3;");
               },
             },
@@ -169,7 +169,7 @@ describe("REQ-DC-06 — mandatory adversarial samples (contributor cannot opt ou
           chain: [
             { op: "addImport", args: ["join", "node:path"] },
             {
-              raw: (ast: unknown): void => {
+              modify: (ast: unknown): void => {
                 (ast as SourceFile).addStatements("export const z = 3;");
               },
             },

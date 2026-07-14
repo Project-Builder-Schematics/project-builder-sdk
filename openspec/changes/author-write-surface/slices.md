@@ -669,29 +669,29 @@ the real dispatcher, and closure/live-AST-node smuggling fixtures still fail the
 
 ### Tasks
 
-- [ ] S-002.1 `[adapt]` `src/conformance/index.ts`: `OpExercise.chain`'s union member
+- [x] S-002.1 `[adapt]` `src/conformance/index.ts`: `OpExercise.chain`'s union member
   `{readonly raw: (ast:unknown)=>void}` → `{readonly modify: (ast:unknown)=>void}` (line 61);
   `runExercise`'s dispatch `"raw" in step ? handle.raw(step.raw) : ...` → `"modify" in step ?
   handle.modify(step.modify) : ...` (line 146); JSDoc comments at lines 43, 60 (`.raw` mentions
   in `OpExercise`'s own doc comment) → `.modify`.
-- [ ] S-002.1b `[adapt]` **Amend `openspec/decisions/0012-conformance-kit.md` IN PLACE** — append
+- [x] S-002.1b `[adapt]` **Amend `openspec/decisions/0012-conformance-kit.md` IN PLACE** — append
   a new `## Amendment (2026-07-14, author-write-surface, S-002)` section (see the file's own
   two existing amendment sections for the pattern) documenting the `{raw}`→`{modify}` chain-step
   discriminant rename + the new discriminant-misroute test as an ADR-0012 amendment (design.md
   §4.5 ADR-02's Context/Decision/Consequences/Alternatives — rejected alternatives: keep `{raw}`
   as a back-compat alias; dual-accept `{raw}|{modify}`). Land in the SAME commit as S-002.1.
-- [ ] S-002.2 No planted fixture under `test/conformance/planted/*` uses the `{raw:...}` chain
+- [x] S-002.2 No planted fixture under `test/conformance/planted/*` uses the `{raw:...}` chain
   shape (verified — see Fixture Formats section above); this task is a NO-OP for that directory.
   Do not go looking for a `{raw}` planted fixture that doesn't exist.
 - [ ] S-002.3 `[RED]` NEW discriminant-misroute test (REQ-DC-02.2): a step shaped
   `{op:"addImport", args:["readFileSync","node:fs"]}` (no `modify` key) must route to the
   named-op branch and produce the SAME golden output `addImport` alone would — add to
   `test/conformance/typescript-conformance.test.ts`.
-- [ ] S-002.4 `[adapt]` `test/conformance/typescript-conformance.test.ts`: the file's TWO actual
+- [x] S-002.4 `[adapt]` `test/conformance/typescript-conformance.test.ts`: the file's TWO actual
   `{raw: (ast) => ...}` chain steps at **lines 76 and 172** → `{modify: (ast) => ...}` (these are
   the only two literal `{raw:...}` chain-step usages in the entire `test/conformance/` tree —
   confirmed via `rg -n '\{\s*raw\s*:|raw:\s*\(ast' test/conformance/*.ts test/conformance/planted/*.ts`).
-- [ ] S-002.5 `[RED]` **Regenerate `test/fitness/dts-baseline/conformance.index.d.ts`** — churns
+- [x] S-002.5 `[RED]` **Regenerate `test/fitness/dts-baseline/conformance.index.d.ts`** — churns
   (confirmed live: line 42's `readonly raw: (ast: unknown) => void;` is a real interface-member
   declaration inside `OpExercise`, not a comment). `bun run build`, then
   `cp dist/conformance/index.d.ts test/fitness/dts-baseline/conformance.index.d.ts`. Review the
