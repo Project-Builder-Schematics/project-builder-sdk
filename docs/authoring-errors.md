@@ -27,7 +27,11 @@ Calling the runner directly throws; `runFactoryForTest` captures the same `Autho
 
 - **`verb`** — the author-facing verb whose call was rejected: `"create"`, `"modify"`,
   `"remove"`, `"rename"`, `"move"`, `"copy"`, or `"copyIn"`. `undefined` for batch-level
-  rejections that have no single offending call.
+  rejections that have no single offending call. `"modify"` labels the underlying WIRE
+  mutation, and is shared by BOTH `.replaceContent()` calls (the commons/dialect wholesale
+  replace) and a dialect handle's `.modify(fn)` AST escape hatch — the two calls lower to the
+  same wire directive, so a rejection on either surfaces as `verb: "modify"`. This is
+  deliberate, not a stale name left over from a rename.
 - **`path`** — the author-declared, source-side path for the failing call. `undefined` when
   `verb` is `undefined`.
 - **`reason`** — the closed cause of the rejection (see below).

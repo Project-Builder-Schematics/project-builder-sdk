@@ -22,6 +22,13 @@ import { EmitRejection, type EmitRejectionCode } from "./emit-rejection.ts";
  * forced by the `Directive["op"]` union gaining the `copyIn` wire op (ADR-0043); a
  * `copyIn` collision attributes `verb: "copyIn"` (the author never called `copy`).
  *
+ * `author-write-surface` S-004 (REQ-AEC-13): `"modify"` is the WIRE-altitude label for
+ * the `{op:"modify"}` directive — it is shared by BOTH `.replaceContent()` (the
+ * commons/dialect wholesale-replace call) and a dialect handle's `.modify(fn)` AST escape
+ * hatch, because both lower to the same wire directive. This member is DELIBERATELY never
+ * renamed to `"replaceContent"` — it labels the wire mutation, not either author-facing
+ * call name.
+ *
  * @example
  * if (err instanceof AuthoringError && err.verb !== undefined) {
  *   console.error(`${err.verb} was rejected at ${err.path}`);

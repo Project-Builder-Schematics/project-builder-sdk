@@ -17,6 +17,9 @@ const SECURITY_PATH = join(PROJECT_ROOT, "SECURITY.md");
 const DOC_PATH = join(PROJECT_ROOT, "docs/authoring-a-dialect.md");
 const PUBLISH_WORKFLOW_PATH = join(PROJECT_ROOT, ".github/workflows/publish.yml");
 const SENSITIVE_AREAS_PATH = join(PROJECT_ROOT, "openspec/sensitive-areas.md");
+const AUTHORING_ERRORS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-errors.md");
+const DRY_RUN_DOC_PATH = join(PROJECT_ROOT, "docs/dry-run.md");
+const AUTHORING_ERROR_SRC_PATH = join(PROJECT_ROOT, "src/core/authoring-error.ts");
 
 const security = () => readFileSync(SECURITY_PATH, "utf-8");
 const doc = () => readFileSync(DOC_PATH, "utf-8");
@@ -121,6 +124,29 @@ describe("REQ-DAS-02.1 — contributor section has no author-style demo", () => 
     expect(section).toContain("testOpPack");
     expect(section).toContain("expectTypeOf");
   });
+});
+
+// author-write-surface S-004.4: `"modify"` is the WIRE-altitude label shared by BOTH
+// `.replaceContent()`- and `.modify(fn)`-produced directives (REQ-AEC-13, Decided item 2 —
+// the mismatch is deliberate, `AuthoringVerb`/`DryRunVerb` are NEVER renamed). A substance
+// check (mirrors REQ-DAS-01.3's own pattern), not a byte-exact pin — design.md states this
+// requirement as SUBSTANCE only, no verbatim sentence is prescribed.
+describe("REQ-AEC-13.3 — the shared `\"modify\"` wire label is documented in all 3 surfaces", () => {
+  const surfaces = [
+    { name: "docs/authoring-errors.md", read: () => readFileSync(AUTHORING_ERRORS_DOC_PATH, "utf-8") },
+    { name: "docs/dry-run.md", read: () => readFileSync(DRY_RUN_DOC_PATH, "utf-8") },
+    { name: "src/core/authoring-error.ts (AuthoringVerb JSDoc)", read: () => readFileSync(AUTHORING_ERROR_SRC_PATH, "utf-8") },
+  ];
+
+  for (const surface of surfaces) {
+    it(`${surface.name} states the "modify" wire label substantively`, () => {
+      const content = surface.read();
+      expect(content).toContain('"modify"');
+      expect(content).toContain(".replaceContent()");
+      expect(content).toContain(".modify(fn)");
+      expect(content).toMatch(/\bwire\b/i);
+    });
+  }
 });
 
 describe("REQ-TSD-06.2 — publish workflow retains --provenance", () => {
