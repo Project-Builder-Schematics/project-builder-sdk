@@ -45,7 +45,6 @@ export interface RunResult {
 }
 
 export type { Batch, Directive };
-export { defineFactory } from "../core/context.ts";
 
 /**
  * Runs a bare author factory in-memory against a normative fake engine and returns what

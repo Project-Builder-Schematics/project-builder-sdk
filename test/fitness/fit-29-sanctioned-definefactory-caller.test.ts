@@ -80,13 +80,14 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
   }
 
   // Positive control: the scanner DOES detect the real production defineFactory import
-  // shape (src/testing/index.ts carries TWO defineFactory-naming lines resolving here — its
-  // own internal `import { defineFactory } from "../core/context.ts"` plus the public
-  // `export { defineFactory } from "../core/context.ts"` re-export) — proving allowlisting,
-  // not scanner blindness, is what keeps sanctioned callers green.
-  it("positive control: the scanner detects src/testing/index.ts's own defineFactory import/re-export (allowlisting, not blindness, keeps it green)", () => {
+  // shape (src/testing/index.ts's own internal `import { defineFactory } from
+  // "../core/context.ts"`, used to delegate — bare-factory-migration S-006 removed the
+  // public `export { defineFactory } from "../core/context.ts"` re-export this file used to
+  // ALSO carry, so only the one internal import line resolves here now) — proving
+  // allowlisting, not scanner blindness, is what keeps sanctioned callers green.
+  it("positive control: the scanner detects src/testing/index.ts's own internal defineFactory import (allowlisting, not blindness, keeps it green)", () => {
     const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "testing/index.ts"));
-    expect(offenders).toEqual(["../core/context.ts", "../core/context.ts"]);
+    expect(offenders).toEqual(["../core/context.ts"]);
   });
 
   it("positive control: the scanner detects src/conformance/index.ts's own defineFactory import too", () => {

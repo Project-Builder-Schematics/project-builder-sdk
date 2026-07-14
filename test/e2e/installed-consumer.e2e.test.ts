@@ -1,5 +1,5 @@
 /**
- * Installed-consumer-vantage e2e (S-004 [stage-5], REQ-TES-02/06, ADR-0036; extended S-000
+ * Installed-consumer-vantage e2e (S-004 [stage-5], REQ-TES-06/08, ADR-0036; extended S-000
  * [stage-6], REQ-LC-01/04/05, ADR-0041): proves reachability AND the two founding-bug
  * scenarios from a REAL installed/linked consumer's own vantage — build, then EITHER
  * `bun pm pack` + install the tarball (tarball leg) OR `bun run link:sdk` + `bun link` (link
@@ -86,12 +86,12 @@ function assertWriteOnlyCommit(scratchDir: string): void {
     scratchDir,
     "check-write-only.mjs",
     [
-      'import { defineFactory, runFactoryForTest } from "@pbuilder/sdk/testing";',
+      'import { runFactoryForTest } from "@pbuilder/sdk/testing";',
       'import { create } from "@pbuilder/sdk/commons";',
       "",
-      "const run = defineFactory(() => {",
+      "const run = () => {",
       `  create(${JSON.stringify(GOLDEN_PATH)}, { template: ${JSON.stringify(GOLDEN_CONTENT)}, options: {} });`,
-      "});",
+      "};",
       "",
       "const result = await runFactoryForTest(run, undefined);",
       "console.log(JSON.stringify({",
@@ -116,14 +116,14 @@ function assertAllOrNothingRejection(scratchDir: string): void {
     scratchDir,
     "check-collision.mjs",
     [
-      'import { defineFactory, runFactoryForTest } from "@pbuilder/sdk/testing";',
+      'import { runFactoryForTest } from "@pbuilder/sdk/testing";',
       'import { create, AuthoringError } from "@pbuilder/sdk/commons";',
       "",
-      "const run = defineFactory(() => {",
+      "const run = () => {",
       `  create(${JSON.stringify(COLLIDING_PATH)}, { template: ${JSON.stringify(COLLIDING_TEMPLATE)}, options: {} });`,
-      "});",
+      "};",
       "",
-      `const result = await runFactoryForTest(run, undefined, { ${JSON.stringify(COLLIDING_PATH)}: ${JSON.stringify(COLLIDING_SEED)} });`,
+      `const result = await runFactoryForTest(run, undefined, { seed: { ${JSON.stringify(COLLIDING_PATH)}: ${JSON.stringify(COLLIDING_SEED)} } });`,
       "const isAuthoringError = result.error instanceof AuthoringError;",
       "console.log(JSON.stringify({",
       "  treeSize: result.tree.size,",
@@ -180,14 +180,14 @@ function assertDryRunNonEmpty(scratchDir: string): void {
     scratchDir,
     "check-dry-run.mjs",
     [
-      'import { defineFactory, runFactoryForTest } from "@pbuilder/sdk/testing";',
+      'import { runFactoryForTest } from "@pbuilder/sdk/testing";',
       'import { create, dryRun } from "@pbuilder/sdk/commons";',
       "",
       "let planLength;",
-      "const run = defineFactory(() => {",
+      "const run = () => {",
       '  create("plan-probe.ts", { template: "export const x = 1;", options: {} });',
       "  planLength = dryRun().length;",
-      "});",
+      "};",
       "",
       "await runFactoryForTest(run, undefined);",
       "console.log(JSON.stringify({ planLength }));",
@@ -202,14 +202,39 @@ function assertDryRunNonEmpty(scratchDir: string): void {
   expect(planLength).toBeGreaterThan(0);
 }
 
+// REQ-TES-06.4: a stale `defineFactory` NAMED import must fail to resolve — proving the
+// removal is a compile-time/link-time signal, not merely a documentation change. Unlike the
+// dynamic `import()` + `"x" in mod` probe above (a namespace-membership check that would
+// never throw even if `defineFactory` were absent), a STATIC `import { defineFactory } from
+// "..."` against a module that doesn't export it is a SyntaxError at link time in both Node
+// and Bun ESM — this writes exactly that script and asserts it fails, never using
+// `runScratchScript` (which throws on non-zero exit — the wrong shape for a scenario whose
+// whole point IS a non-zero exit).
+function assertDefineFactoryImportFailsToResolve(scratchDir: string): void {
+  const fileName = "check-stale-import.mjs";
+  writeFileSync(
+    join(scratchDir, fileName),
+    [
+      'import { defineFactory } from "@pbuilder/sdk/testing";',
+      "console.log(typeof defineFactory);",
+      "",
+    ].join("\n")
+  );
+
+  const result = spawnCapture("bun", ["run", fileName], { cwd: scratchDir });
+
+  expect(result.status).not.toEqual(0);
+  expect(result.stderr).toContain("defineFactory");
+}
+
 afterAll(() => {
   cleanScratchDir(PACK_SCRATCH_DIR);
   cleanScratchDir(LINK_SCRATCH_DIR);
   unlinkSdk();
 });
 
-describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-02/06, ADR-0036)", () => {
-  it("REQ-TES-02.1/REQ-TES-06.1/REQ-LC-03.1: defineFactory resolves ONLY via ./testing; ./commons resolves without it; ./typescript resolves; ./core stays unresolvable", async () => {
+describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-06/08, ADR-0036)", () => {
+  it("REQ-TES-06.1/REQ-TES-08.1/REQ-LC-03.1: defineFactory is unreachable via ./testing; ./commons resolves without it; ./typescript resolves; ./core stays unresolvable", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
 
     // The scratch install must never touch the repo's own lockfile.
@@ -245,9 +270,9 @@ describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-02/06, ADR-00
       { resolved: boolean; hasDefineFactory: boolean }
     >;
 
-    // TES-02.1: defineFactory present ONLY on ./testing's exports.
+    // TES-08.1: defineFactory is NOT among ./testing's resolved exports.
     expect(results.testing?.resolved).toBe(true);
-    expect(results.testing?.hasDefineFactory).toBe(true);
+    expect(results.testing?.hasDefineFactory).toBe(false);
     expect(results.root?.resolved).toBe(true);
     expect(results.root?.hasDefineFactory).toBe(false);
     expect(results.commons?.resolved).toBe(true);
@@ -281,6 +306,11 @@ describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-02/06, ADR-00
   it("REQ-LC-05.2: tarball leg invokes dryRun() via ./commons and returns a non-empty plan", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
     assertDryRunNonEmpty(PACK_SCRATCH_DIR);
+  });
+
+  it("REQ-TES-06.4: a stale defineFactory import fails to resolve through the published entry", async () => {
+    await ensurePackedConsumer(PACK_SCRATCH_DIR);
+    assertDefineFactoryImportFailsToResolve(PACK_SCRATCH_DIR);
   });
 });
 
@@ -345,11 +375,16 @@ describe("e2e — installed-consumer-vantage, bun-link leg (S-000/S-001, REQ-LC-
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
     assertAllOrNothingRejection(LINK_SCRATCH_DIR);
   });
+
+  it("REQ-TES-06.4: a stale defineFactory import fails to resolve through the bun-link-installed entry", async () => {
+    await ensureLinkedConsumer(LINK_SCRATCH_DIR);
+    assertDefineFactoryImportFailsToResolve(LINK_SCRATCH_DIR);
+  });
 });
 
 // REQ-LC-02.3 parity, made STRUCTURAL: a hand-typed pair of literal arrays can only ever
 // disagree with itself, never with the actual test code. Now that FIX-3 above extracted the
-// four shared scenario bodies, real parity means both legs' `describe` blocks actually CALL
+// five shared scenario bodies, real parity means both legs' `describe` blocks actually CALL
 // every one of them, plus exactly one leg-specific subpath-resolution scenario each — so this
 // scans THIS file's own source rather than asserting a second copy of the scenario list.
 const SHARED_SCENARIO_HELPERS = [
@@ -357,6 +392,7 @@ const SHARED_SCENARIO_HELPERS = [
   "assertAllOrNothingRejection",
   "assertCodegenBinRuns",
   "assertDryRunNonEmpty",
+  "assertDefineFactoryImportFailsToResolve",
 ] as const;
 
 // Splits this file's own source into per-top-level-`describe`-block chunks (0-indent
@@ -382,19 +418,19 @@ function countTopLevelIts(block: string): number {
 describe("e2e — installed-consumer-vantage, cross-leg red-proofs (REQ-LC-02.3/04.3/05.3, S-001.3)", () => {
   it("[red-proof] REQ-LC-02.3: the bun-link leg's scenario-group count matches the tarball leg's", () => {
     const selfSource = readFileSync(new URL(import.meta.url).pathname, "utf-8");
-    const tarballBlock = extractDescribeBlock(selfSource, "tarball leg (REQ-TES-02/06, ADR-0036)");
+    const tarballBlock = extractDescribeBlock(selfSource, "tarball leg (REQ-TES-06/08, ADR-0036)");
     const bunLinkBlock = extractDescribeBlock(
       selfSource,
       "bun-link leg (S-000/S-001, REQ-LC-01/02/04/05, ADR-0041)"
     );
 
-    // Both legs call every one of the four shared scenario bodies — never a reduced subset.
+    // Both legs call every one of the five shared scenario bodies — never a reduced subset.
     for (const helper of SHARED_SCENARIO_HELPERS) {
       expect(tarballBlock).toContain(`${helper}(`);
       expect(bunLinkBlock).toContain(`${helper}(`);
     }
 
-    // Each leg has exactly ONE scenario beyond the four shared ones: its own
+    // Each leg has exactly ONE scenario beyond the five shared ones: its own
     // subpath-resolution probe (leg-specific import specifiers, never de-forked).
     expect(countTopLevelIts(tarballBlock)).toEqual(SHARED_SCENARIO_HELPERS.length + 1);
     expect(countTopLevelIts(bunLinkBlock)).toEqual(SHARED_SCENARIO_HELPERS.length + 1);

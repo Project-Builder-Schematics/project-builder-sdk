@@ -5,7 +5,8 @@
  * Per-path allowlist data model (REQ-TES-03): each scanned path carries its own
  * `valueAllow`/`typeAllow` symbol lists. `.`, `./commons`, `./conformance` keep the
  * original full ban (empty allowlists — unchanged behaviour). `./testing` gets a narrow
- * allowlist: VALUE `defineFactory`/`runFactoryForTest`, TYPE-ONLY `Batch`/`Directive` — every
+ * allowlist: VALUE `runFactoryForTest` only, TYPE-ONLY `Batch`/`Directive` — `defineFactory`
+ * is NO LONGER on this allowlist (bare-factory-migration, S-006, REQ-TES-03/REQ-TES-08); every
  * OTHER kit symbol, `ContractFake` included (as a value OR as a type, SEC-M3), stays banned
  * there too. A per-path allowlist relaxes ONLY the kit-symbol/`../core`-re-export ban;
  * locally-declared non-kit exports (e.g. `RunResult`) are outside this guard's universe and
@@ -45,7 +46,7 @@ const SCANNED: ScannedPath[] = [
   { path: join(ROOT, "conformance/index.ts"), valueAllow: [], typeAllow: [] },
   {
     path: join(ROOT, "testing/index.ts"),
-    valueAllow: ["defineFactory", "runFactoryForTest"],
+    valueAllow: ["runFactoryForTest"],
     typeAllow: ["Batch", "Directive"],
   },
   // REQ-DG-04.1 (stage-5-first-dialect): the new ./typescript dialect subpath is a full-ban
@@ -161,20 +162,28 @@ export { defineFactory as runFactory } from "../core/context.ts";
   describe("REQ-TES-03 — ./testing per-path allowlist", () => {
     const testingEntry = SCANNED.find((e) => e.path === join(ROOT, "testing/index.ts"))!;
 
-    it("REQ-TES-03.1: ./testing permits only its allowlist — no violation for the four sanctioned exports", () => {
+    it("REQ-TES-03.1: ./testing permits only its allowlist — no violation for the three sanctioned exports", () => {
       const fixtureSource = `
 export type { Batch, Directive };
-export { defineFactory } from "../core/context.ts";
 export async function runFactoryForTest() {}
 `;
       const violations = scanPath(fixtureSource, testingEntry);
       expect(violations).toEqual([]);
     });
 
-    it("[red-proof] REQ-TES-03.2: ./testing still bans a non-allowlisted kit symbol (Session)", () => {
+    it("[red-proof] REQ-TES-03.1b: defineFactory re-exported from ./testing is now a violation", () => {
       const fixtureSource = `
 export type { Batch, Directive };
 export { defineFactory } from "../core/context.ts";
+export async function runFactoryForTest() {}
+`;
+      const violations = scanPath(fixtureSource, testingEntry);
+      expect(violations.some((v) => v.includes("defineFactory"))).toBe(true);
+    });
+
+    it("[red-proof] REQ-TES-03.2: ./testing still bans a non-allowlisted kit symbol (Session)", () => {
+      const fixtureSource = `
+export type { Batch, Directive };
 export { Session } from "../core/session.ts";
 `;
       const violations = scanPath(fixtureSource, testingEntry);
@@ -190,13 +199,22 @@ export { Session } from "../core/session.ts";
     it("[red-proof] REQ-TES-03.4: ContractFake is banned regardless of export form (value AND type-only)", () => {
       const fixtureSource = `
 export type { Batch, Directive };
-export { defineFactory } from "../core/context.ts";
 export { ContractFake } from "./contract-fake.ts";
 export type { ContractFake as ContractFakeType } from "./contract-fake.ts";
 `;
       const violations = scanPath(fixtureSource, testingEntry);
       const contractFakeViolations = violations.filter((v) => v.includes("ContractFake"));
       expect(contractFakeViolations.length).toEqual(2);
+    });
+
+    it("[red-proof] REQ-TES-03.3 (shallow-fix rejection): narrowing the allowlist cannot be achieved by removing ./testing from the scanned-path set", () => {
+      // The shallow fix of dropping ./testing from SCANNED entirely would also make this
+      // suite "pass" — this test pins that the path stays present AND its allowlist is the
+      // real, narrow one (not an absence of scanning).
+      const scannedPaths = SCANNED.map((e) => e.path);
+      expect(scannedPaths).toContain(join(ROOT, "testing/index.ts"));
+      expect(testingEntry.valueAllow).toEqual(["runFactoryForTest"]);
+      expect(testingEntry.valueAllow).not.toContain("defineFactory");
     });
   });
 
