@@ -683,7 +683,7 @@ the real dispatcher, and closure/live-AST-node smuggling fixtures still fail the
 - [x] S-002.2 No planted fixture under `test/conformance/planted/*` uses the `{raw:...}` chain
   shape (verified — see Fixture Formats section above); this task is a NO-OP for that directory.
   Do not go looking for a `{raw}` planted fixture that doesn't exist.
-- [ ] S-002.3 `[RED]` NEW discriminant-misroute test (REQ-DC-02.2): a step shaped
+- [x] S-002.3 `[RED]` NEW discriminant-misroute test (REQ-DC-02.2): a step shaped
   `{op:"addImport", args:["readFileSync","node:fs"]}` (no `modify` key) must route to the
   named-op branch and produce the SAME golden output `addImport` alone would — add to
   `test/conformance/typescript-conformance.test.ts`.

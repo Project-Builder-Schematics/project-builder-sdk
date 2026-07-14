@@ -84,6 +84,42 @@ describe("REQ-DC-02/03 — single-op fidelity + coalescing-to-one (real TypeScri
     };
     await expect(testOpPack(fixture)).resolves.toBeUndefined();
   });
+
+  it("REQ-DC-02.2: a {op,args} step never misroutes into the .modify() branch", async () => {
+    const fixture: OpPackFixture = {
+      opPack: addImportPack,
+      baseDialect: realTypescriptDialect,
+      exercises: [
+        {
+          // The discriminant-misroute proof: a plain named-op step, no `modify` key present.
+          // Byte-exact against the SAME committed golden addImport alone produces
+          // (typescript-dialect REQ-TSD-01.2's golden) — a dispatcher that misrouted this step
+          // through `.modify()` would hand it a step object where a callable AST-fn is
+          // expected, throwing or producing no import effect, so this assertion tests ROUTING
+          // itself, not merely that something didn't throw.
+          seed: golden("add-import-before.txt"),
+          chain: [{ op: "addImport", args: ["readFileSync", "node:fs"] }],
+          expect: golden("add-import-after.txt"),
+        },
+        {
+          // testOpPack requires at least one multi-op exercise across the whole fixture
+          // (REQ-DC-03) — unrelated to this test's own assertion, included only to satisfy
+          // that invariant.
+          seed: golden("add-import-before.txt"),
+          chain: [
+            { op: "addImport", args: ["join", "node:path"] },
+            {
+              modify: (ast: unknown): void => {
+                (ast as SourceFile).addStatements("export const z = 3;");
+              },
+            },
+          ],
+          expect: golden("coalesced-two-edits.txt"),
+        },
+      ],
+    };
+    await expect(testOpPack(fixture)).resolves.toBeUndefined();
+  });
 });
 
 describe("REQ-TSD-05.1 — minimum subpath smoke: resolves and runs against a ContractFake", () => {
