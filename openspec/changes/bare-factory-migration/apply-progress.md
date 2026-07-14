@@ -141,8 +141,51 @@ S-000 — otherwise S-002 will "complete" while 5 files stay silently broken wit
 and the gap surfaces only at `sdd-verify --mode=final`'s full-suite check, much later than
 necessary.
 
-## Suite State at End of S-000
+## S-000 fix — Executor in-loop iteration 1 (verify-in-loop-1 Finding 2 / ruling R-10)
 
-`bun test`: **1162 pass, 99 fail** (baseline before any S-000 work: all green). Every one of
-the 99 failures traces to one of the three buckets above (14 files) — zero unexplained
-failures, zero diff in regression sentinels, zero touch to the frozen `defineFactory` body.
+**Gap**: REQ-ATH-01.4, REQ-ATH-17.1, REQ-ATH-17.2 were claimed by S-000's `Covers` line but
+had zero EXECUTED runtime evidence — only a `void`-wrapped type proof in
+`test/types/runfactoryfortest-shape.test.ts` (tsc-only, never runs). A typo in
+`options?.seed`/`options?.packageDir` forwarding would have shipped green.
+
+**Fix**: added `test/fake/harness-options-bag.test.ts` (NEW, 3 tests, tagged
+`[characterization]` per the same RED-first waiver `harness-opted-in.test.ts` already
+documents — the delegation code at `src/testing/index.ts:119-122` predates this fix and is
+reached through a new entry point, not driven by it):
+
+- REQ-ATH-01.4: `runFactoryForTest(bareFn, undefined, { seed: { "a.ts": "x" } })` where the
+  bare factory seeds a collision (`create("a.ts", ...)` without force) → `result.tree.size
+  === 0`, `result.error instanceof AuthoringError`, `reason === "path-collision"`. Proves
+  `options.seed` reaches `ContractFake`.
+- REQ-ATH-17.1: `runFactoryForTest(bareFn, {}, { packageDir: FIXTURE_DIR })` against the
+  existing `test/fixtures/harness-opted-in` fixture (schema requires `{port: number}`) with
+  schema-invalid input (`{}`) → empty tree/emitted, `AuthoringError reason: "invalid-input"`.
+- REQ-ATH-17.2: SAME schema-shaped-invalid input, NO `packageDir` → factory body runs to
+  completion (`result.tree.get("server.config.ts") === "static content"`,
+  `result.error === undefined`) — proves the untyped path stays byte-identical, no validation
+  fires.
+
+**Verification**:
+```
+bun test test/fake/harness-options-bag.test.ts                          # 3 pass, 0 fail
+bun test test/fitness/fit-29-sanctioned-definefactory-caller.test.ts \
+         test/fitness/fit-04-dts-semver-gate.test.ts \
+         test/types/runfactoryfortest-shape.test.ts \
+         test/docs/quickstart-docs.test.ts \
+         test/fake/harness-options-bag.test.ts                          # 56 pass, 0 fail
+bun run typecheck   # 64 errors — SAME 13 pre-existing files as verify-in-loop-1's evidence
+                    # table, zero new
+```
+Regression sentinels (`test/golden-ir`, `test/core`, `test/conformance`, `test/dialects`) and
+`src/core/context.ts` (frozen body + JSDoc): both empty diffs vs. merge-base — unchanged.
+No file named in ruling R-9 (the 5 unclaimed S-002 files) was touched. No existing harness
+file (`test/fake/harness-{result,leak-scan,opted-in,in-memory-invariant}.test.ts`) was
+converted — that stays S-002 scope.
+
+## Suite State at End of S-000 (post-fix)
+
+`bun test`: **1165 pass, 99 fail** (was 1162/99 before this fix — the +3 delta is exactly the
+3 new characterization tests; the 99 failures are the SAME pre-existing files/buckets, zero
+new failures introduced). Every failure traces to one of the three buckets already documented
+above (14 files) — zero unexplained failures, zero diff in regression sentinels, zero touch to
+the frozen `defineFactory` body.
