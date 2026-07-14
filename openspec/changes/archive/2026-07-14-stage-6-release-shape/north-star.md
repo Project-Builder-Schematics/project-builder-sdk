@@ -34,6 +34,12 @@ e2e via a shared `scratch-consumer.ts` seam. The IR-seam pattern, invariant #5, 
 shipping because `./testing` imports `../core/context.ts` at runtime — the ADR-0034 ship-unmapped
 posture, extended.
 
+**Editorial note (archive-time, does not rewrite the above)**: of the four seams named above, the
+npm-placeholder seam under `tools/` was DEFERRED at foresight CQ2 — the owner ruled the `@pbuilder`
+scope is already owner-controlled, so an inert stub buys no security today; its reasoning and the
+`0.0.1` semver-floor decision travel to the future public-package plan (ADR-0040, kept Deferred).
+Three of the four seams shipped this change; the placeholder did not.
+
 ## 3. Here's the outcome we're chasing (traced to the pain)
 
 | Stated pain (problem_statement) | Design deliverable that heals it | Verdict |
