@@ -53,6 +53,14 @@ describe("REQ-FPS-05.2 (re-aim, bare-factory-migration) — defineFactory's JSDo
   it("still carries a valid @example even though marked @internal (FIT-06's cascade obligation survives)", () => {
     expect(DEFINE_FACTORY_DOC).toContain("@example");
   });
+
+  it("the @example no longer frames defineFactory as the author's own path", () => {
+    expect(DEFINE_FACTORY_DOC).not.toMatch(/Author against/);
+  });
+
+  it("the @example shows the internal wrap+drive pattern — a runner driven with a client", () => {
+    expect(DEFINE_FACTORY_DOC).toContain("{ client }");
+  });
 });
 
 describe("REQ-FPS-05.4 — README incremental-shipping qualifying line (reverted by stage-4b REQ-TSD-03)", () => {

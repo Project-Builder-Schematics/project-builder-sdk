@@ -49,6 +49,10 @@ Each source file is classified automatically — never author-declared: valid, i
 renders by-value (through the same IR `create()` uses, `{= =}` tokens included); anything
 else (binary content, or a file over the size budget) travels by-reference instead, verbatim.
 
+`scaffold`, `copyIn`, and `create({ templateFile })` all resolve package-local files, so the
+call that runs this factory needs `packageDir` passed to it — without it, these verbs have
+no package to resolve against.
+
 Two escape hatches handle the single-file cases `scaffold` doesn't:
 
 - **`create(path, { templateFile })`** — an explicit RENDER request for one package-local
@@ -136,9 +140,12 @@ test("factory derives a file from a seeded config", async () => {
 });
 ```
 
-`packageDir` is the options bag's other field — pass `import.meta.dir` to opt a factory
-into schema-derived run-boundary validation against an adjacent `schema.json`; omit it for
-the untyped, unvalidated escape hatch shown above.
+`packageDir` is the options bag's other field — pass `import.meta.dir` to opt a factory into
+schema-derived run-boundary validation against an adjacent `schema.json`. It's more than a
+validation toggle, though: it's also the mandatory resolution anchor for the package-local
+verb family (`scaffold`, `copyIn`, `create({ templateFile })`) — omit it and you keep the
+untyped, unvalidated escape hatch shown above, but those verbs have nothing to resolve
+against.
 
 ## Development
 

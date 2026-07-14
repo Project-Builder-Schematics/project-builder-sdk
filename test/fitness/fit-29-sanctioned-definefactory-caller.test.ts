@@ -73,6 +73,15 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
     expect(unsanctionedFiles).not.toContain(join(SRC_DIR, "testing/index.ts"));
   });
 
+  // Guards against a silent self-neutering: if ALLOWLISTED_ROOTS is ever widened to cover
+  // the whole scan surface, the `for (const file of unsanctionedFiles)` loop below emits
+  // ZERO tests instead of failing — a vanished guard reads as "all green". Pinning a
+  // guaranteed-present, never-sanctioned file keeps the scan set non-vacuous; widening the
+  // allowlist to swallow it now fails THIS assertion instead of silently dropping coverage.
+  it("the unsanctioned scan set is non-vacuous (never-sanctioned file always present)", () => {
+    expect(unsanctionedFiles).toContain(join(SRC_DIR, "commons/index.ts"));
+  });
+
   for (const file of unsanctionedFiles) {
     it(`${file.replace(PROJECT_ROOT, "")} does not import defineFactory from an unsanctioned caller`, () => {
       expect(unsanctionedDefineFactoryImports(file)).toEqual([]);

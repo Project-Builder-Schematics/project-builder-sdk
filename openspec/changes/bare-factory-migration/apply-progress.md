@@ -703,3 +703,53 @@ inverted to green, FIT-08 gained 2 tests, installed-consumer gained 2 tests, net
 end state (REQ-ATH-20, REQ-TES-03/05/06/08) is fully green — `defineFactory` is unreachable
 from `./testing`, `runFactoryForTest` is the sole author-facing entry, and the corpus is
 proven byte-identical fresh from bare fixtures.
+
+## Final-Verify Fix Pass — council-adjudicated (post pass-with-followups)
+
+Applied the 3 surgical fixes the final-verify council adjudicated, exactly as scoped —
+no other production or test edits.
+
+- [x] **Fix 1 (REQ-FPS-05.2 re-aim, tech-writer HIGH)**: `src/core/context.ts:282-296`
+  `@example` rewritten — dropped `export const run = defineFactory<Input>(...)` +
+  "Author against the generated type" framing (the author's OWN path, contradicted by the
+  `@internal` tag two paragraphs above). New shape: bin-invocation comment +
+  `schema.generated` import unchanged, then `// 2. Internal: wrap a bare author fn into a
+  client-driven runner:` — a bare `const bareFactory = (input: Input) => {...}` wrapped via
+  `defineFactory<Input>(bareFactory, { packageDir: import.meta.dir })` and driven with
+  `await runner(input, { client })`. Frozen impl body (`:298-351`, `export function
+  defineFactory<O>(...)`) untouched — edit confined strictly above it; line count of the
+  edit is net-zero so the impl's start line (298) didn't shift.
+- [x] **Fix 2 (machine-enforce the re-aim)**: `test/fitness/definefactory-jsdoc.test.ts`
+  gained 2 assertions — `not.toMatch(/Author against/)` and `toContain("{ client }")`.
+  Verified RED-then-GREEN via `git stash` of `context.ts` alone (both new assertions fail
+  against the OLD example, pass against the new one) before committing both together.
+- [x] **Fix 3 (FIT-29 vacuous-scan guard, QA mutant D)**: `test/fitness/
+  fit-29-sanctioned-definefactory-caller.test.ts` gained one assertion —
+  `unsanctionedFiles` must `toContain(join(SRC_DIR, "commons/index.ts"))`, a guaranteed-
+  present, never-sanctioned file — so widening `ALLOWLISTED_ROOTS` to swallow the whole
+  scan surface now fails this assertion instead of silently emitting zero `it()` blocks.
+- [x] **Fix 4 (README packageDir coherence, tech-writer MEDIUM)**: `README.md` — (a) added
+  one prose line in "Scaffolding a folder" noting `scaffold`/`copyIn`/
+  `create({ templateFile })` resolve package-local files and need `packageDir` passed "to
+  the call that runs this factory" (runtime-neutral, mirrors the error-message phrasing,
+  names no single runner); (b) generalized the `packageDir` closing paragraph in "Testing
+  your factory" — it's BOTH the schema-validation opt-in AND the mandatory resolution
+  anchor for the package-local verb family, not solely a validation toggle.
+
+### Verification run (this pass)
+
+```
+bun test test/fitness/definefactory-jsdoc.test.ts test/fitness/fit-29-sanctioned-definefactory-caller.test.ts \
+         test/fitness/fit-06-example-jsdoc.test.ts test/docs/
+# 106 pass, 0 fail
+
+bun test    # full suite
+# 1288 pass, 0 fail (was 1285/0 — +3 = the 2 definefactory-jsdoc + 1 FIT-29 new assertions)
+
+bun run typecheck   # 0 errors
+```
+
+Regression sentinels: `git diff --name-only $(git merge-base main HEAD) -- test/golden-ir
+test/core test/conformance test/dialects` → empty. Frozen `defineFactory` impl body
+(`src/core/context.ts:298-351`) byte-identical — only the JSDoc block strictly above it
+changed.
