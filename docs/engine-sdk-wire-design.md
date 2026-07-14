@@ -75,7 +75,7 @@ the same stdio pipe can be added later without breaking the single-initiator bas
 |---|---|---|
 | Resolution + input validation | Go CLI | resolve `@collection:schematic`, read `schema.json`, validate inputs, **apply defaults/coercion (sole owner)** |
 | Process orchestration | Engine | spawn runner with argv (factory URL + processed input), apply emitted IRs transactionally, observe exit code |
-| Composition root | Runner (`pbuilder-runner` bin) | import factory URL, resolve export, brand check, construct `StdioEngineClient`, invoke, exit |
+| Composition root | Runner (`pbuilder-runner` bin) | import factory URL, resolve export, wrap bare factory with runner-internal `defineFactory`, construct `StdioEngineClient`, invoke, exit |
 | Run choreography | `defineFactory` (`src/core/context.ts`) | see below |
 | Author logic | factory `fn` | verbs only; never sees the transport |
 
@@ -87,27 +87,36 @@ A new SDK bin, same shape as `pbuilder-codegen` (built to `dist/bin/`, shebang, 
 1. Parse argv: `--factory file:///abs/path/factory.ts#exportName` and `--input '<json>'`
    (escape hatch: `--input-file <path>` for payloads near ARG_MAX).
 2. Dynamic-import the factory module; resolve the export via the `#fragment` (default export
-   when absent).
-3. **Brand check**: verify the export is `defineFactory`-wrapped via
-   `Symbol.for("pbuilder.factory")`. Not wrapped → fail at load time, before any wire
-   traffic, with an actionable message telling the author exactly what to write.
+   when absent). The export is the author's BARE input-receiving function — verify it is a
+   function; fail at load time with an actionable message otherwise.
+3. **Wrap it internally**: `defineFactory(fn, { packageDir: dirname(<factory module>) })`.
+   Well-defined because the adjacency convention (cross-language contract §3 below) fixes
+   the schema location — the runner supplies the same anchor the author's
+   `import.meta.dir` would have named.
 4. Construct the `StdioEngineClient` (implements the `EngineClient` port over stdio).
-5. Call `run(input, { client })`; exit 0 on resolve, non-zero on reject.
+5. Call the wrapped run with `(input, { client })`; exit 0 on resolve, non-zero on reject.
 
-The runner does NOT receive the package dir: the schema-validation anchor travels inside the
-factory closure (the author's `{ packageDir: import.meta.dir }` option).
+**Authors do NOT call `defineFactory`** (owner direction, 2026-07-14 — engram obs #2070,
+registered at the `stage-6-release-shape` archive; supersedes the earlier draft of this
+document that made the wrapper author-mandatory with a brand check). A schematic exports
+the bare, typed `(input: Input) => void | Promise<void>` function; `defineFactory` is
+runner/test-harness API, never author vocabulary (its graduation out of the author surface
+is tracked in the pending-changes `defineFactory` graduation row). The test harness
+(`runFactoryForTest`) wraps the same bare shape, preserving test/production parity.
 
-Bare factory functions are NOT auto-wrapped. `defineFactory`'s option tiers are author-side
-semantics (`{ packageDir }` opts into validation; omitting options is the documented untyped
-opt-out, REQ-TFO-02) — a runner auto-wrap would have to guess that tier, silently changing
-semantics, and authors would test one shape while production ran another. One canonical
-shape; a loud, early, actionable error for deviations. (Defense in depth already exists: any
-verb outside a run throws `AuthoringError { authoring-rejected, outside-run }`,
-REQ-AEC-02.1.)
+**Load-bearing pin — single SDK instance**: the engine MUST resolve `pbuilder-runner` from
+the schematic project's OWN `node_modules` (Angular-CLI-style project-local execution),
+never from an engine-bundled or global SDK copy. The internal wrap only works when the
+runner's `defineFactory` (whose run context is a module-level `AsyncLocalStorage`) and the
+author's imported verbs come from the SAME physical copy of `@pbuilder/sdk` — two copies
+mean two ALS instances, and every verb throws `outside-run` at run time. Project-local
+resolution also eliminates runner↔SDK version skew by construction: the runner version IS
+the version the schematic compiled against.
 
-### `defineFactory` responsibilities
+### `defineFactory` responsibilities (runner-internal)
 
-The bridge between author logic and the wire — receives the transport, never chooses it:
+The bridge between author logic and the wire — invoked by the runner (never by the author),
+receives the transport, never chooses it:
 
 1. **Run-boundary gate** (when `packageDir` given): resolve dir, reserved-name check,
    schema validation of input, containment-ceiling anchor (ADR-0046). All before `fn` runs;
@@ -156,17 +165,18 @@ with the protocol, and conformance-tested on both sides:
 - **Bun required for the runner**: author factories are raw `.ts`; Bun imports TypeScript
   natively (matches the package's `engines.bun`-only posture). Supporting Node would require
   on-the-fly transpilation in the runner — a decision for the day someone asks.
-- **Dual-package hazard**: the runner lives in one physical copy of `@pbuilder/sdk`; the
-  schematic's factory imports `defineFactory` from its own `node_modules` copy. The design
-  survives this: the ALS context is self-contained in the factory's closure, and the
-  `EngineClient` port is satisfied structurally across copies. The one identity-sensitive
-  piece is the brand — hence `Symbol.for(...)` (process-global symbol registry), never a
-  module-local `Symbol(...)`.
+- **Dual-package hazard**: `defineFactory`'s run context is a module-level
+  `AsyncLocalStorage`, and author verbs resolve it from THEIR copy of the SDK. With the
+  runner-internal wrap, correctness therefore DEPENDS on the single-SDK-instance pin above
+  (project-local runner resolution): an engine-bundled runner wrapping a factory whose
+  verbs come from a different copy fails with `outside-run` at the first verb. The
+  `EngineClient` port itself is copy-tolerant (structural typing); the ALS is not.
 
 ## Open questions
 
-- Brand versioning (`Symbol.for("pbuilder.factory.v1")`?) vs. relying on the
-  `session.init` protocol version alone.
+- `defineFactory`'s graduation home once it leaves the author surface (today it reaches
+  authors via `./testing`; as runner-internal API it needs a non-author entry — tracked in
+  the pending-changes graduation row, re-evaluated in the public-package plan).
 - Exit-code taxonomy for the runner (validation failure vs. emit rejection vs. crash).
 - Final call on `--input-file` threshold and whether the engine always uses it.
 - Where the wire spec (method names, error shapes, pointer syntax) lives so both codebases

@@ -277,3 +277,15 @@ Verify verdict `pass-with-followups`. Judgment-day APPROVED (round 1, 2 inline f
 | Content-aware tarball secret scan: `fit-14`'s no-secrets assertion is filename-only, not content-scanning (security) — add a content-aware scan | security | S | Before first LIVE publish | go-live batch |
 | `ROADMAP.md` §3 "Five authoring verbs" table is stale (current count is seven authoring verbs) — reconcile at the next planning-docs pass | docs | XS | — | next planning-docs pass |
 | `unlinkSdk`'s global-link-store serial-execution assumption is load-bearing and undocumented (judgment-day, INFO) — document the invariant explicitly or add a reference count | docs | XS | — | anytime |
+
+## From engine↔SDK wire design (2026-07-14) — registered from design discussion, no change yet
+
+Design record: `docs/engine-sdk-wire-design.md` (stdio JSON-RPC single-initiator; runner contract
+per the bare-factory owner direction, obs #2070; `collection.json` without a `schema` field —
+adjacency convention per ADR-0031 owns the schema location). Cross-repo contract with the Go
+CLI/engine; the wire spec is a deliverable of the change, not a prerequisite from the engine side.
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| `StdioEngineClient` — first real `EngineClient` implementation (JSON-RPC over stdio, NDJSON framing, `session.init` version handshake, engine rejections mapped to ADR-0022 `EmitRejection`). Ships together with: the `pbuilder-runner` bin (argv contract `--factory <url>#<export>` / `--input` / `--input-file`; resolved PROJECT-LOCAL per the single-SDK-instance pin — engine must never bundle its own SDK copy, or the module-level ALS splits and every verb throws `outside-run`; wraps the author's BARE factory export with the runner-internal `defineFactory`, supplying `packageDir = dirname(factory)` via the adjacency convention), a normative wire spec (versioned with the handshake), and a scripted fake-engine conformance harness (spawned process speaking NDJSON over real stdio — no Go required to verify). Consumes the `defineFactory` graduation direction (obs #2070, stage-4b row above) | feature | L | Before any engine-backed release | **not now — later engine-backed milestone (ROADMAP §6)** |
+| Factory scaffold (`pbuilder-codegen` extension or `init-schematic`) emitting a typed bare `factory.ts` (`(input: Input) => void`) plus adjacent `schema.json` — DX counterpart of the bare-export contract (authors never write `defineFactory` boilerplate; the typed signature is the compile-time anchor the wrapper's generic used to provide) | feature | S | — | with the runner change |
