@@ -1,0 +1,21 @@
+{
+  "change": "stage-6-release-shape",
+  "triage": "L",
+  "phase": "verify-final",
+  "apply": "BUILD COMPLETE: 6/6 slices, verify-in-loop-1..4 all PASS iteration 1; /simplify applied (6 fixes + fit-23 tightening, suite 1109/0 x3 post-fix, typecheck clean, zero REQ-tagged renames)",
+  "spec_status": "signed",
+  "design": "complete rev 3 (design.md; architecture_impact additive, 0 deviations; ADRs 0040-0042 draft + ADR-0034 amendment; ADR-0040 status Deferred after CQ2 descope; 29 file rows, 3 flows)",
+  "steward_foresight": "ALIGNED (north-star.md + obs #908; CQ1/2/3 owner-answered 2026-07-12; CQ2 descope applied — spec PPH V3 signed, ZERO registry writes)",
+  "slices": true,
+  "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
+  "slices_rev": 3,
+  "plan_verify": "READY (iteration 3/3, 2026-07-12; trajectory 18→3→0 — Judge A no findings + Judge B ready to execute)",
+  "plan_complete": true,
+  "build_gate": "SATISFIED (branch feat/stage-6-release-shape fast-forwarded to main @ 5b05221, plan artefacts present)",
+  "verify_final": "pass-with-followups (24/25 REQs machine-proven; adversarial_review REQUIRED; council F1-F7 fixes APPLIED — suite 1117/0 x2, fit-23 all-jobs + fork-reachable id-token fence, wire-ban full doc set, gitignore, seven-verbs consistency, runnable error example)",
+  "judgment_day": "APPROVED (round 1: 0 CRITICAL, 0 real WARNING; 2 inline trivial fixes, suite 1117/0 post-fix; report: judgment-day-report.md)",
+  "arch_audit": "notes — zero violations, gate passes (obs #2065); baseline refresh ADDITIVE recommended at archive",
+  "steward_reckoning": "DELIVERED (re-run 2026-07-14, supersedes escalated-to-owner): G-2 discharged via FAIL→fix→PASS walkthrough trajectory + 3 attestations; CQ1 reaffirmed, CQ3 confirmed; steward re-verified fix (56/0 doc tests) and zero src//workflow drift since prior pass. Archive unblocked.",
+  "completed_phases": ["triage", "explore", "propose", "spec", "design", "slice", "plan-verify"],
+  "updated_at": "2026-07-14"
+}
