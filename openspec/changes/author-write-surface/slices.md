@@ -818,7 +818,7 @@ ZERO REQ-AEC-13 coverage) is the correct home: it already reads `SECURITY_PATH`/
 
 ### Tasks
 
-- [ ] S-004.1 `[adapt]` `docs/authoring-a-dialect.md`: **verified live — EVERY REQ-DAS-01
+- [x] S-004.1 `[adapt]` `docs/authoring-a-dialect.md`: **verified live — EVERY REQ-DAS-01
   mandated section ALREADY EXISTS**; this is 100% rename/adapt, ZERO net-new section
   authoring. Effort note: this is a WIDE-but-SHALLOW rename — nearly the whole document's
   middle two-thirds needs a raw/modify pass, not just the two isolated byte-exact swaps called
@@ -851,15 +851,15 @@ ZERO REQ-AEC-13 coverage) is the correct home: it already reads `SECURITY_PATH`/
     here too, in this task, not assumed covered by S-004.3/S-004.6's SECURITY.md-scoped work.
   - `## The leaf rule: dialect isolation` (208-226) — exists, unaffected.
   - `## Publishing and trust` (228-232) — exists, unaffected.
-- [ ] S-004.2 `[adapt]` `docs/authoring-verbs.md` (verb-list bullet + code fence lines 27-34,
+- [x] S-004.2 `[adapt]` `docs/authoring-verbs.md` (verb-list bullet + code fence lines 27-34,
   seven-verbs summary line 9, read-trichotomy example lines 96-104, NEW cross-reference line to
   `.modify(fn)` in `authoring-a-dialect.md`) / `docs/authoring-errors.md:28` (REQ-AEC-13 wire-label
   statement) / `docs/dry-run.md:14` (REQ-AEC-13 wire-label statement) / `docs/quickstart.md:179`
   (verb list) / `README.md:17` (verb list).
-- [ ] S-004.3 `[adapt]` `SECURITY.md`: trust sentence + heading rename (byte-exact strings above,
+- [x] S-004.3 `[adapt]` `SECURITY.md`: trust sentence + heading rename (byte-exact strings above,
   `SECURITY.md:34,36,38`) + confirm zero remaining `.raw` substring anywhere in the file;
   `ROADMAP.md`: all 6 mentions (lines 80, 121, 142, 253, 277, 286) `.raw`→`.modify`.
-- [ ] S-004.4 `[adapt]`/`[RED]` **AEC-13 guard — author BOTH the prose and the guard test
+- [x] S-004.4 `[adapt]`/`[RED]` **AEC-13 guard — author BOTH the prose and the guard test
   TOGETHER, in the SAME commit** (never one without the other — an unguarded prose edit can
   silently rot, an guard with no matching prose is a test that can never pass). Prose:
   `src/core/authoring-error.ts:15-30`'s `AuthoringVerb` JSDoc, `docs/authoring-errors.md:28`'s
@@ -872,17 +872,57 @@ ZERO REQ-AEC-13 coverage) is the correct home: it already reads `SECURITY_PATH`/
   3 files and asserting each contains the substantive statement (e.g. mentions of `modify`, the
   wire/mutation framing, and BOTH `.replaceContent()`/`.modify(fn)` by name) — fails RED if any
   of the 3 surfaces lacks it.
-- [ ] S-004.5 `[RED]` NEW `test/fitness/fit-raw-sweep*.test.ts` (name/host at executor's
+- [x] S-004.5 `[RED]` NEW `test/fitness/fit-raw-sweep*.test.ts` (name/host at executor's
   discretion, e.g. mirror `fit-08-no-kit-bleed.test.ts`'s structure) implementing BOTH sweeps
   per the Sweep Implementation Spec above (`\.raw\(` + substring `.raw` + the `modify(` free-call
   ban with its 2 exclusions). Both sweeps return 0 hits only once S-001/S-002/S-003 AND this
   slice's own doc migrations (S-004.1-.3) have landed.
-- [ ] S-004.6 `[adapt]` `test/docs/security-authoring-guard.test.ts`: update
+- [x] S-004.6 `[adapt]` `test/docs/security-authoring-guard.test.ts`: update
   `RAW_TRUST_SENTENCE`/`CONFORMANCE_NOT_SAFETY_CAVEAT`/`TWO_REALMS_HAZARD` constants (byte-exact
   new text above) — this file is both a task target AND the enforcement mechanism, so it must
   change in the SAME commit as the docs it guards, never before (would go red against old docs)
   or after (would pass against unmigrated docs). `test/dry-run/*` adapt if any test asserts the
   old author-vocabulary doc wording (verify via `rg -n 'author vocabulary' test/dry-run/`).
+  Also updated the REQ-DAS-01.1 loop's own `".raw"` presence-check entry → `".modify"` (same
+  file, same commit — the loop reads `docs/authoring-a-dialect.md`, which no longer names `.raw`
+  anywhere after S-004.1).
+- [x] S-004.7 `[adapt]` **EXECUTOR-DISCOVERED GAP** — `src/conformance/index.ts:96,129`: two
+  comment-only `.raw()` mentions S-002.1's task (which only listed lines 43/60) did not
+  enumerate — surfaced by this slice's repo-wide `rg -n '\.raw\b'` inventory sweep. Fixed as a
+  mechanical `[adapt]` comment rename, same commit as S-004.1-.3/.6.
+- [x] S-004.8 `[adapt]` **EXECUTOR-DISCOVERED GAP** — `src/core/dialect-handle.ts:22` (the
+  `isThenable` kit-internal comment): explicitly flagged by this document's own "Sweep
+  Implementation Spec" section ("Confirmed live locations this sweep forces to migrate") but
+  never turned into a task in S-000's or S-004's task list. Fixed as `[adapt]`, same commit.
+- [x] S-004.9 `[adapt]` **EXECUTOR-DISCOVERED GAP** — `src/commons/classify-content.ts:20,23`
+  JSDoc `@example` (free-call `modify(...)`): S-001.7 explicitly flagged this as "confirmed
+  S-004 scope" but no S-004 task named the file. Fixed as `[adapt]` → `replaceContent(...)`,
+  same commit.
+- [x] S-004.10 `[adapt]` **EXECUTOR-DISCOVERED GAP** —
+  `test/conformance/planted/closure-smuggle-violation.ts:5` (comment: "A `.raw()`-equivalent
+  op..."). Fixed as `[adapt]` → `.modify()`-equivalent, same commit.
+- [x] S-004.11 `[adapt]` **EXECUTOR-DISCOVERED GAP** —
+  `test/fixtures/red/dialect-generics/async-op-rejects.ts:3` (comment: "mirrors `.raw()`'s
+  existing async containment"). Fixed as `[adapt]` → `.modify()`'s existing async containment,
+  same commit.
+- [x] S-004.12 `[adapt]` **EXECUTOR-DISCOVERED GAP** —
+  `test/docs/doc-set-content.test.ts:54`'s REQ-AOD-03.1 verb array
+  (`["create","modify","remove","rename","move","copy"]`): forced to update by S-004.2's own
+  `docs/authoring-verbs.md` rename — after that doc no longer names bare `` `modify` ``
+  anywhere, this hand-typed array would regress the test from green to red. Fixed as `[adapt]`
+  → `["create","replaceContent","remove","rename","move","copy"]`, same commit as S-004.2.
+- **Not touched, confirmed correctly out of scope**: `openspec/specs/**` (main specs — sync to
+  this change's delta specs happens at `sdd-archive`, not `sdd-apply`); other ADRs
+  (`0002`/`0003`/`0006`/`0009`/`0037` etc.) beyond the three already amended in S-000/S-002 —
+  historical decision records, never rewritten; `openspec/architecture.md` /
+  `openspec/sensitive-areas.md` / `openspec/pending-changes.md` / `openspec/config.yaml` —
+  project-level registries refreshed by the post-verify `arch_refresh_post_verify` hook, not
+  this slice; other in-flight changes' own planning docs
+  (`openspec/changes/{l1-author-surface,ts-dialect-backend-ops}/**`) and this change's own
+  planning artefacts (triage/explore/proposal/spec/design/slices/verify-plan) — historical
+  vocabulary preserved by convention; `test/fitness/dts-baseline/typescript.index.d.ts:19` — a
+  generated `.d.ts` baseline the FIT-04 mechanics table already ruled "no task needed" (JSDoc
+  comment lines only, gate strips them, regen is cosmetic-only).
 
 ---
 
