@@ -8,6 +8,7 @@
 // under `strictFunctionTypes` without a cast.
 import type { Batch, Directive } from "../core/wire.ts";
 import type { AuthoringError } from "../core/authoring-error.ts";
+import { defineFactory } from "../core/context.ts";
 import { ContractFake } from "./contract-fake.ts";
 
 interface RecordingClient {
@@ -93,11 +94,11 @@ export { defineFactory } from "../core/context.ts";
  * });
  */
 export async function runFactoryForTest<O>(
-  factory: (o: O, deps: { client: RecordingClient }) => Promise<void>,
+  fn: (input: O) => void | Promise<void>,
   input: O,
-  seed?: Record<string, string>
+  options?: { seed?: Record<string, string>; packageDir?: string | URL }
 ): Promise<RunResult> {
-  const fake = new ContractFake({ seed: seed ?? {} });
+  const fake = new ContractFake({ seed: options?.seed ?? {} });
   const emitted: Batch[] = [];
   const client: RecordingClient = {
     emit(batch) {
@@ -115,9 +116,14 @@ export async function runFactoryForTest<O>(
     },
   };
 
+  const run = defineFactory<O>(
+    fn,
+    options?.packageDir !== undefined ? { packageDir: options.packageDir } : undefined
+  );
+
   let error: AuthoringError | unknown;
   try {
-    await factory(input, { client });
+    await run(input, { client });
   } catch (caught) {
     error = caught;
   }

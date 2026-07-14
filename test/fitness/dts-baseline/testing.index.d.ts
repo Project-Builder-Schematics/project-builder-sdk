@@ -1,11 +1,5 @@
 import type { Batch, Directive } from "../core/wire.ts";
 import type { AuthoringError } from "../core/authoring-error.ts";
-interface RecordingClient {
-    emit(batch: Batch): Promise<void>;
-    read(path: string): Promise<string | undefined>;
-    commit(): Promise<void>;
-    discard(): Promise<void>;
-}
 /**
  * The outcome of running a factory via `runFactoryForTest`.
  *
@@ -79,7 +73,7 @@ export { defineFactory } from "../core/context.ts";
  *   expect(result.tree.get("src/greeting.ts")).toEqual("export const greeting = '{{name}}';");
  * });
  */
-export declare function runFactoryForTest<O>(factory: (o: O, deps: {
-    client: RecordingClient;
-}) => Promise<void>, input: O, seed?: Record<string, string>): Promise<RunResult>;
-//# sourceMappingURL=index.d.ts.map
+export declare function runFactoryForTest<O>(fn: (input: O) => void | Promise<void>, input: O, options?: {
+    seed?: Record<string, string>;
+    packageDir?: string | URL;
+}): Promise<RunResult>;

@@ -155,6 +155,21 @@ describe("FIT-04 — public .d.ts semver gate (baseline diff)", () => {
     expect(PORT_SYMBOL_PATTERN.test(dts)).toBe(false);
   });
 
+  // REQ-TES-05.3 (bare-factory-migration, S-000): the ./testing baseline's SIGNATURE regen
+  // is paired with a POSITIVE assertion proving the current dts reflects
+  // runFactoryForTest's NEW bare-fn + optional {seed, packageDir} shape — a removal-only
+  // diff (this file's removal-only check above) would pass even if the signature had been
+  // silently laundered into something else entirely, as long as no baseline line survived
+  // unmatched; this pins the actual replacement shape.
+  it("REQ-TES-05.3: dist/testing/index.d.ts reflects runFactoryForTest's new bare-fn + options-bag signature", () => {
+    const dts = readFileSync(join(DIST_DIR, "testing/index.d.ts"), "utf-8");
+    expect(dts).toContain(
+      "export declare function runFactoryForTest<O>(fn: (input: O) => void | Promise<void>, input: O, options?: {"
+    );
+    expect(dts).toContain("seed?: Record<string, string>;");
+    expect(dts).toContain("packageDir?: string | URL;");
+  });
+
   // RED-PROOF: a fixture .d.ts naming the port symbol is caught by the negative scan.
   it("[red-proof] a fixture dts naming EngineClient is caught by the negative declaration-scan", () => {
     const fixtureDts = `export declare function makeClient(): EngineClient;`;
