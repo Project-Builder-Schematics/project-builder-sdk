@@ -12,8 +12,8 @@
  *      runnable via the CI test command).
  *
  * Mirrors fit-01-commons-no-ast.test.ts's transitive-import-graph-walk idiom (BFS worklist,
- * readFileSync + regex, no AST parser) — reuses `IMPORT_SPECIFIER_RE` from
- * test/support/import-scan.ts for specifier extraction.
+ * readFileSync + regex, no AST parser) — reuses `walkReachable`/`stripComments`/
+ * `collectTsFiles` from test/support/import-scan.ts (shared with FIT-25/FIT-26).
  *
  * Red-proof: `test/fixtures/red/author-emulation/corpus-write-in-support.ts` — a
  * test/support-shaped module that writes directly to the corpus dir. Never imported by
@@ -21,9 +21,8 @@
  * FIT-21's red-proof).
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, extname, join, resolve } from "node:path";
-import { IMPORT_SPECIFIER_RE } from "../support/import-scan.ts";
+import { readFileSync } from "node:fs";
+import { collectTsFiles, stripComments, walkReachable } from "../support/import-scan.ts";
 
 const TEST_E2E_DIR = new URL("../e2e", import.meta.url).pathname;
 const TEST_SUPPORT_DIR = new URL("../support", import.meta.url).pathname;
@@ -34,67 +33,6 @@ const RED_FIXTURE_VAR_INDIRECT = new URL(
   "../fixtures/red/author-emulation/corpus-write-var-indirect.ts",
   import.meta.url
 ).pathname;
-
-function isRelative(specifier: string): boolean {
-  return specifier.startsWith("./") || specifier.startsWith("../");
-}
-
-// A JSDoc @example block quoting a sample import as prose is not a real import edge
-// (mirrors fit-01's stripComments guard).
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-}
-
-function extractSpecifiers(source: string): string[] {
-  const withoutComments = stripComments(source);
-  return [...withoutComments.matchAll(IMPORT_SPECIFIER_RE)].map((m) => m[1]!);
-}
-
-function resolveRelativeImport(fromFile: string, specifier: string): string {
-  return resolve(dirname(fromFile), specifier);
-}
-
-function collectTs(dir: string): string[] {
-  const files: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    const st = statSync(full);
-    if (st.isDirectory()) {
-      files.push(...collectTs(full));
-    } else if (extname(full) === ".ts") {
-      files.push(full);
-    }
-  }
-  return files;
-}
-
-/** BFS worklist over the relative-import graph, starting at `entryFiles`. Returns every
- * file reached (including the entries themselves). */
-function walkReachable(entryFiles: readonly string[]): Set<string> {
-  const visited = new Set<string>();
-  const queue: string[] = [...entryFiles];
-
-  while (queue.length > 0) {
-    const file = queue.shift();
-    if (file === undefined || visited.has(file)) continue;
-    visited.add(file);
-
-    let source: string;
-    try {
-      source = readFileSync(file, "utf-8");
-    } catch {
-      continue; // An unresolvable edge is not this scanner's concern.
-    }
-
-    for (const specifier of extractSpecifiers(source)) {
-      if (isRelative(specifier)) {
-        queue.push(resolveRelativeImport(file, specifier));
-      }
-    }
-  }
-
-  return visited;
-}
 
 // A write call is a violation when its OWN argument list targets the corpus dir —
 // either the corpus path LITERAL appears in the args, or the args reference an
@@ -194,7 +132,7 @@ function findCorpusWriteViolations(files: Iterable<string>): WriteViolation[] {
 
 describe("FIT-27 — anti-tautology static scan (no test-reachable corpus writer, REQ-FTG-05)", () => {
   it("no module reachable from test/e2e/ or test/support/ writes to the corpus directory", () => {
-    const entries = [...collectTs(TEST_E2E_DIR), ...collectTs(TEST_SUPPORT_DIR)];
+    const entries = [...collectTsFiles(TEST_E2E_DIR), ...collectTsFiles(TEST_SUPPORT_DIR)];
     const reachable = walkReachable(entries);
 
     const violations = findCorpusWriteViolations(reachable);
@@ -202,7 +140,7 @@ describe("FIT-27 — anti-tautology static scan (no test-reachable corpus writer
   });
 
   it("scripts/regen-corpus.ts is NOT reachable from the test-imported graph", () => {
-    const entries = [...collectTs(TEST_E2E_DIR), ...collectTs(TEST_SUPPORT_DIR)];
+    const entries = [...collectTsFiles(TEST_E2E_DIR), ...collectTsFiles(TEST_SUPPORT_DIR)];
     const reachable = walkReachable(entries);
 
     expect(reachable.has(REGEN_SCRIPT)).toBe(false);

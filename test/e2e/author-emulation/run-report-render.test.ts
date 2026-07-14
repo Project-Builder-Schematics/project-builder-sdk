@@ -16,7 +16,7 @@ import {
   GAP_NOTICE,
 } from "../../support/run-report-render.ts";
 import { FORMAT_VERSION, type TranscriptRecord } from "../../support/corpus-format.ts";
-import { specifiersResolvingInto } from "../../support/import-scan.ts";
+import { specifiersResolvingInto, stripComments } from "../../support/import-scan.ts";
 
 const RENDERER_SOURCE_PATH = new URL("../../support/run-report-render.ts", import.meta.url).pathname;
 const DRY_RUN_PLAN_PATH = new URL("../../../src/dry-run/plan.ts", import.meta.url).pathname;
@@ -24,11 +24,6 @@ const PARALLEL_MAP_FIXTURE = new URL(
   "../../fixtures/red/author-emulation/parallel-kind-map-renderer.ts",
   import.meta.url
 ).pathname;
-
-// A comment quoting "rendered"/"copied" as prose is not a mapping (fit-01/25/27 idiom).
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-}
 
 /**
  * Detects a hand-rolled op→kind mapping in VALUE position — the parallel-map drift

@@ -188,3 +188,13 @@ export function serializeCorpus(record: TranscriptRecord): string {
 export function parseCorpus(text: string): TranscriptRecord {
   return JSON.parse(text) as TranscriptRecord;
 }
+
+/**
+ * GCC-10: the pinned corpus filename stem — one literal format, shared by the regen
+ * writer, the e2e byte-compare, and FIT-26's GCC-01 count check, so the three sites can
+ * never drift onto different naming shapes. Pure string formatting, no fs (this module
+ * stays fs-free).
+ */
+export function corpusFileNameFor(id: string, slug: string): string {
+  return `${id}.${slug}.transcript.json`;
+}

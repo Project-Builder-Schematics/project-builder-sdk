@@ -6,7 +6,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { captureRun } from "../test/support/ir-transcript.ts";
-import { buildRecord, serializeCorpus } from "../test/support/corpus-format.ts";
+import { buildRecord, corpusFileNameFor, serializeCorpus } from "../test/support/corpus-format.ts";
 import { SCENARIOS } from "../test/e2e/author-emulation/scenarios.ts";
 
 const CORPUS_DIR = new URL("../test/e2e/author-emulation/corpus/", import.meta.url).pathname;
@@ -20,7 +20,7 @@ async function main(): Promise<void> {
     const record = buildRecord(capture, { scenarioId: scenario.id, slug: scenario.slug });
     const text = serializeCorpus(record);
 
-    const path = join(CORPUS_DIR, `${scenario.id}.${scenario.slug}.transcript.json`);
+    const path = join(CORPUS_DIR, corpusFileNameFor(scenario.id, scenario.slug));
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, text, "utf8");
     console.log(`wrote ${path}`);

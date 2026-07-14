@@ -161,11 +161,14 @@ export const runM06 = defineFactory<Input>(
  * before the run and torn down in a `finally` immediately after, regardless of outcome
  * (REQ-AEG-07: never committed to the repo). `setup` receives the scratch dir's absolute
  * path to place whatever git-hostile/oversized content the scenario needs; `body` is the
- * factory logic, run with `packageDir` bound to that same scratch dir.
+ * factory logic, run with `packageDir` bound to that same scratch dir. An optional
+ * `teardown` runs BEFORE the scratch dir's own `rmSync` — for scenarios (M-17's existing
+ * out-of-ceiling sibling) that also plant fixture content OUTSIDE the scratch dir itself.
  */
 function scratchFactoryRunner(
   setup: (dir: string) => void,
-  body: (input: Input) => void | Promise<void>
+  body: (input: Input) => void | Promise<void>,
+  teardown?: (dir: string) => void
 ): (input: Input, deps: { client: EngineClient }) => Promise<void> {
   return async (input, deps) => {
     const dir = mkdtempSync(join(tmpdir(), "author-emulation-scratch-"));
@@ -175,6 +178,7 @@ function scratchFactoryRunner(
       const inner = defineFactory<Input>(body, { packageDir: dir });
       await inner(input, deps);
     } finally {
+      teardown?.(dir);
       rmSync(dir, { recursive: true, force: true });
     }
   };
@@ -454,28 +458,23 @@ export const runM17NonExisting = scratchFactoryRunner(
   }
 );
 
-function m17ExistingOutsideRunner(): (input: Input, deps: { client: EngineClient }) => Promise<void> {
-  return async (input, deps) => {
-    const dir = mkdtempSync(join(tmpdir(), "author-emulation-scratch-"));
-    writeFileSync(join(dir, "collection.json"), "{}", "utf-8");
-    const siblingPath = join(dirname(dir), "m17-existing-outside.txt");
-    writeFileSync(siblingPath, "outside content, out-of-ceiling regardless of existence.\n", "utf-8");
-    try {
-      const inner = defineFactory<Input>(
-        () => {
-          copyIn("../m17-existing-outside.txt", "m17-out/file.txt");
-        },
-        { packageDir: dir }
-      );
-      await inner(input, deps);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-      rmSync(siblingPath, { force: true });
-    }
-  };
+// The sibling path lives one level ABOVE the scratch dir (out-of-ceiling by construction)
+// — recomputed identically in `setup` and `teardown` since it is a pure function of `dir`.
+function m17SiblingPath(dir: string): string {
+  return join(dirname(dir), "m17-existing-outside.txt");
 }
 
-export const runM17Existing = m17ExistingOutsideRunner();
+export const runM17Existing = scratchFactoryRunner(
+  (dir) => {
+    writeFileSync(m17SiblingPath(dir), "outside content, out-of-ceiling regardless of existence.\n", "utf-8");
+  },
+  () => {
+    copyIn("../m17-existing-outside.txt", "m17-out/file.txt");
+  },
+  (dir) => {
+    rmSync(m17SiblingPath(dir), { force: true });
+  }
+);
 
 // --- M-18: missing in-ceiling source surfaces `source-not-found` (BRC-06.1). `missing.txt`
 // is lexically in-ceiling (no traversal) but never materialized.

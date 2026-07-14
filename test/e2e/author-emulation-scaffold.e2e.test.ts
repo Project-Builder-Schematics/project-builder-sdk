@@ -16,7 +16,13 @@ import { describe, it, expect } from "bun:test";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { captureRun, type CaptureResult } from "../support/ir-transcript.ts";
-import { buildRecord, serializeCorpus, FORMAT_VERSION, type TranscriptRecord } from "../support/corpus-format.ts";
+import {
+  buildRecord,
+  corpusFileNameFor,
+  serializeCorpus,
+  FORMAT_VERSION,
+  type TranscriptRecord,
+} from "../support/corpus-format.ts";
 import { renderReport, reportPathFor, REPORTS_DIR } from "../support/run-report-render.ts";
 import { instrumentHarnessIO } from "../support/harness-io-instrumentation.ts";
 import { expectReasonAsync } from "../support/expect-reason.ts";
@@ -26,7 +32,6 @@ import {
   runM02MissingFrom,
   runM02MissingTo,
   runM07,
-  runM09,
   runM11OverCap,
   runM12Oversized,
   runM16Absolute,
@@ -49,6 +54,26 @@ function isReportableMatrixRow(scenario: ScenarioEntry): boolean {
   return scenario.id !== "s-00";
 }
 
+// Lazy per-scenario capture cache: every assertion block below that only inspects a
+// scenario's RESULT (corpus content, directive shape, rejection triple, report content)
+// shares ONE `captureRun` per scenario id rather than re-materializing its fixtures
+// (some, e.g. M-07/M-09/M-21, are multi-MiB scratch dirs) on every re-run. Safe because
+// FIT-23 independently certifies `captureRun` is byte-identical across re-runs of the
+// SAME scenario — reusing the result changes nothing about what gets asserted.
+// EXCEPTION: the M-07 block below wraps its OWN `captureRun` in `instrumentHarnessIO()`
+// to observe fs calls DURING that exact invocation — routing it through this cache would
+// make the instrumentation observe nothing (a resolved promise, not a live call), so it
+// deliberately keeps its own uncached call.
+const captureCache = new Map<string, Promise<CaptureResult>>();
+
+function cachedCapture(scenario: ScenarioEntry): Promise<CaptureResult> {
+  const cached = captureCache.get(scenario.id);
+  if (cached !== undefined) return cached;
+  const promise = captureRun(scenario.run, scenario.input, scenario.seed);
+  captureCache.set(scenario.id, promise);
+  return promise;
+}
+
 /** Renders and writes scenario's report to its pinned path — the SAME path every call for
  * the same id/slug (RPT-03's "same-scenario re-run leaves exactly one file" property). */
 function writeReport(scenario: ScenarioEntry, record: TranscriptRecord, capture: CaptureResult): string {
@@ -65,11 +90,11 @@ describe("e2e — author-emulation scaffold family (walking skeleton + matrix ro
     if (scenario.gated) continue;
 
     it(`${scenario.id} (${scenario.slug}) matches the committed corpus byte-for-byte`, async () => {
-      const capture = await captureRun(scenario.run, scenario.input, scenario.seed);
+      const capture = await cachedCapture(scenario);
       const record = buildRecord(capture, { scenarioId: scenario.id, slug: scenario.slug });
       const fresh = serializeCorpus(record);
 
-      const committedPath = join(CORPUS_DIR, `${scenario.id}.${scenario.slug}.transcript.json`);
+      const committedPath = join(CORPUS_DIR, corpusFileNameFor(scenario.id, scenario.slug));
       const committed = readFileSync(committedPath, "utf-8");
 
       expect(fresh).toEqual(committed);
@@ -117,7 +142,7 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
   it("REQ-AEG-02.1 — zero `modify` directives anywhere across the fixture's captured transcripts", async () => {
     for (const scenario of SCENARIOS) {
       if (scenario.gated || scenario.id === "s-00") continue;
-      const capture = await captureRun(scenario.run, scenario.input, scenario.seed);
+      const capture = await cachedCapture(scenario);
       const modifyDirectives = capture.rawDirectives.filter((d) => (d.op as string) === "modify");
       expect({ scenario: scenario.id, modifyDirectives }).toEqual({ scenario: scenario.id, modifyDirectives: [] });
     }
@@ -158,7 +183,8 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
   });
 
   it("M-09 / batch-cap REQ-04.1 — aggregate-over-cap scaffold completes with exactly one directive per file, none dropped/duplicated/reordered, across >1 flushed group", async () => {
-    const capture = await captureRun(runM09, { name: "Widgets" });
+    const scenario = SCENARIOS.find((s) => s.id === "m-09")!;
+    const capture = await cachedCapture(scenario);
 
     expect(capture.error).toBeUndefined();
     expect(capture.emitted.length).toBeGreaterThan(1); // proves chunking actually happened
@@ -189,7 +215,7 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
   describe("M-04 — rename + chained-token translation + `.template` strip, PINNED order (REQ-FSC-05.1, REQ-SCM-03.1)", () => {
     it("chained-token fixture's pathTemplate matches the HARDCODED literal below — NEVER read from the committed corpus (anti-green-by-capture, REQ-SCM-03)", async () => {
       const scenario = SCENARIOS.find((s) => s.id === "m-04")!;
-      const capture = await captureRun(scenario.run, scenario.input, scenario.seed);
+      const capture = await cachedCapture(scenario);
       const paths = capture.rawDirectives.map((d) => (d.op === "create" ? d.create.pathTemplate : undefined));
 
       // Hardcoded literal, written directly in THIS test source — if the landed
@@ -201,7 +227,7 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
 
     it("renamed fixture proves the PINNED order — rename (original name) -> token translation -> `.template` strip", async () => {
       const scenario = SCENARIOS.find((s) => s.id === "m-04")!;
-      const capture = await captureRun(scenario.run, scenario.input, scenario.seed);
+      const capture = await cachedCapture(scenario);
       const paths = capture.rawDirectives.map((d) => (d.op === "create" ? d.create.pathTemplate : undefined));
 
       // Mirrors the spec's own worked example (`.service.` -> `.svc.`): had rename NOT
@@ -221,14 +247,14 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
     });
 
     it("re-running the SAME scenario's report write leaves exactly one file at its pinned path", async () => {
+      // The property under test is the WRITE's own overwrite behavior (mkdirSync +
+      // writeFileSync at the same pinned path), not capture determinism (FIT-23 already
+      // owns that) — rendering twice from the SAME capture exercises it identically.
       const scenario = SCENARIOS.find((s) => s.id === "m-01")!;
-      const capture1 = await captureRun(scenario.run, scenario.input, scenario.seed);
-      const record1 = buildRecord(capture1, { scenarioId: scenario.id, slug: scenario.slug });
-      writeReport(scenario, record1, capture1);
-
-      const capture2 = await captureRun(scenario.run, scenario.input, scenario.seed);
-      const record2 = buildRecord(capture2, { scenarioId: scenario.id, slug: scenario.slug });
-      writeReport(scenario, record2, capture2);
+      const capture = await cachedCapture(scenario);
+      const record = buildRecord(capture, { scenarioId: scenario.id, slug: scenario.slug });
+      writeReport(scenario, record, capture);
+      writeReport(scenario, record, capture);
 
       const matchingFiles = readdirSync(REPORTS_ABS_DIR).filter((f) => f.startsWith(`${scenario.id}.${scenario.slug}.`));
       expect(matchingFiles).toHaveLength(1);
@@ -246,7 +272,7 @@ describe("S-004 — matrix-row assertions beyond the generic corpus-compare (bat
     expected: { reason: string; verb: string | null; path: string | null }
   ): Promise<CaptureResult> {
     const scenario = SCENARIOS.find((s) => s.id === scenarioId)!;
-    const capture = await captureRun(scenario.run, scenario.input, scenario.seed);
+    const capture = await cachedCapture(scenario);
     const record = buildRecord(capture, { scenarioId: scenario.id, slug: scenario.slug });
     expect(record.normative.outcome).toEqual("rejected");
     expect(record.normative.directives).toEqual([]);
@@ -271,7 +297,7 @@ describe("S-004 — matrix-row assertions beyond the generic corpus-compare (bat
   describe("M-11 / batch-cap REQ-04.3 — exactly-at-cap passes; one-byte-over rejects (pins `>` not `>=`)", () => {
     it("at-cap scenario commits (corpus-canonical)", async () => {
       const scenario = SCENARIOS.find((s) => s.id === "m-11")!;
-      const capture = await captureRun(scenario.run, scenario.input, scenario.seed);
+      const capture = await cachedCapture(scenario);
       expect(capture.error).toBeUndefined();
       expect(capture.record.normative.outcome).toEqual("committed");
     });

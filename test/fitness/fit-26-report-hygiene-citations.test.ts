@@ -22,10 +22,12 @@
  */
 import { describe, it, expect } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { extname, join } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { SCENARIOS } from "../e2e/author-emulation/scenarios.ts";
 import { REPORTS_DIR, reportPathFor } from "../support/run-report-render.ts";
+import { corpusFileNameFor } from "../support/corpus-format.ts";
+import { collectTsFiles } from "../support/import-scan.ts";
 
 const GITIGNORE = new URL("../../.gitignore", import.meta.url).pathname;
 const MATRIX_SPEC = new URL(
@@ -41,20 +43,6 @@ const RUN_REPORT_RENDER = new URL("../support/run-report-render.ts", import.meta
 const TEST_SUPPORT_DIR = new URL("../support", import.meta.url).pathname;
 const TEST_E2E_DIR = new URL("../e2e", import.meta.url).pathname;
 const SCRIPTS_DIR = new URL("../../scripts", import.meta.url).pathname;
-
-function collectTsFiles(dir: string): string[] {
-  const files: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    const st = statSync(full);
-    if (st.isDirectory()) {
-      files.push(...collectTsFiles(full));
-    } else if (extname(full) === ".ts") {
-      files.push(full);
-    }
-  }
-  return files;
-}
 
 interface MatrixRow {
   id: string;
@@ -148,7 +136,7 @@ describe("FIT-26 — GCC-01: committed corpus files map one-to-one with SCENARIO
     expect(committedFiles.length).toEqual(SCENARIOS.length);
 
     for (const scenario of SCENARIOS) {
-      const path = join(CORPUS_DIR, `${scenario.id}.${scenario.slug}.transcript.json`);
+      const path = join(CORPUS_DIR, corpusFileNameFor(scenario.id, scenario.slug));
       expect({ scenario: scenario.id, exists: existsSync(path) }).toEqual({
         scenario: scenario.id,
         exists: true,

@@ -19,8 +19,8 @@
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { specifiersResolvingInto } from "../support/import-scan.ts";
+import { dirname } from "node:path";
+import { specifiersResolvingInto, walkReachable } from "../support/import-scan.ts";
 
 const REGEN_SCRIPT = new URL("../../scripts/regen-corpus.ts", import.meta.url).pathname;
 const REPORT_RENDERER = new URL("../support/run-report-render.ts", import.meta.url).pathname;
@@ -28,47 +28,6 @@ const E2E_FILE = new URL("../e2e/author-emulation-scaffold.e2e.test.ts", import.
 const IR_TRANSCRIPT = new URL("../support/ir-transcript.ts", import.meta.url).pathname;
 const TESTING_INDEX = new URL("../../src/testing/index.ts", import.meta.url).pathname;
 const RED_FIXTURE = new URL("../fixtures/red/author-emulation/second-capture-module.ts", import.meta.url).pathname;
-
-function isRelative(specifier: string): boolean {
-  return specifier.startsWith(".");
-}
-
-// A JSDoc @example block quoting a sample import as prose is not a real import edge
-// (mirrors fit-01/fit-27's stripComments guard).
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-}
-
-function extractRelativeSpecifiers(source: string): string[] {
-  const withoutComments = stripComments(source);
-  const IMPORT_RE = /(?:import|export)\s+(?:[^'"]*?\s+from\s+)?["']([^"']+)["']/g;
-  return [...withoutComments.matchAll(IMPORT_RE)].map((m) => m[1]!).filter(isRelative);
-}
-
-/** BFS worklist over the relative-import graph, starting at `entryFiles` (fit-27 idiom). */
-function walkReachable(entryFiles: readonly string[]): Set<string> {
-  const visited = new Set<string>();
-  const queue: string[] = [...entryFiles];
-
-  while (queue.length > 0) {
-    const file = queue.shift();
-    if (file === undefined || visited.has(file)) continue;
-    visited.add(file);
-
-    let source: string;
-    try {
-      source = readFileSync(file, "utf-8");
-    } catch {
-      continue;
-    }
-
-    for (const specifier of extractRelativeSpecifiers(source)) {
-      queue.push(resolve(dirname(file), specifier));
-    }
-  }
-
-  return visited;
-}
 
 /** A "capture module" = a file whose source imports from `src/testing/index.ts` — the
  * only module exporting `runFactoryForTest`. */
