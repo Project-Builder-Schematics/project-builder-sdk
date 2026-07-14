@@ -1,5 +1,6 @@
 // REQ-AEG-01/02 (design §4.2, slices.md S-003.2): the realistic CRUD-shaped
-// author-emulation fixture — one package (`defineFactory({packageDir})` throughout, D2:
+// author-emulation fixture — one package (bare exports, `packageDir` threaded by
+// `ScenarioEntry.packageDir` at the SCENARIOS registry level, bare-factory-migration D2:
 // not a faithful `crud-graphql-mongo` port, bounded to this SDK's own capabilities) with
 // per-matrix-scenario runner VARIANTS the scenario registry (`../../e2e/author-emulation/
 // scenarios.ts`) drives through `captureRun`. Zero `modify` directives anywhere (AEG-02)
@@ -12,8 +13,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import type { EngineClient } from "../../../src/core/engine-client.ts";
-import { defineFactory } from "../../../src/core/context.ts";
+import { currentContext } from "../../../src/core/context.ts";
+import { findReservedSibling } from "../../../src/core/schema/schema-discovery.ts";
+import { rejectionForReservedName } from "../../../src/core/schema/input-rejection.ts";
 import { create, copyIn, scaffold } from "../../../src/commons/index.ts";
 import type { ScaffoldOptions } from "../../../src/commons/index.ts";
 import { BATCH_CAP_BYTES, serializedBatchSize } from "../../../src/core/wire.ts";
@@ -41,66 +43,51 @@ function recordedScaffold(args: ScaffoldOptions): void {
 // verb never runs scaffold's OWN filename pipeline (path passes through verbatim,
 // commons/index.ts's own doc comment) — this IS the M-01 "token appears verbatim in the
 // emitted pathTemplate" assertion.
-export const runM01 = defineFactory<Input>(
-  (input) => {
-    recordedScaffold({
-      from: "files",
-      to: "generated",
-      // `options` is typed `JsonValue` (untyped at the wire) — coalesce the schema's
-      // OPTIONAL fields to concrete values so the literal type-checks as JSON-safe
-      // (`boolean | undefined` is not itself a valid JsonValue member).
-      options: { name: input.name, withTests: input.withTests ?? false, visibility: input.visibility ?? "public" },
-    });
-    copyIn("assets/logo.png", "generated/assets/logo.png");
-    create("{= name =}.index.ts", {
-      templateFile: "templates/index.ts.template",
-      options: { name: input.name },
-    });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM01 = (input: Input): void => {
+  recordedScaffold({
+    from: "files",
+    to: "generated",
+    // `options` is typed `JsonValue` (untyped at the wire) — coalesce the schema's
+    // OPTIONAL fields to concrete values so the literal type-checks as JSON-safe
+    // (`boolean | undefined` is not itself a valid JsonValue member).
+    options: { name: input.name, withTests: input.withTests ?? false, visibility: input.visibility ?? "public" },
+  });
+  copyIn("assets/logo.png", "generated/assets/logo.png");
+  create("{= name =}.index.ts", {
+    templateFile: "templates/index.ts.template",
+    options: { name: input.name },
+  });
+};
 
 // --- M-02: ScaffoldArgs defaults hold (FSC-01.1/.2/.3) — the corpus captures the
 // DEFAULTS-ONLY half (this scaffold call has no `options`, `include`, `exclude`,
 // `rename`, or `force` — every optional field omitted). The two mandatory-arg
 // rejections are asserted separately in the e2e file (not corpus-captured — a
 // zero-directive rejection carries nothing worth diffing byte-for-byte).
-export const runM02Defaults = defineFactory<Input>(
-  () => {
-    recordedScaffold({ from: "files", to: "m02-out" });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM02Defaults = (): void => {
+  recordedScaffold({ from: "files", to: "m02-out" });
+};
 
-export const runM02MissingFrom = defineFactory<Input>(
-  () => {
-    scaffold({ to: "m02-missing-from" } as ScaffoldOptions);
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM02MissingFrom = (): void => {
+  scaffold({ to: "m02-missing-from" } as ScaffoldOptions);
+};
 
-export const runM02MissingTo = defineFactory<Input>(
-  () => {
-    scaffold({ from: "files" } as ScaffoldOptions);
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM02MissingTo = (): void => {
+  scaffold({ from: "files" } as ScaffoldOptions);
+};
 
 // --- M-03: include/exclude, exclude wins on overlap (FSC-03.1) — `include` matches
 // every `.template` file; `exclude` removes the README specifically, proving exclude's
 // priority on the overlapping match rather than either filter applied in isolation.
-export const runM03 = defineFactory<Input>(
-  (input) => {
-    recordedScaffold({
-      from: "files",
-      to: "m03-out",
-      options: { name: input.name },
-      include: ["*.template"],
-      exclude: ["README.md.template"],
-    });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM03 = (input: Input): void => {
+  recordedScaffold({
+    from: "files",
+    to: "m03-out",
+    options: { name: input.name },
+    include: ["*.template"],
+    exclude: ["README.md.template"],
+  });
+};
 
 // --- M-04: rename remap + chained-token translation + `.template` strip, PINNED order
 // (FSC-05.1) — ONE scaffold call, TWO fixtures, TWO assertions (M-04 clarification,
@@ -109,51 +96,42 @@ export const runM03 = defineFactory<Input>(
 // example); the chained entity fixture is left un-renamed (proves multi-filter chaining
 // against the SCM-03.1 hardcoded literal — the e2e assertion never reads this from the
 // corpus, per REQ-SCM-03's anti-green-by-capture rule).
-export const runM04 = defineFactory<Input>(
-  (input) => {
-    recordedScaffold({
-      from: "files",
-      to: "m04-out",
-      options: { name: input.name },
-      rename: {
-        "__name@dasherize__.controller.ts.template": "__name@dasherize__.svc.ts.template",
-      },
-    });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM04 = (input: Input): void => {
+  recordedScaffold({
+    from: "files",
+    to: "m04-out",
+    options: { name: input.name },
+    rename: {
+      "__name@dasherize__.controller.ts.template": "__name@dasherize__.svc.ts.template",
+    },
+  });
+};
 
 // --- M-05: mixed by-value/by-reference SUCCESS in ONE scaffold (CCL-01.1/.2, BRC-01.1)
 // — also the fixture-wide `force` field carrier (AEG-01.2): `force: true` has no
 // colliding destination here (a fresh `to` prefix every run), so it exercises the
 // pass-through cleanly, with nothing to overwrite.
-export const runM05 = defineFactory<Input>(
-  (input) => {
-    recordedScaffold({
-      from: "files-mixed",
-      to: "m05-out",
-      options: { name: input.name },
-      force: true,
-    });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM05 = (input: Input): void => {
+  recordedScaffold({
+    from: "files-mixed",
+    to: "m05-out",
+    options: { name: input.name },
+    force: true,
+  });
+};
 
 // --- M-06: binary asset classifies by-reference (CCL-01.2, BRC-01.2) — `include`
 // narrows the walk to the one non-`.template` binary asset, skipping
 // `assets/blob.bin.template` (that fixture's fail-loud case belongs to M-08, S-004's
 // own row, never triggered here).
-export const runM06 = defineFactory<Input>(
-  (input) => {
-    recordedScaffold({
-      from: "assets",
-      to: "m06-out",
-      options: { name: input.name },
-      include: ["logo.png"],
-    });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM06 = (input: Input): void => {
+  recordedScaffold({
+    from: "assets",
+    to: "m06-out",
+    options: { name: input.name },
+    include: ["logo.png"],
+  });
+};
 
 /**
  * Wraps a scenario body in a FRESH scratch package directory — materialized (with the
@@ -161,22 +139,54 @@ export const runM06 = defineFactory<Input>(
  * before the run and torn down in a `finally` immediately after, regardless of outcome
  * (REQ-AEG-07: never committed to the repo). `setup` receives the scratch dir's absolute
  * path to place whatever git-hostile/oversized content the scenario needs; `body` is the
- * factory logic, run with `packageDir` bound to that same scratch dir. An optional
- * `teardown` runs BEFORE the scratch dir's own `rmSync` — for scenarios (M-17's existing
- * out-of-ceiling sibling) that also plant fixture content OUTSIDE the scratch dir itself.
+ * factory logic. An optional `teardown` runs BEFORE the scratch dir's own `rmSync` — for
+ * scenarios (M-17's existing out-of-ceiling sibling) that also plant fixture content
+ * OUTSIDE the scratch dir itself.
+ *
+ * Bare-factory-migration (S-004) recorded decision: this does NOT nest a second call to
+ * the core wrap primitive (`src/core/context.ts`'s exported factory-defining function; see
+ * slices.md §10's open question + ruling R-3). `Session`'s client is a truly private field
+ * (`src/core/session.ts`'s `#client`, no accessor anywhere on `RunContext`) — a nested call
+ * to that primitive would need to build its OWN independent client/fake, and its
+ * directives would land THERE, never in the OUTER `runFactoryForTest` wrap's
+ * `result.tree`/`emitted` the corpus actually captures. Instead, this reuses the SAME
+ * ambient run `runFactoryForTest`/`captureRun` already established: it resolves the
+ * scratch dir's own containment root itself (the scratch dir writes `collection.json`
+ * directly at its own root, so `packageRoot === packageDir` here — the exact value the
+ * production resolver would also compute for this case, since the walk finds a ceiling
+ * marker at the very first directory it checks), replicates the SAME wrap primitive's own
+ * reserved-name check via the SAME exported utilities it calls (`findReservedSibling` +
+ * `rejectionForReservedName` — never a private reimplementation), then temporarily installs
+ * those anchors on the CURRENT `RunContext` for the duration of `body`'s execution,
+ * restoring the previous value (`undefined` for every caller today, since these scenarios
+ * are never given a static `ScenarioEntry.packageDir`) in a `finally`. The schema-boundary
+ * check the wrap primitive itself runs is NOT replicated here — it is unexported, and every
+ * scenario here omits `schema.json` (the same ENOENT opt-out the wrap primitive itself
+ * takes), so skipping it only drops a console warning, never an observable result
+ * difference.
  */
 function scratchFactoryRunner(
   setup: (dir: string) => void,
   body: (input: Input) => void | Promise<void>,
   teardown?: (dir: string) => void
-): (input: Input, deps: { client: EngineClient }) => Promise<void> {
-  return async (input, deps) => {
+): (input: Input) => Promise<void> {
+  return async (input) => {
     const dir = mkdtempSync(join(tmpdir(), "author-emulation-scratch-"));
     writeFileSync(join(dir, "collection.json"), "{}", "utf-8");
     try {
       setup(dir);
-      const inner = defineFactory<Input>(body, { packageDir: dir });
-      await inner(input, deps);
+      const reserved = findReservedSibling(dir);
+      if (reserved !== undefined) {
+        throw rejectionForReservedName(reserved);
+      }
+      const ctx = currentContext();
+      const previousAnchors = ctx.packageAnchors;
+      ctx.packageAnchors = { packageDir: dir, packageRoot: dir };
+      try {
+        await body(input);
+      } finally {
+        ctx.packageAnchors = previousAnchors;
+      }
     } finally {
       teardown?.(dir);
       rmSync(dir, { recursive: true, force: true });
@@ -280,12 +290,9 @@ export const runWalkOrderDiscriminator = scratchFactoryRunner(
 // by-reference fixture set (ATH-16.1) — the corpus captures the single VALID copyIn run;
 // the parity comparison itself (fake vs conformance vehicle, across valid/missing-source/
 // collision fixtures) lives in `test/e2e/author-emulation/m20-conformance-parity.test.ts`.
-export const runM20Valid = defineFactory<Input>(
-  () => {
-    copyIn("assets/logo.png", "m20-out/logo.png");
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM20Valid = (): void => {
+  copyIn("assets/logo.png", "m20-out/logo.png");
+};
 
 // =====================================================================================
 // S-004 — Batch-Cap, Containment & Rejection Boundaries (M-08, M-10, M-11, M-12, M-13,
@@ -300,12 +307,9 @@ export const runM20Valid = defineFactory<Input>(
 // isolates the ONE binary `.template` asset (`assets/blob.bin.template`, shipped S-002);
 // the walk rejects `invalid-input` before any directive is emitted (verb/path both
 // undefined — `classifyTransport`'s render-fail carve-out never attributes a directive).
-export const runM08 = defineFactory<Input>(
-  () => {
-    scaffold({ from: "assets", to: "m08-out", include: ["blob.bin.template"] });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM08 = (): void => {
+  scaffold({ from: "assets", to: "m08-out", include: ["blob.bin.template"] });
+};
 
 /**
  * The exact `template` STRING LENGTH that makes a solo `create` directive at
@@ -334,13 +338,10 @@ function fillTemplateForBatchSize(pathTemplate: string, targetBytes: number): st
 // directive still flushes alone and rejects at the fake's emit").
 export const M10_GIANT_PATH = "m10-giant.txt";
 
-export const runM10 = defineFactory<Input>(
-  () => {
-    create(M10_GIANT_PATH, { template: fillTemplateForBatchSize(M10_GIANT_PATH, BATCH_CAP_BYTES + 1024), options: {} });
-    scaffold({ from: "files", to: "m10-out", include: ["README.md.template"] });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM10 = (): void => {
+  create(M10_GIANT_PATH, { template: fillTemplateForBatchSize(M10_GIANT_PATH, BATCH_CAP_BYTES + 1024), options: {} });
+  scaffold({ from: "files", to: "m10-out", include: ["README.md.template"] });
+};
 
 // --- M-11: exactly-at-cap passes; one-byte-over rejects (batch-cap REQ-04.3, pins `>` not
 // `>=`). Same mechanical constraint as M-10 (scaffold's own classifier cannot produce an
@@ -351,32 +352,23 @@ export const runM10 = defineFactory<Input>(
 export const M11_AT_CAP_PATH = "m11-at-cap.txt";
 export const M11_OVER_CAP_PATH = "m11-over-cap.txt";
 
-export const runM11AtCap = defineFactory<Input>(
-  () => {
-    create(M11_AT_CAP_PATH, { template: fillTemplateForBatchSize(M11_AT_CAP_PATH, BATCH_CAP_BYTES), options: {} });
-    scaffold({ from: "files", to: "m11-out", include: ["README.md.template"] });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM11AtCap = (): void => {
+  create(M11_AT_CAP_PATH, { template: fillTemplateForBatchSize(M11_AT_CAP_PATH, BATCH_CAP_BYTES), options: {} });
+  scaffold({ from: "files", to: "m11-out", include: ["README.md.template"] });
+};
 
-export const runM11OverCap = defineFactory<Input>(
-  () => {
-    create(M11_OVER_CAP_PATH, { template: fillTemplateForBatchSize(M11_OVER_CAP_PATH, BATCH_CAP_BYTES + 1), options: {} });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM11OverCap = (): void => {
+  create(M11_OVER_CAP_PATH, { template: fillTemplateForBatchSize(M11_OVER_CAP_PATH, BATCH_CAP_BYTES + 1), options: {} });
+};
 
 // --- M-12: `templateFile` binary/oversized fails loud, never silently copies (FEH-02.1/.2).
 // `readTemplateFile` always passes `failMessages` (a render REQUEST never falls back to
 // by-reference, regardless of the source's own filename suffix) — the committed
 // `assets/logo.png` (a real binary, S-002) proves the BINARY variant with zero new fixture
 // content. The OVERSIZED variant is e2e-inline-only (mirrors M-11's over-cap split).
-export const runM12Binary = defineFactory<Input>(
-  () => {
-    create("m12-out/rendered.ts", { templateFile: "assets/logo.png", options: {} });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM12Binary = (): void => {
+  create("m12-out/rendered.ts", { templateFile: "assets/logo.png", options: {} });
+};
 
 export const runM12Oversized = scratchFactoryRunner(
   (dir) => {
@@ -390,30 +382,24 @@ export const runM12Oversized = scratchFactoryRunner(
 
 // --- M-13: filters eliminate every entry — fail loud naming filters (FSC-04.2). `include`
 // matches none of `files/`'s three `.template` entries.
-export const runM13 = defineFactory<Input>(
-  () => {
-    scaffold({ from: "files", to: "m13-out", include: ["*.nonexistent-ext"] });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM13 = (): void => {
+  scaffold({ from: "files", to: "m13-out", include: ["*.nonexistent-ext"] });
+};
 
 // --- M-15: intra-scaffold destination collision — fail loud naming both sources (FSC-08.1).
 // `rename` remaps two DISTINCT `files/` originals onto the SAME literal name (no tokens, so
 // translation is a no-op) — both collapse to `collide.ts` post-`.template`-strip, colliding
 // BEFORE any file is classified or emitted (`detectDestinationCollisions` runs pre-loop).
-export const runM15 = defineFactory<Input>(
-  () => {
-    scaffold({
-      from: "files",
-      to: "m15-out",
-      rename: {
-        "__name@dasherize__.controller.ts.template": "collide.ts.template",
-        "README.md.template": "collide.ts.template",
-      },
-    });
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM15 = (): void => {
+  scaffold({
+    from: "files",
+    to: "m15-out",
+    rename: {
+      "__name@dasherize__.controller.ts.template": "collide.ts.template",
+      "README.md.template": "collide.ts.template",
+    },
+  });
+};
 
 // --- M-16: traversal / absolute source path rejected (PRC-04.1/.6). `copyIn`'s
 // containment check screens BOTH forms lexically (`isLexicallyEscaping`), before any
@@ -424,19 +410,13 @@ export const runM15 = defineFactory<Input>(
 // string in a committed record, which FIT-24 exists to catch — so this variant is asserted
 // directly against the caught error, never serialized to the corpus (same split discipline
 // as M-11/M-12's inline-only companion variants).
-export const runM16Traversal = defineFactory<Input>(
-  () => {
-    copyIn("../m16-traversal-outside.txt", "m16-out/file.txt");
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM16Traversal = (): void => {
+  copyIn("../m16-traversal-outside.txt", "m16-out/file.txt");
+};
 
-export const runM16Absolute = defineFactory<Input>(
-  () => {
-    copyIn("/etc/passwd", "m16-abs-out/file.txt");
-  },
-  { packageDir: PACKAGE_DIR }
-);
+export const runM16Absolute = (): void => {
+  copyIn("/etc/passwd", "m16-abs-out/file.txt");
+};
 
 // --- M-17: no-existence-oracle for out-of-ceiling paths (PRC-07.1). Containment's lexical
 // `../`-screen (`resolveContainedRealpath` step 1, `isLexicallyEscaping`) rejects a

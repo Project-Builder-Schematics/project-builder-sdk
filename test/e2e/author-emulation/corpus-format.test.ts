@@ -18,7 +18,10 @@ const skeleton = SCENARIOS.find((s) => s.id === "s-00")!;
 
 describe("corpus-format — formatVersion is independent of wire protocolVersion (GCC-02)", () => {
   it("formatVersion and protocolVersion are distinct fields with independent values", async () => {
-    const capture = await captureRun(skeleton.run, skeleton.input, skeleton.seed);
+    const capture = await captureRun(skeleton.run, skeleton.input, {
+      seed: skeleton.seed,
+      packageDir: skeleton.packageDir,
+    });
     const record = buildRecord(capture, { scenarioId: skeleton.id, slug: skeleton.slug });
 
     // formatVersion (corpus) is a fixed constant; protocolVersion (wire) is captured

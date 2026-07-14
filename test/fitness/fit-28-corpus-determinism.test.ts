@@ -19,16 +19,17 @@ import { SCENARIOS } from "../e2e/author-emulation/scenarios.ts";
 import { run as nondeterministicRun } from "../fixtures/red/author-emulation/nondeterministic-factory.ts";
 
 async function renderTwice(
-  scenario: Pick<(typeof SCENARIOS)[number], "run" | "input" | "seed" | "id" | "slug">
+  scenario: Pick<(typeof SCENARIOS)[number], "run" | "input" | "seed" | "packageDir" | "id" | "slug">
 ): Promise<[string, string]> {
+  const options = { seed: scenario.seed, packageDir: scenario.packageDir };
   const first = serializeCorpus(
-    buildRecord(await captureRun(scenario.run, scenario.input, scenario.seed), {
+    buildRecord(await captureRun(scenario.run, scenario.input, options), {
       scenarioId: scenario.id,
       slug: scenario.slug,
     })
   );
   const second = serializeCorpus(
-    buildRecord(await captureRun(scenario.run, scenario.input, scenario.seed), {
+    buildRecord(await captureRun(scenario.run, scenario.input, options), {
       scenarioId: scenario.id,
       slug: scenario.slug,
     })

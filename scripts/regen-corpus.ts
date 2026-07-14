@@ -16,7 +16,10 @@ async function main(): Promise<void> {
     // Matrix rows (m-01..m-21) regenerate once S-003/S-004 land their factory surface.
     if (scenario.gated) continue;
 
-    const capture = await captureRun(scenario.run, scenario.input, scenario.seed);
+    const capture = await captureRun(scenario.run, scenario.input, {
+      seed: scenario.seed,
+      packageDir: scenario.packageDir,
+    });
     const record = buildRecord(capture, { scenarioId: scenario.id, slug: scenario.slug });
     const text = serializeCorpus(record);
 

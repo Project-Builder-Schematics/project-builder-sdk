@@ -4,9 +4,10 @@
 // fs, no writes, no import of the capture module (never a capture path, FIT-25-
 // irrelevant; never a corpus write, FIT-27-clean by construction, still scanned like
 // every test-reachable module).
-import { run as skeletonRun } from "../../fixtures/typed-factory/factory.ts";
+import { run as skeletonRun, PACKAGE_DIR as SKELETON_PACKAGE_DIR } from "../../fixtures/typed-factory/factory.ts";
 import type { Input as SkeletonInput } from "../../fixtures/typed-factory/schema.generated.ts";
 import {
+  PACKAGE_DIR,
   runM01,
   runM02Defaults,
   runM03,
@@ -32,12 +33,14 @@ import {
 } from "../../fixtures/author-emulation/factory.ts";
 import type { Input as AuthorEmulationInput } from "../../fixtures/author-emulation/schema.generated.ts";
 
-// A factory variant reference, erased to `any` at the boundary: each scenario's factory
-// carries its OWN `Input` type (schema-derived), and this registry deliberately mixes
-// heterogeneous scenarios in one array — there is no single concrete signature to give
-// `run` without an escape hatch here. `captureRun`'s own generic `<O>` recovers precision
-// per call site.
-export type FactoryRunner = (input: any, deps: { client: any }) => Promise<void>;
+// A bare factory variant reference, erased to `any` at the boundary (bare-factory-migration
+// design §4.3): each scenario's factory carries its OWN `Input` type (schema-derived), and
+// this registry deliberately mixes heterogeneous scenarios in one array — there is no
+// single concrete signature to give `run` without an escape hatch here. `captureRun`'s own
+// generic `<O>` recovers precision per call site. Narrowed from the old arity-2
+// wrapped-runner shape to the bare author-fn shape — this is what COMPILE-enforces every
+// fixture export's migration (design §4.7).
+export type FactoryRunner = (input: any) => void | Promise<void>;
 
 export interface ScenarioEntry {
   id: string;
@@ -45,6 +48,11 @@ export interface ScenarioEntry {
   run: FactoryRunner;
   input: unknown;
   seed?: Record<string, string>;
+  /** Threaded to `runFactoryForTest`/`captureRun`'s options bag (bare-factory-migration
+   * design §4.3) — `packageDir` now lives at the SCENARIO level, never inside the fixture's
+   * own export. Absent for the scratch-backed rows (m-07/m-09/m-14/m-17/m-18/m-19/m-21),
+   * whose factories resolve their OWN dynamically-created scratch directory internally. */
+  packageDir?: string;
   expected: "committed" | "rejected";
   /** Matrix rows (m-01..m-21) needing the landed scaffold/copyIn/create(templateFile)
    * surface — gated true until S-003/S-004 land them. The infra-spine skeleton (s-00)
@@ -63,6 +71,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "infra-skeleton",
     run: skeletonRun,
     input: { port: 8080 } satisfies SkeletonInput,
+    packageDir: SKELETON_PACKAGE_DIR,
     expected: "committed",
     gated: false,
   },
@@ -71,6 +80,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "full-generator",
     run: runM01,
     input: M01_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "committed",
     gated: false,
   },
@@ -79,6 +89,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "defaults-hold",
     run: runM02Defaults,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "committed",
     gated: false,
   },
@@ -87,6 +98,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "include-exclude",
     run: runM03,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "committed",
     gated: false,
   },
@@ -95,6 +107,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "rename-chained-token",
     run: runM04,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "committed",
     gated: false,
   },
@@ -103,6 +116,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "mixed-by-value-by-reference",
     run: runM05,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "committed",
     gated: false,
   },
@@ -111,6 +125,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "binary-by-reference",
     run: runM06,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "committed",
     gated: false,
   },
@@ -151,6 +166,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "conformance-parity-copyin",
     run: runM20Valid,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "committed",
     gated: false,
   },
@@ -163,6 +179,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "binary-template-walk-fails-loud",
     run: runM08,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "rejected",
     gated: false,
   },
@@ -171,6 +188,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "single-group-over-cap-rejects",
     run: runM10,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "rejected",
     gated: false,
   },
@@ -179,6 +197,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "exactly-at-cap-passes",
     run: runM11AtCap,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "committed",
     gated: false,
   },
@@ -187,6 +206,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "templatefile-binary-fails-loud",
     run: runM12Binary,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "rejected",
     gated: false,
   },
@@ -195,6 +215,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "filters-eliminate-everything",
     run: runM13,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "rejected",
     gated: false,
   },
@@ -203,6 +224,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "intra-scaffold-collision",
     run: runM15,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "rejected",
     gated: false,
   },
@@ -211,6 +233,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     slug: "traversal-source-rejected",
     run: runM16Traversal,
     input: DEFAULT_INPUT,
+    packageDir: PACKAGE_DIR,
     expected: "rejected",
     gated: false,
   },

@@ -4,12 +4,11 @@
 // only by the fit-28/fit-24 red-proof tests. Excluded from tsconfig (test/fixtures/red/**,
 // repo FIT-21 idiom).
 import { randomUUID } from "node:crypto";
-import { defineFactory } from "../../../../src/core/context.ts";
 import { create } from "../../../../src/commons/index.ts";
 
-export const run = defineFactory<{ tag: string }>((input) => {
+export const run = (input: { tag: string }): void => {
   create("nondeterministic.txt", {
     template: "{{nonce}}",
     options: { tag: input.tag, nonce: randomUUID() },
   });
-});
+};
