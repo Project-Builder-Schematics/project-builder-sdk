@@ -1,0 +1,25 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-19",
+  "slug": "symlinked-dir-skipped",
+  "normative": {
+    "outcome": "committed",
+    "directives": [
+      {
+        "op": "create",
+        "pathTemplate": "out/a.ts",
+        "template": "export const a = 1;\n",
+        "options": {},
+        "force": false
+      }
+    ]
+  },
+  "informative": {
+    "batchGrouping": [
+      {
+        "directiveCount": 1,
+        "protocolVersion": 1
+      }
+    ]
+  }
+}

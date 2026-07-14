@@ -1,0 +1,27 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "s-00",
+  "slug": "infra-skeleton",
+  "normative": {
+    "outcome": "committed",
+    "directives": [
+      {
+        "op": "create",
+        "pathTemplate": "server.config.ts",
+        "template": "export const port = {{port}};",
+        "options": {
+          "port": 8080
+        },
+        "force": false
+      }
+    ]
+  },
+  "informative": {
+    "batchGrouping": [
+      {
+        "directiveCount": 1,
+        "protocolVersion": 1
+      }
+    ]
+  }
+}

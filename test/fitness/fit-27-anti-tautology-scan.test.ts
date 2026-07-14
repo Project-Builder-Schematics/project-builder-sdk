@@ -1,0 +1,199 @@
+/**
+ * FIT-27 (REQ-FTG-05): anti-tautology static scan — the mechanical enforcement of
+ * `golden-corpus-contract` REQ-GCC-05's "no in-test update path" guard.
+ *
+ * Two invariants:
+ *  (a) NO module reachable from the test-imported graph (entries: every .ts file under
+ *      test/e2e/ and test/support/, followed transitively via relative imports) writes to
+ *      the corpus directory (test/e2e/author-emulation/corpus/) — scoped to corpus ONLY,
+ *      the reports dir is explicitly excluded.
+ *  (b) `scripts/regen-corpus.ts` — the sole corpus-dir writer — is NOT reachable from that
+ *      same graph, and does not match `bun test`'s test-file discovery pattern (never
+ *      runnable via the CI test command).
+ *
+ * Mirrors fit-01-commons-no-ast.test.ts's transitive-import-graph-walk idiom (BFS worklist,
+ * readFileSync + regex, no AST parser) — reuses `walkReachable`/`stripComments`/
+ * `collectTsFiles` from test/support/import-scan.ts (shared with FIT-25/FIT-26).
+ *
+ * Red-proof: `test/fixtures/red/author-emulation/corpus-write-in-support.ts` — a
+ * test/support-shaped module that writes directly to the corpus dir. Never imported by
+ * anything real; the scan FUNCTION is called directly against its source (same idiom as
+ * FIT-21's red-proof).
+ */
+import { describe, it, expect } from "bun:test";
+import { readFileSync } from "node:fs";
+import { collectTsFiles, stripComments, walkReachable } from "../support/import-scan.ts";
+
+const TEST_E2E_DIR = new URL("../e2e", import.meta.url).pathname;
+const TEST_SUPPORT_DIR = new URL("../support", import.meta.url).pathname;
+const REGEN_SCRIPT = new URL("../../scripts/regen-corpus.ts", import.meta.url).pathname;
+const RED_FIXTURE = new URL("../fixtures/red/author-emulation/corpus-write-in-support.ts", import.meta.url)
+  .pathname;
+const RED_FIXTURE_VAR_INDIRECT = new URL(
+  "../fixtures/red/author-emulation/corpus-write-var-indirect.ts",
+  import.meta.url
+).pathname;
+
+// A write call is a violation when its OWN argument list targets the corpus dir —
+// either the corpus path LITERAL appears in the args, or the args reference an
+// identifier whose declaration (traced transitively through simple declaration-site
+// assignments in the same file) binds the corpus path. Call-site scoping (not whole-file
+// co-occurrence) keeps a file that legitimately writes elsewhere (e.g. the e2e file's
+// REPORTS_DIR-targeted report-writing) while also READING the corpus dir un-flagged;
+// identifier tracking (verify-in-loop-5 finding #1) closes the variable-indirection
+// hole — `const dir = CORPUS_DIR; writeFileSync(join(dir, name), text)` is the NATURAL
+// shape of a corpus self-heal (the regen script's own shape), and a literal-only arg
+// check missed it. Scoped to "corpus" ONLY — the gitignored reports dir is deliberately
+// excluded (FIT-27 must not over-reach onto it).
+const WRITE_CALL_RE = /\bwriteFileSync\s*\(|\.writeFile\s*\(|\bappendFileSync\s*\(|\bBun\.write\s*\(/g;
+const CORPUS_PATH_RE = /author-emulation\/corpus/;
+const DECLARATION_RE = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([\s\S]*?);/g;
+
+interface WriteViolation {
+  file: string;
+}
+
+/** Paren-depth-aware extraction of a call's full argument-list text, starting at the
+ * `(` immediately following the matched call name. */
+function extractCallArgs(source: string, callMatchIndex: number): string {
+  const openParenIndex = source.indexOf("(", callMatchIndex);
+  if (openParenIndex === -1) return "";
+  let depth = 0;
+  for (let i = openParenIndex; i < source.length; i++) {
+    if (source[i] === "(") depth++;
+    else if (source[i] === ")") {
+      depth--;
+      if (depth === 0) return source.slice(openParenIndex + 1, i);
+    }
+  }
+  return source.slice(openParenIndex + 1); // unterminated (shouldn't happen in valid TS)
+}
+
+function identifierRe(name: string): RegExp {
+  return new RegExp(`\\b${name.replace(/\$/g, "\\$")}\\b`);
+}
+
+/**
+ * Fixpoint over simple `const/let/var NAME = INIT;` declarations: an identifier is
+ * corpus-bound when its init text contains the corpus path literal, OR references an
+ * already-corpus-bound identifier (transitive — `const a = CORPUS_LITERAL; const b =
+ * join(a, x);` marks both). Declaration-site tracking only, per the scan's static-text
+ * nature — reassignment/parameter flow is out of scope, same as every other FIT scan.
+ */
+function corpusBoundIdentifiers(source: string): Set<string> {
+  const declarations = [...source.matchAll(DECLARATION_RE)].map((m) => ({ name: m[1]!, init: m[2]! }));
+  const bound = new Set<string>();
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const { name, init } of declarations) {
+      if (bound.has(name)) continue;
+      const initIsBound =
+        CORPUS_PATH_RE.test(init) || [...bound].some((boundName) => identifierRe(boundName).test(init));
+      if (initIsBound) {
+        bound.add(name);
+        grew = true;
+      }
+    }
+  }
+  return bound;
+}
+
+function writesToCorpusDir(source: string): boolean {
+  const withoutComments = stripComments(source);
+  const boundIdentifiers = corpusBoundIdentifiers(withoutComments);
+  for (const match of withoutComments.matchAll(WRITE_CALL_RE)) {
+    const args = extractCallArgs(withoutComments, match.index);
+    if (CORPUS_PATH_RE.test(args)) {
+      return true;
+    }
+    if ([...boundIdentifiers].some((name) => identifierRe(name).test(args))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function findCorpusWriteViolations(files: Iterable<string>): WriteViolation[] {
+  const violations: WriteViolation[] = [];
+  for (const file of files) {
+    let source: string;
+    try {
+      source = readFileSync(file, "utf-8");
+    } catch {
+      continue;
+    }
+    if (writesToCorpusDir(source)) {
+      violations.push({ file });
+    }
+  }
+  return violations;
+}
+
+describe("FIT-27 — anti-tautology static scan (no test-reachable corpus writer, REQ-FTG-05)", () => {
+  it("no module reachable from test/e2e/ or test/support/ writes to the corpus directory", () => {
+    const entries = [...collectTsFiles(TEST_E2E_DIR), ...collectTsFiles(TEST_SUPPORT_DIR)];
+    const reachable = walkReachable(entries);
+
+    const violations = findCorpusWriteViolations(reachable);
+    expect(violations).toEqual([]);
+  });
+
+  it("scripts/regen-corpus.ts is NOT reachable from the test-imported graph", () => {
+    const entries = [...collectTsFiles(TEST_E2E_DIR), ...collectTsFiles(TEST_SUPPORT_DIR)];
+    const reachable = walkReachable(entries);
+
+    expect(reachable.has(REGEN_SCRIPT)).toBe(false);
+  });
+
+  it("scripts/regen-corpus.ts's filename does not match bun test's discovery pattern (not CI-test-runnable)", () => {
+    expect(REGEN_SCRIPT.endsWith(".test.ts")).toBe(false);
+  });
+
+  // RED-PROOF: a test/support-shaped module writing to the corpus dir is caught.
+  it("[red-proof] a test-support-shaped module writing to the corpus dir is detected", () => {
+    const source = readFileSync(RED_FIXTURE, "utf-8");
+    expect(writesToCorpusDir(source)).toBe(true);
+  });
+
+  // RED-PROOF (verify-in-loop-5 finding #1): a corpus write whose call arguments carry
+  // only a VARIABLE (declared, possibly transitively, with the corpus path literal) is
+  // caught — the natural self-heal shape a literal-only argument check missed.
+  it("[red-proof] a corpus write indirected through variable declarations is detected", () => {
+    const source = readFileSync(RED_FIXTURE_VAR_INDIRECT, "utf-8");
+    expect(writesToCorpusDir(source)).toBe(true);
+  });
+
+  // RED-PROOF (verify-in-loop-5 finding #1, inline single-hop shape): the evaluator's
+  // exact probe — `writeFileSync(join(CORPUS_DIR, name), text)` with the literal bound
+  // one declaration away.
+  it("[red-proof] a corpus write via join(CORPUS_DIR, ...) with the literal one declaration away is detected", () => {
+    const source = `
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+const CORPUS_DIR = new URL("../test/e2e/author-emulation/corpus/", import.meta.url).pathname;
+writeFileSync(join(CORPUS_DIR, "m-01.full-generator.transcript.json"), "self-healed");
+`;
+    expect(writesToCorpusDir(source)).toBe(true);
+  });
+
+  // RED-PROOF (no false positive): a write call unrelated to the corpus dir is not flagged.
+  it("[red-proof] a write call targeting an unrelated path is NOT flagged", () => {
+    const source = `import { writeFileSync } from "node:fs";\nwriteFileSync("scratch/foo.txt", "x");`;
+    expect(writesToCorpusDir(source)).toBe(false);
+  });
+
+  // RED-PROOF (no false positive, S-003): a module that WRITES elsewhere (e.g. the
+  // reports dir) while merely REFERENCING the corpus dir path elsewhere in the same file
+  // (for an unrelated read/compare) is not flagged — the check is scoped to the write
+  // call's OWN argument list, not whole-file co-occurrence.
+  it("[red-proof] a write call targeting an unrelated path, in a file that ALSO references the corpus dir path for an unrelated read, is NOT flagged", () => {
+    const source = `
+import { readFileSync, writeFileSync } from "node:fs";
+const CORPUS_DIR = "./author-emulation/corpus/";
+const committed = readFileSync(CORPUS_DIR + "m-01.transcript.json", "utf-8");
+writeFileSync("test/e2e/author-emulation/reports/m-01.report.md", "report text");
+`;
+    expect(writesToCorpusDir(source)).toBe(false);
+  });
+});

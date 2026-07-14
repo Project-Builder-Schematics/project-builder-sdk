@@ -1,0 +1,3 @@
+// create({templateFile}) render request (REQ-FEH-01.1) — content becomes the `create`
+// directive's `template` field verbatim.
+export const name = "{{name}}";

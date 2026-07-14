@@ -1,0 +1,33 @@
+{
+  "formatVersion": 0,
+  "scenarioId": "m-05",
+  "slug": "mixed-by-value-by-reference",
+  "normative": {
+    "outcome": "committed",
+    "directives": [
+      {
+        "op": "create",
+        "pathTemplate": "m05-out/note.txt",
+        "template": "A small by-value text file (REQ-CCL-01.1) — scaffolded alongside a binary sibling in the\nSAME call so one scaffold emits both a `create` and a `copyIn` directive (M-05).\n",
+        "options": {
+          "name": "Widgets"
+        },
+        "force": true
+      },
+      {
+        "op": "copyIn",
+        "from": "files-mixed/photo.png",
+        "to": "m05-out/photo.png",
+        "force": true
+      }
+    ]
+  },
+  "informative": {
+    "batchGrouping": [
+      {
+        "directiveCount": 2,
+        "protocolVersion": 1
+      }
+    ]
+  }
+}

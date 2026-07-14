@@ -1,7 +1,18 @@
 {
   "change": "author-emulation-e2e-scaffold",
   "triage": "L",
-  "phase": "plan-complete",
+  "phase": "archived",
+  "apply": {
+    "mode": "automatic",
+    "slices_done": ["S-000", "S-001", "S-002", "S-003", "S-004"],
+    "slices_verified": ["S-000", "S-001", "S-002", "S-003", "S-004"],
+    "in_loop_iteration": 0,
+    "pending": [],
+    "build_complete": true,
+    "simplify": "DONE (2026-07-14, commit 507789c, user-requested): 5 fixes applied (fit-25 regex reuse, m17 runner dedup via optional teardown, scan primitives hoisted to import-scan.ts, e2e capture cache w/ M-07 deliberately uncached for instrumentHarnessIO liveness, corpusFileNameFor centralized); 3 skipped as contract-pinned (gated field R-E, teardownGitHostileFixtures AEG-07.1, FIT-27 param-flow taint = evaluator-accepted residual → followup candidates at archive). Suite 1167/1167, corpus byte-identical post-regen.",
+    "notes": "BUILD COMPLETE (2026-07-14): all 5 slices PASS in-loop (verify-in-loop-1..7; S-004 PASS iter 1, obs #2069). Matrix 21/21 + s-00, 22 transcripts byte-stable, suite 1167/1167. M-13 RULING: option (a) — FRICTION sufficient, GCC-09.1 = illustration error; BINDING: archive spec-sync must amend GCC-09.1 (annotate null-when-unattributable or re-illustrate with M-18/M-21); verify-final treats GCC-09.1 COMPLIANT citing verify-in-loop-7. Carried-to-final: (1) TDD commit-order audit; (2) GCC-09.1 amendment at archive. NOW: USER-requested /simplify → /evaluate.",
+    "post_build_user_request": "USER (2026-07-14): run /simplify over the change diff AFTER S-004 passes verify in-loop, BEFORE /evaluate (verify final re-covers any simplification)"
+  },
   "spec_status": "signed",
   "design": "complete rev 2+3 (design.md + obs #944; architecture_impact additive, 0 deviations; ADRs 0047-0049 draft; 39/39 REQs; M-09 R-G ruling LANDED — contentDigest normalization, pre-apply gate CLEARED)",
   "steward_foresight": "ALIGNED (obs #945; CQ-1/2/3 owner-affirmed 2026-07-13)",
@@ -11,8 +22,12 @@
   "plan_verify": "READY (owner-ruled at iteration 3, 2026-07-13; trajectory 17→5→6; Judge A clean 2x; residue = 5 pointer-gaps resolve-at-apply + M-09 design ruling pre-apply gate for S-003)",
   "plan_complete": true,
   "build_gate": "SATISFIED (schematic-local-files merged+archived, main @ 4af1272 merged into branch db620ff)",
-  "verify_final": "pending",
-  "arch_audit": "pending",
-  "completed_phases": ["triage", "explore", "propose"],
-  "updated_at": "2026-07-13"
+  "verify_final": "pass-with-followups",
+  "verify_final_detail": "executor obs #2082 + verify-report.md; adversarial_review REQUIRED; 39 REQs covered; TDD commit-order COMPLIANT per-slice tolerance; GCC-09.1 COMPLIANT w/ binding archive amendment; followups: GCC-09.1 amendment, cold-start flakiness, PC-SPEC-FSC-TOKENS upstream, batch-cap literal nit. Council: architect + QA approve-with-notes (M-07 vacuity blocker FIXED 18b3c2a w/ liveness proof). Post-merge: stage-6 merged 8e67b53, FIT-23→FIT-28 e50018f, integration 1234/1234, corpus byte-identical.",
+  "judgment_day": "APPROVED round 1 (2026-07-14): 0 CRITICAL, 0 real WARNINGs, 0 contradictions; 2 confirmed-by-both items (FIT-24 shape-scan narrower than REQ wording; GCC-09.1 divergence = already-binding archive amendment); 8 single-judge theoretical INFOs + 2 suggestions → register as followups at archive; 1 trivial inline fix (69d1c46 M-21 comment 4-then-2, no re-judge per convergence threshold, stage-6 precedent)",
+  "arch_audit": "notes — 0 violations, archive NOT blocked (obs #2065 + architecture-audit.md; zero src/ drift vs origin/main 064c84a; IR-seam boundary upheld; additive RATIFIED; baseline-refresh delta recorded for archive: 3rd golden idiom + FIT 23→28 + support cluster + regen script)",
+  "steward_reckoning": "DELIVERED + gate CLOSED (obs #2083 + outcome-verdict.md; 3 pains served, 4 hooks pass, no drift; CQ-1/2/3 OWNER-RATIFIED 2026-07-14: FRICTION durable, v0-visibility boundary re-ratified, hardening right-sized)",
+  "archive_gate": "ALL CLEAR: verify-report pass-with-followups + judgment-day APPROVED + arch-audit notes + reckoning delivered/ratified — sdd-archive launched",
+  "completed_phases": ["triage", "explore", "propose", "spec", "design", "steward-foresight", "slice", "verify-plan"],
+  "updated_at": "2026-07-14"
 }
