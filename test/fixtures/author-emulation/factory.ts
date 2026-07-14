@@ -506,6 +506,6 @@ export const runM21 = scratchFactoryRunner(
 );
 
 /** The destination path M-21 seeds a pre-existing collision at (the LAST/6th file in
- * `walk.ts`'s sorted order — landing alone in the second flush, per M-09's own established
- * 5-then-1 chunking split). */
+ * `walk.ts`'s sorted order — landing in the second flush, per M-09's own established
+ * 4-then-2 chunking split recorded in the committed batchGrouping). */
 export const M21_COLLISION_SEED_PATH = "out/big-5.txt";
