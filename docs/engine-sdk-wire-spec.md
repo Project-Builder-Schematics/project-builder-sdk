@@ -120,9 +120,9 @@ pointer splits on the FIRST `#` only.
 | Code | Meaning |
 |---|---|
 | 0 | success — the factory run completed and its intent was accepted |
-| 1 | validation failure — bad argv, an invalid/mismatched greeting, a rejected factory pointer, a rejected export, a failed single-instance probe, an oversize/malformed `--input-file` |
+| 1 | validation failure — bad argv, an invalid/mismatched greeting, a rejected factory pointer, a rejected export, a failed single-instance probe, an oversize/malformed `--input-file`, a factory module that fails to RESOLVE (`ERR_MODULE_NOT_FOUND` from the factory import — distinct from the module's own top-level code throwing during import, which is exit 4), or an `AuthoringError` whose `origin` **is** `"authoring-rejected"` (an SDK-side authoring misuse: `outside-run`, `invalid-input`, `reserved-name`, `source-*`) |
 | 2 | emit-rejection — an `AuthoringError` whose `origin` is NOT `"authoring-rejected"` |
-| 3 | transport fault — a `TransportFault` (`kind`: `malformed`, `desync`, `oversize`, `timeout`, or `eof`) |
+| 3 | transport fault — a `TransportFault` (`kind`: `malformed`, `desync` (reserved: currently indistinguishable from and reported as `malformed`), `oversize`, `timeout`, or `eof`) |
 | 4 | crash — anything else: a non-`AuthoringError`/non-`TransportFault` thrown value, including the author's factory module throwing at its own top level during import |
 
 Classification reads ONLY the terminal error's own identity (`instanceof` checks) — it NEVER
@@ -150,6 +150,11 @@ capture + console redirect the direct-spawn path gets (RUN-08), then hands `para
 SAME `RUN-01`..`RUN-04` gates the argv-spawn path uses — never a duplicated, weaker check. This
 version is co-versioned with, but tracked INDEPENDENTLY of, `WIRE_PROTOCOL_VERSION` above — a
 bridge-contract bump does not imply a wire-protocol bump, and vice versa.
+
+The engine's bootstrap MUST reach `bootstrap-bridge.ts` via an absolute file-path dynamic
+`import()` — never a bare package-specifier deep import (e.g. `@pbuilder/sdk/transport/bootstrap-bridge`)
+— since the package's `exports` map (`package.json`) exposes no `./transport/*` subpath and such
+an import fails closed with `ERR_PACKAGE_PATH_NOT_EXPORTED`.
 
 ## Frame-Cap Constant (WPS-06)
 
