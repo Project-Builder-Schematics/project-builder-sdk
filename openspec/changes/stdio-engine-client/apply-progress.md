@@ -184,3 +184,126 @@ Groups 1–3 run over the full S-001 diff. No `Bug`/`Architecture`/`MAJOR` findi
 - WPS-04's outbound cap check lives in `stdio-engine-client.ts::emit()` rather than
   `framing.ts` (design's one-line file-changes summary attributes it to `framing.ts`) — see
   Discoveries for the rationale (only `emit()` can throw the domain-level `EmitRejection`).
+
+---
+
+# S-002: Runner refuses bad input before author code runs
+
+**Scope this run**: `slice:S-002` | **Mode**: Strict TDD | **Status**: complete (6/6)
+
+Closes RUN-01..04/06/07, SEC-07, and EXC-01/02: the runner now gates argv, factory pointer,
+input-file, and single-instance-SDK before any author code (import OR factory body) can
+run, and classifies every terminal outcome into the 0–4 exit-code taxonomy.
+
+## S-002 tasks (6/6)
+
+| Task | Status | Files |
+|---|---|---|
+| S-002.1 `exit-codes.ts` classifier (EXC-01/02) | done | `src/transport/exit-codes.ts`, `test/transport/exit-codes.unit.test.ts` |
+| S-002.2 `factory-pointer.ts`: scheme+empty-host (RUN-02), export 3-form (RUN-03), double-wrap (RUN-06) | done | `src/transport/factory-pointer.ts`, `test/transport/factory-pointer.unit.test.ts` |
+| S-002.3 `context.ts` brand marker (ADR-04) | done | `src/core/context.ts`, `test/skeleton/definefactory-brand-marker.test.ts` |
+| S-002.4 `single-instance-probe.ts` (SEC-07, ADR-05) | done | `src/transport/single-instance-probe.ts`, `test/transport/single-instance-probe.unit.test.ts` |
+| S-002.5 runner gates: argv XOR (RUN-01), input-file cap+parse (RUN-04), import-failure split (RUN-07), SEC-07 wiring, EXC-01/02 wiring | done | `src/transport/runner.ts`, `test/transport/runner.unit.test.ts`, `test/fixtures/frame-runner/import-crash/` |
+| S-002.6 e2e legs: four-class exit matrix + handshake duo (EXC-01.2/.3) | done | `test/fake/exit-matrix.e2e.test.ts`, `test/fake/fake-engine-harness.ts` (ir.emit error-shaping leg added), `test/fixtures/frame-runner/{collide,crash}/` |
+
+Final: `bun test` → **1537 pass / 0 fail** (165 files); `tsc --noEmit` → clean; `bun run build` → clean.
+
+## TDD Cycle Evidence — S-002
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| S-002.1 | `exit-codes.unit.test.ts::an authoring-rejected AuthoringError...classifies as 1` | unit | `Cannot find module '../../src/transport/exit-codes.ts'` | ✅ | authoring-rejected/write-rejected/TransportFault(×3 kinds)/plain-Error/non-Error — 4 classes + double-fault `.cause`-ignored (×2 directions) | none needed |
+| S-002.3 | `definefactory-brand-marker.test.ts::a value returned by defineFactory() is recognized as wrapped` | unit | `Export named 'isDefineFactoryWrapped' not found` | ✅ | wrapped/bare-arity-1/bare-arity-2/non-function/two-independent-wraps — 5 cases (RUN-06.2 negative triangulation via genuine `.length===2`) | none needed |
+| S-002.2a | `factory-pointer.unit.test.ts::Scenario REQ-RUN-02.1: file:// scheme with empty host is accepted` | unit | `Export named 'validateFactoryUrl' not found` | ✅ | empty-host/non-file×2/non-empty-host/unparseable — 5 cases | none needed |
+| S-002.2b | `factory-pointer.unit.test.ts::Scenario REQ-RUN-03.1: missing default export` | unit | organic (same module-not-found gate as above) | ✅ | missing-default/missing-named/not-callable/default-ok/named-ok — 5 cases | none needed |
+| S-002.2c | `factory-pointer.unit.test.ts::Scenario REQ-RUN-06.1: an already-defineFactory-wrapped export is rejected` | unit | organic | ✅ | wrapped-default/wrapped-named/bare-arity-1/bare-arity-2 — 4 cases | none needed |
+| S-002.4 | `single-instance-probe.unit.test.ts::Scenario REQ-SEC-07.1: matching SDK copies proceed` | unit (real fs resolution) | `Cannot find module '../../src/transport/single-instance-probe.ts'` | ✅ | match(injected)/split(real fixture)/resolution-only(real fixture)/self-contained-fallback(real repo fixture)/unresolvable — 5 cases | resolver simplified from resolveSync+createRequire fallback to createRequire-only after the ADR-05 deviation (see Discoveries) |
+| S-002.5a | `runner.unit.test.ts::Scenario REQ-RUN-01.1: both --input and --input-file rejected` | unit | organic: `Received: "pbuilder-runner: unrecognized flag"` (pre-`--input-file` support) | ✅ | both-flags/unknown-flag/neither-flag/missing-factory — 4 cases | none needed |
+| S-002.5b | `runner.unit.test.ts::Scenario REQ-RUN-04.1: an input-file over the 10 MiB cap is rejected before its contents are read` | unit (real sparse/exact files) | organic: `Received: "pbuilder-runner: unrecognized flag"` | ✅ | over-cap(sparse)/exact-cap-boundary(byte-exact)/malformed-JSON(line/col, no-echo) — 3 cases | none needed |
+| S-002.5c | `runner.unit.test.ts::Scenario REQ-RUN-07.1: module-not-found exits 1` | unit | organic: `Expected: 1, Received: 4` (Bun's `ResolveMessage` is not `instanceof Error`, defeating the first `isErrnoException`-based classifier attempt) | ✅ | not-found→1 / top-level-throw→4 — 2 cases | classifier rewritten from `isErrnoException`-gated to a direct `"code" in err` structural check (see Discoveries) |
+| S-002.6 | `exit-matrix.e2e.test.ts::(b) a factory write collision: exit 2` | e2e (spawned, real stdio) | organic: uncaught `EmitRejection` crashing the test harness itself (`dispatchToFake` had no `ir.emit` error-shaping leg) | ✅ | argv-XOR→1 / collision→2 / corrupted-frame→3 / author-crash→4 / WPS-02-mismatch→1 / SEC-07-split→1 — 6 legs (a documented "handshake duo," not the full trio — see Deviations) | none needed |
+
+## Discoveries
+
+- **`import.meta.resolveSync` is Bun-only and untyped under `tsconfig.build.json`.** ADR-05
+  named it primary with `createRequire(...).resolve` as fallback "if Bun's semantics prove
+  unavailable" — both halves of that premise proved true: (1) `bun run build` (which types
+  `src/**` against plain `"node"`, this repo's own Node-type-portable-`.d.ts` convention)
+  fails on `Property 'resolveSync' does not exist on type 'ImportMeta'`; (2) empirically,
+  `createRequire(anchor).resolve("@pbuilder/sdk")` does NOT support Node's package
+  self-reference resolution in this Bun version (1.3.14), even though
+  `import.meta.resolveSync` does. Since `resolveSync` is unusable at compile time
+  regardless, `createRequire` became the SOLE mechanism (still resolution-only, still
+  satisfies SEC-07.3) — a documented ADR-05 mechanism deviation, not a decision reversal.
+- **`createRequire`'s self-reference gap breaks SEC-07 for THIS repo's own dogfooding
+  fixtures** (`test/fixtures/frame-runner/**` factories live inside `@pbuilder/sdk`'s own
+  source tree — there is no separate copy to resolve). `probeSingleInstance` recovers with
+  a self-contained fallback: if the factory's OWN nearest `package.json` ancestor already
+  IS the runner's package root, that's a match by construction, no specifier resolution
+  needed. This is NOT a workaround for the real production shape (a consumer's factory
+  resolving `@pbuilder/sdk` as an ordinary dependency always hits the primary path) — it is
+  the correct behavior for a factory that literally lives inside the same package.
+- **Bun's `import()` module-not-found failure (`ResolveMessage`) is NOT `instanceof
+  Error`** (verified empirically), even though it carries a `.code: "ERR_MODULE_NOT_FOUND"`
+  — defeating the codebase's established `isErrnoException` pattern (`err instanceof Error
+  && "code" in err`). RUN-07's classifier reads `"code" in err` directly, without the
+  `Error`-instance gate.
+- **`Session.flush()`'s `toAuthoringError` catch-all degrades ANY non-`EmitRejection`
+  rejection (including a `TransportFault`) to `AuthoringError{reason:"unknown"}`** (code 2,
+  emit-rejection) — pre-existing `session.ts` behavior (read-only per design), not an S-002
+  change. This means a wire fault arriving while `emit()` is in flight would misclassify as
+  code 2, not code 3. The EXC-01.2 item (c) e2e leg targets the `tree.read` leg specifically
+  (`Session.read()` propagates `client.read()` rejections unwrapped), where `TransportFault`
+  classification is unambiguous — documented here so a future slice touching `emit()`'s
+  fault path doesn't rediscover this from scratch.
+- **`test/fake/fake-engine-harness.ts`'s `dispatchToFake` had NO `ir.emit` error-shaping
+  leg** (S-000 explicitly deferred it: "Happy dispatch only... error-shaping legs land in
+  later slices," and S-001 didn't add it either). S-002.6's collision e2e leg needed it —
+  added a try/catch translating a thrown `EmitRejection` into the WPS-08 wire error
+  envelope (`error:{code:-32001, message, data}`), additive to `HostResponseFrame`
+  (`result` now optional, `error` added). `read`/`commit`/`discard` stay happy-dispatch-only
+  — no REQ in this slice needs their error legs.
+- **`bun pm pack --dry-run`/`test/fitness/pkg-surface-baseline.json` regenerated** (same
+  procedure S-000/S-001 used): 4 new entries (`dist/transport/{exit-codes,single-instance-
+  probe}.{js,d.ts}`) — authorized growth per design § 4.2 Create rows.
+
+## Slice Audit Notes (Step 7c, mode: slice)
+
+Groups 1–3 run over the full S-002 diff. No `Bug`/`Architecture` findings.
+
+- **Group 1 (spec coverage)**: every REQ-ID in S-002's Covers list (RUN-01, RUN-02, RUN-03,
+  RUN-04, RUN-06, RUN-07, SEC-07, EXC-01, EXC-02) has ≥1 test citing it directly (verified
+  by grep count across `test/transport/*.ts` + `test/fake/exit-matrix.e2e.test.ts` +
+  `test/skeleton/definefactory-brand-marker.test.ts`).
+- **Group 2 (architecture)**: `src/transport/factory-pointer.ts` and `src/transport/
+  runner.ts` importing from `src/core/schema/{schema-locate,schema-parse}.ts` mirrors the
+  precedented `bin/pbuilder-codegen.ts` cross-import of the same module (RUN-04's
+  line/column parse-error reporting "mirrors `formatParseError`" per spec text); no new
+  layer violation. `test/fitness/` full suite (444 tests, 33 files) green, including
+  fit-10/fit-29's allow-list guards (untouched by S-002 — ADR-07's fit-29 +1 was S-000's
+  edit, no further widening needed here).
+- **Group 3 (code quality)**: zero `as any`/`as unknown as`/TODO/FIXME introduced (verified
+  by grep across the full diff, tracked and untracked). The `resolveFactoryExport`/
+  `classifyExitCode` narrowing casts (`as BareFactoryFn`, `as { code?: unknown }`) are
+  standard post-`typeof`/post-`in` narrowing, not untyped escapes.
+- No sensitive-area-uncovered gap: the IPC boundary (already in the sensitive-areas
+  registry) gained SEC-07 coverage this slice, not a new uncovered surface.
+
+## Deviations from design
+
+- **ADR-05 mechanism deviation** (see Discoveries): `createRequire(...).resolve` is the
+  SOLE resolution mechanism (not `import.meta.resolveSync`-primary-with-fallback) — the
+  DECISION (resolution-only realpath comparison, before import) is unchanged; only the
+  specific API choice changed, for concrete, verified reasons (compile-time
+  unavailability + a self-reference gap in this Bun version).
+- **EXC-01.3's "handshake trio" ships as a documented duo this slice.** REQ-EXC-01.3 names
+  three handshake-time failures (WPS-02 mismatch, BRB-01 bridge mismatch, SEC-07 split) —
+  BRB-01 (the bridge) does not exist until S-003 (`bootstrap-bridge.ts`). The two legs
+  testable now (WPS-02, SEC-07) are e2e-proven in `exit-matrix.e2e.test.ts`; S-003 adds the
+  third leg, completing REQ-EXC-01.3's full trio at that point — not a scope gap, a build
+  ordering consequence explicit in the Build Order table (S-003 "bridge reuses S-002's
+  gates").
+- `test/fake/fake-engine-harness.ts`'s `dispatchToFake` gained an `ir.emit` error-shaping
+  leg — not in design's original S-000 File Changes row text ("Happy dispatch only"), but
+  explicitly anticipated as future-slice work by that same row's comment, and needed by
+  this slice's own EXC-01.2 collision leg.

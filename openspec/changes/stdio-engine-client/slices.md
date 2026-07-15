@@ -103,12 +103,12 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - THEN each rejects with its distinct message and exit codes 1/2/3/4 are mutually distinct; double-fault preserves E1's class via `.cause`
 
 ### Tasks
-- [ ] S-002.1 RED `exit-codes.ts` classifier (EXC-01 table, EXC-02 `.cause`)
-- [ ] S-002.2 RED `factory-pointer.ts`: scheme+empty-host pre-import (RUN-02), export 3-form (RUN-03)
-- [ ] S-002.3 RED `context.ts` brand marker + double-wrap reject, arity-2 negative (RUN-06, ADR-04)
-- [ ] S-002.4 RED `single-instance-probe.ts` resolution-only before-import + fallback (SEC-07, ADR-05)
-- [ ] S-002.5 RED runner gates: argv XOR (RUN-01), input-file size-cap-only + line/col parse (RUN-04), import-failure split 1-vs-4 (RUN-07)
-- [ ] S-002.6 e2e legs: four-class exit matrix + handshake-trio-all-exit-1 (EXC-01.2/.3)
+- [x] S-002.1 RED `exit-codes.ts` classifier (EXC-01 table, EXC-02 `.cause`)
+- [x] S-002.2 RED `factory-pointer.ts`: scheme+empty-host pre-import (RUN-02), export 3-form (RUN-03)
+- [x] S-002.3 RED `context.ts` brand marker + double-wrap reject, arity-2 negative (RUN-06, ADR-04)
+- [x] S-002.4 RED `single-instance-probe.ts` resolution-only before-import + fallback (SEC-07, ADR-05)
+- [x] S-002.5 RED runner gates: argv XOR (RUN-01), input-file size-cap-only + line/col parse (RUN-04), import-failure split 1-vs-4 (RUN-07)
+- [x] S-002.6 e2e legs: four-class exit matrix + handshake-trio-all-exit-1 (EXC-01.2/.3)
 
 ---
 
