@@ -141,7 +141,7 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 **Acceptance**:
 - GIVEN the shared corpus run in-process (ContractFake) and via the spawned harness
 - WHEN `harness.test.ts` + the adversarial e2e matrix run with no Go toolchain
-- THEN outcomes are identical (FIT-18 green); corpus imports are `===`; every scenario cites a spec-parsed REQ (archive-safe lookup); coverage map shows zero uncovered of 40 with count tripwire armed
+- THEN outcomes are identical (FIT-18 green); corpus imports are `===`; every scenario cites a spec-parsed REQ (archive-safe lookup); coverage map shows zero uncovered of 41 with count tripwire armed
 
 ### Tasks
 - [x] S-004.1 RED shared corpus + `===` reference-identity guard (FEH-02)
