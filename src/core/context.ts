@@ -73,6 +73,18 @@ export interface RunContext {
 
 const als = new AsyncLocalStorage<RunContext>();
 
+// ADR-04 (stdio-engine-client, REQ-RUN-06): a non-enumerable, non-configurable brand
+// stamped on defineFactory's returned wrapper — arity-independent double-wrap detection
+// (RUN-06.2 rejected V1's arity-sniffing: an author's bare `(o, unused) => {}` factory must
+// never be misclassified). The symbol stays module-private; only the checker is exported,
+// so a caller asks "is this already wrapped" without being able to forge the brand via a
+// guessed string key.
+const DEFINE_FACTORY_BRAND: unique symbol = Symbol("pbuilder.defineFactory.wrapped");
+
+export function isDefineFactoryWrapped(value: unknown): boolean {
+  return typeof value === "function" && Reflect.get(value, DEFINE_FACTORY_BRAND) === true;
+}
+
 // REQ-AEC-02.1 (2.4): a verb called outside any defineFactory run is SDK-side misuse,
 // independent of any engine round-trip — an AuthoringError{authoring-rejected,outside-run},
 // not a plain Error. The prose lives in authoring-error.ts's outside-run message template
@@ -299,7 +311,7 @@ export function defineFactory<O>(
   fn: (o: O) => void | Promise<void>,
   options?: { packageDir?: string | URL }
 ): (o: O, deps: { client: EngineClient }) => Promise<void> {
-  return async (o, { client }) => {
+  const wrapped = async (o: O, { client }: { client: EngineClient }): Promise<void> => {
     let packageAnchors: RunContext["packageAnchors"];
     if (options?.packageDir !== undefined) {
       const resolvedDir = resolvePackageDir(options.packageDir);
@@ -348,4 +360,11 @@ export function defineFactory<O>(
       throw err;
     }
   };
+  Object.defineProperty(wrapped, DEFINE_FACTORY_BRAND, {
+    value: true,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
+  return wrapped;
 }
