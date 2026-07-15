@@ -1,7 +1,9 @@
 {
   "change": "stdio-engine-client",
   "triage": "L",
-  "phase": "judgment-day-approved",
+  "phase": "archive",
+  "arch_baseline": "refreshed 2026-07-16 (obs #652 rev 13, post-change)",
+  "steward_reckoning": "DELIVERED + gate CLOSED (outcome-verdict.md @ 7e0011c + obs #1024; RCQ-1 usable YES, RCQ-2 build-first affirmed, RCQ-3 residual acceptable-with-tether — owner-ratified on record 2026-07-16)",
   "phase_status": "PAUSED 2026-07-15 post-JD (owner sleeping). judgment-day APPROVED: R1 found 13 confirmed (7 CRIT incl. flush degrade exit-2, console.table wire bypass, IntentRejected exit-4, greeting raw stacks, read() swallow, reader death, FEH fallback archive-bomb) — ALL FIXED @ 867c342 w/ RED evidence; R2 re-judge confirmed R1 clean, found spec-not-amended CRIT + 3 real WARNs — spec V4 OWNER-SIGNED (5 amendments) + cap-parity/bridge-exit-1/FEH-05-titles FIXED @ ae01822. Suite 1607→1639/0, fitness 487/0, tsc+build clean. Theoretical/suggestions = followups (token truncation, appliedCount, tree.read shape, greeting timeout, pre-greeting EOF code, desync continuation, O(n2) concat, WPS-11.2 header, superseded phrasing).",
   "judgment_day": "APPROVED round 2 (2026-07-15): R1 = 13 confirmed fixed; R2 = 1 CRIT (spec V4 paperwork, signed) + 3 real WARNs fixed inline per convergence threshold, no third round. Owner rulings: R1 fix-all, SEC-08.1 reader recoverable, cap on encoded frame (V4), TDD ea9b7e0 accepted-lapse, S-005 docs-first compliant-by-nature.",
   "resume_next": [
@@ -27,7 +29,7 @@
     "s005_gate": "SATISFIED — PENDING_S005_COVERAGE_EXEMPTIONS shrunk to empty (all of WPS-06, WPS-11, FEH-06, LED-01 now cited by real tests)"
   },
   "plan_verify": "ready",
-  "arch_audit": "pending",
+  "arch_audit": "warnings — 0 violations, archive NOT blocked (obs #768 vs baseline #652; JSON-RPC package description FIXED @ 6c69f71; dts-baseline stale JSDoc = pre-existing carried followup)",
   "carried_to_final": [
     "Strict TDD adjudication #1: ea9b7e0 (S-003) shipped BRB-02/03/RUN-08/SEC-09 sealing mechanism with zero test changes; driving test landed 2 commits later (c72d1ca) and apply-progress records RED as unrelated fixture bug. Needs documented rationale or accepted-lapse ruling at verify final (verify-in-loop-4).",
     "Strict TDD adjudication #2: S-005 docs committed before the fitness tests that scan them (b3e876d/4a008b5 before ef18770) — anti-TDD ordering vs this change's own fit-10/fit-29 organic-RED precedent. Rule explicitly at verify final (verify-in-loop-6 finding S-005-1).",
