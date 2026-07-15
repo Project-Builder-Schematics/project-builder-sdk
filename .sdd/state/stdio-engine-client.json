@@ -1,25 +1,28 @@
 {
   "change": "stdio-engine-client",
   "triage": "L",
-  "phase": "verify-in-loop",
-  "phase_status": "S-005 apply COMPLETE (4/4, suite 1605/0, exemption set EMPTY, HEAD ee48e47) — next verify in-loop S-005 (report 6), then USER-requested /simplify, then /evaluate",
+  "phase": "build-complete",
+  "phase_status": "ALL 6 SLICES VERIFIED (verify-in-loop-6 PASS, suite 1605/0) — BUILD COMPLETE 2026-07-15. Next: USER-requested /simplify over change diff, then /evaluate (verify final must adjudicate 2 TDD findings)",
   "spec_status": "signed",
   "slices": true,
   "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
   "apply": {
     "mode": "automatic",
     "slices_done": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
-    "slices_verified": ["S-000", "S-001", "S-002", "S-003", "S-004"],
+    "slices_verified": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
     "in_loop_iteration": 0,
     "pending": [],
+    "build_complete": true,
     "s005_gate": "SATISFIED — PENDING_S005_COVERAGE_EXEMPTIONS shrunk to empty (all of WPS-06, WPS-11, FEH-06, LED-01 now cited by real tests)"
   },
   "plan_verify": "ready",
   "verify_final": "pending",
   "arch_audit": "pending",
   "carried_to_final": [
-    "Strict TDD adjudication: ea9b7e0 shipped BRB-02/03/RUN-08/SEC-09 sealing mechanism with zero test changes; driving test landed 2 commits later (c72d1ca) and apply-progress records RED as unrelated fixture bug. Needs documented rationale or accepted-lapse ruling BEFORE verify final (verify-in-loop-4).",
-    "Cold-start suite flake: 1 error on first bun-test run after fresh install, not reproduced in 4 clean re-runs — re-run full suite at final to confirm."
+    "Strict TDD adjudication #1: ea9b7e0 (S-003) shipped BRB-02/03/RUN-08/SEC-09 sealing mechanism with zero test changes; driving test landed 2 commits later (c72d1ca) and apply-progress records RED as unrelated fixture bug. Needs documented rationale or accepted-lapse ruling at verify final (verify-in-loop-4).",
+    "Strict TDD adjudication #2: S-005 docs committed before the fitness tests that scan them (b3e876d/4a008b5 before ef18770) — anti-TDD ordering vs this change's own fit-10/fit-29 organic-RED precedent. Rule explicitly at verify final (verify-in-loop-6 finding S-005-1).",
+    "Cold-start suite flake: 1 error on first bun-test run after fresh install, not reproduced in warm re-runs — re-run full suite from FRESH INSTALL at final to confirm.",
+    "Engram hybrid mirror gap: verify-in-loop-6 mem_save failed on infra (classifier unavailability) — retry mirror before archive; openspec file is canonical."
   ],
   "post_build_user_request": "USER (2026-07-15): run /simplify over the change diff AFTER S-005 passes verify in-loop, BEFORE /evaluate (verify final re-covers any simplification)",
   "updated_at": "2026-07-15"
