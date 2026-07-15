@@ -2,7 +2,7 @@
 // UTF-8 JSON body, symmetric in both directions (host<->runner). fit-31 (single-owner-of-
 // framing) guards that no other module re-implements this codec.
 
-const LENGTH_PREFIX_BYTES = 4;
+export const LENGTH_PREFIX_BYTES = 4;
 
 // The prefix is the UTF-8 SERIALIZED byte length of the JSON body — never the JS string's
 // UTF-16 .length — so multi-byte payloads (WPS-01.3) round-trip exactly.

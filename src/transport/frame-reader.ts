@@ -4,9 +4,7 @@
 // framing.ts (single owner of the codec, fit-31). Happy-path reassembly only in S-000; the
 // fault matrix (malformed/oversize/EOF-mid-frame) lands in S-001.
 
-import { decodeFrameBody } from "./framing.ts";
-
-const LENGTH_PREFIX_BYTES = 4;
+import { decodeFrameBody, LENGTH_PREFIX_BYTES } from "./framing.ts";
 
 export class FrameReader {
   #buffer: Buffer = Buffer.alloc(0);
