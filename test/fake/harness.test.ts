@@ -119,6 +119,20 @@ describe("REQ-WPS-09 — run bootstrap is argv/bridge-only, no host-issued reque
 const SPEC_PRE_ARCHIVE_PATH = join(PROJECT_ROOT, "openspec/changes/stdio-engine-client/spec.md");
 const SPEC_POST_ARCHIVE_SPECS_DIR = join(PROJECT_ROOT, "openspec/specs");
 
+/** Locates a change's sealed archive folder under `openspec/changes/archive/` by its
+ * `{YYYY-MM-DD}-{change-name}` suffix — the date prefix is assigned at archive time and not
+ * knowable in advance, so this scans rather than hardcoding a date. */
+function findArchivedChangeDir(changeName: string): string {
+  const archiveRoot = join(PROJECT_ROOT, "openspec/changes/archive");
+  const match = readdirSync(archiveRoot, { withFileTypes: true }).find(
+    (entry) => entry.isDirectory() && entry.name.endsWith(`-${changeName}`)
+  );
+  if (match === undefined) {
+    throw new Error(`no archived change folder found for '${changeName}' under ${archiveRoot}`);
+  }
+  return join(archiveRoot, match.name);
+}
+
 // REQ-FEH-05: the maintained expected REQ-ID count (V4 signed spec.md, 2026-07-15 — V4 is a
 // content-only amendment, count unchanged from V3) — a spec edit that adds/removes a REQ
 // without updating this constant fails FEH-05.2 loudly.
@@ -370,7 +384,14 @@ describe("REQ-FEH-03 — spec-derived harness (anti-tautology)", () => {
       }
       // Simulate the archive: split THIS change's real spec.md into one
       // specs/{domain}/spec.md per `## Domain:` header (openspec-convention.md's procedure).
-      const specMarkdown = readFileSync(SPEC_PRE_ARCHIVE_PATH, "utf-8");
+      // This test rehearses the archive event itself, so — same resilience contract as
+      // `resolveSpecReqIds` above — its own ground truth must survive the REAL archive
+      // actually happening: once `stdio-engine-client` archives for real, the live
+      // pre-archive `spec.md` is gone (that IS the event this test rehearses), so fall back
+      // to the sealed archive copy (immutable historical record, never modified post-move).
+      const specMarkdown = existsSync(SPEC_PRE_ARCHIVE_PATH)
+        ? readFileSync(SPEC_PRE_ARCHIVE_PATH, "utf-8")
+        : readFileSync(join(findArchivedChangeDir("stdio-engine-client"), "spec.md"), "utf-8");
       const sections = specMarkdown.split(/^## Domain:\s*/m).slice(1);
       expect(sections.length).toBeGreaterThan(0);
       for (const section of sections) {

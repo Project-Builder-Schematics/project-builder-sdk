@@ -223,3 +223,40 @@ Method: every REQ verified by (a) source read of the implementing module, (b) na
 The complete change is spec-compliant (41/41 REQs, all scenarios traced to passing tests), build/typecheck clean, 1605/0 across warm and 2-of-3 fresh-install runs with the third's single error characterized as a pre-existing suite-infra cold-start race outside this change's diff; both Strict TDD findings are owner-adjudicated with zero new violations; the simplify commit is verified behavior-preserving; no gating code-audit findings. Six followups registered above — none blocks archive.
 
 **Adversarial review**: **required** (triage L + sensitive area security/IPC) — orchestrator runs judgment-day blind before archive.
+
+## Addendum (2026-07-16, pre-archive): Post-Verify Judgment-Day Deltas
+
+This report was produced BEFORE judgment-day ran. Judgment-day executed two rounds after this
+verify-final pass and landed real fixes on top of the code this report evaluated:
+
+- **Round 1** (blind dual-judge, 13 confirmed findings, 7 CRITICAL): fixed at commit
+  `867c342` — `Session.flush` no longer degrades a `TransportFault` to exit 2 (re-throws
+  untranslated, exit 3, REQ-SEC-08.3); full `console` surface (`table`/`dir`/`group`/`count`/
+  `trace`, not just `log`/`error`) rebound to stderr (SEC-09.1); `IntentRejectedError`
+  classified exit 2, not exit 4 (EXC-01); greeting-time faults classified with bounded notes,
+  no raw stacks (WPS-07); `read()` rejects on a host error envelope (SEC-06); `FrameReader`
+  survives a malformed body without tearing down the connection (SEC-08.1); the emit-side cap
+  check moved onto the encoded frame body; module-resolution-failure factory imports classify
+  exit 1, not exit 4 (RUN-07); and five further hardenings (idempotent fd-1 capture, no raw
+  `err.message` on stderr, `unknown` joining `EmitRejectionCode`, FEH-05 fallback scoped to
+  this spec's domains).
+- **Round 2** (blind re-judge, 1 CRITICAL + 3 WARNING confirmed): fixed at commit `ae01822` —
+  spec V4 owner-signed (closes the round-1 CRITICAL: the fixes above had no spec record);
+  `ContractFake`/`StdioEngineClient` cap parity via the shared `exceedsEmitBatchBudget`
+  measurer (deterministic, ordinal-independent — `EMIT_BATCH_BUDGET_BYTES =
+  BATCH_CAP_BYTES − EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES` = 4194222); `BridgeVersionMismatchError`
+  classifies exit 1 in the product code itself (not only in the test stub); FEH-05's coverage
+  scan restricted to test titles.
+- **Round 2 verdict**: **APPROVED** — both judges independently confirmed round 1's fixes and
+  found nothing new beyond the 4 items above, all of which were fixed inline (no third round).
+
+**Coverage of the delta**: no fresh `sdd-verify --mode=final` pass re-ran after these commits —
+the state mirror explicitly obligates this addendum instead of a silent gap. The delta is
+covered by (a) the R2 blind re-judge treating the fixed code as the artefact under review, and
+(b) fresh, complete suite execution AFTER both fix commits: **1639 pass / 0 fail** (172 files),
+`tsc --noEmit` clean, fitness 487/0 — re-confirmed independently by the steward reckoning
+checkpoint (`outcome-verdict.md`) and by this archive pass post-folder-move. This report's
+REQ Coverage / Spec Compliance Matrix / Coherence tables above reflect the PRE-fix code; treat
+this addendum as authoritative for the fixed behavior — no scenario contradicts the matrix
+above, they only close gaps the matrix's `pass-with-followups` verdict had already flagged as
+non-blocking (F-1 was pre-existing; F-2..F-5 remain open followups, unaffected by these fixes).

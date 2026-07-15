@@ -1,8 +1,20 @@
 # Batch-Cap Contract Specification
 
-**Spec version**: V3
-**Status**: signed (2026-07-13 — owner micro-unfreeze, `schematic-local-files` archive sync)
-**Change**: `stage-1-ir-bedrock` (amended by `schematic-local-files`, 2026-07-13)
+**Spec version**: V4
+**Status**: signed (2026-07-13 — owner micro-unfreeze, `schematic-local-files` archive sync;
+V4 amendment 2026-07-16)
+**Change**: `stage-1-ir-bedrock` (amended by `schematic-local-files`, 2026-07-13; amended by
+`stdio-engine-client`, 2026-07-16)
+
+**V3 → V4 (amendment via `stdio-engine-client` archive, 2026-07-16)**: REQ-01.1 and REQ-04.3's
+at-cap scenarios re-anchor from the raw `BATCH_CAP_BYTES` literal to `EMIT_BATCH_BUDGET_BYTES`
+(`BATCH_CAP_BYTES − EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES` = 4194304 − 82 = 4194222,
+`src/core/wire.ts`) — the fixed-allowance budget that guarantees an accepted batch's ACTUAL
+encoded frame body never exceeds `BATCH_CAP_BYTES` once wire-envelope overhead is added.
+`ContractFake.emit` (the engine stand-in this domain specifies) and the real
+`StdioEngineClient` now share one measurer (`exceedsEmitBatchBudget`, FEH-01 parity) — "the
+cap" this domain enforces is that shared budget, not the bare 4 MiB literal. Zero REQ-IDs
+added/removed/renumbered.
 
 **V2 → V3 delta (owner micro-unfreeze, 2026-07-13, via `schematic-local-files`)**: adds
 REQ-04 (a `scaffold` call's AGGREGATE size, summed across the whole folder, is never by
@@ -35,6 +47,12 @@ MUST cause `emit()` to reject. A `Batch` at exactly the cap MUST pass. `Session.
 side) MUST perform no size check of its own — it always calls `emit()` regardless of size;
 only the fake (engine stand-in) judges size, matching ADR-0018.
 
+**(V4)** The fake's own at-cap boundary is anchored to `EMIT_BATCH_BUDGET_BYTES` (`BATCH_CAP_BYTES
+− EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES`, `src/core/wire.ts`) — shared with the real
+`StdioEngineClient`'s outbound leg for FEH-01 parity. "The cap" this REQ enforces is that
+shared, slightly-smaller budget (4194222 bytes), not the raw `BATCH_CAP_BYTES` literal
+(4194304 bytes) — see REQ-01.1's amended boundary.
+
 **Fixture-construction constraint (mutant-killer)**: boundary fixtures MUST be sized against
 the SERIALIZED batch, and MUST be built so a mutant that measures raw content bytes (summing
 `modify.content`/`create.template` lengths instead of serializing the envelope) reaches the
@@ -45,13 +63,18 @@ measurer rejects it. Multi-byte (non-ASCII) content remains mandatory in both bo
 fixtures so a UTF-16 code-unit measurer is also distinguishable from the UTF-8 byte
 measurer.
 
-#### Scenario REQ-01.1: Exactly-at-cap passes
+#### Scenario REQ-01.1: Exactly-at-cap passes (V4, re-anchored to the emit budget)
 
 - GIVEN a `Batch` whose SERIALIZED UTF-8 byte length
-  (`Buffer.byteLength(JSON.stringify(batch), 'utf8')`) equals `4 * 1024 * 1024` exactly,
+  (`Buffer.byteLength(JSON.stringify(batch), 'utf8')`) equals `EMIT_BATCH_BUDGET_BYTES`
+  (`BATCH_CAP_BYTES − EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES` = 4194304 − 82 = 4194222) exactly,
   built from multi-byte (non-ASCII) content that also contains JSON-escaping characters
 - WHEN `emit(batch)` is called
 - THEN it resolves (does not reject)
+- (Previously V1–V3: the boundary was pinned at the raw `BATCH_CAP_BYTES` literal
+  (4194304); `stdio-engine-client` re-anchors it to the shared emit budget so the fake and
+  the real `StdioEngineClient` can never diverge on an accept/reject verdict for the same
+  batch)
 
 #### Scenario REQ-01.2: One byte over rejects — and a raw-content measurer would wrongly pass it
 
@@ -143,10 +166,11 @@ pinning scope. The author-visible atomicity promise across chunks is REQ-05.
 - THEN that group's flush rejects `changes-too-large`, unchanged from REQ-01's
   existing per-batch behaviour
 
-#### Scenario REQ-04.3: Exactly-at-cap chunk passes; one byte over rejects [SDK]
+#### Scenario REQ-04.3: Exactly-at-cap chunk passes; one byte over rejects (V4, re-anchored) [SDK]
 
 - GIVEN two scaffold fixtures: one whose flushed group's serialized batch lands
-  EXACTLY at `BATCH_CAP_BYTES`, one exactly one byte over
+  EXACTLY at `EMIT_BATCH_BUDGET_BYTES` (4194222, per REQ-01.1's V4 anchor), one exactly
+  one byte over
 - WHEN each is flushed
 - THEN the at-cap batch passes and the one-over batch rejects — pinning `>` (not
   `>=`) as the over-cap comparison, consistent with REQ-01.1

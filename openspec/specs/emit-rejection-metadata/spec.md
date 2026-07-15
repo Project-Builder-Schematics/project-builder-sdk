@@ -1,8 +1,14 @@
 # Emit Rejection Metadata Specification
 
-**Spec version**: V2
-**Status**: signed (2026-07-06, stage-2-error-attribution)
-**Change**: `stage-2-error-attribution`
+**Spec version**: V3
+**Status**: signed (2026-07-06, stage-2-error-attribution; V3 amendment 2026-07-16)
+**Change**: `stage-2-error-attribution` (amended by `stdio-engine-client`, 2026-07-16)
+
+**V2 → V3 (amendment via `stdio-engine-client` archive, 2026-07-16)**: REQ-ERM-03 gains a
+transport-class carve-out — a `TransportFault` (the real `StdioEngineClient`'s wire/timeout/
+crash fault class) is NOT a malformed rejection to be degraded; `Session.flush` recognizes it
+by stable `name` identity and re-throws it untranslated, before `toAuthoringError` ever sees
+it. One new scenario (REQ-ERM-03.5); zero REQ-IDs added/removed.
 
 ## Purpose
 
@@ -101,6 +107,16 @@ number, `undefined`, or an `Error` without `code`/`failedIndex`/
 `AuthoringError` with `reason: "unknown"`, `origin: "write-rejected"`,
 `verb: undefined`, `path: undefined`, `appliedCount: 0`.
 
+**Transport-class carve-out (V3, `stdio-engine-client`)**: a rejection that is a
+`TransportFault` (a real `EngineClient` transport's own fault class — wire desync, timeout,
+malformed-frame, crash — distinct from an engine's structured `EmitRejection`) is NOT
+"malformed" in the sense above and MUST NOT be degraded to `AuthoringError{reason:
+"unknown"}`. `Session.flush` MUST recognize it by its stable `name` identity BEFORE
+calling `toAuthoringError`, and re-throw it untranslated. This keeps `EngineClient`
+implementations decoupled from `src/core`'s `TransportFault` class (avoiding a reverse
+import into the port) while still routing every OTHER non-`EmitRejection` value through
+the degrade path unchanged.
+
 #### Scenario REQ-ERM-03.1: Non-Error string rejection degrades gracefully
 
 - GIVEN an `EngineClient.emit` that rejects with a bare string (not an
@@ -134,3 +150,12 @@ number, `undefined`, or an `Error` without `code`/`failedIndex`/
 - THEN the resulting `AuthoringError` has `reason: "unknown"` and
   `appliedCount: 0` — a string-only degradation guard that still crashes on
   numbers (or `undefined`, REQ-ERM-03.3) fails these scenarios
+
+#### Scenario REQ-ERM-03.5: `TransportFault` passes through `Session.flush` untranslated (V3)
+
+- GIVEN an `EngineClient.emit` implementation that rejects with a `TransportFault`
+  (e.g. a wire desync or a timeout on the pending reverse-callback slot)
+- WHEN `Session.flush` catches the rejection
+- THEN it re-throws the SAME `TransportFault` instance — it does NOT call
+  `toAuthoringError` on it, and no `AuthoringError{reason: "unknown"}` is produced in
+  its place
