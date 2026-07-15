@@ -10,6 +10,8 @@ import { join } from "node:path";
 import { encodeFrame } from "../../src/transport/framing.ts";
 import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
 import { runRunner, type RunnerIo } from "../../src/transport/runner.ts";
+import { OverlappingRunError } from "../../src/transport/stdio-engine-client.ts";
+import { makeInProcessHost } from "../support/in-process-host.ts";
 
 const HAPPY_FIXTURE_DIR = new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname;
 const HAPPY_POINTER = `file://${HAPPY_FIXTURE_DIR}factory.ts`;
@@ -152,6 +154,37 @@ describe("REQ-RUN-04 — input-file size cap + fail-closed parse", () => {
   });
 });
 
+describe("REQ-RUN-02 — factory URL scheme + host allowlist (runtime no-import proof)", () => {
+  // Carried forward from S-002's verify-in-loop-3 WARNING (test-depth gap, not a functional
+  // defect): validateFactoryUrl's pure-function classification was already unit-tested, but
+  // the scenario's own literal claim — "no author code from that URL executes" — lacked a
+  // runtime proof. Mirrors the unreachedIo() + throw-on-import fixture pattern RUN-07/SEC-07
+  // already use: IMPORT_CRASH_POINTER's factory throws unconditionally at module top level,
+  // so if the runner ever actually reached `import()` for it, the run would crash (exit 4,
+  // proven by REQ-RUN-07.2 above) instead of the pre-import gate's exit 1.
+  const importCrashUrl = new URL("../fixtures/frame-runner/import-crash/", import.meta.url).pathname;
+
+  it("Scenario REQ-RUN-02.2: a non-file scheme pointing at a throw-on-import fixture never imports it", async () => {
+    const nonFilePointer = `https://evil.example${importCrashUrl}factory.ts`;
+    const io = unreachedIo();
+    const exitCode = await runRunner(["--factory", nonFilePointer, "--input", "{}"], io);
+
+    // Not 4 (the import-crash fixture's own exit code, REQ-RUN-07.2) — proving the fixture's
+    // unconditional top-level throw never ran.
+    expect(exitCode).toEqual(1);
+    expect(io.stderrText()).not.toContain("threw");
+  });
+
+  it("Scenario REQ-RUN-02.3: a non-empty-host file: pointer at a throw-on-import fixture never imports it", async () => {
+    const nonEmptyHostPointer = `file://host${importCrashUrl}factory.ts`;
+    const io = unreachedIo();
+    const exitCode = await runRunner(["--factory", nonEmptyHostPointer, "--input", "{}"], io);
+
+    expect(exitCode).toEqual(1);
+    expect(io.stderrText()).not.toContain("threw");
+  });
+});
+
 describe("REQ-RUN-07 — factory module import failure classification", () => {
   it("Scenario REQ-RUN-07.1: module-not-found exits 1, bounded/project-relative stderr, no raw resolution stack", async () => {
     const missingPointer = `file://${HAPPY_FIXTURE_DIR}does-not-exist.ts`;
@@ -170,5 +203,54 @@ describe("REQ-RUN-07 — factory module import failure classification", () => {
     expect(exitCode).toEqual(4);
     expect(io.stderrText()).not.toContain("at ");
     expect(io.stderrText().length).toBeLessThanOrEqual(2000);
+  });
+});
+
+describe("REQ-SEC-02 — single in-flight run, sequential fail-loud on overlap", () => {
+  it("Scenario REQ-SEC-02.1: a second run-entry invocation while the first is in flight rejects OverlappingRunError immediately, touching neither writeFrame nor writeStderr; the first run is unaffected and completes", async () => {
+    const first = makeInProcessHost({ seed: { "seed.txt": "sec-02" } });
+    // Deliberately do NOT call first.sendReady() yet — the first run is now genuinely "in
+    // flight": runRunner is suspended awaiting its greeting.
+    const firstPromise = runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], first.io);
+
+    let secondIoTouched = false;
+    const secondIo: RunnerIo = {
+      input: (async function* () {})(),
+      writeFrame: () => {
+        secondIoTouched = true;
+      },
+      writeStderr: () => {
+        secondIoTouched = true;
+      },
+    };
+
+    let caught: unknown;
+    try {
+      await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], secondIo);
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(OverlappingRunError);
+    expect(secondIoTouched).toBe(false);
+
+    // The FIRST in-flight run continues and completes unaffected (SC-8).
+    first.sendReady();
+    const exitCode = await firstPromise;
+    expect(exitCode).toEqual(0);
+    expect(first.fake.committedTree().get("out.txt")).toEqual("read:sec-02");
+  });
+
+  it("a third invocation, attempted AFTER the first has already completed, is NOT rejected — the guard clears once the in-flight run finishes", async () => {
+    const first = makeInProcessHost({ seed: { "seed.txt": "sec-02-clears" } });
+    first.sendReady();
+    const firstExitCode = await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], first.io);
+    expect(firstExitCode).toEqual(0);
+
+    const second = makeInProcessHost({ seed: { "seed.txt": "sec-02-clears-again" } });
+    second.sendReady();
+    const secondExitCode = await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], second.io);
+    expect(secondExitCode).toEqual(0);
+    expect(second.fake.committedTree().get("out.txt")).toEqual("read:sec-02-clears-again");
   });
 });

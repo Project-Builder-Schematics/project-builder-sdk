@@ -70,11 +70,21 @@ export interface FrameChannel {
 }
 
 // REQ-SEC-03: stable, distinguishable identity for a host-rejected commit/discard intent —
-// distinct from EmitRejection and (in a later slice) OverlappingRunError.
+// distinct from EmitRejection and OverlappingRunError.
 export class IntentRejectedError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "IntentRejectedError";
+  }
+}
+
+// REQ-SEC-02: stable, distinguishable identity for an overlapping run-entry invocation —
+// thrown by runner.ts's composition-root reentrancy guard, never by this class itself
+// (this file only owns the error taxonomy's identities, per design § 4.3).
+export class OverlappingRunError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OverlappingRunError";
   }
 }
 

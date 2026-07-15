@@ -22,7 +22,7 @@ import { locateFirstJsonSyntaxError } from "../core/schema/schema-locate.ts";
 import { formatLocator } from "../core/schema/schema-parse.ts";
 import { FrameReader } from "./frame-reader.ts";
 import { WIRE_PROTOCOL_VERSION, isStructurallyValidGreeting, versionMatches } from "./wire-protocol.ts";
-import { StdioEngineClient, TransportFault, type FrameChannel } from "./stdio-engine-client.ts";
+import { StdioEngineClient, TransportFault, OverlappingRunError, type FrameChannel } from "./stdio-engine-client.ts";
 import { boundMessage, composeWithToken } from "./error-text.ts";
 import { parseFactoryPointer, validateFactoryUrl, resolveFactoryExport } from "./factory-pointer.ts";
 import { probeSingleInstance } from "./single-instance-probe.ts";
@@ -133,6 +133,13 @@ function isModuleResolutionFailure(err: unknown): boolean {
   return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "ERR_MODULE_NOT_FOUND";
 }
 
+// REQ-SEC-02: the composition root's own reentrancy guard. A single spawned process (the
+// direct-argv path) only ever calls runRunner once by construction; the bridge is the
+// realistic reentrant caller (a single long-lived engine process CAN dynamic-import and
+// invoke the bridge more than once). module-level, not per-instance: "each process runs
+// exactly one factory" (WPS-09) — the guard's scope is the PROCESS, matching that.
+let runInFlight = false;
+
 /**
  * Runs one factory over the framed wire: parses/validates argv and input (RUN-01/04),
  * awaits versioned `ready` (WPS-02, fail-at-greeting), probes the single-instance SDK
@@ -140,8 +147,29 @@ function isModuleResolutionFailure(err: unknown): boolean {
  * `defineFactory`-wraps it with `packageDir = dirname(factory)` (RUN-05) and serves the
  * run's reverse callbacks through `StdioEngineClient`. Returns the process exit code
  * (EXC-01 taxonomy).
+ *
+ * REQ-SEC-02: a second invocation while one is already in flight in this process REJECTS
+ * immediately (never resolves to an exit code — overlap is NOT part of the EXC-01 taxonomy,
+ * it never reaches the wire) with a stable `OverlappingRunError` identity, touching NEITHER
+ * `io.writeFrame` NOR `io.writeStderr` — there is nothing to send over the wire for an
+ * attempt that never left the process, and the first in-flight run's own io/state is
+ * entirely untouched by the rejected attempt.
  */
 export async function runRunner(argv: string[], io: RunnerIo): Promise<number> {
+  if (runInFlight) {
+    throw new OverlappingRunError(
+      "pbuilder-runner: a run is already in flight in this process — overlapping run rejected"
+    );
+  }
+  runInFlight = true;
+  try {
+    return await runRunnerBody(argv, io);
+  } finally {
+    runInFlight = false;
+  }
+}
+
+async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
   const parsed = parseArgv(argv);
   if ("error" in parsed) {
     note(io, parsed.error);
