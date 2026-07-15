@@ -50,6 +50,22 @@ Final: `bun test` → **1388 pass / 0 fail** (155 files); `tsc --noEmit` → cle
   `scripts.build`'s bundle step) — dist/bin build wiring is deferred to the public-package
   plan per ADR-06; FIT-14's `bin`/`shebang`/`exports` fields untouched.
 
+## Slice Audit Notes (Step 7c, mode: slice)
+
+Groups 1–3 run over the full S-000 diff. No `Bug`/`Architecture`/`MAJOR` findings. Two
+findings remediated in-slice (commit `4f1053d`):
+
+- **Epic AC — SEC-01 type leg**: design § 4.6 declares `test/types/*` alongside the unit
+  vehicle; added `test/types/stdio-engine-client-port.test.ts` (expect-type pin of the four
+  exact signatures).
+- **Nit — duplicate**: `LENGTH_PREFIX_BYTES` was declared in both `framing.ts` and
+  `frame-reader.ts`; now exported from `framing.ts` (single owner) and imported.
+
+Soft-noted, deliberate scope boundaries (not findings): `stdio-engine-client.ts` casts the
+raw response frame (`as ResponseFrame`) and skips WPS-03 routing/SEC-04 degrade/SEC-05
+timeout — S-001's contract, flagged in the file's scope-boundary header. ADR-01/02/03/06/07
+all verified honored by the diff.
+
 ## Deviations from design
 
 None. (Coordinator's resume message said `test/support/fake-engine-harness.ts`; design § 4.2's
