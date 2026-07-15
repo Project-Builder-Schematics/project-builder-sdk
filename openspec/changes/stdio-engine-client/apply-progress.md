@@ -720,3 +720,21 @@ shape (no `code-audit.md` engine invocation — architecturally inert change).
   asks for, not a broader unscoped rewrite of the historical record.
 
 ---
+
+## Strict TDD Adjudications (owner rulings, 2026-07-15 — pre-verify-final)
+
+Both in-loop TDD findings were surfaced to the owner and ruled BEFORE `sdd-verify --mode=final`
+(verify-in-loop-4 Finding #1; verify-in-loop-6 Finding S-005-1):
+
+1. **S-003 `ea9b7e0` (sealing mechanism before its driving test) — ACCEPTED LAPSE.**
+   Owner ruling: genuine test-first violation, accepted as a process lapse with no functional
+   debt — the driving tests landed in `c72d1ca` (EXC-01.3 trio + sealed-stdout-over-real-stdio)
+   and verify-in-loop-4 independently proved them real and non-vacuous. No history rewrite.
+   Registered so final-mode's TDD audit treats this commit as adjudicated, not unexamined.
+
+2. **S-005 docs-before-fitness-tests (`b3e876d`/`4a008b5` before `ef18770`) — COMPLIANT BY
+   NATURE.** Owner ruling: for a doc-reconciliation slice the docs→scan order is the only
+   executable one — the committed doc IS the fixture the fitness test scans, and the in-file
+   red-proofs (planted-violation fixtures) fill the RED role the chronological order can't.
+   This ruling is PRECEDENT for future doc-reconciliation slices: red-proofs in-file satisfy
+   Strict TDD where the scanned artifact must pre-exist its scanner.

@@ -1,8 +1,8 @@
 {
   "change": "stdio-engine-client",
   "triage": "L",
-  "phase": "build-complete",
-  "phase_status": "ALL 6 SLICES VERIFIED (verify-in-loop-6 PASS) + USER-requested /simplify DONE @ dcc39bc (suite 1605/0, tsc clean) — next /evaluate (verify final must adjudicate 2 TDD findings)",
+  "phase": "verify-final",
+  "phase_status": "/evaluate STARTED 2026-07-15. TDD adjudications OWNER-RULED pre-final: ea9b7e0 = accepted lapse; S-005 docs-first = compliant by nature (precedent) — recorded in apply-progress.md. Council: architect + qa + tech-writer + security-engineer.",
   "simplify": "DONE (2026-07-15, commit dcc39bc, user-requested pre-final): 5 fixes (frame-reader redundant Buffer.from copy dropped; #readUntilMatch discard helper; fit-31 doc reads hoisted; frame-host raceExit shared by waitExit+afterEach — also fixes 2s dead-wait on already-exited children; runner.unit stubIo parameterized). 4 skipped with reasons: frame-reader chunk-array rewrite (design 4.9 no-hot-path ruling, rewrite risk > benefit); cross-file wire-spec doc-cache (negligible 3x9.5KB, keeps fitness files standalone); it.concurrent e2e spawns (pre-existing repo-wide sequential convention, flake risk); probe self-reference fallback + packageRootFor/findProjectRoot dedup (behavior-affecting / outside change scope — registered as followup candidates for verify final + archive)",
   "spec_status": "signed",
   "slices": true,
