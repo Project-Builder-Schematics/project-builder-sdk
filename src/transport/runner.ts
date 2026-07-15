@@ -7,17 +7,26 @@
 // production runner" as the legitimate wrapper of that seam; this is that runner. The
 // import is direct from ../core/context.ts (the sanctioned-caller idiom), never the barrel.
 //
-// Scope boundary (S-000, walking skeleton): argv parsing, pointer resolution, and failure
-// exits are MINIMAL here — the full RUN-01..04/06/07 gates (factory-pointer.ts,
-// exit-codes.ts, error-text.ts, single-instance-probe.ts) land in S-001/S-002 and slot in
-// at this chokepoint. All failures exit 1 for now; the 0-4 taxonomy is EXC-01 (S-002).
+// S-002 closes the gate scope: RUN-01 (argv XOR), RUN-02 (factory URL scheme+host, via
+// factory-pointer.ts), RUN-03/RUN-06 (export resolution + double-wrap, factory-pointer.ts),
+// RUN-04 (input-file size-cap + fail-closed parse), RUN-07 (import-failure classification),
+// SEC-07 (single-instance probe, before import), and EXC-01/02 (exit-code taxonomy via
+// exit-codes.ts). RUN-05/RUN-08/SEC-02 are S-000/S-003 territory, unchanged here.
 
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readFileSync, statSync } from "node:fs";
 import { defineFactory } from "../core/context.ts";
+import { AuthoringError } from "../core/authoring-error.ts";
+import { locateFirstJsonSyntaxError } from "../core/schema/schema-locate.ts";
+import { formatLocator } from "../core/schema/schema-parse.ts";
 import { FrameReader } from "./frame-reader.ts";
 import { WIRE_PROTOCOL_VERSION, isStructurallyValidGreeting, versionMatches } from "./wire-protocol.ts";
 import { StdioEngineClient, TransportFault, type FrameChannel } from "./stdio-engine-client.ts";
+import { boundMessage, composeWithToken } from "./error-text.ts";
+import { parseFactoryPointer, validateFactoryUrl, resolveFactoryExport } from "./factory-pointer.ts";
+import { probeSingleInstance } from "./single-instance-probe.ts";
+import { classifyExitCode } from "./exit-codes.ts";
 
 export interface RunnerIo {
   /** Raw inbound byte stream (stdin on the spawned path; injectable for in-process tests). */
@@ -28,44 +37,127 @@ export interface RunnerIo {
   writeStderr: (text: string) => void;
 }
 
-// WPS-07's full error-text algorithm is S-001 scope; until then every stderr note is at
-// least bounded to the documented 2000-char ceiling.
-const STDERR_CEILING = 2000;
+// REQ-RUN-04: the SDK-chosen input-file size cap — same provenance posture as SEC-05's
+// timeout bound and WPS-06's BATCH_CAP_BYTES (pending engine-side confirmation).
+export const INPUT_FILE_SIZE_CAP_BYTES = 10 * 1024 * 1024; // 10 MiB
 
 function note(io: RunnerIo, text: string): void {
-  io.writeStderr(`${text.slice(0, STDERR_CEILING)}\n`);
+  io.writeStderr(`${boundMessage(text)}\n`);
 }
+
+type ParsedInput = { kind: "inline"; json: string } | { kind: "file"; path: string };
 
 interface ParsedArgv {
   factory: string;
-  inputJson: string;
+  input: ParsedInput;
 }
 
-function parseArgvMinimal(argv: string[]): ParsedArgv | { error: string } {
+// REQ-RUN-01: `--factory <url>#<export>` required; exactly one of `--input <json>` XOR
+// `--input-file <path>`; any unrecognized flag fails closed.
+function parseArgv(argv: string[]): ParsedArgv | { error: string } {
   let factory: string | undefined;
   let inputJson: string | undefined;
+  let inputFile: string | undefined;
+
   for (let i = 0; i < argv.length; i += 2) {
     const flag = argv[i];
     const value = argv[i + 1];
-    if (value === undefined) return { error: `pbuilder-runner: missing value for flag` };
+    if (flag === undefined || value === undefined) {
+      return { error: `pbuilder-runner: missing value for flag "${flag ?? ""}"` };
+    }
     if (flag === "--factory") factory = value;
     else if (flag === "--input") inputJson = value;
-    else return { error: `pbuilder-runner: unrecognized flag` };
+    else if (flag === "--input-file") inputFile = value;
+    else return { error: composeWithToken("pbuilder-runner: unrecognized flag ", flag) };
   }
+
   if (factory === undefined) return { error: "pbuilder-runner: --factory is required" };
-  return { factory, inputJson: inputJson ?? "{}" };
+  if (inputJson !== undefined && inputFile !== undefined) {
+    return { error: "pbuilder-runner: --input and --input-file are mutually exclusive — pass exactly one" };
+  }
+  if (inputJson === undefined && inputFile === undefined) {
+    return { error: "pbuilder-runner: exactly one of --input or --input-file is required" };
+  }
+  return {
+    factory,
+    input: inputJson !== undefined ? { kind: "inline", json: inputJson } : { kind: "file", path: inputFile as string },
+  };
+}
+
+type ResolvedInput = { ok: true; value: unknown } | { ok: false; message: string };
+
+// REQ-RUN-04: size-cap check BEFORE reading contents; fail-closed on any JSON parse error,
+// reporting ONLY the parse failure's line/column (never raw file content — mirrors
+// `formatParseError`, bin/pbuilder-codegen.ts:126).
+function resolveInput(input: ParsedInput): ResolvedInput {
+  if (input.kind === "inline") {
+    try {
+      return { ok: true, value: JSON.parse(input.json) };
+    } catch {
+      return { ok: false, message: "pbuilder-runner: --input is not valid JSON" };
+    }
+  }
+
+  let size: number;
+  try {
+    size = statSync(input.path).size;
+  } catch (err) {
+    return {
+      ok: false,
+      message: `pbuilder-runner: --input-file could not be read — ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+  if (size > INPUT_FILE_SIZE_CAP_BYTES) {
+    return { ok: false, message: `pbuilder-runner: --input-file exceeds the ${INPUT_FILE_SIZE_CAP_BYTES}-byte cap` };
+  }
+
+  const raw = readFileSync(input.path, "utf-8");
+  try {
+    return { ok: true, value: JSON.parse(raw) };
+  } catch {
+    const locator = locateFirstJsonSyntaxError(raw);
+    return {
+      ok: false,
+      message: `pbuilder-runner: --input-file is not valid JSON ${formatLocator(locator?.line, locator?.column)}`,
+    };
+  }
+}
+
+// REQ-RUN-07: classifies a factory-module `import()` failure into module-resolution
+// (exits 1) vs. an author top-level throw (exits 4) — `ERR_MODULE_NOT_FOUND` is Node/Bun's
+// standard resolution-failure code; anything else is the module's OWN code having run and
+// thrown. Deliberately NOT `isErrnoException`/`instanceof Error`-gated: Bun's own resolve
+// failure (`ResolveMessage`) is NOT an `Error` instance (verified empirically) even though
+// it carries a `.code`, so the check reads the property directly off any object shape.
+function isModuleResolutionFailure(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "ERR_MODULE_NOT_FOUND";
 }
 
 /**
- * Runs one factory over the framed wire: await versioned `ready` (WPS-02, fail-at-greeting),
- * resolve + `defineFactory`-wrap the factory export with `packageDir = dirname(factory)`
- * (RUN-05), then serve the run's reverse callbacks through `StdioEngineClient`. Returns the
- * process exit code.
+ * Runs one factory over the framed wire: parses/validates argv and input (RUN-01/04),
+ * awaits versioned `ready` (WPS-02, fail-at-greeting), probes the single-instance SDK
+ * pin (SEC-07), validates + resolves the factory pointer (RUN-02/03/06/07), then
+ * `defineFactory`-wraps it with `packageDir = dirname(factory)` (RUN-05) and serves the
+ * run's reverse callbacks through `StdioEngineClient`. Returns the process exit code
+ * (EXC-01 taxonomy).
  */
 export async function runRunner(argv: string[], io: RunnerIo): Promise<number> {
-  const parsed = parseArgvMinimal(argv);
+  const parsed = parseArgv(argv);
   if ("error" in parsed) {
     note(io, parsed.error);
+    return 1;
+  }
+
+  const resolvedInput = resolveInput(parsed.input);
+  if (!resolvedInput.ok) {
+    note(io, resolvedInput.message);
+    return 1;
+  }
+
+  const { url: moduleUrl, exportName } = parseFactoryPointer(parsed.factory);
+  const urlValidation = validateFactoryUrl(moduleUrl);
+  if (!urlValidation.ok) {
+    note(io, `pbuilder-runner: ${urlValidation.message}`);
     return 1;
   }
 
@@ -88,33 +180,58 @@ export async function runRunner(argv: string[], io: RunnerIo): Promise<number> {
     return 1;
   }
 
-  let input: unknown;
-  try {
-    input = JSON.parse(parsed.inputJson);
-  } catch {
-    note(io, "pbuilder-runner: --input is not valid JSON");
+  // REQ-SEC-07: handshake-time, resolution-only, BEFORE the factory import proceeds.
+  const probe = probeSingleInstance(moduleUrl);
+  if (!probe.ok) {
+    note(io, `pbuilder-runner: ${probe.message}`);
     return 1;
   }
 
-  const [moduleUrl, fragment] = parsed.factory.split("#", 2) as [string, string | undefined];
   let moduleNamespace: Record<string, unknown>;
   try {
     moduleNamespace = (await import(moduleUrl)) as Record<string, unknown>;
-  } catch {
-    note(io, "pbuilder-runner: factory module could not be imported");
-    return 1;
+  } catch (err) {
+    if (isModuleResolutionFailure(err)) {
+      note(io, "pbuilder-runner: factory module could not be resolved");
+      return 1;
+    }
+    note(io, "pbuilder-runner: factory module's top-level code threw during import");
+    return 4;
   }
-  const resolved = fragment === undefined ? moduleNamespace.default : moduleNamespace[fragment];
-  if (typeof resolved !== "function") {
-    note(io, "pbuilder-runner: resolved factory export is not a function");
-    return 1;
+
+  const exportResolution = resolveFactoryExport(moduleNamespace, exportName);
+  if (!exportResolution.ok) {
+    switch (exportResolution.kind) {
+      case "missing-default-export":
+        note(io, "pbuilder-runner: factory module has no default export");
+        return 1;
+      case "missing-named-export":
+        note(io, composeWithToken("pbuilder-runner: factory module has no export named ", exportResolution.exportName));
+        return 1;
+      case "not-callable":
+        note(
+          io,
+          composeWithToken(
+            "pbuilder-runner: resolved factory export is not a function — malformed factory export: ",
+            exportResolution.exportName ?? "default"
+          )
+        );
+        return 1;
+      case "double-wrapped":
+        note(
+          io,
+          "pbuilder-runner: resolved factory export is already wrapped by defineFactory — export the BARE " +
+            "factory function instead, the runner wraps it internally"
+        );
+        return 1;
+    }
   }
 
   // RUN-05: wrap through the SAME defineFactory seam runFactoryForTest uses, anchored to
   // the factory's own directory — schema-derived validation and reserved-name checks apply
   // identically on both vehicles.
   const packageDir = dirname(fileURLToPath(new URL(moduleUrl)));
-  const run = defineFactory(resolved as (o: unknown) => void | Promise<void>, { packageDir });
+  const run = defineFactory(exportResolution.fn, { packageDir });
 
   const channel: FrameChannel = {
     write: io.writeFrame,
@@ -131,10 +248,13 @@ export async function runRunner(argv: string[], io: RunnerIo): Promise<number> {
   const client = new StdioEngineClient(channel);
 
   try {
-    await run(input, { client });
+    await run(resolvedInput.value, { client });
     return 0;
   } catch (err) {
-    note(io, `pbuilder-runner: run failed — ${err instanceof Error ? err.message : String(err)}`);
-    return 1;
+    // EXC-01/02: classification reads ONLY err's own identity — a double-fault `.cause`
+    // (context.ts's discard-after-throw path) never overrides E1's class.
+    const label = err instanceof AuthoringError || err instanceof TransportFault ? err.message : "run failed";
+    note(io, `pbuilder-runner: ${label}`);
+    return classifyExitCode(err);
   }
 }
