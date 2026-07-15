@@ -81,13 +81,13 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - THEN exactly-one-dispatch reassembly holds; caps reject before alloc (exact-cap accepted, `0x80000000` rejected); routing discards are wire-silent + stderr-noted with liveness; faults attribute structurally; timeout is injectable; rejections map to `EmitRejection` honoring `failedIndex`, degrading to `unknown`
 
 ### Tasks
-- [ ] S-001.1 RED `frame-reader` matrix (SEC-10.1–.5)
-- [ ] S-001.2 RED `error-text.ts`: 2000-char ceiling, 200-char token cap, `../`/`<outside-project>` (WPS-07)
-- [ ] S-001.3 RED `wire.ts` `serializedBatchBytes`/`exceedsBatchCap` + route `contract-fake.ts` cap check through it; fit-32
-- [ ] S-001.4 RED `framing.ts` cap paths via `batch-cap-fixtures` (WPS-04.1–.4)
-- [ ] S-001.5 RED client routing discards + liveness (WPS-03), fail-closed/desync/EOF-prompt (SEC-08)
-- [ ] S-001.6 RED injectable timeout, slow-success no stray reject (SEC-05)
-- [ ] S-001.7 RED rejection mapping + pointer grammar parse (WPS-08, SEC-04)
+- [x] S-001.1 RED `frame-reader` matrix (SEC-10.1–.5)
+- [x] S-001.2 RED `error-text.ts`: 2000-char ceiling, 200-char token cap, `../`/`<outside-project>` (WPS-07)
+- [x] S-001.3 RED `wire.ts` `serializedBatchBytes`/`exceedsBatchCap` + route `contract-fake.ts` cap check through it; fit-32
+- [x] S-001.4 RED `framing.ts` cap paths via `batch-cap-fixtures` (WPS-04.1–.4)
+- [x] S-001.5 RED client routing discards + liveness (WPS-03), fail-closed/desync/EOF-prompt (SEC-08)
+- [x] S-001.6 RED injectable timeout, slow-success no stray reject (SEC-05)
+- [x] S-001.7 RED rejection mapping + pointer grammar parse (WPS-08, SEC-04)
 
 ---
 
