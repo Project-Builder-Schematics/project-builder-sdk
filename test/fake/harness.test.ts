@@ -123,15 +123,15 @@ const SPEC_POST_ARCHIVE_SPECS_DIR = join(PROJECT_ROOT, "openspec/specs");
 // edit that adds/removes a REQ without updating this constant fails FEH-05.2 loudly.
 const EXPECTED_REQ_COUNT = 41;
 
-// Exempted from the "zero uncovered" scan below — each has a real, already-decided exercising
-// mechanism that is explicitly S-005 scope (slices.md's own S-005 "Covers" line: WPS-06,
-// WPS-11, FEH-06, LED-01), not yet built at S-004: fit-31 (WPS-11's doc-scan leg), fit-33
-// (bridge-version doc pin), fit-34 (WPS-06/FEH-06's BATCH_CAP drift), and S-005.4's ledger scan
-// (LED-01, per spec.md's own REQ-LED-01 note — never harness-scenario-verified by design). This
-// is the build-ordering consequence slices.md's Build Order documents ("docs LAST — reconciled
-// against built, proven code"), not a coverage gap: S-005 must shrink this set to empty as it
-// lands its own fitness tests, never grow it.
-const PENDING_S005_COVERAGE_EXEMPTIONS = new Set(["WPS-06", "WPS-11", "FEH-06", "LED-01"]);
+// S-005 shrunk this to empty (shrink-only, never grow — see S-004's Discoveries for the
+// original build-ordering rationale). All four were S-004-time gaps because their exercising
+// fitness tests were explicitly S-005 scope, not yet built: WPS-06/FEH-06 (BATCH_CAP drift,
+// `fit-34-batch-cap-drift.test.ts`), WPS-11 (doc-scan + header stamp,
+// `fit-31-single-owner-framing.test.ts`), and LED-01 (ledger-presence scan, same file's
+// REQ-LED-01 `describe` block). Every one now has a real, non-vacuous test citing its REQ-ID
+// in a test title/comment, so FEH-05's whole-suite citation scan (`scanReqCitationsAcrossTests`)
+// covers them without a carve-out.
+const PENDING_S005_COVERAGE_EXEMPTIONS = new Set<string>();
 
 const NEW_EMIT_REJECTION_RE = /\bnew\s+EmitRejection\s*\(/;
 
