@@ -2,7 +2,8 @@
   "change": "stdio-engine-client",
   "triage": "L",
   "phase": "build-complete",
-  "phase_status": "ALL 6 SLICES VERIFIED (verify-in-loop-6 PASS, suite 1605/0) — BUILD COMPLETE 2026-07-15. Next: USER-requested /simplify over change diff, then /evaluate (verify final must adjudicate 2 TDD findings)",
+  "phase_status": "ALL 6 SLICES VERIFIED (verify-in-loop-6 PASS) + USER-requested /simplify DONE @ dcc39bc (suite 1605/0, tsc clean) — next /evaluate (verify final must adjudicate 2 TDD findings)",
+  "simplify": "DONE (2026-07-15, commit dcc39bc, user-requested pre-final): 5 fixes (frame-reader redundant Buffer.from copy dropped; #readUntilMatch discard helper; fit-31 doc reads hoisted; frame-host raceExit shared by waitExit+afterEach — also fixes 2s dead-wait on already-exited children; runner.unit stubIo parameterized). 4 skipped with reasons: frame-reader chunk-array rewrite (design 4.9 no-hot-path ruling, rewrite risk > benefit); cross-file wire-spec doc-cache (negligible 3x9.5KB, keeps fitness files standalone); it.concurrent e2e spawns (pre-existing repo-wide sequential convention, flake risk); probe self-reference fallback + packageRootFor/findProjectRoot dedup (behavior-affecting / outside change scope — registered as followup candidates for verify final + archive)",
   "spec_status": "signed",
   "slices": true,
   "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
@@ -22,7 +23,8 @@
     "Strict TDD adjudication #1: ea9b7e0 (S-003) shipped BRB-02/03/RUN-08/SEC-09 sealing mechanism with zero test changes; driving test landed 2 commits later (c72d1ca) and apply-progress records RED as unrelated fixture bug. Needs documented rationale or accepted-lapse ruling at verify final (verify-in-loop-4).",
     "Strict TDD adjudication #2: S-005 docs committed before the fitness tests that scan them (b3e876d/4a008b5 before ef18770) — anti-TDD ordering vs this change's own fit-10/fit-29 organic-RED precedent. Rule explicitly at verify final (verify-in-loop-6 finding S-005-1).",
     "Cold-start suite flake: 1 error on first bun-test run after fresh install, not reproduced in warm re-runs — re-run full suite from FRESH INSTALL at final to confirm.",
-    "Engram hybrid mirror gap: verify-in-loop-6 mem_save failed on infra (classifier unavailability) — retry mirror before archive; openspec file is canonical."
+    "Engram hybrid mirror gap: verify-in-loop-6 mem_save failed on infra (classifier unavailability) — retry mirror before archive; openspec file is canonical.",
+    "Simplify-pass followup candidates (altitude/reuse, deliberately NOT applied): (a) single-instance-probe.ts self-reference fallback — SEC-07 same-copy happy path is only proven via a branch dead in real deployments; deeper fix = self-reference exports entry in package.json OR split-package fixture identity (altitude reviewer, /simplify 2026-07-15); (b) packageRootFor (single-instance-probe.ts:47) duplicates findProjectRoot (bin/pbuilder-codegen.ts:79) — unguarded twin walks, extraction into src/core touches code outside this change's scope."
   ],
   "post_build_user_request": "USER (2026-07-15): run /simplify over the change diff AFTER S-005 passes verify in-loop, BEFORE /evaluate (verify final re-covers any simplification)",
   "updated_at": "2026-07-15"
