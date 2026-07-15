@@ -18,7 +18,7 @@ import { findReservedSibling } from "../../../src/core/schema/schema-discovery.t
 import { rejectionForReservedName } from "../../../src/core/schema/input-rejection.ts";
 import { create, copyIn, scaffold } from "../../../src/commons/index.ts";
 import type { ScaffoldOptions } from "../../../src/commons/index.ts";
-import { BATCH_CAP_BYTES, serializedBatchSize } from "../../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../../src/core/wire.ts";
 import type { Directive } from "../../../src/core/wire.ts";
 import { materializeByteFill, materializeGitHostileFixtures } from "../../support/author-emulation-setup.ts";
 import type { Input } from "./schema.generated.ts";
@@ -349,16 +349,18 @@ export const runM10 = (): void => {
 // The AT-CAP variant is this row's corpus-committed scenario (SUCCESS); the ONE-BYTE-OVER
 // variant is an e2e-inline-only assertion (never corpus-captured — mirrors the M-02
 // mandatory-arg pattern: a second input variant of the SAME reason, asserted directly).
+// "The cap" an author can fill to is EMIT_BATCH_BUDGET_BYTES — the frame cap minus the
+// ir.emit envelope allowance (boundary re-anchored per stdio-engine-client spec V4 WPS-04.3).
 export const M11_AT_CAP_PATH = "m11-at-cap.txt";
 export const M11_OVER_CAP_PATH = "m11-over-cap.txt";
 
 export const runM11AtCap = (): void => {
-  create(M11_AT_CAP_PATH, { template: fillTemplateForBatchSize(M11_AT_CAP_PATH, BATCH_CAP_BYTES), options: {} });
+  create(M11_AT_CAP_PATH, { template: fillTemplateForBatchSize(M11_AT_CAP_PATH, EMIT_BATCH_BUDGET_BYTES), options: {} });
   scaffold({ from: "files", to: "m11-out", include: ["README.md.template"] });
 };
 
 export const runM11OverCap = (): void => {
-  create(M11_OVER_CAP_PATH, { template: fillTemplateForBatchSize(M11_OVER_CAP_PATH, BATCH_CAP_BYTES + 1), options: {} });
+  create(M11_OVER_CAP_PATH, { template: fillTemplateForBatchSize(M11_OVER_CAP_PATH, EMIT_BATCH_BUDGET_BYTES + 1), options: {} });
 };
 
 // --- M-12: `templateFile` binary/oversized fails loud, never silently copies (FEH-02.1/.2).

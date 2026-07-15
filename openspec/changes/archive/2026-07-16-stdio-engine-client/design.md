@@ -50,6 +50,7 @@ shared root cannot live in `bin/`).
 | `test/fake/fake-engine-harness.e2e.test.ts` | Create | Walking-skeleton e2e (LAST): spawn runner → greeting → framed round-trip by-value → advisory commit → exit 0; adversarial matrix |
 | `test/fitness/fit-{30..35}-*.test.ts` | Create | New fitness: stdout-sacred scan, single-owner-of-framing, cap-single-source, bridge-version pin, BATCH_CAP drift (FEH-06), sequential-guard (fit-35 — fit-29 is taken by the pre-existing sanctioned-definefactory-caller check) |
 | `test/fitness/fit-10-engine-client-port-guard.test.ts` | Modify | Extend allow-list by EXACTLY one path (`src/transport/stdio-engine-client.ts`) with a red-proof update (ADR-01) |
+| `test/fitness/fit-29-sanctioned-definefactory-caller.test.ts` | Modify | Extend `ALLOWLISTED_ROOTS` by EXACTLY one path (`src/transport/runner.ts`) so RUN-05's `defineFactory` wrap in the runner root is sanctioned, with a red-proof that an unrelated `src/transport/**` file is still flagged (ADR-07) |
 | `docs/engine-sdk-wire-design.md` | Modify | rev 2 → rev 3 (WPS-11): NDJSON/single-initiator/`session.init` moved under superseded headings; header stamps wire-spec version |
 | `docs/engine-sdk-wire-spec.md` | Create | Normative versioned wire spec: methods, error shapes, pointer grammar, cap-constant naming, exit codes, bridge-contract section (settled #7) |
 | `openspec/pending-changes.md` | Modify | Promote StdioEngineClient row; add deferred Windows/macOS-pins + public-package-bin rows |
@@ -74,6 +75,7 @@ shared root cannot live in `bin/`).
 |---|---|---|---|
 | `src/transport/` (new leaf) | new | first real `EngineClient` + framing + runner root; a top-level structure the baseline lacks | deviates → ADR-01 |
 | `test/fitness/fit-10` port allow-list | modify | +1 path (`stdio-engine-client.ts`) — the guarded boundary changes | deviates → ADR-01 |
+| `test/fitness/fit-29` defineFactory allow-list | modify | +1 path (`runner.ts`) — the sanctioned-`defineFactory`-caller boundary admits the runner root (RUN-05) | deviates → ADR-07 |
 | `src/core/engine-client.ts` (port) | none | D2: port shape survives; callbacks map onto the 4 methods | aligns |
 | `src/core/wire.ts` | extend | single-source cap measurer beside `BATCH_CAP_BYTES` | aligns |
 | `src/core/context.ts` (`defineFactory`) | modify | non-enumerable brand marker on returned wrapper (additive) | aligns → ADR-04 |
@@ -195,6 +197,30 @@ surface baseline) untouched; register the `#bin` at the public-package plan. **C
 +no premature public surface, FIT-14 stable; −the bin is reachable only by path until then.
 **Alternatives**: add `#bin` now (churns FIT-14, exposes an unstable CLI pre-1.0).
 
+### ADR-07: Runner root is a sanctioned `defineFactory` caller — FIT-29 allow-list +1 [AMENDMENT — resolves the S-000.7 `architectural-conflict`]
+**Status**: Proposed. **Context**: RUN-05 requires the runner composition root — `src/transport/runner.ts`
+per ADR-01 — to wrap the resolved bare factory using the internal `defineFactory`. The pre-existing
+production fitness `fit-29` confines `defineFactory`-binding imports to `ALLOWLISTED_ROOTS = [src/core,
+src/testing, src/conformance]` (scan surface `src/**` + `bin/**`), so `runner.ts` importing `defineFactory`
+is flagged as unsanctioned. This is NOT a re-open of the plan-verify iter-2 "fit-29 untouched" ruling —
+that resolved a fitness-NUMBERING collision only; the pre-existing guard blocking RUN-05's specified path
+was never adjudicated. `context.ts`'s own `@internal` note already names "the future production runner" as
+a legitimate wrapper of this seam (`context.ts:262-265`); `runner.ts` IS that runner. **Decision**: extend
+`fit-29`'s `ALLOWLISTED_ROOTS` by EXACTLY one path — the FILE `src/transport/runner.ts` (not the whole
+`src/transport/` dir) — mirroring ADR-01's FIT-10 +1 treatment, with a red-proof that a planted
+`defineFactory` import from an unrelated transport file (`src/transport/framing.ts`) is STILL flagged.
+`runner.ts` imports `defineFactory` directly from `../core/context.ts` — the established sanctioned-caller
+idiom (`src/testing/index.ts`, `src/conformance/index.ts` both import it that way, fit-29 positive
+controls), never through the barrel. **Consequences**: +honors fit-29's intent (defineFactory stays
+confined to NAMED sanctioned callers; every other transport file is still scanned); +reuses a ratified,
+already-executed mechanism (S-000.5 did the identical FIT-10 +1); +zero `src/core` churn (no collision with
+S-002's `context.ts` brand-marker edit); −one more reviewed guard edit (deviates, already within this
+change's `modifying` impact). The single-file entry survives fit-29's own non-vacuity guard (`src/commons/index.ts`
+stays in the scan set). **Alternatives**: a `src/core/`-resident wrapper the runner calls (rejected — pushes
+production-runner composition into `src/core/`, reversing ADR-01's core-purity rationale and colliding with
+S-002's `context.ts` edits; an indirection existing only to dodge a fitness check, adding a core export absent
+from §4.3); relocate `runner.ts` into `src/core/` (rejected — directly reverses ADR-01).
+
 ## 4.6 Test Derivation (outside-in)
 
 Every REQ-ID covered; multi-scenario REQs noted in-cell, grouped by family/vehicle.
@@ -219,6 +245,7 @@ Every REQ-ID covered; multi-scenario REQs noted in-cell, grouped by family/vehic
 | RUN-03 (.1/.2/.3) | missing default / named / non-function | unit | `test/transport/factory-pointer.unit.test.ts` | — |
 | RUN-04 (.1/.2) | oversize input-file, malformed JSON line/col | unit | `test/transport/runner.unit.test.ts` | — |
 | RUN-05 (.1) | wrapped behavior == packageDir runFactoryForTest | integration | `test/transport/runner.integration.test.ts` | — |
+| RUN-05 (sanction) | runner root is an allowlisted `defineFactory` caller; unrelated transport file still flagged | architectural | `test/fitness/fit-29-sanctioned-definefactory-caller.test.ts` (ADR-07 +1 + red-proof) | — |
 | RUN-06 (.1/.2) | already-wrapped rejected, arity-2 bare NOT misclassified | unit | `test/transport/factory-pointer.unit.test.ts` | — |
 | RUN-07 (.1/.2) | module-not-found→1, author top-level throw→4 | unit | `test/transport/runner.unit.test.ts` | — |
 | RUN-08 (.1/.2) | direct-spawn fd-1/console before import, author reassign no hijack | e2e | `test/fake/fake-engine-harness.e2e.test.ts` (argv leg) | direct-spawn |
@@ -260,6 +287,10 @@ Every Create/Modify flow (4.2b) has ≥1 e2e row (skeleton, direct-spawn, confor
   with the first run intact (SEC-02). (fit-35, not fit-29: `fit-29-sanctioned-definefactory-caller.test.ts`
   pre-exists — collision resolved at plan-verify iteration 2.)
 - **FIT-10 allow-list +1** (modified): red-proof that the widened list still catches an unrelated bleed.
+- **FIT-29 allow-list +1** (`fit-29`, modified, ADR-07): `ALLOWLISTED_ROOTS` gains EXACTLY the file
+  `src/transport/runner.ts` so RUN-05's `defineFactory` wrap in the runner root is sanctioned; red-proof
+  that a planted `defineFactory` import from an unrelated `src/transport/**` file (`framing.ts`) is still
+  flagged (single-file entry, not a dir widening — the non-vacuity guard on `src/commons/index.ts` stays intact).
 - **BATCH_CAP drift** (`fit-34`, FEH-06/WPS-06): SDK `BATCH_CAP_BYTES` == doc literal `4194304`.
 
 ## 4.8 Migration / Rollout

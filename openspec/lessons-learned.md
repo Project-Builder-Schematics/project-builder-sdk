@@ -2,6 +2,87 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `stdio-engine-client` (2026-07-16)
+
+### Blind dual-judge review catches what a full council with context does not
+**What**: The full council (architect/qa/security) reviewed this change through verify-final
+and found only non-gating followups; a SEPARATE blind judgment-day pass (two judges, diff +
+signed spec + acceptance criteria ONLY, no orchestrator transcript) found 13 confirmed
+defects, 7 of them CRITICAL — including `Session.flush` silently degrading a `TransportFault`
+to exit 2 instead of the correct exit 3, and an `IntentRejectedError` misclassified as exit 4.
+**Why**: A council that shares the orchestrator's running narrative inherits its blind
+spots — the same framing that made the code look complete to its own authors also made it
+look complete to reviewers reading the same trail. A judge with ONLY the diff and the spec
+has no narrative to inherit.
+**Where**: Any L-triage change with `adversarial_review: required`; the anti-anchoring rule
+in `CLAUDE.md`'s Sub-Agent Launch Pattern section.
+**Learned**: Never treat a clean council verify-final as sufficient signal that
+adversarial review would be redundant — the two catch structurally different classes of
+defect. Budget for judgment-day's fix-and-re-judge cost even after a clean council pass.
+
+### A test comment citing "see docs, not tested here" can be quietly routing around a live bug
+**What**: `test/fake/exit-matrix.e2e.test.ts` originally asserted a `TransportFault` maps to
+exit 3 only via the `Session.read()` path, with a comment explicitly noting the SAME fault
+"propagates... never through `Session.flush()`'s `toAuthoringError` degrade — see
+apply-progress Discoveries." The flush path was in fact broken (it degraded the fault to
+exit 2) — the comment documented the bug instead of a test asserting against it.
+**Why**: A comment that narrows a test's claim to "path A only, path B is different, see
+elsewhere" reads as a scope note but can be silently fencing off the one path that's actually
+wrong, rather than an intentional simplification.
+**Where**: Any e2e/integration test whose comment references a DIFFERENT artefact ("see
+apply-progress", "see design §X") to explain why a related path isn't asserted here.
+**Learned**: During review, grep test comments for phrases like "never through", "unlike X",
+"see Y for the other path" — treat each as a prompt to go verify the OTHER path is actually
+covered somewhere, not assume the split is deliberate.
+
+### Bun's `console.table`/`dir`/`trace` write to fd 1 natively, bypassing a `process.stdout` stub
+**What**: On Bun, `console.table`, `console.dir`, `console.group`, `console.count`, and
+`console.trace` (and similar) write NATIVELY to file descriptor 1 — they do not route through
+the JS-level `process.stdout.write` that a stub/spy replaces. A stdout-capture strategy that
+only swaps `process.stdout` misses this entire console surface, corrupting the wire protocol
+if author code calls any of them.
+**Why**: `console.log`/`console.error` route through `process.stdout`/`stderr` in Bun, but the
+table/tree-shaped console methods appear to use a lower-level native path — an
+implementation detail not obvious from the Node-compatible surface these methods expose.
+**Where**: `src/transport/framing.ts` (`captureFd1FrameWriter`/`redirectConsoleToStderr`);
+any code that must guarantee zero non-protocol bytes reach a captured stdout in a Bun runtime.
+**Learned**: When sealing a stdout/stderr boundary in Bun, redirect the WHOLE `console`
+object's methods explicitly (not just `process.stdout.write`) and prove it with a sabotage
+fixture that calls every console method the object exposes — a partial stub passes tests that
+only exercise `console.log`.
+
+### Post-archive fallback code paths are untested by construction — probe them before sealing
+**What**: `FEH-03`/`FEH-05`'s citation-guard fallback (the branch that activates only once a
+change's artefacts move to `openspec/changes/archive/`) cannot be exercised by the suite while
+the change is still in-flight — by definition, the condition it fallback-handles doesn't exist
+yet. This change's own S-005 apply pass had to build a real tmp-dir fixture simulating the
+post-archive directory shape specifically to prove the fallback branch, rather than trusting
+it silently.
+**Why**: A fitness guard or citation scan that behaves differently pre- vs. post-archive is,
+by definition, running its "real" branch for the first time exactly when the change is sealed
+and can no longer be iterated on cheaply.
+**Where**: Any fitness/architectural test whose behavior depends on `openspec/changes/` vs.
+`openspec/changes/archive/` path shape (`fit-31`, `fit-34` doc-scan legs, FEH-03/05).
+**Learned**: Build a synthetic fixture that mimics the POST-archive directory shape and run it
+BEFORE the actual `git mv`, not after — a red suite discovered after the folder move is much
+more expensive to recover from than one caught while the change is still in `openspec/changes/`.
+
+### Steward foresight conscience-questions must be answered on record, not left to imply consent
+**What**: The post-design steward foresight checkpoint raised three conscience questions
+(CQ-1/2/3); the build proceeded, and the reckoning checkpoint found NO record anywhere
+(engram searched, change artefacts grepped) that the owner had actually answered them — only
+that the build's proceeding implied a tacit answer to CQ-2. Reckoning had to re-ask the same
+three questions as RCQ-1..3 before the archive gate could close.
+**Why**: "The team kept building" is evidence someone decided the CQs were answerable, not
+evidence of WHAT was decided or WHY — a future engineer (or a re-litigated dispute) has
+nothing to point to.
+**Where**: `sdd-steward` foresight checkpoint (`sdd/{change-name}/north-star`); the
+`purpose-lifecycle.md` contract's blocking-with-override gates.
+**Learned**: When a steward checkpoint escalates a conscience question, the owner's answer
+must be captured as an explicit, dated ruling INSIDE the steward's own artefact (not just
+inferred from the pipeline continuing) — otherwise the same question resurfaces, unanswered,
+at the next gate that checks for it.
+
 ## From `author-emulation-e2e-scaffold` (2026-07-14)
 
 ### GateGuard's "auth" substring match false-positives on unrelated paths

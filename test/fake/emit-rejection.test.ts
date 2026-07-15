@@ -7,7 +7,7 @@ import { describe, it, expect } from "bun:test";
 import { ContractFake } from "../support/contract-fake.ts";
 import { EmitRejection } from "../../src/core/emit-rejection.ts";
 import { toAuthoringError } from "../../src/core/authoring-error.ts";
-import type { JsonValue } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, type JsonValue } from "../../src/core/wire.ts";
 import { batchOf, createOp, modifyOp } from "./directive-builders.ts";
 import { batchOverSerializedBytes, FIXTURE_PATH } from "./batch-cap-fixtures.ts";
 import { rejectedEmit } from "../support/rejection-capture.ts";
@@ -51,7 +51,7 @@ describe("REQ-ERM-01.1 — directive-level rejection carries code + failedIndex"
 describe("REQ-ERM-01.2 — batch-level rejection carries code, no failedIndex", () => {
   it("cap-exceeded carries code:cap, appliedCount:0, failedIndex absent", async () => {
     const fake = new ContractFake({ seed: { [FIXTURE_PATH]: "" } });
-    const overCap = batchOverSerializedBytes(4 * 1024 * 1024);
+    const overCap = batchOverSerializedBytes(BATCH_CAP_BYTES);
 
     const caught = await rejectedEmit(fake, overCap);
 

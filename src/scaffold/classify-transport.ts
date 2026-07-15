@@ -20,7 +20,7 @@
 import { readFileSync } from "node:fs";
 import { AuthoringError, invalidInput } from "../core/authoring-error.ts";
 import type { Directive, JsonValue } from "../core/wire.ts";
-import { BATCH_CAP_BYTES, serializedBatchSize } from "../core/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../core/wire.ts";
 import { forceEntry } from "../core/directive-factory.ts";
 import { validateSourceContainment } from "./containment.ts";
 
@@ -120,7 +120,7 @@ export function classifyTransport(params: ClassifyParams): ClassifyResult {
 
   // Stat-size gate BEFORE any content read (REQ-CCL-06): zero content-read calls for an
   // over-budget-by-stat file. Reuses containment's own `lstat` — no second stat call.
-  if (stat.size > BATCH_CAP_BYTES) {
+  if (stat.size > EMIT_BATCH_BUDGET_BYTES) {
     if (renderFail) {
       throw invalidInput(renderFail.oversized);
     }
@@ -147,16 +147,18 @@ export function classifyTransport(params: ClassifyParams): ClassifyResult {
   // DIRECTIVE this source would emit if classified by-value — envelope, `create` wrapper,
   // `pathTemplate`, and `options` all included, never the content string alone — via the
   // SAME `serializedBatchSize` helper the fake's real batch-cap check applies at emit time
-  // (`core/wire.ts`). A lone over-cap directive can never fit any flush group (the
+  // (`core/wire.ts`). A lone over-budget directive can never fit any flush group (the
   // expander flushes a solo directive as its own group, REQ-04.2), so measuring the
-  // single-directive batch here is exactly what the emit authority will measure later.
+  // single-directive batch here is exactly what the emit authority will measure later —
+  // against `EMIT_BATCH_BUDGET_BYTES`, the SAME boundary `exceedsEmitBatchBudget` enforces
+  // at emit (spec V4 REQ-WPS-04.1: the cap reserves the frame-envelope allowance).
   // `>` (not `>=`) — exactly-at-budget still fits (REQ-CCL-02.3).
   const prospectiveDirective: Directive = {
     op: "create",
     create: { pathTemplate: destPath, template: content, options, ...forceEntry(force) },
   };
   const directiveSize = serializedBatchSize([prospectiveDirective]);
-  if (directiveSize > BATCH_CAP_BYTES) {
+  if (directiveSize > EMIT_BATCH_BUDGET_BYTES) {
     if (renderFail) {
       throw invalidInput(renderFail.oversized);
     }

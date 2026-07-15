@@ -6,7 +6,10 @@
 // guard to this identifier; the only consumers are `authoring-error.ts` (translation)
 // and the allow-listed `test/support/contract-fake.ts` (the one legitimate thrower).
 
-export type EmitRejectionCode = "collision" | "not-found" | "unrepresentable" | "cap";
+// REQ-WPS-08.3: `"unknown"` is a first-class member — the documented degrade target for an
+// out-of-contract rejection payload AND a code a host may send explicitly; it round-trips
+// like any other member, never constructed through a cast.
+export type EmitRejectionCode = "collision" | "not-found" | "unrepresentable" | "cap" | "unknown";
 
 /**
  * Port-contract precondition (ADR-0022 — binding on every EngineClient implementation,

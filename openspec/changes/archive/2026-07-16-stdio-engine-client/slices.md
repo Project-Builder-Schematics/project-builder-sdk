@@ -58,14 +58,14 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - THEN versioned `ready` (v-match) is accepted, one `tree.read` round-trips asserted BY VALUE, `ir.emit` applies, advisory `ir.commit` acks, exit 0
 
 ### Tasks (design's unit-first order; e2e LAST)
-- [ ] S-000.1 RED `framing.ts` unit: encode/decode, newline-intact, UTF-8 byte-count (WPS-01)
-- [ ] S-000.2 RED `wire-protocol.ts` unit: versions, closed method set, ready/frame guards (WPS-02, WPS-05)
-- [ ] S-000.3 RED `frame-reader.ts` happy-path unit (full fault matrix deferred to S-001)
-- [ ] S-000.4 RED `stdio-engine-client.ts` unit over in-memory channel: 4 callbacks, payload shapes, ack/`IntentRejectedError`, null→undefined/""→"", settles-once (WPS-10, SEC-01/03/06)
-- [ ] S-000.5 RED FIT-10 red-proof, extend allow-list by exactly `src/transport/stdio-engine-client.ts` (ADR-01)
-- [ ] S-000.6 RED `test/support/frame-host.ts` unit: async spawn+frame helper, greeting barrier, afterEach kill
-- [ ] S-000.7 Minimal `runner.ts` + `bin/pbuilder-runner.ts` + `defineFactory` wrap `packageDir=dirname` parity (RUN-05) + `fake-engine-harness.ts` shell over ContractFake (happy dispatch only)
-- [ ] S-000.8 e2e skeleton in `fake-engine-harness.e2e.test.ts` + fit-30 scan
+- [x] S-000.1 RED `framing.ts` unit: encode/decode, newline-intact, UTF-8 byte-count (WPS-01)
+- [x] S-000.2 RED `wire-protocol.ts` unit: versions, closed method set, ready/frame guards (WPS-02, WPS-05)
+- [x] S-000.3 RED `frame-reader.ts` happy-path unit (full fault matrix deferred to S-001)
+- [x] S-000.4 RED `stdio-engine-client.ts` unit over in-memory channel: 4 callbacks, payload shapes, ack/`IntentRejectedError`, null→undefined/""→"", settles-once (WPS-10, SEC-01/03/06)
+- [x] S-000.5 RED FIT-10 red-proof, extend allow-list by exactly `src/transport/stdio-engine-client.ts` (ADR-01)
+- [x] S-000.6 RED `test/support/frame-host.ts` unit: async spawn+frame helper, greeting barrier, afterEach kill
+- [x] S-000.7 Minimal `runner.ts` + `bin/pbuilder-runner.ts` + `defineFactory` wrap `packageDir=dirname` parity (RUN-05) + `fake-engine-harness.ts` shell over ContractFake (happy dispatch only) — halt resolved by ADR-07 (fit-29 allow-list + the FILE `src/transport/runner.ts`)
+- [x] S-000.8 e2e skeleton in `fake-engine-harness.e2e.test.ts` + fit-30 scan
 
 ---
 
@@ -81,13 +81,13 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - THEN exactly-one-dispatch reassembly holds; caps reject before alloc (exact-cap accepted, `0x80000000` rejected); routing discards are wire-silent + stderr-noted with liveness; faults attribute structurally; timeout is injectable; rejections map to `EmitRejection` honoring `failedIndex`, degrading to `unknown`
 
 ### Tasks
-- [ ] S-001.1 RED `frame-reader` matrix (SEC-10.1–.5)
-- [ ] S-001.2 RED `error-text.ts`: 2000-char ceiling, 200-char token cap, `../`/`<outside-project>` (WPS-07)
-- [ ] S-001.3 RED `wire.ts` `serializedBatchBytes`/`exceedsBatchCap` + route `contract-fake.ts` cap check through it; fit-32
-- [ ] S-001.4 RED `framing.ts` cap paths via `batch-cap-fixtures` (WPS-04.1–.4)
-- [ ] S-001.5 RED client routing discards + liveness (WPS-03), fail-closed/desync/EOF-prompt (SEC-08)
-- [ ] S-001.6 RED injectable timeout, slow-success no stray reject (SEC-05)
-- [ ] S-001.7 RED rejection mapping + pointer grammar parse (WPS-08, SEC-04)
+- [x] S-001.1 RED `frame-reader` matrix (SEC-10.1–.5)
+- [x] S-001.2 RED `error-text.ts`: 2000-char ceiling, 200-char token cap, `../`/`<outside-project>` (WPS-07)
+- [x] S-001.3 RED `wire.ts` `serializedBatchBytes`/`exceedsBatchCap` + route `contract-fake.ts` cap check through it; fit-32
+- [x] S-001.4 RED `framing.ts` cap paths via `batch-cap-fixtures` (WPS-04.1–.4)
+- [x] S-001.5 RED client routing discards + liveness (WPS-03), fail-closed/desync/EOF-prompt (SEC-08)
+- [x] S-001.6 RED injectable timeout, slow-success no stray reject (SEC-05)
+- [x] S-001.7 RED rejection mapping + pointer grammar parse (WPS-08, SEC-04)
 
 ---
 
@@ -103,12 +103,12 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - THEN each rejects with its distinct message and exit codes 1/2/3/4 are mutually distinct; double-fault preserves E1's class via `.cause`
 
 ### Tasks
-- [ ] S-002.1 RED `exit-codes.ts` classifier (EXC-01 table, EXC-02 `.cause`)
-- [ ] S-002.2 RED `factory-pointer.ts`: scheme+empty-host pre-import (RUN-02), export 3-form (RUN-03)
-- [ ] S-002.3 RED `context.ts` brand marker + double-wrap reject, arity-2 negative (RUN-06, ADR-04)
-- [ ] S-002.4 RED `single-instance-probe.ts` resolution-only before-import + fallback (SEC-07, ADR-05)
-- [ ] S-002.5 RED runner gates: argv XOR (RUN-01), input-file size-cap-only + line/col parse (RUN-04), import-failure split 1-vs-4 (RUN-07)
-- [ ] S-002.6 e2e legs: four-class exit matrix + handshake-trio-all-exit-1 (EXC-01.2/.3)
+- [x] S-002.1 RED `exit-codes.ts` classifier (EXC-01 table, EXC-02 `.cause`)
+- [x] S-002.2 RED `factory-pointer.ts`: scheme+empty-host pre-import (RUN-02), export 3-form (RUN-03)
+- [x] S-002.3 RED `context.ts` brand marker + double-wrap reject, arity-2 negative (RUN-06, ADR-04)
+- [x] S-002.4 RED `single-instance-probe.ts` resolution-only before-import + fallback (SEC-07, ADR-05)
+- [x] S-002.5 RED runner gates: argv XOR (RUN-01), input-file size-cap-only + line/col parse (RUN-04), import-failure split 1-vs-4 (RUN-07)
+- [x] S-002.6 e2e legs: four-class exit matrix + handshake-trio-all-exit-1 (EXC-01.2/.3)
 
 ---
 
@@ -124,11 +124,11 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - THEN mismatch fails loudly naming both versions; params hit the SAME RUN-01..04 gates; host requests never dispatch a run; zero non-frame bytes reach the wire on BOTH paths; overlap rejects `OverlappingRunError` with first run intact
 
 ### Tasks
-- [ ] S-003.1 RED bridge version check + handoff (BRB-01.1/.2)
-- [ ] S-003.2 RED integration: bridge params traverse shared gates (BRB-01.3)
-- [ ] S-003.3 RED SEC-02 overlap guard + fit-35
-- [ ] S-003.4 RED harness leg: host-issued request discarded, reverse-only traffic (WPS-09)
-- [ ] S-003.5 e2e both paths: fd-1 capture + console redirect pre-import, author sabotage isolated (BRB-02/03, RUN-08, SEC-09)
+- [x] S-003.1 RED bridge version check + handoff (BRB-01.1/.2)
+- [x] S-003.2 RED integration: bridge params traverse shared gates (BRB-01.3)
+- [x] S-003.3 RED SEC-02 overlap guard + fit-35
+- [x] S-003.4 RED harness leg: host-issued request discarded, reverse-only traffic (WPS-09)
+- [x] S-003.5 e2e both paths: fd-1 capture + console redirect pre-import, author sabotage isolated (BRB-02/03, RUN-08, SEC-09)
 
 ---
 
@@ -141,14 +141,14 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 **Acceptance**:
 - GIVEN the shared corpus run in-process (ContractFake) and via the spawned harness
 - WHEN `harness.test.ts` + the adversarial e2e matrix run with no Go toolchain
-- THEN outcomes are identical (FIT-18 green); corpus imports are `===`; every scenario cites a spec-parsed REQ (archive-safe lookup); coverage map shows zero uncovered of 40 with count tripwire armed
+- THEN outcomes are identical (FIT-18 green); corpus imports are `===`; every scenario cites a spec-parsed REQ (archive-safe lookup); coverage map shows zero uncovered of 41 with count tripwire armed
 
 ### Tasks
-- [ ] S-004.1 RED shared corpus + `===` reference-identity guard (FEH-02)
-- [ ] S-004.2 RED parity + structural no-reimpl scan: no `new EmitRejection`, no message-dictionary literals (FEH-01)
-- [ ] S-004.3 RED citation guard sharing FEH-05's parse, documented post-archive path lookup (FEH-03)
-- [ ] S-004.4 RED spec-parsed coverage map + expected-count tripwire (FEH-05)
-- [ ] S-004.5 Complete adversarial e2e matrix; assert no-Go run (FEH-04)
+- [x] S-004.1 RED shared corpus + `===` reference-identity guard (FEH-02)
+- [x] S-004.2 RED parity + structural no-reimpl scan: no `new EmitRejection`, no message-dictionary literals (FEH-01)
+- [x] S-004.3 RED citation guard sharing FEH-05's parse, documented post-archive path lookup (FEH-03)
+- [x] S-004.4 RED spec-parsed coverage map + expected-count tripwire (FEH-05)
+- [x] S-004.5 Complete adversarial e2e matrix; assert no-Go run (FEH-04)
 
 ---
 
@@ -164,10 +164,10 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - THEN fit-31 finds zero live NDJSON/single-initiator/`session.init` outside superseded headings + header stamps wire-spec v1; fit-34 pins `BATCH_CAP_BYTES == 4194304` vs the doc; fit-33 pins `BRIDGE_CONTRACT_VERSION` vs the doc's bridge section; doc method/error/exit sections match built code (north-star reckoning item 2)
 
 ### Tasks
-- [ ] S-005.1 Write normative `docs/engine-sdk-wire-spec.md`: methods, error shapes, pointer grammar, cap naming, exit codes, bridge-contract section — from built code
-- [ ] S-005.2 Rewrite `docs/engine-sdk-wire-design.md` rev 3: superseded decisions under `## Superseded (historical)`, header stamps version
-- [ ] S-005.3 RED fit-31 (doc scan + stamp), fit-34 (FEH-06/WPS-06), fit-33 (doc-declared pin)
-- [ ] S-005.4 Ledger `openspec/pending-changes.md` per the reconciliation table below (REQ-LED-01 — provenance: propose-phase pm council 2026-07-15; owner-ratified at the propose checkpoint; L360 by explicit owner ruling, engram obs #2161). **Locate rows by CONTENT, not the line numbers given — `pending-changes.md` shifts as rows are edited.**
+- [x] S-005.1 Write normative `docs/engine-sdk-wire-spec.md`: methods, error shapes, pointer grammar, cap naming, exit codes, bridge-contract section — from built code
+- [x] S-005.2 Rewrite `docs/engine-sdk-wire-design.md` rev 3: superseded decisions under `## Superseded (historical)`, header stamps version
+- [x] S-005.3 RED fit-31 (doc scan + stamp), fit-34 (FEH-06/WPS-06), fit-33 (doc-declared pin)
+- [x] S-005.4 Ledger `openspec/pending-changes.md` per the reconciliation table below (REQ-LED-01 — provenance: propose-phase pm council 2026-07-15; owner-ratified at the propose checkpoint; L360 by explicit owner ruling, engram obs #2161). **Locate rows by CONTENT, not the line numbers given — `pending-changes.md` shifts as rows are edited.**
 
   | Row (pending-changes.md, content as of 2026-07-15) | Disposition |
   |---|---|

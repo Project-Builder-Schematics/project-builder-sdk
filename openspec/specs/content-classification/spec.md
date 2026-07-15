@@ -1,8 +1,16 @@
 # Content Classification Specification
 
-**Spec version**: V3
-**Status**: signed (owner, 2026-07-12 — micro-unfreeze V2→V3, deltas pre-authorized)
-**Change**: `schematic-local-files`
+**Spec version**: V4
+**Status**: signed (owner, 2026-07-12 — micro-unfreeze V2→V3, deltas pre-authorized; V4
+amendment 2026-07-16)
+**Change**: `schematic-local-files` (amended by `stdio-engine-client`, 2026-07-16)
+
+**V3 → V4 (amendment via `stdio-engine-client` archive, 2026-07-16)**: REQ-CCL-02.3's
+at-boundary scenario re-anchors from the bare "frame budget" (implicitly `BATCH_CAP_BYTES`)
+to the emit budget `EMIT_BATCH_BUDGET_BYTES` (`batch-cap-contract`'s own V4 amendment,
+`BATCH_CAP_BYTES − EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES` = 4194222) — the sole size authority
+this domain predicts against (REQ-CCL-02) moved, so the exactly-at-boundary fixture moves
+with it. Zero REQ-IDs added/removed.
 
 V2 → V3: no V3 deltas targeted this domain — content unchanged; version/status bump
 only. (The by-value/by-reference vocabulary HERE is spec/transport prose, deliberately
@@ -99,10 +107,11 @@ does not (consistent with `batch-cap-contract` REQ-01's at-cap-passes posture).
 - THEN it classifies by-reference — a raw-content-bytes measurer reaches the wrong
   verdict on this fixture (mirrors `batch-cap-contract` REQ-01.2's mutant-killer)
 
-#### Scenario REQ-CCL-02.3: Exactly-at-budget boundary — inclusive fit [SDK]
+#### Scenario REQ-CCL-02.3: Exactly-at-budget boundary — inclusive fit (V4, re-anchored) [SDK]
 
-- GIVEN two files: one whose serialized measure lands EXACTLY at the budget, one
-  exactly one byte over
+- GIVEN two files: one whose serialized measure lands EXACTLY at
+  `EMIT_BATCH_BUDGET_BYTES` (`batch-cap-contract`'s V4-amended emit budget, 4194222 bytes),
+  one exactly one byte over
 - WHEN both are classified
 - THEN the at-budget file classifies by-value and the one-over file by-reference —
   pinning `>` (not `>=`) as the over-budget comparison
