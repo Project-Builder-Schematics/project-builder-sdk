@@ -144,11 +144,11 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - THEN outcomes are identical (FIT-18 green); corpus imports are `===`; every scenario cites a spec-parsed REQ (archive-safe lookup); coverage map shows zero uncovered of 40 with count tripwire armed
 
 ### Tasks
-- [ ] S-004.1 RED shared corpus + `===` reference-identity guard (FEH-02)
-- [ ] S-004.2 RED parity + structural no-reimpl scan: no `new EmitRejection`, no message-dictionary literals (FEH-01)
-- [ ] S-004.3 RED citation guard sharing FEH-05's parse, documented post-archive path lookup (FEH-03)
-- [ ] S-004.4 RED spec-parsed coverage map + expected-count tripwire (FEH-05)
-- [ ] S-004.5 Complete adversarial e2e matrix; assert no-Go run (FEH-04)
+- [x] S-004.1 RED shared corpus + `===` reference-identity guard (FEH-02)
+- [x] S-004.2 RED parity + structural no-reimpl scan: no `new EmitRejection`, no message-dictionary literals (FEH-01)
+- [x] S-004.3 RED citation guard sharing FEH-05's parse, documented post-archive path lookup (FEH-03)
+- [x] S-004.4 RED spec-parsed coverage map + expected-count tripwire (FEH-05)
+- [x] S-004.5 Complete adversarial e2e matrix; assert no-Go run (FEH-04)
 
 ---
 

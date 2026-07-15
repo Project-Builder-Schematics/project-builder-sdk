@@ -482,3 +482,134 @@ two comment-only fit-30 fixes above (caught and resolved in-slice, not carried f
   `StdioEngineClient` itself, though the CLASS is defined in `stdio-engine-client.ts` per
   design's Data Model (§ 4.3) — see Discoveries for why the composition-root/process scope is
   the correct trigger point, not a per-client-instance one.
+
+---
+
+# S-004: Conformance harness proves every REQ over real stdio
+
+**Scope this run**: `slice:S-004` | **Mode**: Strict TDD | **Status**: complete (5/5)
+
+FEH-01..05: the fake-engine conformance harness (design's Test Derivation table routes ALL
+five to `test/fake/harness.test.ts`) proves parity between the in-process `ContractFake` run
+and the process-boundary spawned run, structurally forbids the harness reimplementing
+rejection semantics, ties every scenario's REQ-ID citation and the spec-item coverage map to
+the SAME spec-parsed REQ-ID universe, and proves — over a real spawned process — that the
+runner needs no Go toolchain. Zero `src/` changes this slice: S-004 is entirely test/
+test-support work over the code S-000..S-003 already shipped.
+
+## S-004 tasks (5/5)
+
+| Task | Status | Files |
+|---|---|---|
+| S-004.1 shared corpus + `===` identity guard (FEH-02) | done | `test/fake/conformance-corpus.ts`, `test/fake/harness.test.ts` |
+| S-004.2 parity + structural no-reimpl scan (FEH-01) | done | `test/fake/harness.test.ts`, `test/fake/fake-engine-harness.ts` |
+| S-004.3 citation guard sharing FEH-05's parse (FEH-03) | done | `test/fake/harness.test.ts` |
+| S-004.4 spec-parsed coverage map + count tripwire (FEH-05) | done | `test/fake/harness.test.ts` |
+| S-004.5 adversarial matrix audit + no-Go proof (FEH-04) | done | `test/fake/harness.test.ts`, `test/support/frame-host.ts` |
+
+Final: `bun test` → **1571 pass / 0 fail** (167 files, 3205 expect() calls); `tsc --noEmit` →
+clean; `bun run build` → clean.
+
+## TDD Cycle Evidence — S-004
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| S-004.1 (corpus) | [characterization] — corpus module is inert data (no dedicated RED; same posture as `test/e2e/author-emulation/scenarios.ts`, never RED-driven either) | — | n/a | n/a | n/a | n/a |
+| S-004.1 (FEH-02.2) | `harness.test.ts::[characterization] REQ-FEH-02.2: a second import...identical reference` | architectural | n/a — pins an ES-module cache guarantee (mirrors fit-18's REQ-FSP-02.1, also organic) | ✅ | red-proof: reference-distinct-but-content-identical duplicate | none needed |
+| S-004.2 | `harness.test.ts::Scenario REQ-FEH-01.2: the harness source contains no \`new EmitRejection\`...` | architectural | `error: not implemented` (stub throw, structural-fix-first) | ✅ | red-proof: fixture source with a planted `new EmitRejection(...)` construction is caught | none needed |
+| S-004.2 (parity) | `harness.test.ts::Scenario REQ-FEH-01.1 (+FEH-02.1): every corpus scenario yields an identical outcome...` | integration (real spawned process) | `error: not implemented` (`noReimplementationViolations` stub; the parity test itself ran against pre-existing, already-proven machinery — `serveSpawnedRunner`'s new `responses` field was the only genuinely new surface, proven by the assertion on `rejection?.error?.data?.emitRejectionCode`) | ✅ | happy(committed)/collide(rejected) — 2 corpus entries, both outcome branches | none needed |
+| S-004.3 | `harness.test.ts::Scenario REQ-FEH-03.1: every REQ-ID cited...resolves to a requirement...` | architectural | `error: not implemented` (`resolveSpecReqIds`/`extractCitedReqIds` stubs) | ✅ | red-proof: an invented `REQ-BOGUS-99` citation is caught as unresolved | none needed |
+| S-004.3 (archive fallback) | `harness.test.ts::Scenario REQ-FEH-03.2: the spec-path resolver falls back to the post-archive per-domain layout...` | architectural (real fs fixtures) | `error: not implemented` | ✅ | pre-archive-present / pre-archive-absent-falls-back-to-post-archive-glob — 2 real tmp-dir fixtures | none needed |
+| S-004.4 | `harness.test.ts::Scenario REQ-FEH-05.2: the parsed REQ-ID count matches the maintained expected count` | architectural | `error: not implemented` (`resolveSpecReqIds` stub) | ✅ | red-proof: a stale count constant vs a shorter parsed list | none needed |
+| S-004.4 (coverage) | `harness.test.ts::Scenario REQ-FEH-05.1: zero uncovered REQ-IDs across the whole test suite...` | architectural | `error: not implemented` (`scanReqCitationsAcrossTests` stub) | ✅ | red-proof: an uncited, non-exempt REQ-ID surfaces via the shared `uncoveredReqIds` helper | none needed |
+| S-004.5 | `harness.test.ts::Scenario REQ-FEH-04.1: the runner completes successfully with PATH restricted...` | e2e (spawned, real stdio, restricted env) | organic: `TypeError: null is not an object (evaluating 'probe.stdout.trim')` — `spawnSync`'s `sh` was unresolvable with the FIRST restricted-PATH attempt (bunDir only, no `/bin`/`/usr/bin` — `sh` itself lives there) | ✅ (after widening PATH to `bunDir:/usr/bin:/bin`, verified `/usr/bin`+`/bin` carry no `go` binary on this image) | n/a — single mechanism, but the probe sub-assertion (`command -v go` empty) triangulates that the restriction is real, not vacuous | none needed |
+
+## Discoveries
+
+- **`go` IS installed on this dev/CI image** (via linuxbrew, `/home/linuxbrew/.linuxbrew/bin/go`)
+  — a naive FEH-04 test that just restricted PATH to bun's own directory and asserted the
+  runner still exits 0 would have been a VACUOUS pass (the runner never shells out to `go`
+  regardless of PATH, so removing it from PATH proves nothing on its own). Added a same-env
+  `sh -c "command -v go"` probe asserting empty output ALONGSIDE the runner-still-works
+  assertion — this makes the test self-validating: it fails loudly if the PATH restriction
+  ever stops actually excluding `go` (e.g. a future image ships `go` under `/usr/bin`).
+- **`test/fixtures/frame-runner/{happy,collide}` were reused as-is for the FEH-01 parity
+  corpus** — no new fixtures needed. `runFactoryForTest` (in-process leg) and
+  `serveSpawnedRunner` (spawned leg) both accept the SAME bare factory export / `file://`
+  pointer respectively, so the corpus's `run`/`pointer` fields are two views of one file, not
+  two definitions (REQ-FEH-02.1's literal claim).
+- **FEH-01.1's "EmitRejection shape is identical" claim is proven at the LEVEL PUBLICLY
+  OBSERVABLE from each side, not by reaching into `Session.flush()`'s private translation.**
+  `runFactoryForTest`'s `RunResult.error` is deliberately an `AuthoringError` (never the raw
+  `EmitRejection` — that's a contributor-kit-only type, per ADR-0009's two-audience
+  boundary), so the in-process leg asserts `error.reason === "path-collision"`; the spawned
+  leg asserts the wire error's `data.emitRejectionCode === "collision"` (the raw
+  `EmitRejectionCode`, exposed verbatim by `dispatchToFake`'s existing error-shaping). These
+  are the SAME classification via `authoring-error.ts`'s `CODE_TO_REASON` map (read-only, not
+  re-derived here) — comparing them at their own natural altitude is more honest than forcing
+  a byte-level structural diff across two different abstraction layers.
+- **FEH-05's "zero uncovered" scan needed a build-ordering exemption set.** Empirically
+  grepping `test/**/*.ts` for every one of the 41 spec REQ-IDs (before writing any S-004 code)
+  showed exactly four uncited: `WPS-06`, `WPS-11`, `FEH-06`, `LED-01` — precisely S-005's own
+  "Covers" line in slices.md. Spec.md's own REQ-LED-01 note pre-announces this exemption for
+  LED-01 alone ("never harness-scenario-verified... a future FEH-05 implementation MUST
+  account for this"); WPS-06/WPS-11/FEH-06 needed the SAME treatment for the SAME reason
+  (their exercising fitness tests — fit-31/33/34 — are explicitly S-005 scope, not yet
+  built). Documented as `PENDING_S005_COVERAGE_EXEMPTIONS` with an explicit shrink-not-grow
+  instruction for S-005, rather than silently loosening REQ-FEH-05.1's "zero uncovered" bar.
+- **`extractCitedReqIds`'s red-proof fixture had to be built from string fragments
+  (`${"i"}${"t"}("Scenario REQ-BOGUS-99..."`) instead of a literal `it("...")` call** — a
+  literal fixture would itself be textually present in `harness.test.ts`'s own source, and
+  REQ-FEH-03.1's self-scan (which reads this exact file) would have flagged the red-proof's
+  own invented `REQ-BOGUS-99` as an unresolved citation, false-failing the REAL guard test.
+  Same self-contamination class fit-18 solves by excluding its own file path from its scan;
+  here the fix is fragmenting the fixture text instead, since the file can't exclude itself
+  from citing REAL REQ-IDs (it has 12 legitimate ones).
+- **`serveSpawnedRunner` gained a `responses` field** (additive, `SpawnedRunSummary`) and
+  `frameHostFactory`'s spawn helper gained an optional `env` passthrough (additive, defaults
+  to `spawn`'s own inherit-`process.env` behavior) — both minimal, backward-compatible
+  extensions to existing S-000/S-003 test-support code, not new files; every pre-existing
+  caller (exit-matrix.e2e.test.ts, harness.test.ts's own WPS-09 tests) is byte-behavior
+  identical.
+
+## Slice Audit Notes (Step 7c, mode: slice)
+
+Groups 1–3 reviewed over the full S-004 diff (two commits: `169abc3`, `e3b0276`). No
+`Bug`/`Architecture`/`MAJOR` findings.
+
+- **Group 1 (spec coverage)**: FEH-01..05 each have ≥1 test directly citing them in
+  `harness.test.ts` (verified by the FEH-03.1 citation guard itself, which is now a standing
+  check, not just a one-time grep). FIT-18 and FIT-10 (REQ-FEH-01's own "MUST stay green"
+  clause) both green in the full-suite run.
+- **Group 2 (architecture)**: zero `src/` files touched this slice — all four touched files
+  are `test/`-only (`test/fake/conformance-corpus.ts` new, `test/fake/harness.test.ts`,
+  `test/fake/fake-engine-harness.ts`, `test/support/frame-host.ts` extended). No new
+  `src/transport/` surface, so FIT-10/FIT-29's allow-lists needed no further widening this
+  slice. `test/fitness/` full suite green, unaffected.
+- **Group 3 (code quality)**: zero `as any`/`as unknown as`/TODO/FIXME introduced (verified
+  by grep across both commits' diffs) — an initial `as unknown as ConformanceScenario[]` cast
+  in the FEH-02 red-proof was eliminated during REFACTOR by comparing two mutable spreads
+  (`[...CONFORMANCE_CORPUS]`) instead of casting the readonly corpus array. Zero net
+  duplication — the coverage red-proof and its real assertion share one `uncoveredReqIds`
+  helper (extracted during REFACTOR) instead of duplicating the filter inline.
+
+**Adversarial e2e matrix (S-004.5) audit**: `test/fake/exit-matrix.e2e.test.ts` (built across
+S-002/S-003) already covers all four EXC-01 exit classes (1/2/3/4) plus the full EXC-01.3
+handshake trio (WPS-02 mismatch, SEC-07 split, BRB-01 mismatch) — 7 legs total, matching
+S-004's acceptance criteria's "adversarial e2e matrix" in full. No new legs were needed;
+S-004.5's genuinely new work was the FEH-04 no-Go proof (routed to `harness.test.ts` per
+design's Test Derivation table, not to `exit-matrix.e2e.test.ts`).
+
+## Deviations from design
+
+- **REQ-FEH-02's "shared corpus, `===` identity" guard is proven via a re-import + a
+  content-identical-but-reference-distinct red-proof**, not by comparing two independently
+  maintained corpus copies (there never was a second copy to compare — design specifies ONE
+  corpus module from the start). This mirrors FIT-18's own precedent for pinning a
+  language-level guarantee rather than testing a since-removed anti-pattern.
+- **FEH-05's "zero uncovered" scan carries a documented, shrink-only exemption set
+  (`PENDING_S005_COVERAGE_EXEMPTIONS`: WPS-06, WPS-11, FEH-06, LED-01)** — not in design's
+  literal text (which only anticipates LED-01's exemption via spec.md's own note), but a
+  direct, necessary consequence of slices.md's own Build Order ("S-005 docs LAST — against
+  BUILT code") intersecting with FEH-05's REQ text ("zero uncovered... at test time"). See
+  Discoveries for the empirical grep that confirmed exactly these four and no others.
