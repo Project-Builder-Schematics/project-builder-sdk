@@ -91,7 +91,11 @@ function buildFrameHost(child: ChildProcessWithoutNullStreams): FrameHost {
  * spawns is SIGKILLed and bounded-awaited (2s) after each test, so a hung or forgotten
  * process never survives into the next test.
  */
-export function frameHostFactory(): (command: string, args: string[], opts?: { cwd?: string }) => FrameHost {
+export function frameHostFactory(): (
+  command: string,
+  args: string[],
+  opts?: { cwd?: string; env?: NodeJS.ProcessEnv }
+) => FrameHost {
   let tracked: TrackedHost[] = [];
 
   afterEach(async () => {
@@ -107,8 +111,11 @@ export function frameHostFactory(): (command: string, args: string[], opts?: { c
     );
   });
 
-  return (command: string, args: string[], opts?: { cwd?: string }): FrameHost => {
-    const child = spawn(command, args, { cwd: opts?.cwd, stdio: ["pipe", "pipe", "pipe"] });
+  return (command: string, args: string[], opts?: { cwd?: string; env?: NodeJS.ProcessEnv }): FrameHost => {
+    // `env` omitted (undefined) preserves node:child_process's own default — inherit
+    // `process.env` — so every pre-existing caller is byte-behavior-identical (FEH-04 is the
+    // first caller to ever pass a restricted env, to prove the runner needs no Go toolchain).
+    const child = spawn(command, args, { cwd: opts?.cwd, env: opts?.env, stdio: ["pipe", "pipe", "pipe"] });
     tracked.push({ child });
     return buildFrameHost(child);
   };

@@ -76,6 +76,9 @@ export interface SpawnedRunSummary {
   signal: NodeJS.Signals | null;
   stderr: string;
   requests: HostRequestFrame[];
+  /** FEH-01 parity: the exact response frames dispatched, in order — lets a caller inspect
+   * an EmitRejection's wire shape (`error.data.emitRejectionCode`) without re-deriving it. */
+  responses: HostResponseFrame[];
 }
 
 /**
@@ -90,6 +93,7 @@ export async function serveSpawnedRunner(
 ): Promise<SpawnedRunSummary> {
   host.sendReady(opts?.readyVersion);
   const requests: HostRequestFrame[] = [];
+  const responses: HostResponseFrame[] = [];
 
   for (;;) {
     let frame: unknown;
@@ -102,9 +106,11 @@ export async function serveSpawnedRunner(
     }
     const request = frame as HostRequestFrame;
     requests.push(request);
-    host.send(await dispatchToFake(fake, request));
+    const response = await dispatchToFake(fake, request);
+    responses.push(response);
+    host.send(response);
   }
 
   const { code, signal } = await host.waitExit();
-  return { exitCode: code, signal, stderr: host.stderrText(), requests };
+  return { exitCode: code, signal, stderr: host.stderrText(), requests, responses };
 }
