@@ -1,6 +1,11 @@
 # Apply Progress: stdio-engine-client
 
-**Scope this run**: `slice:S-000` | **Mode**: Strict TDD | **Status**: complete (8/8)
+**Scope this run**: `slice:S-003` | **Mode**: Strict TDD | **Status**: complete (5/5)
+
+> History: S-000 (8/8), S-001 (7/7), S-002 (6/6) complete and verified (see their sections
+> below). S-003 also closed two evaluator-mandated carried-forward items from S-002's
+> verify-in-loop-3: the EXC-01.3 handshake trio (was a documented duo) and the RUN-02
+> no-import runtime proof gap (was WARNING-tolerated). See "Carried-Forward Closures" below.
 
 > History: the first apply run halted at S-000.7 (`architectural-conflict`: RUN-05's
 > `defineFactory` wrap in `src/transport/runner.ts` vs the pre-existing fit-29
@@ -307,3 +312,173 @@ Groups 1–3 run over the full S-002 diff. No `Bug`/`Architecture` findings.
   leg — not in design's original S-000 File Changes row text ("Happy dispatch only"), but
   explicitly anticipated as future-slice work by that same row's comment, and needed by
   this slice's own EXC-01.2 collision leg.
+
+---
+
+# S-003: Engine bootstrap enters through the versioned bridge — same gates, sealed stdout
+
+**Scope this run**: `slice:S-003` | **Mode**: Strict TDD | **Status**: complete (5/5)
+
+The bridge (`bootstrap-bridge.ts`) hands off to the SAME `runner.ts` composition root argv
+uses — BRB-01's version check, BRB-02/03's fd-1 capture + console redirect, and SEC-02's
+reentrancy guard are all new; RUN-08 gives the direct-spawn path the identical fd-1/console
+guarantee. WPS-09 confirms (characterization) that a pre-existing S-001 mechanism already
+holds against a new attack shape.
+
+## Carried-Forward Closures (evaluator-mandated, from S-002's verify-in-loop-3)
+
+| Item | Status | Where |
+|---|---|---|
+| EXC-01.3 handshake trio (was a documented duo: WPS-02 + SEC-07) | **CLOSED** | `test/fake/exit-matrix.e2e.test.ts` — new BRB-01 mismatch leg, real spawned bridge process, `CRASH_POINTER` proves no-import (would exit 4 if ever imported) |
+| RUN-02 no-import runtime proof (WARNING — test-depth gap) | **CLOSED** | `test/transport/runner.unit.test.ts` — two new tests under `REQ-RUN-02`, mirroring the `unreachedIo()` + `IMPORT_CRASH_POINTER` pattern RUN-07/SEC-07 already use |
+
+## S-003 tasks (5/5)
+
+| Task | Status | Files |
+|---|---|---|
+| S-003.1/.2 bridge version check + handoff + integration: bridge params traverse shared gates (BRB-01.1/.2/.3) | done | `src/transport/bootstrap-bridge.ts`, `test/transport/runner.integration.test.ts` |
+| S-003.3 SEC-02 overlap guard + fit-35 | done | `src/transport/stdio-engine-client.ts` (`OverlappingRunError`), `src/transport/runner.ts` (reentrancy guard), `test/transport/runner.unit.test.ts`, `test/fitness/fit-35-sequential-fail-loud.test.ts` |
+| S-003.4 harness leg: host-issued request discarded, reverse-only traffic (WPS-09) | done | `test/fake/harness.test.ts` |
+| S-003.5 e2e both paths: fd-1 capture + console redirect pre-import, author sabotage isolated (BRB-02/03, RUN-08, SEC-09) | done | `src/transport/framing.ts` (`captureFd1FrameWriter` stub-neutering, `redirectConsoleToStderr`), `bin/pbuilder-runner.ts`, `test/fixtures/bridge-bootstrap-stub.ts`, `test/fixtures/frame-runner/sabotage/factory.ts`, `test/fake/fake-engine-harness.e2e.test.ts` |
+| Shared test-support extraction (DRY, not a separate task) | done | `test/support/pushable-byte-source.ts`, `test/support/in-process-host.ts` — extracted from `test/transport/runner.integration.test.ts`'s prior local duplicates, reused by the SEC-02 tests, fit-35, and `harness.test.ts` |
+
+Final: `bun test` → **1557 pass / 0 fail** (167 files, 3182 expect() calls); `tsc --noEmit` →
+clean; `bun run build` → clean.
+
+## TDD Cycle Evidence — S-003
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| Closure: RUN-02 runtime proof | `runner.unit.test.ts::Scenario REQ-RUN-02.2/.3: ...never imports it` | unit | N/A — characterization (pre-existing `validateFactoryUrl` gate already correct; only the runtime proof was missing, per verify-in-loop-3's WARNING) | ✅ (pre-existing) | non-file-scheme / non-empty-host — 2 cases, both against `IMPORT_CRASH_POINTER` | none needed |
+| S-003.1/.2 | `runner.integration.test.ts::Scenario REQ-BRB-01.1: a matching bridge version hands off cleanly...` | integration | `Cannot find module '../../src/transport/bootstrap-bridge.ts'` | ✅ | match-handoff / mismatch-rejects-loudly / bridge-params-hit-RUN-02-gate — 3 cases | none needed |
+| S-003.3 | `runner.unit.test.ts::Scenario REQ-SEC-02.1: a second run-entry invocation...rejects OverlappingRunError immediately...` | unit | `Export named 'OverlappingRunError' not found in module 'stdio-engine-client.ts'` | ✅ | overlap-while-in-flight / clears-after-completion — 2 cases | none needed |
+| S-003.3 (fit-35) | `fit-35-sequential-fail-loud.test.ts::a second run-entry invocation genuinely concurrent...` | architectural (real execution) | same missing-export RED as above (shared production dependency) | ✅ | second-overlap / third-overlap-while-first-still-in-flight — 2 cases (not a one-shot latch) | none needed |
+| S-003.4 | `harness.test.ts::[characterization] Scenario REQ-WPS-09.2: a host-issued request frame arriving mid-run is discarded...` | integration | N/A — characterization (S-001's WPS-03 discard-unknown-frame-types loop already handles this; new attack SHAPE, pre-existing mechanism) | ✅ (pre-existing) | n/a — single mechanism, two REQ-scenario angles (WPS-09.1/.2) | none needed |
+| S-003.5 | `fake-engine-harness.e2e.test.ts::direct-spawn path (RUN-08): a direct process.stdout.write(), console.log(), and a process.stdout reassignment never corrupt the wire...` | e2e (spawned, real stdio) | organic: exit 1 (`no collection.json found` — the new `sabotage/` fixture was initially missing its containment-root marker, the SAME `collection.json` every other `frame-runner/*` fixture carries) | ✅ (after adding `test/fixtures/frame-runner/sabotage/collection.json`) | direct-spawn / bridge-path — 2 cases, both against the SAME sabotage fixture | none needed |
+| S-003.5 (BRB-01 mismatch, trio closure) | `exit-matrix.e2e.test.ts::BRB-01 bridge contract version mismatch: exit 1, naming both versions...` | e2e (spawned, real stdio) | `Cannot find module '../fixtures/bridge-bootstrap-stub.ts'` | ✅ | n/a — single mechanism; `CRASH_POINTER` used as a throw-on-import canary proving the mismatch check runs before any import | none needed |
+
+## Discoveries
+
+- **`process.stdout.write()` called DIRECTLY (no reassignment) is a real, distinct attack
+  vector from `process.stdout` reassignment** (BRB-02.1's literal scenario). Capturing a
+  reference to the write function alone does NOT stop a factory from calling
+  `process.stdout.write(garbage)` — that call reaches the SAME underlying stream unless the
+  live object is neutralized too. `captureFd1FrameWriter()` (design gives no literal
+  mechanism, only "fd-1 capture") now immediately replaces `process.stdout` itself with a
+  stub whose `.write` redirects to stderr, right after capturing the real reference — the
+  returned writer closure is unaffected (it closed over the real reference first); any LATER
+  access to `process.stdout` — direct call or reassignment — lands on the stub. Proven by the
+  sabotage fixture's direct `process.stdout.write(...)` call landing on stderr, not the wire.
+- **Testing BRB-02/03's fd-1/console side effects in-process would corrupt `bun test`'s own
+  shared process.** Both mutate GLOBAL state (`process.stdout`, `console.*`); if
+  `bootstrap-bridge.ts` ran them unconditionally at raw module-load, merely IMPORTING it for
+  the BRB-01 integration test (design routes BRB-01 to `runner.integration.test.ts`, an
+  in-process test) would silently redirect every subsequent test's console/stdout output in
+  the same process. Resolved by making the protection INJECTABLE — `enterBridge`'s
+  `protection` parameter defaults to the REAL mechanism (production/e2e path) but integration
+  tests inject a no-op stand-in that forwards straight to the test's own io (mirrors
+  `single-instance-probe.ts`'s injectable-resolver pattern, same rationale: real behavior by
+  default, safe substitution for tests). This is a DERIVED mechanism, not given literally by
+  design (design.md explicitly defers the bridge's concrete signature to S-003) — documented
+  here rather than silently decided.
+- **"At its own module load" (BRB-02/03's literal spec wording) is interpreted as "at the
+  very start of the bridge's own entry invocation," not raw ES-module top-level code.** Given
+  the in-process testing-safety conflict above, protection runs as the first statements
+  inside `enterBridge()` (right after the version check), strictly before the ONLY path to a
+  factory import (`runRunner`'s dynamic `import()`) — functionally equivalent for the
+  requirement's actual intent ("before any factory-related code runs"), verified for real
+  over real stdio in the e2e sabotage tests (not just asserted by code-read).
+- **The SEC-02 overlap guard is a MODULE-level flag in `runner.ts` (the composition root),
+  not per-`StdioEngineClient`-instance.** Design's Data Model places `OverlappingRunError`'s
+  CLASS in `stdio-engine-client.ts` (the error-taxonomy home, alongside
+  `IntentRejectedError`/`TransportFault`) but the GUARD's realistic trigger is the bridge
+  being invoked twice in one long-lived engine process — the direct-spawn path can't
+  realistically self-overlap (a fresh process calls `runRunner` exactly once). Scoping the
+  flag to the module (the PROCESS), not an instance, matches WPS-09's "each process runs
+  exactly one factory" framing exactly.
+- **Overlap rejection is explicitly OUTSIDE the EXC-01 exit-code taxonomy** (spec: "produces
+  no wire frame and travels no wire error code... there is nothing to send over the wire for
+  it"). `runRunner` now has two distinct failure shapes: it RESOLVES to 0-4 for the run IT
+  owns (EXC-01), but REJECTS (throws `OverlappingRunError`) for a call that never got to
+  start at all — a second `runRunner`/`enterBridge` invocation this process never entertains.
+  `exit-codes.ts::classifyExitCode` was NOT touched — it never sees an `OverlappingRunError`,
+  since the guard throws before `runRunnerBody`'s try/catch is even entered.
+- **The `sabotage/` fixture needed its own `collection.json`** (empty `{}`, byte-identical to
+  every sibling `frame-runner/*` fixture) — the runner's containment-root resolution walks up
+  from the factory looking for this marker; its absence surfaced as an unrelated-looking
+  `AuthoringError` ("no collection.json found... cannot resolve the containment root")
+  rather than any wire/sabotage-specific failure. Caught by running the e2e test, not by
+  code-read — a genuine RED-for-the-wrong-reason moment resolved per strict-tdd.md's own
+  guidance (fix the structural problem first, without touching sabotage logic).
+- **`test/fitness/fit-30-stdout-sacred.test.ts`'s two pinned invariants (write-site count = 1,
+  no unsanctioned `process.stdout`/`console.log(` reference outside `framing.ts`) initially
+  broke from documentation prose, not runtime code**: the new JSDoc comments on
+  `captureFd1FrameWriter()` and `bootstrap-bridge.ts`'s header literally contained the
+  substrings `process.stdout.write(...)` and `process.stdout` respectively — fit-30 scans
+  ALL text, comments included, by design (same posture as fit-10/fit-29). Reworded both
+  comments to describe the mechanism without the literal dotted reference; zero code changed.
+- **`test/fitness/pkg-surface-baseline.json` regenerated** (fresh `bun run build` +
+  `bun pm pack --dry-run`, same procedure S-000/S-001/S-002 used): 2 new entries
+  (`dist/transport/bootstrap-bridge.{js,d.ts}`) — authorized growth per design § 4.2's Create
+  row for `bootstrap-bridge.ts`.
+
+## Slice Audit Notes (Step 7c, mode: slice)
+
+Groups 1–3 run over the full S-003 diff. No `Bug`/`Architecture`/`MAJOR` findings after the
+two comment-only fit-30 fixes above (caught and resolved in-slice, not carried forward).
+
+- **Group 1 (spec coverage)**: every REQ-ID in S-003's Covers list (BRB-01, BRB-02, BRB-03,
+  RUN-08, WPS-09, SEC-02, SEC-09) has ≥1 test directly citing it, verified by grep across
+  `test/transport/runner.integration.test.ts`, `test/transport/runner.unit.test.ts`,
+  `test/fitness/fit-35-sequential-fail-loud.test.ts`, `test/fake/harness.test.ts`, and
+  `test/fake/fake-engine-harness.e2e.test.ts`. Both carried-forward closures (EXC-01.3 trio,
+  RUN-02 runtime proof) independently re-verified passing.
+- **Group 2 (architecture)**: `bootstrap-bridge.ts` imports NOTHING that would trip fit-10 or
+  fit-29 — no `EngineClient`/`EmitRejection` symbol reference (fit-10 scope), no
+  `defineFactory` import (fit-29 scope; ADR-07's constraint — "if the bridge needs
+  defineFactory, it goes THROUGH runner.ts's shared path" — honored: the bridge only calls
+  `runRunner`, never wraps a factory itself). `test/fitness/` full suite (451 tests, 34 files)
+  green, including the two flagged-and-fixed fit-30 comment violations. fit-15 (bin/src
+  direction) unaffected — `bootstrap-bridge.ts` lives in `src/transport/`, imports only
+  within `src/transport/`; `test/fixtures/bridge-bootstrap-stub.ts` is test-only, imports
+  `src/` (the normal, allowed direction). No sensitive-area-uncovered gap: the IPC boundary
+  (already registered) gained BRB/SEC-02/SEC-09 coverage this slice, not a new uncovered
+  surface.
+- **Group 3 (code quality)**: two casts introduced, both reviewed and justified rather than
+  silently passed —
+  1. `framing.ts:53` — `} as unknown as typeof process.stdout;` constructs a DELIBERATELY
+     minimal stub (only `.write`) standing in for Node's full `WriteStream` interface; safe
+     because no code anywhere in `src/` touches `process.stdout` again after capture (the
+     returned writer closes over the pre-capture reference), and the stub's job is precisely
+     to be a narrow black box, not a faithful `WriteStream`.
+  2. `test/fixtures/frame-runner/sabotage/factory.ts:16` — `(process as unknown as {stdout:
+     unknown}).stdout = {...}` bypasses `process.stdout`'s normal typing to simulate an
+     ADVERSARIAL author's reassignment attempt (BRB-02.1's literal scenario); a real careless/
+     malicious factory wouldn't respect our type cleanliness either, and this is test-fixture
+     code, never shipped.
+  Zero `TODO`/`FIXME` introduced (verified by grep across the full diff). Zero net duplication
+  — the slice actively REMOVED duplication by extracting `pushableByteSource`/
+  `makeInProcessHost` out of `runner.integration.test.ts`'s prior local copies into
+  `test/support/`, reused by 4 call sites (that file, the SEC-02 tests, fit-35, and
+  `harness.test.ts`).
+
+## Deviations from design
+
+- **Bridge protection (fd-1 capture, console redirect) is INJECTABLE, not raw top-level
+  module code**, despite BRB-02/03's "at its own module load" wording — see Discoveries for
+  the full rationale (in-process testing-safety conflict) and why this is functionally
+  equivalent for the requirement's actual intent. Design gave no literal signature for
+  `bootstrap-bridge.ts` and explicitly deferred deriving it to S-003.
+- **`captureFd1FrameWriter()` now also neuters `process.stdout` itself** (stub replacement),
+  not just captures a reference — design's § 4.2 one-line summary says only "captured-fd-1
+  writer"; the neutering is this executor's derived mechanism to satisfy SEC-09's literal
+  "an author's write to `process.stdout`... MUST NEVER be dispatched as a wire frame" claim
+  against a DIRECT (non-reassignment) `process.stdout.write()` call — see Discoveries.
+- **`test/fake/harness.test.ts` created in S-003** (not S-004, despite the file's FEH-family
+  association) — design's own Test Derivation table (§ 4.6) routes WPS-09 to this exact file;
+  S-004 extends it with the FEH-01..05 corpus-driven suite per its own task list. The file's
+  header comment states this explicitly.
+- **`OverlappingRunError`'s guard lives in `runner.ts` as module-level state**, not inside
+  `StdioEngineClient` itself, though the CLASS is defined in `stdio-engine-client.ts` per
+  design's Data Model (§ 4.3) — see Discoveries for why the composition-root/process scope is
+  the correct trigger point, not a per-client-instance one.

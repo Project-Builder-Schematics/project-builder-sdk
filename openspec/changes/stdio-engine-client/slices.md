@@ -124,11 +124,11 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - THEN mismatch fails loudly naming both versions; params hit the SAME RUN-01..04 gates; host requests never dispatch a run; zero non-frame bytes reach the wire on BOTH paths; overlap rejects `OverlappingRunError` with first run intact
 
 ### Tasks
-- [ ] S-003.1 RED bridge version check + handoff (BRB-01.1/.2)
-- [ ] S-003.2 RED integration: bridge params traverse shared gates (BRB-01.3)
-- [ ] S-003.3 RED SEC-02 overlap guard + fit-35
-- [ ] S-003.4 RED harness leg: host-issued request discarded, reverse-only traffic (WPS-09)
-- [ ] S-003.5 e2e both paths: fd-1 capture + console redirect pre-import, author sabotage isolated (BRB-02/03, RUN-08, SEC-09)
+- [x] S-003.1 RED bridge version check + handoff (BRB-01.1/.2)
+- [x] S-003.2 RED integration: bridge params traverse shared gates (BRB-01.3)
+- [x] S-003.3 RED SEC-02 overlap guard + fit-35
+- [x] S-003.4 RED harness leg: host-issued request discarded, reverse-only traffic (WPS-09)
+- [x] S-003.5 e2e both paths: fd-1 capture + console redirect pre-import, author sabotage isolated (BRB-02/03, RUN-08, SEC-09)
 
 ---
 
