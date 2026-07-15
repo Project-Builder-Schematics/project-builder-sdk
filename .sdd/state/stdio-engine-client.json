@@ -1,11 +1,25 @@
 {
   "change": "stdio-engine-client",
   "triage": "L",
-  "phase": "paused:apply-S-003-done-next-verify-in-loop-S-003",
+  "phase": "apply",
+  "phase_status": "S-003 verify in-loop PASS (verify-in-loop-4, suite 1557/0, TDD sub-verdict concerns) — next apply S-004",
   "spec_status": "signed",
   "slices": true,
+  "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
+  "apply": {
+    "mode": "automatic",
+    "slices_done": ["S-000", "S-001", "S-002", "S-003"],
+    "slices_verified": ["S-000", "S-001", "S-002", "S-003"],
+    "in_loop_iteration": 0,
+    "pending": ["S-004", "S-005"]
+  },
   "plan_verify": "ready",
   "verify_final": "pending",
   "arch_audit": "pending",
-  "updated_at": "2026-07-15T15:00:00Z"
+  "carried_to_final": [
+    "Strict TDD adjudication: ea9b7e0 shipped BRB-02/03/RUN-08/SEC-09 sealing mechanism with zero test changes; driving test landed 2 commits later (c72d1ca) and apply-progress records RED as unrelated fixture bug. Needs documented rationale or accepted-lapse ruling BEFORE verify final (verify-in-loop-4).",
+    "Cold-start suite flake: 1 error on first bun-test run after fresh install, not reproduced in 4 clean re-runs — re-run full suite at final to confirm."
+  ],
+  "post_build_user_request": "USER (2026-07-15): run /simplify over the change diff AFTER S-005 passes verify in-loop, BEFORE /evaluate (verify final re-covers any simplification)",
+  "updated_at": "2026-07-15"
 }
