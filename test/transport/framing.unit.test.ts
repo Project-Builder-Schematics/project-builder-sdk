@@ -2,7 +2,9 @@
 // symmetric both directions. Unit-level: exercises framing.ts's codec directly, no subprocess.
 
 import { describe, it, expect } from "bun:test";
-import { encodeFrame, decodeFrameBody } from "../../src/transport/framing.ts";
+import { encodeFrame, decodeFrameBody, isOversizeDeclaredLength } from "../../src/transport/framing.ts";
+import { BATCH_CAP_BYTES, exceedsBatchCap } from "../../src/core/wire.ts";
+import { batchOfSerializedBytes, batchOverSerializedBytes } from "../fake/batch-cap-fixtures.ts";
 
 describe("REQ-WPS-01 — frame envelope structure", () => {
   describe("Scenario REQ-WPS-01.1: round-trip frame integrity", () => {
@@ -58,6 +60,41 @@ describe("REQ-WPS-01 — frame envelope structure", () => {
       // "😀" is a 2-code-unit surrogate pair (JS .length === 2) but 4 UTF-8 bytes.
       expect(bodyLength).toEqual(expectedBodyBytes);
       expect(decodeFrameBody(body)).toEqual(value);
+    });
+  });
+});
+
+describe("REQ-WPS-04 — reject-before-alloc oversize handling", () => {
+  describe("Scenario REQ-WPS-04.2: oversized inbound length prefix classified over-cap", () => {
+    it("a declared length one byte over BATCH_CAP_BYTES is oversize", () => {
+      expect(isOversizeDeclaredLength(BATCH_CAP_BYTES + 1)).toBe(true);
+    });
+  });
+
+  describe("Scenario REQ-WPS-04.3: exactly-at-cap prefix and batch are accepted (B7 boundary)", () => {
+    it("a declared length of EXACTLY BATCH_CAP_BYTES is NOT oversize (inbound leg)", () => {
+      expect(isOversizeDeclaredLength(BATCH_CAP_BYTES)).toBe(false);
+    });
+
+    it("a Batch serialized to EXACTLY BATCH_CAP_BYTES does not exceed the cap (outbound leg)", () => {
+      const batch = batchOfSerializedBytes(BATCH_CAP_BYTES);
+      expect(exceedsBatchCap(batch)).toBe(false);
+    });
+  });
+
+  describe("Scenario REQ-WPS-04.4: signed-read triangulation on the length prefix (m9)", () => {
+    it("0x80000000 (negative if read as signed int32) is classified over-cap, never accepted", () => {
+      // Kills a readInt32BE-instead-of-readUInt32BE mutant: as a signed 32-bit int this
+      // value is negative, which a buggy `< 0` short-circuit could wrongly accept as
+      // "small". isOversizeDeclaredLength must classify it over-cap regardless.
+      expect(isOversizeDeclaredLength(0x80000000)).toBe(true);
+    });
+  });
+
+  describe("Scenario REQ-WPS-04.1: oversized batch rejected before the frame would be written (outbound leg)", () => {
+    it("a Batch built via batchOverSerializedBytes exceeds the cap — this fixture's serialized size is strictly over while raw content stays under, killing the serialized-vs-raw-content and UTF-16-length mutants", () => {
+      const batch = batchOverSerializedBytes(BATCH_CAP_BYTES);
+      expect(exceedsBatchCap(batch)).toBe(true);
     });
   });
 });

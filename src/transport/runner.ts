@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { defineFactory } from "../core/context.ts";
 import { FrameReader } from "./frame-reader.ts";
 import { WIRE_PROTOCOL_VERSION, isStructurallyValidGreeting, versionMatches } from "./wire-protocol.ts";
-import { StdioEngineClient, type FrameChannel } from "./stdio-engine-client.ts";
+import { StdioEngineClient, TransportFault, type FrameChannel } from "./stdio-engine-client.ts";
 
 export interface RunnerIo {
   /** Raw inbound byte stream (stdin on the spawned path; injectable for in-process tests). */
@@ -118,9 +118,13 @@ export async function runRunner(argv: string[], io: RunnerIo): Promise<number> {
 
   const channel: FrameChannel = {
     write: io.writeFrame,
+    writeStderr: io.writeStderr,
     async read(): Promise<unknown> {
       const next = await frames.next();
-      if (next.done) throw new Error("wire closed while a response was pending");
+      // REQ-SEC-08.3: a clean EOF (frames() completes with nothing buffered) while a
+      // reverse callback is pending is itself a fault — the reader only ever gets asked
+      // to read again when a callback IS pending (StdioEngineClient's routing loop).
+      if (next.done) throw new TransportFault("eof", "wire closed while a response was pending");
       return next.value;
     },
   };

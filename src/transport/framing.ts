@@ -2,6 +2,8 @@
 // UTF-8 JSON body, symmetric in both directions (host<->runner). fit-31 (single-owner-of-
 // framing) guards that no other module re-implements this codec.
 
+import { exceedsBatchCap } from "../core/wire.ts";
+
 export const LENGTH_PREFIX_BYTES = 4;
 
 // The prefix is the UTF-8 SERIALIZED byte length of the JSON body — never the JS string's
@@ -16,6 +18,14 @@ export function encodeFrame(value: unknown): Buffer {
 
 export function decodeFrameBody(body: Uint8Array): unknown {
   return JSON.parse(Buffer.from(body).toString("utf8"));
+}
+
+// REQ-WPS-04: reject-before-alloc on the INBOUND leg — checks the raw declared length
+// prefix BEFORE the reader waits for/allocates a buffer for that many body bytes. A thin,
+// semantically-named wrapper: the sole `>` comparison lives in wire.ts's `exceedsBatchCap`
+// (fit-32 cap-single-source), never re-derived here.
+export function isOversizeDeclaredLength(bodyLength: number): boolean {
+  return exceedsBatchCap(bodyLength);
 }
 
 /**
