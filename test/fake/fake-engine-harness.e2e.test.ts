@@ -85,7 +85,12 @@ describe("bridge-path e2e — bootstrap-bridge.ts over real stdio (S-003)", () =
 });
 
 describe("REQ-BRB-02/REQ-BRB-03/REQ-RUN-08/REQ-SEC-09 — author stdout/console sabotage isolated on BOTH entry paths", () => {
-  it("direct-spawn path (RUN-08): a direct process.stdout.write(), console.log(), and a process.stdout reassignment never corrupt the wire; the run still completes", async () => {
+  // The frames-parse-cleanly + exact-request-sequence + exit-0 assertions ARE the
+  // REQ-SEC-09.1 "zero non-frame bytes" proof over REAL stdio: any native console byte on
+  // fd 1 would corrupt the length-prefixed stream and fail the FrameReader loudly. The
+  // stderr assertions prove "isolated, never silently dropped" per method — including the
+  // judgment-day F2 methods (table/dir/group/count/trace) Bun writes natively to fd 1.
+  it("direct-spawn path (RUN-08): direct process.stdout.write(), the WHOLE console surface (log/table/dir/group/count/trace), and a process.stdout reassignment never corrupt the wire; the run still completes", async () => {
     const fake = new ContractFake({ seed: { "seed.txt": "hello" } });
     const host = spawnRunnerWithFactory(SABOTAGE_POINTER, {});
 
@@ -98,6 +103,14 @@ describe("REQ-BRB-02/REQ-BRB-03/REQ-RUN-08/REQ-SEC-09 — author stdout/console 
     // Isolated (redirected), never silently dropped: the sabotage bytes surface on stderr.
     expect(run.stderr).toContain("DIRECT-STDOUT-SABOTAGE-BYTES");
     expect(run.stderr).toContain("CONSOLE-LOG-SABOTAGE");
+    expect(run.stderr).toContain("CONSOLE-TABLE-SABOTAGE");
+    expect(run.stderr).toContain("CONSOLE-DIR-SABOTAGE");
+    expect(run.stderr).toContain("CONSOLE-GROUP-SABOTAGE");
+    expect(run.stderr).toContain("CONSOLE-COUNT-SABOTAGE");
+    // Bun's node:console Console#trace prints the STACK without echoing the message text
+    // (verified empirically) — the trace-site frame naming the fixture proves the trace
+    // itself landed on stderr, which is the isolation guarantee under test.
+    expect(run.stderr).toContain("sabotage/factory.ts");
   });
 
   it("bridge path (BRB-02/03): the SAME sabotage never corrupts the wire; the run still completes", async () => {
@@ -112,5 +125,7 @@ describe("REQ-BRB-02/REQ-BRB-03/REQ-RUN-08/REQ-SEC-09 — author stdout/console 
     expect(fake.committedTree().get("out.txt")).toEqual("read:hello");
     expect(run.stderr).toContain("DIRECT-STDOUT-SABOTAGE-BYTES");
     expect(run.stderr).toContain("CONSOLE-LOG-SABOTAGE");
+    expect(run.stderr).toContain("CONSOLE-TABLE-SABOTAGE");
+    expect(run.stderr).toContain("sabotage/factory.ts"); // Console#trace stack (see direct-spawn leg)
   });
 });

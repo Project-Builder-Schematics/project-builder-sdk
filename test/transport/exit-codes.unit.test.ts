@@ -5,7 +5,8 @@
 import { describe, it, expect } from "bun:test";
 import { classifyExitCode } from "../../src/transport/exit-codes.ts";
 import { AuthoringError } from "../../src/core/authoring-error.ts";
-import { TransportFault } from "../../src/transport/stdio-engine-client.ts";
+import { TransportFault, IntentRejectedError } from "../../src/transport/stdio-engine-client.ts";
+import { BridgeVersionMismatchError } from "../../src/transport/bootstrap-bridge.ts";
 
 describe("REQ-EXC-01 — exit code taxonomy", () => {
   describe("Scenario REQ-EXC-01.2/.3: four failure classes map to four distinct codes", () => {
@@ -25,6 +26,14 @@ describe("REQ-EXC-01 — exit code taxonomy", () => {
       expect(classifyExitCode(new TransportFault("malformed", "bad json"))).toEqual(3);
       expect(classifyExitCode(new TransportFault("timeout", "hung"))).toEqual(3);
       expect(classifyExitCode(new TransportFault("eof", "closed early"))).toEqual(3);
+    });
+
+    it("an IntentRejectedError (host refused a commit/discard/read intent) classifies as 2 — EXC-01's 'host refused a write or an advisory commit/discard intent'", () => {
+      expect(classifyExitCode(new IntentRejectedError("run not resolved"))).toEqual(2);
+    });
+
+    it("a BridgeVersionMismatchError classifies as 1 — EXC-01 code-1's 'bridge contract version mismatch (BRB-01.2)' row lives in the PRODUCT classifier, not in a test fixture", () => {
+      expect(classifyExitCode(new BridgeVersionMismatchError(2, 1))).toEqual(1);
     });
 
     it("an unclassified plain Error (an author crash) classifies as 4 (crash)", () => {

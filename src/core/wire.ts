@@ -71,14 +71,44 @@ export function serializedBatchSize(instructions: readonly Directive[]): number 
 }
 
 // REQ-WPS-04 / fit-32 (cap-single-source): the ONE `> BATCH_CAP_BYTES` comparison in the
-// whole codebase. Two legs share it: the OUTBOUND leg (a client about to emit a Batch —
-// pass the Batch itself, measured via `serializedBatchBytes`) and the INBOUND leg (a raw
-// declared length prefix read off the wire before the body is even buffered — pass the
-// byte count directly, no Batch exists yet to construct). `> BATCH_CAP_BYTES`, never `>=`
-// (a size exactly at the cap is WITHIN it, REQ-WPS-04.3).
+// whole codebase. Two legs share it: the OUTBOUND leg (via `exceedsEmitBatchBudget` below,
+// which folds in the frame-envelope allowance before delegating here) and the INBOUND leg
+// (a raw declared length prefix read off the wire before the body is even buffered — pass
+// the byte count directly, no Batch exists yet to construct). `> BATCH_CAP_BYTES`, never
+// `>=` (a size exactly at the cap is WITHIN it, REQ-WPS-04.3).
 export function exceedsBatchCap(subject: Batch): boolean;
 export function exceedsBatchCap(subject: number): boolean;
 export function exceedsBatchCap(subject: Batch | number): boolean {
   const bytes = typeof subject === "number" ? subject : serializedBatchBytes(subject);
   return bytes > BATCH_CAP_BYTES;
+}
+
+// REQ-WPS-04.1 (spec V4, judgment-day R2): the outbound cap is enforced on the ENCODED
+// ir.emit FRAME BODY — `{type,id,method,params:{batch}}` — but the enforcement must be
+// DETERMINISTIC (independent of the request id's length, which varies with the call
+// ordinal) and IDENTICAL between `StdioEngineClient` and `ContractFake` (FEH-01 parity).
+// So the budget reserves a FIXED allowance: the envelope's serialized overhead with the
+// LONGEST id the client can ever mint. Request ids are `s${n}` with `n` a monotonically
+// incremented non-negative integer, so `s${Number.MAX_SAFE_INTEGER}` (17 chars) bounds the
+// id and the allowance bounds every real envelope's overhead — an accepted batch's actual
+// encoded frame body can NEVER exceed BATCH_CAP_BYTES. Derived by measuring the envelope
+// shape itself (the `0` placeholder stands where the batch JSON goes; its own 1 serialized
+// byte is subtracted back out) — never a hand-waved literal; the derivation is asserted
+// against the client's real written bytes in test.
+export const EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES =
+  Buffer.byteLength(
+    JSON.stringify({ type: "request", id: `s${Number.MAX_SAFE_INTEGER}`, method: "ir.emit", params: { batch: 0 } }),
+    "utf8"
+  ) - Buffer.byteLength(JSON.stringify(0), "utf8");
+
+// The author-visible outbound batch budget: the largest serialized Batch that is
+// GUARANTEED to fit an ir.emit frame body within BATCH_CAP_BYTES for any request id.
+export const EMIT_BATCH_BUDGET_BYTES = BATCH_CAP_BYTES - EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES;
+
+// The ONE outbound-leg measurer (fit-32 cap-single-source): both `ContractFake.emit` (the
+// engine stand-in) and `StdioEngineClient.emit` (the real transport) route through this,
+// so the two can never diverge on an accept/reject verdict for the same batch. `>` via
+// `exceedsBatchCap`, never a re-derived comparison: exactly-at-budget is WITHIN the budget.
+export function exceedsEmitBatchBudget(batch: Batch): boolean {
+  return exceedsBatchCap(serializedBatchBytes(batch) + EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES);
 }

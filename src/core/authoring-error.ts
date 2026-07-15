@@ -134,6 +134,7 @@ const CODE_TO_REASON: Record<EmitRejectionCode, AuthoringReason> = {
   "not-found": "path-not-found",
   unrepresentable: "unrepresentable-content",
   cap: "changes-too-large",
+  unknown: "unknown",
 };
 
 // wire op → author verb (REQ-10.2): "delete" is the WIRE name; the author vocabulary

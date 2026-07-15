@@ -127,6 +127,40 @@ describe("REQ-RUN-05 — defineFactory wrap with packageDir = dirname(factory)",
   });
 });
 
+describe("REQ-EXC-01 — a host rejection of ir.commit classifies as exit 2, message surfaced (judgment-day F3)", () => {
+  it("the host answers ir.commit with an error envelope: exit 2 (host-refused intent), the rejection message reaches stderr", async () => {
+    const fake = new ContractFake({ seed: { "seed.txt": "commit-reject" } });
+    const inbox = pushableByteSource();
+    let stderr = "";
+    const io: RunnerIo = {
+      input: inbox.iterable,
+      writeFrame(value: unknown): void {
+        const frame = value as { id: string; method: string; params: unknown };
+        if (frame.method === "ir.commit") {
+          inbox.push(
+            encodeFrame({
+              type: "response",
+              id: frame.id,
+              error: { code: -32000, message: "commit refused: run not resolved" },
+            })
+          );
+          return;
+        }
+        void dispatchToFake(fake, frame).then((response) => inbox.push(encodeFrame(response)));
+      },
+      writeStderr(text: string): void {
+        stderr += text;
+      },
+    };
+    inbox.push(encodeFrame({ method: "ready", protocolVersion: WIRE_PROTOCOL_VERSION }));
+
+    const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], io);
+
+    expect(exitCode).toEqual(2);
+    expect(stderr).toContain("commit refused: run not resolved");
+  });
+});
+
 describe("REQ-BRB-01 — versioned bridge entry, bridge params traverse the SAME gates argv uses", () => {
   it("Scenario REQ-BRB-01.1: a matching bridge version hands off cleanly to the SAME skeleton outcome as argv-spawn", async () => {
     const host = makeInProcessHost({ seed: { "seed.txt": "hello from seed" } });

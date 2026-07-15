@@ -5,7 +5,8 @@
 // since IT — not bootstrap-bridge.ts itself — owns this process (engram discovery obs
 // #2205: the bridge module must never call process.exit).
 
-import { enterBridge, BridgeVersionMismatchError, type BridgeParams } from "../../src/transport/bootstrap-bridge.ts";
+import { enterBridge, type BridgeParams } from "../../src/transport/bootstrap-bridge.ts";
+import { classifyExitCode } from "../../src/transport/exit-codes.ts";
 
 function parseStubArgv(argv: string[]): { bridgeVersion: number; params: BridgeParams } {
   let bridgeVersion: number | undefined;
@@ -41,13 +42,10 @@ if (import.meta.main) {
     });
     process.exit(exitCode);
   } catch (err) {
-    if (err instanceof BridgeVersionMismatchError) {
-      process.stderr.write(`${err.message}\n`);
-      process.exit(1);
-    }
-    process.stderr.write(
-      `bridge-bootstrap-stub: unexpected error — ${err instanceof Error ? err.message : String(err)}\n`
-    );
-    process.exit(4);
+    // The exit-code mapping is the PRODUCT's (exit-codes.ts), never this fixture's own —
+    // the e2e that spawns this stub proves classifyExitCode's BridgeVersionMismatchError
+    // → 1 row, not a fixture-local re-implementation of it.
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(classifyExitCode(err));
   }
 }

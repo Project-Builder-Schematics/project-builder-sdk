@@ -14,6 +14,22 @@
 import { decodeFrameBody, isOversizeDeclaredLength, LENGTH_PREFIX_BYTES } from "./framing.ts";
 import { TransportFault } from "./stdio-engine-client.ts";
 
+// REQ-SEC-08.1: the per-frame fault marker. A malformed BODY is fully consumed by the time
+// decoding fails (its boundary was known from the length prefix), so failing the ONE pending
+// call is enough — the stream itself is still aligned. The generator YIELDS this marker
+// instead of throwing, because a generator throw completes it permanently and would tear the
+// connection down, contradicting SEC-08.1's "remains usable for subsequent calls". Consumers
+// (runner.ts's FrameChannel, test/support/frame-host.ts) convert it to a rejection of the
+// pending read. `oversize` and `eof` stay THROWN (fatal, fail-closed): after either, the
+// stream position is not trustworthy or the stream is gone.
+export class FrameFault {
+  readonly fault: TransportFault;
+
+  constructor(fault: TransportFault) {
+    this.fault = fault;
+  }
+}
+
 export class FrameReader {
   #buffer: Buffer = Buffer.alloc(0);
   readonly #source: AsyncIterable<Uint8Array>;
@@ -62,9 +78,13 @@ export class FrameReader {
       try {
         decoded = decodeFrameBody(body);
       } catch {
-        // REQ-SEC-08.1/.2: fails closed, attributed structurally by the caller (SEC-02
-        // single-in-flight) — never resynchronized by byte-scanning (SEC-08.2).
-        throw new TransportFault("malformed", "inbound frame body failed to parse as JSON");
+        // REQ-SEC-08.1/.2: fails the pending call closed, attributed structurally by the
+        // caller (SEC-02 single-in-flight) — never resynchronized by byte-scanning
+        // (SEC-08.2). Yielded as a FrameFault marker, NOT thrown: the malformed body was
+        // fully consumed at a boundary the prefix declared, so the stream stays aligned and
+        // the connection remains usable for subsequent calls (SEC-08.1).
+        yield new FrameFault(new TransportFault("malformed", "inbound frame body failed to parse as JSON"));
+        continue;
       }
       yield decoded;
     }

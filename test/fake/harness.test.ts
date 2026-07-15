@@ -119,8 +119,9 @@ describe("REQ-WPS-09 — run bootstrap is argv/bridge-only, no host-issued reque
 const SPEC_PRE_ARCHIVE_PATH = join(PROJECT_ROOT, "openspec/changes/stdio-engine-client/spec.md");
 const SPEC_POST_ARCHIVE_SPECS_DIR = join(PROJECT_ROOT, "openspec/specs");
 
-// REQ-FEH-05: the maintained expected REQ-ID count (V3 signed spec.md, 2026-07-15) — a spec
-// edit that adds/removes a REQ without updating this constant fails FEH-05.2 loudly.
+// REQ-FEH-05: the maintained expected REQ-ID count (V4 signed spec.md, 2026-07-15 — V4 is a
+// content-only amendment, count unchanged from V3) — a spec edit that adds/removes a REQ
+// without updating this constant fails FEH-05.2 loudly.
 const EXPECTED_REQ_COUNT = 41;
 
 // S-005 shrunk this to empty (shrink-only, never grow — see S-004's Discoveries for the
@@ -164,25 +165,44 @@ function parseReqIds(specMarkdown: string): string[] {
 }
 
 /**
+ * THIS spec's own domain directory names — one per `## Domain:` header in spec.md, the
+ * exact directories `openspec-convention.md`'s archive procedure redistributes the spec
+ * into. The post-archive fallback below scans ONLY these (judgment-day F12): a scan of ALL
+ * of `openspec/specs/{star}/spec.md` unions ~40 foreign domains (hundreds of REQs), and
+ * prefix filtering is NOT a safe alternative — the FEH prefix collides with the foreign
+ * `file-escape-hatches`/`scenario-matrix`/`content-classification`/`dry-run-plan-exposure`
+ * domains (verified: `rg "REQ-FEH-" openspec/specs/`). A future re-split of these domains
+ * must update this list — FEH-05.2's count tripwire fails loudly if it drifts.
+ */
+const THIS_SPEC_DOMAIN_DIRS: readonly string[] = [
+  "wire-protocol-spec",
+  "runner-exit-code-taxonomy",
+  "pbuilder-runner-bin",
+  "bootstrap-runner-bridge",
+  "stdio-engine-client",
+  "fake-engine-conformance-harness",
+  "ledger-reconciliation",
+];
+
+/**
  * Resolves the REQ-ID universe for THIS spec, pre- or post-archive (REQ-FEH-03.2): tries the
  * change-local flat spec.md first; if archived (the change folder loses its flat spec.md at
  * archive time — content is redistributed into one `openspec/specs/{domain}/spec.md` per
  * domain header this spec declared, per `openspec-convention.md`'s archive procedure), falls
- * back to scanning every domain's spec.md under the post-archive specs directory and unions
- * them — a generic, forward-compatible fallback, never a hardcoded list of this change's own
- * domain names (which could drift at a future re-split).
+ * back to scanning exactly THIS spec's own domain directories (THIS_SPEC_DOMAIN_DIRS) under
+ * the post-archive specs directory — never every domain, which would union foreign specs'
+ * REQ-IDs into the universe the moment this change archives.
  */
 function resolveSpecReqIds(preArchivePath: string, postArchiveSpecsDir: string): { reqIds: string[]; source: string } {
   if (existsSync(preArchivePath)) {
     return { reqIds: parseReqIds(readFileSync(preArchivePath, "utf-8")), source: preArchivePath };
   }
   const ids: string[] = [];
-  for (const entry of readdirSync(postArchiveSpecsDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const specPath = join(postArchiveSpecsDir, entry.name, "spec.md");
+  for (const domain of THIS_SPEC_DOMAIN_DIRS) {
+    const specPath = join(postArchiveSpecsDir, domain, "spec.md");
     if (existsSync(specPath)) ids.push(...parseReqIds(readFileSync(specPath, "utf-8")));
   }
-  return { reqIds: ids, source: `${postArchiveSpecsDir}/*/spec.md` };
+  return { reqIds: ids, source: `${postArchiveSpecsDir}/{${THIS_SPEC_DOMAIN_DIRS.join(",")}}/spec.md` };
 }
 
 const TEST_TITLE_RE = /\b(?:it|describe)\(\s*(["'`])((?:(?!\1)[\s\S])*)\1/g;
@@ -200,14 +220,15 @@ function extractCitedReqIds(source: string): Set<string> {
   return cited;
 }
 
-/** REQ-FEH-05: every REQ-ID cited ANYWHERE under `testRoot` (any `.ts` file, comments
- * included — a comment citing a REQ is still evidence a human traced the coverage) counts as
- * covered; scope is the whole test suite, not just this file. */
+/** REQ-FEH-05: every REQ-ID cited in an `it(...)`/`describe(...)` TITLE under `testRoot`
+ * (any `.ts` file) counts as covered; scope is the whole test suite, not just this file.
+ * TITLES ONLY (judgment-day R2): a comment citing a REQ is not evidence of an exercising
+ * test — counting comments made the map satisfiable by annotation alone. Reuses
+ * `extractCitedReqIds`, the same title-scoped extraction the FEH-03 citation guard runs. */
 function scanReqCitationsAcrossTests(testRoot: string): Set<string> {
   const cited = new Set<string>();
   for (const file of collectTsFiles(testRoot)) {
-    const source = readFileSync(file, "utf-8");
-    for (const match of source.matchAll(/REQ-([A-Z]+-\d+)/g)) cited.add(match[1]!);
+    for (const id of extractCitedReqIds(readFileSync(file, "utf-8"))) cited.add(id);
   }
   return cited;
 }
@@ -248,13 +269,24 @@ describe("REQ-FEH-01 — transport shell over the ONE ContractFake", () => {
         expect(Object.fromEntries(fake.committedTree())).toEqual(Object.fromEntries(inProcess.tree));
       } else {
         expect(inProcess.error).toBeInstanceOf(AuthoringError);
-        expect((inProcess.error as AuthoringError).reason).toEqual("path-collision");
         // EXC-01 write-rejected exit code — same classification family the in-process
         // AuthoringError.reason resolves to via authoring-error.ts's CODE_TO_REASON
-        // ("collision" -> "path-collision"), read-only, not re-derived here.
-        expect(spawned.exitCode).toEqual(2);
-        const rejection = spawned.responses.find((r) => r.error !== undefined);
-        expect(rejection?.error?.data?.emitRejectionCode).toEqual("collision");
+        // (e.g. "collision" -> "path-collision", "cap" -> "changes-too-large"), read-only,
+        // not re-derived here.
+        expect({ id: scenario.id, reason: (inProcess.error as AuthoringError).reason }).toEqual({
+          id: scenario.id,
+          reason: scenario.rejection!.reason,
+        });
+        expect({ id: scenario.id, exitCode: spawned.exitCode }).toEqual({ id: scenario.id, exitCode: 2 });
+        if (scenario.rejection!.via === "local") {
+          // The client refused BEFORE writing (REQ-WPS-04.1): the over-budget ir.emit
+          // frame never crossed the wire — no ir.emit request, no error response.
+          expect(spawned.requests.map((r) => r.method)).not.toContain("ir.emit");
+          expect(spawned.responses.find((r) => r.error !== undefined)).toBeUndefined();
+        } else {
+          const rejection = spawned.responses.find((r) => r.error !== undefined);
+          expect(rejection?.error?.data?.emitRejectionCode).toEqual(scenario.rejection!.via.wireCode);
+        }
       }
     }
   });
@@ -295,7 +327,7 @@ describe("REQ-FEH-03 — spec-derived harness (anti-tautology)", () => {
     expect(unresolved).toEqual(["BOGUS-99"]);
   });
 
-  it("Scenario REQ-FEH-03.2: the spec-path resolver falls back to the post-archive per-domain layout when the pre-archive path is absent", () => {
+  it("Scenario REQ-FEH-03.2: the spec-path resolver falls back to the post-archive per-domain layout, scoped to THIS spec's domain directories — foreign domains never bleed in (judgment-day F12)", () => {
     const dir = mkdtempSync(join(tmpdir(), "feh-03-archive-fixture-"));
     try {
       const preArchive = join(dir, "changes", "some-change", "spec.md");
@@ -307,13 +339,51 @@ describe("REQ-FEH-03 — spec-derived harness (anti-tautology)", () => {
       const preArchiveResult = resolveSpecReqIds(preArchive, postArchiveDir);
       expect(preArchiveResult.reqIds).toEqual(["AAA-01"]);
 
-      // Branch B: pre-archive path ABSENT (simulates archive having moved it) — falls back to
-      // scanning every domain's spec.md under the post-archive specs directory.
+      // Branch B: pre-archive path ABSENT (simulates archive having moved it) — falls back
+      // to scanning ONLY this spec's own domain directories. A FOREIGN domain sits right
+      // beside them (the real repo layout: openspec/specs/ holds ~40 other domains, and
+      // file-escape-hatches even collides on the FEH prefix) and must be ignored.
       const missingPreArchive = join(dir, "changes", "some-change", "does-not-exist.md");
-      mkdirSync(join(postArchiveDir, "domain-x"), { recursive: true });
-      writeFileSync(join(postArchiveDir, "domain-x", "spec.md"), "### REQ-BBB-02: post-archive requirement\n");
+      mkdirSync(join(postArchiveDir, "stdio-engine-client"), { recursive: true });
+      writeFileSync(join(postArchiveDir, "stdio-engine-client", "spec.md"), "### REQ-BBB-02: post-archive requirement\n");
+      mkdirSync(join(postArchiveDir, "file-escape-hatches"), { recursive: true });
+      writeFileSync(join(postArchiveDir, "file-escape-hatches", "spec.md"), "### REQ-FEH-01: a FOREIGN domain's requirement\n");
       const postArchiveResult = resolveSpecReqIds(missingPreArchive, postArchiveDir);
       expect(postArchiveResult.reqIds).toEqual(["BBB-02"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("[real repo-layout hazard, judgment-day F12] post-archive with the REAL foreign domains present still resolves EXACTLY this spec's REQ universe", () => {
+    const dir = mkdtempSync(join(tmpdir(), "feh-03-real-layout-"));
+    try {
+      const simulatedSpecsDir = join(dir, "specs");
+      // Copy the REAL foreign domains as they exist in the repo today (hundreds of REQs,
+      // including the colliding REQ-FEH-* family in file-escape-hatches et al.).
+      for (const entry of readdirSync(SPEC_POST_ARCHIVE_SPECS_DIR, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const foreignSpec = join(SPEC_POST_ARCHIVE_SPECS_DIR, entry.name, "spec.md");
+        if (!existsSync(foreignSpec)) continue;
+        mkdirSync(join(simulatedSpecsDir, entry.name), { recursive: true });
+        writeFileSync(join(simulatedSpecsDir, entry.name, "spec.md"), readFileSync(foreignSpec, "utf-8"));
+      }
+      // Simulate the archive: split THIS change's real spec.md into one
+      // specs/{domain}/spec.md per `## Domain:` header (openspec-convention.md's procedure).
+      const specMarkdown = readFileSync(SPEC_PRE_ARCHIVE_PATH, "utf-8");
+      const sections = specMarkdown.split(/^## Domain:\s*/m).slice(1);
+      expect(sections.length).toBeGreaterThan(0);
+      for (const section of sections) {
+        const domainName = section.slice(0, section.indexOf("\n")).trim().split(/\s+/)[0]!;
+        mkdirSync(join(simulatedSpecsDir, domainName), { recursive: true });
+        writeFileSync(join(simulatedSpecsDir, domainName, "spec.md"), section);
+      }
+
+      const missingPreArchive = join(dir, "changes", "stdio-engine-client", "spec.md");
+      const { reqIds } = resolveSpecReqIds(missingPreArchive, simulatedSpecsDir);
+
+      expect(reqIds.length).toEqual(EXPECTED_REQ_COUNT);
+      expect([...new Set(reqIds)].sort()).toEqual([...new Set(parseReqIds(specMarkdown))].sort());
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -342,6 +412,29 @@ describe("REQ-FEH-05 — spec-item-to-scenario coverage map", () => {
     const reqIds = ["WPS-01", "WPS-99"];
     const cited = new Set(["WPS-01"]);
     expect(uncoveredReqIds(reqIds, cited, PENDING_S005_COVERAGE_EXEMPTIONS)).toEqual(["WPS-99"]);
+  });
+
+  it("[red-proof, judgment-day R2] a REQ-ID cited ONLY in a comment does NOT count as covered — coverage demands an exercising test TITLE", () => {
+    const dir = mkdtempSync(join(tmpdir(), "feh-05-comment-only-"));
+    try {
+      // Built from fragments (never a literal `it("...REQ-..."` in THIS file's own source) —
+      // a literal fixture would make FEH-03.1's whole-file self-scan trip over it, the same
+      // self-contamination the FEH-03 red-proof above builds around.
+      writeFileSync(
+        join(dir, "comment-only.test.ts"),
+        [
+          "// REQ-ZZZ-42 is exercised here, honest! (a comment is not evidence)",
+          `${"i"}${"t"}("a title citing no REQ at all", () => {});`,
+          `${"i"}${"t"}("Scenario REQ-YYY-07: a genuinely title-cited requirement", () => {});`,
+          "",
+        ].join("\n")
+      );
+      const cited = scanReqCitationsAcrossTests(dir);
+      expect(cited.has("YYY-07")).toBe(true);
+      expect(cited.has("ZZZ-42")).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

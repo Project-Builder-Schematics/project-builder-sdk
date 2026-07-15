@@ -30,7 +30,7 @@ import { join } from "node:path";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, scaffold, AuthoringError } from "../../src/commons/index.ts";
-import { BATCH_CAP_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { collectOps } from "../support/spy-client.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
@@ -98,9 +98,9 @@ describe("REQ-04.2 — a single group whose OWN batch exceeds the cap still reje
     const overhead = soloEnvelopeOverhead(pathTemplate);
     // An inline-template create() call never reaches classify-transport (no source file,
     // no by-value/by-reference decision) — sized so its OWN solo batch already exceeds the
-    // cap, then buffered BEFORE scaffold's walk starts.
-    const bigTemplate = "a".repeat(BATCH_CAP_BYTES - overhead + 1);
-    expect(soloBatchSize(pathTemplate, bigTemplate)).toEqual(BATCH_CAP_BYTES + 1);
+    // emit budget (the V4 WPS-04.3 boundary), then buffered BEFORE scaffold's walk starts.
+    const bigTemplate = "a".repeat(EMIT_BATCH_BUDGET_BYTES - overhead + 1);
+    expect(soloBatchSize(pathTemplate, bigTemplate)).toEqual(EMIT_BATCH_BUDGET_BYTES + 1);
     const fake = new ContractFake({ seed: {} });
 
     const caught = await rejectedRun(fake, () => {
@@ -117,14 +117,14 @@ describe("REQ-04.2 — a single group whose OWN batch exceeds the cap still reje
   });
 });
 
-describe("REQ-04.3 — exactly-at-cap group passes; one byte over rejects (inclusive '>' boundary, group level)", () => {
-  it("a solo-group batch landing EXACTLY at BATCH_CAP_BYTES passes", async () => {
+describe("REQ-04.3 — exactly-at-budget group passes; one byte over rejects (inclusive '>' boundary, group level; boundary re-anchored per stdio-engine-client spec V4 WPS-04.3)", () => {
+  it("a solo-group batch landing EXACTLY at EMIT_BATCH_BUDGET_BYTES passes", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
     const pathTemplate = "out/at.ts";
     const overhead = soloEnvelopeOverhead(pathTemplate);
-    const content = "a".repeat(BATCH_CAP_BYTES - overhead);
-    expect(soloBatchSize(pathTemplate, content)).toEqual(BATCH_CAP_BYTES);
+    const content = "a".repeat(EMIT_BATCH_BUDGET_BYTES - overhead);
+    expect(soloBatchSize(pathTemplate, content)).toEqual(EMIT_BATCH_BUDGET_BYTES);
     writeFileSync(join(dir, "files", "at.ts"), content, "utf-8");
 
     const run = (): void => {
@@ -137,14 +137,14 @@ describe("REQ-04.3 — exactly-at-cap group passes; one byte over rejects (inclu
     expect(result.tree.get("out/at.ts")).toEqual(content);
   });
 
-  it("a group landing ONE BYTE over BATCH_CAP_BYTES rejects changes-too-large (contrast fixture: a scaffolded file this close to the cap now classifies by-reference FIRST, per REQ-CCL-02 — so, symmetrically with REQ-04.2 above, the over-cap group is reconstructed from a directive buffered outside scaffold's own classify gate)", async () => {
+  it("a group landing ONE BYTE over the emit budget rejects changes-too-large (contrast fixture: a scaffolded file this close to the budget now classifies by-reference FIRST, per REQ-CCL-02 — so, symmetrically with REQ-04.2 above, the over-budget group is reconstructed from a directive buffered outside scaffold's own classify gate)", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
     writeFileSync(join(dir, "files", "tiny.ts"), "export const tiny = 1;", "utf-8");
     const pathTemplate = "pre-existing-over.ts";
     const overhead = soloEnvelopeOverhead(pathTemplate);
-    const bigTemplate = "a".repeat(BATCH_CAP_BYTES - overhead + 1);
-    expect(soloBatchSize(pathTemplate, bigTemplate)).toEqual(BATCH_CAP_BYTES + 1);
+    const bigTemplate = "a".repeat(EMIT_BATCH_BUDGET_BYTES - overhead + 1);
+    expect(soloBatchSize(pathTemplate, bigTemplate)).toEqual(EMIT_BATCH_BUDGET_BYTES + 1);
     const fake = new ContractFake({ seed: {} });
 
     const caught = await rejectedRun(fake, () => {

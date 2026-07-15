@@ -20,10 +20,16 @@ import { defineFactory } from "../core/context.ts";
 import { AuthoringError } from "../core/authoring-error.ts";
 import { locateFirstJsonSyntaxError } from "../core/schema/schema-locate.ts";
 import { formatLocator } from "../core/schema/schema-parse.ts";
-import { FrameReader } from "./frame-reader.ts";
+import { FrameReader, FrameFault } from "./frame-reader.ts";
 import { WIRE_PROTOCOL_VERSION, isStructurallyValidGreeting, versionMatches } from "./wire-protocol.ts";
-import { StdioEngineClient, TransportFault, OverlappingRunError, type FrameChannel } from "./stdio-engine-client.ts";
-import { boundMessage, composeWithToken } from "./error-text.ts";
+import {
+  StdioEngineClient,
+  TransportFault,
+  IntentRejectedError,
+  OverlappingRunError,
+  type FrameChannel,
+} from "./stdio-engine-client.ts";
+import { boundMessage, composeWithToken, toProjectRelativePath } from "./error-text.ts";
 import { parseFactoryPointer, validateFactoryUrl, resolveFactoryExport } from "./factory-pointer.ts";
 import { probeSingleInstance } from "./single-instance-probe.ts";
 import { classifyExitCode } from "./exit-codes.ts";
@@ -98,20 +104,32 @@ function resolveInput(input: ParsedInput): ResolvedInput {
     }
   }
 
+  // REQ-WPS-07 (judgment-day F9): fixed text + a project-relative path — NEVER the raw OS
+  // error message, which embeds the absolute path (`ENOENT: ..., stat '/abs/path'`).
+  const unreadable = (): ResolvedInput => ({
+    ok: false,
+    message: `pbuilder-runner: --input-file could not be read — ${toProjectRelativePath(input.path)} is not a readable file`,
+  });
+
   let size: number;
   try {
     size = statSync(input.path).size;
-  } catch (err) {
-    return {
-      ok: false,
-      message: `pbuilder-runner: --input-file could not be read — ${err instanceof Error ? err.message : String(err)}`,
-    };
+  } catch {
+    return unreadable();
   }
   if (size > INPUT_FILE_SIZE_CAP_BYTES) {
     return { ok: false, message: `pbuilder-runner: --input-file exceeds the ${INPUT_FILE_SIZE_CAP_BYTES}-byte cap` };
   }
 
-  const raw = readFileSync(input.path, "utf-8");
+  // Same fail-closed shape for the read itself (judgment-day F4): a stat that succeeded does
+  // not guarantee a readable file (permissions, TOCTOU) — a throw here must never escape as
+  // an uncaught rejection.
+  let raw: string;
+  try {
+    raw = readFileSync(input.path, "utf-8");
+  } catch {
+    return unreadable();
+  }
   try {
     return { ok: true, value: JSON.parse(raw) };
   } catch {
@@ -123,14 +141,27 @@ function resolveInput(input: ParsedInput): ResolvedInput {
   }
 }
 
-// REQ-RUN-07: classifies a factory-module `import()` failure into module-resolution
-// (exits 1) vs. an author top-level throw (exits 4) — `ERR_MODULE_NOT_FOUND` is Node/Bun's
-// standard resolution-failure code; anything else is the module's OWN code having run and
-// thrown. Deliberately NOT `isErrnoException`/`instanceof Error`-gated: Bun's own resolve
-// failure (`ResolveMessage`) is NOT an `Error` instance (verified empirically) even though
-// it carries a `.code`, so the check reads the property directly off any object shape.
-function isModuleResolutionFailure(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "ERR_MODULE_NOT_FOUND";
+// REQ-RUN-07: classifies a factory-module `import()` failure into RUN-07's form 1 — the
+// module "cannot be found or loaded" (exits 1) — vs. an author top-level throw (exits 4).
+// Form 1 covers BOTH resolution failures (`ERR_MODULE_NOT_FOUND`, Bun's `ResolveMessage`)
+// AND load-time parse/build failures (judgment-day F13): a syntactically invalid module
+// never RAN, so "its top-level code threw" would be factually false. Verified empirically
+// in this Bun version: a syntax-error import rejects with an `AggregateError` whose
+// `errors` are `BuildMessage`s (or a single bare `BuildMessage`); neither `BuildMessage`
+// nor `ResolveMessage` is an `Error` instance, so the checks read `name`/`code` directly
+// off any object shape (never `instanceof`-gated). `SyntaxError` covers Node's shape for
+// the same failure. An author-thrown AggregateError of plain Errors matches none of these
+// and still classifies as a top-level throw (exit 4).
+function isModuleLoadFailure(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const candidate = err as { code?: unknown; name?: unknown; errors?: unknown };
+  if (candidate.code === "ERR_MODULE_NOT_FOUND") return true;
+  if (candidate.name === "ResolveMessage" || candidate.name === "BuildMessage") return true;
+  if (err instanceof SyntaxError) return true;
+  if (Array.isArray(candidate.errors)) {
+    return candidate.errors.some((inner) => isModuleLoadFailure(inner));
+  }
+  return false;
 }
 
 // REQ-SEC-02: the composition root's own reentrancy guard. A single spawned process (the
@@ -193,8 +224,25 @@ async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
   const frames = reader.frames();
 
   // WPS-02: fail at greeting, BEFORE any reverse callback can dispatch — the client is not
-  // even constructed until the greeting is accepted.
-  const first = await frames.next();
+  // even constructed until the greeting is accepted. A TRANSPORT fault at greeting time
+  // (judgment-day F4) — an oversize/0x80000000 length prefix (thrown, WPS-04.2/.4), EOF
+  // mid-frame (thrown), or a malformed greeting body (yielded as a FrameFault) — classifies
+  // exit 3 with a bounded note (EXC-01, WPS-07), never an uncaught rejection's raw stack.
+  // A clean EOF or a structurally-wrong-but-valid frame stays exit 1 (WPS-02.3).
+  let first: IteratorResult<unknown>;
+  try {
+    first = await frames.next();
+  } catch (err) {
+    note(
+      io,
+      `pbuilder-runner: ${err instanceof TransportFault ? err.message : "transport fault while awaiting the greeting"}`
+    );
+    return classifyExitCode(err);
+  }
+  if (!first.done && first.value instanceof FrameFault) {
+    note(io, `pbuilder-runner: ${first.value.fault.message}`);
+    return classifyExitCode(first.value.fault);
+  }
   if (first.done || !isStructurallyValidGreeting(first.value)) {
     note(io, `pbuilder-runner: invalid greeting — expected {method:"ready", protocolVersion:<integer>}`);
     return 1;
@@ -219,8 +267,8 @@ async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
   try {
     moduleNamespace = (await import(moduleUrl)) as Record<string, unknown>;
   } catch (err) {
-    if (isModuleResolutionFailure(err)) {
-      note(io, "pbuilder-runner: factory module could not be resolved");
+    if (isModuleLoadFailure(err)) {
+      note(io, "pbuilder-runner: factory module could not be resolved or loaded");
       return 1;
     }
     note(io, "pbuilder-runner: factory module's top-level code threw during import");
@@ -270,6 +318,9 @@ async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
       // reverse callback is pending is itself a fault — the reader only ever gets asked
       // to read again when a callback IS pending (StdioEngineClient's routing loop).
       if (next.done) throw new TransportFault("eof", "wire closed while a response was pending");
+      // REQ-SEC-08.1: a malformed frame body rejects THIS read (the sole pending call,
+      // attributed structurally) — the reader itself stays alive for subsequent calls.
+      if (next.value instanceof FrameFault) throw next.value.fault;
       return next.value;
     },
   };
@@ -280,8 +331,13 @@ async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
     return 0;
   } catch (err) {
     // EXC-01/02: classification reads ONLY err's own identity — a double-fault `.cause`
-    // (context.ts's discard-after-throw path) never overrides E1's class.
-    const label = err instanceof AuthoringError || err instanceof TransportFault ? err.message : "run failed";
+    // (context.ts's discard-after-throw path) never overrides E1's class. IntentRejectedError
+    // (judgment-day F3): the host's refusal message surfaces — bounded by note() — instead
+    // of being swallowed into a generic "run failed".
+    const label =
+      err instanceof AuthoringError || err instanceof TransportFault || err instanceof IntentRejectedError
+        ? err.message
+        : "run failed";
     note(io, `pbuilder-runner: ${label}`);
     return classifyExitCode(err);
   }

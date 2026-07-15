@@ -9,7 +9,7 @@
 // bootstrap-bridge.ts and its e2e stub (test/fixtures/bridge-bootstrap-stub.ts) exist.
 
 import { describe, it, expect } from "bun:test";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -78,15 +78,32 @@ describe("REQ-EXC-01.2 — four failure classes map to four distinct exit codes"
       expect(request.method).toEqual("tree.read");
 
       // frame-reader.ts (S-001) classifies an undecodable body as
-      // TransportFault{kind:"malformed"}; this propagates UNWRAPPED through
-      // Session.read() (never through Session.flush()'s toAuthoringError degrade — see
-      // apply-progress Discoveries) straight to the runner's catch, classified by
-      // exit-codes.ts as code 3.
+      // TransportFault{kind:"malformed"}; it propagates UNWRAPPED to the runner's catch,
+      // classified by exit-codes.ts as code 3 — on the read path here, and equally on the
+      // flush path (Session.flush passes transport-class faults through untranslated —
+      // REQ-SEC-08.3, proven by the ir.emit-pending legs below).
       const garbage = Buffer.from("not-json");
       const corruptFrame = Buffer.alloc(4 + garbage.length);
       corruptFrame.writeUInt32BE(garbage.length, 0);
       garbage.copy(corruptFrame, 4);
       child.stdin.write(corruptFrame);
+
+      // Re-anchored with REQ-SEC-08.1 recovery (judgment-day F6, ruling R1): the connection
+      // is NOT torn down by the malformed frame, so a conformant host keeps serving — the
+      // error-unwind's ir.discard gets a real acknowledgment over the SAME reader (the
+      // "remains usable for subsequent calls" clause, proven e2e) and the runner still
+      // exits 3 for the ORIGINAL fault. (Pre-F6 the reader died and the discard failed
+      // fast as eof; a silent host here would now park the discard until the SEC-05 bound.)
+      void (async () => {
+        for (;;) {
+          const next = await frames.next();
+          if (next.done) return;
+          const followUp = next.value as { id?: string; method?: string };
+          if (followUp.method === "ir.discard") {
+            child.stdin.write(encodeFrame({ type: "response", id: followUp.id, result: {} }));
+          }
+        }
+      })().catch(() => {});
 
       const [code] = (await Promise.race([
         once(child, "exit"),
@@ -104,6 +121,125 @@ describe("REQ-EXC-01.2 — four failure classes map to four distinct exit codes"
     const host = spawnRunner(["--factory", CRASH_POINTER, "--input", "{}"]);
     const run = await serveSpawnedRunner(host, fake);
     expect(run.exitCode).toEqual(4);
+  });
+});
+
+// Judgment-day F1 (REQ-SEC-08.3 + REQ-EXC-01): a transport fault while `ir.emit` is PENDING
+// must exit 3 — Session.flush must pass the TransportFault through untranslated, never
+// degrade it to AuthoringError{unknown} (which would exit 2). Raw child processes, same
+// rationale as leg (c): these legs need deliberately invalid bytes / an abrupt EOF.
+describe("REQ-SEC-08.3/REQ-EXC-01 — transport fault while ir.emit is pending exits 3, never degraded by Session.flush", () => {
+  async function driveToEmitPending(mutilate: (child: ChildProcessWithoutNullStreams) => void): Promise<number | null> {
+    const child = spawn("bun", ["run", RUNNER_BIN, "--factory", HAPPY_POINTER, "--input", "{}"], {
+      cwd: PROJECT_ROOT,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    try {
+      child.stdin.write(encodeFrame({ method: "ready", protocolVersion: WIRE_PROTOCOL_VERSION }));
+
+      const reader = new FrameReader(child.stdout);
+      const frames = reader.frames();
+      const first = (await frames.next()).value as { id: string; method: string };
+      expect(first.method).toEqual("tree.read");
+      child.stdin.write(encodeFrame({ type: "response", id: first.id, result: { content: "seed" } }));
+
+      const second = (await frames.next()).value as { method: string };
+      expect(second.method).toEqual("ir.emit"); // the flush's emit is NOW pending
+
+      mutilate(child);
+
+      // SEC-08.1 posture (see leg (c) above): the connection survives a malformed frame, so
+      // a conformant host still acknowledges the unwind's ir.discard; the exit code must
+      // reflect the ORIGINAL TransportFault, not the discard's outcome (EXC-02). On the EOF
+      // leg stdin is already closed — the pump ends at once.done and writes nothing.
+      void (async () => {
+        for (;;) {
+          const next = await frames.next();
+          if (next.done) return;
+          const followUp = next.value as { id?: string; method?: string };
+          if (followUp.method === "ir.discard" && !child.stdin.destroyed && child.stdin.writable) {
+            child.stdin.write(encodeFrame({ type: "response", id: followUp.id, result: {} }));
+          }
+        }
+      })().catch(() => {});
+
+      const [code] = (await Promise.race([
+        once(child, "exit"),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timed out waiting for exit")), 5000)),
+      ])) as [number | null];
+      return code;
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    }
+  }
+
+  it("a corrupt frame while ir.emit is pending: exit 3 (transport-fault), not 2", async () => {
+    const code = await driveToEmitPending((child) => {
+      const garbage = Buffer.from("not-json");
+      const corruptFrame = Buffer.alloc(4 + garbage.length);
+      corruptFrame.writeUInt32BE(garbage.length, 0);
+      garbage.copy(corruptFrame, 4);
+      child.stdin.write(corruptFrame);
+    });
+    expect(code).toEqual(3);
+  });
+
+  it("EOF while ir.emit is pending: exit 3 (transport-fault), not 2", async () => {
+    const code = await driveToEmitPending((child) => {
+      child.stdin.end();
+    });
+    expect(code).toEqual(3);
+  });
+});
+
+// Judgment-day F4 (REQ-EXC-01, REQ-WPS-04.2/.4, REQ-WPS-07): transport faults AT GREETING
+// TIME classify as exit 3 with bounded stderr — never an uncaught rejection's raw stack
+// trace with absolute paths and a default exit 1.
+describe("REQ-EXC-01/REQ-WPS-07 — transport faults at greeting time exit 3 with bounded, stack-free stderr", () => {
+  async function runWithRawGreeting(bytes: Buffer): Promise<{ code: number | null; stderr: string }> {
+    const child = spawn("bun", ["run", RUNNER_BIN, "--factory", HAPPY_POINTER, "--input", "{}"], {
+      cwd: PROJECT_ROOT,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    try {
+      let stderr = "";
+      child.stderr.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString("utf-8");
+      });
+      child.stdin.write(bytes);
+
+      const [code] = (await Promise.race([
+        once(child, "exit"),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timed out waiting for exit")), 5000)),
+      ])) as [number | null];
+      return { code, stderr };
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    }
+  }
+
+  it("a malformed greeting BODY (undecodable JSON): exit 3, no stack frames, no absolute paths", async () => {
+    const garbage = Buffer.from("definitely-not-a-greeting");
+    const corrupt = Buffer.alloc(4 + garbage.length);
+    corrupt.writeUInt32BE(garbage.length, 0);
+    garbage.copy(corrupt, 4);
+
+    const { code, stderr } = await runWithRawGreeting(corrupt);
+
+    expect(code).toEqual(3);
+    expect(stderr).not.toContain("    at ");
+    expect(stderr).not.toContain(PROJECT_ROOT);
+  });
+
+  it("a greeting length prefix of 0x80000000 (WPS-04.4 signed-read triangulation): exit 3, no stack, no absolute paths", async () => {
+    const prefix = Buffer.alloc(4);
+    prefix.writeUInt32BE(0x80000000, 0);
+
+    const { code, stderr } = await runWithRawGreeting(prefix);
+
+    expect(code).toEqual(3);
+    expect(stderr).not.toContain("    at ");
+    expect(stderr).not.toContain(PROJECT_ROOT);
   });
 });
 

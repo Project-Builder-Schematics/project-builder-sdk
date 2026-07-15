@@ -2,7 +2,13 @@
 // symmetric both directions. Unit-level: exercises framing.ts's codec directly, no subprocess.
 
 import { describe, it, expect } from "bun:test";
-import { encodeFrame, decodeFrameBody, isOversizeDeclaredLength } from "../../src/transport/framing.ts";
+import {
+  encodeFrame,
+  encodeFrameBody,
+  withPreserializedBody,
+  decodeFrameBody,
+  isOversizeDeclaredLength,
+} from "../../src/transport/framing.ts";
 import { BATCH_CAP_BYTES, exceedsBatchCap } from "../../src/core/wire.ts";
 import { batchOfSerializedBytes, batchOverSerializedBytes } from "../fake/batch-cap-fixtures.ts";
 
@@ -96,5 +102,30 @@ describe("REQ-WPS-04 — reject-before-alloc oversize handling", () => {
       const batch = batchOverSerializedBytes(BATCH_CAP_BYTES);
       expect(exceedsBatchCap(batch)).toBe(true);
     });
+  });
+});
+
+describe("REQ-WPS-04.1 — single serialization: a preserialized frame body is reused by encodeFrame (judgment-day F7)", () => {
+  it("encodeFrame emits the EXACT attached bytes for a value carrying a preserialized body", () => {
+    const value = { type: "request", id: "s0", method: "ir.emit", params: { batch: { a: 1 } } };
+    const body = encodeFrameBody(value);
+
+    const frame = encodeFrame(withPreserializedBody(value, body));
+
+    expect(frame.readUInt32BE(0)).toEqual(body.length);
+    expect(frame.subarray(4).equals(body)).toBe(true);
+    // The attachment is invisible to structural consumers: enumerable shape unchanged.
+    expect(Object.keys(value)).toEqual(["type", "id", "method", "params"]);
+    expect(JSON.parse(frame.subarray(4).toString("utf8"))).toEqual(value);
+  });
+
+  it("a tampered preserialized body is what actually hits the wire — proving reuse is real, not a re-serialization", () => {
+    const value = { type: "request", id: "s0", method: "ir.commit", params: {} };
+    const tampered = Buffer.from('{"tampered":true}', "utf8");
+
+    const frame = encodeFrame(withPreserializedBody(value, tampered));
+
+    expect(frame.readUInt32BE(0)).toEqual(tampered.length);
+    expect(decodeFrameBody(frame.subarray(4))).toEqual({ tampered: true });
   });
 });

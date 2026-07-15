@@ -11,7 +11,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES } from "../../src/core/wire.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const WIRE_SPEC_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-spec.md");
@@ -28,7 +28,17 @@ function extractCapSection(text: string): string | undefined {
 function extractDocDeclaredCap(text: string): number | undefined {
   const section = extractCapSection(text);
   if (section === undefined) return undefined;
-  const match = /BATCH_CAP_BYTES\s*=\s*(\d+)/.exec(section);
+  const match = /(?<![A-Z_])BATCH_CAP_BYTES\s*=\s*(\d+)/.exec(section);
+  return match ? Number(match[1]) : undefined;
+}
+
+// Spec V4 (judgment-day R2): the doc also pins the fixed ir.emit envelope allowance the
+// outbound budget reserves (EMIT_BATCH_BUDGET_BYTES = BATCH_CAP_BYTES - allowance) — a
+// doc-vs-code drift on the allowance would misdocument the author-visible batch budget.
+function extractDocDeclaredAllowance(text: string): number | undefined {
+  const section = extractCapSection(text);
+  if (section === undefined) return undefined;
+  const match = /EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES\s*=\s*(\d+)/.exec(section);
   return match ? Number(match[1]) : undefined;
 }
 
@@ -40,6 +50,11 @@ describe("fit-34 — BATCH_CAP drift (REQ-FEH-06/REQ-WPS-06: SDK export vs doc-p
   it("REQ-FEH-06.1: the wire-spec doc's Frame-Cap Constant section pins the SAME literal the SDK exports", () => {
     const docValue = extractDocDeclaredCap(readFileSync(WIRE_SPEC_DOC_PATH, "utf-8"));
     expect(docValue).toEqual(BATCH_CAP_BYTES);
+  });
+
+  it("REQ-WPS-04.1 (spec V4): the wire-spec doc's Frame-Cap section pins the SAME envelope allowance the SDK derives", () => {
+    const docValue = extractDocDeclaredAllowance(readFileSync(WIRE_SPEC_DOC_PATH, "utf-8"));
+    expect(docValue).toEqual(EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES);
   });
 
   it("[red-proof] a doc-declared cap that drifts from the SDK export is caught, not silently passed", () => {

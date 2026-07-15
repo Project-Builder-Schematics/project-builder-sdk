@@ -19,7 +19,7 @@
 import { describe, it, expect } from "bun:test";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { create, find, replaceContent, AuthoringError } from "../../src/commons/index.ts";
-import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../src/core/wire.ts";
 import type { Batch, JsonValue } from "../../src/core/wire.ts";
 
 describe("REQ-ATH-01 — runFactoryForTest result shape", () => {
@@ -263,8 +263,11 @@ describe("REQ-ATH-09 — emission-validity boundaries", () => {
       return "a".repeat(deficit);
     }
 
-    it("a single create exceeding BATCH_CAP_BYTES rejects with changes-too-large", async () => {
-      const overTemplate = createTemplateOfSerializedBytes(BATCH_CAP_BYTES + 1);
+    // Boundary re-anchored (stdio-engine-client spec V4 WPS-04.3): the emit authority
+    // enforces EMIT_BATCH_BUDGET_BYTES (the frame cap minus the ir.emit envelope
+    // allowance), so the under/over legs anchor to the budget, not to BATCH_CAP_BYTES.
+    it("a single create exceeding the emit budget rejects with changes-too-large", async () => {
+      const overTemplate = createTemplateOfSerializedBytes(EMIT_BATCH_BUDGET_BYTES + 1);
       const run = (): void => {
         create(CAP_FIXTURE_PATH, { template: overTemplate, options: {} });
       };
@@ -276,8 +279,8 @@ describe("REQ-ATH-09 — emission-validity boundaries", () => {
       expect(result.tree.size).toEqual(0);
     });
 
-    it("a batch one byte under the cap commits without error", async () => {
-      const underTemplate = createTemplateOfSerializedBytes(BATCH_CAP_BYTES - 1);
+    it("a batch one byte under the emit budget commits without error", async () => {
+      const underTemplate = createTemplateOfSerializedBytes(EMIT_BATCH_BUDGET_BYTES - 1);
       const run = (): void => {
         create(CAP_FIXTURE_PATH, { template: underTemplate, options: {} });
       };

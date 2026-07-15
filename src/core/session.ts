@@ -57,6 +57,13 @@ export class Session {
   // wrapped so a raw engine rejection surfaces as an AuthoringError in author vocabulary,
   // attributed to the ACTUAL offending directive via the rejection's structured metadata
   // (emit-rejection-metadata REQ-ERM-01) — not instructions[0].
+  //
+  // stdio-engine-client REQ-SEC-08.3/REQ-EXC-01: a TRANSPORT-class fault from the client is
+  // NOT an engine rejection — it must reach the runner's classifier as-is (exit 3), never
+  // degraded to AuthoringError{unknown} (exit 2). Detected by the error's stable `name`
+  // identity, not `instanceof`: importing the TransportFault class here would pull the whole
+  // transport client into core's (and the ./commons bundle's) module graph, inverting the
+  // port direction. ERM-03's degrade still applies to everything else non-EmitRejection.
   async flush(): Promise<void> {
     if (this.#pending.length === 0) return;
     const batch: Batch = {
@@ -67,6 +74,7 @@ export class Session {
     try {
       await this.#client.emit(batch);
     } catch (raw) {
+      if (raw instanceof Error && raw.name === "TransportFault") throw raw;
       throw toAuthoringError(raw, batch);
     }
   }

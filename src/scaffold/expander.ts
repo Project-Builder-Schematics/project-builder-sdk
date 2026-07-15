@@ -31,7 +31,7 @@ import { currentContext, requirePackageAnchors } from "../core/context.ts";
 import { invalidInput } from "../core/authoring-error.ts";
 import { forceEntry } from "../core/directive-factory.ts";
 import type { JsonValue } from "../core/wire.ts";
-import { BATCH_CAP_BYTES, serializedBatchSize } from "../core/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../core/wire.ts";
 import { walkFolder } from "./walk.ts";
 import { runFilenamePipeline, isIncluded, detectDestinationCollisions, translateTokens } from "./filename-pipeline.ts";
 import { classifyTransport } from "./classify-transport.ts";
@@ -181,11 +181,13 @@ export function runScaffold(args: ScaffoldArgs): void {
           });
 
     // REQ-04: if adding this directive to the CURRENTLY pending (not-yet-flushed) group
-    // would push its serialized batch over the cap, flush the existing group first — never
-    // preemptively when the pending buffer is empty (an over-cap SINGLE directive still
-    // flushes as its own group and rejects at the fake's `emit`, unchanged REQ-04.2).
+    // would push its serialized batch over the emit budget (`EMIT_BATCH_BUDGET_BYTES` —
+    // the SAME boundary the emit authority enforces, spec V4 REQ-WPS-04.1), flush the
+    // existing group first — never preemptively when the pending buffer is empty (an
+    // over-budget SINGLE directive still flushes as its own group and rejects at the
+    // fake's `emit`, unchanged REQ-04.2).
     const directiveSize = Buffer.byteLength(JSON.stringify(directive), "utf8");
-    if (pendingCount > 0 && pendingSize + directiveSize + 1 > BATCH_CAP_BYTES) {
+    if (pendingCount > 0 && pendingSize + directiveSize + 1 > EMIT_BATCH_BUDGET_BYTES) {
       const flushPromise = session.flush();
       ctx.dialects.register({ settle: () => flushPromise });
       pendingCount = 0;

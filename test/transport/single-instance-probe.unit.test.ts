@@ -97,6 +97,12 @@ describe("REQ-SEC-07 — single-instance realpath probe", () => {
       writeFileSync(join(dir, "factory.ts"), "export default function factory() {}\n");
       const result = probeSingleInstance(`file://${dir}/factory.ts`);
       expect(result.ok).toBe(false);
+      // REQ-WPS-07 (judgment-day F9): the resolver's raw error text ("Cannot find module
+      // ... from '/abs/path'") must never be interpolated — no absolute path, no raw
+      // resolver internals.
+      const message = (result as { ok: false; message: string }).message;
+      expect(message).not.toContain(dir);
+      expect(message).not.toContain("Cannot find module");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

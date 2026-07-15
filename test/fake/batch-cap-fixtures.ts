@@ -3,6 +3,7 @@
 // arithmetic on JSON-escaping ratios, so the tests stay reproducible.
 
 import type { Batch } from "../../src/core/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../src/core/wire.ts";
 
 // Fixed multi-byte + escaping prefix: 3-byte "€" plus an escaped quote, backslash, and
 // newline. Present in every fixture so a UTF-16-code-unit measurer AND a measurer that
@@ -59,6 +60,23 @@ export function batchOfSerializedBytes(target: number): Batch {
     throw new Error(`batchOfSerializedBytes: expected ${target} serialized bytes, built ${actual}`);
   }
   return batch;
+}
+
+// REQ-WPS-04.3 (spec V4, judgment-day R2): the outbound boundary is the DETERMINISTIC batch
+// budget `EMIT_BATCH_BUDGET_BYTES` (`BATCH_CAP_BYTES` minus the fixed frame-envelope
+// allowance, wire.ts) — identical for `ContractFake` and `StdioEngineClient`, independent
+// of the request id's length. The two builders below anchor tests to that boundary; both
+// delegate to `batchOfSerializedBytes` so the fixed multi-byte/escaping prefix's
+// mutant-killing properties carry over unchanged.
+
+/** Builds a Batch whose serialized size sits EXACTLY at the outbound emit budget (the accept boundary). */
+export function batchAtEmitBudget(): Batch {
+  return batchOfSerializedBytes(EMIT_BATCH_BUDGET_BYTES);
+}
+
+/** Builds a Batch whose serialized size is ONE byte over the outbound emit budget (the reject boundary). */
+export function batchOverEmitBudget(): Batch {
+  return batchOfSerializedBytes(EMIT_BATCH_BUDGET_BYTES + 1);
 }
 
 // Every caller for a given `target` (e.g. BATCH_CAP_BYTES, shared by batch-cap.test.ts

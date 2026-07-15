@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from "bun:test";
 import { encodeFrame, LENGTH_PREFIX_BYTES } from "../../src/transport/framing.ts";
-import { FrameReader } from "../../src/transport/frame-reader.ts";
+import { FrameReader, FrameFault } from "../../src/transport/frame-reader.ts";
 import { TransportFault } from "../../src/transport/stdio-engine-client.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 
@@ -65,7 +65,31 @@ async function drainToFault<T>(source: AsyncGenerator<T>): Promise<{ yielded: T[
 }
 
 describe("REQ-SEC-08 — inbound frame fault handling (frame-reader level)", () => {
+  describe("Scenario REQ-SEC-08.1: a malformed body does NOT tear down the reader (judgment-day F6, ruling R1)", () => {
+    it("a malformed frame body yields a FrameFault marker (kind: malformed) and the SUBSEQUENT valid frame still dispatches over the same reader", async () => {
+      const garbage = Buffer.from("this is not json");
+      const corrupt = Buffer.alloc(LENGTH_PREFIX_BYTES + garbage.length);
+      corrupt.writeUInt32BE(garbage.length, 0);
+      garbage.copy(corrupt, LENGTH_PREFIX_BYTES);
+      const valid = { type: "response", id: "s1", result: { content: "after the fault" } };
+      const reader = new FrameReader(chunksOf(corrupt, encodeFrame(valid)));
+
+      const collected = await collect(reader.frames(), 2);
+
+      expect(collected[0]).toBeInstanceOf(FrameFault);
+      expect((collected[0] as FrameFault).fault).toBeInstanceOf(TransportFault);
+      expect((collected[0] as FrameFault).fault.kind).toEqual("malformed");
+      expect(collected[1]).toEqual(valid);
+    });
+  });
+
   describe("Scenario REQ-SEC-08.2: desync never triggers a byte-scan resync", () => {
+    // Re-anchored with F6 (SEC-08.1 recovery): the truncated body's fault now surfaces as a
+    // YIELDED FrameFault marker (the pending call's rejection) instead of an immediate
+    // generator throw — but the fail-closed guarantee under test is unchanged: no GENUINE
+    // frame is ever dispatched, and the reader still terminates on a classified
+    // TransportFault at the misaligned boundary rather than byte-scanning forward to find
+    // the genuinely-valid second frame.
     it("a frame whose declared length undercounts its actual body fails closed — and the genuinely-valid NEXT frame is never dispatched (proves no forward byte-scan)", async () => {
       const first = { type: "response", id: "s0", result: { content: "hello world" } };
       const realFrame = encodeFrame(first);
@@ -79,10 +103,11 @@ describe("REQ-SEC-08 — inbound frame fault handling (frame-reader level)", () 
 
       const { yielded, error } = await drainToFault(reader.frames());
 
-      // Neither frame is ever dispatched: not the truncated first (it fails to parse), and
-      // NOT the genuinely-valid second one either — proving the reader does not scan
-      // forward looking for the next plausible frame boundary.
-      expect(yielded).toEqual([]);
+      // Neither frame is ever dispatched as a GENUINE frame: not the truncated first (it
+      // fails to parse — surfaced only as a FrameFault marker), and NOT the genuinely-valid
+      // second one either — proving the reader does not scan forward looking for the next
+      // plausible frame boundary.
+      expect(yielded.filter((value) => !(value instanceof FrameFault))).toEqual([]);
       expect(error).toBeInstanceOf(TransportFault);
     });
   });

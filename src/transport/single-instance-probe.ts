@@ -98,7 +98,7 @@ export function probeSingleInstance(
   let factoryRoot: string;
   try {
     factoryRoot = packageRootFor(resolveSpecifier(SDK_SPECIFIER, factoryUrl));
-  } catch (err) {
+  } catch {
     // Self-contained fallback: `createRequire` does not resolve a package's OWN name from
     // within itself in this Bun version (the self-reference gap documented above). If the
     // factory's OWN nearest package.json ancestor already IS the runner's package root,
@@ -112,11 +112,12 @@ export function probeSingleInstance(
     } catch {
       // Falls through to the original resolution failure below.
     }
+    // REQ-WPS-07 (judgment-day F9): fixed text only — the resolver's raw error message
+    // embeds the factory's ABSOLUTE path ("Cannot find module ... from '/abs/...'") and
+    // must never be interpolated.
     return {
       ok: false,
-      message: `single-instance probe: could not resolve "${SDK_SPECIFIER}" from the factory's location — ${
-        err instanceof Error ? err.message : String(err)
-      }`,
+      message: `single-instance probe: could not resolve "${SDK_SPECIFIER}" from the factory's location`,
     };
   }
 

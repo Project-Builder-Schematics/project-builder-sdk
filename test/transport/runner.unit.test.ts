@@ -16,6 +16,7 @@ import { makeInProcessHost } from "../support/in-process-host.ts";
 const HAPPY_FIXTURE_DIR = new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname;
 const HAPPY_POINTER = `file://${HAPPY_FIXTURE_DIR}factory.ts`;
 const IMPORT_CRASH_POINTER = `file://${new URL("../fixtures/frame-runner/import-crash/", import.meta.url).pathname}factory.ts`;
+const SYNTAX_ERROR_POINTER = `file://${new URL("../fixtures/red/frame-runner-syntax-error/", import.meta.url).pathname}factory.ts`;
 
 // Stub io whose `writeFrame` always throws `guard`: every gate under test must reject
 // before the runner ever writes a frame.
@@ -142,6 +143,22 @@ describe("REQ-RUN-04 — input-file size cap + fail-closed parse", () => {
     expect(io.stderrText()).not.toContain("cap");
   });
 
+  it("REQ-WPS-07 (judgment-day F9): a missing --input-file never leaks the raw OS error or an absolute path to stderr", async () => {
+    const missing = join(tmpdir(), "run-04-definitely-missing-dir", "input.json");
+
+    const io = unreachedIo();
+    const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input-file", missing], io);
+
+    expect(exitCode).toEqual(1);
+    // The raw errno message ("ENOENT: ..., stat '/abs/path'") must never be interpolated.
+    expect(io.stderrText()).not.toContain("ENOENT");
+    // No ABSOLUTE path: the composed message renders the path project-relative ("../..."),
+    // never with a bare leading "/" (the probe test's own assertion idiom).
+    expect(io.stderrText()).not.toMatch(/— \//);
+    expect(io.stderrText()).not.toMatch(/'\//);
+    expect(io.stderrText()).toContain("--input-file");
+  });
+
   it("Scenario REQ-RUN-04.2: malformed JSON in an under-cap input-file fails closed, reporting ONLY line/column — never the raw content", async () => {
     const path = scratchFile("malformed.json");
     const marker = "THIS-EXACT-TEXT-MUST-NEVER-BE-ECHOED";
@@ -204,6 +221,16 @@ describe("REQ-RUN-07 — factory module import failure classification", () => {
 
     expect(exitCode).toEqual(4);
     expect(io.stderrText()).not.toContain("at ");
+    expect(io.stderrText().length).toBeLessThanOrEqual(2000);
+  });
+
+  it("Scenario REQ-RUN-07.1 (judgment-day F13): a factory module that fails to PARSE exits 1 with a truthful could-not-be-loaded message — never 4 with the false top-level-throw message", async () => {
+    const io = greetedIo();
+    const exitCode = await runRunner(["--factory", SYNTAX_ERROR_POINTER, "--input", "{}"], io);
+
+    expect(exitCode).toEqual(1);
+    expect(io.stderrText()).toContain("loaded");
+    expect(io.stderrText()).not.toContain("top-level code threw");
     expect(io.stderrText().length).toBeLessThanOrEqual(2000);
   });
 });

@@ -5,8 +5,23 @@
 import { describe, it, expect } from "bun:test";
 import type { EngineClient } from "../../src/core/engine-client.ts";
 import { EmitRejection } from "../../src/core/emit-rejection.ts";
-import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
-import { batchOfSerializedBytes, batchOverSerializedBytes } from "../fake/batch-cap-fixtures.ts";
+import {
+  BATCH_CAP_BYTES,
+  EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES,
+  serializedBatchBytes,
+  type Batch,
+} from "../../src/core/wire.ts";
+import { ContractFake } from "../../src/testing/contract-fake.ts";
+import {
+  FIXTURE_PATH,
+  batchOfSerializedBytes,
+  batchOverSerializedBytes,
+  batchAtEmitBudget,
+  batchOverEmitBudget,
+} from "../fake/batch-cap-fixtures.ts";
+import { encodeFrame, encodeFrameBody } from "../../src/transport/framing.ts";
+import { FrameReader, FrameFault } from "../../src/transport/frame-reader.ts";
+import { pushableByteSource } from "../support/pushable-byte-source.ts";
 import {
   StdioEngineClient,
   IntentRejectedError,
@@ -272,6 +287,31 @@ describe("REQ-SEC-06 — not-found vs. empty-string vs. content distinction", ()
 
     expect(result).toEqual("export const x = 1;");
   });
+
+  it("a host REJECTION of tree.read (error envelope, WPS-10) rejects classified — NEVER resolved as undefined/not-found", async () => {
+    // Taxonomy decision (judgment-day F5): a tree.read rejection mirrors commit/discard's
+    // host-refusal identity (IntentRejectedError) — the EXC-01 code-2 host-refusal family —
+    // because the host refused the call; it is not a wire-level TransportFault and must not
+    // be conflated with the trichotomy's not-found leg.
+    const channel = new ScriptedChannel((req) => ({
+      type: "response",
+      id: req.id,
+      error: { code: -32000, message: "read refused by host" },
+    }));
+    const client = new StdioEngineClient(channel);
+
+    let resolved: unknown = "never-resolved";
+    let caught: unknown;
+    try {
+      resolved = await client.read("refused.ts");
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(resolved).toEqual("never-resolved");
+    expect(caught).toBeInstanceOf(IntentRejectedError);
+    expect((caught as IntentRejectedError).message).toContain("read refused by host");
+  });
 });
 
 describe("REQ-WPS-03 — post-boot frame routing", () => {
@@ -432,15 +472,224 @@ describe("REQ-WPS-04.1 — emit() rejects an over-cap batch locally, never write
     expect(channel.written).toEqual([]);
   });
 
-  it("Scenario REQ-WPS-04.3: a batch at EXACTLY the cap is written to the wire, not rejected locally", async () => {
+  // Spec V4 (judgment-day R2): the outbound boundary is the DETERMINISTIC batch budget —
+  // EMIT_BATCH_BUDGET_BYTES = BATCH_CAP_BYTES minus a fixed envelope allowance bounding
+  // every possible request id's overhead — the SAME measurer ContractFake.emit runs
+  // (FEH-01 parity). The three tests below re-anchor REQ-WPS-04.3's boundary to that
+  // budget; the round-1 "encoded frame body exactly at cap is written" expectation was
+  // ordinal-dependent (the boundary shifted with the id length) and is superseded.
+  it("Scenario REQ-WPS-04.3 (budget-anchored): a batch serialized ONE byte over the emit budget rejects locally with EmitRejection{code:\"cap\"}, nothing written", async () => {
     const channel = new QueueChannel();
     const client = new StdioEngineClient(channel);
-    const batch = batchOfSerializedBytes(BATCH_CAP_BYTES);
+    const batch = batchOverEmitBudget();
+
+    let caught: unknown;
+    try {
+      await client.emit(batch);
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(EmitRejection);
+    expect((caught as EmitRejection).code).toEqual("cap");
+    expect(channel.written).toEqual([]);
+  });
+
+  it("Scenario REQ-WPS-04.3 (budget-anchored): a batch serialized EXACTLY at the emit budget is written, not rejected — and its ACTUAL encoded frame body never exceeds BATCH_CAP_BYTES", async () => {
+    const channel = new QueueChannel();
+    const client = new StdioEngineClient(channel);
+    const batch = batchAtEmitBudget();
     channel.pushValue({ type: "response", id: "s0", result: { appliedCount: 1 } });
 
     await client.emit(batch);
 
     expect(channel.written.length).toEqual(1);
+    // Invariant (iii): the accepted boundary batch's REAL encoded frame body fits the cap.
+    const body = encodeFrameBody(channel.written[0]);
+    expect(body.length).toBeLessThanOrEqual(BATCH_CAP_BYTES);
+  });
+
+  it("the envelope allowance is DERIVED, not hand-waved: the real written envelope's overhead plus the id headroom up to `s${Number.MAX_SAFE_INTEGER}` equals EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES exactly", async () => {
+    const channel = new QueueChannel();
+    const client = new StdioEngineClient(channel);
+    const batch = batchAtEmitBudget();
+    channel.pushValue({ type: "response", id: "s0", result: { appliedCount: 1 } });
+
+    await client.emit(batch);
+
+    const written = channel.written[0] as { id: string };
+    const overhead = encodeFrameBody(channel.written[0]).length - serializedBatchBytes(batch);
+    const longestId = `s${Number.MAX_SAFE_INTEGER}`;
+    // Ids are `s${n}`, n a monotonically incremented integer ≤ MAX_SAFE_INTEGER — every
+    // extra id character costs exactly 1 more envelope byte, so the allowance must equal
+    // this frame's measured overhead plus the remaining id headroom. This binds the
+    // wire.ts derivation to the client's REAL bytes: an envelope-shape change that made
+    // the allowance underestimate real overhead fails here, not on a live engine.
+    expect(overhead + (longestId.length - written.id.length)).toEqual(EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES);
+  });
+
+  it("[boundary note] a batch serialized EXACTLY at BATCH_CAP_BYTES (the pre-R2 boundary) rejects locally — the envelope allowance is reserved out of the cap", async () => {
+    const channel = new QueueChannel();
+    const client = new StdioEngineClient(channel);
+    const batch = batchOfSerializedBytes(BATCH_CAP_BYTES);
+
+    let caught: unknown;
+    try {
+      await client.emit(batch);
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(EmitRejection);
+    expect((caught as EmitRejection).code).toEqual("cap");
+    expect(channel.written).toEqual([]);
+  });
+});
+
+describe("REQ-WPS-04.1 cap parity + determinism (judgment-day R2 divergence killers)", () => {
+  async function clientOutcome(client: StdioEngineClient, batch: Batch): Promise<"accepted" | "rejected"> {
+    try {
+      await client.emit(batch);
+      return "accepted";
+    } catch (err) {
+      if (err instanceof EmitRejection && err.code === "cap") return "rejected";
+      throw err;
+    }
+  }
+
+  async function fakeOutcome(batch: Batch): Promise<"accepted" | "rejected"> {
+    const fake = new ContractFake({ seed: { [FIXTURE_PATH]: "" } });
+    try {
+      await fake.emit(batch);
+      return "accepted";
+    } catch (err) {
+      if (err instanceof EmitRejection && err.code === "cap") return "rejected";
+      throw err;
+    }
+  }
+
+  it("ContractFake and StdioEngineClient produce the IDENTICAL accept/reject outcome for a batch serialized exactly at BATCH_CAP_BYTES", async () => {
+    const batch = batchOfSerializedBytes(BATCH_CAP_BYTES);
+    const channel = new QueueChannel();
+    const client = new StdioEngineClient(channel);
+    channel.pushValue({ type: "response", id: "s0", result: { appliedCount: 1 } });
+
+    expect(await clientOutcome(client, batch)).toEqual(await fakeOutcome(batch));
+  });
+
+  it("the client's outcome for the SAME batch is identical at request ordinal 0 and at ordinal 10 (a longer request id must not shift the boundary)", async () => {
+    // The historically-divergent size (round-1 RED): a batch whose encoded frame body with
+    // id "s0" lands EXACTLY at BATCH_CAP_BYTES — the round-1 frame-body check accepted it
+    // at ordinal 0 but rejected the identical batch at ordinal 10 (id one byte longer).
+    const probe = batchOfSerializedBytes(1024);
+    const overheadS0 =
+      encodeFrameBody({ type: "request", id: "s0", method: "ir.emit", params: { batch: probe } }).length -
+      serializedBatchBytes(probe);
+    const batch = batchOfSerializedBytes(BATCH_CAP_BYTES - overheadS0);
+
+    const freshChannel = new QueueChannel();
+    const freshClient = new StdioEngineClient(freshChannel);
+    freshChannel.pushValue({ type: "response", id: "s0", result: { appliedCount: 1 } });
+    const atOrdinalZero = await clientOutcome(freshClient, batch);
+
+    const agedChannel = new QueueChannel();
+    const agedClient = new StdioEngineClient(agedChannel);
+    for (let i = 0; i < 10; i++) {
+      agedChannel.pushValue({ type: "response", id: `s${i}`, result: { content: "x" } });
+      await agedClient.read(`warm-${i}.ts`);
+    }
+    agedChannel.pushValue({ type: "response", id: "s10", result: { appliedCount: 1 } });
+    const atOrdinalTen = await clientOutcome(agedClient, batch);
+
+    expect(atOrdinalTen).toEqual(atOrdinalZero);
+  });
+});
+
+describe("ADR-03 — single-in-flight enforced internally (judgment-day F8)", () => {
+  it("after a timeout, a subsequent call receives its OWN response — the abandoned read loop never steals it", async () => {
+    const channel = new QueueChannel();
+    const client = new StdioEngineClient(channel, { timeoutMs: 20 });
+
+    let firstCaught: unknown;
+    try {
+      await client.read("first.ts"); // id s0 — no response ever arrives
+    } catch (err) {
+      firstCaught = err;
+    }
+    expect(firstCaught).toBeInstanceOf(TransportFault);
+    expect((firstCaught as TransportFault).kind).toEqual("timeout");
+
+    const second = client.read("second.ts"); // id s1
+    channel.pushValue({ type: "response", id: "s1", result: { content: "mine" } });
+
+    expect(await second).toEqual("mine");
+  });
+
+  it("two calls issued without awaiting SERIALIZE: the second request is not written until the first response arrives", async () => {
+    const channel = new QueueChannel();
+    const client = new StdioEngineClient(channel, { timeoutMs: 1000 });
+
+    const first = client.read("a.ts");
+    const second = client.read("b.ts");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(channel.written.length).toEqual(1);
+
+    channel.pushValue({ type: "response", id: "s0", result: { content: "A" } });
+    expect(await first).toEqual("A");
+    channel.pushValue({ type: "response", id: "s1", result: { content: "B" } });
+    expect(await second).toEqual("B");
+    expect(channel.written.length).toEqual(2);
+  });
+});
+
+describe("REQ-SEC-08.1 — malformed frame rejects the pending call, the connection REMAINS USABLE (judgment-day F6, ruling R1)", () => {
+  // A channel over the REAL FrameReader, mirroring runner.ts's production FrameChannel
+  // (including its FrameFault-to-rejection conversion) — this is the exact seam SEC-08.1's
+  // "remains usable for subsequent calls" clause exercises.
+  function readerBackedChannel() {
+    const inbox = pushableByteSource();
+    const frames = new FrameReader(inbox.iterable).frames();
+    const channel: FrameChannel = {
+      write(): void {},
+      writeStderr(): void {},
+      async read(): Promise<unknown> {
+        const next = await frames.next();
+        if (next.done) throw new TransportFault("eof", "wire closed while a response was pending");
+        if (next.value instanceof FrameFault) throw next.value.fault;
+        return next.value;
+      },
+    };
+    return { inbox, channel };
+  }
+
+  function corruptFrame(): Buffer {
+    const garbage = Buffer.from("not-json");
+    const frame = Buffer.alloc(4 + garbage.length);
+    frame.writeUInt32BE(garbage.length, 0);
+    garbage.copy(frame, 4);
+    return frame;
+  }
+
+  it("Scenario REQ-SEC-08.1: the pending call rejects classified (malformed); a valid response then satisfies the NEXT call over the SAME reader", async () => {
+    const { inbox, channel } = readerBackedChannel();
+    const client = new StdioEngineClient(channel, { timeoutMs: 1000 });
+
+    const first = client.read("first.ts"); // id s0
+    inbox.push(corruptFrame());
+
+    let caught: unknown;
+    try {
+      await first;
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TransportFault);
+    expect((caught as TransportFault).kind).toEqual("malformed");
+
+    const second = client.read("second.ts"); // id s1
+    inbox.push(encodeFrame({ type: "response", id: "s1", result: { content: "still alive" } }));
+
+    expect(await second).toEqual("still alive");
   });
 });
 
@@ -507,7 +756,7 @@ describe("REQ-SEC-04 — EmitRejection mapping with failedIndex precondition", (
       }
 
       expect(caught).toBeInstanceOf(EmitRejection);
-      expect((caught as EmitRejection).code as string).toEqual("unknown");
+      expect((caught as EmitRejection).code).toEqual("unknown");
       expect((caught as EmitRejection).failedIndex).toBeUndefined();
     }
   });
@@ -556,7 +805,7 @@ describe("REQ-WPS-08 — factory-pointer/ir.emit rejection wire shape", () => {
     }
 
     expect(caught).toBeInstanceOf(EmitRejection);
-    expect((caught as EmitRejection).code as string).toEqual("unknown");
+    expect((caught as EmitRejection).code).toEqual("unknown");
     expect((caught as EmitRejection).failedIndex).toBeUndefined();
   });
 });

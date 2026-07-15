@@ -22,7 +22,7 @@ import { writeFileSync, statSync, mkdirSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
 import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
-import { BATCH_CAP_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
 import { scaffold } from "../../src/commons/index.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { collectOps } from "../support/spy-client.ts";
@@ -217,11 +217,12 @@ describe("REQ-CCL-02.3 — exactly-at-budget boundary, directive-inclusive, driv
     const destPath = "out/over.ts";
     const overhead = soloDirectiveOverhead(destPath);
     // Content sized so the DIRECTIVE (not the content alone) lands exactly one byte over
-    // BATCH_CAP_BYTES; the content's OWN serialized form stays comfortably under budget —
-    // this is exactly the file shape the pre-fix classifier misclassified by-value.
-    const content = "a".repeat(BATCH_CAP_BYTES - overhead + 1);
-    expect(Buffer.byteLength(JSON.stringify(content), "utf8")).toBeLessThan(BATCH_CAP_BYTES);
-    expect(soloDirectiveBatchSize(destPath, content)).toEqual(BATCH_CAP_BYTES + 1);
+    // EMIT_BATCH_BUDGET_BYTES (the V4 WPS-04.3 boundary the emit authority enforces); the
+    // content's OWN serialized form stays comfortably under budget — this is exactly the
+    // file shape the pre-fix classifier misclassified by-value.
+    const content = "a".repeat(EMIT_BATCH_BUDGET_BYTES - overhead + 1);
+    expect(Buffer.byteLength(JSON.stringify(content), "utf8")).toBeLessThan(EMIT_BATCH_BUDGET_BYTES);
+    expect(soloDirectiveBatchSize(destPath, content)).toEqual(EMIT_BATCH_BUDGET_BYTES + 1);
     writeFileSync(join(dir, "files", "over.ts"), content, "utf-8");
 
     const run = (): void => {
@@ -243,13 +244,13 @@ describe("REQ-CCL-02.3 — exactly-at-budget boundary, directive-inclusive, driv
     expect(result.tree.has("out/over.ts")).toBe(false); // Q21/BRC-04: copyIn never materializes tree content in the fake
   });
 
-  it("a file whose full `create` DIRECTIVE lands exactly AT the cap still classifies by-value and commits via `create` (inclusive `>`, not `>=`)", async () => {
+  it("a file whose full `create` DIRECTIVE lands exactly AT the emit budget still classifies by-value and commits via `create` (inclusive `>`, not `>=`)", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
     const destPath = "out/at.ts";
     const overhead = soloDirectiveOverhead(destPath);
-    const content = "a".repeat(BATCH_CAP_BYTES - overhead);
-    expect(soloDirectiveBatchSize(destPath, content)).toEqual(BATCH_CAP_BYTES);
+    const content = "a".repeat(EMIT_BATCH_BUDGET_BYTES - overhead);
+    expect(soloDirectiveBatchSize(destPath, content)).toEqual(EMIT_BATCH_BUDGET_BYTES);
     writeFileSync(join(dir, "files", "at.ts"), content, "utf-8");
 
     const run = (): void => {
