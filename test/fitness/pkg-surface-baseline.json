@@ -121,6 +121,8 @@
     "dist/transport/frame-reader.js",
     "dist/transport/framing.d.ts",
     "dist/transport/framing.js",
+    "dist/transport/runner.d.ts",
+    "dist/transport/runner.js",
     "dist/transport/stdio-engine-client.d.ts",
     "dist/transport/stdio-engine-client.js",
     "dist/transport/wire-protocol.d.ts",
