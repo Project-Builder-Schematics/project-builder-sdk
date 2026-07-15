@@ -1,13 +1,19 @@
 # Engine ↔ SDK Wire Design
 
-**Status**: pre-implementation design record — captures the agreed communication design
-BEFORE any plan/build has run for the wire. It is the INPUT to that future change, not its
-outcome: when the wire change ships, the signed spec, design, and ADRs it produces become
-normative, and this document MUST be reconciled against what was actually built (updating
-the doc is in scope of that change's archive, not optional). The wire methods
-(`ir.emit` / `tree.read`) are not yet on the engine (ROADMAP §6); no real client ships in
-`src/` (the normative implementation is the contract fake, `src/testing/contract-fake.ts`).
-Contributor-facing; not part of the author reading path in `docs/README.md`.
+**Wire-spec version**: 1 (rev 3 — reconciled against BUILT code, `stdio-engine-client`, 2026-07-15)
+**Status**: HISTORICAL decision record. This document captured the PRE-implementation design
+BEFORE `stdio-engine-client` built the wire; it is preserved as the decision trail (why
+alternatives were rejected, what the tradeoffs were), not as the current contract. **The
+normative text both repos now build and conformance-test against is
+[`docs/engine-sdk-wire-spec.md`](./engine-sdk-wire-spec.md)** — read that document for the
+CURRENT wire shape. Three of this record's original decisions were superseded during the
+`stdio-engine-client` build (see `## Superseded (historical)` below); everything else here
+(chain of responsibility, cross-language contracts, platform hazards) still holds. The wire
+methods (`ir.emit` / `tree.read`) are not yet on the engine (ROADMAP §6); no real client ships
+in `src/` at the time this record was authored (the normative implementation was the contract
+fake, `src/testing/contract-fake.ts` — `stdio-engine-client` later added the first real
+`EngineClient`, `StdioEngineClient`). Contributor-facing; not part of the author reading path
+in `docs/README.md`.
 
 ## Topology
 
@@ -34,7 +40,20 @@ These are independent; conflating them is the classic source of confusion here:
 | RPC initiation | who sends requests over the pipe? | SDK — 100% of requests |
 | Data flow | which way do bytes travel? | both ways, always — says nothing about the protocol |
 
-## Decision: JSON-RPC over stdio, single-initiator
+## Superseded (historical)
+
+> **Superseded by rev 3** (`stdio-engine-client`, 2026-07-15, REQ-WPS-11). The three decisions
+> below were the pre-implementation proposal; the SHIPPED wire replaced all three. See
+> `docs/engine-sdk-wire-spec.md` for what actually built. Kept here, unedited except for this
+> banner, as the historical record of what was considered and why.
+>
+> | Proposed here (superseded) | Shipped instead |
+> |---|---|
+> | Newline-delimited JSON (NDJSON) framing | 4-byte big-endian length-prefix framing (`docs/engine-sdk-wire-spec.md` § Frame Grammar, WPS-01) |
+> | Single-initiator directionality (the SDK initiates every request, the engine only responds) | Host-initiated topology with exactly 4 allowlisted SDK→host reverse callbacks (§ Reverse-Callback Method Schemas, WPS-05/WPS-09/WPS-10) |
+> | `session.init` handshake | Versioned `ready` greeting, fail-at-greeting on mismatch (§ Ready Handshake, WPS-02) |
+
+### Decision: JSON-RPC over stdio, single-initiator
 
 - **Transport**: stdin/stdout of the spawned runner process. The parent-child pipes exist at
   spawn time — no ports, no discovery, no auth (the pipe is private to parent and child by
@@ -52,7 +71,7 @@ These are independent; conflating them is the classic source of confusion here:
   The engine replies with its version/capabilities. A mismatch fails at the greeting with a
   clear error — never mid-apply.
 
-### Rejected alternatives
+#### Rejected alternatives
 
 - **HTTP**: pays for ports, localhost auth (any local process can reach a port), and
   connection lifecycle to obtain what two file descriptors already provide.
@@ -63,11 +82,16 @@ These are independent; conflating them is the classic source of confusion here:
   without a consumer today. Revisit only if per-run spawn cost ever becomes a measured
   problem.
 
-### When bidirectionality WOULD be needed (future signals)
+#### When bidirectionality WOULD be needed (future signals)
 
 Progress notifications during long applies, engine-pushed tree-change events (watch mode), or
 interactive conflict prompts. None exist in the current design. JSON-RPC notifications over
 the same stdio pipe can be added later without breaking the single-initiator base.
+
+> **Honest reversal note** (matches design.md ADR-02): this last paragraph's premise no longer
+> holds as stated — the shipped wire already inverted trust (host-initiated, 4 gated reverse
+> callbacks) rather than staying strictly single-initiator with bidirectionality "added later".
+> Preserved verbatim as it was reasoned at the time.
 
 ## Chain of responsibility
 
@@ -81,8 +105,13 @@ the same stdio pipe can be added later without breaking the single-initiator bas
 
 ### Runner contract
 
-A new SDK bin, same shape as `pbuilder-codegen` (built to `dist/bin/`, shebang, declared in
-`package.json#bin`). Deliberately thin:
+A new SDK bin, built to `dist/bin/`, shebang. Deliberately thin:
+
+> **Correction (rev 3)**: this paragraph originally said "declared in `package.json#bin`",
+> matching `pbuilder-codegen`'s shape. `stdio-engine-client`'s ADR-06 ships it PROVISIONAL and
+> UNMAPPED instead — no `package.json#bin` entry — since the runner is engine-spawned/bridge-
+> imported, not a user-facing CLI; the public `#bin` entry is registered at the public-package
+> plan instead.
 
 1. Parse argv: `--factory file:///abs/path/factory.ts#exportName` and `--input '<json>'`
    (escape hatch: `--input-file <path>` for payloads near ARG_MAX).
@@ -174,10 +203,14 @@ with the protocol, and conformance-tested on both sides:
 
 ## Open questions
 
-- `defineFactory`'s graduation home once it leaves the author surface (today it reaches
-  authors via `./testing`; as runner-internal API it needs a non-author entry — tracked in
-  the pending-changes graduation row, re-evaluated in the public-package plan).
-- Exit-code taxonomy for the runner (validation failure vs. emit rejection vs. crash).
-- Final call on `--input-file` threshold and whether the engine always uses it.
-- Where the wire spec (method names, error shapes, pointer syntax) lives so both codebases
-  test against one normative text.
+- ~~`defineFactory`'s graduation home once it leaves the author surface~~ **RESOLVED** —
+  `archive/2026-07-15-bare-factory-migration` graduated it to core-internal, removed from
+  `./testing`'s public exports (ADR-0050).
+- ~~Exit-code taxonomy for the runner (validation failure vs. emit rejection vs. crash).~~
+  **RESOLVED** — `docs/engine-sdk-wire-spec.md` § Exit-Code Taxonomy (EXC-01), implemented in
+  `src/transport/exit-codes.ts`.
+- Final call on `--input-file` threshold and whether the engine always uses it. **PARTIALLY
+  RESOLVED**: the SDK-side cap (`10 MiB`, `src/transport/runner.ts`) is set; whether the engine
+  always routes through `--input-file` vs. inline `--input` is still an engine-side call.
+- ~~Where the wire spec (method names, error shapes, pointer syntax) lives so both codebases
+  test against one normative text.~~ **RESOLVED** — `docs/engine-sdk-wire-spec.md`.
