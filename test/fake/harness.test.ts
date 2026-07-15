@@ -462,14 +462,16 @@ describe("REQ-FEH-05 — spec-item-to-scenario coverage map", () => {
 describe("REQ-FEH-04 — real spawned process, real stdio, no Go toolchain", () => {
   it("Scenario REQ-FEH-04.1: the runner completes successfully with PATH restricted to exclude any `go` binary", async () => {
     const bunDir = dirname(process.execPath);
-    // /usr/bin:/bin supplies `sh` itself (the probe below needs a shell to run in) — neither
-    // directory contains a `go` binary on this repo's CI/dev images (verified: `go` lives
-    // under the linuxbrew/homebrew prefix, never /usr/bin or /bin).
-    const restrictedEnv = { ...process.env, PATH: `${bunDir}:/usr/bin:/bin` };
+    // PATH carries ONLY bun's directory — the runner is spawned as bare `bun` and needs
+    // nothing else. No system dirs may ride along: GitHub's CI image ships `go` at
+    // /usr/bin/go (the dev image keeps it under the linuxbrew prefix), so any PATH wide
+    // enough to supply a shell would smuggle the toolchain back in.
+    const restrictedEnv = { ...process.env, PATH: bunDir };
 
     // Proves the restriction actually excludes `go` — a vacuous PATH override would let this
-    // test pass regardless of whether the runner has any real Go-toolchain dependency.
-    const probe = spawnSync("sh", ["-c", "command -v go"], { env: restrictedEnv, encoding: "utf-8" });
+    // test pass regardless of whether the runner has any real Go-toolchain dependency. The
+    // probe shell is invoked by absolute path, so it needs no PATH entry of its own.
+    const probe = spawnSync("/bin/sh", ["-c", "command -v go"], { env: restrictedEnv, encoding: "utf-8" });
     expect(probe.stdout.trim()).toEqual("");
 
     const fake = new ContractFake({ seed: { "seed.txt": "feh-04" } });
