@@ -17,3 +17,17 @@ export function encodeFrame(value: unknown): Buffer {
 export function decodeFrameBody(body: Uint8Array): unknown {
   return JSON.parse(Buffer.from(body).toString("utf8"));
 }
+
+/**
+ * The ONE sanctioned stdout reference in `src/transport/**` (fit-30 stdout-protocol-sacred):
+ * captures the process's fd-1 write handle AT CALL TIME — call it before any factory import
+ * — so later author-code reassignment of `process.stdout` cannot hijack the wire (the
+ * BRB-02/RUN-08 defence, e2e-proven in S-003). Everything else writes frames only through
+ * the function this returns.
+ */
+export function captureFd1FrameWriter(): (value: unknown) => void {
+  const write = process.stdout.write.bind(process.stdout);
+  return (value) => {
+    write(encodeFrame(value));
+  };
+}

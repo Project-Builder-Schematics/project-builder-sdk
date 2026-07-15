@@ -27,7 +27,16 @@ const BIN_DIR = join(PROJECT_ROOT, "bin");
 const CONTEXT_FILE = join(SRC_DIR, "core/context.ts");
 const CORE_INDEX_FILE = join(SRC_DIR, "core/index.ts");
 
-const ALLOWLISTED_ROOTS = [join(SRC_DIR, "core"), join(SRC_DIR, "testing"), join(SRC_DIR, "conformance")];
+// ADR-07 (stdio-engine-client): + the FILE src/transport/runner.ts — the production runner
+// that context.ts's own @internal note names as a legitimate defineFactory wrapper (RUN-05).
+// The FILE, never the src/transport directory: every other transport file stays scanned
+// (see the ADR-07 red-proof below). Matched by isAllowlisted's `absPath === root` branch.
+const ALLOWLISTED_ROOTS = [
+  join(SRC_DIR, "core"),
+  join(SRC_DIR, "testing"),
+  join(SRC_DIR, "conformance"),
+  join(SRC_DIR, "transport/runner.ts"),
+];
 
 function isAllowlisted(absPath: string): boolean {
   return ALLOWLISTED_ROOTS.some((root) => absPath === root || absPath.startsWith(`${root}/`));
@@ -102,6 +111,26 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
   it("positive control: the scanner detects src/conformance/index.ts's own defineFactory import too", () => {
     const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "conformance/index.ts"));
     expect(offenders).toEqual(["../core/context.ts"]);
+  });
+
+  // RED-PROOF (ADR-07): the runner.ts entry is a FILE allow-list, not a directory one — a
+  // planted defineFactory import from an UNRELATED src/transport/** file is still flagged.
+  it("[red-proof] ADR-07: a planted defineFactory import from an unrelated src/transport/** file is flagged", () => {
+    const fakeSource = `import { defineFactory } from "../core/context.ts";`;
+    const fakeDir = join(SRC_DIR, "transport");
+    expect(isAllowlisted(join(SRC_DIR, "transport/framing.ts"))).toBe(false);
+    expect(specifiersResolvingInto(definesFactoryImportLines(fakeSource), fakeDir, CONTEXT_FILE)).toEqual([
+      "../core/context.ts",
+    ]);
+  });
+
+  // Positive control (ADR-07): runner.ts's own real defineFactory import IS detected by the
+  // scanner — allowlisting, not blindness, keeps it green (same posture as the
+  // testing/conformance positive controls above).
+  it("positive control: the scanner detects src/transport/runner.ts's own defineFactory import", () => {
+    const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "transport/runner.ts"));
+    expect(offenders).toEqual(["../core/context.ts"]);
+    expect(isAllowlisted(join(SRC_DIR, "transport/runner.ts"))).toBe(true);
   });
 
   // RED-PROOF: a planted defineFactory import from src/commons/** is flagged.
