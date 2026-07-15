@@ -27,6 +27,12 @@ The prefix is the UTF-8 SERIALIZED byte length of the body — never the JS stri
 delimiter byte and no newline framing; the length prefix is the only frame boundary signal.
 Single owner in the SDK: `src/transport/framing.ts`'s `encodeFrame`/`decodeFrameBody`.
 
+Fault posture on a received frame: a body that fails to parse as JSON rejects the ONE pending
+call (classified `malformed`) but does NOT tear the connection down — the body's boundary was
+known from the prefix, the stream stays aligned, and subsequent calls proceed normally. An
+oversize declared length and an EOF mid-frame are FATAL (fail-closed): no resynchronization is
+ever attempted, and the reader never byte-scans for a plausible next boundary.
+
 ## Ready Handshake (WPS-02)
 
 The FIRST message the runner reads MUST be a structurally valid greeting:
@@ -120,9 +126,9 @@ pointer splits on the FIRST `#` only.
 | Code | Meaning |
 |---|---|
 | 0 | success — the factory run completed and its intent was accepted |
-| 1 | validation failure — bad argv, an invalid/mismatched greeting, a rejected factory pointer, a rejected export, a failed single-instance probe, an oversize/malformed `--input-file`, a factory module that fails to RESOLVE (`ERR_MODULE_NOT_FOUND` from the factory import — distinct from the module's own top-level code throwing during import, which is exit 4), or an `AuthoringError` whose `origin` **is** `"authoring-rejected"` (an SDK-side authoring misuse: `outside-run`, `invalid-input`, `reserved-name`, `source-*`) |
-| 2 | emit-rejection — an `AuthoringError` whose `origin` is NOT `"authoring-rejected"` |
-| 3 | transport fault — a `TransportFault` (`kind`: `malformed`, `desync` (reserved: currently indistinguishable from and reported as `malformed`), `oversize`, `timeout`, or `eof`) |
+| 1 | validation failure — bad argv, an invalid/mismatched greeting, a bridge contract version mismatch (`BridgeVersionMismatchError`, BRB-01.2), a rejected factory pointer, a rejected export, a failed single-instance probe, an oversize/malformed `--input-file`, a factory module that cannot be FOUND OR LOADED (`ERR_MODULE_NOT_FOUND`, Bun's `ResolveMessage`/`BuildMessage` shapes, or a `SyntaxError` from the factory import — a module that never RAN, distinct from the module's own top-level code throwing during import, which is exit 4), or an `AuthoringError` whose `origin` **is** `"authoring-rejected"` (an SDK-side authoring misuse: `outside-run`, `invalid-input`, `reserved-name`, `source-*`) |
+| 2 | emit-rejection / host refusal — an `AuthoringError` whose `origin` is NOT `"authoring-rejected"`, or an `IntentRejectedError` (the host answered `ir.commit`/`ir.discard`/`tree.read` with an error envelope); the host's own rejection message surfaces in the runner's bounded stderr note |
+| 3 | transport fault — a `TransportFault` (`kind`: `malformed`, `desync` (reserved: currently indistinguishable from and reported as `malformed`), `oversize`, `timeout`, or `eof`), including one at GREETING time (a malformed/oversize/EOF-truncated first frame) |
 | 4 | crash — anything else: a non-`AuthoringError`/non-`TransportFault` thrown value, including the author's factory module throwing at its own top level during import |
 
 Classification reads ONLY the terminal error's own identity (`instanceof` checks) — it NEVER
@@ -143,9 +149,14 @@ const BRIDGE_CONTRACT_VERSION = 1; // in-process JS bridge — INDEPENDENT of WI
 ```
 
 The engine's embedded bootstrap dynamic-imports `bootstrap-bridge.ts` and calls
-`enterBridge(expectedVersion, params, io)` exactly ONCE. A version mismatch rejects
-IMMEDIATELY — naming both the expected and the installed bridge version — with no protection
-armed and no factory-related code ever reached. On a match, the bridge arms the SAME fd-1
+`enterBridge(expectedVersion, params, io)` exactly ONCE per run. The SDK TOLERATES sequential
+re-entry within one engine process (the fd-1 capture is idempotent — the first capture's real
+write handle is cached and reused), but with a known residual: a timed-out call's parked stdin
+read (`#danglingRead`) can survive run end and consume bytes of a subsequent session sharing
+the same stdin iterable — the sequential-rerun lifecycle is engine-team territory, to be
+ratified at PC-PROTO-01 (registered in `openspec/pending-changes.md`). A version mismatch
+rejects IMMEDIATELY — naming both the expected and the installed bridge version — with no
+protection armed and no factory-related code ever reached. On a match, the bridge arms the SAME fd-1
 capture + console redirect the direct-spawn path gets (RUN-08), then hands `params` through the
 SAME `RUN-01`..`RUN-04` gates the argv-spawn path uses — never a duplicated, weaker check. This
 version is co-versioned with, but tracked INDEPENDENTLY of, `WIRE_PROTOCOL_VERSION` above — a
@@ -159,16 +170,35 @@ an import fails closed with `ERR_PACKAGE_PATH_NOT_EXPORTED`.
 ## Frame-Cap Constant (WPS-06)
 
 ```ts
-const BATCH_CAP_BYTES = 4194304; // 4 MiB
+const BATCH_CAP_BYTES = 4194304; // 4 MiB — the frame-body cap, both legs
+const EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES = 82; // fixed ir.emit envelope allowance
+const EMIT_BATCH_BUDGET_BYTES = BATCH_CAP_BYTES - EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES; // 4194222
 ```
 
 `BATCH_CAP_BYTES` (SDK, `src/core/wire.ts`) MUST equal the engine's `MaxMessageBytes` BY VALUE
-— a shared cross-repo constant-naming contract, not merely a coincidental match. An inbound
-frame declaring a length over this cap is rejected BEFORE allocation (reject-before-alloc); an
-outbound `Batch` over this cap is rejected locally, never written to the wire. `fit-34`
-(`FEH-06`) fails the SDK's own test suite the moment `src/core/wire.ts`'s exported value drifts
-from the `4194304` literal pinned here — a build/test-time failure, never a runtime desync
-against a live engine.
+— a shared cross-repo constant-naming contract, not merely a coincidental match. The cap
+applies to the ENCODED FRAME BODY — the serialized JSON the length prefix counts — on both
+legs:
+
+- **Inbound**: a frame declaring a length strictly over `BATCH_CAP_BYTES` is rejected BEFORE
+  allocation (reject-before-alloc); a declared length of exactly `BATCH_CAP_BYTES` is within
+  the cap.
+- **Outbound (`ir.emit`)**: enforcement is DETERMINISTIC and batch-anchored. A `Batch` is
+  accepted iff its serialized UTF-8 byte length is at most `EMIT_BATCH_BUDGET_BYTES` —
+  `BATCH_CAP_BYTES` minus a FIXED envelope allowance. The allowance (`82`) is the serialized
+  overhead of the `ir.emit` request envelope (`{type,id,method,params:{batch}}`) carrying the
+  LONGEST request id the SDK can mint (`s${Number.MAX_SAFE_INTEGER}`, 17 characters), so the
+  accept/reject verdict never varies with the request ordinal (a shorter real id only leaves
+  headroom), and an accepted batch's ACTUAL encoded frame body can never exceed
+  `BATCH_CAP_BYTES` — exactly as the engine's own `recvFrame` would measure it. An over-budget
+  batch is rejected locally (`EmitRejection{code:"cap"}`), never written to the wire.
+  `ContractFake` (the engine stand-in the conformance harness delegates to) enforces the
+  IDENTICAL budget through the same `exceedsEmitBatchBudget` measurer — the fake and the real
+  transport cannot diverge on the same batch.
+
+`fit-34` (`FEH-06`) fails the SDK's own test suite the moment `src/core/wire.ts`'s exported
+values drift from the `4194304` / `82` literals pinned here — a build/test-time failure, never
+a runtime desync against a live engine.
 
 ## Cross-Repo Build Target
 

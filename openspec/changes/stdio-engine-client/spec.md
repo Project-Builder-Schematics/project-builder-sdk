@@ -1,10 +1,34 @@
 # Specs: stdio-engine-client
 
-**Spec version**: V3
-**Status**: signed (owner, 2026-07-15 — V3 delta re-signature; V2 signed same day)
+**Spec version**: V4
+**Status**: signed (owner, 2026-07-15 — V4 micro-amendment re-signature; V3/V2 signed same day)
 **Change**: `stdio-engine-client`
 **Triage**: L
 **Spec source**: internal (Upstream Ingest / Upstream Sync: skipped — `spec_source = internal`)
+
+**(V4) Amendment ledger** — owner-signed micro-amendments closing judgment-day round 2
+(2026-07-15); zero REQ-IDs added/removed/renumbered, all 41 V3 REQ-IDs preserved in ID:
+
+1. **REQ-WPS-04.1/.3** — the outbound cap re-anchors to the ENCODED ir.emit FRAME BODY,
+   enforced DETERMINISTICALLY via the fixed-allowance batch budget (`EMIT_BATCH_BUDGET_BYTES
+   = BATCH_CAP_BYTES − EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES`, `src/core/wire.ts`); one shared
+   measurer (`exceedsEmitBatchBudget`) for `StdioEngineClient` AND `ContractFake` (FEH-01
+   parity). WPS-04.3's boundary scenario re-anchors from `batchOfSerializedBytes(
+   BATCH_CAP_BYTES)` to the budget-anchored fixtures (`batchAtEmitBudget`/
+   `batchOverEmitBudget`). Archive-sync note: the boundary shift re-anchors two ARCHIVED
+   main specs' at-cap scenarios from `BATCH_CAP_BYTES` to the emit budget —
+   `batch-cap-contract` REQ-01.1/REQ-04.3 and `content-classification` REQ-CCL-02.3 — sync
+   their scenario text at archive.
+2. **REQ-EXC-01 code-2 row** — extended to include a refused `tree.read` intent
+   (`IntentRejectedError` → exit 2).
+3. **REQ-RUN-07** — exit-1 wording is "could not be resolved or loaded" (covers
+   `ERR_MODULE_NOT_FOUND` and Bun `ResolveMessage`/`BuildMessage`/`SyntaxError` load
+   failures — a module that never RAN).
+4. **REQ-BRB-02** — mechanism clause is "captures fd 1 before any factory-related import
+   (armed at bridge entry)", replacing "at its own module load".
+5. ERM-03 gains a transport-class carve-out (TransportFault passes through `Session.flush`
+   untranslated) — `openspec/specs/emit-rejection-metadata/spec.md` is an ARCHIVED main
+   spec, not edited now; sync at archive.
 
 V2 applies consolidated council feedback (ba/qa/security, all `needs-revision`) to V1. All 35
 V1 REQ-IDs are preserved unchanged in meaning; changed REQs carry an inline
@@ -135,27 +159,41 @@ B3, M16.)
 
 ### REQ-WPS-04: Reject-Before-Alloc Oversize Handling
 
-Both the length-prefix read AND the outbound send path MUST check the declared/serialized size
-against `BATCH_CAP_BYTES` BEFORE allocating a receive buffer or writing an oversized frame. A
-size exactly equal to `BATCH_CAP_BYTES` is WITHIN the cap (accepted), never rejected — only a
-size strictly greater than `BATCH_CAP_BYTES` is oversize. This mirrors the engine's own
-`recvFrame` (`framer.go:41`, A4) — the runner's side of the same discipline.
-(Previously: silent on the exact-boundary case — B7.)
+Both the length-prefix read AND the outbound send path MUST enforce the cap on the ENCODED
+FRAME BODY — the serialized JSON the length prefix counts — BEFORE allocating a receive
+buffer or writing an oversized frame. On the INBOUND leg, the declared length is checked
+against `BATCH_CAP_BYTES` directly: a declared length exactly equal to `BATCH_CAP_BYTES` is
+WITHIN the cap (accepted), never rejected — only strictly greater is oversize, mirroring the
+engine's own `recvFrame` (`framer.go:41`, A4). On the OUTBOUND leg (V4), enforcement MUST be
+DETERMINISTIC and batch-anchored: a `Batch` is accepted iff its serialized UTF-8 byte length
+is at most `EMIT_BATCH_BUDGET_BYTES` = `BATCH_CAP_BYTES` −
+`EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES`, where the allowance is the FIXED serialized overhead
+of the `ir.emit` request envelope (`{type,id,method,params:{batch}}`) carrying the LONGEST
+request id the client can mint (`s${Number.MAX_SAFE_INTEGER}`) — derived by measurement,
+asserted in test, never a hand-waved literal. Consequences the implementation MUST honor:
+(i) `StdioEngineClient` and `ContractFake` produce IDENTICAL accept/reject outcomes for the
+same batch, ALWAYS, through ONE shared measurer (`exceedsEmitBatchBudget`, `src/core/
+wire.ts`, fit-32); (ii) the outcome is independent of the request ordinal / id length; (iii)
+an accepted batch's ACTUAL encoded frame body never exceeds `BATCH_CAP_BYTES`. An
+over-budget batch is rejected locally, never written to the wire.
+(Previously V1–V3: both legs compared the bare size against `BATCH_CAP_BYTES`; V4 re-anchors
+the outbound leg per the amendment ledger item 1 — the round-1 per-frame check was
+ordinal-dependent and diverged from the fake.)
 
 #### Scenario REQ-WPS-04.1: Oversized batch rejected before the frame is written
-- GIVEN a factory run produces a `Batch` built via `batchOverSerializedBytes(BATCH_CAP_BYTES)` from `test/fake/batch-cap-fixtures.ts` — its serialized byte size is strictly greater than `BATCH_CAP_BYTES` while its raw content byte size (`rawContentBytes`) stays BELOW `BATCH_CAP_BYTES`, and it carries the fixture's fixed multi-byte/escaping prefix
+- GIVEN a factory run produces a `Batch` built via `batchOverSerializedBytes(EMIT_BATCH_BUDGET_BYTES)` from `test/fake/batch-cap-fixtures.ts` — its serialized byte size is strictly greater than `EMIT_BATCH_BUDGET_BYTES` while its raw content byte size (`rawContentBytes`) stays BELOW the budget, and it carries the fixture's fixed multi-byte/escaping prefix
 - WHEN the client attempts to emit it
-- THEN the client rejects with `EmitRejection{code:"cap"}` locally and NEVER writes the oversized frame to the wire (SC-4) — this fixture shape kills both the serialized-vs-raw-content mutant (a check against raw content alone would wrongly pass) and the UTF-16-length mutant (the multi-byte prefix diverges under a code-unit measurer)
+- THEN the client rejects with `EmitRejection{code:"cap"}` locally and NEVER writes the oversized frame to the wire (SC-4), and `ContractFake.emit` rejects the SAME batch identically (FEH-01 parity) — this fixture shape kills both the serialized-vs-raw-content mutant (a check against raw content alone would wrongly pass) and the UTF-16-length mutant (the multi-byte prefix diverges under a code-unit measurer)
 
 #### Scenario REQ-WPS-04.2: Oversized inbound length prefix rejected before body read
 - GIVEN an inbound frame's declared length exceeds `BATCH_CAP_BYTES`
 - WHEN the runner reads the 4-byte length prefix
 - THEN the runner rejects immediately, classified transport-fault (EXC-01), WITHOUT allocating a buffer for or reading the declared body
 
-#### Scenario REQ-WPS-04.3: Exactly-at-cap batch and prefix are accepted (B7 boundary)
-- GIVEN a factory run produces a `Batch` built via `batchOfSerializedBytes(BATCH_CAP_BYTES)` — its serialized byte size is EXACTLY `BATCH_CAP_BYTES`
+#### Scenario REQ-WPS-04.3: Exactly-at-boundary batch and prefix are accepted (B7 boundary, V4 re-anchored)
+- GIVEN a factory run produces a `Batch` built via `batchAtEmitBudget()` from `test/fake/batch-cap-fixtures.ts` — its serialized byte size is EXACTLY `EMIT_BATCH_BUDGET_BYTES`
 - WHEN the client emits it, and separately, an inbound frame declares a length of EXACTLY `BATCH_CAP_BYTES`
-- THEN the outbound batch is written to the wire and the inbound frame's body is read — neither is rejected (kills the `>=`-instead-of-`>` off-by-one mutant, which would otherwise create a cross-repo interop break against the engine's own boundary handling)
+- THEN the outbound batch is written to the wire — its ACTUAL encoded frame body not exceeding `BATCH_CAP_BYTES` — and the inbound frame's body is read; neither is rejected, while a `batchOverEmitBudget()` batch (one byte over the budget) IS rejected (kills the `>=`-instead-of-`>` off-by-one mutant, which would otherwise create a cross-repo interop break against the engine's own boundary handling)
 
 #### Scenario REQ-WPS-04.4: Signed-read triangulation on the length prefix (m9)
 - GIVEN an inbound frame declares a length of `0x80000000` (2 147 483 648 — negative if read as a signed 32-bit integer, but a valid large unsigned value)
@@ -343,7 +381,7 @@ shape (mutually exclusive by construction — no precedence rule needed, since
 |---|---|---|
 | 0 | success | the run committed and the process exits cleanly |
 | 1 | validation-failure | argv/factory-pointer/schema gating rejects before or during the run (`AuthoringError.origin === "authoring-rejected"`, or a pre-run RUN-01/02/03/04/07/08 gate fails), OR the greeting wire-version mismatch or structurally-invalid greeting (WPS-02.2/.3), OR the bridge contract version mismatch (BRB-01.2), OR the single-instance realpath probe failure (SEC-07.2) |
-| 2 | emit-rejection | the host refused a write or an advisory commit/discard intent (`AuthoringError.origin === "write-rejected"`, includes the `"unknown"` degrade, WPS-08/SEC-04) |
+| 2 | emit-rejection | the host refused a write, an advisory commit/discard intent, or a `tree.read` intent (V4 — a `tree.read` error envelope is classified `IntentRejectedError`, SEC-06) (`AuthoringError.origin === "write-rejected"`, includes the `"unknown"` degrade, WPS-08/SEC-04) |
 | 3 | transport-fault | a wire-level failure (malformed/desync/oversize/timeout/unexpected EOF, including a pending call rejected by SEC-08.3/SEC-10.5) distinct from any classified `AuthoringError` |
 | 4 | crash | an unclassified exception reaches the runner's top-level catch (not an `AuthoringError`, not a transport-fault), including an author-code throw during factory import (RUN-07.2) |
 
@@ -513,11 +551,12 @@ bare factory is never misclassified.)
 ### REQ-RUN-07: Factory Module Import Failure Classification (M4, NEW)
 
 When the bin's dynamic `import()` of the (allowlisted, RUN-02) factory module itself throws,
-the bin MUST classify the failure into exactly two forms: a module-resolution failure (the
-module cannot be found or loaded) exits 1 (validation-failure); an exception thrown by the
-factory module's own top-level code (author code executing at import time) exits 4 (crash). In
-both cases, the stderr text MUST be bounded, no-echo, and project-relative (WPS-07) — never a
-raw import stack trace.
+the bin MUST classify the failure into exactly two forms: a module that could not be RESOLVED
+OR LOADED (V4 — `ERR_MODULE_NOT_FOUND`, or a Bun `ResolveMessage`/`BuildMessage`/
+`SyntaxError` load failure: a module that never RAN) exits 1 (validation-failure); an
+exception thrown by the factory module's own top-level code (author code executing at import
+time) exits 4 (crash). In both cases, the stderr text MUST be bounded, no-echo, and
+project-relative (WPS-07) — never a raw import stack trace.
 
 #### Scenario REQ-RUN-07.1: Module-not-found exits 1
 - GIVEN `--factory file:///workspace/missing.ts` pointing to a nonexistent file
@@ -581,14 +620,16 @@ own parameter handling.
 
 ### REQ-BRB-02: Fd-1 Capture Before Import (C5)
 
-The bridge MUST capture its own reference to the process's fd-1 write handle at its own module
-load — before it imports `pbuilder-runner-bin` or the factory — as belt-and-suspenders alongside
-the engine's own dup (A2). All frame writes for the lifetime of the process MUST route only
-through that captured handle; a later reassignment of `process.stdout` by author code MUST NOT
-be able to redirect wire writes.
+The bridge MUST capture its own reference to the process's fd-1 write handle before any
+factory-related import (armed at bridge entry — V4; previously "at its own module load", which
+would mutate global process state as a side effect of merely importing the module) — before it
+imports `pbuilder-runner-bin` or the factory — as belt-and-suspenders alongside the engine's
+own dup (A2). All frame writes for the lifetime of the process MUST route only through that
+captured handle; a later reassignment of `process.stdout` by author code MUST NOT be able to
+redirect wire writes.
 
 #### Scenario REQ-BRB-02.1: Author reassignment of process.stdout cannot hijack the wire
-- GIVEN the bridge has captured the fd-1 handle at load time
+- GIVEN the bridge has captured the fd-1 handle at bridge entry (V4), before any factory-related import
 - WHEN a factory (post-import) reassigns or monkey-patches `process.stdout`
 - THEN `StdioEngineClient`'s outbound frames still reach the captured handle unchanged — the reassignment has no effect on wire traffic
 
@@ -997,7 +1038,8 @@ and adds one new REQ-ID (LED-01) in a new seventh family:
 | LED | ledger-reconciliation | — | — | LED-01 | LED-01 |
 
 Total: 35 (V1) → 40 (V2) → 41 (V3) REQs. V3 adds exactly one new REQ-ID (LED-01); zero removed,
-zero renumbered.
+zero renumbered. V4 (this version) adds ZERO REQ-IDs — it is a content-only micro-amendment to
+WPS-04, EXC-01, RUN-07, and BRB-02 per the header Amendment ledger; the count stays 41.
 
 ## Coverage Check
 
