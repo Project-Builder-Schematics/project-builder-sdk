@@ -2,9 +2,10 @@
 // here — the full split/coalesced/EOF-mid-frame fault matrix (SEC-10) lands in S-001.
 
 import { describe, it, expect } from "bun:test";
-import { encodeFrame } from "../../src/transport/framing.ts";
+import { encodeFrame, LENGTH_PREFIX_BYTES } from "../../src/transport/framing.ts";
 import { FrameReader } from "../../src/transport/frame-reader.ts";
 import { TransportFault } from "../../src/transport/stdio-engine-client.ts";
+import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 
 async function* chunksOf(...buffers: Buffer[]): AsyncGenerator<Buffer> {
   for (const buf of buffers) yield buf;
@@ -182,5 +183,34 @@ describe("REQ-SEC-10 — partial/chunked frame reassembly (fault matrix)", () =>
       expect(yielded).toEqual([value]);
       expect(error).toBeUndefined();
     });
+  });
+});
+
+describe("REQ-WPS-04.2/.4 — reject-before-alloc at the FrameReader level (oversize declared length)", () => {
+  // Each case delivers ONLY the 4-byte length prefix — never any of the declared body bytes.
+  // The reader must fault on the prefix alone, proving the declared body is never awaited or
+  // allocated (a real oversize body would exhaust memory before a byte-scan ever caught it).
+  it("a frame declaring 0x80000000 bytes throws TransportFault(kind: 'oversize') without ever waiting for the declared body", async () => {
+    const prefix = Buffer.alloc(LENGTH_PREFIX_BYTES);
+    prefix.writeUInt32BE(0x80000000, 0);
+    const reader = new FrameReader(chunksOf(prefix));
+
+    const { yielded, error } = await drainToFault(reader.frames());
+
+    expect(yielded).toEqual([]);
+    expect(error).toBeInstanceOf(TransportFault);
+    expect((error as InstanceType<typeof TransportFault>).kind).toEqual("oversize");
+  });
+
+  it("a frame declaring BATCH_CAP_BYTES + 1 bytes throws TransportFault(kind: 'oversize') without ever waiting for the declared body", async () => {
+    const prefix = Buffer.alloc(LENGTH_PREFIX_BYTES);
+    prefix.writeUInt32BE(BATCH_CAP_BYTES + 1, 0);
+    const reader = new FrameReader(chunksOf(prefix));
+
+    const { yielded, error } = await drainToFault(reader.frames());
+
+    expect(yielded).toEqual([]);
+    expect(error).toBeInstanceOf(TransportFault);
+    expect((error as InstanceType<typeof TransportFault>).kind).toEqual("oversize");
   });
 });
