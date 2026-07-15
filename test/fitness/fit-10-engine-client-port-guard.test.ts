@@ -14,12 +14,14 @@
  * the false positive of a bare EventEmitter `.emit(` call in a file that has nothing to do
  * with the port.
  *
- * Allow-list = exactly `src/testing/contract-fake.ts` (REQ-TES-07, post-relocation ADR-0035
- * — the one legitimate EngineClient implementer, and the one legitimate `EmitRejection`
- * thrower). A structural `implements EngineClient` exception was rejected at design time
- * (spoofable by a planted bypass); a path allow-list cannot be spoofed. The facade
- * `src/testing/index.ts` is explicitly RULED OFF this allow-list — it must achieve its
- * spy-wrapping via a local structural type, never by naming `EngineClient`/`EmitRejection`.
+ * Allow-list (ADR-01, stdio-engine-client change): `src/testing/contract-fake.ts` (REQ-TES-07,
+ * post-relocation ADR-0035 — the original legitimate `EngineClient` implementer / `EmitRejection`
+ * thrower) PLUS `src/transport/stdio-engine-client.ts` — the first REAL `EngineClient`
+ * implementer, extending the allow-list by EXACTLY one path. A structural `implements
+ * EngineClient` exception was rejected at design time (spoofable by a planted bypass); a path
+ * allow-list cannot be spoofed. The facade `src/testing/index.ts` is explicitly RULED OFF this
+ * allow-list — it must achieve its spy-wrapping via a local structural type, never by naming
+ * `EngineClient`/`EmitRejection`.
  *
  * `Directive`/`JsonValue` are data shapes, not the port — the scan never matches them.
  *
@@ -34,7 +36,7 @@ const PROJECT_ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "
 const SRC_ROOT = join(PROJECT_ROOT, "src");
 const CORE_DIR = join(SRC_ROOT, "core");
 
-const ALLOW_LISTED_PATH = "src/testing/contract-fake.ts";
+const ALLOW_LISTED_PATHS: readonly string[] = ["src/testing/contract-fake.ts", "src/transport/stdio-engine-client.ts"];
 
 const PORT_SYMBOL_PATTERN = /\b(?:EngineClient|EmitRejection)\b/;
 const PORT_CALL_PATTERN = /\.(emit|commit|discard)\(/g;
@@ -44,7 +46,7 @@ const PORT_CALL_PATTERN = /\.(emit|commit|discard)\(/g;
  * relPath is project-root-relative, forward-slash (e.g. "src/commons/index.ts").
  */
 function scanPortBleed(source: string, relPath: string): string[] {
-  if (relPath === ALLOW_LISTED_PATH) {
+  if (ALLOW_LISTED_PATHS.includes(relPath)) {
     return [];
   }
 
@@ -115,9 +117,35 @@ export function bypass(): never {
   });
 
   it("src/testing/contract-fake.ts (real source) is allow-listed clean", () => {
-    const source = readFileSync(join(PROJECT_ROOT, ALLOW_LISTED_PATH), "utf-8");
-    const violations = scanPortBleed(source, ALLOW_LISTED_PATH);
+    const relPath = "src/testing/contract-fake.ts";
+    const source = readFileSync(join(PROJECT_ROOT, relPath), "utf-8");
+    const violations = scanPortBleed(source, relPath);
     expect(violations).toEqual([]);
+  });
+
+  // ADR-01 (stdio-engine-client change): the FIT-10 allow-list is widened by EXACTLY one
+  // path — the first real EngineClient implementer.
+  it("src/transport/stdio-engine-client.ts (real source) is allow-listed clean", () => {
+    const relPath = "src/transport/stdio-engine-client.ts";
+    const source = readFileSync(join(PROJECT_ROOT, relPath), "utf-8");
+    const violations = scanPortBleed(source, relPath);
+    expect(violations).toEqual([]);
+  });
+
+  // RED-PROOF (ADR-01): the widened list is a PATH allow-list, not a directory exemption —
+  // an unrelated file inside src/transport/ that names EngineClient is still caught.
+  it("[red-proof] ADR-01: an unrelated file inside src/transport/ naming EngineClient is still caught", () => {
+    const fixtureSource = `
+import type { EngineClient } from "../core/engine-client.ts";
+
+export async function bypass(client: EngineClient) {
+  return client.emit({ protocolVersion: 1, force: false, instructions: [] });
+}
+`;
+    const violations = scanPortBleed(fixtureSource, "src/transport/sneaky-bypass.ts");
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations.some((v) => v.includes("EngineClient"))).toBe(true);
+    expect(violations.some((v) => v.includes(".emit("))).toBe(true);
   });
 
   it("a bare .emit( call with no EngineClient reference is not scanned (kills the EventEmitter false positive)", () => {
@@ -174,8 +202,8 @@ export function describe(directive: Directive): JsonValue {
   });
 
   describe("REQ-TES-07 — allow-list transition post fake relocation", () => {
-    it("REQ-TES-07.1: the allow-list is exactly one path", () => {
-      expect(ALLOW_LISTED_PATH).toEqual("src/testing/contract-fake.ts");
+    it("REQ-TES-07.1 (ADR-01 amendment): the allow-list is exactly these two paths", () => {
+      expect(ALLOW_LISTED_PATHS).toEqual(["src/testing/contract-fake.ts", "src/transport/stdio-engine-client.ts"]);
     });
 
     // RED-PROOF (REQ-TES-07.2): the facade is NOT on the allow-list — naming EngineClient

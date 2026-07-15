@@ -117,6 +117,14 @@
     "dist/testing/index.js",
     "dist/testing/rejection-messages.d.ts",
     "dist/testing/rejection-messages.js",
+    "dist/transport/frame-reader.d.ts",
+    "dist/transport/frame-reader.js",
+    "dist/transport/framing.d.ts",
+    "dist/transport/framing.js",
+    "dist/transport/stdio-engine-client.d.ts",
+    "dist/transport/stdio-engine-client.js",
+    "dist/transport/wire-protocol.d.ts",
+    "dist/transport/wire-protocol.js",
     "package.json"
   ]
 }
