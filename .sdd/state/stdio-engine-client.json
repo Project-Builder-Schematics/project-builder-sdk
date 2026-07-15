@@ -1,8 +1,10 @@
 {
   "change": "stdio-engine-client",
   "triage": "L",
-  "phase": "verify-final",
-  "phase_status": "/evaluate STARTED 2026-07-15. TDD adjudications OWNER-RULED pre-final: ea9b7e0 = accepted lapse; S-005 docs-first = compliant by nature (precedent) — recorded in apply-progress.md. Council: architect + qa + tech-writer + security-engineer.",
+  "phase": "judgment-day",
+  "phase_status": "verify final PASS-WITH-FOLLOWUPS (41/41 REQs, fresh-install flake = pre-existing infra race outside diff) + council 4x approve-with-notes (TW blocker doc-only). Council-fix pass DONE @ 7fc7d43 (exit-1 taxonomy, desync reserved, bridge resolution, session-degrade ledger row, oversize reader tests w/ red-proof; suite 1607/0). Next: judgment-day BLIND (fable judges per owner directive — opus unavailable).",
+  "verify_final": "pass-with-followups",
+  "verify_final_detail": "verify-report.md + engram obs #1015; adversarial_review REQUIRED; followups F-1 cold-start infra race (pre-existing, codegen-static-scan self-build), F-2 SEC-07 probe real-resolver happy path, F-3 twin package-root walks, F-4 runner.ts export-resolution arms, F-5 dist/bin runner wiring (ADR-06 ledger row exists). Council notes not fixed = followups: security WPS-07 raw err.message echo x2 (probe resolution-failure + input-file read), SEC-08 single-pending invariant assumed, RUN-04 TOCTOU A1-dependent, QA: runner EOF->exit-3 e2e leg, FEH-05 citation-based map caveat, SEC-04.2 appliedCount unpinned, architect: transport/errors.ts home, fit-31 cohesion split at next touch.",
   "simplify": "DONE (2026-07-15, commit dcc39bc, user-requested pre-final): 5 fixes (frame-reader redundant Buffer.from copy dropped; #readUntilMatch discard helper; fit-31 doc reads hoisted; frame-host raceExit shared by waitExit+afterEach — also fixes 2s dead-wait on already-exited children; runner.unit stubIo parameterized). 4 skipped with reasons: frame-reader chunk-array rewrite (design 4.9 no-hot-path ruling, rewrite risk > benefit); cross-file wire-spec doc-cache (negligible 3x9.5KB, keeps fitness files standalone); it.concurrent e2e spawns (pre-existing repo-wide sequential convention, flake risk); probe self-reference fallback + packageRootFor/findProjectRoot dedup (behavior-affecting / outside change scope — registered as followup candidates for verify final + archive)",
   "spec_status": "signed",
   "slices": true,
@@ -17,7 +19,6 @@
     "s005_gate": "SATISFIED — PENDING_S005_COVERAGE_EXEMPTIONS shrunk to empty (all of WPS-06, WPS-11, FEH-06, LED-01 now cited by real tests)"
   },
   "plan_verify": "ready",
-  "verify_final": "pending",
   "arch_audit": "pending",
   "carried_to_final": [
     "Strict TDD adjudication #1: ea9b7e0 (S-003) shipped BRB-02/03/RUN-08/SEC-09 sealing mechanism with zero test changes; driving test landed 2 commits later (c72d1ca) and apply-progress records RED as unrelated fixture bug. Needs documented rationale or accepted-lapse ruling at verify final (verify-in-loop-4).",
