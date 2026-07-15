@@ -1,13 +1,16 @@
 // Transport shell over the ONE ContractFake (design § 4.2, FEH-01 posture): framing/dispatch
 // only, ZERO re-implemented engine semantics — every method delegates to the normative
 // ContractFake (src/testing/contract-fake.ts) and only shapes the WPS-10 response envelope.
-// Happy dispatch only in S-000; error-shaping legs (WPS-08 rejections etc.) land in later
-// slices. Shared by the in-process integration test AND the spawned e2e, so the dispatch
-// exists exactly once.
+// `ir.emit`'s error-shaping leg (S-002, EXC-01.2 item b): a ContractFake rejection is
+// caught and shaped into the WPS-08 wire error envelope, same as a real engine host would
+// — read/commit/discard stay happy-dispatch-only (their own error legs are S-003+ scope,
+// no REQ in this slice needs them). Shared by the in-process integration test AND the
+// spawned e2e, so the dispatch exists exactly once.
 
 import type { ContractFake } from "../../src/testing/contract-fake.ts";
 import type { Batch } from "../../src/core/wire.ts";
 import type { FrameHost } from "../support/frame-host.ts";
+import { EmitRejection } from "../../src/core/emit-rejection.ts";
 
 export interface HostRequestFrame {
   id: string;
@@ -18,13 +21,17 @@ export interface HostRequestFrame {
 export interface HostResponseFrame {
   type: "response";
   id: string;
-  result: unknown;
+  result?: unknown;
+  error?: { code: number; message: string; data?: { emitRejectionCode: string; failedIndex?: number; appliedCount: number } };
 }
+
+// REQ-WPS-08: the wire's fixed JSON-RPC-style error code for an ir.emit rejection.
+const EMIT_REJECTION_ERROR_CODE = -32001;
 
 /**
  * Answers ONE runner-issued reverse-callback request against the fake, per the WPS-10
  * per-method result shapes: `tree.read` → `null` | `{content}`; `ir.emit` →
- * `{appliedCount}`; `ir.commit`/`ir.discard` → `{}`.
+ * `{appliedCount}` | `error{-32001,data}`; `ir.commit`/`ir.discard` → `{}`.
  */
 export async function dispatchToFake(fake: ContractFake, request: HostRequestFrame): Promise<HostResponseFrame> {
   if (request.method === "tree.read") {
@@ -34,8 +41,23 @@ export async function dispatchToFake(fake: ContractFake, request: HostRequestFra
   }
   if (request.method === "ir.emit") {
     const { batch } = request.params as { batch: Batch };
-    await fake.emit(batch);
-    return { type: "response", id: request.id, result: { appliedCount: batch.instructions.length } };
+    try {
+      await fake.emit(batch);
+      return { type: "response", id: request.id, result: { appliedCount: batch.instructions.length } };
+    } catch (err) {
+      if (err instanceof EmitRejection) {
+        return {
+          type: "response",
+          id: request.id,
+          error: {
+            code: EMIT_REJECTION_ERROR_CODE,
+            message: err.message,
+            data: { emitRejectionCode: err.code, failedIndex: err.failedIndex, appliedCount: err.appliedCount },
+          },
+        };
+      }
+      throw err;
+    }
   }
   if (request.method === "ir.commit") {
     await fake.commit();
