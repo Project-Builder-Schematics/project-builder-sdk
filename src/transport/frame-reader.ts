@@ -24,7 +24,7 @@ export class FrameReader {
 
   async *frames(): AsyncGenerator<unknown> {
     for await (const chunk of this.#source) {
-      this.#buffer = Buffer.concat([this.#buffer, Buffer.from(chunk)]);
+      this.#buffer = Buffer.concat([this.#buffer, chunk]);
       for (const frame of this.#drainCompleteFrames()) {
         yield frame;
       }

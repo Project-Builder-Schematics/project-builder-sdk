@@ -17,14 +17,14 @@ const HAPPY_FIXTURE_DIR = new URL("../fixtures/frame-runner/happy/", import.meta
 const HAPPY_POINTER = `file://${HAPPY_FIXTURE_DIR}factory.ts`;
 const IMPORT_CRASH_POINTER = `file://${new URL("../fixtures/frame-runner/import-crash/", import.meta.url).pathname}factory.ts`;
 
-// Never-consulted io: the argv/input-file gates under test all reject BEFORE the greeting
-// is ever awaited, so `input` yields nothing and `writeFrame` must never be called.
-function unreachedIo(): RunnerIo & { stderrText(): string } {
+// Stub io whose `writeFrame` always throws `guard`: every gate under test must reject
+// before the runner ever writes a frame.
+function stubIo(input: AsyncIterable<Uint8Array>, guard: string): RunnerIo & { stderrText(): string } {
   let stderr = "";
   return {
-    input: (async function* () {})(),
+    input,
     writeFrame(): void {
-      throw new Error("unreachedIo: writeFrame called — a pre-greeting gate should have rejected first");
+      throw new Error(guard);
     },
     writeStderr(text: string): void {
       stderr += text;
@@ -33,24 +33,26 @@ function unreachedIo(): RunnerIo & { stderrText(): string } {
   };
 }
 
+// Never-consulted io: the argv/input-file gates under test all reject BEFORE the greeting
+// is ever awaited, so `input` yields nothing and `writeFrame` must never be called.
+function unreachedIo(): RunnerIo & { stderrText(): string } {
+  return stubIo(
+    (async function* () {})(),
+    "unreachedIo: writeFrame called — a pre-greeting gate should have rejected first"
+  );
+}
+
 // A greeting-accepting io whose stdin ends immediately after — used for RUN-07's
 // import-failure legs, which run AFTER the handshake (SEC-07's probe sits between the
 // greeting and the import, so these fixtures self-reference this repo's own SDK copy —
 // matching SEC-07.1, never triggering a split).
 function greetedIo(): RunnerIo & { stderrText(): string } {
-  let stderr = "";
-  return {
-    input: (async function* () {
+  return stubIo(
+    (async function* () {
       yield encodeFrame({ method: "ready", protocolVersion: WIRE_PROTOCOL_VERSION });
     })(),
-    writeFrame(): void {
-      throw new Error("greetedIo: writeFrame called — an import-failure gate should have rejected first");
-    },
-    writeStderr(text: string): void {
-      stderr += text;
-    },
-    stderrText: () => stderr,
-  };
+    "greetedIo: writeFrame called — an import-failure gate should have rejected first"
+  );
 }
 
 describe("REQ-RUN-01 — argv contract", () => {

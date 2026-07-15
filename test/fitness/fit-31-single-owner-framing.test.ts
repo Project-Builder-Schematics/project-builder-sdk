@@ -29,6 +29,9 @@ const DESIGN_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-design.md");
 const WIRE_SPEC_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-spec.md");
 const PENDING_CHANGES_PATH = join(PROJECT_ROOT, "openspec/pending-changes.md");
 
+const DESIGN_DOC_TEXT = readFileSync(DESIGN_DOC_PATH, "utf-8");
+const PENDING_CHANGES_TEXT = readFileSync(PENDING_CHANGES_PATH, "utf-8");
+
 // ---------------------------------------------------------------------------------------
 // single-owner-of-framing (design § 4.7): only framing.ts constructs a frame's length prefix.
 // ---------------------------------------------------------------------------------------
@@ -167,7 +170,7 @@ describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconcili
 
   describe("REQ-WPS-11.1 — zero live references to the superseded design outside a superseded section", () => {
     it("docs/engine-sdk-wire-design.md holds no live NDJSON/single-initiator/session.init reference outside its Superseded section", () => {
-      expect(supersededTermViolations(readFileSync(DESIGN_DOC_PATH, "utf-8"))).toEqual([]);
+      expect(supersededTermViolations(DESIGN_DOC_TEXT)).toEqual([]);
     });
 
     it("[red-proof] a live reference OUTSIDE a superseded section is caught", () => {
@@ -188,7 +191,7 @@ describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconcili
 
   describe("REQ-WPS-11.2 — header stamps the wire-spec version target", () => {
     it("docs/engine-sdk-wire-design.md's header stamps a version matching WIRE_PROTOCOL_VERSION", () => {
-      expect(extractHeaderStamp(readFileSync(DESIGN_DOC_PATH, "utf-8"))).toEqual(WIRE_PROTOCOL_VERSION);
+      expect(extractHeaderStamp(DESIGN_DOC_TEXT)).toEqual(WIRE_PROTOCOL_VERSION);
     });
 
     it("[red-proof] a header with no stamp is caught", () => {
@@ -210,11 +213,11 @@ describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconcili
 
   describe("REQ-LED-01 — pending-changes ledger reconciled (fit-31-style ledger-presence scan)", () => {
     it("openspec/pending-changes.md names the cross-repo tether row and the Windows/macOS-pins row", () => {
-      expect(ledgerTetherViolations(readFileSync(PENDING_CHANGES_PATH, "utf-8"))).toEqual([]);
+      expect(ledgerTetherViolations(PENDING_CHANGES_TEXT)).toEqual([]);
     });
 
     it("openspec/pending-changes.md's closed StdioEngineClient row carries a full supersession note", () => {
-      expect(ledgerSupersessionViolations(readFileSync(PENDING_CHANGES_PATH, "utf-8"))).toEqual([]);
+      expect(ledgerSupersessionViolations(PENDING_CHANGES_TEXT)).toEqual([]);
     });
 
     it("[red-proof] a ledger with no tether/Windows rows is caught", () => {

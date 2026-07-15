@@ -18,6 +18,22 @@ import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
 
 const KILL_WAIT_TIMEOUT_MS = 2000;
 
+// Resolves with the child's exit outcome, or `{code: null, signal: null}` after `timeoutMs`.
+// Checks for an already-exited child first — `once(child, "exit")` never fires retroactively.
+async function raceExit(
+  child: ChildProcessWithoutNullStreams,
+  timeoutMs: number
+): Promise<{ code: number | null; signal: NodeJS.Signals | null }> {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return { code: child.exitCode, signal: child.signalCode };
+  }
+  const outcome = await Promise.race([
+    once(child, "exit").then(([code, signal]) => ({ code: code as number | null, signal: signal as NodeJS.Signals | null })),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
+  return outcome ?? { code: null, signal: null };
+}
+
 export interface FrameHost {
   /** Writes `value` as one framed message to the process's stdin. */
   send(value: unknown): void;
@@ -72,15 +88,8 @@ function buildFrameHost(child: ChildProcessWithoutNullStreams): FrameHost {
         child.kill("SIGKILL");
       }
     },
-    async waitExit(timeoutMs = 5000): Promise<{ code: number | null; signal: NodeJS.Signals | null }> {
-      if (child.exitCode !== null || child.signalCode !== null) {
-        return { code: child.exitCode, signal: child.signalCode };
-      }
-      const outcome = await Promise.race([
-        once(child, "exit").then(([code, signal]) => ({ code: code as number | null, signal: signal as NodeJS.Signals | null })),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-      ]);
-      return outcome ?? { code: null, signal: null };
+    waitExit(timeoutMs = 5000): Promise<{ code: number | null; signal: NodeJS.Signals | null }> {
+      return raceExit(child, timeoutMs);
     },
   };
 }
@@ -106,7 +115,7 @@ export function frameHostFactory(): (
         if (child.exitCode === null && child.signalCode === null) {
           child.kill("SIGKILL");
         }
-        await Promise.race([once(child, "exit"), new Promise((resolve) => setTimeout(resolve, KILL_WAIT_TIMEOUT_MS))]);
+        await raceExit(child, KILL_WAIT_TIMEOUT_MS);
       })
     );
   });

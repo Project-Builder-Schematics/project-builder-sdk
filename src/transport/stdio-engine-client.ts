@@ -150,23 +150,22 @@ export class StdioEngineClient implements EngineClient {
   // ability to keep reading (M16 liveness). Faults thrown by the channel (SEC-08, e.g. a
   // frame-reader TransportFault) propagate through unchanged.
   async #readUntilMatch(id: string): Promise<ResponseFrame> {
+    const discard = (what: string): void => {
+      this.#io.writeStderr(boundMessage(`discarding ${what} while awaiting response to ${id}`));
+    };
     for (;;) {
       const frame = await this.#io.read();
       if (typeof frame !== "object" || frame === null) {
-        this.#io.writeStderr(boundMessage(`discarding non-object frame while awaiting response to ${id}`));
+        discard("non-object frame");
         continue;
       }
       const candidate = frame as Record<string, unknown>;
       if (candidate.type !== "response") {
-        this.#io.writeStderr(
-          boundMessage(`discarding frame with type "${String(candidate.type)}" while awaiting response to ${id}`)
-        );
+        discard(`frame with type "${String(candidate.type)}"`);
         continue;
       }
       if (candidate.id !== id) {
-        this.#io.writeStderr(
-          boundMessage(`discarding response for id "${String(candidate.id)}" while awaiting response to ${id}`)
-        );
+        discard(`response for id "${String(candidate.id)}"`);
         continue;
       }
       return frame as ResponseFrame;
