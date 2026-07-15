@@ -64,8 +64,8 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - [x] S-000.4 RED `stdio-engine-client.ts` unit over in-memory channel: 4 callbacks, payload shapes, ack/`IntentRejectedError`, null→undefined/""→"", settles-once (WPS-10, SEC-01/03/06)
 - [x] S-000.5 RED FIT-10 red-proof, extend allow-list by exactly `src/transport/stdio-engine-client.ts` (ADR-01)
 - [x] S-000.6 RED `test/support/frame-host.ts` unit: async spawn+frame helper, greeting barrier, afterEach kill
-- [ ] S-000.7 Minimal `runner.ts` + `bin/pbuilder-runner.ts` + `defineFactory` wrap `packageDir=dirname` parity (RUN-05) + `fake-engine-harness.ts` shell over ContractFake (happy dispatch only) — **BLOCKED, see apply-progress: architectural-conflict, FIT-29 vs RUN-05**
-- [ ] S-000.8 e2e skeleton in `fake-engine-harness.e2e.test.ts` + fit-30 scan — blocked by S-000.7
+- [x] S-000.7 Minimal `runner.ts` + `bin/pbuilder-runner.ts` + `defineFactory` wrap `packageDir=dirname` parity (RUN-05) + `fake-engine-harness.ts` shell over ContractFake (happy dispatch only) — halt resolved by ADR-07 (fit-29 allow-list + the FILE `src/transport/runner.ts`)
+- [x] S-000.8 e2e skeleton in `fake-engine-harness.e2e.test.ts` + fit-30 scan
 
 ---
 
