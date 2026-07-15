@@ -1,7 +1,7 @@
 {
   "name": "@pbuilder/sdk",
   "version": "0.0.0",
-  "description": "The public TypeScript/Bun authoring layer for Project Builder schematics. Authors file mutations (create, modify, remove, rename, move, copy, copyIn), lowers them to IR, and talks to the Project Builder engine over JSON-RPC.",
+  "description": "The public TypeScript/Bun authoring layer for Project Builder schematics. Authors file mutations (create, modify, remove, rename, move, copy, copyIn), lowers them to IR, and talks to the Project Builder engine over framed stdio (see docs/engine-sdk-wire-spec.md).",
   "license": "MIT",
   "type": "module",
   "private": false,
