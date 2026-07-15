@@ -8,7 +8,7 @@
 import { posix as path } from "node:path";
 import type { EngineClient } from "../core/engine-client.ts";
 import type { Batch, Directive } from "../core/wire.ts";
-import { BATCH_CAP_BYTES } from "../core/wire.ts";
+import { BATCH_CAP_BYTES, exceedsBatchCap } from "../core/wire.ts";
 import { EmitRejection } from "../core/emit-rejection.ts";
 import { deepEqual } from "../core/deep-equal.ts";
 import {
@@ -61,9 +61,10 @@ export class ContractFake implements EngineClient {
 
     // ADR-0019: cap enforced HERE — the fake is the engine stand-in and the sole judge
     // of size (ADR-0018); Session.flush calls emit unconditionally, no SDK-side branch.
-    //
-    const size = Buffer.byteLength(serialized, "utf8");
-    if (size > BATCH_CAP_BYTES) {
+    // fit-32 cap-single-source (stdio-engine-client change): routed through the shared
+    // `exceedsBatchCap` measurer — no locally re-derived cap comparison here.
+    if (exceedsBatchCap(batch)) {
+      const size = Buffer.byteLength(serialized, "utf8");
       throw new EmitRejection(
         "cap",
         `${CONTRACT_FAKE_PREFIX} batch ${EXCEEDS_SIZE_CAP} — ${size} bytes serialized, cap is ${BATCH_CAP_BYTES} bytes`

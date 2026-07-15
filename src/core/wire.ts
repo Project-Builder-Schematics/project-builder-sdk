@@ -54,11 +54,31 @@ export type Batch = { protocolVersion: 1; force: boolean; instructions: Directiv
 // semver freeze.
 export const BATCH_CAP_BYTES = 4 * 1024 * 1024;
 
+// REQ-WPS-04 / fit-32 (cap-single-source, stdio-engine-client change): the UTF-8 serialized
+// byte length of a full Batch envelope — the one measurer both `serializedBatchSize` (below)
+// and `exceedsBatchCap`'s outbound leg consume, so the envelope shape can never drift.
+export function serializedBatchBytes(batch: Batch): number {
+  return Buffer.byteLength(JSON.stringify(batch), "utf8");
+}
+
 // The one shared measurer of what `instructions` serialize to inside the wire envelope —
 // the SAME shape `Session.flush` emits and the fake's `emit` cap check measures
 // (ADR-0018/0019). The expander's chunk heuristic and the batch-cap tests both consume
 // this so the envelope shape can never drift between them.
 export function serializedBatchSize(instructions: readonly Directive[]): number {
   const batch: Batch = { protocolVersion: 1, force: false, instructions: [...instructions] };
-  return Buffer.byteLength(JSON.stringify(batch), "utf8");
+  return serializedBatchBytes(batch);
+}
+
+// REQ-WPS-04 / fit-32 (cap-single-source): the ONE `> BATCH_CAP_BYTES` comparison in the
+// whole codebase. Two legs share it: the OUTBOUND leg (a client about to emit a Batch —
+// pass the Batch itself, measured via `serializedBatchBytes`) and the INBOUND leg (a raw
+// declared length prefix read off the wire before the body is even buffered — pass the
+// byte count directly, no Batch exists yet to construct). `> BATCH_CAP_BYTES`, never `>=`
+// (a size exactly at the cap is WITHIN it, REQ-WPS-04.3).
+export function exceedsBatchCap(subject: Batch): boolean;
+export function exceedsBatchCap(subject: number): boolean;
+export function exceedsBatchCap(subject: Batch | number): boolean {
+  const bytes = typeof subject === "number" ? subject : serializedBatchBytes(subject);
+  return bytes > BATCH_CAP_BYTES;
 }
