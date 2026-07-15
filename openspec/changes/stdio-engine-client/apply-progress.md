@@ -613,3 +613,110 @@ design's Test Derivation table, not to `exit-matrix.e2e.test.ts`).
   direct, necessary consequence of slices.md's own Build Order ("S-005 docs LAST — against
   BUILT code") intersecting with FEH-05's REQ text ("zero uncovered... at test time"). See
   Discoveries for the empirical grep that confirmed exactly these four and no others.
+
+---
+
+# S-005: One normative wire text both repos build against
+
+**Scope this run**: `slice:S-005` | **Mode**: Strict TDD (docs-only tasks + fitness tests) | **Status**: complete (4/4)
+
+FINAL slice. `docs/engine-sdk-wire-spec.md` (new, normative) and `docs/engine-sdk-wire-design.md`
+rev 3 (historical record, superseded decisions marked) are reconciled against the BUILT code
+S-000..S-004 shipped — never spec-on-faith. `openspec/pending-changes.md` is reconciled against
+this change's dispositions (REQ-LED-01). `PENDING_S005_COVERAGE_EXEMPTIONS` (S-004's documented
+shrink-only exemption set: WPS-06, WPS-11, FEH-06, LED-01) is now EMPTY — the HARD GATE this
+slice was held to.
+
+## S-005 tasks (4/4)
+
+| Task | Status | Files |
+|---|---|---|
+| S-005.1 normative `docs/engine-sdk-wire-spec.md` (WPS-11) | done | `docs/engine-sdk-wire-spec.md` (new) |
+| S-005.2 `docs/engine-sdk-wire-design.md` rev 3 (WPS-11) | done | `docs/engine-sdk-wire-design.md`, `docs/README.md` (index links, in-scope one-liner) |
+| S-005.3 fit-31/33/34 (WPS-11, WPS-06/FEH-06, BRB-01) + fit-31-style LED-01 ledger scan | done | `test/fitness/fit-31-single-owner-framing.test.ts`, `test/fitness/fit-33-bridge-version-pin.test.ts`, `test/fitness/fit-34-batch-cap-drift.test.ts` |
+| S-005.4 ledger reconciliation (REQ-LED-01) | done | `openspec/pending-changes.md` |
+
+Final: `bun test` → **1605 pass / 0 fail** (170 files, 3243 expect() calls); `tsc --noEmit` →
+clean; `bun run build` → clean. `PENDING_S005_COVERAGE_EXEMPTIONS` final state: **empty set**
+(`test/fake/harness.test.ts`).
+
+## TDD Cycle Evidence — S-005
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| S-005.1/.2 (docs) | n/a — docs-only tasks, no production behavior to RED/GREEN per the skill's docs treatment; their correctness is proven by the fitness tests below reading them | — | n/a | n/a | n/a | n/a |
+| S-005.3 (single-owner-of-framing) | `fit-31...test.ts::holds no re-implemented frame-encode length prefix` (all `src/transport/**` files) | architectural | organic (function written against real code first pass, immediately green — the encode-side claim already held; no violation existed to discover) | ✅ | red-proof (planted `writeUInt32BE` outside framing.ts) / negative-control (frame-reader.ts's legitimate `readUInt32BE` peek NOT flagged) | none needed |
+| S-005.3 (WPS-11.1) | `fit-31...test.ts::docs/engine-sdk-wire-design.md holds no live NDJSON/single-initiator/session.init reference outside its Superseded section` | architectural | n/a — doc already rev-3'd (S-005.2) before this check was written; proven via 3 red-proof fixtures instead (a live reference outside Superseded IS caught; the same reference inside Superseded, and nested under a sub-heading of it, is NOT) | ✅ | outside-superseded / inside-superseded / nested-sub-heading-of-superseded — 3 cases | none needed |
+| S-005.3 (WPS-11.2) | `fit-31...test.ts::docs/engine-sdk-wire-design.md's header stamps a version matching WIRE_PROTOCOL_VERSION` | architectural | n/a — header already stamped (S-005.2); red-proof: a header with no stamp yields `undefined`, never a false match | ✅ | stamped / unstamped — 2 cases | none needed |
+| S-005.3 (WPS-11.3) | `fit-31...test.ts::docs/engine-sdk-wire-spec.md is missing zero mandated sections` | architectural | n/a — doc already carries all 8 sections (S-005.1); red-proof: a doc missing one section is caught by name | ✅ | full-doc / missing-one-section fixture | none needed |
+| S-005.3 (LED-01 tether/Windows rows) | `fit-31...test.ts::openspec/pending-changes.md names the cross-repo tether row and the Windows/macOS-pins row` | architectural | organic RED (ledger not yet edited): `["no cross-repo tether row...", "no deferred Windows/macOS-pins row"]` | ✅ (after S-005.4's ledger edits) | red-proof: an unrelated ledger text still yields both violations | none needed |
+| S-005.3 (LED-01 supersession note) | `fit-31...test.ts::openspec/pending-changes.md's closed StdioEngineClient row carries a full supersession note` | architectural | organic RED (ledger not yet edited): `["no CLOSED StdioEngineClient row found"]`; then a SECOND organic RED after a too-broad character-window bug was fixed (see Discoveries): `["...omits NDJSON", "...omits session.init", "...omits the argv/bridge bootstrap mechanism"]` before S-005.4 landed | ✅ | red-proof: a fixture closed row missing one of the three named decisions is caught | line-scoped match (see Discoveries) replaces the original character-window match |
+| S-005.3 (fit-33) | `fit-33-bridge-version-pin.test.ts::the wire-spec doc declares a BRIDGE_CONTRACT_VERSION inside its Bridge Contract (BRB-01) section` | architectural | organic RED — a genuine regex bug (`/m` flag + `$` anchor, see Discoveries) made the section-extraction return `undefined` against the REAL doc on first run | ✅ (after the regex fix) | red-proof: drifted value / missing section / a same-numbered constant under an UNRELATED section (WPS-06) not mistaken for the bridge section — 3 cases | none needed |
+| S-005.3 (fit-34) | `fit-34-batch-cap-drift.test.ts::REQ-FEH-06.1: the wire-spec doc's Frame-Cap Constant section pins the SAME literal the SDK exports` | architectural | same organic regex-bug RED as fit-33 (identical extraction helper shape) | ✅ (after the regex fix) | red-proof: drifted literal / missing section — 2 cases | none needed |
+| S-005.4 (ledger) | n/a — docs-only task; its correctness is proven by fit-31's LED-01 `describe` block above, not a separate TDD cycle | — | n/a | n/a | n/a | n/a |
+
+## Discoveries
+
+- **A `/regex/m` + a `$` lookahead is NOT "end of string" — it is "end of ANY line".**
+  `fit-33`/`fit-34`'s section-extraction helpers originally combined a multiline `^` (to anchor
+  the heading line) with a lazy capture bounded by `(?=\n#{1,4}\s|$)` under the `/m` flag. Under
+  `/m`, `$` matches before EVERY newline, not just the string's end — so the lazy capture
+  stopped at the FIRST line break inside the section (right after the ` ```ts` fence-open line),
+  truncating every extraction to nothing useful. Fixed by dropping `/m` entirely and
+  substituting `(?:^|\n)` for the heading anchor — the bare (non-`/m`) `$` then correctly means
+  "end of string" (or just before a trailing newline). Documented in both files' own comments so
+  a future author reusing this pattern doesn't reintroduce the bug.
+- **A naive "distance between two substrings" ledger scan false-matches on an UNRELATED mention
+  of the search term.** `fit-31`'s original LED-01 supersession check searched for "StdioEngineClient"
+  anywhere in the file and then looked for "CLOSED" within a 600-character window — but this
+  change's OWN L74 edit (S-005.4, EmitRejection row) mentions `StdioEngineClient` in passing
+  (`"a real EngineClient now exists (StdioEngineClient)"`), and that mention sits far from any
+  "CLOSED" text, silently poisoning `indexOf`'s "first occurrence" semantics. Fixed by scanning
+  PER LINE for a line containing both terms — this ledger's table rows are each single (very
+  long) lines, so a per-line predicate is both correct and simpler than a character-window guess.
+- **fit-31 bundles the REQ-LED-01 "fit-31-style ledger-presence scan" (spec.md's own literal
+  attribution) rather than adding a 7th numbered fitness function.** slices.md's Executor
+  Context table (the orchestrator's plan-verify iteration-2 numbering ruling) fixes the new-check
+  count at exactly six (fit-30..35) with fit-29 explicitly NOT reused; spec.md's own REQ-LED-01
+  text says the ledger requirement "is verified by... a fit-31-style ledger-presence scan
+  (slices.md task S-005.3)" — read as "a scan in fit-31's own style", not a mandate for a
+  separate numbered check. Documented here as an interpretive call, not a silent decision.
+- **fit-31's own "single-owner-of-framing" scope is deliberately narrower than design.md § 4.7's
+  literal one-line description.** That bullet says fit-31 guards that "only framing.ts encodes/
+  decodes the length prefix" — but `frame-reader.ts` (built in S-000) legitimately calls
+  `readUInt32BE` itself to know how many bytes to wait for during streaming reassembly, while
+  correctly delegating body-decode and the cap check to `framing.ts` (its own header comment
+  says so). A scan that flagged ALL length-prefix reads would falsely flag this pre-existing,
+  already-audited code; a scan that flagged NOTHING would be vacuous. This file's scan is scoped
+  to frame ENCODING (`writeUInt32BE`, the construction half) — a claim `framing.ts`'s
+  `encodeFrame` is genuinely the sole owner of, non-vacuously red-proofed, and explicitly
+  verified NOT to flag `frame-reader.ts`'s legitimate read. See the executor-ruling ambiguity
+  note in the file's own header comment.
+
+## Slice Audit Notes (Step 7c, mode: slice)
+
+Zero `src/` files touched this slice — all changes are `docs/`, `test/fitness/`,
+`test/fake/harness.test.ts` (one constant), and `openspec/pending-changes.md`. No layer
+violation possible (no production code moved); `test/fitness/` full suite green, including
+every pre-existing fit-NN check (untouched by this slice except the exemption-set shrink).
+Zero `as any`/`as unknown as`/TODO/FIXME introduced (verified by grep across the full diff).
+No sensitive-area-uncovered gap: the IPC boundary (already registered) gains its normative
+doc this slice, not a new uncovered surface. Self-reviewed given the docs-only/test-only diff
+shape (no `code-audit.md` engine invocation — architecturally inert change).
+
+## Deviations from design
+
+- **fit-31's code-level check is scoped to frame ENCODING only** (not encode+decode/read),
+  diverging from design.md § 4.7's literal one-line text — see Discoveries for the full
+  rationale (frame-reader.ts's legitimate read would otherwise false-positive or force a
+  vacuous check).
+- **REQ-LED-01's "fit-31-style ledger-presence scan" is bundled into `fit-31-single-owner-
+  framing.test.ts`** rather than a separate numbered fitness function — see Discoveries
+  (slices.md's Executor Context ruling fixes the count at six new checks, fit-29 unused).
+- **`docs/README.md` and a handful of factual one-liners in `docs/engine-sdk-wire-design.md`**
+  (the runner-bin `package.json#bin` correction, the Open Questions resolutions) were touched
+  alongside the mandated rev-3 edit — small, same-file, directly-in-scope corrections
+  completing the "reconciled against BUILT code" posture WPS-11/the north-star reckoning item 2
+  asks for, not a broader unscoped rewrite of the historical record.
+
+---

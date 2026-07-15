@@ -164,10 +164,10 @@ Strict TDD: every task's test lands red first. Spawn-dependent tests as late as 
 - THEN fit-31 finds zero live NDJSON/single-initiator/`session.init` outside superseded headings + header stamps wire-spec v1; fit-34 pins `BATCH_CAP_BYTES == 4194304` vs the doc; fit-33 pins `BRIDGE_CONTRACT_VERSION` vs the doc's bridge section; doc method/error/exit sections match built code (north-star reckoning item 2)
 
 ### Tasks
-- [ ] S-005.1 Write normative `docs/engine-sdk-wire-spec.md`: methods, error shapes, pointer grammar, cap naming, exit codes, bridge-contract section — from built code
-- [ ] S-005.2 Rewrite `docs/engine-sdk-wire-design.md` rev 3: superseded decisions under `## Superseded (historical)`, header stamps version
-- [ ] S-005.3 RED fit-31 (doc scan + stamp), fit-34 (FEH-06/WPS-06), fit-33 (doc-declared pin)
-- [ ] S-005.4 Ledger `openspec/pending-changes.md` per the reconciliation table below (REQ-LED-01 — provenance: propose-phase pm council 2026-07-15; owner-ratified at the propose checkpoint; L360 by explicit owner ruling, engram obs #2161). **Locate rows by CONTENT, not the line numbers given — `pending-changes.md` shifts as rows are edited.**
+- [x] S-005.1 Write normative `docs/engine-sdk-wire-spec.md`: methods, error shapes, pointer grammar, cap naming, exit codes, bridge-contract section — from built code
+- [x] S-005.2 Rewrite `docs/engine-sdk-wire-design.md` rev 3: superseded decisions under `## Superseded (historical)`, header stamps version
+- [x] S-005.3 RED fit-31 (doc scan + stamp), fit-34 (FEH-06/WPS-06), fit-33 (doc-declared pin)
+- [x] S-005.4 Ledger `openspec/pending-changes.md` per the reconciliation table below (REQ-LED-01 — provenance: propose-phase pm council 2026-07-15; owner-ratified at the propose checkpoint; L360 by explicit owner ruling, engram obs #2161). **Locate rows by CONTENT, not the line numbers given — `pending-changes.md` shifts as rows are edited.**
 
   | Row (pending-changes.md, content as of 2026-07-15) | Disposition |
   |---|---|
