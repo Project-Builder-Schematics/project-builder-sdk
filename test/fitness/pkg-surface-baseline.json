@@ -117,6 +117,8 @@
     "dist/testing/index.js",
     "dist/testing/rejection-messages.d.ts",
     "dist/testing/rejection-messages.js",
+    "dist/transport/bootstrap-bridge.d.ts",
+    "dist/transport/bootstrap-bridge.js",
     "dist/transport/error-text.d.ts",
     "dist/transport/error-text.js",
     "dist/transport/exit-codes.d.ts",

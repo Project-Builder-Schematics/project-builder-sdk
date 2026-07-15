@@ -1,13 +1,12 @@
-// REQ-EXC-01.2/.3 (S-002.6): the spawned runner's exit-code taxonomy, proven over REAL
-// stdio — the four mutually-distinct failure classes (1/2/3/4) plus the handshake-time
-// legs that all classify as 1 (validation-failure), indistinguishable by exit code, only
-// by message text.
+// REQ-EXC-01.2/.3 (S-002.6, trio completed S-003.5): the spawned runner's exit-code
+// taxonomy, proven over REAL stdio — the four mutually-distinct failure classes (1/2/3/4)
+// plus the handshake-time legs that all classify as 1 (validation-failure), indistinguishable
+// by exit code, only by message text.
 //
-// Handshake DEVIATION (documented, not silent): REQ-EXC-01.3 names three handshake-time
-// failures — WPS-02 mismatch, BRB-01 bridge mismatch, SEC-07 probe split. This slice
-// (S-002) has no bridge yet (BRB-01 lands in S-003) — the two legs testable NOW (WPS-02 +
-// SEC-07) are covered here as a "handshake duo"; S-003 adds the third leg once
-// bootstrap-bridge.ts exists, completing the trio.
+// REQ-EXC-01.3's handshake trio is now COMPLETE: S-002 covered WPS-02 mismatch + SEC-07
+// probe split (a documented duo at the time, since bootstrap-bridge.ts did not exist yet);
+// S-003 adds the third leg (BRB-01 bridge contract version mismatch) below, now that
+// bootstrap-bridge.ts and its e2e stub (test/fixtures/bridge-bootstrap-stub.ts) exist.
 
 import { describe, it, expect } from "bun:test";
 import { spawn } from "node:child_process";
@@ -20,10 +19,11 @@ import { serveSpawnedRunner } from "./fake-engine-harness.ts";
 import { ContractFake } from "../../src/testing/contract-fake.ts";
 import { encodeFrame } from "../../src/transport/framing.ts";
 import { FrameReader } from "../../src/transport/frame-reader.ts";
-import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
+import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../src/transport/wire-protocol.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const RUNNER_BIN = new URL("../../bin/pbuilder-runner.ts", import.meta.url).pathname;
+const BRIDGE_STUB = new URL("../fixtures/bridge-bootstrap-stub.ts", import.meta.url).pathname;
 const HAPPY_POINTER = `file://${new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;
 const COLLIDE_POINTER = `file://${new URL("../fixtures/frame-runner/collide/", import.meta.url).pathname}factory.ts`;
 const CRASH_POINTER = `file://${new URL("../fixtures/frame-runner/crash/", import.meta.url).pathname}factory.ts`;
@@ -32,6 +32,12 @@ const spawnFrameHost = frameHostFactory();
 
 function spawnRunner(args: string[]) {
   return spawnFrameHost("bun", ["run", RUNNER_BIN, ...args], { cwd: PROJECT_ROOT });
+}
+
+function spawnBridge(bridgeVersion: number, args: string[]) {
+  return spawnFrameHost("bun", ["run", BRIDGE_STUB, "--bridge-version", String(bridgeVersion), ...args], {
+    cwd: PROJECT_ROOT,
+  });
 }
 
 describe("REQ-EXC-01.2 — four failure classes map to four distinct exit codes", () => {
@@ -101,7 +107,7 @@ describe("REQ-EXC-01.2 — four failure classes map to four distinct exit codes"
   });
 });
 
-describe("REQ-EXC-01.3 — handshake-time failures all classify as code 1 (duo: WPS-02 + SEC-07; BRB-01 joins in S-003)", () => {
+describe("REQ-EXC-01.3 — handshake-time failures all classify as code 1 (trio: WPS-02 + SEC-07 + BRB-01)", () => {
   it("WPS-02 protocolVersion mismatch: exit 1, zero reverse callbacks dispatched", async () => {
     const fake = new ContractFake({ seed: {} });
     const host = spawnRunner(["--factory", HAPPY_POINTER, "--input", "{}"]);
@@ -133,5 +139,21 @@ describe("REQ-EXC-01.3 — handshake-time failures all classify as code 1 (duo: 
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("BRB-01 bridge contract version mismatch: exit 1, naming both versions, zero reverse callbacks dispatched, factory never imported", async () => {
+    const mismatchedVersion = BRIDGE_CONTRACT_VERSION + 1;
+    // CRASH_POINTER's factory throws unconditionally at import — real proof (not inference)
+    // that a version mismatch rejects BEFORE any factory-related code runs: if the mismatch
+    // check were ever bypassed, this run would surface the crash fixture's own throw instead.
+    // No greeting is ever sent — the mismatch check runs before ANY stdin read, so nothing
+    // here depends on the wire's handshake at all.
+    const host = spawnBridge(mismatchedVersion, ["--factory", CRASH_POINTER, "--input", "{}"]);
+    const { code } = await host.waitExit();
+
+    expect(code).toEqual(1);
+    expect(host.stderrText()).toContain(String(mismatchedVersion));
+    expect(host.stderrText()).toContain(String(BRIDGE_CONTRACT_VERSION));
+    expect(host.stderrText()).not.toContain("frame-runner crash fixture");
   });
 });
