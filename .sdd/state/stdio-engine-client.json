@@ -1,11 +1,11 @@
 {
   "change": "stdio-engine-client",
   "triage": "L",
-  "phase": "plan-verify:ready-pending-owner-ratification",
+  "phase": "paused:apply-S-003-done-next-verify-in-loop-S-003",
   "spec_status": "signed",
   "slices": true,
   "plan_verify": "ready",
   "verify_final": "pending",
   "arch_audit": "pending",
-  "updated_at": "2026-07-15T00:00:00Z"
+  "updated_at": "2026-07-15T15:00:00Z"
 }
