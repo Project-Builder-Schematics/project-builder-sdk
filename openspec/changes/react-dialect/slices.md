@@ -137,12 +137,12 @@ REQ-RXD-14.1 — GIVEN the shipped `package.json` and committed lockfile after t
 REQ-RXD-01.1 (resolves-half) — GIVEN `package.json#exports` WHEN `@pbuilder/sdk/react` is imported THEN it resolves. (The exact-op-set half closes in S-002 when both ops exist.)
 
 ### Tasks
-- [ ] S-000.1 `src/dialects/react/ast.ts` — four duplicated primitives per Contracts; virtual `dialect-source.tsx`
-- [ ] S-000.2 `src/dialects/react/index.ts` — `find()` basename gate (all 4 reject classes + pass) + composition with `ops: {}`; `find` JSDoc per Contracts
-- [ ] S-000.3 `package.json#exports` `./react` entry; FIT-09 5→6 + `./react` case; FIT-14 assertions + baseline regen; FIT-04 `DTS_PAIRS` + `react.index.d.ts` baseline
-- [ ] S-000.4 NEW `fit-37` + `fit-38` per Fitness mechanics
-- [ ] S-000.5 NEW `fit-36` per Fitness mechanics
-- [ ] S-000.6 `test/dialects/react/dialect.test.ts` — all Acceptance scenarios above, failing-first
+- [x] S-000.1 `src/dialects/react/ast.ts` — four duplicated primitives per Contracts; virtual `dialect-source.tsx`
+- [x] S-000.2 `src/dialects/react/index.ts` — `find()` basename gate (all 4 reject classes + pass) + composition with `ops: {}`; `find` JSDoc per Contracts
+- [x] S-000.3 `package.json#exports` `./react` entry; FIT-09 5→6 + `./react` case; FIT-14 assertions + baseline regen; FIT-04 `DTS_PAIRS` + `react.index.d.ts` baseline
+- [x] S-000.4 NEW `fit-37` + `fit-38` per Fitness mechanics
+- [x] S-000.5 NEW `fit-36` per Fitness mechanics
+- [x] S-000.6 `test/dialects/react/dialect.test.ts` — all Acceptance scenarios above, failing-first
 
 ---
 

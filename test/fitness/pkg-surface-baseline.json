@@ -19,6 +19,10 @@
     "./typescript": {
       "types": "./dist/dialects/typescript/index.d.ts",
       "import": "./dist/dialects/typescript/index.js"
+    },
+    "./react": {
+      "types": "./dist/dialects/react/index.d.ts",
+      "import": "./dist/dialects/react/index.js"
     }
   },
   "dependencies": {
@@ -87,6 +91,10 @@
     "dist/core/session.js",
     "dist/core/wire.d.ts",
     "dist/core/wire.js",
+    "dist/dialects/react/ast.d.ts",
+    "dist/dialects/react/ast.js",
+    "dist/dialects/react/index.d.ts",
+    "dist/dialects/react/index.js",
     "dist/dialects/typescript/ast.d.ts",
     "dist/dialects/typescript/ast.js",
     "dist/dialects/typescript/index.d.ts",
