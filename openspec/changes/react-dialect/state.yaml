@@ -1,0 +1,19 @@
+# Orchestrator-owned DAG state — react-dialect
+change: react-dialect
+triage: L
+execution_mode: automatic
+completed_phases:
+  - triage
+current_phase: explore
+current_phase_status: launching
+in_loop_iteration: 0
+next_phase: propose (after surfacing product open_questions to user)
+notes: >
+  L via sensitivity override (src/dialects/** security code-execution HIGH;
+  new ./react subpath hits public-api + supply-chain rows). Council flags for
+  downstream phases: (1) leaf-rule vs reuse structural decision — settle at
+  propose, ADR at design; (2) CONFIRMED identifier-injection surface in shipped
+  dialect ops (pending-changes ledger) — the two new ops must not replicate it;
+  (3) FIT-09/FIT-14 exports-guard refactor is a hard dependency of the new
+  subpath — scope explicitly; (4) PM why-now/opportunity-cost objection —
+  answer at propose; (5) JSX byte-exact round-trip spike needed at explore.

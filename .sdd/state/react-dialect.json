@@ -1,0 +1,17 @@
+{
+  "change": "react-dialect",
+  "triage": "L",
+  "phase": "propose",
+  "phase_status": "explore COMPLETE (obs #1035). AST DECISION RATIFIED BY OWNER 2026-07-16: ts-morph + ScriptKind.Tsx (.tsx virtual path). Spike-backed: 6/6 mandatory + 20/20 JSX adversarial byte-exact, ZERO new deps. Babel rejected (any of @babel/generator / babel+recast fails byte-exact conformance; owner's @babel/parser+traverse+types stack still needs a reformatting printer to serialize). Product Q resolutions (automatic mode, owner-scoped defaults): Q1 why-now = owner already chose to build (TSX gap is a hard block, zero workaround) -> proceed; Q2 exports-guard = MINIMAL mechanical FIT-04/09/14 edit for ./react subpath, keep the broader row-229 refactor DEFERRED (matches owner scope 'just plumbing + 2 ops'), re-register as pending at archive.",
+  "next_phase": "propose -> spec -> design -> slice -> plan-verify",
+  "spec_status": "none",
+  "slices": false,
+  "plan_verify": "pending",
+  "verify_final": "pending",
+  "arch_audit": "pending",
+  "execution_mode": "automatic",
+  "council": {
+    "always": ["architect", "business-analyst", "pm", "qa-engineer"],
+    "conditional": ["security-engineer (mandatory - sensitivity)", "tech-writer (new public subpath + docs)"]
+  }
+}
