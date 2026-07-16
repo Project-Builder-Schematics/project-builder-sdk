@@ -173,6 +173,34 @@ describe("setJsxProp — REQ-RXD-11 value forms + REQ-RXD-12 trust boundary", ()
     expect(content).not.toContain("required=");
   });
 
+  it("REQ-RXD-11.3 (upsert half): an EXISTING valued attribute + omitted value downgrades to boolean shorthand, byte-exact golden", async () => {
+    // Covers the `removeInitializer()` branch of the upsert (existing attribute, value
+    // omitted) — distinct from the insert path every other no-value test exercises.
+    const { client, emitted } = makeSpyClient({ "Input.tsx": "const el = <Input required={maybe} />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Input.tsx").setJsxProp("Input", "required");
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe(reactGolden("setprop-shorthand-downgrade.txt"));
+    expect(content).not.toContain("required=");
+  });
+
+  it("REQ-RXD-11.3 (upsert half, triangulation): shorthand downgrade of a MID-position attribute preserves its position, byte-exact golden", async () => {
+    const { client, emitted } = makeSpyClient({
+      "Input.tsx": 'const el = <Input type="text" required={maybe} className={cls} />;\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Input.tsx").setJsxProp("Input", "required");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)[0]?.modify.content).toBe(reactGolden("setprop-shorthand-downgrade-mid.txt"));
+  });
+
   it("REQ-RXD-11.4: an existing string-form value is replaced by an expression-form value in place, byte-exact golden", async () => {
     const { client, emitted } = makeSpyClient({ "Input.tsx": 'const el = <Input value="static" />;\n' });
 

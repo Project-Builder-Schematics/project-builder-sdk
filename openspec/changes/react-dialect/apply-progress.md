@@ -42,5 +42,28 @@ error wrap, zero directives, file byte-unchanged — not a silent corruption or 
 **Recommendation**: amend REQ-RXD-11.5's example to a delimiter-balanced value at the next spec
 touch (wording fix, not a scope/behavior change).
 
+### Fix iteration 1 (verify-in-loop-2 NEEDS_FIX → resolved)
+
+Both findings were additive tests — no production code changed.
+
+1. **CRITICAL (ops.ts:59 `removeInitializer()` branch untested)**: added two tests to
+   `ops.test.ts` — "REQ-RXD-11.3 (upsert half)": `<Input required={maybe} />` +
+   `setJsxProp("Input", "required")` → bare `required`, byte-exact vs new golden
+   `setprop-shorthand-downgrade.txt`; plus a mid-position triangulation
+   (`setprop-shorthand-downgrade-mid.txt`) proving attribute position survives the downgrade.
+   RED-proof: both goldens were first committed with deliberately WRONG content (initializer
+   retained) and the tests observed failing on the golden comparison before the correct
+   goldens landed.
+2. **WARNING (REQ-RXD-06.5 end-to-end coverage 1/10 propName, 0/10 elementName)**: added a
+   table-driven end-to-end describe block to `name-validation.test.ts` — all 10 hostile
+   values × both name args (20 cases) through `react.find().setJsxProp()` via spy-client,
+   each asserting: validator-SHAPED message (names the argument — this is what distinguishes
+   a wired validator reject from an accidental zero-match reject), no value echo (non-empty,
+   non-denylist), zero directives, file byte-unchanged. Discrimination proven by mutation
+   probe: temporarily unwiring `assertValidElementName` failed exactly the 10 elementName
+   cases; wiring restored, all green.
+
+Suite after fix iteration: 1735→1757 (net +22), 0 fail, `tsc --noEmit` clean.
+
 **Next**: S-002 (`addImport` — merge/create/idempotent, coalescing, exact op-set closes).
 Requires S-001 (shares `validatedOp`/the three-grammar validator module).

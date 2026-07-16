@@ -239,3 +239,49 @@ describe("REQ-RXD-13.2 (setJsxProp reject paths) — zero directives, byte-uncha
     expect(await client.read("sample.tsx")).toBe(before);
   });
 });
+
+// REQ-RXD-06.5's THEN clause is a handle-level property ("WHEN each op is applied THEN every
+// case rejects pre-mutation — zero directives, byte-unchanged") — the bare-function battery
+// above proves the grammar/denylist logic; this loop proves the WIRING, end-to-end through
+// `react.find().setJsxProp()`. Asserting the message names the ARGUMENT ("propName"/
+// "elementName") is what distinguishes a validator-shaped reject from an accidental one: a
+// hostile elementName would incidentally reject as a zero-match ("no element named ...")
+// even if `assertValidElementName` were never wired — that message does NOT name the arg.
+describe("REQ-RXD-06.5 — end-to-end: every hostile value rejects THROUGH the handle, zero directives, byte-unchanged", () => {
+  const SEED = "const el = <Button />;\n";
+
+  async function runRejecting(propOrElement: "propName" | "elementName", hostile: string) {
+    const { client, emitted } = makeSpyClient({ "Button.tsx": SEED });
+    const run = defineFactory<void>(async () => {
+      if (propOrElement === "propName") {
+        await react.find("Button.tsx").setJsxProp("Button", hostile, "{1}");
+      } else {
+        await react.find("Button.tsx").setJsxProp(hostile, "x", "{1}");
+      }
+    });
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    return { caught, emitted, client };
+  }
+
+  for (const argName of ["propName", "elementName"] as const) {
+    for (const hostile of HOSTILE_BATTERY) {
+      it(`${argName} ${JSON.stringify(hostile)}: validator-shaped reject, zero directives, file byte-unchanged`, async () => {
+        const { caught, emitted, client } = await runRejecting(argName, hostile);
+
+        expect(caught).toBeInstanceOf(Error);
+        const message = (caught as Error).message;
+        expect(message).toContain(argName);
+        if (!DENYLISTED.has(hostile) && hostile.length > 0) {
+          expect(message).not.toContain(hostile);
+        }
+        expect(collectModifies(emitted)).toHaveLength(0);
+        expect(await client.read("Button.tsx")).toBe(SEED);
+      });
+    }
+  }
+});
