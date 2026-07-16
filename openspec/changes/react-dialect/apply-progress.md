@@ -109,5 +109,64 @@ name-validation.test.ts [2 REQ-RXD-13.2 cases + 2 regex self-tests], 1 in the ne
 ops-exact-set.test.ts). 0 fail. `tsc --noEmit` clean. All tasks S-002.1–.4 marked `[x]` in
 `slices.md`.
 
+**TDD process record (self-correction, S-002 base commit `fcd24d7`)**: the `addImport`
+implementation body and its `ops.test.ts` tests were written in the same editing pass —
+implementation slightly AHEAD of watching the tests fail, a Strict TDD ordering violation.
+The gap was closed retroactively BEFORE the base commit, in two explicit probe steps, both
+observed in real runner output:
+
+1. **`addImport` body probe**: the mutation body was replaced with a no-op stub
+   (`// TDD-RED-STUB` + early return, validators left wired) and
+   `bun test test/dialects/react/ops.test.ts` run → **19 pass / 5 fail**; the five failures
+   were exactly the body-dependent scenarios (REQ-RXD-05.1 "Expected: import { useState } …
+   Received: undefined", 05.2 same shape, 05.3 "Expected length: 1, Received length: 0",
+   05.4 and 06.4 undefined-directive failures) — assertion-level failures, not import/syntax
+   errors, i.e. RED for the right reason. REQ-RXD-06.3 kept passing under the stub, correctly:
+   its reject fires in the validator, before the stubbed body. Stub removed; suite green.
+2. **Exact-op-set probe**: `ops-exact-set.test.ts` was RED-proven by composing the op-pack
+   with `{ setJsxProp } as ReactOps` (addImport temporarily excluded) →
+   `expect(opKeys).toEqual(["addImport","setJsxProp"])` failed with `- "addImport"` in the
+   diff; pack restored, test green.
+
+Why the surviving tests are discriminating despite the ordering violation: verify-in-loop-4's
+own independent mutation probes (A: body no-op → exactly the 6 body-dependent tests fail;
+B: idempotency guard removed → exactly REQ-RXD-05.3 fails; C: validator unwired → exactly the
+two validator-shaped tests fail) triangulate every S-002 behavior branch to at least one test
+that moves when that branch is broken. This paragraph exists because the event was initially
+reported only in the return envelope, NOT here — verify-in-loop-4 Finding 2 correctly flagged
+the omission; the record above is the reconciliation, not a new event.
+
+### Fix iteration 1 (verify-in-loop-4 NEEDS_FIX → resolved)
+
+Finding 1 (CRITICAL, req-coverage-gap, test-only): REQ-RXD-06.5's clause "and, where the
+grammar applies, as `addImport.name`" scopes the FULL 10-value hostile battery to `addImport`
+(all 10 are grammar-invalid or denylisted under `IMPORT_BINDING_GRAMMAR`), but only 1/10
+values went through `addImport` end-to-end. Fixed by EXTENDING the existing table-driven
+loop in `name-validation.test.ts` (not duplicating the table): the arg dimension grew from
+`["propName", "elementName"]` to `["propName", "elementName", "name"]`, with the `"name"` arm
+routing through `react.find("Button.tsx").addImport(hostile, "react")` — same assertions as
+the S-001 arms (Error instance, message names the ARGUMENT, no value echo for
+non-denylisted/non-empty values, zero directives, file byte-unchanged). 20→30 loop cases.
+Test titles now carry the owning op (`setJsxProp.propName …` / `addImport.name …`).
+
+Discrimination proven by mutation probe (behavior pre-exists, so first-run green is expected;
+the probe is the RED substitute, per the S-001 fix-iteration precedent):
+`assertValidImportBinding` temporarily unwired from `addImport`'s validator closure →
+`bun test test/dialects/react/` = 97 pass / **12 fail** — exactly the 10 new
+`addImport.name` battery cases + the 2 pre-existing addImport validator tests (REQ-RXD-06.3,
+REQ-RXD-13.2 addImport path); every other test unmoved. Validator rewired → 109/0;
+`git diff src/dialects/react/ops.ts` empty (probe fully reverted). The message assertion
+(`toContain("name")`) is what discriminates: an unwired hostile name either splices raw (no
+error) or dies inside ts-morph as a contained foreign throw (`addImport() on "…" threw`) —
+neither surface contains `name`.
+
+Finding 2 (WARNING, record reconciliation, docs-only): the TDD self-correction record above
+was appended to this artefact and mirrored to engram obs #1077 — it had previously existed
+only in the builder's return envelope, and obs #1077's "S-002 clean through, no fix
+iteration" wording is corrected by this iteration's existence.
+
+Zero production-code changes in this iteration. Suite after fix iteration: 1769→1779
+(net +10), 0 fail, `tsc --noEmit` clean.
+
 **Next**: S-003 (conformance corpus), S-004 (docs), S-005 (installed-consumer parity) — all
 require only S-002 and are parallel-safe among themselves per Build Order.

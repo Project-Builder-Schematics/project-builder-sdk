@@ -308,20 +308,28 @@ describe("REQ-RXD-13.2 (addImport + gate paths, S-002) — zero directives, byte
 // REQ-RXD-06.5's THEN clause is a handle-level property ("WHEN each op is applied THEN every
 // case rejects pre-mutation — zero directives, byte-unchanged") — the bare-function battery
 // above proves the grammar/denylist logic; this loop proves the WIRING, end-to-end through
-// `react.find().setJsxProp()`. Asserting the message names the ARGUMENT ("propName"/
-// "elementName") is what distinguishes a validator-shaped reject from an accidental one: a
-// hostile elementName would incidentally reject as a zero-match ("no element named ...")
-// even if `assertValidElementName` were never wired — that message does NOT name the arg.
+// `react.find().setJsxProp()` AND `react.find().addImport()` (S-002: all 10 values are
+// grammar-invalid or denylisted for IMPORT_BINDING_GRAMMAR too, so "where the grammar
+// applies" scopes `addImport.name` to the full battery). Asserting the message names the
+// ARGUMENT ("propName"/"elementName"/"name") is what distinguishes a validator-shaped reject
+// from an accidental one: a hostile elementName would incidentally reject as a zero-match
+// ("no element named ...") even if `assertValidElementName` were never wired, and a hostile
+// unvalidated addImport name either splices raw (no error at all) or dies inside ts-morph as
+// a contained foreign throw (`addImport() on "..." threw`) — neither message names the arg.
 describe("REQ-RXD-06.5 — end-to-end: every hostile value rejects THROUGH the handle, zero directives, byte-unchanged", () => {
   const SEED = "const el = <Button />;\n";
 
-  async function runRejecting(propOrElement: "propName" | "elementName", hostile: string) {
+  type HostileArg = "propName" | "elementName" | "name";
+
+  async function runRejecting(argName: HostileArg, hostile: string) {
     const { client, emitted } = makeSpyClient({ "Button.tsx": SEED });
     const run = defineFactory<void>(async () => {
-      if (propOrElement === "propName") {
+      if (argName === "propName") {
         await react.find("Button.tsx").setJsxProp("Button", hostile, "{1}");
-      } else {
+      } else if (argName === "elementName") {
         await react.find("Button.tsx").setJsxProp(hostile, "x", "{1}");
+      } else {
+        await react.find("Button.tsx").addImport(hostile, "react");
       }
     });
     let caught: unknown;
@@ -333,9 +341,15 @@ describe("REQ-RXD-06.5 — end-to-end: every hostile value rejects THROUGH the h
     return { caught, emitted, client };
   }
 
-  for (const argName of ["propName", "elementName"] as const) {
+  const ARG_OP: Record<HostileArg, string> = {
+    propName: "setJsxProp",
+    elementName: "setJsxProp",
+    name: "addImport",
+  };
+
+  for (const argName of ["propName", "elementName", "name"] as const) {
     for (const hostile of HOSTILE_BATTERY) {
-      it(`${argName} ${JSON.stringify(hostile)}: validator-shaped reject, zero directives, file byte-unchanged`, async () => {
+      it(`${ARG_OP[argName]}.${argName} ${JSON.stringify(hostile)}: validator-shaped reject, zero directives, file byte-unchanged`, async () => {
         const { caught, emitted, client } = await runRejecting(argName, hostile);
 
         expect(caught).toBeInstanceOf(Error);
