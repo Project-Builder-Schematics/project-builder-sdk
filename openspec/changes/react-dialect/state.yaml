@@ -1,0 +1,38 @@
+# Orchestrator-owned DAG state — react-dialect
+change: react-dialect
+triage: L
+execution_mode: automatic
+completed_phases:
+  - triage
+  - explore
+  - propose
+  - spec
+  - design
+  - steward-foresight
+  - slice
+  - plan-verify
+current_phase: plan-complete
+current_phase_status: >
+  PLANNER COMPLETE 2026-07-16. Plan-verify READY at iteration 2/3
+  (verify-plan-2.md): Judge A no findings; Judge B explicit
+  ready-to-execute; question trajectory 20 -> 0. No publish
+  (spec_source internal).
+in_loop_iteration: 0
+next_phase: >
+  /build --scope=skeleton (S-000 mandatory first) -> apply/verify
+  in-loop per slice DAG S-000..S-005 -> /evaluate
+artefacts:
+  triage: openspec/changes/react-dialect/triage.md (obs #1032)
+  explore: openspec/changes/react-dialect/explore.md (obs #1035; AST decision obs #1037 owner-ratified ts-morph ScriptKind.Tsx)
+  proposal: openspec/changes/react-dialect/proposal.md rev 2 (obs #1041; op pair setJsxProp + addImport council-ratified; erratum notes on lines 19/133)
+  spec: specs/react-dialect/spec.md V4 SIGNED + specs/local-consumption/spec.md V2 (obs #1045; V3 minted+retired; V4 = extensionless-reject + denylist {__proto__, constructor, prototype})
+  design: openspec/changes/react-dialect/design.md rev 2 (obs #1051; additive; ADRs 01-05; spike 6 legs PASS; File Changes 16C/9M/3R)
+  north_star: openspec/changes/react-dialect/north-star.md (obs #1055; foresight ALIGNED; CQ-1/2/3 owner-affirmed 2026-07-16)
+  slices: openspec/changes/react-dialect/slices.md rev 2 (obs #1056; S-000..S-005 self-contained build brief; all-or-nothing completion)
+  plan_verify: verify-plan-1.md (gaps, obs #1057) + verify-plan-2.md (READY, obs #1060)
+notes: >
+  Owner rulings embedded: .tsx-only (jsx pending-changes row added mid-plan,
+  archive must fold-or-reaffirm never duplicate); extensionless paths REJECT
+  (forward-compat with future .jsx); denylist of 3. Executor context: slices.md
+  self-contained for contracts, repo files are copy-adaptable precedents.
+  SDD skill files resolve from /home/barri/Projects/Claude-Code-harness/.claude/skills/.
