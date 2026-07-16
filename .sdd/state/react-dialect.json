@@ -1,9 +1,9 @@
 {
   "change": "react-dialect",
   "triage": "L",
-  "phase": "apply",
-  "phase_status": "S-000 DONE+VERIFIED (in-loop-1 PASS). S-001 DONE+VERIFIED: apply e257ca7 -> in-loop-2 NEEDS_FIX -> fix 0f1f91d test-only -> in-loop-3 PASS (obs #1080; mutation-proven coverage, 1757/0). Carry-forward: REQ-RXD-11.5 wording amendment -> pending-changes at archive if still open. Batch 3 = S-002 (addImport + coalescing + exact-op-set) IN PROGRESS. Then final batch S-003+S-004+S-005.",
-  "next_phase": "verify --mode=in-loop after S-002 batch",
+  "phase": "verify-in-loop",
+  "phase_status": "PAUSED BY USER 2026-07-17 (mid-build). S-000, S-001 DONE+VERIFIED. S-002: apply fcd24d7 -> in-loop-4 NEEDS_FIX (obs #1081) -> fix iter 1 @ a76d34d test/docs-only (1779/0; battery 30 e2e cases 10x3 args, mutation probe 12-exact-fails; TDD self-correction record reconciled into apply-progress.md + obs #1077 w/ Learned #7) -> re-verify iteration 5 was INTERRUPTED (529 + user pause) BEFORE persisting any report: verify-in-loop-5 does NOT exist, re-run it in full on resume. Carry-forward: REQ-RXD-11.5 wording amendment -> pending-changes at archive.",
+  "next_phase": "ON RESUME: re-run sdd-verify in-loop iteration 5 on batch S-002 (delta fcd24d7 + a76d34d, claim 1779/0; adjudicate in-loop-4's two findings). On pass: apply S-003+S-004+S-005 (final batch, all require only S-002). On verify-failed: fix iteration 2/3.",
   "spec_status": "signed",
   "spec_detail": "V4, owner-signed 2026-07-16 (V3 minted+retired same day)",
   "slices": true,
