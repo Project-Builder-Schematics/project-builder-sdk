@@ -311,3 +311,96 @@ describe("setJsxProp — REQ-RXD-11 value forms + REQ-RXD-12 trust boundary", ()
     expect(modifies[0]?.modify.content).toBe(reactGolden("setprop-widened-propnames.txt"));
   });
 });
+
+describe("addImport — REQ-RXD-05 merge-or-create, idempotent, named-only", () => {
+  it("REQ-RXD-05.1: no import from the target module — a fresh import is inserted, byte-exact vs golden", async () => {
+    const { client, emitted } = makeSpyClient({ "App.tsx": "const el = <div />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("useState", "react");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)[0]?.modify.content).toBe(reactGolden("addimport-fresh.txt"));
+  });
+
+  it("REQ-RXD-05.2: an existing named-import clause from the SAME module — merges to one clause naming both", async () => {
+    const { client, emitted } = makeSpyClient({
+      "App.tsx": 'import { useEffect } from "react";\nconst el = <div />;\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("useState", "react");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)[0]?.modify.content).toBe(
+      'import { useEffect, useState } from "react";\nconst el = <div />;\n'
+    );
+  });
+
+  it("REQ-RXD-05.3: find(path).addImport(x, m).addImport(x, m) — a SINGLE import line, never a duplicate", async () => {
+    const { client, emitted } = makeSpyClient({ "App.tsx": "const el = <div />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("useState", "react").addImport("useState", "react");
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    const content = modifies[0]!.modify.content;
+    expect(content).toBe('import { useState } from "react";\n\nconst el = <div />;\n');
+    expect(content.match(/import \{ useState \}/g)).toHaveLength(1);
+  });
+
+  it('REQ-RXD-05.4: addImport("React", "react") produces the NAMED form — never default-import synthesis', async () => {
+    const { client, emitted } = makeSpyClient({ "App.tsx": "const el = <div />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("React", "react");
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe('import { React } from "react";\n\nconst el = <div />;\n');
+    expect(content).not.toContain("import React from");
+  });
+});
+
+describe("addImport — REQ-RXD-06.3/.4 splice safety (name breakout rejected, from escaped as one string)", () => {
+  it("REQ-RXD-06.3: a name attempting to close the clause and smuggle a second import rejects, zero new imports, byte-unchanged", async () => {
+    const before = "const el = <div />;\n";
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+    const hostileName = 'x } from "evil"; import { y';
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport(hostileName, "react");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
+  });
+
+  it("REQ-RXD-06.4: a hostile `from` attempting to terminate its own string literal stays ONE escaped import, no `evil` import", async () => {
+    const { client, emitted } = makeSpyClient({ "App.tsx": "const el = <div />;\n" });
+    const hostileFrom = 'a"; import {y} from "evil';
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("X", hostileFrom);
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe('import { X } from "a\\"; import {y} from \\"evil";\n\nconst el = <div />;\n');
+    expect(content.match(/^import /gm)).toHaveLength(1);
+    expect(content).not.toContain('from "evil"');
+  });
+});

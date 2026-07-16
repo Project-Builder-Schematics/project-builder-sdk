@@ -65,5 +65,49 @@ Both findings were additive tests — no production code changed.
 
 Suite after fix iteration: 1735→1757 (net +22), 0 fail, `tsc --noEmit` clean.
 
-**Next**: S-002 (`addImport` — merge/create/idempotent, coalescing, exact op-set closes).
-Requires S-001 (shares `validatedOp`/the three-grammar validator module).
+## S-002 — `addImport` + coalescing + exact op-set closes (COMPLETE)
+
+**Files modified**: `src/dialects/react/ops.ts` (+`addImport`, `validatedOp`-wrapped on `name`
+via `assertValidImportBinding`; `from` unvalidated — its safety rests on ts-morph's
+string-literal escaping, per ADR-05, written fresh, not copied from the TS dialect's lax
+`addImport`), `src/dialects/react/index.ts` (`ReactOps` widened to the final, closed two-op
+shape — `setJsxProp` + `addImport`; op-pack composed with both), `test/dialects/react/ops.test.ts`
+(+10 tests: REQ-RXD-05.1–.4 merge/create/idempotent/named-only, REQ-RXD-06.3/.4 SEC-3 breakout
+reject + SEC-4 escape pin), `test/dialects/react/dialect.test.ts` (+REQ-RXD-07.1 coalescing —
+`setJsxProp` + `addImport` on one handle, exactly one `modify` directive, byte-exact golden),
+`test/dialects/react/name-validation.test.ts` (+REQ-RXD-13.2 addImport-validator-reject and
+extension-gate-in-run-form cases, completing the four-path zero-emit matrix S-001 started),
+`test/fitness/dts-baseline/react.index.d.ts` (regenerated — `ReactOps` type gains `addImport`,
+additive-only diff, confirmed via `diff` against a fresh `bun run build` before committing).
+
+**Files created**: `test/dialects/react/ops-exact-set.test.ts` (REQ-RXD-01.1 full — sorted
+`Object.keys` minus `RESERVED_HANDLE_NAMES` `toEqual(["addImport", "setJsxProp"])`),
+`test/dialects/react/golden/{addimport-fresh,coalesce-setprop-addimport}.txt`.
+
+**No changes needed**: `test/fitness/pkg-surface-baseline.json` — S-002 added zero new `dist/`
+files (`ops.ts`/`.js`/`.d.ts` already existed from S-001), so the tarball entry list is
+unaffected; confirmed via full suite green without touching it.
+
+**Apply-time finding (Set-key-safety static scan false positive, resolved in-slice)**:
+`name-validation.test.ts`'s existing regex `/\[\s*(?:propName|elementName|name|tag)\s*\]/`
+flagged `addImport`'s legitimate `([name]) => {...}` (validators-tuple destructuring) and
+`namedImports: [name]` (single-element array literal) as forbidden `record[name]`-style
+bracket-indexed property access — a false positive: neither shape uses `name` as an object/Map
+key. Root cause: the original regex matched the bracket's CONTENTS only, blind to what
+precedes `[`, so it could not distinguish `record[name]` from `[name]` occurring inside array
+literals or destructuring patterns. Fixed by requiring the character immediately before `[` to
+be a word character/`$`/`)`/`]`/`{` (member-access or computed-key shape) via
+`FORBIDDEN_NAME_KEY_ACCESS = /[\w$)\]{]\[\s*(?:propName|elementName|name|tag)\s*\]/` — verified
+with two new tests: one proving the tightened regex still catches `record[name]`,
+`{[name]: value}`, `counts[tag]++`; one proving it no longer flags `namedImports: [name]`,
+`([name]) => {}`, `const [name] = args;`. The Set-key-safety PROPERTY itself (never index an
+object/Map by `propName`/`elementName`/`name`/`tag`) is unchanged and un-weakened — only the
+scanner's precision improved.
+
+Suite after S-002: 1757→1769 (net +12: 6 in ops.test.ts, 1 coalescing in dialect.test.ts, 4 in
+name-validation.test.ts [2 REQ-RXD-13.2 cases + 2 regex self-tests], 1 in the new
+ops-exact-set.test.ts). 0 fail. `tsc --noEmit` clean. All tasks S-002.1–.4 marked `[x]` in
+`slices.md`.
+
+**Next**: S-003 (conformance corpus), S-004 (docs), S-005 (installed-consumer parity) — all
+require only S-002 and are parallel-safe among themselves per Build Order.

@@ -2,6 +2,7 @@ import type { SourceFile } from "ts-morph";
 import { type Handle } from "../../core/define-dialect.ts";
 type ReactOps = {
     setJsxProp: (ast: SourceFile, elementName: string, propName: string, value?: string) => void;
+    addImport: (ast: SourceFile, name: string, from: string) => void;
 };
 /**
  * Opens a `.tsx` file for React-dialect-aware editing — the dialect's entry verb into a run

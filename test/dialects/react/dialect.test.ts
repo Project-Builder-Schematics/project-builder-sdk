@@ -215,3 +215,21 @@ describe("React dialect — REQ-RXD-10 setJsxProp placement, whitespace, and clo
     expect(collectModifies(emitted)[0]?.modify.content).toBe(reactGolden("setprop-multiline-after.txt"));
   });
 });
+
+describe("React dialect — REQ-RXD-07 coalescing across heterogeneous AST regions (S-002)", () => {
+  it("REQ-RXD-07.1: setJsxProp + addImport on ONE handle coalesce into exactly ONE modify directive, byte-exact golden", async () => {
+    const { client, emitted } = makeSpyClient({ "Button.tsx": "const el = <Button />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react
+        .find("Button.tsx")
+        .setJsxProp("Button", "onClick", "{handleClick}")
+        .addImport("handleClick", "./handlers");
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe(reactGolden("coalesce-setprop-addimport.txt"));
+  });
+});

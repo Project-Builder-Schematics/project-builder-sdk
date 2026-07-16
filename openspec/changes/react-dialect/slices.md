@@ -233,10 +233,10 @@ REQ-RXD-13.2 (remaining paths) — GIVEN one representative reject from the addI
 REQ-RXD-01.1 (full) — GIVEN `package.json#exports` WHEN `@pbuilder/sdk/react` is imported and the op-pack surface is enumerated (mechanism above) THEN it resolves AND the sorted keys EQUAL EXACTLY `["addImport", "setJsxProp"]`.
 
 ### Tasks
-- [ ] S-002.1 `src/dialects/react/ops.ts` — `addImport` per Contracts; wire into the op-pack (both ops now composed)
-- [ ] S-002.2 `test/dialects/react/ops.test.ts` (merge/create/idempotent/named-only goldens) + `name-validation.test.ts` addImport portion (SEC-3 breakout reject, SEC-4 escape pin)
-- [ ] S-002.3 coalescing scenario in `dialect.test.ts` — heterogeneous regions, one directive, golden (spy-client pattern)
-- [ ] S-002.4 `test/dialects/react/ops-exact-set.test.ts` — exact 2-op `toEqual` per mechanism above
+- [x] S-002.1 `src/dialects/react/ops.ts` — `addImport` per Contracts; wire into the op-pack (both ops now composed)
+- [x] S-002.2 `test/dialects/react/ops.test.ts` (merge/create/idempotent/named-only goldens) + `name-validation.test.ts` addImport portion (SEC-3 breakout reject, SEC-4 escape pin)
+- [x] S-002.3 coalescing scenario in `dialect.test.ts` — heterogeneous regions, one directive, golden (spy-client pattern)
+- [x] S-002.4 `test/dialects/react/ops-exact-set.test.ts` — exact 2-op `toEqual` per mechanism above
 
 ---
 

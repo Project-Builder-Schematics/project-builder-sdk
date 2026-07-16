@@ -2,22 +2,24 @@
 // Composes the sanctioned kit surface ONLY (`defineDialect`/`defineOpPack`/`withOps` from
 // ../../core/define-dialect.ts) — mirrors src/dialects/typescript/index.ts's shape exactly,
 // no port-internal machinery imported anywhere in this tree (REQ-DG-04.1, fit-08/fit-10).
-// The op-pack is EMPTY at this slice: `setJsxProp` (S-001) and `addImport` (S-002) widen it
-// incrementally, the same way the TypeScript dialect's op-pack grew slice by slice.
+// S-002 closes the op-pack at its final, exact two-op shape: `setJsxProp` (S-001) +
+// `addImport` (S-002) — no third op ships in v1 (REQ-RXD-01.1).
 
 import { basename } from "node:path";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
 import { dialectError } from "../../core/dialect-error.ts";
 import { parse, print } from "./ast.ts";
-import { setJsxProp } from "./ops.ts";
+import { addImport, setJsxProp } from "./ops.ts";
 
-// S-001 widens the op-pack with `setJsxProp`; `addImport` arrives S-002.
+// S-002 completes the op-pack: `setJsxProp` (S-001) + `addImport` (S-002) — the exact,
+// closed two-op vocabulary (REQ-RXD-01.1).
 type ReactOps = {
   setJsxProp: (ast: SourceFile, elementName: string, propName: string, value?: string) => void;
+  addImport: (ast: SourceFile, name: string, from: string) => void;
 };
 
-const opsPack = defineOpPack<SourceFile, ReactOps>({ setJsxProp });
+const opsPack = defineOpPack<SourceFile, ReactOps>({ setJsxProp, addImport });
 
 const baseDialect = defineDialect({
   extensions: [".tsx"],

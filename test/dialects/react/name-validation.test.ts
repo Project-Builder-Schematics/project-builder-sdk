@@ -143,9 +143,20 @@ describe("REQ-RXD-13.3 — a 100-char hostile propName never appears, nor does a
   });
 });
 
+// The forbidden shape is bracket-indexed PROPERTY ACCESS keyed by a name argument —
+// `record[name]`, `{[name]: …}`, `counts[tag]++` — where `[` sits immediately against an
+// identifier/`)`/`]`/`{` (member access or a computed-key object literal). A single-element
+// ARRAY LITERAL (`[name]`, e.g. `namedImports: [name]`) or an array-DESTRUCTURING pattern
+// (`([name]) => {}`, `const [name] = args`) is textually identical to `record[name]` if you
+// only look at the bracket's contents — S-002's `addImport` introduces exactly these two safe
+// shapes (validators destructure the args tuple; `addImportDeclaration` takes a named-imports
+// ARRAY). The preceding-character check is what tells them apart: a bracket opening a
+// literal/destructuring pattern is preceded by whitespace, `(`, `,`, `=`, or line-start —
+// never by a word character, `)`, `]`, or `{`.
+const FORBIDDEN_NAME_KEY_ACCESS = /[\w$)\]{]\[\s*(?:propName|elementName|name|tag)\s*\]/;
+
 describe("Set-key-safety static scan (ADR-02 clause) — propName/elementName are NEVER plain-object keys", () => {
   it("src/core/jsx-name-validator.ts and every file under src/dialects/react/** contain no bracket-indexed object access keyed by a name argument", () => {
-    const forbidden = /\[\s*(?:propName|elementName|name|tag)\s*\]/;
     const root = new URL("../../../", import.meta.url).pathname;
     const files = [
       join(root, "src/core/jsx-name-validator.ts"),
@@ -161,8 +172,20 @@ describe("Set-key-safety static scan (ADR-02 clause) — propName/elementName ar
         .split("\n")
         .map((line) => line.replace(/\/\/.*/, ""))
         .join("\n");
-      expect(forbidden.test(code)).toBe(false);
+      expect(FORBIDDEN_NAME_KEY_ACCESS.test(code)).toBe(false);
     }
+  });
+
+  it("the scan still catches the forbidden shapes it exists to guard against", () => {
+    expect(FORBIDDEN_NAME_KEY_ACCESS.test("record[name]")).toBe(true);
+    expect(FORBIDDEN_NAME_KEY_ACCESS.test("{[name]: value}")).toBe(true);
+    expect(FORBIDDEN_NAME_KEY_ACCESS.test("counts[tag]++")).toBe(true);
+  });
+
+  it("the scan does NOT flag array-literal or destructuring shapes that merely contain the same bracket text", () => {
+    expect(FORBIDDEN_NAME_KEY_ACCESS.test("namedImports: [name]")).toBe(false);
+    expect(FORBIDDEN_NAME_KEY_ACCESS.test("([name]) => {}")).toBe(false);
+    expect(FORBIDDEN_NAME_KEY_ACCESS.test("const [name] = args;")).toBe(false);
   });
 });
 
@@ -237,6 +260,48 @@ describe("REQ-RXD-13.2 (setJsxProp reject paths) — zero directives, byte-uncha
     expect(caught).toBeInstanceOf(Error);
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("sample.tsx")).toBe(before);
+  });
+});
+
+describe("REQ-RXD-13.2 (addImport + gate paths, S-002) — zero directives, byte-unchanged file", () => {
+  it("an addImport validator (grammar) reject emits zero directives and leaves the file byte-unchanged", async () => {
+    const before = "const el = <div />;\n";
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("123abc", "react");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("name");
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
+  });
+
+  it("the extension gate, triggered IN-RUN (inside the async run body, not a bare top-level call), emits zero directives and leaves the file byte-unchanged", async () => {
+    const before = "const el = <div />;\n";
+    const { client, emitted } = makeSpyClient({ "Component.ts": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Component.ts").addImport("useState", "react");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("@pbuilder/sdk/typescript");
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("Component.ts")).toBe(before);
   });
 });
 

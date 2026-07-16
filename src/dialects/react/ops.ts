@@ -3,10 +3,20 @@
 // `elementName`/`propName` validate BEFORE `body` runs; `value` is NOT validated (trust
 // contract, REQ-RXD-11/12 verbatim: it is emitted AS-IS, malformed or not, and becomes
 // executable code the author is solely responsible for).
+//
+// S-002: `addImport` (REQ-RXD-05 merge/create/idempotent/named-only, REQ-RXD-06 `name`
+// validation + `from`'s pinned-escaping trust, design §4.4/ADR-05). Written FRESH — NOT
+// copied from the TypeScript dialect's `addImport` (src/dialects/typescript/ops.ts), which
+// validates nothing; that laxity is a confirmed vulnerability class this op does not repeat.
 
 import { SyntaxKind, type JsxOpeningElement, type JsxSelfClosingElement, type SourceFile } from "ts-morph";
 import { dialectError } from "../../core/dialect-error.ts";
-import { assertValidAttributeName, assertValidElementName, validatedOp } from "../../core/jsx-name-validator.ts";
+import {
+  assertValidAttributeName,
+  assertValidElementName,
+  assertValidImportBinding,
+  validatedOp,
+} from "../../core/jsx-name-validator.ts";
 
 type JsxTag = JsxOpeningElement | JsxSelfClosingElement;
 
@@ -63,5 +73,35 @@ export const setJsxProp = validatedOp<SourceFile, [elementName: string, propName
       return;
     }
     element.addAttribute({ name: propName, initializer: value });
+  }
+);
+
+/**
+ * Adds `import { name } from "from";`, or merges `name` into an EXISTING named-import clause
+ * from the SAME module `from` if one already exists (REQ-RXD-05). Idempotent: calling this
+ * twice with the same `name`+`from` on one handle produces a single import line, never a
+ * duplicate. NAMED-ONLY, pinned as contract: always the `import { name } from "from"` form —
+ * v1 never synthesizes default or namespace imports (REQ-RXD-05.4).
+ *
+ * `name` is validated (`assertValidImportBinding`, REQ-RXD-06) — a plain JS identifier,
+ * checked against the reserved-name denylist — BEFORE any AST mutation. `from` has NO
+ * allow-list: legitimate module specifiers contain `@ / . :` and more; its safety rests on
+ * ts-morph escaping `moduleSpecifier` as a single string literal (REQ-RXD-06.4 pins this
+ * assumption as a regression test, never assumes it silently).
+ */
+export const addImport = validatedOp<SourceFile, [name: string, from: string]>(
+  ([name]) => {
+    assertValidImportBinding(name);
+  },
+  (ast, name, from) => {
+    const existing = ast.getImportDeclaration((decl) => decl.getModuleSpecifierValue() === from);
+    if (existing !== undefined) {
+      const alreadyPresent = existing.getNamedImports().some((namedImport) => namedImport.getName() === name);
+      if (!alreadyPresent) {
+        existing.addNamedImport(name);
+      }
+      return;
+    }
+    ast.addImportDeclaration({ moduleSpecifier: from, namedImports: [name] });
   }
 );
