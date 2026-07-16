@@ -10,13 +10,14 @@ import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
 import { dialectError } from "../../core/dialect-error.ts";
 import { parse, print } from "./ast.ts";
+import { setJsxProp } from "./ops.ts";
 
-// Deliberately the empty object TYPE (not `Record<string, never>`, whose `keyof` is `string`
-// and would smuggle a bogus index-signature op method onto `Handle` — verified against
-// define-dialect.ts's `OpMethods` mapped type). Widened in place by S-001/S-002.
-type ReactOps = {};
+// S-001 widens the op-pack with `setJsxProp`; `addImport` arrives S-002.
+type ReactOps = {
+  setJsxProp: (ast: SourceFile, elementName: string, propName: string, value?: string) => void;
+};
 
-const opsPack = defineOpPack<SourceFile, ReactOps>({});
+const opsPack = defineOpPack<SourceFile, ReactOps>({ setJsxProp });
 
 const baseDialect = defineDialect({
   extensions: [".tsx"],
@@ -38,8 +39,8 @@ const reactDialect = withOps(baseDialect, opsPack);
  * Every gate rejection throws via `dialectError`, so its message carries the standard
  * `dialect operation failed: ` prefix.
  *
- * Trust boundary: a value handed to a structured mutation (e.g. a future `setJsxProp`'s
- * `value` argument) is emitted verbatim into the output and becomes executable code — the SDK
+ * Trust boundary: a value handed to a structured mutation (e.g. `setJsxProp`'s `value`
+ * argument) is emitted verbatim into the output and becomes executable code — the SDK
  * performs no validation, escaping, or sanitisation on it; the author is solely responsible
  * for any untrusted input reaching that channel.
  *

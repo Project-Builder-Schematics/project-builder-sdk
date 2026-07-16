@@ -21,6 +21,8 @@ import { spawnSync } from "node:child_process";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { canaryToken, seedSchema, spawnCapture } from "../support/canary.ts";
+import * as react from "../../src/dialects/react/index.ts";
+import { makeSpyClient } from "../support/spy-client.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DIST_BIN = join(PROJECT_ROOT, "dist/bin/pbuilder-codegen.js");
@@ -215,5 +217,29 @@ describe("REQ-RBV-04.2 — key names may appear, values never (asymmetry pin)", 
     const err = await runAgainst(dir, { port: 8080, [canary]: true });
 
     expect(err.message).toEqual(`invalid input: ${canary} is a reserved or disallowed key`);
+  });
+});
+
+describe("REQ-RXD-13.1 — react setJsxProp: a canary-bearing hostile propName never leaks on a name-validator reject", () => {
+  it("a canary embedded in a grammar-invalid propName (>=24 chars, no <=16-char fragment can contain it) never appears on the error surface", async () => {
+    const canary = canaryToken("jsxprop");
+    expect(canary.length).toBeGreaterThanOrEqual(24);
+    // "=" is not admitted by the attribute-name grammar — this rejects at the validator,
+    // before any AST mutation, exactly like REQ-RXD-06.1's propName-position injection case.
+    const hostilePropName = `${canary}=x`;
+    const { client } = makeSpyClient({ "Button.tsx": "const el = <Button />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Button.tsx").setJsxProp("Button", hostilePropName, "{1}");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
   });
 });

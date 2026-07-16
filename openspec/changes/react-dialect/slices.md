@@ -195,11 +195,13 @@ REQ-RXD-13.2 (setJsxProp paths) — GIVEN one representative reject from validat
 REQ-RXD-13.3 — GIVEN a propName validator reject with a 100-char hostile value WHEN the message is inspected THEN it names `propName` and the grammar rule; the full value does NOT appear (any fragment ≤16 chars).
 
 ### Tasks
-- [ ] S-001.1 `src/core/jsx-name-validator.ts` — three grammars + frozen denylist + `validatedOp` per Shared Contracts (first consumer)
-- [ ] S-001.2 `src/core/reject-tail.ts` — `nameRuleTail`/`boundedFragment` per Shared Contracts
-- [ ] S-001.3 `src/dialects/react/ops.ts` — `setJsxProp` per Contracts; wire into the op-pack in `index.ts`
-- [ ] S-001.4 `test/dialects/react/ops.test.ts` (value forms + upsert goldens) + `test/dialects/react/name-validation.test.ts` (hostile battery, denylist, load-bearing raw-splice pin, zero-emit/byte-unchanged, Set-key-safety static scan) + placement goldens in `dialect.test.ts`
-- [ ] S-001.5 `test/security/canary-no-echo.test.ts` — add react case: canary as hostile propName through `setJsxProp`, swept via the existing `surfaceContains`
+- [x] S-001.1 `src/core/jsx-name-validator.ts` — three grammars + frozen denylist + `validatedOp` per Shared Contracts (first consumer)
+- [x] S-001.2 `src/core/reject-tail.ts` — `nameRuleTail`/`boundedFragment` per Shared Contracts
+- [x] S-001.3 `src/dialects/react/ops.ts` — `setJsxProp` per Contracts; wire into the op-pack in `index.ts`
+- [x] S-001.4 `test/dialects/react/ops.test.ts` (value forms + upsert goldens) + `test/dialects/react/name-validation.test.ts` (hostile battery, denylist, load-bearing raw-splice pin, zero-emit/byte-unchanged, Set-key-safety static scan) + placement goldens in `dialect.test.ts`
+- [x] S-001.5 `test/security/canary-no-echo.test.ts` — add react case: canary as hostile propName through `setJsxProp`, swept via the existing `surfaceContains`
+
+**Apply-time finding (REQ-RXD-11.5)**: the spec's literal example — `setJsxProp("Button", "data-x", "{")`, an UNTERMINATED delimiter — cannot succeed via ts-morph's structured API (verified against ts-morph@28.0.0): `addAttribute`/`setInitializer` reparse-and-reconcile the WHOLE file after every structural edit (ts-morph's own architecture, not an SDK choice); an unclosed `{` swallows every token after it into one broken expression, so the reconcile throws `Manipulation error: A syntax error was inserted.` BEFORE `print()` is ever reached — never a text-splice fallback (ADR-03 stays intact). A delimiter-BALANCED-but-semantically-malformed value (e.g. `'{1+}'`) still proves the scenario's substance (no output re-validation) and is what `ops.test.ts` asserts; a second test pins that the unterminated case rejects SAFELY (contained, no leak, file byte-unchanged), not a silent corruption. Routing recommendation: amend REQ-RXD-11.5's example to a delimiter-balanced value at the next spec touch — this is a wording fix, not a scope/behavior change.
 
 ---
 

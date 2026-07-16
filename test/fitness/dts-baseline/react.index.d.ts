@@ -1,6 +1,8 @@
 import type { SourceFile } from "ts-morph";
 import { type Handle } from "../../core/define-dialect.ts";
-type ReactOps = {};
+type ReactOps = {
+    setJsxProp: (ast: SourceFile, elementName: string, propName: string, value?: string) => void;
+};
 /**
  * Opens a `.tsx` file for React-dialect-aware editing — the dialect's entry verb into a run
  * (REQ-DG-01.2). `path` MUST end in `.tsx`: the gate below runs SYNCHRONOUSLY, before any op
@@ -13,8 +15,8 @@ type ReactOps = {};
  * Every gate rejection throws via `dialectError`, so its message carries the standard
  * `dialect operation failed: ` prefix.
  *
- * Trust boundary: a value handed to a structured mutation (e.g. a future `setJsxProp`'s
- * `value` argument) is emitted verbatim into the output and becomes executable code — the SDK
+ * Trust boundary: a value handed to a structured mutation (e.g. `setJsxProp`'s `value`
+ * argument) is emitted verbatim into the output and becomes executable code — the SDK
  * performs no validation, escaping, or sanitisation on it; the author is solely responsible
  * for any untrusted input reaching that channel.
  *

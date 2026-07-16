@@ -9,10 +9,18 @@
  */
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../../src/core/context.ts";
+import * as react from "../../../src/dialects/react/index.ts";
 import { find } from "../../../src/dialects/react/index.ts";
 import { parse, print } from "../../../src/dialects/react/ast.ts";
 import { parse as tsParse } from "../../../src/dialects/typescript/ast.ts";
 import { makeSpyClient, collectModifies } from "../../support/spy-client.ts";
+import { golden } from "../../support/golden.ts";
+
+const REACT_GOLDEN_DIR = new URL("./golden/", import.meta.url).pathname;
+
+function reactGolden(name: string): string {
+  return golden(name, REACT_GOLDEN_DIR);
+}
 
 describe("React dialect — REQ-RXD-02 extension gate (.tsx-only, synchronous at find())", () => {
   it("REQ-RXD-02.1: a .ts path is rejected, the message names @pbuilder/sdk/typescript as the fix", () => {
@@ -132,5 +140,78 @@ describe("React dialect — REQ-RXD-03 ts-morph ScriptKind.Tsx parse/print fidel
     const source = "const x = <string>y;\n";
     expect(() => parse(source)).toThrow();
     expect(() => tsParse(source)).not.toThrow();
+  });
+});
+
+describe("React dialect — REQ-RXD-10 setJsxProp placement, whitespace, and closing-form preservation (S-001)", () => {
+  it("REQ-RXD-10.1: the new attribute lands immediately after the last existing attribute, single-space separator, byte-exact golden", async () => {
+    const { client, emitted } = makeSpyClient({
+      "Button.tsx": 'const el = <Button type="submit" className={cls} />;\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Button.tsx").setJsxProp("Button", "disabled", "{isBusy}");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)[0]?.modify.content).toBe(reactGolden("setprop-after-className.txt"));
+  });
+
+  it("REQ-RXD-10.2: an inserted prop lands AFTER a trailing spread — explicit prop wins at React runtime, byte-exact golden", async () => {
+    const { client, emitted } = makeSpyClient({ "Button.tsx": "const el = <Button {...rest} />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Button.tsx").setJsxProp("Button", "onClick", "{safe}");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)[0]?.modify.content).toBe(reactGolden("setprop-after-spread.txt"));
+  });
+
+  it("REQ-RXD-10.3: an update keeps the attribute FIRST — position preserved, only the initializer changes, byte-exact golden", async () => {
+    const { client, emitted } = makeSpyClient({
+      "Button.tsx": 'const el = <Button onClick={old} type="submit" />;\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Button.tsx").setJsxProp("Button", "onClick", "{fresh}");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)[0]?.modify.content).toBe(reactGolden("setprop-update-position-preserved.txt"));
+  });
+
+  it("REQ-RXD-10.4: a self-closing element stays self-closing after an insert", async () => {
+    const { client, emitted } = makeSpyClient({ "Input.tsx": "const el = <Input />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Input.tsx").setJsxProp("Input", "required");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)[0]?.modify.content).toBe("const el = <Input required />;\n");
+  });
+
+  it("REQ-RXD-10.5: a paired element stays paired after an insert, children byte-identical", async () => {
+    const { client, emitted } = makeSpyClient({ "Button.tsx": "const el = <Button>Save</Button>;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Button.tsx").setJsxProp("Button", "disabled");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)[0]?.modify.content).toBe("const el = <Button disabled>Save</Button>;\n");
+  });
+
+  it("REQ-RXD-10.6: an element with attributes spanning multiple lines gets the insert on the LAST attribute's line, byte-exact golden — existing line structure undisturbed", async () => {
+    const before = reactGolden("setprop-multiline-before.txt");
+    const { client, emitted } = makeSpyClient({ "Button.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Button.tsx").setJsxProp("Button", "disabled", "{isBusy}");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)[0]?.modify.content).toBe(reactGolden("setprop-multiline-after.txt"));
   });
 });
