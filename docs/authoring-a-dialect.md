@@ -6,9 +6,10 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.modify()` escape hatch, and
-the first real dialect, `@pbuilder/sdk/typescript`, whose op-pack has widened past its original
-thin starter shape (`addImport`) to five structured ops: `addImport`, `addFunction`,
-`addVariable`, `addClass`, `removeImport`.
+the two dialects currently shipped — `@pbuilder/sdk/typescript`, whose op-pack has widened past
+its original thin starter shape (`addImport`) to five structured ops: `addImport`, `addFunction`,
+`addVariable`, `addClass`, `removeImport`; and `@pbuilder/sdk/react`, a deliberately minimal v1
+pair for `.tsx`/JSX authoring: `setJsxProp` and `addImport`.
 
 ## Two audiences
 
@@ -101,6 +102,56 @@ const handle = ts.find("src/index.ts").addImport("readFileSync", "node:fs");
 await handle.read(); // drains the pending addImport edit
 handle.replaceContent("new content"); // succeeds — the documented escape
 ```
+
+### `@pbuilder/sdk/react` — a second dialect
+
+`@pbuilder/sdk/react` mutates `.tsx`/JSX files. Its v1 op-pack is deliberately minimal — exactly
+two structured ops, `setJsxProp` and `addImport` — proving JSX-structural mutation end to end
+without committing to a full React mutation catalog; further ops are tracked as the React
+op-catalog follow-up. Until those land, `.modify(fn)` is the escape hatch for anything the two
+shipped ops don't cover — the same universal verb the TypeScript dialect's authors already reach
+for.
+
+`find(path)` requires an explicit `.tsx` extension — extensionless paths are rejected, never normalized.
+This is deliberate: a future `.jsx` dialect addition would otherwise leave an assumed extension ambiguous between `Button.tsx` and `Button.jsx`, and baking in a `.tsx` default today would make that a breaking change to unwind later.
+
+The worked example below is the COALESCED author journey — `addImport` and `setJsxProp` on ONE
+handle:
+
+```ts
+import * as react from "@pbuilder/sdk/react";
+
+// src/Button.tsx before: const el = <Button />;
+await react
+  .find("src/Button.tsx")
+  .addImport("handleClick", "./handlers")
+  .setJsxProp("Button", "onClick", "{handleClick}");
+// -> import { handleClick } from "./handlers";
+// ->
+// -> const el = <Button onClick={handleClick} />;
+```
+
+`addImport(name, from)` merges `name` into an EXISTING named-import clause from the SAME module
+if one already exists, or inserts a fresh `import { name } from "from";` otherwise — idempotent,
+same contract as the TypeScript dialect's own `addImport`. It is NAMED-BINDING-ONLY, pinned as
+contract: `addImport("React", "react")` always prints `import { React } from "react"`, never
+`import React from "react"` — default and namespace imports are NOT supported in v1, tracked as
+catalog-follow-up scope, not an oversight.
+
+`setJsxProp(elementName, propName, value?)` targets the ONE element whose tag name matches
+`elementName` — zero matches or more than one match both reject loudly (never a silent
+first-match). `value` accepts three forms: a quoted string (`'"hi"'` → `hi="hi"`), an expression
+container (`'{count}'` → `hi={count}`), or an omitted value (boolean shorthand, `hi`, no `=`).
+
+#### The `value` trust boundary
+
+`setJsxProp`'s `value` is emitted verbatim as the prop's expression/string initializer. The SDK performs no validation, escaping, or sanitisation on `value` — it becomes executable code in the generated file.
+You are solely responsible for ensuring `value` is not derived from untrusted input (schema `options`, CLI answers, network data) without your own sanitisation. By contrast, `elementName` and `propName` ARE validated name arguments and are NOT a trusted-code channel.
+
+#### Spread-precedence warning
+
+An inserted prop lands after the element's last existing prop — including after a trailing `{...spread}`. An inserted explicit prop lands AFTER a trailing `{...spread}` and therefore WINS at React runtime (later-position precedence).
+For example, `<Button {...rest} />` plus `setJsxProp("Button", "onClick", "{safe}")` prints `<Button {...rest} onClick={safe} />`, and `safe` wins even if `rest` also supplies an `onClick`.
 
 ### For contributors: building a dialect
 
