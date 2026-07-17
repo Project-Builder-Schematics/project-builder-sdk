@@ -216,7 +216,15 @@ describe("REQ-RXD-13.3 — a 100-char hostile propName never appears, nor does a
 // ARRAY). The preceding-character check is what tells them apart: a bracket opening a
 // literal/destructuring pattern is preceded by whitespace, `(`, `,`, `=`, or line-start —
 // never by a word character, `)`, `]`, or `{`.
-const FORBIDDEN_NAME_KEY_ACCESS = /[\w$)\]{]\[\s*(?:propName|elementName|name|tag)\s*\]/;
+//
+// Judgment-day Round 2 (Judge B): the OBJECT-LITERAL-COMPUTED-KEY branch (`{` immediately
+// before `[`) additionally tolerates whitespace (including newlines, via `\s*`) BETWEEN `{`
+// and `[` — prettier's default output for `{ [propName]: 1 }` puts a space there, which the
+// original single-char-adjacency class missed entirely. The other member-access leads
+// (word char / `$` / `)` / `]`) stay immediately-adjacent-only: those are property-access
+// shapes, not object-literal keys, and widening them risks flagging legitimate spaced
+// member-access-adjacent array literals this scan was never meant to catch.
+const FORBIDDEN_NAME_KEY_ACCESS = /(?:[\w$)\]]|\{\s*)\[\s*(?:propName|elementName|name|tag)\s*\]/;
 
 describe("Set-key-safety static scan (ADR-02 clause) — propName/elementName are NEVER plain-object keys", () => {
   it("src/core/jsx-name-validator.ts and every file under src/dialects/react/** contain no bracket-indexed object access keyed by a name argument", () => {
@@ -245,10 +253,29 @@ describe("Set-key-safety static scan (ADR-02 clause) — propName/elementName ar
     expect(FORBIDDEN_NAME_KEY_ACCESS.test("counts[tag]++")).toBe(true);
   });
 
+  // Judge B (judgment-day Round 2): a prettier-formatted computed key — `{ [propName]: 1 }`,
+  // the DEFAULT prettier output for an object literal with a computed key — escaped the
+  // original regex, because it required `[` to sit IMMEDIATELY against `{` with zero
+  // whitespace. Same forbidden shape as `{[name]: value}` above, just formatted.
+  it("the scan catches a SPACED computed key — `{ [propName]: 1 }` (prettier default formatting)", () => {
+    expect(FORBIDDEN_NAME_KEY_ACCESS.test("{ [propName]: 1 }")).toBe(true);
+  });
+
+  it("the scan catches a MULTILINE computed key — `{` and `[` split across lines", () => {
+    expect(FORBIDDEN_NAME_KEY_ACCESS.test("const sink = {\n  [propName]: 1,\n};")).toBe(true);
+  });
+
   it("the scan does NOT flag array-literal or destructuring shapes that merely contain the same bracket text", () => {
     expect(FORBIDDEN_NAME_KEY_ACCESS.test("namedImports: [name]")).toBe(false);
     expect(FORBIDDEN_NAME_KEY_ACCESS.test("([name]) => {}")).toBe(false);
     expect(FORBIDDEN_NAME_KEY_ACCESS.test("const [name] = args;")).toBe(false);
+  });
+
+  it("the scan does NOT flag SPACED/MULTILINE array-literal or destructuring shapes either", () => {
+    expect(FORBIDDEN_NAME_KEY_ACCESS.test("( [name] ) => {}")).toBe(false);
+    expect(
+      FORBIDDEN_NAME_KEY_ACCESS.test("const namedImports = [\n  name\n];")
+    ).toBe(false);
   });
 });
 
