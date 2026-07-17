@@ -106,6 +106,55 @@ describe("setJsxProp — REQ-RXD-04 targeting trio + upsert", () => {
     expect(await client.read("sample.tsx")).toBe(before);
   });
 
+  it("ARCH-3: a very long elementName's ZERO-match reject echo is BOUNDED — a ≤16-char fragment, never the full name", async () => {
+    // ELEMENT_NAME_GRAMMAR has no length ceiling (member-chain names like `A.B.C...` are
+    // legal), so a long, grammar-valid, non-matching elementName exercises the bound.
+    const longName = "A.B.C.D.E.F.G.H.I.J"; // 19 chars, passes assertValidElementName
+    const before = "const el = <Button />;\n";
+    const { client, emitted } = makeSpyClient({ "Button.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Button.tsx").setJsxProp(longName, "x", "{1}");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const message = (caught as Error).message;
+    expect(message).not.toContain(longName);
+    expect(message).toContain(longName.slice(0, 16));
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("Button.tsx")).toBe(before);
+  });
+
+  it("ARCH-3: a very long elementName's MULTI-match reject echo is BOUNDED — a ≤16-char fragment, never the full name", async () => {
+    const longName = "A.B.C.D.E.F.G.H.I.J";
+    const before = `const a = <${longName} />;\nconst b = <${longName} />;\n`;
+    const { client, emitted } = makeSpyClient({ "sample.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("sample.tsx").setJsxProp(longName, "onClick", "{f}");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const message = (caught as Error).message;
+    expect(message).not.toContain(longName);
+    expect(message).toContain(longName.slice(0, 16));
+    expect(message).toContain("2");
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("sample.tsx")).toBe(before);
+  });
+
   it("REQ-RXD-04.6: exactly one <Menu.Item /> — boolean-shorthand insert, byte-exact vs golden", async () => {
     const { client, emitted } = makeSpyClient({ "menu.tsx": "const el = <Menu.Item />;\n" });
 
@@ -365,6 +414,126 @@ describe("addImport — REQ-RXD-05 merge-or-create, idempotent, named-only", () 
     const content = collectModifies(emitted)[0]!.modify.content;
     expect(content).toBe('import { React } from "react";\n\nconst el = <div />;\n');
     expect(content).not.toContain("import React from");
+  });
+});
+
+describe("addImport — REQ-RXD-05.5-.10 (V5) — shape-aware merge/create/idempotency across non-named declaration forms", () => {
+  it("REQ-RXD-05.5: a type-only clause is never a merge target — a SEPARATE value import is inserted", async () => {
+    const { client, emitted } = makeSpyClient({
+      "App.tsx": 'import type { FC } from "react";\nconst el = <div />;\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("useState", "react");
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe(
+      'import type { FC } from "react";\nimport { useState } from "react";\n\nconst el = <div />;\n'
+    );
+  });
+
+  it("REQ-RXD-05.6: a default import with the SAME local name — idempotent no-op, byte-identical", async () => {
+    const before = 'import React from "react";\nconst el = <div />;\n';
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("React", "react");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
+  });
+
+  it("REQ-RXD-05.7: a default import with a DIFFERENT name — a SEPARATE declaration is inserted, default kept unchanged", async () => {
+    const { client, emitted } = makeSpyClient({
+      "App.tsx": 'import React from "react";\nconst el = <div />;\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("useState", "react");
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe('import React from "react";\nimport { useState } from "react";\n\nconst el = <div />;\n');
+  });
+
+  it("REQ-RXD-05.8: a namespace import with a DIFFERENT name — SUCCEEDS (no throw), a SEPARATE declaration is inserted", async () => {
+    const { client, emitted } = makeSpyClient({
+      "App.tsx": 'import * as React from "react";\nconst el = <div />;\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("useState", "react");
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe('import * as React from "react";\nimport { useState } from "react";\n\nconst el = <div />;\n');
+  });
+
+  it("REQ-RXD-05.9: a namespace import with the SAME local name — idempotent no-op, byte-identical", async () => {
+    const before = 'import * as React from "react";\nconst el = <div />;\n';
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("React", "react");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
+  });
+
+  it("REQ-RXD-05.10: an aliased named import — merge adds a SECOND, unaliased specifier; the alias is undisturbed", async () => {
+    const { client, emitted } = makeSpyClient({
+      "App.tsx": 'import { useState as us } from "react";\nconst el = <div />;\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("useState", "react");
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe('import { useState as us, useState } from "react";\nconst el = <div />;\n');
+  });
+});
+
+describe("addImport.name grammar divergence pin — the import-binding grammar, not the attribute grammar (QA-5 runner-up)", () => {
+  it('"$" is a valid import binding (single-char identifier grammar) and is accepted', async () => {
+    const { client, emitted } = makeSpyClient({ "App.tsx": "const el = <div />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("$", "react");
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe('import { $ } from "react";\n\nconst el = <div />;\n');
+  });
+
+  it('"data-testid" is NOT a valid import binding (hyphens belong only to the attribute-name grammar) and is rejected', async () => {
+    const before = "const el = <div />;\n";
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("data-testid", "react");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("`name`");
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
   });
 });
 
