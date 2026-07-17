@@ -11,8 +11,31 @@ completed_phases:
   - steward-foresight
   - slice
   - plan-verify
-current_phase: build-complete
+current_phase: spec
 current_phase_status: >
+  VERIFY FINAL **FAILED** 2026-07-17 at HEAD f12ffba — see verify-report.md
+  (verdict `fail`, adversarial_review `required`) and council-findings.md.
+  The BUILD is intact and the suite is genuinely green; the GATE is what
+  failed. sdd-verify --mode=final gated on ONE item (F-01, MAJOR/quality).
+  The four BLIND anti-anchored Council personas run in parallel with it
+  (architect, qa-engineer, security-engineer, tech-writer — all opus) found
+  substantially more, including FOUR REAL CORRECTNESS BUGS in addImport that
+  the verifier missed. The fan-out is what caught them: verify-final alone
+  called this "a one-line JSDoc fix, not a re-plan" and would have shipped
+  it. ROUTED to Planner -> sdd-spec (unfreeze=true; V4 is SIGNED) -> apply ->
+  re-verify final -> judgment-day. NOTE: this file sat frozen at a stale
+  `build-complete` for ~1h while a recurring macOS TCC fault cut off all
+  ~/Documents access before the FAIL could be persisted; corrected on resume.
+build_status: >
+  All six slices S-000..S-005 APPLIED and committed. Both in-loop loops
+  exited clean (verify-in-loop-5.md closed S-002 at iteration 5;
+  verify-in-loop-6.md closed the S-003+S-004+S-005 final batch at iteration
+  6). Final batch commits: cf89a52, 548c581, 616ff75, 0257e5c, f78cb88.
+  Design contract confirmed by `git diff --name-status 6ee9af0..f78cb88`:
+  ZERO src/** changes in that batch. Suite: 1797 pass / 0 fail in a clean
+  /private/tmp worktree (the ~/Documents number lies — see carry_forward).
+  Retained for history: this is what the gate then found wanting.
+legacy_build_complete_note: >
   BUILD COMPLETE 2026-07-17. All six slices (S-000..S-005) APPLIED and
   VERIFIED DONE; both in-loop loops exited clean — verify-in-loop-5.md closed
   S-002 at iteration 5, verify-in-loop-6.md closed the S-003+S-004+S-005
@@ -35,14 +58,23 @@ current_phase_status: >
 in_loop_iteration: 0
 slices_done: [S-000, S-001, S-002, S-003, S-004, S-005]
 next_phase: >
-  /evaluate -> sdd-verify --mode=final (comprehensive gate over all six
-  slices; MUST audit the disclosed S-002 TDD ordering violation under TDD
-  Cycle Adherence — it must not downgrade to clean by attrition; Step 11b
-  code audit is GATING; triage L implies adversarial_review: required ->
-  judgment-day BLIND pass) -> steward reckoning -> architecture audit gate ->
-  archive (fold the REQ-RXD-11.5 wording amendment and the subprocess-timeout
-  debt into pending-changes; the .tsx/jsx pending-changes row must be
-  folded-or-reaffirmed, never duplicated)
+  sdd-spec with unfreeze=true (V4 SIGNED -> V5). OWNER DECISION 2026-07-17,
+  explicit: SPEC FIRST, then apply — two findings are SPEC defects, and
+  patching code against a signed spec that states falsehoods re-opens on the
+  next drift check. V5 must address: (1) REQ-RXD-06 mandates
+  IMPORT_BINDING_GRAMMAR verbatim, and that regex accepts JS reserved words
+  -> addImport("default","react") emits invalid TSX that print() never
+  re-validates; (2) REQ-RXD-06 calls {__proto__, constructor, prototype}
+  "the full prototype-walk set" — factually false; the real defence is
+  set-key-safety, which the code comment already states correctly; (3)
+  REQ-RXD-05 does not contemplate non-named import declaration shapes
+  (type-only / namespace / default / aliased) — the source of four
+  correctness bugs; (4) REQ-RXD-11.5 wording amendment (long-standing
+  carry-forward). THEN sdd-apply -> re-verify final -> judgment-day (BLIND;
+  required: L + two sensitive areas) -> steward reckoning -> architecture
+  audit gate -> archive (fold the subprocess-timeout debt into
+  pending-changes; the .tsx/jsx row must be folded-or-reaffirmed, never
+  duplicated)
 artefacts:
   triage: openspec/changes/react-dialect/triage.md (obs #1032)
   explore: openspec/changes/react-dialect/explore.md (obs #1035; AST decision obs #1037 owner-ratified ts-morph ScriptKind.Tsx)
@@ -54,6 +86,8 @@ artefacts:
   plan_verify: verify-plan-1.md (gaps, obs #1057) + verify-plan-2.md (READY, obs #1060)
   apply_progress: openspec/changes/react-dialect/apply-progress.md
   verify_in_loop: verify-in-loop-1.md (S-000) + verify-in-loop-2.md (S-001, needs-fix) + verify-in-loop-3.md (S-001, pass) + verify-in-loop-4.md (S-002, needs-fix) + verify-in-loop-5.md (S-002, PASS) + verify-in-loop-6.md (S-003+S-004+S-005 final batch, PASS)
+  verify_final: openspec/changes/react-dialect/verify-report.md (verdict fail, adversarial_review required; gates on F-01 ONLY — the Council's findings are NOT in it)
+  council_findings: openspec/changes/react-dialect/council-findings.md (engram obs #2288) — 4 real addImport correctness bugs + 2 spec defects the final verifier missed; blind parallel fan-out (architect, qa-engineer, security-engineer, tech-writer, all opus)
 carry_forward:
   - REQ-RXD-11.5 wording amendment -> pending-changes at archive.
   - >
