@@ -536,3 +536,167 @@ regen was needed: this change adds a `Set` member, not a type-surface change (`R
 shape is unaffected). Did not re-open DOC-3, ARCH-2, the subprocess-timeout debt, or any CLOSED
 `council-findings.md` ruling. Did not touch F-2 through F-5 from `verify-report.md` — left
 exactly as recorded, per the task's explicit scope.
+
+## judgment-day Fix Round — spec V7, four confirmed defects (COMPLETE)
+
+Two independent blind judges (spec + diff only, no orchestrator transcript) reviewed the
+build against the signed spec and found three real `addImport` defects — one root cause, spec
+V7 already documents it — plus one unrelated confirmed finding each on `reject-tail.ts`'s
+truncation, `index.ts`'s `.tsx` extension gate, and `jsx-name-validator.ts`'s "Frozen" comments.
+This round implements V7's unified algorithm and fixes all four. Commits `65fc87c`, `36dc474`,
+`2636111`, `37cd689`.
+
+### Fix 1 — `addImport` V7 unified collision-reject algorithm (REQ-RXD-05.11–.15, REQ-RXD-09.6)
+
+**Root cause** (spec V7 changelog, verbatim): the V5 already-bound check keyed on LOCAL NAME
+only, ignored type-only-ness at both granularities (`decl.isTypeOnly()`/`specifier.isTypeOnly()`),
+and scoped the check to the SAME module — three gaps producing three defects: (a) a same-name
+TYPE-ONLY import silently no-op'd, leaving the name unbound at runtime; (b) a CROSS-module
+local-name collision fell through to CREATE, emitting a second, invalid duplicate declaration;
+(c) an ALIASED named specifier's local name satisfied the same-module check even though the
+alias identifies a different export, silently leaving the requested name unbound.
+
+**Fix** (`src/dialects/react/ops.ts`): replaced `localNamesBoundBy` with `boundNamesIn`, which
+tags each bound name with `kind` (`default`/`namespace`/`named`), `aliased`, and `valueBound`
+(false when either the declaration or, for a named specifier, the specifier itself is
+type-only). Step 1 (idempotency) now calls `satisfiesIdempotency`, narrowed to a value-bound
+default/namespace/unaliased-named specifier from the SAME module. A NEW Step 2 runs between
+idempotency and merge/create: if `name` is CLAIMED anywhere in the file — any module, any
+specifier kind, value-bound or type-only — it rejects via `dialectError` (new
+`claimedNameTail` in `src/core/reject-tail.ts`) BEFORE any AST mutation. Reaching merge/create
+now provably means `name` is claimed nowhere in the file.
+
+**Scenarios 05.1–05.10 unchanged**: re-ran the full `ops.test.ts` suite after the fix — all ten
+baseline scenarios (05.1–05.4 pre-V5, 05.5–05.10 V5 shape-aware) pass byte-for-byte identical
+to their pre-fix expectations, confirming sdd-spec's hand-trace held.
+
+**New scenarios (05.11–.15 + two near-miss extensions, REQ-RXD-09.6)**:
+
+| Scenario | Case | Expected |
+|---|---|---|
+| 05.11 | `import type { Icon } from "./icons"` + `addImport("Icon", "./icons")` | REJECT (was silent no-op) |
+| 05.12 | `import { type Icon } from "./icons"` (inline specifier) + `addImport("Icon", "./icons")` | REJECT — pins `specifier.isTypeOnly()`, not only decl-level |
+| 05.13 | `import type { Icon as IconT } from "./icons"` + `addImport("Icon", "./icons")` | SUCCEED — boundary case, `IconT` ≠ `Icon`, never claimed |
+| 05.14 | `import { useState } from "react"` + `addImport("useState", "./local")` | REJECT (was a second, invalid declaration) |
+| 05.15 | `import { Foo as x } from "./a"` + `addImport("x", "./a")` | REJECT (was silent no-op) |
+| near-miss | `import type React from "react"` + `addImport("React", "react")` | REJECT — decl-level type-only DEFAULT |
+| near-miss | `import type * as React from "react"` + `addImport("React", "react")` | REJECT — decl-level type-only NAMESPACE |
+
+`docs/authoring-a-dialect.md` gained `#### The addImport collision-reject limitation`
+(REQ-RXD-09.6), guard-asserted in `test/dialects/react/docs.test.ts` mirroring the
+REQ-RXD-09.3 pinned-sentinel pattern (sentinel sentence, exactly-once check, remove-fails-red
+regression proof).
+
+**TDD sequence — real RED→GREEN**: wrote all 5 new + 2 near-miss scenarios FIRST, ran against
+the unfixed algorithm — **4 fail** (05.11, 05.12, 05.14, 05.15; 05.13's boundary case already
+passed under the old algorithm, correctly, since it was never the bug). Implemented the V7
+algorithm. Re-ran — **all pass**. No probe substitution; this was genuine RED, the defects were
+live.
+
+**Mutation kill-count bar** (the round's explicit ask): both judges found deleting
+`decl.isTypeOnly()` in the OLD merge-target guard killed only 1 of ~196 tests. After
+implementing V7, the SAME class of guard (now `declTypeOnly` inside `boundNamesIn`, feeding
+Step 1's `valueBound` computation) was deleted (forced to `false`) as a mutation probe:
+
+- **Before adding the two near-miss tests**: 1 test died (REQ-RXD-05.11 only) — same weak
+  signal as before, because 05.11 was the only scenario in the whole suite whose specifier
+  shape (unaliased named, decl-level type-only) is sensitive to that exact flag.
+- **After adding the two near-miss tests** (decl-level type-only DEFAULT and NAMESPACE
+  variants, generalizing 05.11's principle to the other two specifier kinds REQ-RXD-05 Step 1
+  explicitly enumerates): **3 tests died** on the identical mutation.
+
+This is a real, if modest, improvement — the guard now has coverage across all three specifier
+kinds it protects, not just one. The mutation was reverted after counting (confirmed via
+`git diff` showing zero delta before re-running the full suite green).
+
+### Fix 2 — `boundedFragment`'s 16-char cap mis-applied to `elementName` echoes
+
+**Root cause**: `zeroMatchTail`/`multiMatchTail` (REQ-RXD-04 match-count rejects) routed
+`elementName` through `boundedFragment`'s default 16-char cap — a bound REQ-RXD-13 mandates
+for HOSTILE-VALUE diagnostics, a different reject class. `elementName` here is post-validation
+and grammar-constrained (no quotes, no newlines — never an injection vector), so the cap
+bought no security and cost the message its accuracy: `setJsxProp("NotificationPreferences
+Panel", …)` reported a missing element named `NotificationPref`, which does not exist in the
+author's source.
+
+**Fix** (`src/core/reject-tail.ts`): added `elementNameEcho` — a dedicated 100-char bound for
+this reject class only, with an explicit `…` marker appended ONLY when the name actually
+exceeds the cap. `boundedFragment`'s own default (16) is untouched — `assertNotDenylisted`/
+`assertNotReservedWord`/`claimedNameTail` in `jsx-name-validator.ts`/`ops.ts` still call it
+directly, so REQ-RXD-13's hostile-value cap is unchanged.
+
+**Test revision** (not a regression — the two ARCH-3 tests pinned the BUG): the old tests
+asserted a 19-char member-chain name (`A.B.C.D.E.F.G.H.I.J`) got truncated to 16 chars — that
+was exactly the defect. Revised both to assert the name is now echoed IN FULL (19 < 100), and
+added a new test (`"A".repeat(150)`) proving the new 100-char bound truncates WITH the `…`
+marker when a name genuinely exceeds it.
+
+### Fix 3 — `find(".tsx")` (empty stem) wrongly accepted
+
+**Root cause**: the extension gate was a bare `base.endsWith(".tsx")`, true for `base === ".tsx"`
+itself and for a degenerate `..tsx` (stem = a lone dot) — the same "no real name before the
+extension" shape as the dotfile `.babelrc`, which already correctly rejects (suffix `babelrc`,
+not `.tsx`, by REQ-RXD-02's own suffix rule). The shipped JSDoc (which ships into the published
+`.d.ts`) claims every dotfile basename rejects the same way — false for this one case.
+
+**Decision** (per the task's explicit choice): fixed the CODE, not the doc — required a
+non-empty stem before `.tsx` that does not itself end in a dot (`src/dialects/react/index.ts`).
+This makes the existing JSDoc claim true rather than reinterpreting it, so no spec touch and no
+`.d.ts` regen: the JSDoc text and `find`'s signature are unchanged, only the gate's runtime
+behaviour. Confirmed via `fit-04-dts-semver-gate.test.ts` staying green with zero diff.
+
+**New tests** (`test/dialects/react/dialect.test.ts`): `find(".tsx")`, `find("src/.tsx")`, and
+`find("..tsx")` all now reject via the generic ".tsx is the only extension" path; a genuine
+dotfile with a real name, `find(".config.tsx")`, still passes (boundary case, proves the fix
+does not reject every leading-dot basename).
+
+### Fix 4 — overstated "Frozen" security-rationale comments (comment-only)
+
+`JSX_NAME_DENYLIST` and `IMPORT_RESERVED_WORDS` were documented as "Frozen" citing that as
+security rationale. `ReadonlySet<string>` is compile-time-only — it does not stop
+`Set.prototype.add`/`.delete`/`.clear` at runtime, and neither Set is wrapped in
+`Object.freeze`. No reachable impact (neither symbol is re-exported through any barrel/
+subpath — a prior gate correctly ruled actually freezing it would be theatre). Rewrote both
+comments (`src/core/jsx-name-validator.ts:15`, `:18-19`, ahead of the `JSX_NAME_DENYLIST`/
+`IMPORT_RESERVED_WORDS` declarations at lines 16/30) to state the true, load-bearing
+properties — Set-key-safety and `.has()`-equality membership on a kit-internal module — rather
+than a runtime immutability guarantee that was never actually provided. No test change: no
+existing test pinned the comment text; `Set-key-safety static scan` and the denylist/
+reserved-word batteries in `name-validation.test.ts` are unaffected (81 pass / 0 fail, unchanged).
+
+### Test numbers, each labelled with the location it was taken in
+
+| Scope | Result | Location |
+|---|---|---|
+| `test/dialects/react/ops.test.ts` (RED, pre-fix, 5 new + 2 near-miss scenarios scoped) | 4 fail / 3 pass (05.13 passed pre-fix, correctly) | `~/Documents` (working dir) |
+| `test/dialects/react/ops.test.ts` (GREEN, post-fix) | 40 pass / 0 fail | `~/Documents` (working dir) |
+| `test/dialects/react/dialect.test.ts` (RED, pre-fix, 3 new `.tsx`-empty-stem cases) | 3 fail / 21 pass | `~/Documents` (working dir) |
+| `test/dialects/react/dialect.test.ts` (GREEN, post-fix) | 24 pass / 0 fail | `~/Documents` (working dir) |
+| `test/dialects/react/docs.test.ts` (RED, pre-fix, REQ-RXD-09.6 guard) | 3 fail / 17 pass | `~/Documents` (working dir) |
+| `test/dialects/react/docs.test.ts` (GREEN, post-fix) | 23 pass / 0 fail | `~/Documents` (working dir) |
+| `test/dialects/react` + `test/core` + `test/security` + `test/docs` + `test/fitness` (full, post-fix) | 855 pass / 0 fail | `~/Documents` (working dir) |
+| `bunx tsc --noEmit` | 0 errors | `~/Documents` (working dir) |
+| Mutation probe (`declTypeOnly` forced `false`) BEFORE near-miss tests added | 1 test died | `~/Documents` (working dir) |
+| Mutation probe (same mutation) AFTER near-miss tests added | 3 tests died | `~/Documents` (working dir) |
+| **Full suite, trustworthy location** | **1844 pass / 0 fail** | fresh `/private/tmp` worktree of HEAD (`37cd689`), `git worktree add` + `bun install` + `bun test`; worktree removed after |
+
+1844 = 1829 (this change's prior trustworthy baseline) + 15 net new tests (7 in `ops.test.ts`
+for REQ-RXD-05.11–.15 + 2 near-miss, 1 in `ops.test.ts` for the new elementName-truncation-
+marker case, 4 in `dialect.test.ts` for the `.tsx`-empty-stem defect-fix, 3 in `docs.test.ts`
+for REQ-RXD-09.6) — matches exactly, no unexplained delta. Verified against the actual
+committed HEAD in a second fresh-worktree run (not just the pre-commit diff), same result. No
+environmental timeout was observed in any run; nothing was reported as a pass that was actually
+a timeout, and no failure was attributed to the environment.
+
+### Scope discipline
+
+Touched only the four confirmed files (`src/dialects/react/ops.ts`, `src/core/reject-tail.ts`,
+`src/dialects/react/index.ts`, `src/core/jsx-name-validator.ts`) plus their direct test/doc
+companions (`test/dialects/react/{ops,dialect,docs}.test.ts`, `docs/authoring-a-dialect.md`).
+Did not touch the element-name grammar gap ($, namespaces, non-ASCII), `getAttribute`
+first-match, DOC-3, ARCH-2, the subprocess-timeout debt, or the TypeScript dialect's lack of
+validation — all registered followups/pending-changes, out of this round's scope. Did not
+re-open any CLOSED `council-findings.md` ruling. No `.d.ts` baseline regen was needed for any
+of the four fixes (confirmed via `fit-04-dts-semver-gate.test.ts` staying green): Fix 1/2/4
+touch kit-internal, non-exported modules; Fix 3 changes `find`'s runtime behaviour only, not
+its JSDoc or signature.
