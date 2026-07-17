@@ -159,6 +159,7 @@ For example, `<Button {...rest} />` plus `setJsxProp("Button", "onClick", "{safe
 
 `addImport` REJECTS when `name` is already bound elsewhere in the file under a different binding — whether from a different module, or the same module under an alias or a type-only specifier — and resolving the naming conflict is your responsibility, since `addImport` takes no alias argument to route around it.
 For example, `import { useState } from "react";` plus `addImport("useState", "./local")` rejects rather than emitting a second, invalid `import { useState } from "./local";` declaration; renaming the existing import or choosing a different `name` is on you. The same applies to a same-module alias (`import { Foo as x } from "./a"` + `addImport("x", "./a")`) and a same-module type-only import (`import type { Icon } from "./icons"` + `addImport("Icon", "./icons")`).
+The rejection also covers a TOP-LEVEL VALUE-NAMESPACE declaration sharing the name — `function`/`const`/`let`/`var`/`class`/`enum`/`namespace` — since it is the same duplicate-binding problem under a different syntax: a component file declaring `function Icon() { return null; }` plus `addImport("Icon", "./icons")` rejects rather than emitting `import { Icon } from "./icons";` alongside the existing declaration; a `type`/`interface` declaration sharing the name does NOT collide (TypeScript legally permits a value and a type to share an identifier).
 
 ### For contributors: building a dialect
 

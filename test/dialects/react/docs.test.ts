@@ -40,6 +40,12 @@ const COLLISION_REJECT_SENTENCE =
   "binding — whether from a different module, or the same module under an alias or a " +
   "type-only specifier — and resolving the naming conflict is your responsibility, since " +
   "`addImport` takes no alias argument to route around it.";
+// V8 (judgment-day Round 2): the collision-reject limitation also covers the value-namespace
+// axis (a local function/const/etc. sharing the name) — REQ-RXD-09.6 requires BOTH axes named.
+const VALUE_NAMESPACE_COLLISION_SENTENCE =
+  "The rejection also covers a TOP-LEVEL VALUE-NAMESPACE declaration sharing the name — " +
+  "`function`/`const`/`let`/`var`/`class`/`enum`/`namespace` — since it is the same " +
+  "duplicate-binding problem under a different syntax:";
 
 const EXPLICIT_EXTENSION_REQUIREMENT =
   "`find(path)` requires an explicit `.tsx` extension — extensionless paths are rejected, " +
@@ -131,23 +137,37 @@ describe("REQ-RXD-09.3 — value-trust and spread-precedence sections present, g
   });
 });
 
-describe("REQ-RXD-09.6 — addImport collision-reject limitation documented, guard-asserted (V7, judgment-day)", () => {
-  it("carries the collision-reject sentinel sentence verbatim", () => {
+describe("REQ-RXD-09.6 — addImport collision-reject limitation documented, guard-asserted (V7; widened V8, judgment-day)", () => {
+  it("carries the collision-reject sentinel sentence verbatim (import-specifier axis, V7)", () => {
     expect(doc()).toContain(COLLISION_REJECT_SENTENCE);
   });
 
-  it("the sentinel sentence appears exactly once", () => {
-    const content = doc();
-    expect(content.split(COLLISION_REJECT_SENTENCE).length - 1).toBe(1);
+  it("carries the value-namespace collision sentinel sentence verbatim (V8)", () => {
+    expect(doc()).toContain(VALUE_NAMESPACE_COLLISION_SENTENCE);
   });
 
-  it("fails red if the collision-reject section is removed (regression proof)", () => {
+  it("each sentinel sentence appears exactly once", () => {
+    const content = doc();
+    expect(content.split(COLLISION_REJECT_SENTENCE).length - 1).toBe(1);
+    expect(content.split(VALUE_NAMESPACE_COLLISION_SENTENCE).length - 1).toBe(1);
+  });
+
+  it("fails red if the collision-reject section is removed (regression proof) — both axes gone", () => {
     const withoutSection = doc().replace(
       /#### The `addImport` collision-reject limitation[\s\S]*?(?=\n#### |\n### |\n## |$)/,
       ""
     );
     expect(() => extractSection(withoutSection, COLLISION_REJECT_HEADING)).toThrow();
     expect(withoutSection).not.toContain(COLLISION_REJECT_SENTENCE);
+    expect(withoutSection).not.toContain(VALUE_NAMESPACE_COLLISION_SENTENCE);
+  });
+
+  it("fails red if only the value-namespace axis sentence is removed (V8 regression proof)", () => {
+    const withoutSentence = doc().replace(VALUE_NAMESPACE_COLLISION_SENTENCE, "");
+    expect(withoutSentence).not.toContain(VALUE_NAMESPACE_COLLISION_SENTENCE);
+    // The V7 import-specifier axis sentence must still be present — this proves the guard can
+    // distinguish "V8 axis missing" from "the whole section is gone".
+    expect(withoutSentence).toContain(COLLISION_REJECT_SENTENCE);
   });
 });
 
