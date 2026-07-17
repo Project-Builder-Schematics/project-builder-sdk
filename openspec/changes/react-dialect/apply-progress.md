@@ -700,3 +700,146 @@ re-open any CLOSED `council-findings.md` ruling. No `.d.ts` baseline regen was n
 of the four fixes (confirmed via `fit-04-dts-semver-gate.test.ts` staying green): Fix 1/2/4
 touch kit-internal, non-exported modules; Fix 3 changes `find`'s runtime behaviour only, not
 its JSDoc or signature.
+
+## judgment-day Fix Round 2 — spec V8 owner-signed, CLAIMED widens to ADR-0039's value-namespace predicate (COMPLETE)
+
+Fix iteration 2 of the Round-2 blind adversarial gate. Two independent judges confirmed a
+CRITICAL: `addImport`'s V7 file-wide "claimed name" check (REQ-RXD-05 Step 2) only scanned
+`ast.getImportDeclarations()` — a top-level value-namespace declaration (`function Icon() {
+return null; }` etc.) under the requested `name` was invisible, so `addImport("Icon",
+"./icons")` silently emitted a second, invalid `import { Icon } from "./icons";` alongside the
+existing declaration. Confirmed for all 8 value-declaration kinds against node's real ESM
+parser. Fixed per the owner ruling: CLAIMED widens to the UNION of V7's import-specifier half
+and ADR-0039's already-ratified value-namespace predicate (`assertNoCollision`,
+`typescript/ops.ts:54-75`) — ADOPTED, not reinvented.
+
+### Status per item
+
+| # | Severity | Item | Status |
+|---|---|---|---|
+| 1 | CRITICAL | value-namespace collision invisible to `addImport`'s claimed-name check | DONE |
+| 2 | WARNING (real) | `claimedNameTail`'s `name` echo routed through `boundedFragment`'s 16-char hostile cap instead of `elementNameEcho` | DONE |
+| 3 | SUGGESTION | stale ARCH-3 comment claiming the element echo routes through `boundedFragment` | DONE |
+| 4 | WARNING (theoretical) | `FORBIDDEN_NAME_KEY_ACCESS` regex misses spaced/multiline computed keys (`{ [propName]: 1 }`) | DONE |
+| 5 | SUGGESTION | REQ-RXD-08's "4 MiB TSX sample" was 4 MiB of block comment, not JSX at scale | DONE |
+
+### Fix 1 — `addImport` V8 CLAIMED widening (REQ-RXD-05.16–.18)
+
+`src/dialects/react/ops.ts` — added `isValueNamespaceClaimed(ast, name)` (new private function,
+placed directly above `addImport`, mirroring `typescript/ops.ts:54-75`'s
+`getFunction`/`getVariableDeclaration`/`getClass`/`getEnum`/`getModule` predicate verbatim —
+same five checks, same `type`/`interface` exemption, no new detection technique invented). The
+`claimed` check in `addImport`'s body (`ops.ts`, inside the `validatedOp` body) now ORs this
+against the existing import-specifier scan. JSDoc above `addImport` updated (Step 2 rewritten
+to describe the widened union; "V7 unified algorithm" → "V8 unified algorithm" in the opening
+line).
+
+`src/core/reject-tail.ts:71` (`claimedNameTail`) — `boundedFragment(name)` → `elementNameEcho(name)`.
+`name` is POST-VALIDATION (REQ-RXD-06 already ran) by the time this tail builds, the same class
+as `zeroMatchTail`/`multiMatchTail`'s `elementName` echo — the 16-char hostile-value cap
+silently mangled realistic names (`useDebouncedCallback` → `useDebouncedCall`) with no signal
+anything was cut. JSDoc above the function rewritten to state the rule instead of the stale one.
+
+`src/core/reject-tail.ts:36-44` (ARCH-3 comment, Fix 3, comment-only) — corrected: it claimed
+`setJsxProp`'s echo "routes through `boundedFragment`"; it has always routed through
+`elementNameEcho` (cap 100). Rewritten to name the actual bound, and now also notes
+`claimedNameTail` echoes the same way for the same reason.
+
+`docs/authoring-a-dialect.md:158-162` (doc sentinel, Judge A) — the existing collision-reject
+sentence was already broad enough to be TRUE under V8 (per spec V8 preamble); only its example
+list undersold it. Added one sentence naming the value-namespace axis as a trigger, with a
+worked example (`function Icon() {...}` + `addImport("Icon", "./icons")` rejects). No existing
+sentinel sentence text was changed — REQ-RXD-09.6's V7 sentinel (`COLLISION_REJECT_SENTENCE`)
+stays byte-identical; a new sentinel (`VALUE_NAMESPACE_COLLISION_SENTENCE`) pins the new
+sentence in `test/dialects/react/docs.test.ts`, with its own removed-section and
+removed-sentence-only regression proofs (the latter proving the guard can tell "V8 axis
+missing" apart from "whole section gone").
+
+### Fix 2 — `FORBIDDEN_NAME_KEY_ACCESS` regex whitespace tolerance (Judge B, theoretical)
+
+`test/dialects/react/name-validation.test.ts:219` — the leading character class
+`[\w$)\]{]\[` required `[` to sit with ZERO whitespace against any of its five trigger
+characters, including `{`. Judge B proved `{ [propName]: 1 }` (prettier's default formatting
+for a computed-key object literal) escapes it. Widened to
+`(?:[\w$)\]]|\{\s*)\[\s*(?:propName|elementName|name|tag)\s*\]` — ONLY the `{` branch now
+tolerates whitespace (including newlines, via `\s*`) before `[`; the other four leads
+(word-char/`$`/`)`/`]`, all property-access shapes) stay immediately-adjacent-only, per the
+task's instruction to widen the leading class narrowly rather than loosen the whole scan. Ran
+the widened regex against the real scan target (`src/core/jsx-name-validator.ts` +
+`src/dialects/react/**`, comment-stripped) — zero matches, confirming the widening introduced
+no false positive against this change's own new comments/code.
+
+### Fix 3 — REQ-RXD-08's large TSX sample: JSX at scale, not a giant comment (Judge B, suggestion)
+
+`test/conformance/react-conformance.test.ts` — `LARGE_TSX_SAMPLE` was `/*` + 4 MiB of `a` +
+`*/` + one trivial `<div />`; it exercised the TS/TSX scanner's comment-skip fast path, not JSX
+parsing/printing at scale (the corpus's stated purpose, REQ-RXD-08). Replaced with
+`LARGE_TSX_UNIT` (`    <li className="item" title="entry">Item text</li>\n`, 54 bytes) repeated
+`Math.ceil(4 * 1024 * 1024 / 54)` = 77,673 times inside a `<ul>`, wrapped as
+`const el = (\n  <ul>\n{...repeated...}  </ul>\n);\n`. Total size 4,194,373 bytes (target
+4,194,304 — within 0.002%, "~4 MiB" as the sample was always described, never byte-exact-pinned).
+Assertion contract unchanged: still one entry in `CORPUS_SAMPLES`, still asserted via
+`testDialect`'s byte-exact round-trip. Timing (spike-measured, this machine, `parse`+`print` in
+isolation): OLD (comment-dominated) parse ≈141ms; NEW (JSX-dominated) parse ≈245ms; `print`
+≈0ms either way — reported per the task's instruction since the runtime meaningfully changed
+(+~100ms). The full `react-conformance.test.ts` file (3 tests, includes this sample inside the
+20-sample corpus round-trip) still completes in ≈2s.
+
+### TDD sequence, real RED→GREEN, per item
+
+| Item | RED (observed failure) | GREEN |
+|---|---|---|
+| 1 (8-kind battery + 05.17 x2 + 05.18) | 9 fail / 2 pass — `expect(caught).toBeInstanceOf(Error)` got `undefined` for all 8 value-namespace kinds + 05.18 (05.17 x2 pass pre-fix, correctly — negative boundary already held) | 53 pass / 0 fail after `isValueNamespaceClaimed` + `elementNameEcho` fixes |
+| 2 (05.18 tail-echo bound) | folded into item 1's RED above (05.18 fails on the SAME run until `claimedNameTail` is also fixed — value-namespace collision must fire before the tail's echo width is observable) | same 53/0 GREEN run |
+| 4 (regex whitespace) | 2 fail / 4 pass — spaced (`{ [propName]: 1 }`) and multiline computed-key self-test cases failed against the pre-widen regex; the two "does NOT flag" additions passed immediately (correct — they were never meant to trigger) | 84 pass / 0 fail after the regex widen |
+| 3 (comment-only), 5 (doc-comment-quality) | not applicable — comment-only fixes carry no test cycle | n/a |
+
+**Near-miss amendment compliance**: item 1's RED is a genuine plausible-wrong-implementation
+probe, not an absence mutant — the pre-fix code doesn't merely lack a check, it actively
+SUCCEEDS and emits an invalid duplicate binding (a real behavioural bug, reproduced against
+node's real ESM parser per the spec preamble). Item 4's RED is the same: the pre-widen regex is
+a plausible-but-wrong implementation (it "checks for computed-key access" but silently misses
+the formatted case), not simply absent.
+
+**The round's bar — value-namespace half neuter kill count**: replaced
+`isValueNamespaceClaimed(ast, name)` with a hardcoded `false` in the `claimed` OR-expression,
+re-ran `test/dialects/react/ops.test.ts`: **9 tests died** (all 8 `REQ-RXD-05.16` battery cases
++ `REQ-RXD-05.18`, which also depends on a value-namespace collision to reach its reject path).
+Reverted immediately after counting (confirmed restored via `git diff` + a clean 53/0 re-run).
+9 > both judges' Round 2 tables' reported 6-7-kill floor for the V7 Step-2 check — not a 1-kill
+guard.
+
+### Test numbers, each labelled with the location it was taken in
+
+| Scope | Result | Location |
+|---|---|---|
+| `test/dialects/react/ops.test.ts` (RED, pre-fix, 05.16 battery + 05.18) | 9 fail / 44 pass | working dir |
+| `test/dialects/react/ops.test.ts` (GREEN, post-fix) | 53 pass / 0 fail | working dir |
+| `test/dialects/react/name-validation.test.ts` (RED, pre-fix, regex-widen self-test) | 2 fail / 82 pass | working dir |
+| `test/dialects/react/name-validation.test.ts` (GREEN, post-fix) | 84 pass / 0 fail | working dir |
+| `test/dialects/react/docs.test.ts` (GREEN, post doc-sentinel update) | 25 pass / 0 fail | working dir |
+| `test/dialects/react/` + `test/security/` (full, post-fix) | 193 pass / 0 fail | working dir |
+| `test/conformance/react-conformance.test.ts` (GREEN, post large-sample rewrite) | 3 pass / 0 fail, ≈2s | working dir |
+| Neuter probe (`isValueNamespaceClaimed` forced `false`) | 9 tests died | working dir |
+| `bunx tsc --noEmit -p .` | 0 errors | working dir |
+| **Full suite, trustworthy location** | **1860 pass / 0 fail** | fresh `/private/tmp` worktree of HEAD (`1217d08`), `git worktree add --detach` + `git diff \| git apply` + `bun install` + `bun test`; worktree removed after |
+
+1860 = 1844 (this change's prior trustworthy baseline, S-003/S-004/S-005 in-loop verify round)
++ 16 net new tests (11 in `ops.test.ts` for REQ-RXD-05.16–.18: 8 battery + 2 for `.17` + 1 for
+`.18`; 2 in `docs.test.ts` for the V8 value-namespace doc sentinel + its removed-sentence-only
+regression proof; 3 in `name-validation.test.ts` for the spaced/multiline regex self-test) —
+matches exactly, no unexplained delta. No environmental timeout was observed in any run;
+nothing reported as passing was actually a timeout.
+
+### Scope discipline
+
+Touched exactly the four items in scope: `src/dialects/react/ops.ts`,
+`src/core/reject-tail.ts`, plus their direct test/doc companions
+(`test/dialects/react/{ops,docs,name-validation}.test.ts`,
+`test/conformance/react-conformance.test.ts`, `docs/authoring-a-dialect.md`). Verified
+`src/dialects/typescript/**` stayed at ZERO diff lines (`git diff --stat -- src/dialects/typescript/`
+returned empty) — read `assertNoCollision` to adopt its predicate shape, did not modify its
+file, per the explicit "NOT yours" instruction; that dialect's own `addImport` merge-defect
+family remains a registered followup, out of this round's triage scope. Did not touch DOC-3,
+ARCH-2, the subprocess-timeout debt, the element-grammar capability gap, `getAttribute`
+first-match, or anything recorded CLOSED in `council-findings.md`.
