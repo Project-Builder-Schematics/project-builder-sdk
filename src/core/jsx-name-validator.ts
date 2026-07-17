@@ -15,6 +15,21 @@ import { boundedFragment, nameRuleTail } from "./reject-tail.ts";
 /** Frozen V4 denylist — `.has()` equality only, NEVER an object literal, never regex-encoded. */
 export const JSX_NAME_DENYLIST: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"]);
 
+// V5 (REQ-RXD-06, SEC-1): `IMPORT_BINDING_GRAMMAR` alone admits any `IdentifierName`, not a
+// `BindingIdentifier` — `import { name }` requires the latter. This frozen 46-word set (36
+// always-reserved ECMAScript keywords + 9 strict-mode-reserved words + `await`, which is
+// reserved unconditionally here because `addImport` always emits into an ES module, and ES
+// modules are always strict) closes that gap. `.has()` equality only — never regex-encoded —
+// same mechanism as `JSX_NAME_DENYLIST`.
+export const IMPORT_RESERVED_WORDS: ReadonlySet<string> = new Set([
+  "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do",
+  "else", "enum", "export", "extends", "false", "finally", "for", "function", "if", "import", "in",
+  "instanceof", "new", "null", "return", "super", "switch", "this", "throw", "true", "try", "typeof",
+  "var", "void", "while", "with",
+  "implements", "interface", "let", "package", "private", "protected", "public", "static", "yield",
+  "await",
+]);
+
 // Verbatim from the shared contract (slices.md rev 2, "Name grammars + denylist"):
 // - attribute name: letters/digits/underscore/hyphen, one optional `:namespace` segment.
 // - element name (lookup-only, never spliced): identifier-or-hyphenated segments, dot-joined
@@ -31,6 +46,16 @@ function assertNotDenylisted(argName: string, value: string): void {
   throw dialectError(
     `\`${argName}\` "${boundedFragment(value)}" is a reserved name and cannot be used — fix the name, ` +
       "or use `.modify()` to make this edit directly."
+  );
+}
+
+// Reserved-word reject (V5, SEC-1): exact Set membership only, never substring/prefix — a
+// name that merely CONTAINS a reserved word (`classroom`, `imported`, `defaultValue`) passes.
+function assertNotReservedWord(argName: string, value: string): void {
+  if (!IMPORT_RESERVED_WORDS.has(value)) return;
+  throw dialectError(
+    `\`${argName}\` "${boundedFragment(value)}" is a reserved word and cannot be used as an import ` +
+      "binding — fix the name, or use `.modify()` to make this edit directly."
   );
 }
 
@@ -62,9 +87,14 @@ export function assertValidElementName(elementName: string): void {
   assertNotDenylisted("elementName", elementName);
 }
 
-/** `assertValidImportBinding`'s plain-JS-identifier grammar. */
+/**
+ * `assertValidImportBinding`'s plain-JS-identifier grammar. The regex alone admits any
+ * `IdentifierName` (including reserved words) — `import { name }` requires a `BindingIdentifier`,
+ * so a reserved-word check (V5, SEC-1) runs alongside the denylist.
+ */
 export function assertValidImportBinding(name: string): void {
   assertGrammar("name", name, IMPORT_BINDING_GRAMMAR, "be a valid JavaScript identifier");
+  assertNotReservedWord("name", name);
   assertNotDenylisted("name", name);
 }
 

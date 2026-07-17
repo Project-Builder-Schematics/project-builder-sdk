@@ -125,6 +125,37 @@ describe("REQ-RXD-06.5 — denylist rejects via frozen-Set equality, MAY echo th
   });
 });
 
+// REQ-RXD-06.7 (V5, SEC-1) — the regex `IMPORT_BINDING_GRAMMAR` alone admits any
+// `IdentifierName`, including JS reserved words, but `import { name }` requires a valid
+// `BindingIdentifier`. `IMPORT_RESERVED_WORDS` closes that gap: exact Set-membership, never a
+// substring/prefix match, so `classroom`/`imported`/`defaultValue` — which merely CONTAIN a
+// reserved word — stay accepted.
+const RESERVED_WORD_BATTERY = ["default", "import", "class", "null", "this", "function", "let", "yield", "await"];
+const RESERVED_WORD_LOOKALIKES = ["classroom", "imported", "defaultValue"];
+
+describe("REQ-RXD-06.7 — addImport.name reserved-word battery rejected pre-mutation (SEC-1)", () => {
+  for (const word of RESERVED_WORD_BATTERY) {
+    it(`${JSON.stringify(word)} rejects, naming \`name\` and the reserved-word rule`, () => {
+      let caught: unknown;
+      try {
+        assertValidImportBinding(word);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(Error);
+      const message = (caught as Error).message;
+      expect(message).toContain("`name`");
+      expect(message.toLowerCase()).toContain("reserved word");
+    });
+  }
+
+  for (const lookalike of RESERVED_WORD_LOOKALIKES) {
+    it(`${JSON.stringify(lookalike)} — merely CONTAINS a reserved word as a substring — is ACCEPTED`, () => {
+      expect(() => assertValidImportBinding(lookalike)).not.toThrow();
+    });
+  }
+});
+
 describe("REQ-RXD-13.3 — a 100-char hostile propName never appears, nor does any fragment longer than 16 chars", () => {
   it("names propName and the grammar rule; the full value and every long fragment are absent", () => {
     const hostile = "x".repeat(100) + "!"; // trailing "!" makes the grammar reject
@@ -279,7 +310,9 @@ describe("REQ-RXD-13.2 (addImport + gate paths, S-002) — zero directives, byte
       caught = err;
     }
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toContain("name");
+    // Backtick-bounded, not a bare substring: `"propName"` legitimately CONTAINS the substring
+    // "name" (QA-5) — the backtick-quoted form `` `name` `` cannot appear inside `` `propName` ``.
+    expect((caught as Error).message).toContain("`name`");
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("App.tsx")).toBe(before);
   });
@@ -354,7 +387,14 @@ describe("REQ-RXD-06.5 — end-to-end: every hostile value rejects THROUGH the h
 
         expect(caught).toBeInstanceOf(Error);
         const message = (caught as Error).message;
-        expect(message).toContain(argName);
+        // Backtick-bounded (QA-5 fix): every react reject tail names its argument as
+        // `` `${argName}` `` (nameRuleTail/denylist/reserved-word all share this shape) — a
+        // bare `.toContain(argName)` is a substring test that "propName" trivially satisfies
+        // for `argName === "name"`, so pointing `addImport` at the WRONG validator
+        // (`assertValidAttributeName` instead of `assertValidImportBinding`) still produced a
+        // `propName`-shaped message that passed this assertion. The backtick-quoted form
+        // cannot: `` `name` `` is not a substring of `` `propName` ``.
+        expect(message).toContain(`\`${argName}\``);
         if (!DENYLISTED.has(hostile) && hostile.length > 0) {
           expect(message).not.toContain(hostile);
         }
