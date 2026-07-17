@@ -1,8 +1,55 @@
 # React (TSX/JSX) Dialect Specification
 
-**Spec version**: V6
+**Spec version**: V7
 **Status**: signed (owner, 2026-07-17)
 **Change**: `react-dialect`
+
+(V7: judgment-day blind-adversarial-gate fix pass, 2026-07-17 — two independent judges found
+three real `addImport` defects (mandatory gate for L + sensitive; full record in
+`council-findings.md`'s companion `verify-report.md`) that verify-final iterations and the V5
+Council both missed. All three share ONE root cause in REQ-RXD-05 step 1's already-bound check:
+it keyed on LOCAL NAME only, ignored type-only-ness at both granularities, and scoped the check
+to the SAME module — so it could neither see a same-name TYPE-ONLY collision (Defect 1: `import
+type { Icon } from "./icons"` + `addImport("Icon", "./icons")` silently no-ops, leaving `Icon`
+unbound at runtime) nor a CROSS-module local-name collision (Defect 2: `import { useState } from
+"react"` + `addImport("useState", "./local")` emits `import { useState } from "./local";` as a
+SECOND declaration, which node's real ESM parser rejects: `SyntaxError: Identifier 'useState' has
+already been declared`) nor an ALIASED-same-module collision (Defect 3: `import { Foo as x } from
+"./a"` + `addImport("x", "./a")` silently no-ops, leaving `x` bound to `Foo`'s value, never to the
+export named `x`).
+
+CORRECTION TO THE INPUT FINDING ON DEFECT 3: the fix brief this version was drafted from asserted
+`import { Foo as x, x } from "./a"` is legal JS and "exactly what the author asked for." Verified
+FALSE against node's real ESM parser before adopting it: `node --input-type=module -e 'import {
+Foo as x, x } from "./a"'` throws the IDENTICAL `SyntaxError: Identifier 'x' has already been
+declared` as Defect 2 — two import specifiers may never bind the same LOCAL name in one file,
+whether or not they come from the same module. Defect 3 is therefore NOT a case the merge branch
+can ever legally resolve; it is the SAME disease as Defect 2 (a claimed local name), not a
+distinct one. Also independently verified and newly load-bearing for Defect 1's fix: `import type
+{ Icon } from "./icons"; import { Icon } from "./icons";` is REJECTED by `tsc` as `TS2300: Duplicate
+identifier 'Icon'` — meaning the naive fix implied by "exclude type-only from already-bound" (fall
+through to CREATE a fresh separate value declaration) is ALSO unsafe when the requested name
+exactly matches an existing type-only specifier's local name; it is safe only when the type-only
+specifier is aliased to a DIFFERENT local name (verified clean via `tsc`, scenario REQ-RXD-05.13).
+
+RESOLUTION — one unified rule replaces the disparate handling: the algorithm gains a FILE-WIDE
+"claimed name" check (Step 2 below) that runs AFTER the already-bound check and BEFORE merge/
+create, and REJECTS via `dialectError` whenever `name` is already bound as a LOCAL NAME by any
+import specifier anywhere in the file — any module, any specifier kind, type-only or not.
+Rejecting (rather than silently no-op'ing or silently merging into an unsafe shape) is how the
+headline invariant is HONESTLY kept: the op never trades "looks successful" for "is correct" —
+the same posture REQ-RXD-04 already established for zero/multi-match. The already-bound
+(idempotency) check is NARROWED, not widened, to stop this new collision rule from re-litigating
+V5's signed default/namespace rulings: it is now explicit that ONLY a value-bound (non-type-only)
+DEFAULT specifier, NAMESPACE specifier, or UNALIASED named specifier satisfies idempotency for a
+same-module same-local-name match — an ALIASED named specifier no longer does (that was Defect
+3's bug), and neither does a type-only specifier at either granularity (declaration-level `import
+type {...}` or inline `import { type X }` — that was Defect 1's bug). REQ-RXD-05.1–.10 are
+UNCHANGED in expected outcome under the new algorithm — traced individually below, all ten remain
+the already-correct baseline. Because the invariant's delivery is now conditional (reject instead
+of an unconditional guarantee when the name is already claimed elsewhere), REQ-RXD-09 gains one
+new bullet + scenario documenting the collision-reject behaviour as an honest limitation, per this
+spec's own drift-check discipline.)
 
 (V6: verify-final iteration-2 F-1 closure, 2026-07-17 — owner-decided surgical amendment, no
 scope re-open. `sdd-verify --mode=final` iteration 2 (`verify-report.md`) ruled V5's
@@ -342,23 +389,51 @@ flags this ruling to the owner at sign time.)
 
 ### REQ-RXD-05: `addImport` — merge-or-create, idempotent, named-only, shape-aware (V5: precise contract for non-named declaration shapes)
 
-`addImport(name, from)` MUST guarantee that `name` is bound in the file's module scope as a
-named import from `from`, using ONLY the named form `import { name } from "from"` for any
-specifier IT creates, and MUST NEVER produce an invalid or duplicate binding. Define a
-specifier's LOCAL NAME as the identifier it actually binds in scope: for a named-import
-specifier, its alias if one exists, else its own name; for a default specifier, the default
-local name; for a namespace specifier, the namespace local name. The algorithm, applied in
-order:
+On SUCCESS, `addImport(name, from)` MUST guarantee that `name` is bound in the file's module
+scope as a named import from `from`, using ONLY the named form `import { name } from "from"`
+for any specifier IT creates, and MUST NEVER produce an invalid or duplicate binding. When
+`name` is already CLAIMED elsewhere in the file by a binding `addImport` cannot safely
+reconcile with a fresh named specifier, `addImport` MUST reject via `dialectError` rather than
+silently produce an invalid, duplicate, or misdirected binding (V7) — the invariant is kept
+honestly: the op never completes while quietly failing either promise.
 
-1. **Already-bound check (idempotency, generalized across shapes)**: if `name` already equals
-   the LOCAL NAME of ANY existing import specifier from the SAME module `from` — regardless of
-   whether that specifier is a plain named import, an ALIASED named import, a DEFAULT import,
-   or a NAMESPACE import — `addImport` is a no-op. Creating a new specifier here would either
-   duplicate an existing binding or produce an invalid re-declaration.
-2. **Merge**: otherwise, if an EXISTING declaration for `from` has a named-import clause (a
+Define a specifier's LOCAL NAME as the identifier it actually binds in scope: for a
+named-import specifier, its alias if one exists, else its own name; for a default specifier,
+the default local name; for a namespace specifier, the namespace local name. Define a
+specifier as VALUE-BOUND if it actually creates a runtime value binding — i.e. neither its
+declaration (`decl.isTypeOnly()`) NOR, for a named specifier, the specifier itself
+(`specifier.isTypeOnly()`, the inline `import { type X }` form) is type-only (V7). Define a
+name as CLAIMED if it equals the LOCAL NAME of ANY import specifier ANYWHERE in the file —
+across every module, VALUE-BOUND or type-only alike (V7): TypeScript treats a type-only and a
+value binding of the same local name as the same identifier-space conflict as two value
+bindings (`TS2300: Duplicate identifier`, verified), so type-only bindings claim their name
+exactly as value bindings do, even though they do not SATISFY `addImport`'s value-binding
+promise. The algorithm, applied in order:
+
+1. **Already-bound check (idempotency)**: if an EXISTING declaration for the SAME module `from`
+   has a VALUE-BOUND specifier whose LOCAL NAME equals `name`, AND that specifier is a DEFAULT
+   specifier, a NAMESPACE specifier, or an UNALIASED named specifier (local name and imported
+   name both equal `name`) — `addImport` is a no-op. Local name alone decides this for default/
+   namespace specifiers (the pre-existing V5 rationale, unchanged: no other form can bind that
+   name from that module, so a same-name match is already the closest deliverable outcome); for
+   a NAMED specifier the check additionally requires the specifier be UNALIASED, because an
+   ALIASED named specifier's local name identifies a DIFFERENT export — `name` would be bound to
+   that other export's value, not to the export literally named `name`, which does not satisfy
+   the promise (V7 — this is Defect 3's fix; the mirror case where the ALIAS itself is not the
+   requested name, REQ-RXD-05.10, was already correctly NOT treated as satisfied and is
+   unaffected).
+2. **Collision check (NEW, V7)**: otherwise, if `name` is CLAIMED anywhere in the file (any
+   module, any specifier kind, value-bound or type-only) — reject via `dialectError`. Creating a
+   second local binding under an already-claimed name is an invalid duplicate declaration
+   `addImport` MUST NOT produce silently, regardless of whether the CLAIMING declaration is FROM
+   `from` (a same-module alias or type-only collision, Defect 1/3) or from a DIFFERENT module
+   entirely (a cross-module collision, Defect 2). The tail names `name` and the collision rule;
+   it MAY name the claiming module specifier as a bounded diagnostic fragment (REQ-RXD-13).
+3. **Merge**: otherwise, if an EXISTING declaration for `from` has a named-import clause (a
    `NamedImports` node, whether or not it already carries other specifiers) AND is NOT
-   type-only, add a NEW, UNALIASED named specifier `name` to that clause.
-3. **Create**: otherwise — no declaration for `from` has a matching named-import clause (covers:
+   type-only, add a NEW, UNALIASED named specifier `name` to that clause. (Reaching this step
+   guarantees `name` is claimed nowhere in the file, so the merge is always safe.)
+4. **Create**: otherwise — no declaration for `from` has a matching named-import clause (covers:
    no import from `from` exists at all; every existing declaration for `from` is type-only;
    every existing declaration for `from` is default-only with no named clause; every existing
    declaration for `from` is namespace-only) — INSERT a FRESH, SEPARATE declaration
@@ -366,7 +441,9 @@ order:
    module. `addImport` NEVER mutates a type-only, default-only, or namespace-only declaration's
    clause structure to graft named bindings onto it — TS/JS syntax forbids some combinations
    (e.g. a namespace specifier cannot coexist with a named clause on one declaration), and
-   doing so blind risks a manipulation-time failure or a semantically wrong edit.
+   doing so blind risks a manipulation-time failure or a semantically wrong edit. (Reaching this
+   step also guarantees `name` is claimed nowhere in the file, so the fresh declaration never
+   collides with the type-only/default/namespace declaration(s) it coexists beside.)
 
 The op remains NAMED-BINDING-ONLY, pinned as contract: any specifier it creates always uses the
 named form — default and namespace imports are NOT forms `addImport` itself synthesizes in v1
@@ -384,7 +461,18 @@ duplicate-binding TS error; a namespace import hard-throws; an aliased named imp
 no-ops while leaving the requested identifier unbound. V5 makes the algorithm explicit and
 shape-aware via a "local name"-based idempotency check and a merge target scoped strictly to
 non-type-only named-import clauses; scenarios 05.1–05.4 are UNCHANGED in expected outcome under
-the new algorithm — they are the already-correct baseline cases.)
+the new algorithm — they are the already-correct baseline cases. V7 (judgment-day, three real
+defects the V5 fix did not reach): the V5 already-bound check was still keyed on LOCAL NAME
+alone, scoped to the SAME module, and blind to type-only-ness — three gaps producing three more
+correctness bugs: (a) a same-name TYPE-ONLY collision (`import type { Icon }` +
+`addImport("Icon", from)`) silently no-op'd because the type-only specifier's local name
+matched, leaving `Icon` unbound at runtime; (b) a CROSS-module local-name collision fell all the
+way through to CREATE, emitting a second, invalid duplicate declaration; (c) an ALIASED named
+specifier's local name satisfied the same-module already-bound check even though the alias
+identifies a DIFFERENT export, silently leaving the requested name unbound. V7 adds an explicit
+VALUE-BOUND/CLAIMED distinction and a file-wide collision-reject step BEFORE merge/create,
+exactly scoped so REQ-RXD-05.1–.10 keep their signed, unchanged outcomes — traced individually
+in each scenario below.)
 
 #### Scenario REQ-RXD-05.1: fresh import inserted
 
@@ -457,6 +545,60 @@ the new algorithm — they are the already-correct baseline cases.)
   pre-existing alias `us` is undisturbed, AND `useState` is now ALSO bound as its own bare
   identifier (the existing named clause is a valid merge target; `us`'s local name did not
   already equal the requested `useState`)
+
+#### Scenario REQ-RXD-05.11: same-name TYPE-ONLY declaration collision rejects — Defect 1a (NEW, V7)
+
+- GIVEN a `.tsx` file with `import type { Icon } from "./icons";` and NO value import of
+  `Icon` from `./icons`
+- WHEN `addImport("Icon", "./icons")` is applied
+- THEN it REJECTS via `dialectError` BEFORE any AST mutation — zero directives emitted, target
+  file byte-unchanged — rather than silently no-op'ing and leaving `Icon` unbound at runtime
+  (V6 behaviour); `import type { Icon } from "./icons";` alone is TYPE-erased, so `addImport`
+  MUST NOT report success while `Icon` remains unbound as a value
+
+#### Scenario REQ-RXD-05.12: same-name INLINE type-only specifier collision rejects — Defect 1b (NEW, V7)
+
+- GIVEN a `.tsx` file with `import { type Icon } from "./icons";` (inline type modifier, NOT a
+  type-only declaration) and no value import of `Icon` from `./icons`
+- WHEN `addImport("Icon", "./icons")` is applied
+- THEN it REJECTS via `dialectError` the SAME way as REQ-RXD-05.11 — zero directives, file
+  byte-unchanged — pinning that the collision check reads `specifier.isTypeOnly()`, not only
+  `decl.isTypeOnly()`; a validator that checks only the declaration-level flag passes this
+  file's clause structurally and would wrongly fall through to CREATE
+
+#### Scenario REQ-RXD-05.13: differently-aliased type-only import does NOT collide — boundary case (NEW, V7)
+
+- GIVEN a `.tsx` file with `import type { Icon as IconT } from "./icons";` — the type-only
+  specifier is ALIASED, so its LOCAL NAME is `IconT`, not `Icon`
+- WHEN `addImport("Icon", "./icons")` is applied
+- THEN it SUCCEEDS (no reject) — the printed output KEEPS `import type { Icon as IconT } from
+  "./icons";` unchanged AND adds a SEPARATE `import { Icon } from "./icons";` declaration;
+  `Icon` was never a CLAIMED local name (only `IconT` was), so the collision check in
+  REQ-RXD-05.11/.12 does not fire — proving the rule is scoped to the LOCAL name, not to
+  "any type-only import from this module"
+
+#### Scenario REQ-RXD-05.14: cross-module local-name collision rejects — Defect 2 (NEW, V7)
+
+- GIVEN a `.tsx` file with `import { useState } from "react";`
+- WHEN `addImport("useState", "./local")` is applied — a DIFFERENT module than the one that
+  already claims `useState`
+- THEN it REJECTS via `dialectError` BEFORE any AST mutation — zero directives, file
+  byte-unchanged — rather than emitting a second `import { useState } from "./local";`
+  declaration (V6 behaviour), which node's real ESM parser rejects with `SyntaxError: Identifier
+  'useState' has already been declared`; the SAME-module scoping of REQ-RXD-05's Step 1 does
+  NOT limit this rejection — `useState` is CLAIMED file-wide, not merely within `./local`
+
+#### Scenario REQ-RXD-05.15: aliased same-module local-name collision rejects — Defect 3 (NEW, V7)
+
+- GIVEN a `.tsx` file with `import { Foo as x } from "./a";`
+- WHEN `addImport("x", "./a")` is applied
+- THEN it REJECTS via `dialectError` BEFORE any AST mutation — zero directives, file
+  byte-unchanged — rather than silently no-op'ing (V6 behaviour, which left `x` bound only to
+  `Foo`'s value, never to the export literally named `x`) or merging an unaliased `x` specifier
+  into the same clause, which is ALSO invalid: `import { Foo as x, x } from "./a";` throws the
+  IDENTICAL `SyntaxError: Identifier 'x' has already been declared` as REQ-RXD-05.14, verified
+  against node's real ESM parser — two specifiers may never bind the same local name in one
+  file, aliased or not, same module or not
 
 ### REQ-RXD-06: Per-argument name validation at the op boundary (security — load-bearing)
 
@@ -714,13 +856,23 @@ meeting ALL of these criteria:
 - (V4) the explicit-extension requirement (REQ-RXD-02 — always pass the `.tsx` extension;
   extensionless paths are rejected) is documented author-facing: in `find`'s JSDoc AND as a
   worked-example note, INCLUDING the why — extensionless paths are rejected to stay
-  forward-compatible with future `.jsx` support.
+  forward-compatible with future `.jsx` support;
+- (V7) the `addImport` collision-reject limitation (REQ-RXD-05, Step 2) is documented: when
+  `name` is already bound elsewhere in the file — under any local name collision, whether from
+  a different module or the same module under an alias or a type-only specifier — `addImport`
+  REJECTS rather than silently creating an invalid or misdirected binding; the doc tells authors
+  that resolving the naming conflict (e.g. renaming the existing local binding, or choosing a
+  different `name`) is their responsibility, since `addImport` takes no alias argument to route
+  around it.
 
 (Previously: V1 required minimality + catalog + `.modify()` framing only. V2 adds the trust
 boundary, named-only limitation, spread warning, `// ->` worked-example form, JSDoc-fidelity
 criterion, and the stale-framing reconciliation. V3 briefly added an extensionless-convenience
 documentation criterion; V4 replaces it in place with the explicit-extension requirement
-documentation, tracking REQ-RXD-02's V4 reversal.)
+documentation, tracking REQ-RXD-02's V4 reversal. V7 adds the `addImport` collision-reject
+limitation, tracking REQ-RXD-05's V7 amendment — the headline invariant is now conditional on
+`name` not already being claimed elsewhere in the file, and authors need to know the reject
+path exists and why.)
 
 #### Scenario REQ-RXD-09.1: doc names the shipped ops, minimality, catalog, and escape hatch
 
@@ -757,6 +909,14 @@ documentation, tracking REQ-RXD-02's V4 reversal.)
 - THEN both state the explicit-`.tsx`-extension requirement — extensionless paths are rejected
   (REQ-RXD-02) — and name the forward-compatibility reason (future `.jsx` support), so authors
   learn the rule and the why without reading the spec
+
+#### Scenario REQ-RXD-09.6: `addImport` collision-reject limitation documented, guard-asserted (NEW, V7)
+
+- GIVEN the doc's `addImport` coverage after this change
+- WHEN a guard test scans it (mirrors REQ-RXD-09.3's pinned-sentinel pattern)
+- THEN a section is present stating `addImport` rejects when `name` is already bound elsewhere
+  in the file under a different binding, and that resolving the conflict is the author's
+  responsibility — the guard fails RED if this section is removed
 
 ### REQ-RXD-10: `setJsxProp` placement and whitespace contract (NEW, V2)
 
