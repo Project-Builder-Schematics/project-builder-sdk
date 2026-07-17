@@ -148,9 +148,24 @@ function isNonTypeOnlyNamedImportClause(decl: ImportDeclaration): boolean {
   return namedBindings !== undefined && namedBindings.getKind() === SyntaxKind.NamedImports;
 }
 
+// V8 (judgment-day Round 2, REQ-RXD-05 step 2, second half of CLAIMED): a top-level
+// VALUE-NAMESPACE declaration under `name` collides the same way a same-name import specifier
+// does — ADOPTED verbatim from ADR-0039's ratified `assertNoCollision` predicate
+// (typescript/ops.ts:54-75), not reinvented. `type`/`interface` are exempt (legal TS
+// coexistence, the same ADR-0039 carve-out).
+function isValueNamespaceClaimed(ast: SourceFile, name: string): boolean {
+  return (
+    ast.getFunction(name) !== undefined ||
+    ast.getVariableDeclaration(name) !== undefined ||
+    ast.getClass(name) !== undefined ||
+    ast.getEnum(name) !== undefined ||
+    ast.getModule(name) !== undefined
+  );
+}
+
 /**
  * Adds `import { name } from "from";`, or merges `name` into an EXISTING NAMED-import clause
- * from the SAME module `from` if one already exists (REQ-RXD-05, V7 unified algorithm):
+ * from the SAME module `from` if one already exists (REQ-RXD-05, V8 unified algorithm):
  *
  * 1. Already-bound (idempotency, SAME module only): if an EXISTING declaration for `from` has
  *    a VALUE-BOUND specifier whose local name equals `name`, AND that specifier is a default
@@ -158,13 +173,17 @@ function isNonTypeOnlyNamedImportClause(decl: ImportDeclaration): boolean {
  *    aliased named specifier's local name identifies a DIFFERENT export, so it does NOT satisfy
  *    idempotency (Defect 3); neither does a type-only specifier at either granularity (Defect
  *    1), because it does not satisfy the value-binding promise.
- * 2. Collision (file-wide, V7 NEW): otherwise, if `name` is CLAIMED anywhere in the file — the
- *    local name of ANY import specifier, in ANY module, value-bound or type-only alike — REJECT
- *    via `dialectError`. TypeScript treats a same-name type-only/value collision as the
- *    identical `TS2300: Duplicate identifier` error as two value bindings, so a type-only
- *    specifier claims its name exactly as a value specifier does (Defect 1); the claiming
- *    declaration may be FROM `from` (a same-module alias or type-only collision, Defect 1/3) or
- *    from a DIFFERENT module entirely (a cross-module collision, Defect 2) — both reject.
+ * 2. Collision (file-wide, V7; widened V8): otherwise, if `name` is CLAIMED anywhere in the
+ *    file — EITHER the local name of ANY import specifier, in ANY module, value-bound or
+ *    type-only alike (V7 half), OR a top-level VALUE-NAMESPACE declaration (`function`/`const`/
+ *    `let`/`var`/`class`/`enum`/`namespace`) sharing `name` (V8 half, `isValueNamespaceClaimed`
+ *    above, adopting ADR-0039's `assertNoCollision` predicate verbatim) — REJECT via
+ *    `dialectError`. TypeScript treats a same-name type-only/value collision as the identical
+ *    `TS2300: Duplicate identifier` error as two value bindings, so a type-only specifier claims
+ *    its name exactly as a value specifier does (Defect 1); the claiming declaration may be FROM
+ *    `from` (a same-module alias or type-only collision, Defect 1/3), from a DIFFERENT module
+ *    entirely (a cross-module collision, Defect 2), or a same-file value-namespace declaration
+ *    (V8) — all reject. `type`/`interface` declarations are exempt (legal TS coexistence).
  * 3. Merge: otherwise, if an EXISTING declaration for `from` has a non-type-only named-import
  *    clause, add a NEW, UNALIASED named specifier to it. (Reaching this step guarantees `name`
  *    is claimed nowhere in the file, so the merge is always safe.)
@@ -197,9 +216,9 @@ export const addImport = validatedOp<SourceFile, [name: string, from: string]>(
     );
     if (alreadyBound) return;
 
-    const claimed = ast
-      .getImportDeclarations()
-      .some((decl) => boundNamesIn(decl).some((bound) => bound.localName === name));
+    const claimed =
+      ast.getImportDeclarations().some((decl) => boundNamesIn(decl).some((bound) => bound.localName === name)) ||
+      isValueNamespaceClaimed(ast, name);
     if (claimed) {
       throw dialectError(claimedNameTail(name));
     }

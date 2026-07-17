@@ -665,6 +665,98 @@ describe("addImport — REQ-RXD-05.11-.15 (V7) — file-wide claimed-name collis
   });
 });
 
+// V8 (judgment-day Round 2): CLAIMED widens to a UNION with ADR-0039's value-namespace
+// predicate — a top-level function/const/let/var/class/enum/namespace/export-default-function
+// declaration sharing `name` collides exactly as an import specifier does. Confirmed against
+// node's real ESM parser for all 8 kinds (spec preamble, REQ-RXD-05.16).
+const VALUE_NAMESPACE_BATTERY: { label: string; decl: string }[] = [
+  { label: "function", decl: "function Icon() { return null; }" },
+  { label: "const", decl: "const Icon = 1;" },
+  { label: "let", decl: "let Icon = 1;" },
+  { label: "var", decl: "var Icon = 1;" },
+  { label: "class", decl: "class Icon {}" },
+  { label: "enum", decl: "enum Icon {}" },
+  { label: "namespace", decl: "namespace Icon {}" },
+  { label: "export default function", decl: "export default function Icon() { return null; }" },
+];
+
+describe("addImport — REQ-RXD-05.16-.18 (V8) — value-namespace collision battery + doc-echo bound", () => {
+  for (const { label, decl } of VALUE_NAMESPACE_BATTERY) {
+    it(`REQ-RXD-05.16 (${label}): a top-level ${label} declaration named Icon collides — rejects BEFORE any AST mutation`, async () => {
+      const before = `${decl}\nconst el = <div />;\n`;
+      const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+      const run = defineFactory<void>(async () => {
+        await react.find("App.tsx").addImport("Icon", "./icons");
+      });
+
+      let caught: unknown;
+      try {
+        await run(undefined, { client });
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).message).toContain("`name`");
+      expect(collectModifies(emitted)).toHaveLength(0);
+      expect(await client.read("App.tsx")).toBe(before);
+    });
+  }
+
+  it("REQ-RXD-05.17: a local `type Icon = ...` alias does NOT collide — create proceeds", async () => {
+    const { client, emitted } = makeSpyClient({
+      "App.tsx": "type Icon = string;\nconst el = <div />;\n",
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("Icon", "./icons");
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe('import { Icon } from "./icons";\n\ntype Icon = string;\nconst el = <div />;\n');
+  });
+
+  it("REQ-RXD-05.17: a local `interface Icon {}` does NOT collide — create proceeds", async () => {
+    const { client, emitted } = makeSpyClient({
+      "App.tsx": "interface Icon { x: number }\nconst el = <div />;\n",
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("Icon", "./icons");
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe(
+      'import { Icon } from "./icons";\n\ninterface Icon { x: number }\nconst el = <div />;\n'
+    );
+  });
+
+  it("REQ-RXD-05.18: the collision-reject tail echoes `name` FULL and uncut — post-validation bound, not REQ-RXD-13's 16-char hostile cap", async () => {
+    const componentName = "NotificationPreferencesPanel";
+    expect(componentName.length).toBeGreaterThan(16);
+    const before = `function ${componentName}() { return null; }\nconst el = <div />;\n`;
+    const { client } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport(componentName, "./somewhere");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const message = (caught as Error).message;
+    // Quoted, full, uncut — the REQ-RXD-13 hostile-value 16-char cap would instead produce
+    // `"NotificationPref"` (boundedFragment slices with no ellipsis marker at all).
+    expect(message).toContain(`"${componentName}"`);
+  });
+});
+
 describe("addImport.name grammar divergence pin — the import-binding grammar, not the attribute grammar (QA-5 runner-up)", () => {
   it('"$" is a valid import binding (single-char identifier grammar) and is accepted', async () => {
     const { client, emitted } = makeSpyClient({ "App.tsx": "const el = <div />;\n" });
