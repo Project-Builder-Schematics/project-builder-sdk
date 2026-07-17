@@ -106,9 +106,12 @@ describe("setJsxProp — REQ-RXD-04 targeting trio + upsert", () => {
     expect(await client.read("sample.tsx")).toBe(before);
   });
 
-  it("ARCH-3: a very long elementName's ZERO-match reject echo is BOUNDED — a ≤16-char fragment, never the full name", async () => {
+  it("ARCH-3 (revised): a component-realistic elementName's ZERO-match echo is the FULL name — no longer mangled by the hostile-value 16-char cap", async () => {
     // ELEMENT_NAME_GRAMMAR has no length ceiling (member-chain names like `A.B.C...` are
-    // legal), so a long, grammar-valid, non-matching elementName exercises the bound.
+    // legal), and a 19-char name is entirely mainstream for a React component — it must be
+    // echoed IN FULL so the author can find the real element it names, not a truncated
+    // fragment matching nothing in their source (post-validation echo, not a hostile-value
+    // diagnostic — REQ-RXD-13's 16-char cap does not apply to this reject class).
     const longName = "A.B.C.D.E.F.G.H.I.J"; // 19 chars, passes assertValidElementName
     const before = "const el = <Button />;\n";
     const { client, emitted } = makeSpyClient({ "Button.tsx": before });
@@ -125,13 +128,12 @@ describe("setJsxProp — REQ-RXD-04 targeting trio + upsert", () => {
     }
     expect(caught).toBeInstanceOf(Error);
     const message = (caught as Error).message;
-    expect(message).not.toContain(longName);
-    expect(message).toContain(longName.slice(0, 16));
+    expect(message).toContain(longName);
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("Button.tsx")).toBe(before);
   });
 
-  it("ARCH-3: a very long elementName's MULTI-match reject echo is BOUNDED — a ≤16-char fragment, never the full name", async () => {
+  it("ARCH-3 (revised): a component-realistic elementName's MULTI-match echo is the FULL name", async () => {
     const longName = "A.B.C.D.E.F.G.H.I.J";
     const before = `const a = <${longName} />;\nconst b = <${longName} />;\n`;
     const { client, emitted } = makeSpyClient({ "sample.tsx": before });
@@ -148,11 +150,33 @@ describe("setJsxProp — REQ-RXD-04 targeting trio + upsert", () => {
     }
     expect(caught).toBeInstanceOf(Error);
     const message = (caught as Error).message;
-    expect(message).not.toContain(longName);
-    expect(message).toContain(longName.slice(0, 16));
+    expect(message).toContain(longName);
     expect(message).toContain("2");
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("sample.tsx")).toBe(before);
+  });
+
+  it("ARCH-3 (new bound): an elementName exceeding the new 100-char cap is truncated WITH an explicit `…` marker, never silently cut", async () => {
+    const longName = "A".repeat(150); // exceeds ELEMENT_NAME_ECHO_CAP, still grammar-valid
+    const before = "const el = <Button />;\n";
+    const { client, emitted } = makeSpyClient({ "Button.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("Button.tsx").setJsxProp(longName, "x", "{1}");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const message = (caught as Error).message;
+    expect(message).not.toContain(longName);
+    expect(message).toContain(`${longName.slice(0, 100)}…`);
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("Button.tsx")).toBe(before);
   });
 
   it("REQ-RXD-04.6: exactly one <Menu.Item /> — boolean-shorthand insert, byte-exact vs golden", async () => {

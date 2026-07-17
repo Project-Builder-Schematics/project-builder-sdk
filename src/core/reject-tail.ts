@@ -9,6 +9,22 @@ export function boundedFragment(s: string, cap: number = 16): string {
   return s.length > cap ? s.slice(0, cap) : s;
 }
 
+// `boundedFragment`'s 16-char cap is sized for REQ-RXD-13's hostile-VALUE diagnostics — never
+// widen it, that's a different reject class with a signed cap. `setJsxProp`'s match-count
+// rejects (REQ-RXD-04) echo `elementName` instead: a POST-VALIDATION, grammar-constrained
+// argument (no quotes, no newlines — never an injection vector), not a hostile value, so
+// reusing the 16-char cap here bought nothing but silently mangled ordinary component names
+// (`NotificationPreferencesPanel` -> `NotificationPref`) into ones matching nothing in the
+// author's source, with no signal anything was cut. This wider cap comfortably covers
+// realistic component names; on the rare name that still exceeds it, an explicit `…` marker is
+// appended so a cut name is never mistaken for the element's real one.
+const ELEMENT_NAME_ECHO_CAP = 100;
+
+/** `zeroMatchTail`/`multiMatchTail`'s `elementName` echo bound — see the note above `boundedFragment`. */
+export function elementNameEcho(s: string): string {
+  return s.length > ELEMENT_NAME_ECHO_CAP ? `${s.slice(0, ELEMENT_NAME_ECHO_CAP)}…` : s;
+}
+
 /**
  * Builds a reject tail naming `argName` + `ruleLabel` plus the standard two-remedy pair (fix
  * the name / use `.modify()`) — never the rejected VALUE (REQ-RXD-13.3's zero-echo contract).
@@ -27,7 +43,7 @@ export function nameRuleTail(argName: string, ruleLabel: string): string {
 /** `setJsxProp`'s zero-match reject tail (REQ-RXD-04.4) — names the missing element, bounded. */
 export function zeroMatchTail(elementName: string): string {
   return (
-    `no element named \`${boundedFragment(elementName)}\` was found — use \`.modify()\` to inspect ` +
+    `no element named \`${elementNameEcho(elementName)}\` was found — use \`.modify()\` to inspect ` +
     "the file and edit it directly."
   );
 }
@@ -35,7 +51,7 @@ export function zeroMatchTail(elementName: string): string {
 /** `setJsxProp`'s multi-match reject tail (REQ-RXD-04.5) — names the element + count, bounded. */
 export function multiMatchTail(elementName: string, matchCount: number): string {
   return (
-    `\`${boundedFragment(elementName)}\` matched ${matchCount} elements — setJsxProp requires ` +
+    `\`${elementNameEcho(elementName)}\` matched ${matchCount} elements — setJsxProp requires ` +
     "exactly one match; use `.modify()` to disambiguate."
   );
 }
