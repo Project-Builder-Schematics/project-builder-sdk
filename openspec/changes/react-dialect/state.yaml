@@ -11,16 +11,38 @@ completed_phases:
   - steward-foresight
   - slice
   - plan-verify
-current_phase: plan-complete
+current_phase: build-complete
 current_phase_status: >
-  PLANNER COMPLETE 2026-07-16. Plan-verify READY at iteration 2/3
-  (verify-plan-2.md): Judge A no findings; Judge B explicit
-  ready-to-execute; question trajectory 20 -> 0. No publish
-  (spec_source internal).
+  BUILD COMPLETE 2026-07-17. All six slices (S-000..S-005) APPLIED and
+  VERIFIED DONE; both in-loop loops exited clean — verify-in-loop-5.md closed
+  S-002 at iteration 5, verify-in-loop-6.md closed the S-003+S-004+S-005
+  final batch at iteration 6 (PASS). Final batch commits: cf89a52 (S-003
+  conformance corpus), 548c581 (S-004 authoring docs), 616ff75 (S-005
+  installed-consumer six-subpath parity), 0257e5c + f78cb88 (apply records).
+  Design contract confirmed by `git diff --name-status 6ee9af0..f78cb88`:
+  ZERO src/** changes — every touched file matches its Create/Modify action
+  in design.md §4.2. Evidence, all independently REPRODUCED by the verifier
+  rather than trusted from the apply record: scoped batch 245 pass / 0 fail;
+  full suite 1797 pass / 0 fail across 2 runs in a clean /private/tmp
+  worktree of f78cb88 (1779 baseline + 18 net new); all 4 mutation probes
+  reproduced with their exact claimed isolation; S-004's worked example
+  executed byte-exact against real parse/print/setJsxProp/addImport. TDD call
+  on this batch: the mutation-probe-for-RED substitution is judged ADEQUATE
+  and appropriately narrow — used only where behaviour genuinely pre-existed,
+  since a literal RED there would require breaking working production code;
+  S-004 had genuine RED available and used it, which is the stronger choice
+  when it exists.
 in_loop_iteration: 0
+slices_done: [S-000, S-001, S-002, S-003, S-004, S-005]
 next_phase: >
-  /build --scope=skeleton (S-000 mandatory first) -> apply/verify
-  in-loop per slice DAG S-000..S-005 -> /evaluate
+  /evaluate -> sdd-verify --mode=final (comprehensive gate over all six
+  slices; MUST audit the disclosed S-002 TDD ordering violation under TDD
+  Cycle Adherence — it must not downgrade to clean by attrition; Step 11b
+  code audit is GATING; triage L implies adversarial_review: required ->
+  judgment-day BLIND pass) -> steward reckoning -> architecture audit gate ->
+  archive (fold the REQ-RXD-11.5 wording amendment and the subprocess-timeout
+  debt into pending-changes; the .tsx/jsx pending-changes row must be
+  folded-or-reaffirmed, never duplicated)
 artefacts:
   triage: openspec/changes/react-dialect/triage.md (obs #1032)
   explore: openspec/changes/react-dialect/explore.md (obs #1035; AST decision obs #1037 owner-ratified ts-morph ScriptKind.Tsx)
@@ -30,6 +52,47 @@ artefacts:
   north_star: openspec/changes/react-dialect/north-star.md (obs #1055; foresight ALIGNED; CQ-1/2/3 owner-affirmed 2026-07-16)
   slices: openspec/changes/react-dialect/slices.md rev 2 (obs #1056; S-000..S-005 self-contained build brief; all-or-nothing completion)
   plan_verify: verify-plan-1.md (gaps, obs #1057) + verify-plan-2.md (READY, obs #1060)
+  apply_progress: openspec/changes/react-dialect/apply-progress.md
+  verify_in_loop: verify-in-loop-1.md (S-000) + verify-in-loop-2.md (S-001, needs-fix) + verify-in-loop-3.md (S-001, pass) + verify-in-loop-4.md (S-002, needs-fix) + verify-in-loop-5.md (S-002, PASS) + verify-in-loop-6.md (S-003+S-004+S-005 final batch, PASS)
+carry_forward:
+  - REQ-RXD-11.5 wording amendment -> pending-changes at archive.
+  - >
+    Strict TDD ordering violation on S-002 (impl written in the same editing
+    pass as the tests; RED proven retroactively) is DISCLOSED, not resolved.
+    sdd-verify --mode=final MUST audit it under TDD Cycle Adherence — it must
+    not downgrade to clean by attrition.
+  - >
+    RESOLVED 2026-07-17 by diagnostic. Full-suite instability is
+    ENVIRONMENTAL — not a regression, and NOT parallelism. The
+    parallel-execution hypothesis is refuted at the root: bun test is
+    sequential by default and package.json:64 runs a bare `bun test` with no
+    flags, so nothing was ever parallel. Control experiment settles the
+    regression question: HEAD's exact code (6ee9af0) checked out into
+    /private/tmp yields 1779 pass / 0 fail across 3/3 runs (~23s). Therefore
+    apply-progress.md's "1779 passing / 0 failing" claim is truthful and
+    exactly reproducible — just not under ~/Documents. Mechanism:
+    subprocess-bound tests (bun install / bun link / tsc --noEmit via
+    blocking spawnSync) run against bun's default 5000ms timeout, while
+    first-touch file scanning under ~/Documents inflates the first
+    `tsc --noEmit` from 663ms to 16694ms (26x). tsc --extendedDiagnostics
+    proves the work is identical on both sides (256 files / 48335 symbols /
+    556 types), so it is not ts-morph, not the type graph, and not the react
+    dialect. Strong inference: Microsoft Defender (wdavdaemon) real-time
+    scan — NOT A/B-proven, as a corporate EDR cannot be disabled to confirm.
+    Ruled out: parallelism, regression, ts-morph/type-graph growth,
+    dist/testing/commons d.ts drift, core AST leakage (FIT-37 holds), iCloud
+    sync, port binding, process.cwd() mutation. No shared-state defect exists.
+  - >
+    OPEN — pre-existing test debt, explicitly NOT react-dialect scope:
+    subprocess-bound tests declare no explicit timeout
+    (test/docs/quickstart-docs.test.ts:312 and :319, the S-03
+    permissive-proof CI guard, the installed-consumer-vantage e2e leg).
+    Their measured work is ~2s even on a fast filesystem against a 5000ms
+    budget — the declared budget does not describe the work, Defender or not.
+    Fix = explicit per-test timeouts (~30 min), NOT a raised global timeout
+    (that would mask genuinely slow tests everywhere). Environment-level
+    companion, not committed: a Defender real-time-scan exclusion for the
+    repo, or at minimum for .tmp-*/ scratch dirs.
 notes: >
   Owner rulings embedded: .tsx-only (jsx pending-changes row added mid-plan,
   archive must fold-or-reaffirm never duplicate); extensionless paths REJECT

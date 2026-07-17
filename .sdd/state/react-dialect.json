@@ -1,9 +1,9 @@
 {
   "change": "react-dialect",
   "triage": "L",
-  "phase": "verify-in-loop",
-  "phase_status": "PAUSED BY USER 2026-07-17 (mid-build). S-000, S-001 DONE+VERIFIED. S-002: apply fcd24d7 -> in-loop-4 NEEDS_FIX (obs #1081) -> fix iter 1 @ a76d34d test/docs-only (1779/0; battery 30 e2e cases 10x3 args, mutation probe 12-exact-fails; TDD self-correction record reconciled into apply-progress.md + obs #1077 w/ Learned #7) -> re-verify iteration 5 was INTERRUPTED (529 + user pause) BEFORE persisting any report: verify-in-loop-5 does NOT exist, re-run it in full on resume. Carry-forward: REQ-RXD-11.5 wording amendment -> pending-changes at archive.",
-  "next_phase": "ON RESUME: re-run sdd-verify in-loop iteration 5 on batch S-002 (delta fcd24d7 + a76d34d, claim 1779/0; adjudicate in-loop-4's two findings). On pass: apply S-003+S-004+S-005 (final batch, all require only S-002). On verify-failed: fix iteration 2/3.",
+  "phase": "build-complete",
+  "phase_status": "BUILD COMPLETE 2026-07-17. All six slices S-000..S-005 APPLIED and VERIFIED DONE; both in-loop loops exited clean (verify-in-loop-5.md closed S-002 at iteration 5; verify-in-loop-6.md closed the S-003+S-004+S-005 final batch at iteration 6, PASS). Final batch commits: cf89a52 (S-003 conformance corpus) + 548c581 (S-004 authoring docs) + 616ff75 (S-005 installed-consumer six-subpath parity) + 0257e5c/f78cb88 (apply records). Design contract confirmed by `git diff --name-status 6ee9af0..f78cb88`: ZERO src/** changes — every touched file matches its Create/Modify action in design.md 4.2. Evidence, all independently reproduced by the verifier rather than trusted from the apply record: scoped batch 245 pass / 0 fail; full suite 1797 pass / 0 fail across 2 runs in a clean /private/tmp worktree of f78cb88 (1779 baseline + 18 net new); all 4 mutation probes reproduced with their exact claimed isolation; S-004's worked example executed byte-exact against real parse/print/setJsxProp/addImport. TDD call on this batch: mutation-probe-for-RED substitution judged ADEQUATE and appropriately narrow — used only where behaviour genuinely pre-existed (a literal RED there would require breaking working production code); S-004 had genuine RED available and used it.",
+  "next_phase": "/evaluate -> sdd-verify --mode=final (comprehensive gate over all six slices; MUST audit the disclosed S-002 TDD ordering violation under TDD Cycle Adherence — do not let it downgrade to clean by attrition; Step 11b code audit is GATING; triage L implies adversarial_review: required -> judgment-day BLIND pass) -> steward reckoning -> architecture audit gate -> archive (fold the REQ-RXD-11.5 wording amendment and the subprocess-timeout debt into pending-changes; the .tsx/jsx pending-changes row must be folded-or-reaffirmed, never duplicated).",
   "spec_status": "signed",
   "spec_detail": "V4, owner-signed 2026-07-16 (V3 minted+retired same day)",
   "slices": true,
@@ -12,8 +12,15 @@
   "verify_final": "pending",
   "arch_audit": "pending",
   "execution_mode": "automatic",
-  "in_loop_iteration": 1,
+  "in_loop_iteration": 0,
+  "slices_done": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
   "updated_at": "2026-07-17",
+  "carry_forward": [
+    "REQ-RXD-11.5 wording amendment -> pending-changes at archive.",
+    "Strict TDD ordering violation on S-002 (impl written same editing pass as tests; RED proven retroactively) is DISCLOSED, not resolved — sdd-verify --mode=final MUST audit it in TDD Cycle Adherence. Do not let it downgrade to clean by attrition.",
+    "RESOLVED 2026-07-17 by diagnostic — full-suite instability is ENVIRONMENTAL, not a regression and not parallelism. The 'parallel-execution flakiness' hypothesis is REFUTED: bun test is sequential by default and package.json:64 runs bare `bun test` with no flags; nothing was ever parallel. Control experiment: HEAD's exact code (6ee9af0) checked out into /private/tmp gives 1779 pass / 0 fail, 3/3 runs (~23s) — so apply-progress.md's '1779/0' claim is truthful and exactly reproducible, just not under ~/Documents. Mechanism: subprocess-bound tests (bun install / bun link / tsc --noEmit via blocking spawnSync) run against bun's default 5000ms timeout while first-touch file scanning under ~/Documents inflates the first `tsc --noEmit` from 663ms to 16694ms (26x). tsc --extendedDiagnostics proves identical work both sides (256 files / 48335 symbols / 556 types). Strong inference: Microsoft Defender (wdavdaemon) real-time scan; NOT A/B-proven (corporate EDR cannot be disabled to confirm). Ruled out: parallelism, regression, ts-morph/type-graph growth, dist/testing/commons d.ts drift, core AST leakage (FIT-37 holds), iCloud sync, port binding, process.cwd() mutation. NO shared-state defect exists.",
+    "OPEN (pre-existing debt, NOT react-dialect scope): subprocess-bound tests declare no explicit timeout — test/docs/quickstart-docs.test.ts:312 and :319, plus the S-03 permissive-proof CI guard and the installed-consumer-vantage e2e leg. Their measured work is ~2s even on a fast filesystem against a 5000ms budget; the declared budget does not describe the work regardless of Defender. Fix = explicit per-test timeouts (~30 min). Do NOT raise the global timeout (masks genuinely slow tests). Environment-level companion fix (not committed): Defender real-time-scan exclusion for the repo or at minimum .tmp-*/ scratch dirs."
+  ],
   "council": {
     "always": ["architect", "business-analyst", "pm", "qa-engineer"],
     "conditional": ["security-engineer (mandatory - sensitivity)", "tech-writer (new public subpath + docs)"]
