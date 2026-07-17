@@ -8,11 +8,14 @@ quickstart; the rest is reference, read in whatever order you need it.
 2. **[Authoring verbs](./authoring-verbs.md)** — the seven directive-shaped verbs
    (`create`, `modify`, `remove`, `rename`, `move`, `copy`, `copyIn`) and the
    `find().read()` read-trichotomy rule.
-3. **[Error contract](./authoring-errors.md)** — what `AuthoringError` looks like, its
+3. **[Authoring `create` templates](./create-templates.md)** — the template language inside
+   `create()`: delimiters, the 7 pipes, loops/conditionals (a JS-to-template mapping),
+   whitespace rules, sandbox limits, and the error taxonomy.
+4. **[Error contract](./authoring-errors.md)** — what `AuthoringError` looks like, its
    `verb`/`path`/`reason` fields, and how to recover from a rejected run.
-4. **[Dry-run](./dry-run.md)** — preview a factory's planned changes with `dryRun()` before
+5. **[Dry-run](./dry-run.md)** — preview a factory's planned changes with `dryRun()` before
    anything commits.
-5. **[Authoring a dialect](./authoring-a-dialect.md)** — structured, AST-aware mutation for
+6. **[Authoring a dialect](./authoring-a-dialect.md)** — structured, AST-aware mutation for
    one file type (e.g. `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`), for when the verbs
    above aren't enough. This SDK ships that content only once — this index links it rather
    than repeating it.

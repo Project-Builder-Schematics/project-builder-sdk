@@ -462,3 +462,12 @@ Verify verdict `pass-with-followups` (2 followups fixed at close: FIT-04 content
 | DOC-3 | `could not parse "X" as TypeScript` hardcoded in the dialect-GENERIC `src/core/dialect-handle.ts:178`; `test/core/dialect-handle.test.ts:328` pins the wrong text. A correct fix threads a per-dialect display name through the shared seam — the engine change this change's triage excludes. Registered pending-change | refactor | S | — | **next engine/core shared-seam change** |
 | ARCH-2 | `src/core/jsx-name-validator.ts` holds JSX-specific grammars in a file-type-agnostic layer with one consumer. Not a rebuild: extend ADR-01's peer-module followup — at dialect #3, split `validatedOp`+`reject-tail` (genuinely core) from the JSX grammars (move to the leaf) | refactor | S | — | **dialect #3 arrival** |
 | Subprocess-timeout debt | Pre-existing, out of scope: subprocess-bound tests declare no explicit timeout against bun's 5000ms default. Fix = explicit per-test timeouts (~30 min), NOT a raised global timeout. Environmental companion: Defender real-time-scan exclusion for the repo / `.tmp-*/` scratch dirs | test-infra | S | — | **test-infra debt pass** |
+
+## From engine handoff `create-template-authoring-guide` (2026-07-18) — docs adaptation followup
+
+Engine shipped the `create` template renderer + an authoring guide; adapted as the SDK's
+official `docs/create-templates.md` (2026-07-18). One mechanism gap surfaced during adaptation:
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| **Typed feeder for array/object `create` options**: the engine's v1 wire expects array- and object-valued option values as JSON-encoded STRINGS (it promotes a string value beginning with `[` or `{` into a real array/object before rendering), while the SDK forwards `options` verbatim — so authors must `JSON.stringify` lists at the call site today (documented as the v1 mechanism in `docs/create-templates.md` § Appendix). The planned typed feeder closes the gap from either side: SDK-side (accept native arrays/objects in `create()` and encode at the wire boundary — pairs naturally with the `pbuilder-codegen` typed-options surface) or engine-side (PC-PROTO-01 ratifies native JSON array/object option values, making the SDK pass-through already correct and the appendix workaround deletable). Whichever lands, update `docs/create-templates.md` § Appendix + the §1 example to native arrays | feature | S | — | **cross-repo flag (with PC-PROTO-01)** |

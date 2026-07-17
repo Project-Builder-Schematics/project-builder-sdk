@@ -102,6 +102,7 @@ describe("wire-internal terms banned across the full author-facing doc set", () 
     "docs/quickstart.md",
     "docs/authoring-verbs.md",
     "docs/authoring-errors.md",
+    "docs/create-templates.md",
     "docs/dry-run.md",
     "docs/README.md",
   ];
