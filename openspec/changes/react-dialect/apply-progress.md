@@ -458,3 +458,81 @@ covered by the trustworthy full-suite number instead.
 DOC-3 (`dialect-handle.ts:178`), ARCH-2 (validator module placement), the subprocess-timeout
 debt, and the `.jsx` pending-changes row are unchanged — none were touched. The CLOSED rulings
 in `council-findings.md` were not re-opened.
+
+## F-1 Fix — REQ-RXD-06.9, `IMPORT_RESERVED_WORDS` 46 → 48 (spec V6, COMPLETE)
+
+Owner-signed V6 amended REQ-RXD-06 to add `eval`/`arguments` to `IMPORT_RESERVED_WORDS` and
+retire the "at minimum" floor language for this set, and to add scenario REQ-RXD-06.9. This
+closes `verify-report.md`'s iteration-2 F-1 (the one open followup — everything else in that
+report was left exactly as recorded, per scope). Commit `9a92944`.
+
+**Files modified**: `src/core/jsx-name-validator.ts` (`IMPORT_RESERVED_WORDS` widened with
+`"eval", "arguments"` + comment recording the V6 rationale — the two are a different grammar
+category, strict-mode-restricted `BindingIdentifier`s, not reserved words),
+`test/dialects/react/name-validation.test.ts` (+REQ-RXD-06.9 describe block — 2 reject cases +
+3 substring-lookalike accept cases, matching REQ-RXD-06.7's shape exactly).
+
+**Set count verification (48/48, zero drift)**: parsed `IMPORT_RESERVED_WORDS` from source at
+runtime and diffed against the spec's own enumerated 48-entry set (36 always-reserved + 9
+strict-mode-reserved + `await` + `eval` + `arguments`):
+
+```
+spec count: 48   code count: 48
+spec - code (missing): []   code - spec (extra): []   EXACT MATCH: true
+```
+
+No over-blocking: the three lookalike cases (`evaluate`, `myEval`, `argumentsList`) are asserted
+ACCEPTED by the same test run that asserts `eval`/`arguments` REJECTED — exact Set-membership,
+never substring/prefix, same discipline as REQ-RXD-06.7's own lookalike trio.
+
+### TDD sequence — real RED→GREEN, as instructed
+
+This one had a genuine RED available (the behaviour did not exist — `eval`/`arguments` were
+accepted before this fix) and it was used, not substituted with a mutation probe:
+
+1. **Safety net** (Phase 0): `bun test test/dialects/react/name-validation.test.ts` →
+   **76 pass / 0 fail** before any change.
+2. **RED**: wrote the REQ-RXD-06.9 describe block first (2 reject cases + 3 lookalike-accept
+   cases), ran it scoped (`-t "REQ-RXD-06.9"`) against the UNCHANGED validator →
+   **3 pass / 2 fail**. The 2 failures were `expect(caught).toBeInstanceOf(Error)` receiving
+   `undefined` for both `"eval"` and `"arguments"` — an assertion failure, the right reason (not
+   an import/syntax error). The 3 lookalike cases passed immediately, correctly — they were
+   already accepted and stay accepted; no code change touches that behaviour.
+3. **GREEN**: added `"eval", "arguments"` to `IMPORT_RESERVED_WORDS`. Re-ran the same scoped
+   test → **5 pass / 0 fail**.
+4. **Triangulation**: not required — this is a Set-membership addition (REQ-RXD-06.7's own
+   precedent treats each new reserved word as its own case, not a class needing a forcing
+   sequence), and the two values were tested together in the same RED→GREEN pass, both moving
+   from fail to pass together.
+5. **Refactor**: none needed — the change matches REQ-RXD-06.7's existing shape exactly (same
+   assertion style, same describe-block pattern, same lookalike-battery convention).
+
+No deviation from the prescribed sequence — RED was observed before GREEN, in that order, with
+the numbers above.
+
+### Test numbers, each labelled with the location it was taken in
+
+| Scope | Result | Location |
+|---|---|---|
+| `name-validation.test.ts` (safety net, pre-fix) | 76 pass / 0 fail | `~/Documents` (working dir) |
+| `name-validation.test.ts -t "REQ-RXD-06.9"` (RED, pre-fix) | 3 pass / 2 fail | `~/Documents` (working dir) |
+| `name-validation.test.ts -t "REQ-RXD-06.9"` (GREEN, post-fix) | 5 pass / 0 fail | `~/Documents` (working dir) |
+| `name-validation.test.ts` (full file, post-fix) | 81 pass / 0 fail | `~/Documents` (working dir) |
+| `test/dialects/react/` + `test/conformance/` + `test/fitness/` + `test/security/canary-no-echo.test.ts` + `test/docs/doc-set-content.test.ts` | 739 pass / 0 fail | `~/Documents` (working dir) |
+| `bunx tsc --noEmit` | 0 errors | `~/Documents` (working dir) |
+| **Full suite, trustworthy location** | **1829 pass / 0 fail** | fresh `/private/tmp/react-dialect-f1-verify` worktree of `9a92944`, `bun install --ignore-scripts` + `bun test`; worktree removed after |
+
+1829 = 1824 (verify-report.md's trustworthy baseline) + 5 net new tests (2 REQ-RXD-06.9 reject
+cases + 3 lookalike-accept cases) — matches exactly, no unexplained delta. No environmental
+timeout was observed in any run; nothing was reported as a pass that was actually a timeout, and
+no failure was attributed to the environment.
+
+### Scope discipline
+
+Touched only `IMPORT_RESERVED_WORDS` in `src/core/jsx-name-validator.ts` and the new
+REQ-RXD-06.9 test block in `test/dialects/react/name-validation.test.ts`. Did not touch
+REQ-RXD-05's algorithm, the tail helpers, docs, or the `.d.ts` baseline — confirmed no `.d.ts`
+regen was needed: this change adds a `Set` member, not a type-surface change (`ReactOps`'
+shape is unaffected). Did not re-open DOC-3, ARCH-2, the subprocess-timeout debt, or any CLOSED
+`council-findings.md` ruling. Did not touch F-2 through F-5 from `verify-report.md` — left
+exactly as recorded, per the task's explicit scope.
