@@ -133,10 +133,25 @@ NOT validated (REQ-RXD-11/12 verbatim). **Set-key-safety (ADR-02 clause)**: `pro
 **Error-message catalog (tech-writer adopted, two-remedy shape, zero hostile echo)**: every
 react reject tail names the ARGUMENT + RULE + a remedy pair (fix the name / use `.modify()`),
 built via `nameRuleTail`. Denylist rejects MAY echo the fixed literal (`__proto__` etc. — it IS
-the rule's vocabulary, not author data). Match-count rejects name element + count + `.modify()`.
-The TS dialect's `assertNoCollision` full-`"${name}"`-echo pattern is structurally unreachable —
-react tails never interpolate author values (RXD-13; the wrapper + tail helper enforce it by
-construction).
+the rule's vocabulary, not author data). The TS dialect's `assertNoCollision` full-`"${name}"`-
+echo pattern (unbounded length, no chokepoint) is structurally unreachable from react paths —
+every react reject routes through `src/core/reject-tail.ts`'s helpers, by construction.
+
+**Amended post-council ARCH-3**: match-count rejects (REQ-RXD-04) are the ONE react reject class
+that echoes a POST-VALIDATION argument value (`elementName`) rather than refusing to — deliberate
+UX (naming which element was not found/matched). The original wording here claimed react tails
+"never interpolate author values... by construction", which was FALSE as written: `ops.ts` called
+`dialectError` directly with `` `${elementName}` `` interpolated, bypassing the tail chokepoint
+entirely (confirmed: `rg "reject-tail"` found exactly one importer, `jsx-name-validator.ts` — the
+op layer never routed through it). The security property was never at risk (`elementName` is
+post-validation, grammar-constrained: no quotes, no newlines) — what was actually missing was a
+LENGTH bound, since `ELEMENT_NAME_GRAMMAR` has no length ceiling. Fixed by routing both call
+sites through NEW `reject-tail.ts` helpers, `zeroMatchTail`/`multiMatchTail`, which apply
+`boundedFragment` to `elementName` the same way a hostile-value diagnostic fragment would. The
+accurate claim, now true of the code: every react reject — including the match-count class —
+routes through a `reject-tail.ts` helper, and every echoed value (denylist literals, bounded
+`elementName` fragments) is LENGTH-bounded; only match-count rejects echo a value at all, and
+only because REQ-RXD-04 requires naming the element.
 
 **RXD-13.2 machinery (cited for Test Derivation)**: a `validatedOp` throw before `body` rides
 `dialect-handle.ts`'s existing `runOp` → `#invokeContained` (brand rethrow) → `#ensureOpen`

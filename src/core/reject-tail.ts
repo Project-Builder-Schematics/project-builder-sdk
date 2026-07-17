@@ -16,3 +16,26 @@ export function boundedFragment(s: string, cap: number = 16): string {
 export function nameRuleTail(argName: string, ruleLabel: string): string {
   return `\`${argName}\` must ${ruleLabel} — fix the name, or use \`.modify()\` to make this edit directly.`;
 }
+
+// ARCH-3 (council): `setJsxProp`'s match-count rejects (REQ-RXD-04) are the one react reject
+// class that echoes a POST-VALIDATION argument value (`elementName`) rather than refusing to —
+// deliberate UX (naming which element wasn't found / matched), sanctioned by design §4.4.
+// `elementName` is grammar-constrained (no quotes, no newlines — never an injection vector),
+// but the grammar has no LENGTH ceiling, so the echo routes through `boundedFragment` the same
+// way a hostile-value diagnostic fragment would, keeping every react reject message bounded.
+
+/** `setJsxProp`'s zero-match reject tail (REQ-RXD-04.4) — names the missing element, bounded. */
+export function zeroMatchTail(elementName: string): string {
+  return (
+    `no element named \`${boundedFragment(elementName)}\` was found — use \`.modify()\` to inspect ` +
+    "the file and edit it directly."
+  );
+}
+
+/** `setJsxProp`'s multi-match reject tail (REQ-RXD-04.5) — names the element + count, bounded. */
+export function multiMatchTail(elementName: string, matchCount: number): string {
+  return (
+    `\`${boundedFragment(elementName)}\` matched ${matchCount} elements — setJsxProp requires ` +
+    "exactly one match; use `.modify()` to disambiguate."
+  );
+}
