@@ -105,8 +105,10 @@ handle.replaceContent("new content"); // succeeds — the documented escape
 
 ### `@pbuilder/sdk/react` — a second dialect
 
-`@pbuilder/sdk/react` mutates `.tsx`/JSX files. Its v1 op-pack is deliberately minimal — exactly
-two structured ops, `setJsxProp` and `addImport` — proving JSX-structural mutation end to end
+`@pbuilder/sdk/react` mutates `.tsx` files — TypeScript source containing JSX syntax. `.jsx`
+files are NOT supported in v1: `find()` REJECTS a `.jsx` path, it does not silently accept it
+(see the explicit-extension note below). Its v1 op-pack is deliberately minimal — exactly two
+structured ops, `setJsxProp` and `addImport` — proving JSX-structural mutation end to end
 without committing to a full React mutation catalog; further ops are tracked as the React
 op-catalog follow-up. Until those land, `.modify(fn)` is the escape hatch for anything the two
 shipped ops don't cover — the same universal verb the TypeScript dialect's authors already reach
@@ -180,6 +182,21 @@ A contributor's worked proof anchors are the conformance kit — `testDialect`/`
 fidelity, and coalescing are honest, and the type-level composition proof: an `expectTypeOf` pin
 on `withOps`'s intersection type (`test/types/define-dialect.test.ts`), which fails to compile if
 op-pack composition regresses.
+
+#### Validating name/identifier arguments: the `validatedOp` pattern
+
+If your op takes a name or identifier-shaped argument that gets SPLICED into generated source —
+an attribute name, an import binding, anything your AST library writes as raw text — validate
+that argument BEFORE any mutation runs, not after. `@pbuilder/sdk/react`'s
+`src/core/jsx-name-validator.ts` is the reference implementation: `validatedOp(validators, body)`
+is the single validate-before-mutate CHOKEPOINT — it wraps an op so `body` (the actual AST
+mutation) is structurally unreachable until `validators` has run and thrown on every invalid
+argument. Register a per-argument grammar for each such
+argument — a shared regex across argument shapes that don't share a grammar is wrong, the same
+way a JSX attribute name and an import binding don't share one — plus a denylist where a
+prototype-pollution-shaped risk applies (e.g. `__proto__`).
+
+This closes a real vulnerability class, not a hypothetical one: ts-morph writes structured-API arguments like `JsxAttributeStructure.name` and import specifiers as RAW TEXT with no escaping of its own — an op that skips validation splices whatever string it is given straight into the printed file. The shipped `@pbuilder/sdk/typescript` dialect's ops do not yet validate their name arguments (a confirmed instance of this class, retrofit pending); `@pbuilder/sdk/react`'s ops are the pattern to FOLLOW going forward, not the exception — wrap any new op that takes a splice-bound name/identifier argument in `validatedOp`.
 
 ## The `.modify()` escape hatch
 

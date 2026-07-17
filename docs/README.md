@@ -13,8 +13,9 @@ quickstart; the rest is reference, read in whatever order you need it.
 4. **[Dry-run](./dry-run.md)** — preview a factory's planned changes with `dryRun()` before
    anything commits.
 5. **[Authoring a dialect](./authoring-a-dialect.md)** — structured, AST-aware mutation for
-   one file type (e.g. `@pbuilder/sdk/typescript`), for when the verbs above aren't enough.
-   This SDK ships that content only once — this index links it rather than repeating it.
+   one file type (e.g. `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`), for when the verbs
+   above aren't enough. This SDK ships that content only once — this index links it rather
+   than repeating it.
 
 ## Contributor notes
 
