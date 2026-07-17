@@ -23,7 +23,8 @@
     "codemod"
   ],
   "engines": {
-    "bun": ">=1.0.0"
+    "bun": ">=1.0.0",
+    "node": ">=25.9.0"
   },
   "publishConfig": {
     "access": "public"
@@ -62,6 +63,8 @@
     "typecheck:permissive-proof": "tsc --noEmit -p tsconfig.permissive-proof.json",
     "prebuild": "rm -rf dist",
     "build": "tsc -p tsconfig.build.json && bun build bin/pbuilder-codegen.ts --outfile dist/bin/pbuilder-codegen.js --target node --banner \"#!/usr/bin/env node\"",
+    "prepublishOnly": "bun run build",
+    "publish:dry": "npm publish --dry-run",
     "link:sdk": "bun run build && bun link"
   },
   "devDependencies": {
