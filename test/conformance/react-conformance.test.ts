@@ -103,8 +103,18 @@ const CRLF_JSX = "const el = (\r\n  <div>\r\n    hi\r\n  </div>\r\n);\r\n";
 // 18. BOM + JSX.
 const BOM_JSX = "﻿const el = <div>hi</div>;\n";
 
-// 19. 4 MiB TSX sample (spike-measured ~200ms round-trip — acceptable).
-const LARGE_TSX_SAMPLE = `/*${"a".repeat(4 * 1024 * 1024)}*/\nconst el = <div />;\n`;
+// 19. ~4 MiB TSX sample, predominantly REPEATED REAL JSX (judgment-day Round 2, Judge B): the
+// prior version was 4 MiB of block COMMENT plus one trivial `<div />` — it exercised the
+// scanner's comment-skipping fast path, not JSX-tree construction/printing at scale, which is
+// this corpus's own stated purpose (REQ-RXD-08: prove the dialect's actual JSX syntax surface
+// under load). Same total size (~4 MiB, unit-count-derived, not byte-exact-pinned), but the
+// bulk is now thousands of sibling `<li>` elements with an attribute and a text child, so the
+// round-trip exercises real JSX parsing/printing at scale. Timing (spike-measured, this
+// machine): OLD (comment-dominated) ~141ms parse; NEW (JSX-dominated) ~245ms parse — print
+// stays ~0ms either way. Slower, but now measuring the right thing.
+const LARGE_TSX_UNIT = '    <li className="item" title="entry">Item text</li>\n';
+const LARGE_TSX_REPEAT_COUNT = Math.ceil((4 * 1024 * 1024) / LARGE_TSX_UNIT.length);
+const LARGE_TSX_SAMPLE = `const el = (\n  <ul>\n${LARGE_TSX_UNIT.repeat(LARGE_TSX_REPEAT_COUNT)}  </ul>\n);\n`;
 
 // 20. Angle-bracket-cast divergence probe — a REJECT sample, exercised separately below, never
 // inside the round-trip `samples` array.
