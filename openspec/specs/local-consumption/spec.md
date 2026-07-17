@@ -17,8 +17,8 @@ Packages channel (→ public-package plan). Both fences apply here because "loca
 consumption" could otherwise be read as implying either.
 
 **Mechanism note (plan-verify iter 1, G-1)**: the triage scope line "6.1 … FIT-09 extended"
-is discharged as follows — FIT-09 remains the exports-SHAPE guard (its exact 5-entry
-assertion, unchanged per REQ-FPS-06's no-restructuring fence); LIVE resolution is proven by
+is discharged as follows — FIT-09 remains the exports-SHAPE guard (its exact 6-entry
+assertion, updated per REQ-FPS-06's shape guard for the 6th subpath); LIVE resolution is proven by
 the installed-consumer e2e legs (REQ-LC-01/LC-03), and the shipped-surface half by the
 FIT-14 baseline (REQ-PPH-06/FPS-06). FIT-09 itself gains no new assertions in this change.
 
@@ -27,14 +27,15 @@ FIT-14 baseline (REQ-PPH-06/FPS-06). FIT-09 itself gains no new assertions in th
 ### REQ-LC-01: Bun-Link Subpath Resolution Parity
 
 A `bun link`-installed consumer MUST resolve every public subpath (`.`, `./commons`,
-`./conformance`, `./testing`, `./typescript`) by package name, matching the packed-tarball
+`./conformance`, `./testing`, `./typescript`, `./react`) by package name, matching the packed-tarball
 leg's guarantee, and `@pbuilder/sdk/core` MUST stay unresolvable.
 
-#### Scenario REQ-LC-01.1: All five subpaths resolve via bun link
+#### Scenario REQ-LC-01.1: All six subpaths resolve via bun link
 
 - GIVEN a sibling consumer with `@pbuilder/sdk` installed via `bun link`
-- WHEN it imports `.`, `./commons`, `./conformance`, `./testing`, and `./typescript` by package name
-- THEN all five resolve successfully
+- WHEN it imports `.`, `./commons`, `./conformance`, `./testing`, `./typescript`, and
+  `./react` by package name
+- THEN all six resolve successfully
 
 #### Scenario REQ-LC-01.2: `./core` stays unresolvable via bun link
 
@@ -65,14 +66,14 @@ the tarball leg's scenario set, never a reduced smoke test.
 
 - GIVEN the `bun link` leg's scenario count and the tarball leg's scenario count in `test/e2e/installed-consumer.e2e.test.ts`
 - WHEN they are compared
-- THEN the `bun link` leg asserts the same set — five-subpath resolution, `/core` unreachable, write-only commit, all-or-nothing rejection — not a subset
+- THEN the `bun link` leg asserts the same set — six-subpath resolution, `/core` unreachable, write-only commit, all-or-nothing rejection — not a subset
 
 ### REQ-LC-03: Tarball Path Retained as Release-Shape Verification
 
 The packed-tarball install path MUST remain the release-shape verification vehicle; adding
 `bun link` is additive, never a replacement of the existing tarball scenarios. The
 tarball leg's probe set is NOT frozen at today's set — it MUST be extended to also
-resolve `./typescript`, alongside the existing five-subpath coverage, and future
+resolve `./react`, alongside the existing six-subpath coverage, and future
 extensions remain additive (V2: council ruling, closes a plan-verify gap left open in V1).
 
 #### Scenario REQ-LC-03.1: Tarball scenarios remain green as the probe set extends
@@ -80,7 +81,7 @@ extensions remain additive (V2: council ruling, closes a plan-verify gap left op
 - GIVEN `test/e2e/installed-consumer.e2e.test.ts` after this change
 - WHEN the pre-existing tarball-leg scenarios run alongside the extended probe set
 - THEN the pre-existing scenarios pass with the same assertions they had before this
-  change, AND the extended probe set additionally resolves `./typescript`
+  change, AND the extended probe set additionally resolves `./react`
 
 ### REQ-LC-04: Bin Executability From Consumer Install
 
