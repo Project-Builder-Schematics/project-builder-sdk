@@ -323,3 +323,138 @@ change's scope): `git worktree add /private/tmp/react-dialect-verify-worktree HE
 15 in `docs.test.ts`, 0 net-new `it`s in the e2e file since S-005 extended 2 existing `it`s
 rather than adding new ones — verified via `git diff --stat` across the batch's 4 commits).
 Worktree removed after (`git worktree remove --force`). No failures, no flakiness, in either run.
+
+## Fix Pass — Council V5 corrections (spec V5 owner-signed 2026-07-17)
+
+Owner ruling: spec-first, then apply. All nine routed items applied against V5. Commits:
+`2079023` (item 1), `5749bf2` (items 2 + most of item 5/QA-5 — see note below), `e142c3d`
+(item 9), `24b8227` (item 4), `5a7c719` (items 6, 7, 8), `610650a` (apply-progress correction).
+
+### Status per item
+
+1. **`addImport` shape bug (REQ-RXD-05 V5) — DONE.** Rewrote the merge-target lookup around a
+   LOCAL NAME concept (`localNamesBoundBy`) and scoped the merge target to non-type-only
+   `NamedImports` clauses (`isNonTypeOnlyNamedImportClause`), per the spec's three-step
+   algorithm. `src/dialects/react/ops.ts`. Fixes QA-1 (type-only clause), QA-2 (default-import
+   duplicate binding), QA-3 (namespace hard-throw), QA-4 (aliased silent no-op).
+2. **SEC-1 reserved words (REQ-RXD-06.7) — DONE.** `IMPORT_RESERVED_WORDS` (46 entries: 36
+   always-reserved + 9 strict-mode-reserved + `await`), `.has()` equality, wired into
+   `assertValidImportBinding` alongside the existing grammar/denylist checks.
+   `src/core/jsx-name-validator.ts`.
+3. **SEC-2 Set-key-safety (REQ-RXD-06.8) — ALREADY SATISFIED, verified not re-broken.** The
+   static scan (`test/dialects/react/name-validation.test.ts`, "Set-key-safety static scan"
+   describe block) was built in S-001 and already covers `src/core/jsx-name-validator.ts` +
+   every file under `src/dialects/react/**` — a superset of the scenario's stated scope. My new
+   `addImport` code (item 1) uses `.includes()`/`.find()` on plain arrays, never bracket-indexed
+   object access by name — re-ran the scan after the rewrite, still 0 matches.
+4. **F-01/DOC-1 false `@example` — DONE.** Rewrote to the coalesced `addImport`+`setJsxProp`
+   journey, `bun run build` + regenerated `test/fitness/dts-baseline/react.index.d.ts`. Added a
+   guard in `docs.test.ts` reading `src/dialects/react/index.ts` directly (fit-04 exempts
+   `@example` edits by design; the existing doc guards only grep `.md` files — that seam is now
+   closed for this specific regression).
+5. **QA-5 assertion leak — DONE, with a genuine near-miss mutant (see below).** Fixed the two
+   `toContain(argName)` / `toContain("name")` assertions to `toContain(\`${argName}\`)` /
+   `toContain("\`name\`")` (backtick-bounded — every react reject tail names its argument as
+   `` `${argName}` ``). Also pinned the grammar-divergence runner-up (`addImport("$", ...)`
+   accepts, `addImport("data-testid", ...)` rejects) as permanent tests in `ops.test.ts`.
+   Corrected `apply-progress.md:158-161`'s false discrimination claim (see the inline correction
+   above). **Disclosure**: this fix landed in commit `5749bf2` together with item 2 — both touch
+   `test/dialects/react/name-validation.test.ts` and were staged together before I split commits;
+   the commit message only describes item 2. Recorded here so the omission is visible.
+6. **DOC-2 `.tsx`-only doc gap — DONE.** `docs/authoring-a-dialect.md`'s react intro now states
+   `.jsx` is explicitly rejected by `find()`, not silently accepted.
+7. **DOC-4 doc-index rot — DONE.** `docs/README.md:16` and `docs/quickstart.md:186` now name
+   both `@pbuilder/sdk/typescript` and `@pbuilder/sdk/react`. No new guard added for these two
+   lines specifically (kept to the textual fix asked for; the existing guards in
+   `test/docs/doc-set-content.test.ts` target different files and were not extended).
+8. **REQ-RXD-15 `validatedOp` contributor docs — DONE.** New pinned `####` subsection under
+   "For contributors: building a dialect" naming `validatedOp`, the chokepoint pattern, the raw-
+   splice vulnerability class it closes, and a pointer to `src/core/jsx-name-validator.ts`.
+   Guard-asserted in `docs.test.ts` (presence + verbatim-sentinel + red-proof-on-removal, mirrors
+   REQ-RXD-09.3's pattern). Hit the same line-wrap trap S-004 recorded: the sentinel sentence
+   had to stay on one unwrapped markdown line to survive a literal `.toContain()`.
+9. **ARCH-3 — DONE, chose "fix the code" over "weaken the ADR".** `ops.ts:55`/`:60` interpolated
+   `` `${elementName}` `` directly into `dialectError`, bypassing `reject-tail.ts` — the ADR's
+   "by construction" claim was false. Routed both call sites through new `zeroMatchTail`/
+   `multiMatchTail` helpers (`src/core/reject-tail.ts`), which apply the existing
+   `boundedFragment` to `elementName`. **Justification**: the security property was never at
+   risk (`elementName` is post-validation, grammar-constrained — no quotes/newlines/injection
+   vector) but the echo WAS unbounded in length (`ELEMENT_NAME_GRAMMAR` has no length ceiling),
+   which is the concrete thing ARCH-3 flagged as actually lost. Bounding it is a real, if small,
+   hardening — cheaper and more honest than loosening the ADR's language to permit unbounded
+   echoes. Also amended `design.md`'s wording (it still is not literally "never interpolates" —
+   match-count rejects are the one class that echoes a value at all, by design/UX necessity —
+   but the claim now accurately describes routing through the chokepoint and the bound, instead
+   of describing a property the code never had).
+
+### TDD sequence, honestly, per item
+
+- **Item 1 (addImport V5)**: genuine RED — six new scenarios (05.5-05.10) written and run
+  against the unfixed code first; all six failed for the right reason (three assertion
+  mismatches on expected byte content, three contained-throw failures reproducing QA-3's
+  hard-throw and QA-2's incorrect merge) — a direct reproduction of QA-1..QA-4. Then GREEN:
+  all 32 tests in `ops.test.ts` passed after the rewrite, including the unchanged 05.1-05.4
+  baseline (no regression). Triangulation is inherent to the six new scenarios themselves (each
+  exercises a distinct declaration shape).
+- **Item 2 (reserved words)**: genuine RED — 9 reserved-word cases + 3 substring-lookalike
+  cases written first; 9 failed (`toBeInstanceOf(Error)` received `undefined`) before
+  `IMPORT_RESERVED_WORDS` existed. GREEN: 76/76 after wiring. Triangulation: 9 distinct reserved
+  words across all three grammar families (keywords/strict-mode/`await`) plus 3 lookalikes
+  proving exact-membership, not substring matching.
+- **Item 5 (QA-5) — mutation probe, WITH a near-miss mutant (the amendment's actual point)**:
+  behaviour (the wiring) pre-exists, so genuine RED was not coherent here — this is a test
+  CORRECTNESS fix, not new behaviour. Ran the near-miss mutant BEFORE fixing the assertion:
+  `assertValidAttributeName` wired into `addImport`'s validator closure instead of
+  `assertValidImportBinding` → `bun test test/dialects/react/name-validation.test.ts` = **76
+  pass / 0 fail** — the OLD weak assertion could not tell the difference (bug reproduced,
+  exactly as QA-5 describes). Fixed the assertion to backtick-bounded matching, RE-RAN THE SAME
+  MUTANT → **65 pass / 11 fail** (10 `addImport.name` battery cases + 1 discrete validator-reject
+  test) — now correctly discriminates. Reverted the mutant (`git diff src/dialects/react/ops.ts`
+  empty) → 76/0 clean. This is the near-miss mutant the mutation-probe amendment requires: a
+  PLAUSIBLE WRONG implementation (right shape, wrong grammar), not an absence mutant.
+- **Item 9 (ARCH-3 bound)**: genuine RED — two new tests (long dotted `elementName`, zero-match
+  and multi-match) written first against the unfixed code; both failed (`not.toContain(longName)`
+  received the full 19-char name in the message) — a real gap, not a probe. GREEN after routing
+  through `zeroMatchTail`/`multiMatchTail`; the pre-existing exact-message pins for `Missing`/
+  `Button` (both <16 chars) stayed byte-identical, confirming no regression to short names.
+- **Items 4, 6, 7, 8 (docs)**: genuine RED where content did not yet exist (items 4 and 8 —
+  guard tests written and run against the stale/absent text first, confirmed failing for the
+  right reason, then the doc/JSDoc content written to match). Items 6 and 7 are textual
+  corrections with no new guard, so no RED/GREEN cycle applies — verified only by reading the
+  edited file back and re-running the existing doc-set suite.
+
+### Near-miss mutant record (mutation-probe amendment compliance)
+
+One near-miss mutant used, reused across two purposes: `addImport`'s validator closure pointed
+at `assertValidAttributeName` instead of `assertValidImportBinding` (same shape as QA-5's own
+reproduction — a plausible WRONG wiring, not an absence). It proved two things in one session:
+(a) the OLD `toContain(argName)`/`toContain("name")` assertions are blind to it (76/0, false
+pass) and the NEW backtick-bounded assertions catch it (65/11, correct fail) — QA-5's fix; (b)
+`addImport("$", ...)` would flip to REJECTED and `addImport("data-testid", ...)` would flip to
+ACCEPTED under the same mutant — the grammar-divergence pin QA named as the "cheap runner-up".
+Reverted after each use; `git diff`/`git status --porcelain src/dialects/react/ops.ts` empty
+both times.
+
+### Real test numbers observed
+
+| Scope | Result | Location |
+|---|---|---|
+| `test/dialects/react/` (post item 1+2+9) | 147 pass / 0 fail | `~/Documents` (working dir) |
+| `test/dialects/` + `test/conformance/` + `test/fitness/` + `test/docs/doc-set-content.test.ts` + `test/security/canary-no-echo.test.ts` (final sweep) | 795 pass / 0 fail | `~/Documents` (working dir) |
+| `tsc --noEmit` | clean | `~/Documents` (working dir) |
+| **Full suite, trustworthy location** | **1824 pass / 0 fail** | fresh `/private/tmp/react-dialect-verify-worktree` of HEAD `610650a`, `bun install` + `bun test`, worktree removed after |
+
+1824 = 1797 (pre-fix baseline, per verify-report.md) + 27 net new tests (12 reserved-word battery
++ lookalikes, 10 in `ops.test.ts` [6 shape scenarios + 2 grammar-divergence + 2 ARCH-3 bound-echo],
+5 in `docs.test.ts` [2 F-01 guard + 3 REQ-RXD-15 guard]) — verified against `git diff --stat`
+across this fix pass's 6 commits, not asserted from memory. No environmental timeout was
+observed or reported as a pass in either the working-directory runs or the worktree run; the
+working-directory scoped runs above deliberately excluded the known-flaky subprocess-bound files
+(`test/docs/quickstart-docs.test.ts`, `test/e2e/installed-consumer.e2e.test.ts`) — those are
+covered by the trustworthy full-suite number instead.
+
+### What is still open (not mine, per the task's explicit exclusions)
+
+DOC-3 (`dialect-handle.ts:178`), ARCH-2 (validator module placement), the subprocess-timeout
+debt, and the `.jsx` pending-changes row are unchanged — none were touched. The CLOSED rulings
+in `council-findings.md` were not re-opened.
