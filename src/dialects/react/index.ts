@@ -63,7 +63,13 @@ const reactDialect = withOps(baseDialect, opsPack);
 export function find(path: string): Handle<"found", SourceFile, ReactOps> {
   const base = basename(path);
 
-  if (base.endsWith(".tsx")) {
+  // A non-empty STEM before `.tsx` is required — `base.endsWith(".tsx")` alone is true for
+  // `base === ".tsx"` itself (and for a degenerate `..tsx`, whose stem is a lone dot), which
+  // would pass a basename with no real name before the extension. That is the SAME "dotfile
+  // with no usable name" shape as `.babelrc` (suffix `babelrc`, not `.tsx`) — by the suffix
+  // rule REQ-RXD-02 already applies to dotfiles, `.tsx`'s suffix is `tsx`, not `.tsx`.
+  const stem = base.substring(0, base.length - ".tsx".length);
+  if (base.endsWith(".tsx") && stem.length > 0 && !stem.endsWith(".")) {
     return reactDialect.find(path);
   }
   if (!base.includes(".")) {

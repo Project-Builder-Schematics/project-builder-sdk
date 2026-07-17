@@ -95,6 +95,36 @@ describe("React dialect — REQ-RXD-02 extension gate (.tsx-only, synchronous at
     );
   });
 
+  it("defect-fix (judgment-day): a basename that is EXACTLY `.tsx` (empty stem) rejects — it is not a real filename", () => {
+    // base.endsWith(".tsx") was true for base === ".tsx" itself — an empty-stem basename has
+    // no real name before the extension, the same degenerate shape as the dotfile `.babelrc`
+    // (suffix `babelrc`, not `.tsx`) that already rejects. Contrast REQ-RXD-02.9's `find(path)
+    // — the React dialect requires an explicit .tsx extension` message: `.tsx` DOES contain a
+    // dot, so it is not extensionless — it falls through to the generic "only .tsx" reject.
+    expect(() => find(".tsx")).toThrow(/\.tsx is the only extension/);
+  });
+
+  it("defect-fix (judgment-day): a path whose basename is EXACTLY `.tsx` rejects the same way regardless of directory", () => {
+    expect(() => find("src/.tsx")).toThrow(/\.tsx is the only extension/);
+  });
+
+  it("defect-fix (judgment-day): a basename with a dot directly adjacent to `.tsx` (`..tsx`) rejects — degenerate stem", () => {
+    expect(() => find("..tsx")).toThrow(/\.tsx is the only extension/);
+  });
+
+  it("a real dotfile with a genuine name before `.tsx` still passes (boundary — not every leading-dot basename rejects)", async () => {
+    const { client, emitted } = makeSpyClient({ ".config.tsx": "const x = <div />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await find(".config.tsx").modify((ast) => {
+        ast.addStatements("const y = 1;");
+      });
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)).toHaveLength(1);
+  });
+
   it("REQ-RXD-02.10: a dotted DIRECTORY segment does not count as an extension — same reject as .9", () => {
     let caught: unknown;
     try {
