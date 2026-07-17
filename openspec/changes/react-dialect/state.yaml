@@ -11,8 +11,28 @@ completed_phases:
   - steward-foresight
   - slice
   - plan-verify
-current_phase: spec
+current_phase: spec-awaiting-sign
 current_phase_status: >
+  SPEC V5 MINTED 2026-07-17, UNSIGNED — awaiting OWNER sign. This is a HUMAN
+  gate and it blocks everything downstream (sdd-apply halts `spec-not-signed`
+  against an unsigned spec). V5 was unfrozen from V4-SIGNED to correct the
+  spec defects the Council found; all 14 V4 REQ-IDs are preserved, none
+  removed or reused. AMENDED: REQ-RXD-05 (merge-or-create made shape-aware —
+  defines a specifier's LOCAL NAME and scopes the merge target strictly to
+  non-type-only named clauses; ONE idea closes all four correctness bugs;
+  scenarios 05.1-05.4 keep their expected outcomes, they were the correct
+  baseline), REQ-RXD-06 (adds an IMPORT_RESERVED_WORDS denylist — 46
+  ECMAScript reserved/strict-mode words + await, a real behaviour change; and
+  removes the false "full prototype-walk set" claim in favour of the accurate
+  Set-key-safety rationale, wording only), REQ-RXD-11 (11.5's literal example
+  "{" was unimplementable under ADR-03 → corrected to the delimiter-balanced
+  "{1+}"; closes a long-standing carry-forward). MINTED: REQ-RXD-15
+  (contributor docs must teach validatedOp — closes ARCH-1). New scenarios
+  under existing REQs: 05.5-05.10, 06.7, 06.8, 11.6.
+verify_final_status: >
+  FAILED 2026-07-17 at HEAD f12ffba — see verify-report.md (verdict `fail`,
+  adversarial_review `required`) and council-findings.md.
+legacy_verify_fail_note: >
   VERIFY FINAL **FAILED** 2026-07-17 at HEAD f12ffba — see verify-report.md
   (verdict `fail`, adversarial_review `required`) and council-findings.md.
   The BUILD is intact and the suite is genuinely green; the GATE is what
@@ -58,23 +78,44 @@ legacy_build_complete_note: >
 in_loop_iteration: 0
 slices_done: [S-000, S-001, S-002, S-003, S-004, S-005]
 next_phase: >
-  sdd-spec with unfreeze=true (V4 SIGNED -> V5). OWNER DECISION 2026-07-17,
-  explicit: SPEC FIRST, then apply — two findings are SPEC defects, and
-  patching code against a signed spec that states falsehoods re-opens on the
-  next drift check. V5 must address: (1) REQ-RXD-06 mandates
-  IMPORT_BINDING_GRAMMAR verbatim, and that regex accepts JS reserved words
-  -> addImport("default","react") emits invalid TSX that print() never
-  re-validates; (2) REQ-RXD-06 calls {__proto__, constructor, prototype}
-  "the full prototype-walk set" — factually false; the real defence is
-  set-key-safety, which the code comment already states correctly; (3)
-  REQ-RXD-05 does not contemplate non-named import declaration shapes
-  (type-only / namespace / default / aliased) — the source of four
-  correctness bugs; (4) REQ-RXD-11.5 wording amendment (long-standing
-  carry-forward). THEN sdd-apply -> re-verify final -> judgment-day (BLIND;
-  required: L + two sensitive areas) -> steward reckoning -> architecture
-  audit gate -> archive (fold the subprocess-timeout debt into
-  pending-changes; the .tsx/jsx row must be folded-or-reaffirmed, never
-  duplicated)
+  OWNER SIGN of spec V5 — a HUMAN gate, blocking. Then sdd-apply against V5:
+  (a) the `getImportDeclaration` predicate, per REQ-RXD-05's shape-aware
+  algorithm — root cause of all four correctness bugs; (b) SEC-1 reserved
+  words per REQ-RXD-06; (c) F-01/DOC-1 the false `@example` at
+  src/dialects/react/index.ts:49-56 plus a .d.ts baseline regen; (d) QA-5 the
+  assertion leak (`toContain("name")` matches `"propName"`, so the hostile
+  battery cannot tell WHICH validator is wired); (e) DOC-2 the .tsx-only doc
+  gap; (f) DOC-4 doc-index rot at docs/README.md:16 and
+  docs/quickstart.md:186; (g) ARCH-3 ADR-02's false "by construction" clause
+  vs design §4.4; (h) REQ-RXD-15's validatedOp contributor doc. THEN
+  re-verify final -> judgment-day (BLIND; required: L + two sensitive areas)
+  -> steward reckoning -> architecture audit gate -> archive.
+  FIX-AGENT NOTE: adopt the Council's mutation-probe amendment — a probe that
+  substitutes for RED MUST include at least one NEAR-MISS mutant, not only an
+  absence mutant. QA-5 exists precisely because every probe so far was an
+  absence mutant, and absence mutants are the ones a substring-weak assertion
+  still catches.
+archive_commitments:
+  - >
+    DOC-3 — `could not parse "X" as TypeScript` hardcoded in the
+    dialect-GENERIC path at src/core/dialect-handle.ts:178. sdd-spec ruled it
+    a PENDING-CHANGE, not this change's spec: the file is marked
+    Read-only/zero-change in this change's own signed design §4.2, and a
+    correct fix means threading a per-dialect display name through the
+    `dialect-handle`/`define-dialect` seam every dialect shares — which is
+    the "any change to the engine" that triage.md puts out of scope. Note
+    test/core/dialect-handle.test.ts:328 currently PINS the wrong text.
+  - >
+    ARCH-2 — src/core/jsx-name-validator.ts holds JSX grammars in a
+    file-type-agnostic layer with exactly one consumer. Architect's call:
+    NOT a rebuild. Extend ADR-01's already-registered peer-module followup —
+    when dialect #3 lands, split it: `validatedOp` + `reject-tail` stay in
+    core (genuinely generic), the JSX grammars move to the leaf.
+  - >
+    Subprocess-timeout debt (pre-existing, out of scope) — see carry_forward.
+  - >
+    The .tsx/.jsx pending-changes row must be folded-or-reaffirmed at
+    archive, never duplicated.
 artefacts:
   triage: openspec/changes/react-dialect/triage.md (obs #1032)
   explore: openspec/changes/react-dialect/explore.md (obs #1035; AST decision obs #1037 owner-ratified ts-morph ScriptKind.Tsx)
