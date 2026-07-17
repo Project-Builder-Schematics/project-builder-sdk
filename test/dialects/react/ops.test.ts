@@ -503,6 +503,144 @@ describe("addImport — REQ-RXD-05.5-.10 (V5) — shape-aware merge/create/idemp
   });
 });
 
+describe("addImport — REQ-RXD-05.11-.15 (V7) — file-wide claimed-name collision reject", () => {
+  it("REQ-RXD-05.11: a same-name TYPE-ONLY declaration collision rejects BEFORE any AST mutation — Defect 1a", async () => {
+    const before = 'import type { Icon } from "./icons";\nconst el = <div />;\n';
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("Icon", "./icons");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("`name`");
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
+  });
+
+  it("REQ-RXD-05.12: a same-name INLINE type-only specifier collision rejects the same way — Defect 1b", async () => {
+    const before = 'import { type Icon } from "./icons";\nconst el = <div />;\n';
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("Icon", "./icons");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("`name`");
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
+  });
+
+  it("defect-fix (near-miss, decl-level type-only DEFAULT): `import type React from \"react\"` + addImport(\"React\", \"react\") rejects, never a silent no-op", async () => {
+    const before = 'import type React from "react";\nconst el = <div />;\n';
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("React", "react");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("`name`");
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
+  });
+
+  it("defect-fix (near-miss, decl-level type-only NAMESPACE): `import type * as React from \"react\"` + addImport(\"React\", \"react\") rejects, never a silent no-op", async () => {
+    const before = 'import type * as React from "react";\nconst el = <div />;\n';
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("React", "react");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("`name`");
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
+  });
+
+  it("REQ-RXD-05.13: a DIFFERENTLY-ALIASED type-only import does NOT collide — boundary case", async () => {
+    const { client, emitted } = makeSpyClient({
+      "App.tsx": 'import type { Icon as IconT } from "./icons";\nconst el = <div />;\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("Icon", "./icons");
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]!.modify.content;
+    expect(content).toBe(
+      'import type { Icon as IconT } from "./icons";\nimport { Icon } from "./icons";\n\nconst el = <div />;\n'
+    );
+  });
+
+  it("REQ-RXD-05.14: a CROSS-module local-name collision rejects — Defect 2", async () => {
+    const before = 'import { useState } from "react";\nconst el = <div />;\n';
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("useState", "./local");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("`name`");
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
+  });
+
+  it("REQ-RXD-05.15: an ALIASED same-module local-name collision rejects — Defect 3", async () => {
+    const before = 'import { Foo as x } from "./a";\nconst el = <div />;\n';
+    const { client, emitted } = makeSpyClient({ "App.tsx": before });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("x", "./a");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("`name`");
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("App.tsx")).toBe(before);
+  });
+});
+
 describe("addImport.name grammar divergence pin — the import-binding grammar, not the attribute grammar (QA-5 runner-up)", () => {
   it('"$" is a valid import binding (single-char identifier grammar) and is accepted', async () => {
     const { client, emitted } = makeSpyClient({ "App.tsx": "const el = <div />;\n" });

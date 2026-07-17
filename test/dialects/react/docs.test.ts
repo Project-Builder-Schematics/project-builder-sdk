@@ -34,6 +34,13 @@ const SPREAD_PRECEDENCE_SENTENCE =
   "An inserted explicit prop lands AFTER a trailing `{...spread}` and therefore WINS at " +
   "React runtime (later-position precedence).";
 
+const COLLISION_REJECT_HEADING = "#### The `addImport` collision-reject limitation";
+const COLLISION_REJECT_SENTENCE =
+  "`addImport` REJECTS when `name` is already bound elsewhere in the file under a different " +
+  "binding — whether from a different module, or the same module under an alias or a " +
+  "type-only specifier — and resolving the naming conflict is your responsibility, since " +
+  "`addImport` takes no alias argument to route around it.";
+
 const EXPLICIT_EXTENSION_REQUIREMENT =
   "`find(path)` requires an explicit `.tsx` extension — extensionless paths are rejected, " +
   "never normalized.";
@@ -121,6 +128,26 @@ describe("REQ-RXD-09.3 — value-trust and spread-precedence sections present, g
     );
     expect(() => extractSection(withoutSection, SPREAD_PRECEDENCE_HEADING)).toThrow();
     expect(withoutSection).not.toContain(SPREAD_PRECEDENCE_SENTENCE);
+  });
+});
+
+describe("REQ-RXD-09.6 — addImport collision-reject limitation documented, guard-asserted (V7, judgment-day)", () => {
+  it("carries the collision-reject sentinel sentence verbatim", () => {
+    expect(doc()).toContain(COLLISION_REJECT_SENTENCE);
+  });
+
+  it("the sentinel sentence appears exactly once", () => {
+    const content = doc();
+    expect(content.split(COLLISION_REJECT_SENTENCE).length - 1).toBe(1);
+  });
+
+  it("fails red if the collision-reject section is removed (regression proof)", () => {
+    const withoutSection = doc().replace(
+      /#### The `addImport` collision-reject limitation[\s\S]*?(?=\n#### |\n### |\n## |$)/,
+      ""
+    );
+    expect(() => extractSection(withoutSection, COLLISION_REJECT_HEADING)).toThrow();
+    expect(withoutSection).not.toContain(COLLISION_REJECT_SENTENCE);
   });
 });
 

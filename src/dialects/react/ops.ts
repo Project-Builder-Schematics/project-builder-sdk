@@ -23,7 +23,7 @@ import {
   assertValidImportBinding,
   validatedOp,
 } from "../../core/jsx-name-validator.ts";
-import { multiMatchTail, zeroMatchTail } from "../../core/reject-tail.ts";
+import { claimedNameTail, multiMatchTail, zeroMatchTail } from "../../core/reject-tail.ts";
 
 type JsxTag = JsxOpeningElement | JsxSelfClosingElement;
 
@@ -78,24 +78,62 @@ export const setJsxProp = validatedOp<SourceFile, [elementName: string, propName
   }
 );
 
-// V5 (REQ-RXD-05): a specifier's LOCAL NAME is the identifier it actually binds in scope —
-// for a named specifier, its alias if one exists, else its own name; for a default specifier,
-// the default local name; for a namespace specifier, the namespace local name. Collects every
-// local name a single declaration binds, across all three clause shapes at once (a
-// declaration can carry a default AND a named clause simultaneously, e.g.
-// `import React, { useState } from "react"`). Set-key-safety clause: names are compared via
-// `.includes()`/`===` on plain arrays, NEVER used as an object/Map key.
-function localNamesBoundBy(decl: ImportDeclaration): string[] {
-  const names: string[] = [];
+// V7 (REQ-RXD-05, judgment-day fix): a bound name, tagged with enough shape to answer BOTH
+// questions the algorithm now needs — "is this name CLAIMED file-wide" (Step 2, any binding,
+// value-bound or type-only) and "does this SAME-MODULE binding satisfy idempotency" (Step 1,
+// only a value-bound default/namespace/unaliased-named specifier). A specifier is VALUE-BOUND
+// only if NEITHER its declaration (`decl.isTypeOnly()`) NOR — for a named specifier — the
+// specifier itself (`specifier.isTypeOnly()`, the inline `import { type X }` form) is
+// type-only; a type-only binding still CLAIMS its local name (TS rejects the same-name
+// value+type-only combination as `TS2300: Duplicate identifier`), it just does not satisfy
+// `addImport`'s value-binding promise.
+interface BoundName {
+  localName: string;
+  kind: "default" | "namespace" | "named";
+  aliased: boolean;
+  valueBound: boolean;
+}
+
+// Collects every local name a single declaration binds, across all three clause shapes at once
+// (a declaration can carry a default AND a named clause simultaneously, e.g. `import React, {
+// useState } from "react"`). Set-key-safety clause: names are compared via `.includes()`/`===`
+// on plain arrays, NEVER used as an object/Map key.
+function boundNamesIn(decl: ImportDeclaration): BoundName[] {
+  const declTypeOnly = decl.isTypeOnly();
+  const names: BoundName[] = [];
   const defaultImport = decl.getDefaultImport();
-  if (defaultImport !== undefined) names.push(defaultImport.getText());
+  if (defaultImport !== undefined) {
+    names.push({ localName: defaultImport.getText(), kind: "default", aliased: false, valueBound: !declTypeOnly });
+  }
   const namespaceImport = decl.getNamespaceImport();
-  if (namespaceImport !== undefined) names.push(namespaceImport.getText());
+  if (namespaceImport !== undefined) {
+    names.push({
+      localName: namespaceImport.getText(),
+      kind: "namespace",
+      aliased: false,
+      valueBound: !declTypeOnly,
+    });
+  }
   for (const specifier of decl.getNamedImports()) {
     const alias = specifier.getAliasNode();
-    names.push(alias !== undefined ? alias.getText() : specifier.getName());
+    names.push({
+      localName: alias !== undefined ? alias.getText() : specifier.getName(),
+      kind: "named",
+      aliased: alias !== undefined,
+      valueBound: !declTypeOnly && !specifier.isTypeOnly(),
+    });
   }
   return names;
+}
+
+// Step 1's idempotency-satisfying shape (REQ-RXD-05, V7-narrowed): a value-bound default
+// specifier, a value-bound namespace specifier, or a value-bound UNALIASED named specifier.
+// An aliased named specifier's local name identifies a DIFFERENT export (Defect 3) and a
+// type-only binding at either granularity does not satisfy the value-binding promise (Defect
+// 1) — neither counts here, even though both still CLAIM the name for Step 2's purposes.
+function satisfiesIdempotency(bound: BoundName): boolean {
+  if (!bound.valueBound) return false;
+  return bound.kind !== "named" || !bound.aliased;
 }
 
 // V5 (REQ-RXD-05, step 2): a valid MERGE target is a declaration that (a) is NOT type-only and
@@ -112,17 +150,29 @@ function isNonTypeOnlyNamedImportClause(decl: ImportDeclaration): boolean {
 
 /**
  * Adds `import { name } from "from";`, or merges `name` into an EXISTING NAMED-import clause
- * from the SAME module `from` if one already exists (REQ-RXD-05, V5 shape-aware algorithm):
+ * from the SAME module `from` if one already exists (REQ-RXD-05, V7 unified algorithm):
  *
- * 1. Already-bound (idempotency, generalized across shapes): if `name` already equals the
- *    LOCAL NAME of ANY existing specifier from `from` — named, aliased-named, default, or
- *    namespace — this is a no-op.
- * 2. Merge: otherwise, if an EXISTING declaration for `from` has a non-type-only named-import
- *    clause, add a NEW, UNALIASED named specifier to it.
- * 3. Create: otherwise (no declaration for `from`; every one is type-only, default-only, or
+ * 1. Already-bound (idempotency, SAME module only): if an EXISTING declaration for `from` has
+ *    a VALUE-BOUND specifier whose local name equals `name`, AND that specifier is a default
+ *    specifier, a namespace specifier, or an UNALIASED named specifier — this is a no-op. An
+ *    aliased named specifier's local name identifies a DIFFERENT export, so it does NOT satisfy
+ *    idempotency (Defect 3); neither does a type-only specifier at either granularity (Defect
+ *    1), because it does not satisfy the value-binding promise.
+ * 2. Collision (file-wide, V7 NEW): otherwise, if `name` is CLAIMED anywhere in the file — the
+ *    local name of ANY import specifier, in ANY module, value-bound or type-only alike — REJECT
+ *    via `dialectError`. TypeScript treats a same-name type-only/value collision as the
+ *    identical `TS2300: Duplicate identifier` error as two value bindings, so a type-only
+ *    specifier claims its name exactly as a value specifier does (Defect 1); the claiming
+ *    declaration may be FROM `from` (a same-module alias or type-only collision, Defect 1/3) or
+ *    from a DIFFERENT module entirely (a cross-module collision, Defect 2) — both reject.
+ * 3. Merge: otherwise, if an EXISTING declaration for `from` has a non-type-only named-import
+ *    clause, add a NEW, UNALIASED named specifier to it. (Reaching this step guarantees `name`
+ *    is claimed nowhere in the file, so the merge is always safe.)
+ * 4. Create: otherwise (no declaration for `from`; every one is type-only, default-only, or
  *    namespace-only), INSERT a FRESH, SEPARATE `import { name } from "from";` — a type-only,
  *    default-only, or namespace-only declaration's clause structure is NEVER mutated to graft
- *    a named binding onto it.
+ *    a named binding onto it. (Reaching this step also guarantees `name` is claimed nowhere in
+ *    the file, so the fresh declaration never collides.)
  *
  * NAMED-ONLY, pinned as contract: always the `import { name } from "from"` form — v1 never
  * synthesizes default or namespace imports (REQ-RXD-05.4).
@@ -142,8 +192,17 @@ export const addImport = validatedOp<SourceFile, [name: string, from: string]>(
       .getImportDeclarations()
       .filter((decl) => decl.getModuleSpecifierValue() === from);
 
-    const alreadyBound = declarationsForModule.some((decl) => localNamesBoundBy(decl).includes(name));
+    const alreadyBound = declarationsForModule.some((decl) =>
+      boundNamesIn(decl).some((bound) => bound.localName === name && satisfiesIdempotency(bound))
+    );
     if (alreadyBound) return;
+
+    const claimed = ast
+      .getImportDeclarations()
+      .some((decl) => boundNamesIn(decl).some((bound) => bound.localName === name));
+    if (claimed) {
+      throw dialectError(claimedNameTail(name));
+    }
 
     const mergeTarget = declarationsForModule.find(isNonTypeOnlyNamedImportClause);
     if (mergeTarget !== undefined) {

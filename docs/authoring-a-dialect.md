@@ -155,6 +155,11 @@ You are solely responsible for ensuring `value` is not derived from untrusted in
 An inserted prop lands after the element's last existing prop — including after a trailing `{...spread}`. An inserted explicit prop lands AFTER a trailing `{...spread}` and therefore WINS at React runtime (later-position precedence).
 For example, `<Button {...rest} />` plus `setJsxProp("Button", "onClick", "{safe}")` prints `<Button {...rest} onClick={safe} />`, and `safe` wins even if `rest` also supplies an `onClick`.
 
+#### The `addImport` collision-reject limitation
+
+`addImport` REJECTS when `name` is already bound elsewhere in the file under a different binding — whether from a different module, or the same module under an alias or a type-only specifier — and resolving the naming conflict is your responsibility, since `addImport` takes no alias argument to route around it.
+For example, `import { useState } from "react";` plus `addImport("useState", "./local")` rejects rather than emitting a second, invalid `import { useState } from "./local";` declaration; renaming the existing import or choosing a different `name` is on you. The same applies to a same-module alias (`import { Foo as x } from "./a"` + `addImport("x", "./a")`) and a same-module type-only import (`import type { Icon } from "./icons"` + `addImport("Icon", "./icons")`).
+
 ### For contributors: building a dialect
 
 A dialect is assembled from three kit verbs:

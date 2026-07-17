@@ -39,3 +39,12 @@ export function multiMatchTail(elementName: string, matchCount: number): string 
     "exactly one match; use `.modify()` to disambiguate."
   );
 }
+
+/** `addImport`'s file-wide collision reject tail (REQ-RXD-05, V7 Step 2) — names `name` and the rule. */
+export function claimedNameTail(name: string): string {
+  return (
+    `\`name\` "${boundedFragment(name)}" is already bound elsewhere in the file — addImport ` +
+    "cannot create a second local binding under an already-claimed name; rename the existing " +
+    "binding or choose a different `name`, or use `.modify()` to make this edit directly."
+  );
+}
