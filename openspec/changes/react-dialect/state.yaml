@@ -11,8 +11,43 @@ completed_phases:
   - steward-foresight
   - slice
   - plan-verify
-current_phase: verify-final
+current_phase: judgment-day
 current_phase_status: >
+  VERIFY FINAL ITERATION 3 = **pass-with-followups** at 9a1c23c —
+  ARCHIVE-READY. **This token is CORRECT; do NOT "upgrade" it to `pass`.**
+  ORCHESTRATOR ERROR, CAUGHT BY THE VERIFIER: the launch prompt asserted
+  "archive requires verify-report = pass". That is FALSE.
+  `sdd-archive/SKILL.md:44` accepts BOTH tokens, and the token is
+  load-bearing in the OPPOSITE direction — Step 9 (SKILL.md:392-417)
+  registers followups into `project/pending-changes` ONLY on
+  `pass-with-followups`, and explicitly SKIPS that step on `pass`. Reporting
+  `pass` with F-2..F-8 open would have silently dropped EIGHT tracked
+  followups. The verifier refused the premise and cited the file rather than
+  complying — the pushback rule earning its keep.
+  F-1 RESOLVED: the mechanical set diff was reproduced from the spec's own V6
+  prose (spec 48 / code 48 / missing [] / extra [] / EXACT MATCH true, both
+  directions — V6 retired "at minimum", so over-blocking is now a violation
+  too); REQ-RXD-06.9 implemented with its substring counter-check (5/0); and
+  reproduced at the PUBLIC API beyond the validator —
+  addImport("eval"|"arguments") rejects, zero directives, file byte-unchanged,
+  lookalikes accepted and emit.
+  V6's COMPLETENESS CLAIM HOLDS, and it was attacked rather than nodded at:
+  oracle = node's real ES module parser via vm.SourceTextModule; ~194.7M
+  candidates, ZERO disagreements in both directions (exhaustive len 1-4 over
+  the full regex alphabet = 14.4M; exhaustive len 5 = 11.9M; len 6 partial
+  368/676 prefixes = 168M; plus 236k curated covering every ES/TS keyword,
+  contextual keyword and global). No 49th identifier exists. HONEST LIMIT,
+  stated unprompted: len >= 7 rests on the curated tier, not exhaustion — the
+  sweeps CORROBORATE the deduction, they do not replace it.
+  TDD PASS: RED reproduced by reverting the two entries in a scratch worktree
+  → 3 pass / 2 fail, both on `toBeInstanceOf(Error)` receiving `undefined` —
+  the validator not throwing, i.e. the defect itself. Not module resolution,
+  not syntax. Step 11b GATING: clean, 0 Bug/Architecture/MAJOR. Suite 1829
+  pass / 0 fail, 181 files, 20.32s, fresh /private/tmp worktree, ZERO
+  environmental timeouts.
+  NEXT: judgment-day (BLIND) — adversarial_review REQUIRED, both triggers
+  fire independently (triage L AND security/code-execution sensitive area).
+f1_closure_note: >
   F-1 CLOSED 2026-07-17 against owner-signed V6 — commits 9a92944 (fix) +
   299fc32 (docs). IMPORT_RESERVED_WORDS 46 → 48. The set was verified
   MECHANICALLY rather than asserted: the runtime Set was parsed and diffed

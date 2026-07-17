@@ -1,468 +1,386 @@
-# Verification Report: react-dialect
+# Verification Report — react-dialect
 
-**Change**: react-dialect
-**Mode**: final (Strict TDD) — **iteration 2**, supersedes iteration 1's `fail`
-**Spec version**: react-dialect **V5** (owner-signed 2026-07-17) + local-consumption V2 (owner-signed)
-**Triage**: L — sensitive-area override (security/code-execution + public-api contract)
-**Range**: `93e38d7..01ecec7` (merge-base independently established via `git merge-base main HEAD`)
-**Branch**: `feat/react-dialect` · working tree clean
-
----
-
-### Verdict: **pass-with-followups**
-
-All nine council-routed fix items are **RESOLVED**, and every one was **independently reproduced**
-rather than accepted on the apply record's word. The four `addImport` correctness bugs emit bytes
-matching the signed V5 scenarios exactly. QA-5's near-miss mutant reproduced precisely as claimed
-(76/0 false-pass → 65/11 killed).
-
-One **new** finding surfaced from adversarial probing of the V5 surface (F-1: `arguments`/`eval`
-still accepted as import bindings, emitting code a real ES module parser rejects). It is
-**spec-conformant** — REQ-RXD-06 enumerates *ECMAScript reserved words* and says "at minimum", and
-these two are a different grammar category (strict-mode-restricted `BindingIdentifier`s). So it is a
-residual hole in the contract's **floor**, not a defect in implementing the contract. It does not
-gate; it is the #1 followup, with a recommendation.
-
-`adversarial_review`: **required** — triage L **and** sensitive area (security / code execution).
+**Change**: `react-dialect`
+**Mode**: final (Strict TDD) · **Iteration**: 3
+**Spec version**: V6 (owner-signed, 2026-07-17)
+**Commit under verification**: `9a1c23c` · **Delta since iteration 2**: `01ecec7..9a1c23c`
+**Triage**: L · sensitive-area override in effect · Branch `feat/react-dialect`, working tree clean
 
 ---
 
-## Iteration History
+## Verdict
 
-| Iteration | Verdict | What happened |
-|---|---|---|
-| 1 (`f12ffba`) | **`fail`** | Gated on **one** item — F-01 (MAJOR, false `@example` on the only `./react` export). Four blind Council personas ran in parallel and found **four real `addImport` correctness bugs** plus two spec defects the single verifier missed. verify-final alone had described the change as *"a one-line JSDoc fix + `.d.ts` regen"* — on that basis it would have shipped. Recorded in `council-findings.md`. |
-| — | — | Owner ruling: **spec first, then apply** (*"patching code against a signed spec that states falsehoods re-opens on the next drift check"*). Spec **V5** signed (`4fff0b7`, `9924a9d`), then a nine-item fix pass: `2079023`, `5749bf2`, `e142c3d`, `24b8227`, `5a7c719`, `610650a`, `dd2be18`. |
-| **2 (`01ecec7`)** | **`pass-with-followups`** | This report. Every claim re-derived by execution; findings below. |
+### `pass-with-followups`
 
-**What iteration 1 failed on** → F-01, now RESOLVED (verified by executing the example, byte-comparing
-the built `.d.ts`, and confirming the new guard closes the seam).
-**What the V5 fix pass changed** → the nine items in the table below.
-**What I re-checked and how** → per-item evidence column, plus the reproductions in each section.
+**F-1 is RESOLVED** — independently reproduced, both directions, at the validator AND the public
+API. **V6's completeness claim HOLDS** — I attacked it with ~194.7M candidate identifiers against
+node's real ES module parser and could not find a 49th. The delta is a genuine RED→GREEN. Step 11b
+found no `Bug`/`Architecture`/`MAJOR`. Full suite **1829 pass / 0 fail** from a clean
+`/private/tmp` worktree, zero environmental timeouts.
 
----
-
-## Completeness
-
-| Metric | Value |
-|---|---|
-| Slices total | 6 (S-000..S-005) |
-| Slices complete | 6 |
-| Tasks total | 23 |
-| Tasks complete | **23** (zero `- [ ]` remaining in `slices.md`) |
+The verdict is `pass-with-followups`, **not** `pass`, and this does **not** block archive — see
+"A note on the verdict token" below. Six followups from iteration 2 remain open (F-2..F-7, all
+non-gating) plus one new Nit (F-8).
 
 ---
 
-## Build & Tests Execution
+## Iteration history — the record of why this change is trustworthy
 
-**Build**: ✅ Passed (`bun run build`, exit 0)
-**Typecheck**: ✅ 0 errors (`tsc --noEmit`) at HEAD
-**Tests (full suite)**: ✅ **1824 pass / 0 fail / 0 skipped** — 3889 `expect()` calls, 181 files, 22.38s
-
-### My own numbers, each labelled with the location it was taken in
-
-| Scope | Result | Location |
-|---|---|---|
-| **Full suite** | **1824 pass / 0 fail** | fresh `/private/tmp/rxd-verify2` worktree of `01ecec7`, `bun install --ignore-scripts` + `bun test`; **worktree removed after** |
-| `test/dialects/react/name-validation.test.ts` (clean baseline) | **76 pass / 0 fail** | `/private/tmp/rxd-verify2` |
-| same + near-miss mutant + **OLD** assertion | **76 pass / 0 fail** (false pass) | `/private/tmp/rxd-verify2` |
-| same + near-miss mutant + **NEW** assertion | **65 pass / 11 fail** (killed) | `/private/tmp/rxd-verify2` |
-| `tsc --noEmit` @ `01ecec7` | **0 errors** | `/private/tmp/rxd-verify2` |
-| `bun run build` @ `01ecec7` | **exit 0** | `/private/tmp/rxd-verify2` |
-| `tsc --noEmit` @ `2079023` / `5749bf2` / `e142c3d` | **2 / 2 / 0 errors** | `/private/tmp/rxd-verify2` (see F-3) |
-
-**1824 = 1797 (pre-fix baseline) + 27 net new** — matches the apply record's claim exactly.
-
-**No environmental timeout was observed, and none was interpreted as a pass.** The
-trustworthy-location run was 0-fail in 22.38s, so nothing required excusing or attributing to the
-environment. The known `~/Documents` first-touch-scan flakiness (state.yaml carry-forward, engram
-#2277) never arose in my runs; I took every number from `/private/tmp` and did not need the control.
-
-**Coverage**: ➖ Not available — no coverage tool configured in `openspec/config.yaml`.
-**Mutation testing**: ➖ No tool configured (`testing` block has none). Substituted by hand-run probes.
-**Linter**: ➖ `testing.linter.tool: null` — none configured. Reported cleanly, not skipped silently.
-
----
-
-## Per-Item Rulings — the nine fixed items
-
-| # | Item | Ruling | Evidence I actually observed |
+| Iter | Commit | Verdict | What happened |
 |---|---|---|---|
-| 1 | `addImport` shape bug (QA-1..QA-4) | **RESOLVED** | All four reproduced against current code through the real `find()`→run seam; emitted bytes match V5 scenarios exactly (table below); baselines 05.1–05.4 unmoved |
-| 2 | SEC-1 reserved words (REQ-RXD-06.7) | **RESOLVED** (residual → F-1) | Implemented set == spec set **exactly 46/46**, zero drift, **zero over-blocking**; battery passes |
-| 3 | SEC-2 Set-key-safety (REQ-RXD-06.8) | **RESOLVED** | Static scan present, scope is a **superset** of the scenario's, passes; regex self-tested **both** directions (catches `record[name]`; does not flag `namedImports: [name]`) |
-| 4 | F-01 / DOC-1 false `@example` | **RESOLVED** | Example **executed** → byte-exact; committed `.d.ts` baseline **byte-identical to real built output**; guard reads the `.ts` source directly |
-| 5 | QA-5 assertion leak | **RESOLVED** | Near-miss mutant reproduced by me: **76/0 old (false pass) → 65/11 new (killed)** |
-| 6 | DOC-2 `.tsx`-only doc gap | **RESOLVED** | `authoring-a-dialect.md:108-109` states `find()` **REJECTS** a `.jsx` path, not silently accepts |
-| 7 | DOC-4 doc-index rot | **RESOLVED** (bookkeeping → F-4) | `docs/README.md:16` + `docs/quickstart.md:186` both name `@pbuilder/sdk/react` |
-| 8 | REQ-RXD-15 `validatedOp` contributor docs | **RESOLVED** | Section names `validatedOp`, the chokepoint, the raw-splice vulnerability class, + reference impl; guard has a red-proof on removal |
-| 9 | ARCH-3 chokepoint | **RESOLVED** (wording residual → F-5; git residual → F-3) | Echo **empirically bounded** (35-char name → 16-char fragment); `ops.ts:61/64` route through the new helpers; `design.md` §4.4 amended |
+| **1** | `f12ffba` | **`fail`** | Gated on ONE item while four blind Council personas independently found **four real `addImport` correctness bugs it had missed**. The failure was the verify pass itself, not just the code. Recorded in `council-findings.md`. |
+| **2** | `01ecec7` | **`pass-with-followups`** | After spec V5 + a nine-item fix pass. Comprehensive: all nine items independently reproduced, Step 11b clean, suite 1824/0, TDD adherence pass. Surfaced **F-1** (`eval`/`arguments` accepted → invalid emission) — spec-CONFORMANT (46/46, zero drift), but a hole in **REQ-RXD-06's own floor**. Six further followups F-2..F-7. |
+| **3** | `9a1c23c` | **`pass-with-followups`** (this report) | Spec **V6** (owner-signed) closes F-1's contract hole; `9a92944` + `299fc32` implement it. F-1 verified RESOLVED. V6's completeness claim tested adversarially and upheld. F-2..F-7 still open, non-gating; new Nit F-8. |
 
-### Item 1 — the four bugs, reproduced against CURRENT code (emitted bytes, not test verdicts)
-
-| Council bug | Seed + op | Emitted **now** | Signed scenario | Match |
-|---|---|---|---|---|
-| QA-1 (type-only) | `import type { FC }` + `addImport("useState","react")` | type-only clause **unchanged** + separate `import { useState } from "react";` | REQ-RXD-05.5 | ✅ |
-| QA-2 (default dup) | `import React` + `addImport("React","react")` | **zero directives** (byte-identical no-op) | REQ-RXD-05.6 | ✅ |
-| QA-3 (namespace throw) | `import * as React` + `addImport("useState","react")` | **no throw** — namespace kept + separate declaration | REQ-RXD-05.8 | ✅ |
-| QA-4 (aliased no-op) | `import { useState as us }` + `addImport("useState","react")` | `import { useState as us, useState } from "react";` | REQ-RXD-05.10 | ✅ |
-
-Also verified: **05.7** (default, different name → separate decl) ✅; **05.9** (namespace, same local
-name → byte-identical no-op) ✅.
-
-**Baselines 05.1–05.4 keep their ORIGINAL expected outcomes** — a "fix" that moved them would be a
-regression, and it did not: 05.1 fresh insert ✅; 05.2 merge into existing clause ✅; 05.3 idempotent
-single line ✅; 05.4 still emits the **named** form `import { React } from "react";`, never
-`import React from "react"` ✅.
-
-### Item 5 — QA-5's near-miss mutant, reproduced independently
-
-The single most important claim in the pass — re-derived from scratch, mutant applied by me:
-
-| Configuration | Result | Meaning |
-|---|---|---|
-| Clean baseline | **76 pass / 0 fail** | — |
-| **Near-miss mutant** (`assertValidAttributeName` wired into `addImport` instead of `assertValidImportBinding`) + **OLD** bare `.toContain("name")` | **76 pass / 0 fail** | **False pass reproduced** — `"propName"` contains `"name"` |
-| **Same mutant** + **NEW** backtick-bounded `.toContain(\`${argName}\`)` | **65 pass / 11 fail** | **Killed** — the tests now discriminate |
-
-Both the mutant and the assertion-revert were applied in the isolated worktree and reverted
-(`git status --porcelain` verified empty). This is a genuine **near-miss** mutant — a plausible
-*wrong* implementation (right shape, wrong grammar) — not an absence mutant. **The claim is true.**
-
-### Item 2 — the reserved-word set, checked mechanically against the spec
-
-Parsed `IMPORT_RESERVED_WORDS` out of source and diffed against REQ-RXD-06's enumerated set:
-
-```
-spec count: 46 (always 36 + strict 9 + await 1)   code count: 46
-spec - code (missing): []    code - spec (extra): []    EXACT MATCH: True
-```
-
-Then brute-forced candidates through node's **real ES module parser** to test the set's
-*completeness*, not merely its conformance:
-
-```
-Identifiers syntactically INVALID as import bindings (real parser): 48
-  covered by IMPORT_RESERVED_WORDS: 46
-  NOT covered (HOLES): ["arguments", "eval"]
-  in set but actually legal (over-blocking): []   ← zero false rejections
-```
-
-The set is **precisely correct** — no drift, no over-blocking — with exactly two residual holes (F-1).
-
-**Error-text / spec agreement**: the original SEC-1 defect (text promising *"a valid JavaScript
-identifier"* while admitting `default`) is closed. `default` now rejects with a message naming
-`` `name` `` and the reserved-word rule (REQ-RXD-06.7 satisfied), and the grammar label is accurate
-on every path that can still reach it. See F-6 for a nit in the V5 changelog's description of *how*.
+Iteration 1's lesson is why this report reproduces rather than reads: **a verify pass that trusted
+the apply record is how four bugs got past iteration 1.** Every number below was taken by me.
 
 ---
 
-## Adversarial Quality Gate (final mode, Step 11b)
+## 1. F-1 — RESOLVED
 
-### Stage A — Code audit (`pre-pr` mode, **GATING**)
+### 1.1 Mechanical set diff (both directions) — reproduced, not asserted
 
-**No `Bug` / `Architecture` / `MAJOR` findings. Gate not tripped.**
+The apply record claims it verified the set mechanically rather than asserting it. I reproduced that
+diff independently: parsed the **runtime `Set`** and diffed it against **the spec's own 48-entry
+enumeration parsed out of the V6 prose** (not hand-typed — the parser reads the backticked runs in
+REQ-RXD-06 verbatim):
 
-| Check | Result |
+```
+spec count: 48
+code count: 48
+missing (spec has, code lacks): []
+extra  (code has, spec lacks): []
+EXACT MATCH: true
+```
+
+V6 retired the "at minimum" floor and now demands **EXACTLY** these 48, so **both** directions are
+now spec violations. **Neither fires**: zero drift, zero over-blocking.
+
+Over-blocking was additionally checked *empirically*, not only against the spec text: the
+dictionary/curated sweep (§2) submits all 48 set members to node's real parser and confirms **every
+one is genuinely rejected**. Nothing in the set is over-blocked.
+
+### 1.2 REQ-RXD-06.9 implemented, with the substring counter-check
+
+`test/dialects/react/name-validation.test.ts:160-188` — cited by ID, mirrors REQ-RXD-06.7's shape:
+`eval`/`arguments` reject; `evaluate`/`myEval`/`argumentsList` accepted (exact-Set-membership
+discipline, never substring), which is the counter-check the scenario specifies.
+
+Scoped run (`/private/tmp/rxd-verify3` worktree of `9a1c23c`): **5 pass / 0 fail**.
+
+### 1.3 Reproduced at the public API, not only the validator
+
+The shipped 06.9 test asserts `assertValidImportBinding` directly — matching 06.7's shape, exactly
+as V6 specifies. But scenario 06.9's THEN clause also promises *"zero directives emitted, target
+file byte-unchanged"*, which a validator-level test does not itself prove. I wrote a scratch test
+driving the **real public API** and asserting the full THEN clause:
+
+```
+addImport("eval", "react")       -> rejects · message names `name` + reserved-word rule
+                                  · collectModifies == 0 · file byte-unchanged   ✅
+addImport("arguments", "react")  -> same                                         ✅
+addImport("evaluate"|"myEval"|"argumentsList", "react") -> ACCEPTED, emits       ✅
+```
+
+**5 pass / 0 fail** (scratch test, `/private/tmp/rxd-verify3`; removed after the run).
+
+So 06.9's full THEN clause holds end-to-end. The property is carried compositionally — `validatedOp`
+makes `body` structurally unreachable before validation (ADR-02), pinned independently by
+REQ-RXD-13.2 — which is the same argument iteration 2 accepted for 06.7. Consistent treatment.
+
+**F-1: RESOLVED.**
+
+---
+
+## 2. V6's completeness claim — HOLDS (I tried to break it)
+
+V6 makes a **deductive claim about the grammar**: `addImport` always emits into an ES module → ES
+modules are always strict → reserved words AND strict-mode-restricted BindingIdentifiers both apply
+unconditionally → their union is the complete set ECMA-262 can reject in BindingIdentifier position.
+This deserves testing, not nodding at: the *previous* wording ("at minimum") is precisely what let
+F-1 through, so the wording is load-bearing, not decoration.
+
+### 2.1 Method
+
+Oracle: **node's real ES module parser** via `vm.SourceTextModule`, constructing
+`import { X } from "react";`. Construction parses **without linking**, isolating parse errors from
+resolution errors. Validated on known cases before use:
+
+| Probe | Node's verdict |
 |---|---|
-| 3.1 untyped casts (`as any`, `as never`, `as unknown as`, `@ts-ignore`, `eslint-disable`) | ✅ zero in the change surface |
-| 3.3 TODO / FIXME / deferred markers | ✅ zero |
-| 2.1 layer violations | ✅ react leaf reaches only `../../core/*`; `src/core` + `src/commons` contain `dialects/` in **comment text only** |
-| 2.2 ADR contradictions | ⚠️ residual wording only → F-5 (Nit-level; no property at risk) |
-| 2.3 sensitive area without coverage | ✅ REQ-RXD-06/12/13 cover the code-execution surface |
-| 3.2 magic numbers | ✅ the one constant (16-char cap) is named `boundedFragment(s, cap = 16)` and spec'd by REQ-RXD-13 |
-| 3.4 dead duplicates | ✅ ADR-01's ~40 duplicated glue lines are a *decided, guarded* tradeoff (fit-37/38), not accidental |
-| 4.1 scope creep | ⚠️ 2 doc files outside the design table — **in triage scope** → F-4 (bookkeeping, not creep) |
-| 4.3 migration without versioning | ✅ N/A — no schema/migration |
-| Non-null assertion `matches[0]!` (`ops.ts:66`) | ✅ guarded by the length trio immediately above it |
-| ADR-01/05 honoured | ✅ `git diff 93e38d7..HEAD -- src/dialects/typescript/` = **zero lines** |
-| `architecture_impact: additive` | ✅ `src/` = 5 files, **+484, zero deletions** — purely additive |
+| `eval` / `arguments` | `SyntaxError: Unexpected eval or arguments in strict mode` |
+| `class` | `SyntaxError: Unexpected reserved word` |
+| `foo` / `evaluate` | ACCEPTED |
 
-**Findings table** (none gating):
+Disagreement test, in **both** directions: `parserRejects(n) !== IMPORT_RESERVED_WORDS.has(n)`. A
+49th identifier = parser rejects but the set lacks it. Over-blocking = set has it but parser accepts.
 
-| Severity | File:Line | Finding |
-|---|---|---|
-| Nit | `src/core/jsx-name-validator.ts:24-31` | F-1 — `arguments`/`eval` absent from the reserved set (spec-conformant; see below) |
-| Nit | `test/dialects/react/ops.test.ts:288` | F-2 — REQ-RXD-11.6's scenario titled `11.5`; stale "Deviation" comment |
-| Nit | `design.md:4`, `design.md:22-53` | F-4 — revision marker stale; §4.2 omits two doc files |
-| Nit | `design.md:138`, `design.md:190` | F-5 — ADR-02/§4.4 universal claim overreaches |
+### 2.2 Coverage
 
-### Security — attacked what **CHANGED**
+Candidates are constrained upstream by `IMPORT_BINDING_GRAMMAR` (`^[A-Za-z_$][A-Za-z0-9_$]*$`), so
+the reachable domain is ASCII-only — Unicode identifiers and escapes are rejected by the grammar
+gate before the Set is ever consulted. Completeness is therefore scoped to that reachable domain,
+which is the correct scope.
 
-Per the brief I did **not** re-run `council-findings.md`'s exhaustive FAILED set (unicode/confusables,
-zero-width, surrogates, control chars, `addImport.from` injection, ReDoS, prototype pollution). I
-attacked the new surface only:
+| Tier | Domain | Candidates | Disagreements |
+|---|---|---|---|
+| Exhaustive len 1-4 | **full regex alphabet** (54 first-char × 64 rest) | 14,380,470 | **0** |
+| Exhaustive len 5 | lowercase `[a-z]` | 11,881,376 | **0** |
+| Exhaustive len 6 | lowercase `[a-z]`, 368/676 prefixes | 168,167,168 | **0** |
+| Curated + dictionary | every ES/TS keyword, contextual keyword, future-reserved, global, casing variant, `_`/`$` variant, + `/usr/share/dict/words` — up to 28 chars | 236,031 | **0** |
+| **Total** | | **≈194.7M** | **0** |
 
-- **New reserved-word denylist** → 2 residual holes (F-1), proven by brute force. Case-sensitivity is
-  correct (`Default` is a legal binding and is accepted — the right call).
-- **New shape-aware merge algorithm** → probed inline `type` specifiers
-  (`import { type FC, useEffect }`), declaration-level type-only with the **same** name, mixed
-  `import React, { useState }`, and side-effect `import "react"`. All behave per the V5 algorithm.
-  The inline-type / same-name no-op is **spec-conformant and defensible**: step 1's own rationale
-  anticipates it (*"creating a new specifier here would... produce an invalid re-declaration"*) — and
-  it genuinely would (TS2300 duplicate identifier). **Not a finding.**
-- **New tail helpers** → echo bound verified empirically: a 35-char grammar-valid dotted
-  `elementName` yields a 16-char fragment, full name absent from the message.
+The curated tier is the one that would catch a long keyword (`instanceof`, `implements`,
+`protected`, `arguments` are all ≥9 chars, beyond exhaustive reach) — it includes every reserved
+word across ES editions, TS keywords (`satisfies`, `accessor`, `using`, `infer`, `keyof`, …),
+contextual keywords (`as`, `from`, `of`, `get`, `set`, `target`, `meta`), and globals (`undefined`,
+`NaN`, `globalThis`, …). None disagreed.
 
-### Stage B — Blind dual review flag
+### 2.3 Ruling
 
-**`adversarial_review`: required** — triage = L **and** the change touches a flagged sensitive area
-(security / code execution: a new `.raw()`-equivalent instance in a new AST realm). Iteration 1 is
-the empirical argument for it: the single verifier gated on one item while four blind personas found
-four real bugs. I am the same single verifier.
+**The claim holds.** I could not produce a 49th. The empirical result agrees with the deduction:
+ECMA-262's rejections in BindingIdentifier position come from a **finite, enumerated** source — the
+`ReservedWord` production plus the strict-mode early-error rule for `eval`/`arguments` — and the
+48-entry set is exactly that union. V6's central assertion is sound, and `IMPORT_RESERVED_WORDS` is
+complete for the BindingIdentifier-in-strict-ES-module problem this argument validates.
 
-**Live-app pass**: N/A — no UI surface (developer-facing SDK library).
+**Honest limit**: length 6 is 368/676 prefixes (a full 676-prefix re-run was still in flight at
+report time; every completed shard produced zero disagreements, across two independent runs).
+Lengths ≥7 rest on the curated + dictionary tier, not exhaustion. The exhaustive tiers **corroborate
+a deductive argument; they do not replace it** — the deduction is what carries the claim, and it is
+sound. Exhausting a domain this size is not what makes the claim true; it is what makes it credible.
 
 ---
 
-## Spec Compliance Matrix
+## 3. TDD Cycle Adherence (this delta) — PASS, RED failed for the right reason
 
-A scenario is COMPLIANT only where a covering test **passed at runtime**. Full suite green (1824/0)
-is the execution evidence; rows record the specific verification for the V5 delta and load-bearing REQs.
+The apply record claims a **genuine RED→GREEN** with no probe substitution, because the values were
+accepted before the fix so real RED was available. **Reproduced by reverting the two Set entries** in
+the `/private/tmp/rxd-verify3` scratch worktree:
+
+```
+set size: 46 | has eval: false | has arguments: false
+=== SCOPED RED RUN (REQ-RXD-06.9) ===
+(fail) "eval" rejects, naming `name` and the reserved-word rule
+        expect(received).toBeInstanceOf(expected)
+        Expected constructor: [class Error]
+        Received value: undefined                     <- assertion failure
+(fail) "arguments" rejects, naming `name` and the reserved-word rule
+        (same)
+ 3 pass / 2 fail
+```
+
+Restored → **5 pass / 0 fail**.
+
+**The RED failed for the RIGHT reason.** Both failures are `toBeInstanceOf(Error)` receiving
+`undefined` — the validator *did not throw*, which is the defect itself. Not module resolution, not
+a syntax error, not an import-path typo. The test **discriminates the fix**: it fails without the two
+entries and passes with them. Matches the apply record's claim exactly (scoped pre-fix 3/2, post-fix
+5/0). This change's history is precisely why that distinction matters, and here it holds up.
+
+The 3 always-passing tests are the substring lookalikes — by design they do *not* discriminate; they
+are the counter-check guarding against over-blocking. Correct shape, honestly reported.
+
+**TDD Cycle Adherence for this delta: PASS.**
+
+---
+
+## 4. Regression — none
+
+The delta is exactly what it claims: **2 Set entries + 1 test block** (+ SDD artefacts).
+
+```
+src/core/jsx-name-validator.ts              |  9 +-  (2 entries + comment)
+test/dialects/react/name-validation.test.ts | 32 +   (REQ-RXD-06.9 block)
+openspec/… , .sdd/state/…                   |        (artefacts only)
+```
+
+| Check | Result | Location taken |
+|---|---|---|
+| **Full suite** | **1829 pass / 0 fail**, 3898 expects, 181 files, 20.32s | fresh `/private/tmp/rxd-verify3` worktree of `9a1c23c` |
+| `tsc --noEmit` @ `9a1c23c` | **0 errors** (exit 0) | `~/Documents/POC/project-builder-sdk` |
+| REQ-RXD-06.7 battery | **12 pass / 0 fail** | `/private/tmp/rxd-verify3` |
+| REQ-RXD-06.9 | **5 pass / 0 fail** | `/private/tmp/rxd-verify3` |
+| F-1 public-API reproduction | **5 pass / 0 fail** | `/private/tmp/rxd-verify3` (scratch, removed) |
+
+**1829 = 1824 + 5** — exactly the claim to beat, exactly the 5 new 06.9 tests, nothing else moved.
+
+**Environmental note**: zero environmental timeouts observed, consistent with iteration 2. The
+`bun test` sequential / `tsc` first-touch-scan interaction (state.yaml carry-forward, engram #2277)
+did not fire from `/private/tmp`. No timeout is reported here as a passing test, and none is
+attributed to the change. Worktree removed after the run.
+
+Iteration 2's nine resolved items are **spot-checked, not re-derived**: REQ-RXD-05's shape-aware
+algorithm and the four bug scenarios are covered by the full suite above, green at 1829/0 with the
+same test bodies iteration 2 independently reproduced. The delta touches neither. REQ-RXD-06.7's
+battery passes (12/12).
+
+---
+
+## 5. Step 11b — Adversarial Quality Gate (GATING)
+
+**Stage A — code audit (`pre-pr` mode, per `code-audit.md`), scoped to `01ecec7..9a1c23c`.**
+
+| Group | Check | Result |
+|---|---|---|
+| G1 | 1.3 REQ-ID test coverage | ✅ REQ-RXD-06.9 cited by ID at `name-validation.test.ts:168` |
+| G1 | 1.1/1.2 spec drift / coverage gap | ➖ n/a (`spec_source: internal` — the spec *is* the upstream) |
+| G2 | 2.1 layer violations | ✅ no new imports or edges |
+| G2 | 2.2 ADR contradictions | ✅ delta is consistent with ADR-02's chokepoint |
+| G2 | 2.3 sensitive area uncovered | ✅ security area touched; REQ-RXD-06 covers it |
+| G2 | 2.4/2.5 SSOT bypass / standards | ✅ none |
+| G3 | 3.1 untyped casts | ✅ none (`(caught as Error)` matches the file's established 06.7 pattern; not `as any`) |
+| G3 | 3.2/3.3 magic numbers / TODOs | ✅ none introduced |
+| G3 | 3.4 dead duplicates | ➖ 06.9's block deliberately mirrors 06.7's — **V6 mandates it** ("matching REQ-RXD-06.7's shape"); parallelism, not copy-paste |
+| G4 | 4.1 scope creep | ✅ both product files are in `design.md` §4.2 (rows 29, 34) |
+| G4 | 4.3 migration risk | ➖ n/a |
+
+**Findings: 0 gating.** No `Bug`, no `Architecture`, no `MAJOR`. One new `Nit` → **F-8** below.
+
+**Stage B — `adversarial_review`: `required`** — triage is **L** AND the change touches a sensitive
+area (security / code-execution HIGH, per the triage override). Both triggers fire independently.
+
+---
+
+## 6. Spec Compliance Matrix — delta scope
 
 | Requirement | Scenario | Test | Result |
 |---|---|---|---|
-| REQ-RXD-01 | .1 exact 2-op set (`toEqual`, anti-smuggle) | `ops-exact-set.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-02 | .1–.5, .8–.10 extension gate + sync timing | `dialect.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-03 | .1–.5 fidelity + Tsx-engagement divergence | `dialect.test.ts`, `react-conformance.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-04 | .1–.6 targeting trio + upsert | `ops.test.ts`, `name-validation.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-05 | **.1–.4 baseline (outcomes unchanged)** | `ops.test.ts` | ✅ COMPLIANT — re-verified byte-exact |
-| REQ-RXD-05 | **.5–.10 (V5 shape-aware)** | `ops.test.ts` | ✅ COMPLIANT — all four bugs reproduced fixed |
-| REQ-RXD-06 | .1–.6 grammars + denylist + `from` escaping pin | `name-validation.test.ts`, `ops.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-06 | **.7 reserved-word battery + lookalikes** | `name-validation.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-06 | **.8 Set-key-safety static scan** | `name-validation.test.ts` | ✅ COMPLIANT (ID unlabelled → F-2) |
-| REQ-RXD-07 | .1 heterogeneous coalescing → one modify | `dialect.test.ts`, `react-conformance.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-08 | .1 corpus (19 round-trip + 1 reject class), .2 op-pack fidelity | `react-conformance.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-09 | .1–.5 author docs | `docs.test.ts` | ✅ COMPLIANT (F-01's JSDoc gap now closed) |
-| REQ-RXD-10 | .1–.6 placement / whitespace / closing form | `dialect.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-11 | **.5 `{1+}` emitted verbatim** | `ops.test.ts:264` | ✅ COMPLIANT |
-| REQ-RXD-11 | **.6 unterminated value fails SAFELY, contained** | `ops.test.ts:288` | ✅ COMPLIANT (mislabelled `11.5` → F-2) |
-| REQ-RXD-12 | .1 hostile value emitted verbatim by contract | `ops.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-13 | .1 canary, .2 zero-emit ×4 paths, .3 bounded no-echo | `name-validation.test.ts`, `canary-no-echo.test.ts` | ✅ COMPLIANT |
-| REQ-RXD-14 | .1 spike deps absent (manifest + lockfile) | `fit-36` | ✅ COMPLIANT |
-| REQ-RXD-15 | **.1/.2 contributor `validatedOp` docs + red-proof** | `docs.test.ts` | ✅ COMPLIANT (IDs unlabelled → F-2) |
-| REQ-LC-01..03 | installed-consumer six-subpath parity, both legs | `installed-consumer.e2e.test.ts` | ✅ COMPLIANT |
+| REQ-RXD-06 | **.9** `eval`/`arguments` rejected pre-mutation (NEW, V6) | `name-validation.test.ts:168` + my API-level reproduction | ✅ COMPLIANT |
+| REQ-RXD-06 | .9 substring counter-check (`evaluate`/`myEval`/`argumentsList` accepted) | `name-validation.test.ts:183` | ✅ COMPLIANT |
+| REQ-RXD-06 | .7 reserved-word battery (regression) | `name-validation.test.ts:136` | ✅ COMPLIANT (12/12) |
+| REQ-RXD-06 | set is EXACTLY 48 — no drift, no over-blocking (V6) | mechanical diff §1.1 + parser sweep §2 | ✅ COMPLIANT |
 
-**Compliance summary**: **89/89** REQ/scenario IDs across both spec files covered by executed,
-passing tests (retired `REQ-RXD-02.6`/`.7` correctly excluded — never consumed, never reused).
-**Zero UNTESTED · zero FAILING · zero PARTIAL.**
+Everything outside the delta: unchanged from iteration 2's comprehensive matrix, and green at 1829/0.
 
 ---
 
-## Strict TDD (final audit)
-
-**Verdict**: `pass-with-followups`
-
-### TDD Cycle Adherence — my ruling on this pass
-
-- **Method used**: git-history (Method 1) + commit-message inspection (Method 3), corroborated
-  against the working-tree record.
-- **No anti-TDD pattern anywhere in this pass.** For items 1, 2 and 4 the tests land in the **same
-  commit** as the implementation (`2079023`, `5749bf2`, `24b8227`), which `strict-tdd-verify.md`
-  Method 1 explicitly permits (*"tests added before **or with** implementation"*). The halt condition
-  is *"tests added AFTER implementation"* — **not met**.
-- **The near-miss-mutant amendment is HONOURED.** This is the binding new requirement and the reason
-  iteration 1's coverage argument collapsed, so I verified it rather than accepted it: the pass used a
-  genuine near-miss mutant (a plausible *wrong* wiring, not an absence), and I reproduced **both legs
-  myself** (76/0 → 65/11). The record also **retracts** its own earlier false generalisation in place
-  (`apply-progress.md:163-172`, *"the paragraph above is WRONG"*) rather than quietly editing it —
-  that is the correct disposal of a bad claim, and it is the single strongest signal in this pass.
-- **Item 9's TDD claim is NOT reconstructible from git** (F-3): its wiring + tests landed in `2079023`
-  while its helpers landed in `e142c3d`, three commits later — so at `2079023` the tree does not
-  compile and the tests as committed **could not have run**. The described RED→GREEN sequence is
-  plausible in the working tree and the end state is correct and tested, but the commit graph does
-  not corroborate it, and `apply-progress.md`'s per-item commit map is wrong for item 9.
-- **Disclosed process deviation — RULED RECOVERABLE.** The QA-5 assertion fix landed inside `5749bf2`
-  (item 2's commit); the message describes only item 2. Verified: the three assertion changes are
-  indeed in that commit. Both changes touch the same file and the same validator surface; the
-  omission is **disclosed in the record at the point of the deviation**; and no reviewer is misled
-  about *what shipped* — only about *which commit to read*. This is exactly the "disclosure LOCATION"
-  lesson the S-002 ruling extracted, applied correctly this time. **Not a gate.**
-
-### Assertion Quality
-- Tests scanned: all change-owned test files. Banned-pattern matches: **0 new**.
-- `not.toThrow()` at `name-validation.test.ts:78-89` — **CLOSED ruling, not re-opened**.
-- Assertions are overwhelmingly exact `toBe` against literals or committed goldens. QA-5 — the one
-  genuine assertion leak in the change — is fixed and **proven** to discriminate.
-
-### Triangulation
-- Functions audited: `addImport` (3-branch shape-aware algorithm), `setJsxProp` (match trio + upsert
-  fork + shorthand downgrade), the three validators. **Triangulation gaps: 0.**
-- The six new 05.5–05.10 scenarios each exercise a **distinct declaration shape** — triangulation is
-  inherent to the scenario set, not bolted on. The reserved-word battery adds 9 words across all
-  three grammar families + 3 lookalikes proving exact membership.
-
-### Mutation Testing
-- Tool: **Not configured** — skipped per the module's own rule (`sdd-init` has no mutation tool).
-- Substituted: 1 near-miss mutant (reproduced by me, both legs) + the pass's own absence probes.
-
-### REQ-ID Coverage
-- REQs in spec: **89**. With ≥1 executed, passing test: **89**. **Uncovered: 0.**
-- Four IDs (`06.8`, `11.6`, `15.1`, `15.2`) are covered in **substance** but not referenced **by ID**
-  → traceability finding F-2, **not** `req-coverage-gap` (every behaviour has a passing test).
-
----
-
-## Coherence (Design)
-
-| Decision | Followed? | Notes |
-|---|---|---|
-| ADR-01 — fidelity glue duplicated, TS leaf untouched | ✅ | `git diff` on `src/dialects/typescript/` = **zero lines** |
-| ADR-02 — `validatedOp` chokepoint, core-resident grammars | ✅ | Both ops wrapped; mutation structurally unreachable pre-validation |
-| ADR-02 — Set-key-safety clause | ✅ | Static scan passes; new `addImport` uses `.includes()`/`.find()` on plain arrays |
-| ADR-02 — no-echo tail chokepoint | ⚠️ | Now true for the class ARCH-3 flagged; universal wording still overreaches → F-5 |
-| ADR-03 — structured API only, no text splice | ✅ | `addImportDeclaration`/`addNamedImport`/`addAttribute` only; zero concatenation |
-| ADR-05 — `addImport` written fresh, not copied from the lax TS one | ✅ | Validated from day one |
-| §4.2 File Changes table vs real diff | ⚠️ | 2 doc files missing → F-4 |
-| §4.2b Flow Changes | ✅ | e2e proves the subpath resolves post-pack and post-bun-link |
-| `architecture_impact: additive` | ✅ | +484, **zero deletions** in `src/` |
-
-### Problem Fit (vs `triage.md`)
-
-**No `problem-drift`.** The delivered change closes the stated gap: `.tsx`/JSX files were unopenable;
-`@pbuilder/sdk/react` now ships with a parse/print pair, `find()` entry, extension gate, exactly two
-ops, and conformance proof. All three `in_scope` bullets delivered. Both `out_of_scope` bullets
-respected — notably, **DOC-3 was deliberately NOT fixed** precisely because fixing it requires
-threading a display name through the generic `dialect-handle` seam, which triage excludes (*"Any
-change to the engine or wire protocol"*). I confirmed `src/core/dialect-handle.ts` is genuinely
-untouched. Declining that fix is the *correct* way to honour the scope contract, not an omission.
-
----
-
-## Drift / Cross-Change
-
-| Module | Status | Notes |
-|---|---|---|
-| fit-36 spike-deps-absent | ✅ Pass | `dependencies` still exactly `{ts-morph: 28.0.0}` |
-| fit-37 core/commons AST-free | ✅ Pass | Transitive walk green |
-| fit-38 parser-construction confinement | ✅ Pass | Green |
-| fit-04 `.d.ts` semver gate | ✅ Pass | Baseline **byte-identical to real built output** — verified by building and diffing, not assumed |
-| fit-09 / fit-14 six-subpath | ✅ Pass | Green |
-| `src/dialects/typescript/**` | ✅ | Zero change — the shipped sensitive dialect is untouched |
-
----
-
-## Issues Found
+## 7. Findings
 
 ### CRITICAL (must fix before archive)
 **None.**
 
 ### WARNING (should fix; does not block)
 
-**F-1 — `arguments` and `eval` are still accepted as import bindings, and emit invalid code.**
-*Location*: `src/core/jsx-name-validator.ts:24-31` (`IMPORT_RESERVED_WORDS`).
-`addImport("arguments", "react")` emits `import { arguments } from "react";`. Node's real ES module
-parser returns **`SyntaxError: Unexpected eval or arguments in strict mode`** — while the control
-(`useState`) fails only at *resolution* (`ERR_MODULE_NOT_FOUND`), proving it parsed. This is SEC-1's
-exact class — invalid emission that `print()` never re-validates — narrowed from 46 words to 2
-identifiers.
-*Why it is NOT a spec violation*: REQ-RXD-06 requires exclusion of *"the ECMAScript reserved words
-listed below"* and says the set must contain them **"at minimum"**. `arguments`/`eval` are **not**
-ECMAScript reserved words — they are strict-mode-restricted `BindingIdentifier`s, an early-error
-rule, a different grammar category. The implementation satisfies the signed contract **exactly**
-(46/46, zero over-blocking). The hole is in the contract's **floor**.
-*Why it is worth closing anyway*: REQ-RXD-06's own stated rationale — *"strict-mode and
-`await`-reservation both apply unconditionally here because `addImport` always emits into an ES
-module, and ES modules are ALWAYS strict"* — is precisely the argument that excludes these two. My
-brute-force sweep proves the set would then be **complete** (48/48, still zero over-blocking).
-*Impact*: **low**, matching SEC-1's own rating — author-controlled binding name; no injection, no
-code execution; worst case is a broken consumer build.
-*Fix*: add `"arguments", "eval"` to the Set + one scenario line.
-**Recommendation**: I report rather than route — but this is the cheapest finding in the change to
-close (~2 words + a spec line), it sits in the one channel REQ-RXD-06 titles *"security —
-load-bearing"*, the sensitive-area override is in effect, and closing it makes the denylist
-**provably complete**. If the orchestrator wants zero residual of SEC-1's class, route to `sdd-spec`
-then `sdd-apply` before archive. If not, it registers cleanly as a pending-change.
+**F-1 — CLOSED.** Verified RESOLVED, both directions, validator + public API. See §1.
 
-**F-2 — Four V5 scenario IDs are covered in substance but not referenced by ID.**
-`REQ-RXD-06.8`, `REQ-RXD-11.6`, `REQ-RXD-15.1`, `REQ-RXD-15.2` appear nowhere in `test/` or `docs/`.
-All four behaviours **are** tested and passing — traceability, not a coverage gap, so **no
-`req-coverage-gap`**. Sharpest instance: `ops.test.ts:288` implements REQ-RXD-11.6's scenario but is
-**titled** `REQ-RXD-11.5`, and its comment still calls itself *"Deviation from the spec's own literal
-example"* — V5 **eliminated** that deviation by amending the spec to `'{1+}'`. The comment now
-describes a conflict that no longer exists. Given this change's own meticulous ID-stability
-discipline (*retired IDs "never to be reused"*), the mislabel deserves correcting.
+**F-2 — OPEN, non-gating.** Traceability, unchanged since iteration 2. Verified in the current tree:
+`test/dialects/react/ops.test.ts:288` is still titled **`REQ-RXD-11.5`** but implements **11.6**; the
+stale *"Deviation from the spec's own literal example"* comment still sits at `ops.test.ts:265`,
+describing a conflict V5 eliminated. `REQ-RXD-06.8`, `11.6`, `15.1`, `15.2` still appear **nowhere**
+by ID in `test/` or `docs/` (zero hits each). All four behaviours **are** tested and passing →
+traceability, **not** `req-coverage-gap`. **Still non-gating.**
 
-**F-3 — `2079023` and `5749bf2` do not typecheck; item 9's git evidence is not reconstructible.**
-`2079023` wires `zeroMatchTail`/`multiMatchTail` into `ops.ts` **and** adds the ARCH-3 tests, but the
-helpers only arrive in `e142c3d` — **three commits later**. The consumer landed before the producer.
-Verified by checking out each commit:
+**F-3 — OPEN, non-gating.** Git archaeology only. `2079023`/`5749bf2` remain non-building commits
+(the consumer landed before the producer). **HEAD `9a1c23c` typechecks clean — 0 errors, exit 0**
+(verified this run). Affects `git bisect` and `apply-progress.md`'s item-9 commit map, not the
+shipped artifact. **Still non-gating.** Squash-on-merge resolves it.
 
-| Commit | `tsc --noEmit` errors |
-|---|---|
-| `2079023` | **2** (`TS2305: Module '"../../core/reject-tail.ts"' has no exported member 'zeroMatchTail'`) |
-| `5749bf2` | **2** |
-| `e142c3d` | 0 |
-| `01ecec7` (HEAD) | **0** |
+**F-4 — OPEN, non-gating, and now WIDER.** Verified in the current tree: `design.md:4` still reads
+**`Revision: 2`**, and `docs/README.md` / `docs/quickstart.md` are still absent from §4.2's table.
+**New this iteration**: `design.md:3` still reads **`Spec: V4 signed`** — the spec is now **V6**, so
+the design's spec marker is **two versions stale**. Same staleness F-4 already names, widened by V5
+and V6 landing without a design-header touch. No property is at risk (§4.2 correctly lists both files
+the delta touched — which is why §5's scope-creep check passes). **Still non-gating**, but F-4's fix
+should now also bump the spec marker V4 → V6.
 
-**HEAD is correct and green** — this affects branch archaeology and `git bisect`, not the shipped
-artifact. It also makes `apply-progress.md`'s per-item commit map wrong for item 9.
-
-**F-4 — `design.md` §4.2 omits two files it should list; revision marker stale.**
-The diff touches `docs/README.md` and `docs/quickstart.md` (item 7 / DOC-4); neither appears in the
-design's File Changes table or in any REQ. **This is NOT scope creep against the triage contract** —
-`triage.md` puts *"Docs for the new dialect surface"* explicitly `in_scope`, and DOC-4 was routed to
-`sdd-apply` by the Council. It is a **stale design table**: `design.md` was amended in this very pass
-(`e142c3d` rewrote §4.4) yet §4.2 was not updated in the same edit. Relatedly, `design.md:4` still
-reads **`Revision: 2`** despite that amendment — the briefing calls it rev 3; the artefact does not.
-
-**F-5 — ADR-02 / §4.4 still claim a universal property the code does not literally have.**
-Both still say *"every react reject routes through `reject-tail.ts`'s helpers, by construction"*.
-Four extension-gate rejects (`index.ts:70/75/80/84`) and `ast.ts:75` do **not** — they throw fixed
-literals directly. **No property is at risk**: they interpolate nothing, so there is no echo to
-bound, and I verified no react reject path echoes an author value unbounded. But this is the same
-*shape* as ARCH-3 (an ADR asserting a universal the code doesn't hold), at much lower severity — and
-REQ-RXD-02 explicitly **permits** a bounded path echo, so a future author adding one would bypass the
-chokepoint with no helper to reach for.
+**F-5 — OPEN, non-gating.** Verified: `design.md:138` still claims *"every react reject routes
+through `src/core/reject-tail.ts`'s helpers, by construction"* — the extension-gate rejects
+(`index.ts:70/75/80/84`) and `ast.ts:75` still throw fixed literals directly. No property at risk
+(they interpolate nothing). **Still non-gating.**
 
 ### SUGGESTION (never blockers)
 
-**F-6** — Spec V5's changelog says *"the rule label now names the reserved-word exclusion so spec and
-message agree"*. The grammar rule label is unchanged (`"be a valid JavaScript identifier"`,
-`jsx-name-validator.ts:96`); agreement is achieved instead by a **separate** reserved-word message.
-The outcome is correct and REQ-RXD-06.7 is satisfied — only the changelog's description of *how* is
-inaccurate.
+**F-6 — OPEN.** Spec V5's changelog description of *how* message/spec agreement was achieved remains
+inaccurate. Outcome still correct.
 
-**F-7** — ADR-02's status is still `Proposed` (`design.md:180`) though it is fully implemented and
-verified. Pre-existing, not this pass's doing; worth flipping to `Accepted` at archive.
+**F-7 — OPEN.** Verified: ADR-02 `Status` is still **`Proposed`** (`design.md:180`) though fully
+implemented and verified. Flip to `Accepted` at archive.
+
+**F-8 — NEW (Nit, from Step 11b).** *The error message calls `eval`/`arguments` "reserved words" —
+the exact claim V6 spends a paragraph refuting.* Observed:
+
+```
+addImport("eval", …)  ->  `name` "eval" is a reserved word and cannot be used as an import binding
+```
+
+V6 is emphatic that *"`eval` and `arguments` are **not** reserved words — they are
+strict-mode-RESTRICTED BindingIdentifier names, a DIFFERENT grammar category"*. The shipped message
+(and the constant name `IMPORT_RESERVED_WORDS`, and the test's own
+`expect(message).toContain("reserved word")`) tell the author the opposite. **This is
+spec-CONFORMANT** — scenario 06.9 explicitly requires the tail to name *"the reserved-word rule"* —
+so it is neither a defect nor gating. But it is the mirror image of F-1's own root cause: a taxonomy
+the spec now takes care to distinguish, flattened in the surface the author actually reads. The
+cheapest honest fix is a message widening (e.g. *"is a reserved word or restricted in strict
+mode"*) — which touches 06.9's assertion, so it needs a spec touch, not a drive-by edit.
+**Register as a pending-change; do not fix under this verdict.**
 
 ---
 
-## Explicitly NOT re-opened (CLOSED rulings, per `council-findings.md`)
+## 8. Explicitly NOT re-opened
 
-S-002's TDD ordering (adjudicated on git evidence — impl+tests in the same commit `fcd24d7`, which
-Method 1 permits); the fit-37 RED fixtures; `not.toThrow()` at `name-validation.test.ts`; the
-"frozen" denylist lacking `Object.freeze`; the path gate. Also **out of scope and not counted against
-this change**: **DOC-3** (`dialect-handle.ts:178` — owner-accepted pending-change; I confirmed the
-file is genuinely untouched, which is the correct way to honour triage's engine exclusion), **ARCH-2**
-(validator placement → archive commitments, splits when dialect #3 lands), and the subprocess-timeout
-debt.
+Out of scope per the briefing, and confirmed untouched by this delta: **DOC-3**
+(`dialect-handle.ts:178`; `test/core/dialect-handle.test.ts:328` pins the wrong text — registered,
+not a finding), **ARCH-2** (`jsx-name-validator.ts` placement — archive commitment, splits at dialect
+#3), the **subprocess-timeout debt** (pre-existing, registered), and every ruling recorded CLOSED in
+`council-findings.md`.
+
+Per the briefing I did **not** re-attack the security surface that already failed exhaustively
+(unicode/confusables, zero-width, surrogates, control chars, `addImport.from` injection, ReDoS,
+prototype pollution). I attacked what CHANGED: the two Set entries, V6's completeness claim, and the
+delta's TDD.
 
 ---
 
-## Followups for `sdd-archive` to register in `project/pending-changes`
+## 9. Followups for `sdd-archive` to register in `project/pending-changes`
 
-1. **F-1** — extend `IMPORT_RESERVED_WORDS` with `arguments`/`eval` (spec touch + 2 words); proven to
-   make the set complete (48/48). *Cheapest finding here; recommend closing before archive.*
-2. **F-2** — relabel `ops.test.ts:288` to REQ-RXD-11.6, drop its stale "Deviation" comment, and cite
-   `06.8`/`15.1`/`15.2` by ID.
-3. **F-3** — record that `2079023`/`5749bf2` are non-building commits; correct `apply-progress.md`'s
-   item-9 commit map. Consider squashing on merge.
-4. **F-4** — add `docs/README.md` + `docs/quickstart.md` to `design.md` §4.2; bump `Revision` to 3.
-5. **F-5** — reword ADR-02/§4.4 to the accurate universal, or route the extension gate's (permitted)
+1. **F-2** — relabel `ops.test.ts:288` → REQ-RXD-11.6; drop the stale "Deviation" comment
+   (`ops.test.ts:265`); cite `06.8`/`15.1`/`15.2` by ID.
+2. **F-3** — record `2079023`/`5749bf2` as non-building; correct `apply-progress.md`'s item-9 commit
+   map. Consider squashing on merge.
+3. **F-4** — add `docs/README.md` + `docs/quickstart.md` to `design.md` §4.2; bump `Revision` 2 → 3;
+   **and** bump the header's `Spec: V4 signed` → `V6 signed` (widened this iteration).
+4. **F-5** — reword ADR-02/§4.4 to the accurate universal, or route the extension gate's (permitted)
    path echo through a bounded helper.
+5. **F-6** — correct spec V5's changelog description.
 6. **F-7** — flip ADR-02 `Proposed` → `Accepted`.
-7. Pre-existing carry-forwards: DOC-3; ARCH-2 peer-module split at dialect #3; TS-dialect
+7. **F-8** *(new)* — widen the `assertNotReservedWord` message (and reconsider the
+   `IMPORT_RESERVED_WORDS` name) so `eval`/`arguments` are not mislabelled "reserved words";
+   requires a matching touch to REQ-RXD-06.9's assertion.
+8. Pre-existing carry-forwards: DOC-3; ARCH-2 peer-module split at dialect #3; TS-dialect
    trust-boundary JSDoc backfill; default/mixed-import support; `.jsx` row (**already registered —
    do not duplicate**); subprocess-timeout debt.
 
 ---
 
-### Verdict
+## A note on the verdict token — pushback
 
-**`pass-with-followups`** — the nine routed items are genuinely resolved and independently
-reproduced; the four correctness bugs emit bytes matching the signed V5 scenarios; QA-5's tests now
-provably discriminate (76/0 → 65/11, mutant applied by me); full suite **1824 pass / 0 fail** from a
-trustworthy location; Step 11b's gating audit found no Bug/Architecture/MAJOR. Seven followups, none
-blocking. F-1 is a real, empirically-proven residual of SEC-1's class that the signed spec's floor
-does not cover — cheap enough to be worth closing before archive if the orchestrator so routes.
+My briefing framed this run's purpose as converting `pass-with-followups` → `pass` **"because
+archive requires `verify-report = pass`"**. I verified that premise before acting on it, and **it is
+false**:
+
+- `sdd-archive/SKILL.md:44` — *"must be verdict `pass` or `pass-with-followups`"*
+- `sdd-archive/SKILL.md:86` — halts only on a verdict **not in** `{pass, pass-with-followups}`
+- `sdd-archive/SKILL.md:9` — triggers on *"verdict: pass (or pass-with-followups)"*
+
+**`pass-with-followups` does not block archive.** There was no gate to clear.
+
+And the token is not cosmetic — it is **load-bearing in the opposite direction**.
+`sdd-archive/SKILL.md:392-417`, Step 9, registers followups into `project/pending-changes` **only
+if** the verdict was `pass-with-followups`, and **explicitly skips that step when the verdict is
+`pass`** (line 417). Reporting `pass` with F-2..F-8 still open would therefore delete eight tracked
+followups from the pipeline's memory — the precise outcome my own briefing told me to prevent
+(*"Anything that should now be registered as a pending-change before archive rather than
+vanishing?"*).
+
+So the honest verdict is `pass-with-followups`: **F-1 is genuinely closed and the change is
+archive-ready**, and the followups remain open and visible, none blocking. This costs the change
+nothing. `pass` would have bought a nicer-looking token by discarding the record.
+
+---
+
+**One-line summary**: F-1 verified RESOLVED (48/48 exact, both directions, validator + public API);
+V6's completeness claim attacked with ~194.7M parser probes and upheld; genuine RED→GREEN failing for
+the right reason; suite 1829/0 from a clean worktree; Step 11b clean; eight non-blocking followups
+remain — `pass-with-followups`, archive-ready.
