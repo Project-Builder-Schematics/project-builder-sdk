@@ -1,8 +1,52 @@
 # React (TSX/JSX) Dialect Specification
 
-**Spec version**: V7
+**Spec version**: V8
 **Status**: signed (owner, 2026-07-17)
 **Change**: `react-dialect`
+
+(V8: judgment-day Round 2 blind-adversarial-gate fix pass, 2026-07-17 — two independent judges
+found that REQ-RXD-05's headline invariant promises `addImport` "MUST NEVER produce an invalid
+or duplicate binding" (unconditional), while the V7 CLAIMED definition silently narrows to
+covering ONLY import specifiers — leaving a TOP-LEVEL VALUE-NAMESPACE declaration under the
+requested name completely invisible to the collision check. Confirmed against node's real ESM
+parser for all 8 value-declaration kinds (`function`, `const`, `let`, `var`, `class`, `enum`,
+`namespace`, `export default function`): a `.tsx` file declaring `function Icon() { return
+null; }` plus `addImport("Icon", "./icons")` silently emits `import { Icon } from "./icons";`
+alongside the existing declaration, which node rejects with `SyntaxError: Identifier 'Icon' has
+already been declared` — the IDENTICAL failure class V7 closed on the import-specifier axis,
+left open on the adjacent declaration axis. This is mainstream input, not an edge case: any
+`.tsx` component file that defines the very component a schematic then imports something into
+hits it.
+
+OWNER RULING (reviewed directly, after three gate rounds kept finding this class on new axes):
+V8 does not invent a new detection technique — it ADOPTS the technique this repo already
+ratified for exactly this problem. ADR-0039 (quoted verbatim in
+`src/dialects/typescript/ops.ts:42-47`) already defines "a VALUE-namespace declaration
+(function/const/let/var/class) OR a named-import binding under `name` collides, cross-kind;
+`type`/`interface` are exempt (legal TS coexistence)", implemented as `assertNoCollision`
+(`typescript/ops.ts:54-75`, which also folds in `enum`/`namespace` per that dialect's own
+judgment-day round 1, Issue 3 — both also occupy the value namespace, TS2451). CLAIMED's
+definition is amended to the UNION of ADR-0039's value-namespace predicate and V7's
+import-specifier predicate — each half unchanged from its own source, only combined; both
+halves stay SYNTACTIC and SourceFile-wide, not scope-aware, the same posture ADR-0039 already
+established. REQ-RXD-05.1–.15 are UNCHANGED in expected outcome (none of their fixtures declare
+a colliding value-namespace symbol). Two new scenarios (REQ-RXD-05.16, .17) pin the widened axis
+plus its negative boundary (a local `type`/`interface` does not collide). A third
+(REQ-RXD-05.18) closes a second Round-2 finding: `claimedNameTail`'s echo of the — already
+REQ-RXD-06-validated — `name` argument was routed through `boundedFragment`'s 16-char
+hostile-value cap instead of the wider, marked `elementNameEcho` bound `zeroMatchTail`/
+`multiMatchTail` already use for the identical POST-VALIDATION-identifier-echo case, silently
+mangling realistic names (`useDebouncedCallback` → `useDebouncedCall`, appearing nowhere in the
+author's source) with no signal anything was cut — the exact defect class `elementNameEcho` was
+created to fix, reintroduced by V7's new tail. REQ-RXD-09.6's doc-requirement bullet is widened
+in place to require the value-namespace collision be named as an example alongside V7's
+import-only examples — the shipped doc's general sentence ("already bound elsewhere in the file
+under a different binding") was already written broadly enough to become TRUE of this axis under
+V8; only its enumerated example list undersold it, and a component's own `function`/`const`
+declaration is now the single MOST COMMON real-world trigger for this reject. Also registered at
+the end of this document: the TypeScript dialect's OWN naive `addImport`
+(`typescript/ops.ts:22-32`) almost certainly carries the same merge-defect family, sharpened as
+a followup, out of this change's triage scope.)
 
 (V7: judgment-day blind-adversarial-gate fix pass, 2026-07-17 — two independent judges found
 three real `addImport` defects (mandatory gate for L + sensitive; full record in
@@ -403,12 +447,19 @@ the default local name; for a namespace specifier, the namespace local name. Def
 specifier as VALUE-BOUND if it actually creates a runtime value binding — i.e. neither its
 declaration (`decl.isTypeOnly()`) NOR, for a named specifier, the specifier itself
 (`specifier.isTypeOnly()`, the inline `import { type X }` form) is type-only (V7). Define a
-name as CLAIMED if it equals the LOCAL NAME of ANY import specifier ANYWHERE in the file —
-across every module, VALUE-BOUND or type-only alike (V7): TypeScript treats a type-only and a
-value binding of the same local name as the same identifier-space conflict as two value
+name as CLAIMED if EITHER (a) it equals the LOCAL NAME of ANY import specifier ANYWHERE in the
+file — across every module, VALUE-BOUND or type-only alike (V7): TypeScript treats a type-only
+and a value binding of the same local name as the same identifier-space conflict as two value
 bindings (`TS2300: Duplicate identifier`, verified), so type-only bindings claim their name
 exactly as value bindings do, even though they do not SATISFY `addImport`'s value-binding
-promise. The algorithm, applied in order:
+promise; OR (b) a top-level VALUE-NAMESPACE declaration — `function`, `const`, `let`, `var`,
+`class`, `enum`, or `namespace` — shares that name (V8, adopting ADR-0039's ratified collision
+predicate verbatim — `typescript/ops.ts:42-47,54-75`: a value-namespace declaration collides
+cross-kind with an import binding the same way two value declarations collide with each other;
+`type`/`interface` are exempt, the same ADR-0039 carve-out — legal TS coexistence). Both halves
+of CLAIMED are SYNTACTIC, SourceFile-wide checks, not scope-aware — V8 applies an existing,
+already-ratified analysis technique to the second op that needed it; it does not introduce a
+new one. The algorithm, applied in order:
 
 1. **Already-bound check (idempotency)**: if an EXISTING declaration for the SAME module `from`
    has a VALUE-BOUND specifier whose LOCAL NAME equals `name`, AND that specifier is a DEFAULT
@@ -422,13 +473,21 @@ promise. The algorithm, applied in order:
    the promise (V7 — this is Defect 3's fix; the mirror case where the ALIAS itself is not the
    requested name, REQ-RXD-05.10, was already correctly NOT treated as satisfied and is
    unaffected).
-2. **Collision check (NEW, V7)**: otherwise, if `name` is CLAIMED anywhere in the file (any
-   module, any specifier kind, value-bound or type-only) — reject via `dialectError`. Creating a
-   second local binding under an already-claimed name is an invalid duplicate declaration
-   `addImport` MUST NOT produce silently, regardless of whether the CLAIMING declaration is FROM
-   `from` (a same-module alias or type-only collision, Defect 1/3) or from a DIFFERENT module
-   entirely (a cross-module collision, Defect 2). The tail names `name` and the collision rule;
-   it MAY name the claiming module specifier as a bounded diagnostic fragment (REQ-RXD-13).
+2. **Collision check (V7; widened V8)**: otherwise, if `name` is CLAIMED anywhere in the file —
+   reject via `dialectError`. Creating a second local binding under an already-claimed name is
+   an invalid duplicate declaration `addImport` MUST NOT produce silently, regardless of whether
+   the claiming declaration is an IMPORT SPECIFIER (any module, any specifier kind, value-bound
+   or type-only — V7's half: a same-module alias or type-only collision, Defect 1/3, or a
+   cross-module collision, Defect 2) or a TOP-LEVEL VALUE-NAMESPACE DECLARATION (`function`/
+   `const`/`let`/`var`/`class`/`enum`/`namespace` — V8's half, adopting ADR-0039's
+   `assertNoCollision` predicate, `typescript/ops.ts:54-75`; `type`/`interface` remain exempt,
+   the same ADR-0039 carve-out). The tail names `name` — POST-VALIDATION at this point
+   (REQ-RXD-06 already ran), so its echo follows the wider, marked bound `zeroMatchTail`/
+   `multiMatchTail` already use for `elementName`, NEVER REQ-RXD-13's hostile-value 16-char cap
+   (V8 — closes a `boundedFragment`-vs-`elementNameEcho` mixup, REQ-RXD-05.18) — and the
+   collision rule; it MAY additionally name the claiming module specifier as a bounded
+   diagnostic fragment capped per REQ-RXD-13 (that argument, unlike `name`, is unvalidated free
+   text).
 3. **Merge**: otherwise, if an EXISTING declaration for `from` has a named-import clause (a
    `NamedImports` node, whether or not it already carries other specifiers) AND is NOT
    type-only, add a NEW, UNALIASED named specifier `name` to that clause. (Reaching this step
@@ -472,7 +531,21 @@ specifier's local name satisfied the same-module already-bound check even though
 identifies a DIFFERENT export, silently leaving the requested name unbound. V7 adds an explicit
 VALUE-BOUND/CLAIMED distinction and a file-wide collision-reject step BEFORE merge/create,
 exactly scoped so REQ-RXD-05.1–.10 keep their signed, unchanged outcomes — traced individually
-in each scenario below.)
+in each scenario below. V8 (judgment-day Round 2, one more defect the V7 fix did not reach): V7's
+CLAIMED definition covered only import specifiers, leaving a TOP-LEVEL VALUE-NAMESPACE
+declaration (`function`/`const`/`let`/`var`/`class`/`enum`/`namespace`) under the requested name
+invisible to the collision check — the identical `SyntaxError: Identifier '<name>' has already
+been declared` failure V7 closed on the import-specifier axis, left open on the adjacent
+declaration axis, and confirmed for all 8 value-declaration kinds. V8 widens CLAIMED to the
+UNION of V7's import-specifier predicate and ADR-0039's already-ratified value-namespace
+predicate (`assertNoCollision`, `typescript/ops.ts:54-75`) rather than inventing a new
+detection technique; REQ-RXD-05.1–.15 keep their unchanged outcomes (none of their fixtures
+declare a colliding value-namespace symbol) — new scenarios REQ-RXD-05.16/.17 pin the widened
+axis and its `type`/`interface` negative boundary. V8 also fixes `claimedNameTail`'s `name` echo
+(REQ-RXD-05.18): it was routed through REQ-RXD-13's 16-char hostile-value `boundedFragment`
+cap even though `name` is POST-VALIDATION at that point in the algorithm (REQ-RXD-06 already
+ran) — the same class of bug `elementNameEcho` was created to fix, reintroduced here; the tail
+now echoes `name` at the wider, marked bound `zeroMatchTail`/`multiMatchTail` use.)
 
 #### Scenario REQ-RXD-05.1: fresh import inserted
 
@@ -599,6 +672,45 @@ in each scenario below.)
   IDENTICAL `SyntaxError: Identifier 'x' has already been declared` as REQ-RXD-05.14, verified
   against node's real ESM parser — two specifiers may never bind the same local name in one
   file, aliased or not, same module or not
+
+#### Scenario REQ-RXD-05.16: value-namespace declaration collision battery — mainstream case rejects (NEW, V8)
+
+- GIVEN a `.tsx` file, each case tested in isolation, containing exactly one of: `function
+  Icon() { return null; }`, `const Icon = 1;`, `let Icon = 1;`, `var Icon = 1;`, `class Icon
+  {}`, `enum Icon {}`, `namespace Icon {}`, or `export default function Icon() { return null;
+  }` — a TOP-LEVEL value-namespace declaration named `Icon`, no import of `Icon` present
+- WHEN `addImport("Icon", "./icons")` is applied to each
+- THEN every case REJECTS via `dialectError` BEFORE any AST mutation — zero directives emitted,
+  file byte-unchanged — rather than emitting `import { Icon } from "./icons";` alongside the
+  existing declaration, which node's real ESM parser rejects as a duplicate `Icon` binding
+  (`SyntaxError: Identifier 'Icon' has already been declared`) for every one of these eight
+  kinds; the collision rule adopts ADR-0039's value-namespace predicate (`assertNoCollision`,
+  `typescript/ops.ts:54-75`) as the SECOND half of CLAIMED, alongside V7's import-specifier half
+
+#### Scenario REQ-RXD-05.17: local type alias / interface does NOT collide — negative boundary (NEW, V8)
+
+- GIVEN a `.tsx` file containing `type Icon = string;` (or, separately, `interface Icon { x:
+  number }`) at top level, and no import of `Icon`
+- WHEN `addImport("Icon", "./icons")` is applied
+- THEN it SUCCEEDS (no reject) — the printed output KEEPS the type alias/interface unchanged AND
+  adds a SEPARATE `import { Icon } from "./icons";` declaration; a `type`/`interface`
+  declaration is NOT in the value namespace (TypeScript legally permits a value and a type to
+  share an identifier — ADR-0039's exemption, unchanged by V8), proving CLAIMED's
+  value-namespace half is scoped exactly to `function`/`const`/`let`/`var`/`class`/`enum`/
+  `namespace`, never to type-space declarations
+
+#### Scenario REQ-RXD-05.18: collision-reject tail echoes `name` at the post-validation bound, not REQ-RXD-13's hostile-value cap (NEW, V8)
+
+- GIVEN a component file declaring `function NotificationPreferencesPanel() { return null; }`
+  (29 chars, a realistic component name exceeding REQ-RXD-13's 16-char cap) and
+  `addImport("NotificationPreferencesPanel", "./somewhere")` applied
+- WHEN the rejection error is inspected
+- THEN the tail contains the FULL name `NotificationPreferencesPanel`, uncut — `name` has
+  already passed REQ-RXD-06's grammar+denylist validation by the time this collision check
+  runs, so it is a POST-VALIDATION, grammar-constrained echo (the same class as
+  `zeroMatchTail`/`multiMatchTail`'s `elementName` echo, per `reject-tail.ts`'s own commentary),
+  never REQ-RXD-13's hostile-value 16-char cap; a name exceeding the wider 100-char echo bound
+  is truncated WITH an explicit `…` marker, never silently
 
 ### REQ-RXD-06: Per-argument name validation at the op boundary (security — load-bearing)
 
@@ -857,13 +969,17 @@ meeting ALL of these criteria:
   extensionless paths are rejected) is documented author-facing: in `find`'s JSDoc AND as a
   worked-example note, INCLUDING the why — extensionless paths are rejected to stay
   forward-compatible with future `.jsx` support;
-- (V7) the `addImport` collision-reject limitation (REQ-RXD-05, Step 2) is documented: when
-  `name` is already bound elsewhere in the file — under any local name collision, whether from
-  a different module or the same module under an alias or a type-only specifier — `addImport`
-  REJECTS rather than silently creating an invalid or misdirected binding; the doc tells authors
-  that resolving the naming conflict (e.g. renaming the existing local binding, or choosing a
-  different `name`) is their responsibility, since `addImport` takes no alias argument to route
-  around it.
+- (V7; widened V8) the `addImport` collision-reject limitation (REQ-RXD-05, Step 2) is
+  documented: when `name` is already bound elsewhere in the file — under any local name
+  collision, whether from a different module or the same module under an alias or a type-only
+  specifier (V7), OR under a top-level value-namespace declaration sharing the name — `function`,
+  `const`, `let`, `var`, `class`, `enum`, or `namespace` (V8) — `addImport` REJECTS rather than
+  silently creating an invalid or misdirected binding; the doc tells authors that resolving the
+  naming conflict (e.g. renaming the existing local binding/declaration, or choosing a different
+  `name`) is their responsibility, since `addImport` takes no alias argument to route around it.
+  The doc's example set MUST include the value-namespace case explicitly — a component file's
+  own `function`/`const` declaration sharing the imported name is the single MOST COMMON
+  real-world trigger for this reject, not an edge case.
 
 (Previously: V1 required minimality + catalog + `.modify()` framing only. V2 adds the trust
 boundary, named-only limitation, spread warning, `// ->` worked-example form, JSDoc-fidelity
@@ -872,7 +988,10 @@ documentation criterion; V4 replaces it in place with the explicit-extension req
 documentation, tracking REQ-RXD-02's V4 reversal. V7 adds the `addImport` collision-reject
 limitation, tracking REQ-RXD-05's V7 amendment — the headline invariant is now conditional on
 `name` not already being claimed elsewhere in the file, and authors need to know the reject
-path exists and why.)
+path exists and why. V8 widens the documented collision surface to the value-namespace axis
+(function/const/let/var/class/enum/namespace), tracking REQ-RXD-05's V8 amendment (ADR-0039
+adoption) — the shipped doc's general sentence was already broad enough to be TRUE of this axis
+under V8; only its example list needed widening to name the mainstream trigger.)
 
 #### Scenario REQ-RXD-09.1: doc names the shipped ops, minimality, catalog, and escape hatch
 
@@ -910,13 +1029,16 @@ path exists and why.)
   (REQ-RXD-02) — and name the forward-compatibility reason (future `.jsx` support), so authors
   learn the rule and the why without reading the spec
 
-#### Scenario REQ-RXD-09.6: `addImport` collision-reject limitation documented, guard-asserted (NEW, V7)
+#### Scenario REQ-RXD-09.6: `addImport` collision-reject limitation documented, guard-asserted (NEW, V7; widened V8)
 
 - GIVEN the doc's `addImport` coverage after this change
 - WHEN a guard test scans it (mirrors REQ-RXD-09.3's pinned-sentinel pattern)
 - THEN a section is present stating `addImport` rejects when `name` is already bound elsewhere
-  in the file under a different binding, and that resolving the conflict is the author's
-  responsibility — the guard fails RED if this section is removed
+  in the file under a different binding, naming BOTH the import-specifier axis (V7:
+  cross-module, same-module alias, same-module type-only) AND the value-namespace axis (V8: a
+  local `function`/`const`/`let`/`var`/`class`/`enum`/`namespace` sharing the name) as triggers,
+  and stating that resolving the conflict is the author's responsibility — the guard fails RED
+  if either axis's mention is removed
 
 ### REQ-RXD-10: `setJsxProp` placement and whitespace contract (NEW, V2)
 
@@ -1188,6 +1310,28 @@ would reproduce the exact laxity this change was built to close.)
 
 ## Notes for sdd-archive (followup ledger additions — join the proposal's Archive Commitments)
 
+- **TS-dialect `addImport` merge-defect family — sharpened (NEW, V8)**: `src/dialects/
+  typescript/ops.ts:22-32`'s `addImport` is the ORIGINAL naive predicate this change's OWN
+  `addImport` was deliberately written FRESH to not repeat (REQ-RXD-05's V5/V7/V8 history) — it
+  matches ANY existing declaration by module specifier alone and merges into it
+  unconditionally, with no shape check at all. Code-reading evidence: it does not distinguish
+  type-only, default-only, or namespace-only declarations from a mergeable named clause,
+  performs no cross-module or file-wide claimed-name check, and draws no already-bound/alias
+  distinction — i.e. it almost certainly carries the FULL Defect-1/2/3 family (type-only merge
+  silently producing a runtime-unbound identifier, cross-module duplicate declaration, aliased
+  named import silently misbound) PLUS the V8 value-namespace collision, entirely unvalidated.
+  This is DISTINCT from pending item 22 (`openspec/pending-changes.md` row 340 — the injection/
+  splice-validation gap on `name`): that finding is about `name` being spliced RAW without
+  grammar validation (a security/injection axis); THIS finding is that even a well-formed,
+  non-hostile `name` can produce an INVALID or semantically WRONG binding via the untested merge
+  logic (a correctness axis, independent of whether `name` is hostile). The previously-registered
+  "TS dialect validates nothing" framing undersells this: it does not merely LACK validation, it
+  can EMIT INVALID BINDINGS on ordinary, non-adversarial input. Out of scope to fix here (triage
+  boundary — this change does not own `src/dialects/typescript/**`); register as its own
+  pending-change row at archive (or fold into pending item 22 / the Group-1 TS-dialect-backend-
+  ops paused plan, `openspec/pending-changes.md` row 339), explicitly distinguishing the
+  injection axis (item 22) from this merge-correctness axis (this note) so neither eclipses the
+  other.
 - **TS-dialect trust-boundary JSDoc backfill**: the shipped TypeScript dialect's splice-arg ops
   (`addFunction`/`addVariable`/`addClass` `source`/`initializer` args) carry no trust note in
   their JSDoc — backfill REQ-RXD-12-equivalent wording (security council finding; distinct from
