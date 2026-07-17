@@ -160,6 +160,17 @@ REQ-RXD-13.2 addImport path); every other test unmoved. Validator rewired → 10
 error) or dies inside ts-morph as a contained foreign throw (`addImport() on "…" threw`) —
 neither surface contains `name`.
 
+**CORRECTION (2026-07-17, council QA-5 fix pass) — the paragraph above is WRONG.** `toContain("name")`
+does NOT discriminate: `"propName"` contains the substring `"name"`, so pointing `addImport` at
+the WRONG validator (`assertValidAttributeName` instead of `assertValidImportBinding`) still
+produces a `propName`-shaped message that satisfies `.toContain("name")`. The claim above was
+reached by generalising from a single ABSENCE-mutant probe (validator unwired entirely) to a
+broader claim that probe never tested — the exact self-selected-exam failure the Council's
+mutation-probe amendment names. See `council-findings.md` QA-5 and the "Fix Pass" section below
+for the NEAR-MISS mutant that actually reproduces and then closes this gap (backtick-bounded
+`.toContain(\`${argName}\`)`, since every react reject tail names its argument as `` `${argName}` ``,
+and `` `name` `` is not a substring of `` `propName` ``).
+
 Finding 2 (WARNING, record reconciliation, docs-only): the TDD self-correction record above
 was appended to this artefact and mirrored to engram obs #1077 — it had previously existed
 only in the builder's return envelope, and obs #1077's "S-002 clean through, no fix
