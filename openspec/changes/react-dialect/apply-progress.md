@@ -302,3 +302,13 @@ slices per their own Tasks lists; every mutation probe above was reverted with a
 diff before moving to the next slice. This closes ALL six slices of `react-dialect`
 (S-000..S-005) — the change is now complete pending in-loop re-verification of this batch and
 the final `sdd-verify --mode=final` gate.
+
+**Full-suite number, from a trustworthy location** (per the known ~/Documents subprocess-timeout
+flakiness — `bun install`/`tsc --noEmit` blocking-`spawnSync` calls hitting bun's default
+5000ms test timeout under first-touch file-scanning contention, pre-existing debt, out of this
+change's scope): `git worktree add /private/tmp/react-dialect-verify-worktree HEAD` at commit
+`0257e5c` (this batch's bookkeeping commit) + `bun install` there, then `bun test` run TWICE —
+**1797 pass / 0 fail** both times (1779 baseline + 18 net new: 3 in `react-conformance.test.ts`,
+15 in `docs.test.ts`, 0 net-new `it`s in the e2e file since S-005 extended 2 existing `it`s
+rather than adding new ones — verified via `git diff --stat` across the batch's 4 commits).
+Worktree removed after (`git worktree remove --force`). No failures, no flakiness, in either run.
