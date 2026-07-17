@@ -68,12 +68,19 @@ describe("REQ-PKG-01 — package.json#exports resolution contract", () => {
     expect(typescript!.import).toMatch(/dist\/dialects\/typescript\/index\.js$/);
   });
 
+  it('exports "./react" with correct types and import fields (react-dialect S-000, REQ-RXD-01)', () => {
+    const react = pkgJson.exports["./react"] ?? null;
+    expect(react).not.toBeNull();
+    expect(react!.types).toMatch(/dist\/dialects\/react\/index\.d\.ts$/);
+    expect(react!.import).toMatch(/dist\/dialects\/react\/index\.js$/);
+  });
+
   it('does NOT export "./core" (contributor-kit boundary, ADR-0009)', () => {
     expect(pkgJson.exports["./core"]).toBeUndefined();
   });
 
-  it("the only exported subpaths are ., ./commons, ./conformance, ./testing, and ./typescript (REQ-TES-01.1, REQ-PKG-01)", () => {
+  it("the only exported subpaths are ., ./commons, ./conformance, ./testing, ./typescript, and ./react (REQ-TES-01.1, REQ-PKG-01)", () => {
     const keys = Object.keys(pkgJson.exports).sort();
-    expect(keys).toEqual([".", "./commons", "./conformance", "./testing", "./typescript"]);
+    expect(keys).toEqual([".", "./commons", "./conformance", "./react", "./testing", "./typescript"]);
   });
 });

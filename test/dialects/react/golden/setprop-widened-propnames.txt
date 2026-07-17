@@ -1,0 +1,3 @@
+const a = <FieldA data-testid="a" />;
+const b = <FieldB aria-label="b" />;
+const c = <FieldC xlink:href="c" />;

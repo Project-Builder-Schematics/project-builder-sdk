@@ -6,9 +6,10 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.modify()` escape hatch, and
-the first real dialect, `@pbuilder/sdk/typescript`, whose op-pack has widened past its original
-thin starter shape (`addImport`) to five structured ops: `addImport`, `addFunction`,
-`addVariable`, `addClass`, `removeImport`.
+the two dialects currently shipped — `@pbuilder/sdk/typescript`, whose op-pack has widened past
+its original thin starter shape (`addImport`) to five structured ops: `addImport`, `addFunction`,
+`addVariable`, `addClass`, `removeImport`; and `@pbuilder/sdk/react`, a deliberately minimal v1
+pair for `.tsx`/JSX authoring: `setJsxProp` and `addImport`.
 
 ## Two audiences
 
@@ -102,6 +103,64 @@ await handle.read(); // drains the pending addImport edit
 handle.replaceContent("new content"); // succeeds — the documented escape
 ```
 
+### `@pbuilder/sdk/react` — a second dialect
+
+`@pbuilder/sdk/react` mutates `.tsx` files — TypeScript source containing JSX syntax. `.jsx`
+files are NOT supported in v1: `find()` REJECTS a `.jsx` path, it does not silently accept it
+(see the explicit-extension note below). Its v1 op-pack is deliberately minimal — exactly two
+structured ops, `setJsxProp` and `addImport` — proving JSX-structural mutation end to end
+without committing to a full React mutation catalog; further ops are tracked as the React
+op-catalog follow-up. Until those land, `.modify(fn)` is the escape hatch for anything the two
+shipped ops don't cover — the same universal verb the TypeScript dialect's authors already reach
+for.
+
+`find(path)` requires an explicit `.tsx` extension — extensionless paths are rejected, never normalized.
+This is deliberate: a future `.jsx` dialect addition would otherwise leave an assumed extension ambiguous between `Button.tsx` and `Button.jsx`, and baking in a `.tsx` default today would make that a breaking change to unwind later.
+
+The worked example below is the COALESCED author journey — `addImport` and `setJsxProp` on ONE
+handle:
+
+```ts
+import * as react from "@pbuilder/sdk/react";
+
+// src/Button.tsx before: const el = <Button />;
+await react
+  .find("src/Button.tsx")
+  .addImport("handleClick", "./handlers")
+  .setJsxProp("Button", "onClick", "{handleClick}");
+// -> import { handleClick } from "./handlers";
+// ->
+// -> const el = <Button onClick={handleClick} />;
+```
+
+`addImport(name, from)` merges `name` into an EXISTING named-import clause from the SAME module
+if one already exists, or inserts a fresh `import { name } from "from";` otherwise — idempotent,
+same contract as the TypeScript dialect's own `addImport`. It is NAMED-BINDING-ONLY, pinned as
+contract: `addImport("React", "react")` always prints `import { React } from "react"`, never
+`import React from "react"` — default and namespace imports are NOT supported in v1, tracked as
+catalog-follow-up scope, not an oversight.
+
+`setJsxProp(elementName, propName, value?)` targets the ONE element whose tag name matches
+`elementName` — zero matches or more than one match both reject loudly (never a silent
+first-match). `value` accepts three forms: a quoted string (`'"hi"'` → `hi="hi"`), an expression
+container (`'{count}'` → `hi={count}`), or an omitted value (boolean shorthand, `hi`, no `=`).
+
+#### The `value` trust boundary
+
+`setJsxProp`'s `value` is emitted verbatim as the prop's expression/string initializer. The SDK performs no validation, escaping, or sanitisation on `value` — it becomes executable code in the generated file.
+You are solely responsible for ensuring `value` is not derived from untrusted input (schema `options`, CLI answers, network data) without your own sanitisation. By contrast, `elementName` and `propName` ARE validated name arguments and are NOT a trusted-code channel.
+
+#### Spread-precedence warning
+
+An inserted prop lands after the element's last existing prop — including after a trailing `{...spread}`. An inserted explicit prop lands AFTER a trailing `{...spread}` and therefore WINS at React runtime (later-position precedence).
+For example, `<Button {...rest} />` plus `setJsxProp("Button", "onClick", "{safe}")` prints `<Button {...rest} onClick={safe} />`, and `safe` wins even if `rest` also supplies an `onClick`.
+
+#### The `addImport` collision-reject limitation
+
+`addImport` REJECTS when `name` is already bound elsewhere in the file under a different binding — whether from a different module, or the same module under an alias or a type-only specifier — and resolving the naming conflict is your responsibility, since `addImport` takes no alias argument to route around it.
+For example, `import { useState } from "react";` plus `addImport("useState", "./local")` rejects rather than emitting a second, invalid `import { useState } from "./local";` declaration; renaming the existing import or choosing a different `name` is on you. The same applies to a same-module alias (`import { Foo as x } from "./a"` + `addImport("x", "./a")`) and a same-module type-only import (`import type { Icon } from "./icons"` + `addImport("Icon", "./icons")`).
+The rejection also covers a TOP-LEVEL VALUE-NAMESPACE declaration sharing the name — `function`/`const`/`let`/`var`/`class`/`enum`/`namespace` — since it is the same duplicate-binding problem under a different syntax: a component file declaring `function Icon() { return null; }` plus `addImport("Icon", "./icons")` rejects rather than emitting `import { Icon } from "./icons";` alongside the existing declaration; a `type`/`interface` declaration sharing the name does NOT collide (TypeScript legally permits a value and a type to share an identifier).
+
 ### For contributors: building a dialect
 
 A dialect is assembled from three kit verbs:
@@ -129,6 +188,21 @@ A contributor's worked proof anchors are the conformance kit — `testDialect`/`
 fidelity, and coalescing are honest, and the type-level composition proof: an `expectTypeOf` pin
 on `withOps`'s intersection type (`test/types/define-dialect.test.ts`), which fails to compile if
 op-pack composition regresses.
+
+#### Validating name/identifier arguments: the `validatedOp` pattern
+
+If your op takes a name or identifier-shaped argument that gets SPLICED into generated source —
+an attribute name, an import binding, anything your AST library writes as raw text — validate
+that argument BEFORE any mutation runs, not after. `@pbuilder/sdk/react`'s
+`src/core/jsx-name-validator.ts` is the reference implementation: `validatedOp(validators, body)`
+is the single validate-before-mutate CHOKEPOINT — it wraps an op so `body` (the actual AST
+mutation) is structurally unreachable until `validators` has run and thrown on every invalid
+argument. Register a per-argument grammar for each such
+argument — a shared regex across argument shapes that don't share a grammar is wrong, the same
+way a JSX attribute name and an import binding don't share one — plus a denylist where a
+prototype-pollution-shaped risk applies (e.g. `__proto__`).
+
+This closes a real vulnerability class, not a hypothetical one: ts-morph writes structured-API arguments like `JsxAttributeStructure.name` and import specifiers as RAW TEXT with no escaping of its own — an op that skips validation splices whatever string it is given straight into the printed file. The shipped `@pbuilder/sdk/typescript` dialect's ops do not yet validate their name arguments (a confirmed instance of this class, retrofit pending); `@pbuilder/sdk/react`'s ops are the pattern to FOLLOW going forward, not the exception — wrap any new op that takes a splice-bound name/identifier argument in `validatedOp`.
 
 ## The `.modify()` escape hatch
 

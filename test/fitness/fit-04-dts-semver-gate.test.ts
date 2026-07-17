@@ -21,7 +21,7 @@
  * (`dist/commons/index.d.ts` → `commons.index.d.ts`, `dist/core/base-handle.d.ts` →
  * `core.base-handle.d.ts`, `dist/core/handle-state.d.ts` → `core.handle-state.d.ts`,
  * `dist/testing/index.d.ts` → `testing.index.d.ts`, `dist/dialects/typescript/index.d.ts` →
- * `typescript.index.d.ts`).
+ * `typescript.index.d.ts`, `dist/dialects/react/index.d.ts` → `react.index.d.ts`).
  *
  * Red-proof: simulating a baseline drift (a removed export) triggers the gate.
  * Activates in S-004 (build pipeline produces .d.ts; baseline committed here).
@@ -126,6 +126,13 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     baselineFile: join(BASELINE_DIR, "typescript.index.d.ts"),
     distFile: join(DIST_DIR, "dialects/typescript/index.d.ts"),
     label: "typescript",
+  },
+  {
+    // react-dialect, S-000, REQ-FIT-04: the ./react subpath's FIRST baseline — additive by
+    // definition (a brand-new subpath), pins `find`'s JSDoc incl. the trust line.
+    baselineFile: join(BASELINE_DIR, "react.index.d.ts"),
+    distFile: join(DIST_DIR, "dialects/react/index.d.ts"),
+    label: "react",
   },
   {
     // author-write-surface, S-000, REQ-FIT-04: `core/define-dialect.ts`'s FIRST baseline —

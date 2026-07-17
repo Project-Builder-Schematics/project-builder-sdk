@@ -137,12 +137,12 @@ REQ-RXD-14.1 — GIVEN the shipped `package.json` and committed lockfile after t
 REQ-RXD-01.1 (resolves-half) — GIVEN `package.json#exports` WHEN `@pbuilder/sdk/react` is imported THEN it resolves. (The exact-op-set half closes in S-002 when both ops exist.)
 
 ### Tasks
-- [ ] S-000.1 `src/dialects/react/ast.ts` — four duplicated primitives per Contracts; virtual `dialect-source.tsx`
-- [ ] S-000.2 `src/dialects/react/index.ts` — `find()` basename gate (all 4 reject classes + pass) + composition with `ops: {}`; `find` JSDoc per Contracts
-- [ ] S-000.3 `package.json#exports` `./react` entry; FIT-09 5→6 + `./react` case; FIT-14 assertions + baseline regen; FIT-04 `DTS_PAIRS` + `react.index.d.ts` baseline
-- [ ] S-000.4 NEW `fit-37` + `fit-38` per Fitness mechanics
-- [ ] S-000.5 NEW `fit-36` per Fitness mechanics
-- [ ] S-000.6 `test/dialects/react/dialect.test.ts` — all Acceptance scenarios above, failing-first
+- [x] S-000.1 `src/dialects/react/ast.ts` — four duplicated primitives per Contracts; virtual `dialect-source.tsx`
+- [x] S-000.2 `src/dialects/react/index.ts` — `find()` basename gate (all 4 reject classes + pass) + composition with `ops: {}`; `find` JSDoc per Contracts
+- [x] S-000.3 `package.json#exports` `./react` entry; FIT-09 5→6 + `./react` case; FIT-14 assertions + baseline regen; FIT-04 `DTS_PAIRS` + `react.index.d.ts` baseline
+- [x] S-000.4 NEW `fit-37` + `fit-38` per Fitness mechanics
+- [x] S-000.5 NEW `fit-36` per Fitness mechanics
+- [x] S-000.6 `test/dialects/react/dialect.test.ts` — all Acceptance scenarios above, failing-first
 
 ---
 
@@ -195,11 +195,13 @@ REQ-RXD-13.2 (setJsxProp paths) — GIVEN one representative reject from validat
 REQ-RXD-13.3 — GIVEN a propName validator reject with a 100-char hostile value WHEN the message is inspected THEN it names `propName` and the grammar rule; the full value does NOT appear (any fragment ≤16 chars).
 
 ### Tasks
-- [ ] S-001.1 `src/core/jsx-name-validator.ts` — three grammars + frozen denylist + `validatedOp` per Shared Contracts (first consumer)
-- [ ] S-001.2 `src/core/reject-tail.ts` — `nameRuleTail`/`boundedFragment` per Shared Contracts
-- [ ] S-001.3 `src/dialects/react/ops.ts` — `setJsxProp` per Contracts; wire into the op-pack in `index.ts`
-- [ ] S-001.4 `test/dialects/react/ops.test.ts` (value forms + upsert goldens) + `test/dialects/react/name-validation.test.ts` (hostile battery, denylist, load-bearing raw-splice pin, zero-emit/byte-unchanged, Set-key-safety static scan) + placement goldens in `dialect.test.ts`
-- [ ] S-001.5 `test/security/canary-no-echo.test.ts` — add react case: canary as hostile propName through `setJsxProp`, swept via the existing `surfaceContains`
+- [x] S-001.1 `src/core/jsx-name-validator.ts` — three grammars + frozen denylist + `validatedOp` per Shared Contracts (first consumer)
+- [x] S-001.2 `src/core/reject-tail.ts` — `nameRuleTail`/`boundedFragment` per Shared Contracts
+- [x] S-001.3 `src/dialects/react/ops.ts` — `setJsxProp` per Contracts; wire into the op-pack in `index.ts`
+- [x] S-001.4 `test/dialects/react/ops.test.ts` (value forms + upsert goldens) + `test/dialects/react/name-validation.test.ts` (hostile battery, denylist, load-bearing raw-splice pin, zero-emit/byte-unchanged, Set-key-safety static scan) + placement goldens in `dialect.test.ts`
+- [x] S-001.5 `test/security/canary-no-echo.test.ts` — add react case: canary as hostile propName through `setJsxProp`, swept via the existing `surfaceContains`
+
+**Apply-time finding (REQ-RXD-11.5)**: the spec's literal example — `setJsxProp("Button", "data-x", "{")`, an UNTERMINATED delimiter — cannot succeed via ts-morph's structured API (verified against ts-morph@28.0.0): `addAttribute`/`setInitializer` reparse-and-reconcile the WHOLE file after every structural edit (ts-morph's own architecture, not an SDK choice); an unclosed `{` swallows every token after it into one broken expression, so the reconcile throws `Manipulation error: A syntax error was inserted.` BEFORE `print()` is ever reached — never a text-splice fallback (ADR-03 stays intact). A delimiter-BALANCED-but-semantically-malformed value (e.g. `'{1+}'`) still proves the scenario's substance (no output re-validation) and is what `ops.test.ts` asserts; a second test pins that the unterminated case rejects SAFELY (contained, no leak, file byte-unchanged), not a silent corruption. Routing recommendation: amend REQ-RXD-11.5's example to a delimiter-balanced value at the next spec touch — this is a wording fix, not a scope/behavior change.
 
 ---
 
@@ -231,10 +233,10 @@ REQ-RXD-13.2 (remaining paths) — GIVEN one representative reject from the addI
 REQ-RXD-01.1 (full) — GIVEN `package.json#exports` WHEN `@pbuilder/sdk/react` is imported and the op-pack surface is enumerated (mechanism above) THEN it resolves AND the sorted keys EQUAL EXACTLY `["addImport", "setJsxProp"]`.
 
 ### Tasks
-- [ ] S-002.1 `src/dialects/react/ops.ts` — `addImport` per Contracts; wire into the op-pack (both ops now composed)
-- [ ] S-002.2 `test/dialects/react/ops.test.ts` (merge/create/idempotent/named-only goldens) + `name-validation.test.ts` addImport portion (SEC-3 breakout reject, SEC-4 escape pin)
-- [ ] S-002.3 coalescing scenario in `dialect.test.ts` — heterogeneous regions, one directive, golden (spy-client pattern)
-- [ ] S-002.4 `test/dialects/react/ops-exact-set.test.ts` — exact 2-op `toEqual` per mechanism above
+- [x] S-002.1 `src/dialects/react/ops.ts` — `addImport` per Contracts; wire into the op-pack (both ops now composed)
+- [x] S-002.2 `test/dialects/react/ops.test.ts` (merge/create/idempotent/named-only goldens) + `name-validation.test.ts` addImport portion (SEC-3 breakout reject, SEC-4 escape pin)
+- [x] S-002.3 coalescing scenario in `dialect.test.ts` — heterogeneous regions, one directive, golden (spy-client pattern)
+- [x] S-002.4 `test/dialects/react/ops-exact-set.test.ts` — exact 2-op `toEqual` per mechanism above
 
 ---
 
@@ -280,8 +282,8 @@ REQ-RXD-08.1 — GIVEN the JSX adversarial corpus (every class above) plus the 6
 REQ-RXD-08.2 — GIVEN the corpus exercised via `testOpPack` with `setJsxProp` chains, including `<Menu.Item/>` and the multi-line-attribute element as INSERTION targets WHEN run THEN each exercise's coalesced `modify` content is byte-exact against its fixture — fidelity under REAL mutation, not idle round-trip.
 
 ### Tasks
-- [ ] S-003.1 `test/conformance/react-conformance.test.ts` — 20 samples per enumeration above, authored failing-first
-- [ ] S-003.2 wire `testDialect` (round-trip legs incl. divergence-probe reject) + `testOpPack` (mutation legs + heterogeneous chain) against the react dialect
+- [x] S-003.1 `test/conformance/react-conformance.test.ts` — 20 samples per enumeration above (19 round-trip + 1 divergence-probe reject); implementation pre-existed (S-000–S-002), so genuine RED was proven via mutation probes (see apply-progress), not first-run failure
+- [x] S-003.2 wire `testDialect` (round-trip legs incl. divergence-probe reject) + `testOpPack` (mutation legs + heterogeneous chain) against the react dialect
 
 ---
 
@@ -317,10 +319,10 @@ REQ-RXD-09.4 — GIVEN the doc after this change WHEN scanned for the "first rea
 REQ-RXD-09.5 — GIVEN the shipped `find`'s JSDoc and the doc's React worked-example section WHEN scanned THEN both state the explicit-`.tsx` requirement — extensionless paths rejected — and name the forward-compatibility reason (future `.jsx` support).
 
 ### Tasks
-- [ ] S-004.1 `docs/authoring-a-dialect.md` — all Contracts items above, incl. pinned anchor sentinels
-- [ ] S-004.2 `README.md` line-12 example gains `@pbuilder/sdk/react`
-- [ ] S-004.3 `test/dialects/react/docs.test.ts` — guard via the pinned sentinels (trust + spread + explicit-extension), failing-first
-- [ ] S-004.4 regen FIT-04 `react.index.d.ts` baseline IF `find`'s JSDoc changed the emitted `.d.ts` (JSDoc trust line is FIT-04-pinned)
+- [x] S-004.1 `docs/authoring-a-dialect.md` — all Contracts items above, incl. pinned anchor sentinels
+- [x] S-004.2 `README.md` line-12 example gains `@pbuilder/sdk/react`
+- [x] S-004.3 `test/dialects/react/docs.test.ts` — guard via the pinned sentinels (trust + spread + explicit-extension), failing-first
+- [x] S-004.4 regen FIT-04 `react.index.d.ts` baseline IF `find`'s JSDoc changed the emitted `.d.ts` (JSDoc trust line is FIT-04-pinned) — N/A: `find`'s JSDoc text is unchanged by this slice (only the doc file + README were edited), so the `.d.ts` emission is unaffected; confirmed no diff needed via `git diff --stat` after the doc edits touched zero `.ts` files.
 
 ---
 
@@ -344,8 +346,8 @@ REQ-LC-02.3 — GIVEN the bun-link leg's scenario count and the tarball leg's WH
 REQ-LC-03.1 — GIVEN the e2e file after this change WHEN the pre-existing tarball-leg scenarios run alongside the extended probe set THEN the pre-existing scenarios pass with the same assertions they had before, AND the extended probe set additionally resolves `./react`.
 
 ### Tasks
-- [ ] S-005.1 extend the tarball leg with a `./react` probe (adapt the `./typescript` probe shape)
-- [ ] S-005.2 extend the bun-link leg with a `./react` probe + update the six-subpath count-parity assertion
+- [x] S-005.1 extend the tarball leg with a `./react` probe (adapt the `./typescript` probe shape)
+- [x] S-005.2 extend the bun-link leg with a `./react` probe + update the six-subpath count-parity assertion — the REQ-LC-02.3 parity check is already STRUCTURAL (scans shared-helper calls, not a hardcoded subpath count), so no separate count edit was needed; both legs' titles/assertions updated from "five" to "six" subpaths
 
 ---
 

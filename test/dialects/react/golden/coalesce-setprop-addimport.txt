@@ -1,0 +1,3 @@
+import { handleClick } from "./handlers";
+
+const el = <Button onClick={handleClick} />;

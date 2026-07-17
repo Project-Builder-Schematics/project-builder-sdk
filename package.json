@@ -55,6 +55,10 @@
     "./typescript": {
       "types": "./dist/dialects/typescript/index.d.ts",
       "import": "./dist/dialects/typescript/index.js"
+    },
+    "./react": {
+      "types": "./dist/dialects/react/index.d.ts",
+      "import": "./dist/dialects/react/index.js"
     }
   },
   "scripts": {

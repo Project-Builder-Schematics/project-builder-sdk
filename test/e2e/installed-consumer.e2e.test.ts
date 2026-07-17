@@ -234,7 +234,7 @@ afterAll(() => {
 });
 
 describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-06/08, ADR-0036)", () => {
-  it("REQ-TES-06.1/REQ-TES-08.1/REQ-LC-03.1: defineFactory is unreachable via ./testing; ./commons resolves without it; ./typescript resolves; ./core stays unresolvable", async () => {
+  it("REQ-TES-06.1/REQ-TES-08.1/REQ-LC-03.1: defineFactory is unreachable via ./testing; ./commons resolves without it; ./typescript and ./react resolve; ./core stays unresolvable", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
 
     // The scratch install must never touch the repo's own lockfile.
@@ -258,6 +258,7 @@ describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-06/08, ADR-00
         '  conformance: await probe("@pbuilder/sdk/conformance"),',
         '  testing: await probe("@pbuilder/sdk/testing"),',
         '  typescript: await probe("@pbuilder/sdk/typescript"),',
+        '  react: await probe("@pbuilder/sdk/react"),',
         '  core: await probe("@pbuilder/sdk/core"),',
         "};",
         "console.log(JSON.stringify(results));",
@@ -283,6 +284,10 @@ describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-06/08, ADR-00
     // REQ-LC-03.1: the probe set extends to ./typescript, additive to the pre-existing set.
     expect(results.typescript?.resolved).toBe(true);
     expect(results.typescript?.hasDefineFactory).toBe(false);
+
+    // S-005 (react-dialect): the probe set extends further to ./react, the 6th public subpath.
+    expect(results.react?.resolved).toBe(true);
+    expect(results.react?.hasDefineFactory).toBe(false);
 
     // TES-06.1: @pbuilder/sdk/core remains unresolvable by subpath.
     expect(results.core?.resolved).toBe(false);
@@ -315,7 +320,7 @@ describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-06/08, ADR-00
 });
 
 describe("e2e — installed-consumer-vantage, bun-link leg (S-000/S-001, REQ-LC-01/02/04/05, ADR-0041)", () => {
-  it("REQ-LC-01.1/REQ-LC-01.2: all five subpaths resolve via bun link; ./core stays unresolvable", async () => {
+  it("REQ-LC-01.1/REQ-LC-01.2: all six subpaths resolve via bun link; ./core stays unresolvable", async () => {
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
 
     const stdout = runScratchScript(
@@ -336,6 +341,7 @@ describe("e2e — installed-consumer-vantage, bun-link leg (S-000/S-001, REQ-LC-
         '  conformance: await probe("@pbuilder/sdk/conformance"),',
         '  testing: await probe("@pbuilder/sdk/testing"),',
         '  typescript: await probe("@pbuilder/sdk/typescript"),',
+        '  react: await probe("@pbuilder/sdk/react"),',
         '  core: await probe("@pbuilder/sdk/core"),',
         "};",
         "console.log(JSON.stringify(results));",
@@ -345,12 +351,13 @@ describe("e2e — installed-consumer-vantage, bun-link leg (S-000/S-001, REQ-LC-
 
     const results = parseLastJsonLine(stdout) as Record<string, { resolved: boolean }>;
 
-    // REQ-LC-01.1: all five public subpaths resolve by package name.
+    // REQ-LC-01.1: all six public subpaths resolve by package name (S-005: ./react is the 6th).
     expect(results.root?.resolved).toBe(true);
     expect(results.commons?.resolved).toBe(true);
     expect(results.conformance?.resolved).toBe(true);
     expect(results.testing?.resolved).toBe(true);
     expect(results.typescript?.resolved).toBe(true);
+    expect(results.react?.resolved).toBe(true);
 
     // REQ-LC-01.2: @pbuilder/sdk/core remains unresolvable by subpath.
     expect(results.core?.resolved).toBe(false);

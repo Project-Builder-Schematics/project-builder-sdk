@@ -9,7 +9,7 @@ tarball). APIs are unstable and will change.
 Start with the [quickstart](./docs/quickstart.md), or the [full doc index](./docs/README.md)
 for the reference set — verbs, error contract, dry-run, and
 [authoring a dialect](./docs/authoring-a-dialect.md) (structured, AST-aware mutation for one
-file type, e.g. `@pbuilder/sdk/typescript`).
+file type, e.g. `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`).
 
 ## What it is
 

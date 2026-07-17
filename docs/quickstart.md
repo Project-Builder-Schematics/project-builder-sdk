@@ -183,4 +183,4 @@ no hand-written input shape anywhere.
   assert against it.
 - [Dry-run](./dry-run.md) — preview a factory's planned changes before anything commits.
 - [Authoring a dialect](./authoring-a-dialect.md) — using or building a dialect
-  (e.g. `@pbuilder/sdk/typescript`) for structured file mutation.
+  (e.g. `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`) for structured file mutation.

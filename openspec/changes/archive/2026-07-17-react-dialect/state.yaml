@@ -1,0 +1,290 @@
+# Orchestrator-owned DAG state — react-dialect
+change: react-dialect
+triage: L
+execution_mode: automatic
+completed_phases:
+  - triage
+  - explore
+  - propose
+  - spec
+  - design
+  - steward-foresight
+  - slice
+  - plan-verify
+current_phase: judgment-day
+current_phase_status: >
+  VERIFY FINAL ITERATION 3 = **pass-with-followups** at 9a1c23c —
+  ARCHIVE-READY. **This token is CORRECT; do NOT "upgrade" it to `pass`.**
+  ORCHESTRATOR ERROR, CAUGHT BY THE VERIFIER: the launch prompt asserted
+  "archive requires verify-report = pass". That is FALSE.
+  `sdd-archive/SKILL.md:44` accepts BOTH tokens, and the token is
+  load-bearing in the OPPOSITE direction — Step 9 (SKILL.md:392-417)
+  registers followups into `project/pending-changes` ONLY on
+  `pass-with-followups`, and explicitly SKIPS that step on `pass`. Reporting
+  `pass` with F-2..F-8 open would have silently dropped EIGHT tracked
+  followups. The verifier refused the premise and cited the file rather than
+  complying — the pushback rule earning its keep.
+  F-1 RESOLVED: the mechanical set diff was reproduced from the spec's own V6
+  prose (spec 48 / code 48 / missing [] / extra [] / EXACT MATCH true, both
+  directions — V6 retired "at minimum", so over-blocking is now a violation
+  too); REQ-RXD-06.9 implemented with its substring counter-check (5/0); and
+  reproduced at the PUBLIC API beyond the validator —
+  addImport("eval"|"arguments") rejects, zero directives, file byte-unchanged,
+  lookalikes accepted and emit.
+  V6's COMPLETENESS CLAIM HOLDS, and it was attacked rather than nodded at:
+  oracle = node's real ES module parser via vm.SourceTextModule; ~194.7M
+  candidates, ZERO disagreements in both directions (exhaustive len 1-4 over
+  the full regex alphabet = 14.4M; exhaustive len 5 = 11.9M; len 6 partial
+  368/676 prefixes = 168M; plus 236k curated covering every ES/TS keyword,
+  contextual keyword and global). No 49th identifier exists. HONEST LIMIT,
+  stated unprompted: len >= 7 rests on the curated tier, not exhaustion — the
+  sweeps CORROBORATE the deduction, they do not replace it.
+  TDD PASS: RED reproduced by reverting the two entries in a scratch worktree
+  → 3 pass / 2 fail, both on `toBeInstanceOf(Error)` receiving `undefined` —
+  the validator not throwing, i.e. the defect itself. Not module resolution,
+  not syntax. Step 11b GATING: clean, 0 Bug/Architecture/MAJOR. Suite 1829
+  pass / 0 fail, 181 files, 20.32s, fresh /private/tmp worktree, ZERO
+  environmental timeouts.
+  NEXT: judgment-day (BLIND) — adversarial_review REQUIRED, both triggers
+  fire independently (triage L AND security/code-execution sensitive area).
+f1_closure_note: >
+  F-1 CLOSED 2026-07-17 against owner-signed V6 — commits 9a92944 (fix) +
+  299fc32 (docs). IMPORT_RESERVED_WORDS 46 → 48. The set was verified
+  MECHANICALLY rather than asserted: the runtime Set was parsed and diffed
+  against the spec's own 48-entry enumeration → "spec count: 48, code count:
+  48, missing: [], extra: [], EXACT MATCH: true". TDD was a GENUINE RED→GREEN
+  — the values were accepted before the fix, so real RED was available and no
+  mutation probe substituted for it: scoped run pre-fix 3 pass / 2 fail (both
+  failing for the RIGHT reason — toBeInstanceOf(Error) receiving undefined),
+  post-fix 5 pass / 0 fail. Suite 1829 pass / 0 fail in a fresh /private/tmp
+  worktree = 1824 baseline + 5 net new, exact, no unexplained delta, no
+  environmental timeout observed. Scope discipline held: only
+  IMPORT_RESERVED_WORDS and the REQ-RXD-06.9 test were touched.
+  PENDING: sdd-verify --mode=final iteration 3, to convert iteration 2's
+  `pass-with-followups` into `pass` (archive requires verify-report = pass).
+  Then judgment-day (BLIND).
+spec_v6_note: >
+  SPEC V6 OWNER-SIGNED 2026-07-17 — surgical F-1 closure, unfrozen from
+  V5-SIGNED. Amends REQ-RXD-06 ONLY (all 15 V5 REQ-IDs survive):
+  IMPORT_RESERVED_WORDS 46 → 48, adding `eval` and `arguments` — strict-mode
+  RESTRICTED IDENTIFIERS, not reserved words, which is legitimately why a
+  reserved-word set missed them. Critically it RETIRES the "at minimum"
+  floor: that phrasing was precisely what made F-1 spec-conformant rather
+  than a violation. Now "EXACTLY these 48 entries", with an explicit "MUST
+  NOT be read as at minimum going forward". The completeness claim is a
+  DEDUCTION from the grammar — addImport always emits into an ES module, ES
+  modules are always strict, so reserved words AND strict-mode-restricted
+  BindingIdentifiers both apply unconditionally and their union is the
+  complete set ECMA-262 can reject in BindingIdentifier position — and the
+  brute-force sweep corroborates it rather than being its source. Scoped
+  honestly to "the problem addImport.name validates", NOT to security in
+  general. Minted scenario REQ-RXD-06.9 with explicit values, argument
+  position, and a substring-acceptance counter-check (QA-5's lesson applied
+  unprompted). PENDING: sdd-apply — 2 words + 1 test — then re-verify final.
+verify_final_iteration_2: >
+  VERIFY FINAL ITERATION 2 = **pass-with-followups** at 01ecec7
+  (verify-report.md, overwritten; iteration 1's `fail` at f12ffba preserved
+  as history inside it). All NINE routed council items RESOLVED, each
+  independently reproduced rather than trusted. Step 11b gating audit found
+  no Bug/Architecture/MAJOR. Findings: quality (F-1, F-2, F-5), process
+  (F-3), design-conformance (F-4) — none gating. Suite 1824 pass / 0 fail in
+  a fresh /private/tmp worktree; tsc 0 errors; build exit 0; no environmental
+  timeout observed at all this run.
+  TDD Cycle Adherence PASS — the near-miss-mutant amendment is HONOURED, and
+  the verifier reproduced BOTH legs himself rather than accepting the claim:
+  baseline 76/0; mutant + OLD assertion 76/0 (false pass); mutant + NEW
+  assertion 65/11 (killed). The apply record RETRACTS its own false
+  discrimination claim in place rather than quietly editing it — the correct
+  disposal. The disclosed 5749bf2 commit-message deviation is ruled
+  RECOVERABLE: it misleads about which commit to read, never about what
+  shipped.
+  NEXT: judgment-day (BLIND) — adversarial_review is REQUIRED (L + sensitive)
+  and has NOT run. The verifier's own words, worth heeding: "given iteration
+  1's history, I'd weight the blind pass heavily rather than treat my `pass`
+  as sufficient."
+open_owner_decision: >
+  F-1 — NOT gating, owner's call. `addImport("arguments")` and
+  `addImport("eval")` emit code that node rejects with `SyntaxError:
+  Unexpected eval or arguments in strict mode`. Same class as SEC-1, narrowed
+  to 2 identifiers. SPEC-CONFORMANT (REQ-RXD-06 says "at minimum", and these
+  are not reserved *words*), which is why the verifier reported rather than
+  routed. But it sits in the channel the spec itself titles "security —
+  load-bearing", and a brute-force sweep proves closing it makes the denylist
+  PROVABLY COMPLETE at 48/48. Options: sdd-spec V6 -> sdd-apply for zero
+  residual, or register as a pending-change.
+fix_pass_note: >
+  V5 FIX PASS 2026-07-17 — all nine items across 9924a9d..dd2be18 (7
+  commits). 1797 pre-fix baseline + 27 net new tests.
+  THE AMENDMENT PROVED ITSELF: on QA-5 the fix agent built a genuine
+  NEAR-MISS mutant (wrong validator wired) — the OLD assertion false-passed
+  76/0 while the corrected one failed 65/11. That is exactly the mutant class
+  an absence-probe cannot see, and precisely why QA-5 survived three gates.
+  ARCH-3 was resolved the hard way: rather than weaken ADR-02 to describe the
+  code, ops.ts:55/:60 now route through new zeroMatchTail/multiMatchTail
+  helpers (bounding the echo length), making the ADR true; design.md amended
+  to match. Disclosed process deviation: the QA-5 test fix landed inside
+  5749bf2 (item 2's commit) since both touch name-validation.test.ts —
+  recorded in apply-progress.md rather than hidden.
+  PENDING: re-run sdd-verify --mode=final at dd2be18.
+spec_gate_note: >
+  SPEC V5 OWNER-SIGNED 2026-07-17 — the human gate is cleared. The owner reviewed the three judgement calls sdd-spec surfaced
+  (REQ-RXD-15 split from REQ-RXD-09; DOC-3 ruled a pending-change; 05.10's
+  aliased-merge output) and signed as-is. V5 was unfrozen from V4-SIGNED to
+  correct the spec defects the Council found; all 14 V4 REQ-IDs are
+  preserved, none removed or reused. AMENDED: REQ-RXD-05 (merge-or-create made shape-aware —
+  defines a specifier's LOCAL NAME and scopes the merge target strictly to
+  non-type-only named clauses; ONE idea closes all four correctness bugs;
+  scenarios 05.1-05.4 keep their expected outcomes, they were the correct
+  baseline), REQ-RXD-06 (adds an IMPORT_RESERVED_WORDS denylist — 46
+  ECMAScript reserved/strict-mode words + await, a real behaviour change; and
+  removes the false "full prototype-walk set" claim in favour of the accurate
+  Set-key-safety rationale, wording only), REQ-RXD-11 (11.5's literal example
+  "{" was unimplementable under ADR-03 → corrected to the delimiter-balanced
+  "{1+}"; closes a long-standing carry-forward). MINTED: REQ-RXD-15
+  (contributor docs must teach validatedOp — closes ARCH-1). New scenarios
+  under existing REQs: 05.5-05.10, 06.7, 06.8, 11.6.
+verify_final_status: >
+  FAILED 2026-07-17 at HEAD f12ffba — see verify-report.md (verdict `fail`,
+  adversarial_review `required`) and council-findings.md.
+legacy_verify_fail_note: >
+  VERIFY FINAL **FAILED** 2026-07-17 at HEAD f12ffba — see verify-report.md
+  (verdict `fail`, adversarial_review `required`) and council-findings.md.
+  The BUILD is intact and the suite is genuinely green; the GATE is what
+  failed. sdd-verify --mode=final gated on ONE item (F-01, MAJOR/quality).
+  The four BLIND anti-anchored Council personas run in parallel with it
+  (architect, qa-engineer, security-engineer, tech-writer — all opus) found
+  substantially more, including FOUR REAL CORRECTNESS BUGS in addImport that
+  the verifier missed. The fan-out is what caught them: verify-final alone
+  called this "a one-line JSDoc fix, not a re-plan" and would have shipped
+  it. ROUTED to Planner -> sdd-spec (unfreeze=true; V4 is SIGNED) -> apply ->
+  re-verify final -> judgment-day. NOTE: this file sat frozen at a stale
+  `build-complete` for ~1h while a recurring macOS TCC fault cut off all
+  ~/Documents access before the FAIL could be persisted; corrected on resume.
+build_status: >
+  All six slices S-000..S-005 APPLIED and committed. Both in-loop loops
+  exited clean (verify-in-loop-5.md closed S-002 at iteration 5;
+  verify-in-loop-6.md closed the S-003+S-004+S-005 final batch at iteration
+  6). Final batch commits: cf89a52, 548c581, 616ff75, 0257e5c, f78cb88.
+  Design contract confirmed by `git diff --name-status 6ee9af0..f78cb88`:
+  ZERO src/** changes in that batch. Suite: 1797 pass / 0 fail in a clean
+  /private/tmp worktree (the ~/Documents number lies — see carry_forward).
+  Retained for history: this is what the gate then found wanting.
+legacy_build_complete_note: >
+  BUILD COMPLETE 2026-07-17. All six slices (S-000..S-005) APPLIED and
+  VERIFIED DONE; both in-loop loops exited clean — verify-in-loop-5.md closed
+  S-002 at iteration 5, verify-in-loop-6.md closed the S-003+S-004+S-005
+  final batch at iteration 6 (PASS). Final batch commits: cf89a52 (S-003
+  conformance corpus), 548c581 (S-004 authoring docs), 616ff75 (S-005
+  installed-consumer six-subpath parity), 0257e5c + f78cb88 (apply records).
+  Design contract confirmed by `git diff --name-status 6ee9af0..f78cb88`:
+  ZERO src/** changes — every touched file matches its Create/Modify action
+  in design.md §4.2. Evidence, all independently REPRODUCED by the verifier
+  rather than trusted from the apply record: scoped batch 245 pass / 0 fail;
+  full suite 1797 pass / 0 fail across 2 runs in a clean /private/tmp
+  worktree of f78cb88 (1779 baseline + 18 net new); all 4 mutation probes
+  reproduced with their exact claimed isolation; S-004's worked example
+  executed byte-exact against real parse/print/setJsxProp/addImport. TDD call
+  on this batch: the mutation-probe-for-RED substitution is judged ADEQUATE
+  and appropriately narrow — used only where behaviour genuinely pre-existed,
+  since a literal RED there would require breaking working production code;
+  S-004 had genuine RED available and used it, which is the stronger choice
+  when it exists.
+in_loop_iteration: 0
+slices_done: [S-000, S-001, S-002, S-003, S-004, S-005]
+next_phase: >
+  OWNER SIGN of spec V5 — a HUMAN gate, blocking. Then sdd-apply against V5:
+  (a) the `getImportDeclaration` predicate, per REQ-RXD-05's shape-aware
+  algorithm — root cause of all four correctness bugs; (b) SEC-1 reserved
+  words per REQ-RXD-06; (c) F-01/DOC-1 the false `@example` at
+  src/dialects/react/index.ts:49-56 plus a .d.ts baseline regen; (d) QA-5 the
+  assertion leak (`toContain("name")` matches `"propName"`, so the hostile
+  battery cannot tell WHICH validator is wired); (e) DOC-2 the .tsx-only doc
+  gap; (f) DOC-4 doc-index rot at docs/README.md:16 and
+  docs/quickstart.md:186; (g) ARCH-3 ADR-02's false "by construction" clause
+  vs design §4.4; (h) REQ-RXD-15's validatedOp contributor doc. THEN
+  re-verify final -> judgment-day (BLIND; required: L + two sensitive areas)
+  -> steward reckoning -> architecture audit gate -> archive.
+  FIX-AGENT NOTE: adopt the Council's mutation-probe amendment — a probe that
+  substitutes for RED MUST include at least one NEAR-MISS mutant, not only an
+  absence mutant. QA-5 exists precisely because every probe so far was an
+  absence mutant, and absence mutants are the ones a substring-weak assertion
+  still catches.
+archive_commitments:
+  - >
+    DOC-3 — `could not parse "X" as TypeScript` hardcoded in the
+    dialect-GENERIC path at src/core/dialect-handle.ts:178. sdd-spec ruled it
+    a PENDING-CHANGE, not this change's spec: the file is marked
+    Read-only/zero-change in this change's own signed design §4.2, and a
+    correct fix means threading a per-dialect display name through the
+    `dialect-handle`/`define-dialect` seam every dialect shares — which is
+    the "any change to the engine" that triage.md puts out of scope. Note
+    test/core/dialect-handle.test.ts:328 currently PINS the wrong text.
+  - >
+    ARCH-2 — src/core/jsx-name-validator.ts holds JSX grammars in a
+    file-type-agnostic layer with exactly one consumer. Architect's call:
+    NOT a rebuild. Extend ADR-01's already-registered peer-module followup —
+    when dialect #3 lands, split it: `validatedOp` + `reject-tail` stay in
+    core (genuinely generic), the JSX grammars move to the leaf.
+  - >
+    Subprocess-timeout debt (pre-existing, out of scope) — see carry_forward.
+  - >
+    The .tsx/.jsx pending-changes row must be folded-or-reaffirmed at
+    archive, never duplicated.
+artefacts:
+  triage: openspec/changes/react-dialect/triage.md (obs #1032)
+  explore: openspec/changes/react-dialect/explore.md (obs #1035; AST decision obs #1037 owner-ratified ts-morph ScriptKind.Tsx)
+  proposal: openspec/changes/react-dialect/proposal.md rev 2 (obs #1041; op pair setJsxProp + addImport council-ratified; erratum notes on lines 19/133)
+  spec: specs/react-dialect/spec.md V4 SIGNED + specs/local-consumption/spec.md V2 (obs #1045; V3 minted+retired; V4 = extensionless-reject + denylist {__proto__, constructor, prototype})
+  design: openspec/changes/react-dialect/design.md rev 2 (obs #1051; additive; ADRs 01-05; spike 6 legs PASS; File Changes 16C/9M/3R)
+  north_star: openspec/changes/react-dialect/north-star.md (obs #1055; foresight ALIGNED; CQ-1/2/3 owner-affirmed 2026-07-16)
+  slices: openspec/changes/react-dialect/slices.md rev 2 (obs #1056; S-000..S-005 self-contained build brief; all-or-nothing completion)
+  plan_verify: verify-plan-1.md (gaps, obs #1057) + verify-plan-2.md (READY, obs #1060)
+  apply_progress: openspec/changes/react-dialect/apply-progress.md
+  verify_in_loop: verify-in-loop-1.md (S-000) + verify-in-loop-2.md (S-001, needs-fix) + verify-in-loop-3.md (S-001, pass) + verify-in-loop-4.md (S-002, needs-fix) + verify-in-loop-5.md (S-002, PASS) + verify-in-loop-6.md (S-003+S-004+S-005 final batch, PASS)
+  verify_final: openspec/changes/react-dialect/verify-report.md (verdict fail, adversarial_review required; gates on F-01 ONLY — the Council's findings are NOT in it)
+  council_findings: openspec/changes/react-dialect/council-findings.md (engram obs #2288) — 4 real addImport correctness bugs + 2 spec defects the final verifier missed; blind parallel fan-out (architect, qa-engineer, security-engineer, tech-writer, all opus)
+carry_forward:
+  - REQ-RXD-11.5 wording amendment -> pending-changes at archive.
+  - >
+    Strict TDD ordering violation on S-002 (impl written in the same editing
+    pass as the tests; RED proven retroactively) is DISCLOSED, not resolved.
+    sdd-verify --mode=final MUST audit it under TDD Cycle Adherence — it must
+    not downgrade to clean by attrition.
+  - >
+    RESOLVED 2026-07-17 by diagnostic. Full-suite instability is
+    ENVIRONMENTAL — not a regression, and NOT parallelism. The
+    parallel-execution hypothesis is refuted at the root: bun test is
+    sequential by default and package.json:64 runs a bare `bun test` with no
+    flags, so nothing was ever parallel. Control experiment settles the
+    regression question: HEAD's exact code (6ee9af0) checked out into
+    /private/tmp yields 1779 pass / 0 fail across 3/3 runs (~23s). Therefore
+    apply-progress.md's "1779 passing / 0 failing" claim is truthful and
+    exactly reproducible — just not under ~/Documents. Mechanism:
+    subprocess-bound tests (bun install / bun link / tsc --noEmit via
+    blocking spawnSync) run against bun's default 5000ms timeout, while
+    first-touch file scanning under ~/Documents inflates the first
+    `tsc --noEmit` from 663ms to 16694ms (26x). tsc --extendedDiagnostics
+    proves the work is identical on both sides (256 files / 48335 symbols /
+    556 types), so it is not ts-morph, not the type graph, and not the react
+    dialect. Strong inference: Microsoft Defender (wdavdaemon) real-time
+    scan — NOT A/B-proven, as a corporate EDR cannot be disabled to confirm.
+    Ruled out: parallelism, regression, ts-morph/type-graph growth,
+    dist/testing/commons d.ts drift, core AST leakage (FIT-37 holds), iCloud
+    sync, port binding, process.cwd() mutation. No shared-state defect exists.
+  - >
+    OPEN — pre-existing test debt, explicitly NOT react-dialect scope:
+    subprocess-bound tests declare no explicit timeout
+    (test/docs/quickstart-docs.test.ts:312 and :319, the S-03
+    permissive-proof CI guard, the installed-consumer-vantage e2e leg).
+    Their measured work is ~2s even on a fast filesystem against a 5000ms
+    budget — the declared budget does not describe the work, Defender or not.
+    Fix = explicit per-test timeouts (~30 min), NOT a raised global timeout
+    (that would mask genuinely slow tests everywhere). Environment-level
+    companion, not committed: a Defender real-time-scan exclusion for the
+    repo, or at minimum for .tmp-*/ scratch dirs.
+notes: >
+  Owner rulings embedded: .tsx-only (jsx pending-changes row added mid-plan,
+  archive must fold-or-reaffirm never duplicate); extensionless paths REJECT
+  (forward-compat with future .jsx); denylist of 3. Executor context: slices.md
+  self-contained for contracts, repo files are copy-adaptable precedents.
+  SDD skill files resolve from /home/barri/Projects/Claude-Code-harness/.claude/skills/.

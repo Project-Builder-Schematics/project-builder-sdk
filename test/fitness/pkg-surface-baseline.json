@@ -19,6 +19,10 @@
     "./typescript": {
       "types": "./dist/dialects/typescript/index.d.ts",
       "import": "./dist/dialects/typescript/index.js"
+    },
+    "./react": {
+      "types": "./dist/dialects/react/index.d.ts",
+      "import": "./dist/dialects/react/index.js"
     }
   },
   "dependencies": {
@@ -67,6 +71,10 @@
     "dist/core/handle-state.js",
     "dist/core/index.d.ts",
     "dist/core/index.js",
+    "dist/core/jsx-name-validator.d.ts",
+    "dist/core/jsx-name-validator.js",
+    "dist/core/reject-tail.d.ts",
+    "dist/core/reject-tail.js",
     "dist/core/schema/input-rejection.d.ts",
     "dist/core/schema/input-rejection.js",
     "dist/core/schema/schema-digest.d.ts",
@@ -87,6 +95,12 @@
     "dist/core/session.js",
     "dist/core/wire.d.ts",
     "dist/core/wire.js",
+    "dist/dialects/react/ast.d.ts",
+    "dist/dialects/react/ast.js",
+    "dist/dialects/react/index.d.ts",
+    "dist/dialects/react/index.js",
+    "dist/dialects/react/ops.d.ts",
+    "dist/dialects/react/ops.js",
     "dist/dialects/typescript/ast.d.ts",
     "dist/dialects/typescript/ast.js",
     "dist/dialects/typescript/index.d.ts",
