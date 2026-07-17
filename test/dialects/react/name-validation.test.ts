@@ -156,6 +156,38 @@ describe("REQ-RXD-06.7 — addImport.name reserved-word battery rejected pre-mut
   }
 });
 
+// REQ-RXD-06.9 (V6, F-1) — `eval` and `arguments` are strict-mode-RESTRICTED
+// `BindingIdentifier` names, a DIFFERENT grammar category from REQ-RXD-06.7's reserved words:
+// both remain valid identifiers outside binding position, so a reserved-word set cannot contain
+// them by construction. `addImport` always emits into an ES module (always strict), so both are
+// unconditionally rejected here. Same exact-Set-membership discipline as REQ-RXD-06.7 — a name
+// that merely CONTAINS one of these as a substring stays accepted.
+const STRICT_MODE_RESTRICTED_BATTERY = ["eval", "arguments"];
+const STRICT_MODE_RESTRICTED_LOOKALIKES = ["evaluate", "myEval", "argumentsList"];
+
+describe("REQ-RXD-06.9 — addImport.name strict-mode-restricted identifiers rejected pre-mutation (F-1)", () => {
+  for (const word of STRICT_MODE_RESTRICTED_BATTERY) {
+    it(`${JSON.stringify(word)} rejects, naming \`name\` and the reserved-word rule`, () => {
+      let caught: unknown;
+      try {
+        assertValidImportBinding(word);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(Error);
+      const message = (caught as Error).message;
+      expect(message).toContain("`name`");
+      expect(message.toLowerCase()).toContain("reserved word");
+    });
+  }
+
+  for (const lookalike of STRICT_MODE_RESTRICTED_LOOKALIKES) {
+    it(`${JSON.stringify(lookalike)} — merely CONTAINS a strict-mode-restricted name as a substring — is ACCEPTED`, () => {
+      expect(() => assertValidImportBinding(lookalike)).not.toThrow();
+    });
+  }
+});
+
 describe("REQ-RXD-13.3 — a 100-char hostile propName never appears, nor does any fragment longer than 16 chars", () => {
   it("names propName and the grammar rule; the full value and every long fragment are absent", () => {
     const hostile = "x".repeat(100) + "!"; // trailing "!" makes the grammar reject

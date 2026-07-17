@@ -16,11 +16,17 @@ import { boundedFragment, nameRuleTail } from "./reject-tail.ts";
 export const JSX_NAME_DENYLIST: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"]);
 
 // V5 (REQ-RXD-06, SEC-1): `IMPORT_BINDING_GRAMMAR` alone admits any `IdentifierName`, not a
-// `BindingIdentifier` — `import { name }` requires the latter. This frozen 46-word set (36
+// `BindingIdentifier` — `import { name }` requires the latter. This frozen set (36
 // always-reserved ECMAScript keywords + 9 strict-mode-reserved words + `await`, which is
 // reserved unconditionally here because `addImport` always emits into an ES module, and ES
 // modules are always strict) closes that gap. `.has()` equality only — never regex-encoded —
 // same mechanism as `JSX_NAME_DENYLIST`.
+//
+// V6 (F-1): `eval`/`arguments` added — 46 -> 48. These are strict-mode-RESTRICTED
+// `BindingIdentifier` names, a DIFFERENT grammar category from the 46 reserved words above: both
+// remain valid identifiers outside binding position, so a reserved-word set cannot contain them
+// by construction. The set is now COMPLETE for the BindingIdentifier-in-strict-ES-module problem
+// this argument validates (proven by exhaustive sweep against node's real ES module parser).
 export const IMPORT_RESERVED_WORDS: ReadonlySet<string> = new Set([
   "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do",
   "else", "enum", "export", "extends", "false", "finally", "for", "function", "if", "import", "in",
@@ -28,6 +34,7 @@ export const IMPORT_RESERVED_WORDS: ReadonlySet<string> = new Set([
   "var", "void", "while", "with",
   "implements", "interface", "let", "package", "private", "protected", "public", "static", "yield",
   "await",
+  "eval", "arguments",
 ]);
 
 // Verbatim from the shared contract (slices.md rev 2, "Name grammars + denylist"):
