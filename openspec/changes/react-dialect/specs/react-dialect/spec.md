@@ -1,7 +1,7 @@
 # React (TSX/JSX) Dialect Specification
 
 **Spec version**: V5
-**Status**: unfrozen (owner unfreeze 2026-07-16 sign retained through V4; re-opened 2026-07-17 for council fix pass — awaiting owner sign)
+**Status**: signed (owner, 2026-07-17)
 **Change**: `react-dialect`
 
 (V5: owner-routed council fix pass, 2026-07-17 — spec-first per explicit owner ruling

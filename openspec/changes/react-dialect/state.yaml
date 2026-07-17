@@ -11,13 +11,14 @@ completed_phases:
   - steward-foresight
   - slice
   - plan-verify
-current_phase: spec-awaiting-sign
+current_phase: apply
 current_phase_status: >
-  SPEC V5 MINTED 2026-07-17, UNSIGNED — awaiting OWNER sign. This is a HUMAN
-  gate and it blocks everything downstream (sdd-apply halts `spec-not-signed`
-  against an unsigned spec). V5 was unfrozen from V4-SIGNED to correct the
-  spec defects the Council found; all 14 V4 REQ-IDs are preserved, none
-  removed or reused. AMENDED: REQ-RXD-05 (merge-or-create made shape-aware —
+  SPEC V5 OWNER-SIGNED 2026-07-17 — the human gate is cleared; sdd-apply may
+  proceed. The owner reviewed the three judgement calls sdd-spec surfaced
+  (REQ-RXD-15 split from REQ-RXD-09; DOC-3 ruled a pending-change; 05.10's
+  aliased-merge output) and signed as-is. V5 was unfrozen from V4-SIGNED to
+  correct the spec defects the Council found; all 14 V4 REQ-IDs are
+  preserved, none removed or reused. AMENDED: REQ-RXD-05 (merge-or-create made shape-aware —
   defines a specifier's LOCAL NAME and scopes the merge target strictly to
   non-type-only named clauses; ONE idea closes all four correctness bugs;
   scenarios 05.1-05.4 keep their expected outcomes, they were the correct
