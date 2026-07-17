@@ -168,5 +168,137 @@ iteration" wording is corrected by this iteration's existence.
 Zero production-code changes in this iteration. Suite after fix iteration: 1769→1779
 (net +10), 0 fail, `tsc --noEmit` clean.
 
-**Next**: S-003 (conformance corpus), S-004 (docs), S-005 (installed-consumer parity) — all
-require only S-002 and are parallel-safe among themselves per Build Order.
+## S-003 — Conformance: 20-sample JSX adversarial corpus (COMPLETE)
+
+**Files created**: `test/conformance/react-conformance.test.ts` — fixture dialect/op-pack
+assembled from the real production building blocks (`defineDialect`/`defineOpPack`/`withOps`
+over `react/ast.ts`'s parse/print + `react/ops.ts`'s `setJsxProp`/`addImport`), per ADR-0012,
+mirroring `test/conformance/typescript-conformance.test.ts`'s own pattern.
+
+- **REQ-RXD-08.1**: 19 round-trip corpus samples (fragments, self-closing, expression
+  containers, spread props, namespaced attribute, HTML entities, `{/* comment */}`,
+  logical-AND, ternary, parenthesised return, template-literal JSX-lookalike, string-child
+  JSX-lookalike, `<br />`/`<br/>` whitespace fidelity, TSX generic-arrow, `<Menu.Item/>`,
+  multi-line-attribute element, CRLF, BOM, 4 MiB) driven through `testDialect` (which also
+  injects the 6 kit-mandatory samples). The 20th corpus class — the angle-bracket-cast
+  divergence probe (`const x = <string>y;`) — is DELIBERATELY excluded from the round-trip
+  array (it is a parse-REJECT sample per its own contract, not a round-trip one) and asserted
+  separately via a direct `dialect.ast.parse(...).toThrow()` check.
+- **REQ-RXD-08.2**: `testOpPack` fixture with three exercises — `<Menu.Item/>` as a
+  boolean-shorthand insertion target, the multi-line-attribute element as an insertion target
+  (both reusing the S-001 goldens `setprop-boolean-namespaced.txt` /
+  `setprop-multiline-before/after.txt` — the same fixture proven again through the
+  conformance kit's distinct execution path), and a heterogeneous `setJsxProp`+`addImport`
+  chain (reusing the S-002 golden `coalesce-setprop-addimport.txt`) that satisfies
+  `testOpPack`'s own mandatory multi-op-exercise rule and REQ-RXD-07's coalescing proof per
+  the slice's own Contracts note.
+
+**TDD note (disclosed, not a violation)**: every op/parse/print this slice's tests exercise
+was already implemented in S-000–S-002 — this slice wires EXISTING, already-verified
+behaviour into a new corpus/conformance surface, not new production code. Writing the tests
+first and running them passed immediately on first run (3/3), which Strict TDD's own RED
+phase flags as suspect ("either the behaviour already exists, or the test asserts nothing
+real"). Per the precedent this change already established at S-002's fix iteration
+(`verify-in-loop-4`/`-5`: "Discrimination proven by mutation probe... the probe is the RED
+substitute" for slices wiring pre-existing behaviour), three independent mutation probes were
+run and reverted, each isolating ONE describe block:
+
+1. `react/ast.ts print()` appended a marker suffix → round-trip test (19+6 samples) AND the
+   op-pack fidelity test both failed (2/3); the divergence-probe test was correctly unmoved.
+   Reverted; `git status --porcelain`/`diff` empty.
+2. `react/ast.ts parse()`'s syntactic-diagnostic throw was short-circuited (`if (false && ...)`)
+   → ONLY the divergence-probe test failed (1/3); round-trip and op-pack tests unmoved.
+   Reverted; clean.
+3. `react/ops.ts setJsxProp`'s `element.addAttribute(...)` call was replaced with a no-op →
+   ONLY the op-pack fidelity test failed (1/3); round-trip and divergence-probe tests unmoved.
+   Reverted; clean.
+
+Each probe touched exactly the mechanism its corresponding test claims to prove, and only that
+test moved — confirming the three describe blocks are independently discriminating, not
+mutually redundant or vacuous.
+
+Suite: scoped run (`test/dialects/react/`, `test/conformance/`, the six relevant fitness
+files, `test/security/canary-no-echo.test.ts`) — 229 pass / 0 fail. `tsc --noEmit` clean. All
+tasks S-003.1–.2 marked `[x]` in `slices.md`.
+
+## S-004 — Docs: worked example, trust posture, honest limitations (COMPLETE)
+
+**Files created**: `test/dialects/react/docs.test.ts` — 15 tests, guard-asserting: the
+two-dialect intro reframe (REQ-RXD-09.4, no sentence describes `./typescript` as the only
+shipped dialect); the React section names both shipped ops, v1 minimality, the op-catalog
+follow-up, and `.modify(fn)` (REQ-RXD-09.1); the coalesced `addImport`+`setJsxProp` worked
+example with `// ->` output (REQ-RXD-09.2); the `value`-trust and spread-precedence pinned
+sentinel sections, each with a red-proof that fails if the section is removed (REQ-RXD-09.3,
+mirrors `test/docs/security-authoring-guard.test.ts`'s REQ-DAS-01.2 pattern); the
+explicit-`.tsx`-extension requirement in BOTH `find`'s JSDoc and the worked-example section
+(REQ-RXD-09.5); and README's doc-index line naming `@pbuilder/sdk/react`.
+
+**Files modified**: `docs/authoring-a-dialect.md` (intro paragraph reframed to name both
+shipped dialects; new `### \`@pbuilder/sdk/react\` — a second dialect` section — minimality
+framing, the coalesced worked example, `value`-trust and spread-precedence subsections),
+`README.md` (line-12 doc-index example gains `@pbuilder/sdk/react`).
+
+**True TDD cycle (RED was genuine here — no mutation probe needed)**: unlike S-003, this
+slice's tests assert prose that did not exist yet. `docs.test.ts` was written FIRST and run —
+11/15 failed for the right reason (missing sections/sentences: `error: missing the "###
+\`@pbuilder/sdk/react\` — a second dialect" section`, `Expected to contain: "The SDK performs
+no validation..."`, etc.). Two test bugs surfaced and were fixed BEFORE any doc content was
+written (README paragraph-boundary detection was line-scoped but the target sentence wraps
+across two source lines; the intro-paragraph check indexed the wrong `\n\n`-split segment) —
+both are test-file corrections, not implementation written ahead of a test. The doc content
+was then written to match; two further RED iterations surfaced REAL wording mismatches
+(the spread-precedence sentinel ended its clause with `):` in the doc vs `).` in the pinned
+constant; two pinned sentences were markdown-wrapped across lines, so `toContain` legitimately
+failed against the wrapped text) — each was fixed by adjusting the DOC prose to stay unwrapped
+for the pinned sentence, matching this repo's existing precedent (`SECURITY.md`'s own pinned
+sentences are single unwrapped lines, per `test/docs/security-authoring-guard.test.ts`), never
+by loosening the test assertion. Final run: 15/15 pass.
+
+Suite: `docs.test.ts` 15/15; `test/dialects/react/` + `test/docs/` 187/188 (1 unrelated
+subprocess-timeout flake in `testing-story-docs.test.ts`'s `dry-run.md` fence-compile check —
+reproduced GREEN in isolation immediately after, confirming the environmental-flakiness
+pattern already diagnosed for this working directory, not a regression from this slice).
+`tsc --noEmit` clean. All tasks S-004.1–.4 marked `[x]` in `slices.md` (S-004.4 is N/A: `find`'s
+JSDoc text was not touched by this slice, so no `.d.ts` baseline regen was needed).
+
+## S-005 — Installed-consumer six-subpath parity (COMPLETE)
+
+**Files modified**: `test/e2e/installed-consumer.e2e.test.ts` — both legs' `check-resolution.mjs`
+probe object gained a `react: await probe("@pbuilder/sdk/react")` entry; both legs' assertions
+gained `expect(results.react?.resolved).toBe(true)` (tarball leg also asserts
+`hasDefineFactory === false`, matching the `./typescript` probe's own shape); both `it()` titles
+and the bun-link leg's inline comments updated from "five" to "six" subpaths. REQ-LC-02.3's
+own count-parity check needed NO edit — it is already STRUCTURAL (scans both legs'
+`describe` blocks for calls to the five shared scenario helpers + counts top-level `it()`s),
+not a hardcoded subpath count.
+
+**TDD note (disclosed, mutation-probe RED substitute — same posture as S-003)**: `./react`
+already resolved via both install vehicles (the `./react` export was added in S-000, proven at
+the unit level by `fit-09`/`fit-14`); this slice wires that pre-existing capability into the
+e2e installed-consumer proof, so the new assertions passed on first run (16/16). Mutation
+probe: temporarily removed the `./react` entry from `package.json#exports`, re-ran the full
+e2e file — exactly the two new `results.react?.resolved` assertions failed (one per leg, tarball
++ bun-link), all 14 other scenarios (including the cross-leg structural red-proofs) stayed
+green. Reverted `package.json`; `git diff --stat`/`git status --porcelain package.json` empty;
+re-ran — 16/16 green again.
+
+**Environmental note**: this e2e file triggers `bun run build` (full `prebuild`+`tsc -p
+tsconfig.build.json`) plus `bun pm pack`/`bun install --ignore-scripts` (tarball leg) and `bun
+link` (bun-link leg) per process — the exact subprocess-bound shape flagged as flaky in this
+working directory. Both the pre-mutation and post-revert runs completed cleanly in ~6-7s with
+no timeout (`bun test --timeout 180000` used defensively; the runs never approached it) — no
+flakiness observed for this slice's own scope.
+
+Suite: `test/e2e/installed-consumer.e2e.test.ts` 16/16, `tsc --noEmit` clean. All tasks
+S-005.1–.2 marked `[x]` in `slices.md`.
+
+## Batch summary (S-003 + S-004 + S-005)
+
+All three slices DONE. Scoped combined suite (`test/dialects/react/`, `test/conformance/`,
+`test/e2e/installed-consumer.e2e.test.ts`, the react-relevant fitness files,
+`test/security/canary-no-echo.test.ts`) is green throughout; `tsc --noEmit` clean throughout.
+No production code was changed by this batch — S-003/S-004/S-005 are test- and docs-only
+slices per their own Tasks lists; every mutation probe above was reverted with a verified-empty
+diff before moving to the next slice. This closes ALL six slices of `react-dialect`
+(S-000..S-005) — the change is now complete pending in-loop re-verification of this batch and
+the final `sdd-verify --mode=final` gate.

@@ -282,8 +282,8 @@ REQ-RXD-08.1 — GIVEN the JSX adversarial corpus (every class above) plus the 6
 REQ-RXD-08.2 — GIVEN the corpus exercised via `testOpPack` with `setJsxProp` chains, including `<Menu.Item/>` and the multi-line-attribute element as INSERTION targets WHEN run THEN each exercise's coalesced `modify` content is byte-exact against its fixture — fidelity under REAL mutation, not idle round-trip.
 
 ### Tasks
-- [ ] S-003.1 `test/conformance/react-conformance.test.ts` — 20 samples per enumeration above, authored failing-first
-- [ ] S-003.2 wire `testDialect` (round-trip legs incl. divergence-probe reject) + `testOpPack` (mutation legs + heterogeneous chain) against the react dialect
+- [x] S-003.1 `test/conformance/react-conformance.test.ts` — 20 samples per enumeration above (19 round-trip + 1 divergence-probe reject); implementation pre-existed (S-000–S-002), so genuine RED was proven via mutation probes (see apply-progress), not first-run failure
+- [x] S-003.2 wire `testDialect` (round-trip legs incl. divergence-probe reject) + `testOpPack` (mutation legs + heterogeneous chain) against the react dialect
 
 ---
 
@@ -319,10 +319,10 @@ REQ-RXD-09.4 — GIVEN the doc after this change WHEN scanned for the "first rea
 REQ-RXD-09.5 — GIVEN the shipped `find`'s JSDoc and the doc's React worked-example section WHEN scanned THEN both state the explicit-`.tsx` requirement — extensionless paths rejected — and name the forward-compatibility reason (future `.jsx` support).
 
 ### Tasks
-- [ ] S-004.1 `docs/authoring-a-dialect.md` — all Contracts items above, incl. pinned anchor sentinels
-- [ ] S-004.2 `README.md` line-12 example gains `@pbuilder/sdk/react`
-- [ ] S-004.3 `test/dialects/react/docs.test.ts` — guard via the pinned sentinels (trust + spread + explicit-extension), failing-first
-- [ ] S-004.4 regen FIT-04 `react.index.d.ts` baseline IF `find`'s JSDoc changed the emitted `.d.ts` (JSDoc trust line is FIT-04-pinned)
+- [x] S-004.1 `docs/authoring-a-dialect.md` — all Contracts items above, incl. pinned anchor sentinels
+- [x] S-004.2 `README.md` line-12 example gains `@pbuilder/sdk/react`
+- [x] S-004.3 `test/dialects/react/docs.test.ts` — guard via the pinned sentinels (trust + spread + explicit-extension), failing-first
+- [x] S-004.4 regen FIT-04 `react.index.d.ts` baseline IF `find`'s JSDoc changed the emitted `.d.ts` (JSDoc trust line is FIT-04-pinned) — N/A: `find`'s JSDoc text is unchanged by this slice (only the doc file + README were edited), so the `.d.ts` emission is unaffected; confirmed no diff needed via `git diff --stat` after the doc edits touched zero `.ts` files.
 
 ---
 
@@ -346,8 +346,8 @@ REQ-LC-02.3 — GIVEN the bun-link leg's scenario count and the tarball leg's WH
 REQ-LC-03.1 — GIVEN the e2e file after this change WHEN the pre-existing tarball-leg scenarios run alongside the extended probe set THEN the pre-existing scenarios pass with the same assertions they had before, AND the extended probe set additionally resolves `./react`.
 
 ### Tasks
-- [ ] S-005.1 extend the tarball leg with a `./react` probe (adapt the `./typescript` probe shape)
-- [ ] S-005.2 extend the bun-link leg with a `./react` probe + update the six-subpath count-parity assertion
+- [x] S-005.1 extend the tarball leg with a `./react` probe (adapt the `./typescript` probe shape)
+- [x] S-005.2 extend the bun-link leg with a `./react` probe + update the six-subpath count-parity assertion — the REQ-LC-02.3 parity check is already STRUCTURAL (scans shared-helper calls, not a hardcoded subpath count), so no separate count edit was needed; both legs' titles/assertions updated from "five" to "six" subpaths
 
 ---
 
