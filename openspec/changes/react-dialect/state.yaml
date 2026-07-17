@@ -11,11 +11,41 @@ completed_phases:
   - steward-foresight
   - slice
   - plan-verify
-current_phase: verify-final
+current_phase: verify-final-passed
 current_phase_status: >
-  V5 FIX PASS COMPLETE 2026-07-17 — all nine routed council items DONE across
-  9924a9d..dd2be18 (7 commits). Suite: 1824 pass / 0 fail in a fresh
-  /private/tmp worktree (1797 pre-fix baseline + 27 net new tests).
+  VERIFY FINAL ITERATION 2 = **pass-with-followups** at 01ecec7
+  (verify-report.md, overwritten; iteration 1's `fail` at f12ffba preserved
+  as history inside it). All NINE routed council items RESOLVED, each
+  independently reproduced rather than trusted. Step 11b gating audit found
+  no Bug/Architecture/MAJOR. Findings: quality (F-1, F-2, F-5), process
+  (F-3), design-conformance (F-4) — none gating. Suite 1824 pass / 0 fail in
+  a fresh /private/tmp worktree; tsc 0 errors; build exit 0; no environmental
+  timeout observed at all this run.
+  TDD Cycle Adherence PASS — the near-miss-mutant amendment is HONOURED, and
+  the verifier reproduced BOTH legs himself rather than accepting the claim:
+  baseline 76/0; mutant + OLD assertion 76/0 (false pass); mutant + NEW
+  assertion 65/11 (killed). The apply record RETRACTS its own false
+  discrimination claim in place rather than quietly editing it — the correct
+  disposal. The disclosed 5749bf2 commit-message deviation is ruled
+  RECOVERABLE: it misleads about which commit to read, never about what
+  shipped.
+  NEXT: judgment-day (BLIND) — adversarial_review is REQUIRED (L + sensitive)
+  and has NOT run. The verifier's own words, worth heeding: "given iteration
+  1's history, I'd weight the blind pass heavily rather than treat my `pass`
+  as sufficient."
+open_owner_decision: >
+  F-1 — NOT gating, owner's call. `addImport("arguments")` and
+  `addImport("eval")` emit code that node rejects with `SyntaxError:
+  Unexpected eval or arguments in strict mode`. Same class as SEC-1, narrowed
+  to 2 identifiers. SPEC-CONFORMANT (REQ-RXD-06 says "at minimum", and these
+  are not reserved *words*), which is why the verifier reported rather than
+  routed. But it sits in the channel the spec itself titles "security —
+  load-bearing", and a brute-force sweep proves closing it makes the denylist
+  PROVABLY COMPLETE at 48/48. Options: sdd-spec V6 -> sdd-apply for zero
+  residual, or register as a pending-change.
+fix_pass_note: >
+  V5 FIX PASS 2026-07-17 — all nine items across 9924a9d..dd2be18 (7
+  commits). 1797 pre-fix baseline + 27 net new tests.
   THE AMENDMENT PROVED ITSELF: on QA-5 the fix agent built a genuine
   NEAR-MISS mutant (wrong validator wired) — the OLD assertion false-passed
   76/0 while the corrected one failed 65/11. That is exactly the mutant class
