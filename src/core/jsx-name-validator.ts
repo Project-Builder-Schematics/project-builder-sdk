@@ -12,15 +12,23 @@
 import { dialectError } from "./dialect-error.ts";
 import { boundedFragment, nameRuleTail } from "./reject-tail.ts";
 
-/** Frozen V4 denylist — `.has()` equality only, NEVER an object literal, never regex-encoded. */
+// judgment-day (comment-only fix): "Frozen" previously implied a RUNTIME immutability
+// guarantee. `ReadonlySet<string>` is a compile-time-only guard — it does not stop
+// `Set.prototype.add`/`.delete`/`.clear` at runtime, and no `Object.freeze` wraps this value
+// (a prior gate correctly ruled that actually freezing it would be theatre: the module is
+// kit-internal, never re-exported through any barrel/subpath, so no external caller can ever
+// obtain a reference to mutate it). The real, load-bearing property is Set-key-safety
+// (below) and membership via `.has()` equality — never denylist-object mutability.
+/** V4 denylist, checked via `.has()` equality only — NEVER an object literal, never regex-encoded. */
 export const JSX_NAME_DENYLIST: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"]);
 
 // V5 (REQ-RXD-06, SEC-1): `IMPORT_BINDING_GRAMMAR` alone admits any `IdentifierName`, not a
-// `BindingIdentifier` — `import { name }` requires the latter. This frozen set (36
-// always-reserved ECMAScript keywords + 9 strict-mode-reserved words + `await`, which is
-// reserved unconditionally here because `addImport` always emits into an ES module, and ES
-// modules are always strict) closes that gap. `.has()` equality only — never regex-encoded —
-// same mechanism as `JSX_NAME_DENYLIST`.
+// `BindingIdentifier` — `import { name }` requires the latter. This set (36 always-reserved
+// ECMAScript keywords + 9 strict-mode-reserved words + `await`, which is reserved
+// unconditionally here because `addImport` always emits into an ES module, and ES modules are
+// always strict) closes that gap. Typed `ReadonlySet<string>` — a compile-time-only guard, not
+// a runtime freeze (see the note above `JSX_NAME_DENYLIST`); its membership is `.has()`
+// equality only — never regex-encoded — same mechanism as `JSX_NAME_DENYLIST`.
 //
 // V6 (F-1): `eval`/`arguments` added — 46 -> 48. These are strict-mode-RESTRICTED
 // `BindingIdentifier` names, a DIFFERENT grammar category from the 46 reserved words above: both
