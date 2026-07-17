@@ -11,8 +11,24 @@ completed_phases:
   - steward-foresight
   - slice
   - plan-verify
-current_phase: apply
+current_phase: verify-final
 current_phase_status: >
+  F-1 CLOSED 2026-07-17 against owner-signed V6 — commits 9a92944 (fix) +
+  299fc32 (docs). IMPORT_RESERVED_WORDS 46 → 48. The set was verified
+  MECHANICALLY rather than asserted: the runtime Set was parsed and diffed
+  against the spec's own 48-entry enumeration → "spec count: 48, code count:
+  48, missing: [], extra: [], EXACT MATCH: true". TDD was a GENUINE RED→GREEN
+  — the values were accepted before the fix, so real RED was available and no
+  mutation probe substituted for it: scoped run pre-fix 3 pass / 2 fail (both
+  failing for the RIGHT reason — toBeInstanceOf(Error) receiving undefined),
+  post-fix 5 pass / 0 fail. Suite 1829 pass / 0 fail in a fresh /private/tmp
+  worktree = 1824 baseline + 5 net new, exact, no unexplained delta, no
+  environmental timeout observed. Scope discipline held: only
+  IMPORT_RESERVED_WORDS and the REQ-RXD-06.9 test were touched.
+  PENDING: sdd-verify --mode=final iteration 3, to convert iteration 2's
+  `pass-with-followups` into `pass` (archive requires verify-report = pass).
+  Then judgment-day (BLIND).
+spec_v6_note: >
   SPEC V6 OWNER-SIGNED 2026-07-17 — surgical F-1 closure, unfrozen from
   V5-SIGNED. Amends REQ-RXD-06 ONLY (all 15 V5 REQ-IDs survive):
   IMPORT_RESERVED_WORDS 46 → 48, adding `eval` and `arguments` — strict-mode
