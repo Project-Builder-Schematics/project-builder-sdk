@@ -13,13 +13,15 @@ package rather than rendering a template.
 - **`create(path, { template, options })`** — schedules a file-creation directive. Rejected
   on an existing path unless `{ force: true }` is passed (fail-closed on overwrite). A third
   overload, `create(path, { templateFile, options })`, reads a package-local file at emission
-  time instead of an inline `template` string.
+  time instead of an inline `template` string. Both `path` and `template` are template
+  strings the engine renders against `options` — the full language (delimiters, pipes,
+  loops) is in [Authoring `create` templates](./create-templates.md).
 
   ```ts
   import { create } from "@pbuilder/sdk/commons";
 
   create("src/index.ts", {
-    template: "export const version = '{{version}}';",
+    template: "export const version = '{= .version =}';",
     options: { version: "1.0.0" },
   });
   ```
