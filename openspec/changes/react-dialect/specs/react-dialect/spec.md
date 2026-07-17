@@ -1,8 +1,27 @@
 # React (TSX/JSX) Dialect Specification
 
-**Spec version**: V5
+**Spec version**: V6
 **Status**: signed (owner, 2026-07-17)
 **Change**: `react-dialect`
+
+(V6: verify-final iteration-2 F-1 closure, 2026-07-17 — owner-decided surgical amendment, no
+scope re-open. `sdd-verify --mode=final` iteration 2 (`verify-report.md`) ruled V5's
+`addImport.name` denylist SPEC-CONFORMANT (46/46, zero drift) but surfaced a residual hole in
+the requirement's own FLOOR: `eval` and `arguments` pass validation and emit `import { eval }
+from "react";` / `import { arguments } from "react";`, which node's real ES module parser
+rejects (`SyntaxError: Unexpected eval or arguments in strict mode`) — the same defect CLASS as
+SEC-1 (grammar admits `IdentifierName`, not `BindingIdentifier`), narrowed to two identifiers
+V5's reserved-word set legitimately could not contain: `eval`/`arguments` are
+strict-mode-RESTRICTED BindingIdentifier names, not reserved words, so a reserved-word set —
+however exhaustive over ECMAScript keywords — is the wrong category to catch them. REQ-RXD-06
+now: (1) adds both to `IMPORT_RESERVED_WORDS`, 46 → 48; (2) retires the "at minimum" floor
+language for this set — the verifier's brute-force sweep proves 48/48 is COMPLETE for the
+BindingIdentifier-in-strict-ES-module problem this argument validates, so the requirement now
+states completeness instead of a lower bound; (3) adds Scenario REQ-RXD-06.9 pinning
+`eval`/`arguments` rejection with a substring-acceptance counter-check, matching REQ-RXD-06.7's
+shape. Nothing else in this spec changes — REQ-RXD-05, REQ-RXD-15, and all other REQs are
+untouched; `council-findings.md`'s CLOSED items and the archive commitments (DOC-3, ARCH-2,
+subprocess-timeout debt) stay exactly as recorded.)
 
 (V5: owner-routed council fix pass, 2026-07-17 — spec-first per explicit owner ruling
 ("patching code against a signed spec that states falsehoods re-opens on the next drift
@@ -445,20 +464,31 @@ Validation is PER-ARGUMENT with THREE distinct grammars — a single shared iden
 wrong for JSX and is explicitly rejected by this requirement:
 
 - **`addImport.name`** MUST match `^[A-Za-z_$][A-Za-z0-9_$]*$` (JS import bindings are plain
-  identifiers) AND MUST NOT be one of the ECMAScript reserved words listed below — the regex
-  alone admits `IdentifierName`, not `BindingIdentifier`, and `import { name }` requires a
-  valid BindingIdentifier in binding position. The frozen reserved-word set
+  identifiers) AND MUST NOT be one of the reserved words or strict-mode-restricted identifiers
+  listed below — the regex alone admits `IdentifierName`, not `BindingIdentifier`, and
+  `import { name }` requires a valid BindingIdentifier in binding position. The frozen set
   `IMPORT_RESERVED_WORDS` (checked via `.has()` equality, same mechanism as
-  `JSX_NAME_DENYLIST`, never regex-encoded) MUST contain, at minimum, the always-reserved
-  ECMAScript keywords (`break case catch class const continue debugger default delete do else
-  enum export extends false finally for function if import in instanceof new null return super
-  switch this throw true try typeof var void while with`) PLUS the strict-mode-reserved words
-  (`implements interface let package private protected public static yield`) PLUS `await` —
-  strict-mode and `await`-reservation both apply unconditionally here because `addImport`
-  always emits into an ES module, and ES modules are ALWAYS strict. No alias handling — neither
-  v1 op takes an `as`-alias argument. NOTE: the shipped TypeScript dialect's `addImport`
-  performs NO name validation today (a confirmed vulnerability class); the React dialect's
-  MUST, from day one.
+  `JSX_NAME_DENYLIST`, never regex-encoded) MUST contain EXACTLY these 48 entries: the
+  always-reserved ECMAScript keywords (`break case catch class const continue debugger default
+  delete do else enum export extends false finally for function if import in instanceof new
+  null return super switch this throw true try typeof var void while with`) PLUS the
+  strict-mode-reserved words (`implements interface let package private protected public
+  static yield`) PLUS `await` PLUS the strict-mode-RESTRICTED BindingIdentifier names `eval`
+  and `arguments` (V6 — closes F-1). The last two are a DIFFERENT grammar category from the
+  other 46: `eval` and `arguments` are not reserved words — both remain valid identifiers
+  outside binding position, and as binding names in non-strict code — a strict-mode early-error
+  rule alone forbids them as a `BindingIdentifier`. That is exactly why a reserved-word set,
+  however exhaustively it covers ECMAScript keywords, does not and cannot contain them by
+  construction: a real gap in this requirement's floor, not an oversight in the code that
+  implemented it (the shipped set matched the V5 spec exactly, 46/46, zero drift). Because
+  `addImport` always emits into an ES module, and ES modules are ALWAYS strict, BOTH categories
+  — reserved words AND strict-mode-restricted BindingIdentifiers — apply unconditionally here,
+  and their union is the complete set of identifier strings ECMA-262 can reject in
+  BindingIdentifier position. This set is therefore COMPLETE for the problem `addImport.name`
+  validates, not a floor: `IMPORT_RESERVED_WORDS` MUST NOT be read as "at minimum" going
+  forward. No alias handling — neither v1 op takes an `as`-alias argument. NOTE: the shipped
+  TypeScript dialect's `addImport` performs NO name validation today (a confirmed vulnerability
+  class); the React dialect's MUST, from day one.
 - **`setJsxProp.propName`** MUST match `^[A-Za-z_][A-Za-z0-9_-]*(:[A-Za-z_][A-Za-z0-9_-]*)?$`
   — hyphens and ONE colon segment admitted, so `data-testid`, `aria-label`, and `xlink:href`
   (the most common real-world attribute classes) are accepted. The widening is injection-safe:
@@ -517,7 +547,14 @@ wording now states the REAL, narrower load-bearing property of `__proto__` in `p
 position (consumer generated-code prototype-setting, not SDK memory) and names Set-key-safety,
 not denylist width, as the actual defence against SDK-internal pollution — correcting the spec
 to match what the shipped code comment already said correctly. `constructor`/`prototype` stay
-denylisted (unchanged behaviour) but are now honestly described as defense-in-depth.)
+denylisted (unchanged behaviour) but are now honestly described as defense-in-depth. V6 (F-1,
+verify-final iteration 2): `IMPORT_RESERVED_WORDS` widens from 46 to 48 — `eval` and `arguments`
+added. These are strict-mode-restricted BindingIdentifier names, not reserved words, which is
+why V5's reserved-word enumeration legitimately did not catch them: a reserved-word set is the
+wrong category for a strict-mode binding restriction, not a narrower version of the same
+category. The requirement's "at minimum" floor language is retired for this set: the verifier's
+exhaustive sweep proves 48/48 is complete for the BindingIdentifier-in-strict-ES-module problem
+this argument validates.)
 
 #### Scenario REQ-RXD-06.1: hostile expression as PROP NAME rejected pre-mutation (SEC-1)
 
@@ -590,6 +627,18 @@ denylisted (unchanged behaviour) but are now honestly described as defense-in-de
 - THEN zero matches — all targeting and validation use `===`/`Set`/`Map` equality only; this
   property, not denylist width, is the requirement's actual defence against SDK-internal
   prototype pollution
+
+#### Scenario REQ-RXD-06.9: `addImport.name` strict-mode-restricted identifiers rejected pre-mutation (NEW, V6 — F-1)
+
+- GIVEN `eval` supplied as `addImport.name` (`addImport("eval", "react")`) and, separately,
+  `arguments` supplied as `addImport.name` (`addImport("arguments", "react")`) — each its own
+  isolated application
+- WHEN `addImport` is applied
+- THEN both reject via `dialectError` BEFORE any AST mutation — zero directives emitted, target
+  file byte-unchanged, tail names `name` and the reserved-word rule; AND identifiers that merely
+  CONTAIN one of these two names as a substring (`evaluate`, `myEval`, `argumentsList`) supplied
+  as `addImport.name` are ACCEPTED — same exact-Set-membership discipline as REQ-RXD-06.7, now
+  exercised against the full 48-entry `IMPORT_RESERVED_WORDS` set
 
 ### REQ-RXD-07: Coalescing — heterogeneous-region proof
 

@@ -11,8 +11,26 @@ completed_phases:
   - steward-foresight
   - slice
   - plan-verify
-current_phase: verify-final-passed
+current_phase: apply
 current_phase_status: >
+  SPEC V6 OWNER-SIGNED 2026-07-17 — surgical F-1 closure, unfrozen from
+  V5-SIGNED. Amends REQ-RXD-06 ONLY (all 15 V5 REQ-IDs survive):
+  IMPORT_RESERVED_WORDS 46 → 48, adding `eval` and `arguments` — strict-mode
+  RESTRICTED IDENTIFIERS, not reserved words, which is legitimately why a
+  reserved-word set missed them. Critically it RETIRES the "at minimum"
+  floor: that phrasing was precisely what made F-1 spec-conformant rather
+  than a violation. Now "EXACTLY these 48 entries", with an explicit "MUST
+  NOT be read as at minimum going forward". The completeness claim is a
+  DEDUCTION from the grammar — addImport always emits into an ES module, ES
+  modules are always strict, so reserved words AND strict-mode-restricted
+  BindingIdentifiers both apply unconditionally and their union is the
+  complete set ECMA-262 can reject in BindingIdentifier position — and the
+  brute-force sweep corroborates it rather than being its source. Scoped
+  honestly to "the problem addImport.name validates", NOT to security in
+  general. Minted scenario REQ-RXD-06.9 with explicit values, argument
+  position, and a substring-acceptance counter-check (QA-5's lesson applied
+  unprompted). PENDING: sdd-apply — 2 words + 1 test — then re-verify final.
+verify_final_iteration_2: >
   VERIFY FINAL ITERATION 2 = **pass-with-followups** at 01ecec7
   (verify-report.md, overwritten; iteration 1's `fail` at f12ffba preserved
   as history inside it). All NINE routed council items RESOLVED, each
