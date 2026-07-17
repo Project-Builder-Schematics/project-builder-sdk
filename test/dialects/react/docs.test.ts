@@ -145,6 +145,60 @@ describe("REQ-RXD-09.5 — explicit-.tsx-extension requirement documented (find 
   });
 });
 
+// F-01 (verify-final, MAJOR): find()'s @example is the ONLY worked example on the shipped
+// public .d.ts surface (`setJsxProp`/`addImport`'s own JSDoc does not reach the .d.ts — the
+// `OpMethods` mapped type strips it). It previously read "structured ops arrive in later
+// slices; .modify() is the escape hatch today" — S-000 skeleton wording that survived both
+// ops shipping in S-001/S-002. Neither fit-04 (exempts @example edits, by design) nor this
+// file's own README/doc-index checks (which only grep .md files) caught it — this guard closes
+// that seam by reading the .ts source directly, mirroring REQ-RXD-09.5's own pattern above.
+describe("F-01 guard — find()'s @example demonstrates the shipped ops, not stale skeleton wording", () => {
+  it("names both shipped ops in the @example block", () => {
+    const source = readFileSync(REACT_INDEX_PATH, "utf-8");
+    expect(source).toContain(".addImport(");
+    expect(source).toContain(".setJsxProp(");
+  });
+
+  it("no longer claims structured ops arrive later or that .modify() is the only escape hatch today", () => {
+    const source = readFileSync(REACT_INDEX_PATH, "utf-8");
+    expect(source).not.toContain("arrive in later slices");
+    expect(source).not.toContain("is the escape hatch today");
+    // SDD-internal vocabulary must not leak into a consumer-facing doc comment.
+    expect(source.toLowerCase()).not.toContain("slice");
+  });
+});
+
+const CONTRIBUTOR_SECTION_HEADING = "### For contributors: building a dialect";
+const VALIDATED_OP_HEADING = "#### Validating name/identifier arguments: the `validatedOp` pattern";
+const VALIDATED_OP_SENTENCE =
+  "ts-morph writes structured-API arguments like `JsxAttributeStructure.name` and import " +
+  "specifiers as RAW TEXT with no escaping of its own";
+
+describe("REQ-RXD-15 — contributor docs teach the validatedOp pattern (ARCH-1)", () => {
+  it("names validatedOp, describes the validate-before-mutate chokepoint, states the vulnerability class, and points at the reference implementation", () => {
+    const section = extractSection(doc(), CONTRIBUTOR_SECTION_HEADING, /^## /);
+    expect(section).toContain("validatedOp");
+    expect(section.toLowerCase()).toContain("chokepoint");
+    expect(section).toContain(VALIDATED_OP_SENTENCE);
+    expect(section).toContain("src/core/jsx-name-validator.ts");
+  });
+
+  it("carries the validatedOp sentinel sentence verbatim, exactly once", () => {
+    const content = doc();
+    expect(content).toContain(VALIDATED_OP_SENTENCE);
+    expect(content.split(VALIDATED_OP_SENTENCE).length - 1).toBe(1);
+  });
+
+  it("fails red if the validatedOp section is removed (regression proof)", () => {
+    const withoutSection = doc().replace(
+      /#### Validating name\/identifier arguments: the `validatedOp` pattern[\s\S]*?(?=\n#### |\n### |\n## |$)/,
+      ""
+    );
+    expect(() => extractSection(withoutSection, VALIDATED_OP_HEADING)).toThrow();
+    expect(withoutSection).not.toContain(VALIDATED_OP_SENTENCE);
+  });
+});
+
 describe("README.md line-12 example gains @pbuilder/sdk/react", () => {
   it("the doc-index paragraph names both @pbuilder/sdk/typescript and @pbuilder/sdk/react", () => {
     const readme = readFileSync(README_PATH, "utf-8");

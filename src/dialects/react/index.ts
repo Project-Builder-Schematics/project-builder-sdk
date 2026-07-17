@@ -49,11 +49,16 @@ const reactDialect = withOps(baseDialect, opsPack);
  * @example
  * import * as react from "@pbuilder/sdk/react";
  *
+ * // src/Button.tsx before: const el = <Button />;
  * export const run = async () => {
- *   await react.find("src/Button.tsx").modify((ast) => {
- *     // structured ops arrive in later slices; .modify() is the escape hatch today.
- *   });
+ *   await react
+ *     .find("src/Button.tsx")
+ *     .addImport("handleClick", "./handlers")
+ *     .setJsxProp("Button", "onClick", "{handleClick}");
  * };
+ * // -> import { handleClick } from "./handlers";
+ * // ->
+ * // -> const el = <Button onClick={handleClick} />;
  */
 export function find(path: string): Handle<"found", SourceFile, ReactOps> {
   const base = basename(path);
