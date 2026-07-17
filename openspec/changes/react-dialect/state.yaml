@@ -11,10 +11,24 @@ completed_phases:
   - steward-foresight
   - slice
   - plan-verify
-current_phase: apply
+current_phase: verify-final
 current_phase_status: >
-  SPEC V5 OWNER-SIGNED 2026-07-17 — the human gate is cleared; sdd-apply may
-  proceed. The owner reviewed the three judgement calls sdd-spec surfaced
+  V5 FIX PASS COMPLETE 2026-07-17 — all nine routed council items DONE across
+  9924a9d..dd2be18 (7 commits). Suite: 1824 pass / 0 fail in a fresh
+  /private/tmp worktree (1797 pre-fix baseline + 27 net new tests).
+  THE AMENDMENT PROVED ITSELF: on QA-5 the fix agent built a genuine
+  NEAR-MISS mutant (wrong validator wired) — the OLD assertion false-passed
+  76/0 while the corrected one failed 65/11. That is exactly the mutant class
+  an absence-probe cannot see, and precisely why QA-5 survived three gates.
+  ARCH-3 was resolved the hard way: rather than weaken ADR-02 to describe the
+  code, ops.ts:55/:60 now route through new zeroMatchTail/multiMatchTail
+  helpers (bounding the echo length), making the ADR true; design.md amended
+  to match. Disclosed process deviation: the QA-5 test fix landed inside
+  5749bf2 (item 2's commit) since both touch name-validation.test.ts —
+  recorded in apply-progress.md rather than hidden.
+  PENDING: re-run sdd-verify --mode=final at dd2be18.
+spec_gate_note: >
+  SPEC V5 OWNER-SIGNED 2026-07-17 — the human gate is cleared. The owner reviewed the three judgement calls sdd-spec surfaced
   (REQ-RXD-15 split from REQ-RXD-09; DOC-3 ruled a pending-change; 05.10's
   aliased-merge output) and signed as-is. V5 was unfrozen from V4-SIGNED to
   correct the spec defects the Council found; all 14 V4 REQ-IDs are
