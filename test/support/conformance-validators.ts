@@ -2,8 +2,9 @@
 // series, REQ-CFX-04/10). Extracted from fit-40 so the same validation logic can run against
 // BOTH the real conformance/ tree (fit-40) and synthetic broken fixtures (fit-40's negative
 // suite) — a single source of truth for what counts as a violation, never duplicated.
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "./import-scan.ts";
 import type { LoadedFixture, Transcript } from "./conformance-fixture-loader.ts";
 
 const REVERSE_METHODS = ["tree.read", "ir.emit", "ir.commit", "ir.discard"];
@@ -95,11 +96,156 @@ export function checkSeedExpectedResolution(fixtures: LoadedFixture[]): string[]
   return violations;
 }
 
-/** REQ-CSC-02.2: every fixture's factory.module resolves to an existing file. */
+/** Every distinct factory module a fixture references — its own default plus every
+ * case-level `factory.module` override (ADR-0065). */
+function distinctFactoryModules(f: LoadedFixture): string[] {
+  return [...new Set<string>([f.manifest.factory.module, ...f.manifest.cases.map((c) => c.factory?.module ?? f.manifest.factory.module)])];
+}
+
+/** REQ-CSC-02.2: every fixture's factory.module resolves to an existing file — the
+ * fixture-level default AND every case-level `factory.module` override. */
 export function checkFactoryModuleResolution(fixtures: LoadedFixture[]): string[] {
-  return fixtures
-    .filter((f) => !existsSync(join(f.dir, f.manifest.factory.module)))
-    .map((f) => ruleFail(f.id, null, "REQ-CSC-02.2", `factory.module "${f.manifest.factory.module}" does not resolve on disk`));
+  const violations: string[] = [];
+  for (const f of fixtures) {
+    for (const module of distinctFactoryModules(f)) {
+      if (!existsSync(join(f.dir, module))) {
+        violations.push(ruleFail(f.id, null, "REQ-CSC-02.2", `factory.module "${module}" does not resolve on disk`));
+      }
+    }
+  }
+  return violations;
+}
+
+const EXPORT_NAME_RE = /export\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)|export\s+const\s+([A-Za-z_$][\w$]*)/g;
+const DEFAULT_EXPORT_RE = /export\s+default\b/;
+
+/** Text-level export inventory of a factory module — a structural self-check, not a
+ * compiler: default export presence + every named `export function`/`export const`. */
+function collectExportedNames(source: string): { names: Set<string>; hasDefault: boolean } {
+  const stripped = stripComments(source);
+  const names = new Set<string>();
+  for (const m of stripped.matchAll(EXPORT_NAME_RE)) {
+    const name = m[1] ?? m[2];
+    if (name !== undefined) names.add(name);
+  }
+  return { names, hasDefault: DEFAULT_EXPORT_RE.test(stripped) };
+}
+
+/**
+ * REQ-CSC-02.2 (export resolution): every case-level (and fixture-level) `factory.export`
+ * pointer names a REAL export of its module — a `factory.export: null` pointer requires a
+ * default export, a named pointer requires that exact named export to exist. Catches a
+ * typo'd export name that `checkFactoryModuleResolution` (file existence only) cannot see.
+ */
+export function checkFactoryExportResolution(fixtures: LoadedFixture[]): string[] {
+  const violations: string[] = [];
+  for (const f of fixtures) {
+    const pointers: Array<{ module: string; exportName: string | null; caseName: string | null }> = [
+      { module: f.manifest.factory.module, exportName: f.manifest.factory.export, caseName: null },
+      ...f.manifest.cases
+        .filter((c) => c.factory !== undefined)
+        .map((c) => ({ module: c.factory!.module, exportName: c.factory!.export, caseName: c.name })),
+    ];
+
+    const exportsCache = new Map<string, ReturnType<typeof collectExportedNames> | null>();
+    for (const { module, exportName, caseName } of pointers) {
+      if (!exportsCache.has(module)) {
+        const path = join(f.dir, module);
+        exportsCache.set(module, existsSync(path) ? collectExportedNames(readFileSync(path, "utf8")) : null);
+      }
+      const parsed = exportsCache.get(module) ?? null;
+      if (parsed === null) continue; // checkFactoryModuleResolution already flags the missing module
+
+      if (exportName === null) {
+        if (!parsed.hasDefault) {
+          violations.push(ruleFail(f.id, caseName, "REQ-CSC-02.2", `factory.export is null but module "${module}" declares no default export`));
+        }
+        continue;
+      }
+      if (!parsed.names.has(exportName)) {
+        violations.push(ruleFail(f.id, caseName, "REQ-CSC-02.2", `factory.export "${exportName}" is not a named export of module "${module}"`));
+      }
+    }
+  }
+  return violations;
+}
+
+function countMatches(text: string, re: RegExp): number {
+  return (text.match(re) ?? []).length;
+}
+
+/** Locates a named `export function`/`export async function` block by brace-matching from
+ * its declaration; returns the `[start, end)` span (declaration through closing `}`), or
+ * `null` if not found. Text-level, not a compiler — sufficient for a structural self-check. */
+function extractNamedExportFunctionBlock(source: string, exportName: string): { start: number; end: number } | null {
+  const declRe = new RegExp(`export\\s+(?:async\\s+)?function\\s+${exportName}\\s*\\(`);
+  const declMatch = declRe.exec(source);
+  if (declMatch === null) return null;
+  const braceStart = source.indexOf("{", declMatch.index);
+  if (braceStart === -1) return null;
+
+  let depth = 0;
+  for (let i = braceStart; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}") {
+      depth--;
+      if (depth === 0) return { start: declMatch.index, end: i + 1 };
+    }
+  }
+  return null; // unbalanced braces — treat as not found
+}
+
+/**
+ * REQ-CFX-02.1 create() quarantine: within any factory file that authors a `create(` call,
+ * every occurrence must lie INSIDE the named-export function block(s) that this fixture's
+ * cases actually reference via a case-level `factory.export` override — never in the
+ * file's default export or any other unreferenced span. Closes the blind spot in the
+ * corpus-wide "which FILES contain create()" scan: that scan cannot see a SECOND `create()`
+ * smuggled into the same sanctioned file's default export, because it only asks whether the
+ * file is the one sanctioned path, never where inside the file the call sits.
+ */
+export function checkCreateQuarantine(fixtures: LoadedFixture[]): string[] {
+  const violations: string[] = [];
+  for (const f of fixtures) {
+    const moduleToNamedExports = new Map<string, Set<string>>();
+    for (const c of f.manifest.cases) {
+      if (c.factory?.export === null || c.factory?.export === undefined) continue;
+      const set = moduleToNamedExports.get(c.factory.module) ?? new Set<string>();
+      set.add(c.factory.export);
+      moduleToNamedExports.set(c.factory.module, set);
+    }
+
+    for (const module of distinctFactoryModules(f)) {
+      const path = join(f.dir, module);
+      if (!existsSync(path)) continue; // checkFactoryModuleResolution already flags this
+      const source = stripComments(readFileSync(path, "utf8"));
+      const totalCreateCount = countMatches(source, /\bcreate\s*\(/g);
+      if (totalCreateCount === 0) continue;
+
+      let insideQuarantineCount = 0;
+      for (const exportName of moduleToNamedExports.get(module) ?? []) {
+        const block = extractNamedExportFunctionBlock(source, exportName);
+        if (block === null) continue;
+        insideQuarantineCount += countMatches(source.slice(block.start, block.end), /\bcreate\s*\(/g);
+      }
+
+      if (insideQuarantineCount === 0) {
+        violations.push(
+          ruleFail(f.id, null, "REQ-CFX-02.1", `factory file "${module}" authors create() but no quarantined named-export block was found to contain it`)
+        );
+      } else if (insideQuarantineCount !== totalCreateCount) {
+        violations.push(
+          ruleFail(
+            f.id,
+            null,
+            "REQ-CFX-02.1",
+            `factory file "${module}" authors create() outside its quarantined named-export block(s) (${totalCreateCount} total call(s), only ${insideQuarantineCount} inside quarantine)`
+          )
+        );
+      }
+    }
+  }
+  return violations;
 }
 
 /** REQ-CSC-02.1 (schematic branch): lowering.mode === "schematic" implies schema.json + files/**. */

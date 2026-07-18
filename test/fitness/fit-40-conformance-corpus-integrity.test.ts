@@ -25,7 +25,7 @@ import { join } from "node:path";
 import packageJson from "../../package.json" with { type: "json" };
 import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
 import { IMPORT_SPECIFIER_RE, stripComments } from "../support/import-scan.ts";
-import { loadCorpus, listSubdirectories, type Case } from "../support/conformance-fixture-loader.ts";
+import { loadCorpus, listSubdirectories, type Case, type LoadedFixture } from "../support/conformance-fixture-loader.ts";
 import {
   ruleFail,
   collectFilesRecursive,
@@ -37,6 +37,8 @@ import {
   checkCollectionJsonMarker,
   checkSeedExpectedResolution,
   checkFactoryModuleResolution,
+  checkFactoryExportResolution,
+  checkCreateQuarantine,
   checkSchematicLoweringFiles,
   checkNonEmptyCases,
   checkValidClass,
@@ -143,8 +145,12 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(checkSeedExpectedResolution(fixtures)).toEqual([]);
     });
 
-    it("REQ-CSC-02.2: every fixture's factory.module resolves to an existing file", () => {
+    it("REQ-CSC-02.2: every fixture's factory.module resolves to an existing file (fixture-level + every case-level override)", () => {
       expect(checkFactoryModuleResolution(fixtures)).toEqual([]);
+    });
+
+    it("REQ-CSC-02.2: every fixture-level and case-level factory.export names a real export of its module", () => {
+      expect(checkFactoryExportResolution(fixtures)).toEqual([]);
     });
 
     it("REQ-CSC-02.1: lowering.mode === 'schematic' implies schematic/schema.json + at least one schematic/files/** entry", () => {
@@ -218,28 +224,52 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
     // REQ-CFX-02.1's literal "exactly one" is scoped over "all 12 cases" (post-PR#2); the
     // corpus-wide invariant that stays green at BOTH checkpoints is "at most one, and if
     // present it is m2-create-composition/wire-create-reject-twin's createRejectProbe".
-    it("REQ-CFX-02: no more than one create-authoring case corpus-wide, and only the reject-probe", () => {
-      const createCases = fixtures.flatMap((f) =>
-        f.manifest.cases
-          .filter((c) => {
-            const factoryPath = join(f.dir, (c.factory ?? f.manifest.factory).module);
-            if (!existsSync(factoryPath)) return false;
-            const source = stripComments(readFileSync(factoryPath, "utf8"));
-            return /\bcreate\s*\(/.test(source) && (c.factory?.export ?? f.manifest.factory.export) !== null;
-          })
-          .map((c) => ({ fixtureId: f.id, caseName: c.name, exportName: c.factory?.export ?? null }))
-      );
+    it("REQ-CFX-02: create() appears in exactly the corpus's sole sanctioned factory file", () => {
+      // Structural invariant, not a case-scoped scan: collects the SET of factory files
+      // (corpus-wide, across every fixture AND every case-level factory override) whose
+      // source contains a `create(` call. A default-export factory authoring `create()`
+      // used to slip past the old predicate (it filtered on `export !== null`, which only
+      // ever matches NAMED-export cases) — this catches `create()` in ANY factory file,
+      // default-export included, while still accepting the one sanctioned reject-probe site.
+      const SANCTIONED_SITE = "m2-create-composition/factory.ts";
+      const factoryFilesWithCreate = new Map<string, string>(); // "fixtureId/module" -> fixtureId
 
-      const violations: string[] = [];
-      if (createCases.length > 1) {
-        violations.push(`REQ-CFX-02.1: ${createCases.length} create-authoring cases found corpus-wide, expected at most 1`);
-      }
-      for (const cc of createCases) {
-        if (cc.fixtureId !== "m2-create-composition" || cc.caseName !== "wire-create-reject-twin") {
-          violations.push(ruleFail(cc.fixtureId, cc.caseName, "REQ-CFX-02.1", "authors create() outside the sole sanctioned reject probe"));
+      for (const f of fixtures) {
+        const modules = new Set<string>([
+          f.manifest.factory.module,
+          ...f.manifest.cases.map((c) => c.factory?.module ?? f.manifest.factory.module),
+        ]);
+        for (const module of modules) {
+          const factoryPath = join(f.dir, module);
+          if (!existsSync(factoryPath)) continue; // REQ-CSC-02.2 already flags this
+          const source = stripComments(readFileSync(factoryPath, "utf8"));
+          if (/\bcreate\s*\(/.test(source)) {
+            factoryFilesWithCreate.set(`${f.id}/${module}`, f.id);
+          }
         }
       }
+
+      const violations: string[] = [];
+      for (const [path, fixtureId] of factoryFilesWithCreate) {
+        if (path !== SANCTIONED_SITE) {
+          violations.push(ruleFail(fixtureId, null, "REQ-CFX-02.1", `factory file "${path}" authors create() outside the sole sanctioned reject probe (${SANCTIONED_SITE})`));
+        }
+      }
+      // Vacuous before m2-create-composition lands (two-checkpoint cadence, PR#1): only
+      // demand the sanctioned site once the fixture it lives in is actually part of the
+      // loaded corpus.
+      if (fixtures.some((f) => f.id === "m2-create-composition") && !factoryFilesWithCreate.has(SANCTIONED_SITE)) {
+        violations.push(ruleFail("m2-create-composition", null, "REQ-CFX-02.1", `expected the sole sanctioned create() site "${SANCTIONED_SITE}" to author create(), found none`));
+      }
       expect(violations).toEqual([]);
+    });
+
+    it("REQ-CFX-02.1: within the sanctioned file, every create() call lies inside its quarantined named-export block (never the default export)", () => {
+      // The scan above only sees WHICH FILES contain create() — it cannot see a SECOND
+      // create() added to the sanctioned file's own default export. checkCreateQuarantine
+      // extracts each case-referenced named-export function's block and proves every
+      // create() call in the file falls inside one of those blocks.
+      expect(checkCreateQuarantine(fixtures)).toEqual([]);
     });
 
     it("REQ-CFX-03.1: the reject-probe's create call is preceded by a DO-NOT-COPY 5-clause comment", () => {
@@ -248,6 +278,33 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       const factoryPath = join(probeFixture.dir, probeFixture.manifest.factory.module);
       const source = readFileSync(factoryPath, "utf8");
       expect(/DO-NOT-COPY/.test(source)).toBe(true);
+
+      // Vacuous-assertion guard: the DO-NOT-COPY token alone doesn't prove the comment
+      // conveys all five clauses the spec requires. Locate each `(a)`..`(e)` marker and
+      // require a stable, distinctive keyword within ITS clause span (up to the next
+      // marker) — resistant to rewording, RED if a clause (or its substance) is deleted.
+      const normalized = source.replace(/\/\//g, " ").replace(/\s+/g, " ");
+      const markerRe = /\([a-e]\)/g;
+      const markers: Array<{ letter: string; index: number }> = [];
+      for (const m of normalized.matchAll(markerRe)) markers.push({ letter: m[0], index: m.index });
+
+      const CLAUSE_KEYWORDS: Record<string, RegExp> = {
+        "(a)": /one-create-corpus-wide/,
+        "(b)": /REJECT PROBE/,
+        "(c)": /do NOT imitate/i,
+        "(d)": /unrepresentable/,
+        "(e)": /modify\/delete\/rename\/move/,
+      };
+
+      const missingClauses = Object.keys(CLAUSE_KEYWORDS).filter((letter) => {
+        const marker = markers.find((m) => m.letter === letter);
+        if (marker === undefined) return true;
+        const nextIndex = markers.find((m) => m.index > marker.index)?.index ?? normalized.length;
+        const clauseText = normalized.slice(marker.index, nextIndex);
+        return !CLAUSE_KEYWORDS[letter]!.test(clauseText);
+      });
+
+      expect(missingClauses).toEqual([]);
     });
   });
 
@@ -376,6 +433,140 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(c.outcome).toEqual({ exitCode: 1, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
       expect(c.transcript).toEqual({ callbacks: [], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
       expect(c.expected).toBe("empty");
+    });
+  });
+
+  describe("REQ-CFX-06 — m2-modify behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-modify");
+
+    it("REQ-CFX-06.1: positive case declares a target-only replace", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(readFileSync(join(f.dir, "expected", "target.txt"), "utf8")).toBe("replaced");
+      expect(readFileSync(join(f.dir, "expected", "sibling.txt"), "utf8")).toBe("keep");
+    });
+
+    it("REQ-CFX-06.2: not-found twin declares a zero-effect rejection", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "not-found-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "not-found", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+  });
+
+  describe("REQ-CFX-07 — m2-delete behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-delete");
+
+    it("REQ-CFX-07.1: positive case declares target-only removal", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(existsSync(join(f.dir, "expected", "target.txt"))).toBe(false);
+      expect(readFileSync(join(f.dir, "expected", "sibling.txt"), "utf8")).toBe("keep");
+      expect(readFileSync(join(f.dir, "expected", "adir", "child.txt"), "utf8")).toBe("x");
+    });
+
+    it("REQ-CFX-07.2: dir-target twin declares an unrepresentable rejection", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "dir-target-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "unrepresentable", failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("not-found twin declares a zero-effect rejection (sibling of REQ-CFX-07.2, same corrective pattern as REQ-CFX-06.2)", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "not-found-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "not-found", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+  });
+
+  describe("REQ-CFX-08 — m2-rename-move behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-rename-move");
+
+    it("REQ-CFX-08.1: positive case declares an exact-bytes rename", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(existsSync(join(f.dir, "expected", "src.txt"))).toBe(false);
+      expect(readFileSync(join(f.dir, "expected", "dst.txt"), "utf8")).toBe("payload");
+      expect(readFileSync(join(f.dir, "expected", "occupied.txt"), "utf8")).toBe("taken");
+      expect(readFileSync(join(f.dir, "expected", "adir", "child.txt"), "utf8")).toBe("x");
+    });
+
+    it("REQ-CFX-08.2: collision twin declares a directive-level rejection", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "collision-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "collision", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("dir-source twin declares an unrepresentable rejection (sibling of REQ-CFX-08.2, same corrective pattern as REQ-CFX-07.2)", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "dir-source-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "unrepresentable", failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+  });
+
+  describe("REQ-CFX-09 — m2-create-composition behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-create-composition");
+
+    it("REQ-CFX-09.1: positive case declares one commit, two composed halves", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["generated.txt"] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(readFileSync(join(f.dir, "expected", "generated.txt"), "utf8")).toBe("generated");
+      expect(readFileSync(join(f.dir, "expected", "existing.txt"), "utf8")).toBe("composed");
+    });
+
+    it("REQ-CFX-09.2/.3: wire-create-reject-twin's outcome triple is pinned to the ADR-0064-resolved values, never an unresolved placeholder", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "wire-create-reject-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "unrepresentable", failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+      expect(c.factory).toEqual({ module: "factory.ts", export: "createRejectProbe" });
     });
   });
 

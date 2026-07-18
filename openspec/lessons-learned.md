@@ -2,6 +2,32 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `conformance-corpus` (2026-07-19)
+
+### A fixture corpus can catch a real shipped bug on its very first live contact
+**What**: Building the conformance corpus surfaced a real defect in already-shipped `dist/` output — discovered not by a new test, but by the act of authoring fixtures that exercise the shipped build against realistic factory shapes.
+**Why**: The corpus's factories load from SOURCE via the public umbrella and get typechecked by the sweep (ADR-0066), but the fixtures themselves are only as useful as the surfaces they exercise — a static contract corpus doubles as an integration smoke test the moment it touches real build output, something no unit-level suite was positioned to catch.
+**Where**: `conformance/` fixtures + `dist/` build output; any change that ships a static cross-repo contract corpus alongside a real build artefact.
+**Learned**: Treat a new fixture corpus's FIRST live contact with build output as a genuine discovery opportunity, not a formality — budget time to investigate anything the corpus's construction surfaces, even outside its own spec's scope, before dismissing it as unrelated.
+
+### Blind-judge fan-out catches what verify misses, even after verify already passed twice
+**What**: Judgment-day's blind dual-judge pass (Round 1) found 3 confirmed real defects — full per-commit artefact-set gate strength, in-file brace-matched quarantine scanning, and case-level factory export resolution — that both in-loop verify (3 iterations) and final verify had already marked passing.
+**Why**: Verify re-checks the builder's own coverage claims against the signed spec from inside the same reasoning trail; judgment-day's judges receive only the diff + signed spec + acceptance criteria, with zero exposure to the verify passes' narrative — the same structural blind-spot pattern this project has now confirmed across `stdio-engine-client`, `schematic-local-files`, and `stage-4b-testing-harness`.
+**Where**: Any L-triage change with `adversarial_review: required` — this is now a FOUR-TIME confirmed pattern in this project, not an occasional finding.
+**Learned**: Never let a clean multi-iteration in-loop + final-verify streak substitute for the blind adversarial pass — budget it unconditionally for every L change, and treat repeated confirmation across changes as evidence the pattern is structural, not incidental.
+
+### An Executor Context Map in slices eliminates pointer-gap friction at plan-verify
+**What**: This change's slices artefact carried an explicit Executor Context Map (file paths + signatures + fixture procedures inlined, not just referenced) — plan-verify's simulated-executor judge found it sufficient with zero pointer-gap questions, a contrast to prior changes where bare task-map slices needed 2-3 iterations to converge.
+**Why**: A slices-only judge (by protocol) cannot follow references into the design doc; every "see design §X" pointer is a blocking question unless the referenced mechanics are already inlined. Extending this project's `typed-options-feeder` finding ("enrichment, not re-decision, converges executor-insufficiency gaps"), a Context Map applied FROM THE START avoids the enrichment cycle entirely.
+**Where**: `sdd-slice` skill; any M/L change's slices artefact heading into plan-verify.
+**Learned**: Author the Executor Context Map (or equivalent load-bearing-mechanics inlining) as a first-pass slices section, not a plan-verify remediation — it is cheaper to write once than to earn back across 2-3 fix iterations.
+
+### ADR promotion order is independent of merge order — track ownership explicitly
+**What**: `conformance-corpus` and a sibling change (`context-singleton-fix`) both drafted ADRs in the same numeric neighborhood; the numbering contract resolved by OWNERSHIP declaration (`conformance-corpus` owns 0063-0067, the sibling takes 0068-0069 at ITS OWN archive) rather than by which change happened to archive first.
+**Why**: A project's ADR sequence is a single flat namespace with no reservation mechanism (the same root cause as the previously-logged FIT-number collision lesson); when two changes draft ADRs concurrently, whichever one HAPPENS to archive first does not automatically get the earlier numbers if an explicit ownership ruling was made beforehand — the ruling, not the merge/archive timing, is authoritative.
+**Where**: `openspec/decisions/`; any project running multiple L/M changes with cross-repo or cross-branch handoff references to specific ADR numbers (e.g. an engine-signed handoff citing "ADR-0065" by exact number).
+**Learned**: When two in-flight changes draft ADRs in the same range, resolve OWNERSHIP explicitly at spec/design time (not implicitly by archive order) and persist the ruling somewhere both changes' archive agents will find it — especially when an external party (a cross-repo handoff, a signed contract) already cites a specific number, since renumbering after external citation is not an option.
+
 ## From `typed-options-feeder` (2026-07-18)
 
 ### `Object.defineProperty` defaults are a silent-drop trap in encode paths

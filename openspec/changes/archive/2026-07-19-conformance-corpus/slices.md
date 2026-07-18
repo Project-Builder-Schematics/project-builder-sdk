@@ -63,10 +63,10 @@ boundary — this repo has none).
   `expected:"zero-effect"`, transcript `[ir.emit,ir.discard]`, `forbidDiscard:false`
 
 ### Tasks
-- [ ] S-001.1 RED: fit-40 assertions target m2-modify's 2-case set
-- [ ] S-001.2 `conformance/m2-modify/{manifest.json,factory.ts,seed/,expected/}`
-- [ ] S-001.3 `corpus.json#fixtures` += `"m2-modify"` — SAME commit as .2 (CCR-04)
-- [ ] S-001.4 GREEN: fit-40 passes at 2 fixtures/4 cases
+- [x] S-001.1 RED: fit-40 assertions target m2-modify's 2-case set
+- [x] S-001.2 `conformance/m2-modify/{manifest.json,factory.ts,seed/,expected/}`
+- [x] S-001.3 `corpus.json#fixtures` += `"m2-modify"` — SAME commit as .2 (CCR-04)
+- [x] S-001.4 GREEN: fit-40 passes at 2 fixtures/4 cases
 
 **Out of scope**: any other fixture; no fake-fidelity fixes; no wire-spec touches.
 
@@ -86,10 +86,10 @@ boundary — this repo has none).
   2/`unrepresentable`/`failedIndex:null`/zero-effect, transcript `[ir.emit,ir.discard]`
 
 ### Tasks
-- [ ] S-002.1 RED: fit-40 assertions target m2-delete's 3-case set
-- [ ] S-002.2 `conformance/m2-delete/{manifest.json,factory.ts,seed/,expected/}`
-- [ ] S-002.3 `corpus.json#fixtures` += `"m2-delete"` — same commit
-- [ ] S-002.4 GREEN: fit-40 passes at 3 fixtures/7 cases
+- [x] S-002.1 RED: fit-40 assertions target m2-delete's 3-case set
+- [x] S-002.2 `conformance/m2-delete/{manifest.json,factory.ts,seed/,expected/}`
+- [x] S-002.3 `corpus.json#fixtures` += `"m2-delete"` — same commit
+- [x] S-002.4 GREEN: fit-40 passes at 3 fixtures/7 cases
 
 **Out of scope**: dir-target unrepresentable is this slice's only directory-op twin; no other fixtures.
 
@@ -109,10 +109,10 @@ boundary — this repo has none).
 - WHEN dir-source-twin (source=`adir`) — THEN exit 2/`unrepresentable`/`failedIndex:null`/zero-effect
 
 ### Tasks
-- [ ] S-003.1 RED: fit-40 assertions target m2-rename-move's 3-case set
-- [ ] S-003.2 `conformance/m2-rename-move/{manifest.json,factory.ts,seed/,expected/}`
-- [ ] S-003.3 `corpus.json#fixtures` += `"m2-rename-move"` — same commit
-- [ ] S-003.4 GREEN: fit-40 passes at 4 fixtures/10 cases
+- [x] S-003.1 RED: fit-40 assertions target m2-rename-move's 3-case set
+- [x] S-003.2 `conformance/m2-rename-move/{manifest.json,factory.ts,seed/,expected/}`
+- [x] S-003.3 `corpus.json#fixtures` += `"m2-rename-move"` — same commit
+- [x] S-003.4 GREEN: fit-40 passes at 4 fixtures/10 cases
 
 **Out of scope**: no other fixtures. Verb is PINNED: `rename` (design File Changes table, m2-rename-move row — "rename verb"); `move` stays unexercised (registered corpus followup, not this slice).
 
@@ -141,13 +141,13 @@ do not proceed on assumption.
 - WHEN the corpus-wide create scan runs — THEN exactly one `create` site exists (this probe)
 
 ### Tasks
-- [ ] S-004.1 Confirm ADR-0065 engine sign-off (HARD GATE) — do not proceed unconfirmed
-- [ ] S-004.2 RED: fit-40 targets m2-create-composition's 2-case set + corpus-wide create-count +
+- [x] S-004.1 Confirm ADR-0065 engine sign-off (HARD GATE) — do not proceed unconfirmed
+- [x] S-004.2 RED: fit-40 targets m2-create-composition's 2-case set + corpus-wide create-count +
       DO-NOT-COPY scan
-- [ ] S-004.3 `conformance/m2-create-composition/{manifest.json,factory.ts,seed/,expected/,schematic/}`
+- [x] S-004.3 `conformance/m2-create-composition/{manifest.json,factory.ts,seed/,expected/,schematic/}`
       (per-case `factory` override; `createRejectProbe` named export)
-- [ ] S-004.4 `corpus.json#fixtures` += `"m2-create-composition"` — same commit
-- [ ] S-004.5 GREEN: fit-40 passes at 5 fixtures/12 cases (CCR-05.1 absolute gate now live)
+- [x] S-004.4 `corpus.json#fixtures` += `"m2-create-composition"` — same commit
+- [x] S-004.5 GREEN: fit-40 passes at 5 fixtures/12 cases (CCR-05.1 absolute gate now live)
 
 **Out of scope**: no second `create` site anywhere in the corpus; no fake-fidelity fixes; no
 wire-spec touches.

@@ -1,0 +1,48 @@
+{
+  "id": "m2-delete",
+  "wireSpecVersion": 1,
+  "class": "wire-mutation",
+  "factory": { "module": "factory.ts", "export": null },
+  "input": {},
+  "lowering": { "mode": "none" },
+  "cases": [
+    {
+      "name": "positive",
+      "seed": "seed",
+      "expected": "expected",
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": [] },
+      "transcript": {
+        "callbacks": ["ir.emit", "ir.commit"],
+        "singleCommit": true,
+        "forbidDiscard": true,
+        "emitBeforeCommit": true
+      }
+    },
+    {
+      "name": "not-found-twin",
+      "seed": "seed",
+      "expected": "zero-effect",
+      "factory": { "module": "factory.ts", "export": "notFoundProbe" },
+      "outcome": { "exitCode": 2, "emitRejectionCode": "not-found", "failedIndex": 0, "writtenPaths": [] },
+      "transcript": {
+        "callbacks": ["ir.emit", "ir.discard"],
+        "singleCommit": true,
+        "forbidDiscard": false,
+        "emitBeforeCommit": true
+      }
+    },
+    {
+      "name": "dir-target-twin",
+      "seed": "seed",
+      "expected": "zero-effect",
+      "factory": { "module": "factory.ts", "export": "dirTargetProbe" },
+      "outcome": { "exitCode": 2, "emitRejectionCode": "unrepresentable", "failedIndex": null, "writtenPaths": [] },
+      "transcript": {
+        "callbacks": ["ir.emit", "ir.discard"],
+        "singleCommit": true,
+        "forbidDiscard": false,
+        "emitBeforeCommit": true
+      }
+    }
+  ]
+}

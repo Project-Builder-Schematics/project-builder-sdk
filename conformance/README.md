@@ -32,20 +32,30 @@ declaration is internally consistent and well-formed — it never proves engine 
   marked with a `DO-NOT-COPY` comment (REQ-CFX-03). Do not add a second `create` site.
 - Every text file under `conformance/` is UTF-8, LF-only, no BOM, no trailing newline under
   `expected/**`/`schematic/files/**` (`corpus-determinism` REQ-CDT-03..07).
+- The engine's manifest/`corpus.json` decoder is **strict** (`DisallowUnknownFields`): any key
+  beyond the documented schema — at any level (top-level, `factory`, `lowering`, `cases[]`,
+  `outcome`, `transcript`) — is a HARD engine-side failure, never ignored. Never add a field
+  the schema does not list; fit-40 checks shape, not unknown keys, so there is no local
+  warning. New keys go through `CONFORMANCE-CORPUS-HANDOFF.md` BEFORE a fixture ships them.
 
 ## How to add a fixture (mirrors exactly what fit-40 enforces)
 
 1. Create `conformance/<id>/manifest.json` + `factory.ts` (+ optional `seed/`, `expected/`,
    `schematic/{schema.json,files/}`).
-2. `manifest.json#id` MUST equal the directory name; `wireSpecVersion` MUST equal the
+2. Negative twins are extra `cases[]` on the SAME fixture (never separate fixtures). A twin
+   needing different authoring than the positive case carries its own
+   `"factory": { "module": "factory.ts", "export": "<namedExport>" }`, overriding the
+   fixture-level default export for THAT case only (ADR-0065 mechanism, engine-accepted).
+   Name the export `<behaviour>Probe` and the case `<behaviour>-twin`.
+3. `manifest.json#id` MUST equal the directory name; `wireSpecVersion` MUST equal the
    corpus-wide value (currently `1`, pinned to `WIRE_PROTOCOL_VERSION`).
-3. Every case needs a full `outcome` object and a full `transcript` object (REQ-CFX-04/13).
-4. List `<id>` in `corpus.json#fixtures` **in the same commit** as its full artefact set
+4. Every case needs a full `outcome` object and a full `transcript` object (REQ-CFX-04/13).
+5. List `<id>` in `corpus.json#fixtures` **in the same commit** as its full artefact set
    (REQ-CCR-04 commit atomicity) — an id landed ahead of its artefacts is a hard failure.
-5. `conformance/collection.json` must exist at the corpus root — it is the shared
+6. `conformance/collection.json` must exist at the corpus root — it is the shared
    package-anchor marker every fixture's runner invocation resolves against (REQ-CCR-08);
    without it, every fixture fails at exit 1 before its factory runs.
-6. Run `bun test test/fitness/fit-40-conformance-corpus-integrity.test.ts` — it must be
+7. Run `bun test test/fitness/fit-40-conformance-corpus-integrity.test.ts` — it must be
    green before the commit lands.
 
 ## Expected stderr note
