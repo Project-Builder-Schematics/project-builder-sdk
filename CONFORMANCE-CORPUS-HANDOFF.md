@@ -57,7 +57,7 @@ from its dir name are all HARD failures engine-side, not skips.
 
 ```json
 {
-  "id": "m2-modify",
+  "id": "<fixture-id>",
   "wireSpecVersion": 1,
   "class": "wire-mutation",                      // handshake | wire-mutation | composition
   "factory": { "module": "factory.ts", "export": null },
@@ -75,6 +75,10 @@ from its dir name are all HARD failures engine-side, not skips.
   ]
 }
 ```
+
+The `callbacks` shown above are illustrative only — the real sequence is per-fixture (e.g.
+`m2-modify` never does `tree.read`; only `m1-vehicle` reads before writing). Each fixture's own
+`manifest.json` is the normative source for its `transcript`.
 
 Notes: negative twins are extra `cases[]` on the SAME fixture, never separate fixtures.
 `emitRejectionCode` non-null requires `exitCode: 2`; `failedIndex` is an int only for

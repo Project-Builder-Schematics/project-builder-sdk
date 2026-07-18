@@ -156,6 +156,9 @@ bun test
 bun run typecheck
 ```
 
+`conformance/` — SDK↔engine live conformance corpus, consumed by `project-builder-engine` as a
+pinned git submodule; see `conformance/README.md` and `CONFORMANCE-CORPUS-HANDOFF.md`.
+
 ## License
 
 [MIT](./LICENSE)
