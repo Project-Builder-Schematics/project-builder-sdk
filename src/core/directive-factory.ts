@@ -52,8 +52,75 @@ export function forceEntry(force: boolean | undefined): { force?: boolean } {
 // else passes through verbatim. Assembly uses Object.defineProperty (never spread/`result[k]=`)
 // per REQ-TOE-05 — enumerable:true is load-bearing, defineProperty defaults it to false and an
 // unenumerable key silently drops from JSON.stringify at the wire boundary.
+// REQ-TOE-01.5: a null-prototype object (Object.create(null)) is a plain, dict-like data
+// container and encodes like any other plain object — only a prototype OUTSIDE
+// {Object.prototype, null} (Date/Map/class instances) is non-plain (REQ-TOE-04, S-002).
 function isPlainObject(v: unknown): v is { [key: string]: JsonValue } {
-  return typeof v === "object" && v !== null && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
+// REQ-TOE-04: names the offending value's kind for the reject message. Date/Map get their
+// own recognizable name; everything else non-plain (custom class instances) is generic.
+function kindOf(value: object): string {
+  if (value instanceof Date) return "Date";
+  if (value instanceof Map) return "Map";
+  return "a class instance";
+}
+
+// REQ-TOE-04, ADR-03: plain Error (interim — full AuthoringError attribution is a
+// registered followup, ADR-03 Consequence). Message template pinned verbatim (slices.md
+// Executor Context, TW-F1): names the top-level offending key, the offending kind + a
+// dotted/indexed location, and echoes docs §8's allowed set for actionability. NEVER raw
+// serializer text (no "Do not know how to serialize a BigInt", no "Converting circular
+// structure to JSON").
+function rejectOption(optionKey: string, detail: string): never {
+  throw new Error(
+    `option "${optionKey}" is not a plain-JSON value the engine can render (${detail}). ` +
+      "Options must be strings, numbers, booleans, null, arrays, or plain objects."
+  );
+}
+
+// REQ-TOE-04: recursively rejects any value (top-level or nested inside a composite) that
+// is undefined, a function, a symbol, a BigInt, a circular reference, or a non-plain object
+// (Date/Map/class instance) — never a silent drop (JSON.stringify's own undefined/function
+// behavior) and never a raw serializer TypeError.
+// ARCH-F2 (design §4.3): `ancestors` is an ANCESTOR-PATH set — added on descent, removed on
+// ascent (add-recurse-delete, scoped per top-level call via the default parameter) — never a
+// global "ever-visited" set. Only a value that is its own ancestor (a true cycle) rejects; an
+// acyclic SHARED reference (`const s = {x:1}; {a:s,b:s}`) is revisited from a clean ancestor
+// path each time and encodes normally, matching native JSON.stringify.
+function assertEncodable(
+  value: unknown,
+  optionKey: string,
+  ancestors: Set<object> = new Set(),
+  path: string = optionKey
+): void {
+  if (value === undefined) rejectOption(optionKey, `undefined at ${path}`);
+  if (typeof value === "function") rejectOption(optionKey, `function at ${path}`);
+  if (typeof value === "symbol") rejectOption(optionKey, `symbol at ${path}`);
+  if (typeof value === "bigint") rejectOption(optionKey, `BigInt at ${path}`);
+  if (value === null || typeof value !== "object") return; // string/number/boolean/null: fine
+
+  if (Array.isArray(value) || isPlainObject(value)) {
+    if (ancestors.has(value)) rejectOption(optionKey, `a circular reference at ${path}`);
+    ancestors.add(value);
+    try {
+      if (Array.isArray(value)) {
+        value.forEach((item, i) => assertEncodable(item, optionKey, ancestors, `${path}[${i}]`));
+      } else {
+        for (const [k, v] of Object.entries(value)) {
+          assertEncodable(v, optionKey, ancestors, `${path}.${k}`);
+        }
+      }
+    } finally {
+      ancestors.delete(value);
+    }
+    return;
+  }
+
+  rejectOption(optionKey, `${kindOf(value)} at ${path}`);
 }
 
 export function encodeOptions(options: JsonValue): JsonValue {
@@ -61,6 +128,7 @@ export function encodeOptions(options: JsonValue): JsonValue {
 
   const result: { [key: string]: JsonValue } = {};
   for (const [key, value] of Object.entries(options)) {
+    assertEncodable(value, key);
     const encoded: JsonValue = Array.isArray(value) || isPlainObject(value) ? JSON.stringify(value) : value;
     Object.defineProperty(result, key, { value: encoded, enumerable: true, writable: true, configurable: true });
   }

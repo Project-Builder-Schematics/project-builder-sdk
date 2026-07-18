@@ -19,7 +19,6 @@ import { AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, replaceContent, find, rename, move, copy } from "../../src/commons/index.ts";
 import type { AuthoringReason, AuthoringVerb } from "../../src/commons/index.ts";
-import type { JsonValue } from "../../src/core/wire.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 
 describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () => {
@@ -198,10 +197,15 @@ describe("REQ-14.3 — batch-level rejections never fabricate a verb or path", (
   it("unrepresentable-content (round-trip-drop): reason set, verb/path undefined, appliedCount 0", async () => {
     const fake = new ContractFake({ seed: {} });
     const caught = await rejectedRun(fake, () => {
-      // A function value survives JSON.stringify's own throw but is silently DROPPED by
-      // it — the round-trip-drop family (contract-fake.ts's deepEqual guard), distinct
-      // from the BigInt stringify-throw family already pinned in batch-cap.test.ts.
-      create("a.ts", { template: "A", options: { fn: () => {} } as unknown as JsonValue });
+      // typed-options-feeder §4.2d reconcile: a function value now rejects EARLIER, at
+      // scheduling time inside encodeOptions (a plain Error naming the key, REQ-TOE-04) —
+      // it never reaches this flush-time guard anymore. NaN is typeof "number", so it PASSES
+      // encodeOptions unencoded (REQ-TOE-03 passthrough) and still round-trips to `null`
+      // through JSON — the round-trip-drop family (contract-fake.ts's deepEqual guard) this
+      // scenario pins, distinct from the BigInt stringify-throw family already covered in
+      // batch-cap.test.ts. All four assertion values below are unchanged; only the trigger
+      // input moved to one the new SDK-side encode does not shadow.
+      create("a.ts", { template: "A", options: { ratio: 0 / 0 } });
     });
     expect(caught).toBeInstanceOf(AuthoringError);
     const err = caught as AuthoringError;

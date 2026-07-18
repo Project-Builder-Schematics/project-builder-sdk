@@ -111,11 +111,11 @@ Cross-surface consistency is a HARD requirement anchored to an ABSOLUTE expected
 **Acceptance**: GIVEN nested/empty/null-proto/`__proto__`-keyed/mixed-order options and pre-stringified/scalar/null values WHEN encoded THEN each behaves per its scenario (encode vs. byte-identical passthrough), insertion order preserved.
 
 ### Tasks
-- [ ] S-001.1 RED: encode-shape cases — nested-ride, mixed-order, null-proto, empty composite/options (TOE-01.3–.7)
-- [ ] S-001.2 RED: string/scalar/null passthrough cases (TOE-02, TOE-03)
-- [ ] S-001.3 RED: `__proto__` own-key case (TOE-05.1)
-- [ ] S-001.4 GREEN: harden `isPlainObject` (null-proto) + switch result assembly to `Object.defineProperty`
-- [ ] S-001.5 RED+GREEN: `test/commons/encode-surface-parity.test.ts` (create) — absent-options tolerance (TOE-01.8)
+- [x] S-001.1 RED: encode-shape cases — nested-ride, mixed-order, null-proto, empty composite/options (TOE-01.3–.7)
+- [x] S-001.2 RED: string/scalar/null passthrough cases (TOE-02, TOE-03)
+- [x] S-001.3 RED: `__proto__` own-key case (TOE-05.1)
+- [x] S-001.4 GREEN: harden `isPlainObject` (null-proto) + switch result assembly to `Object.defineProperty`
+- [x] S-001.5 RED+GREEN: `test/commons/encode-surface-parity.test.ts` (create) — absent-options tolerance (TOE-01.8)
 
 ---
 
@@ -130,11 +130,12 @@ Cross-surface consistency is a HARD requirement anchored to an ABSOLUTE expected
 **Acceptance**: GIVEN an `undefined`/function/symbol/`BigInt`/circular/`Date`/`Map`/class value (top-level or nested) WHEN scheduled THEN it throws naming the key, never a raw serializer `TypeError`; an acyclic shared reference still encodes.
 
 ### Tasks
-- [ ] S-002.1 RED: top-level + nested reject cases (TOE-04.1–.3, .5–.8)
-- [ ] S-002.2 RED: true-cycle rejects (TOE-04.4) vs. shared-ref DAG encodes (ancestor-path, add-on-descent/delete-on-ascent)
-- [ ] S-002.3 GREEN: `assertEncodable` + `rejectOption` (message names key, no raw TypeError, allowed-set echo)
-- [ ] S-002.4 RED+GREEN: `test/commons/encode-surface-parity.test.ts` — rejection surfaces at scheduling (TOE-04 integration)
-- [ ] S-002.5 Reconcile `test/skeleton/error-attribution.test.ts` REQ-14.3: swap fixture from `{fn: () => {}}` to a top-level non-finite number (§4.2d) — same assertions, new trigger
+- [x] S-002.1 RED: top-level + nested reject cases (TOE-04.1–.3, .5–.8)
+- [x] S-002.2 RED: true-cycle rejects (TOE-04.4) vs. shared-ref DAG encodes (ancestor-path, add-on-descent/delete-on-ascent)
+- [x] S-002.3 GREEN: `assertEncodable` + `rejectOption` (message names key, no raw TypeError, allowed-set echo)
+- [x] S-002.4 RED+GREEN: `test/commons/encode-surface-parity.test.ts` — rejection surfaces at scheduling (TOE-04 integration)
+- [x] S-002.5 Reconcile `test/skeleton/error-attribution.test.ts` REQ-14.3: swap fixture from `{fn: () => {}}` to a top-level non-finite number (§4.2d) — same assertions, new trigger
+  - **Scope grew beyond the pinned file**: the same ADR-03-documented shadow (a function-valued create option now rejects at scheduling, never reaching the flush-time `unrepresentable-content` guard) also broke two PRE-EXISTING tests §4.2d did not enumerate: `test/fake/harness-result.test.ts` (REQ-ATH-09.1) and `test/fake/harness-leak-scan.test.ts` (REQ-ATH-12.1's `unrepresentable-content` case). Both reconciled with the IDENTICAL sanctioned pattern (function → `{ratio: 0/0}`, assertions unchanged). See apply-progress.md's Deviations for detail.
 
 ---
 

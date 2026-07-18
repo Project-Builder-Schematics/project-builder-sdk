@@ -20,7 +20,7 @@ import { describe, it, expect } from "bun:test";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { create, find, replaceContent, AuthoringError } from "../../src/commons/index.ts";
 import { EMIT_BATCH_BUDGET_BYTES } from "../../src/core/wire.ts";
-import type { Batch, JsonValue } from "../../src/core/wire.ts";
+import type { Batch } from "../../src/core/wire.ts";
 
 describe("REQ-ATH-01 — runFactoryForTest result shape", () => {
   it("REQ-ATH-01.1: happy-path shape — tree, single emitted batch, no error", async () => {
@@ -222,8 +222,13 @@ describe("REQ-ATH-08 — outside-run verb calls are not laundered", () => {
 
 describe("REQ-ATH-09 — emission-validity boundaries", () => {
   it("REQ-ATH-09.1: a non-JSON-safe option value rejects with unrepresentable-content", async () => {
+    // typed-options-feeder §4.2d reconcile: a function value now rejects EARLIER, at
+    // scheduling time inside encodeOptions (REQ-TOE-04) — it never reaches this flush-time
+    // guard anymore. NaN is typeof "number" (REQ-TOE-03 passthrough) and still round-trips
+    // to `null` through JSON, so it still trips the flush-time round-trip-drop guard this
+    // scenario pins. Assertions below are unchanged; only the trigger input moved.
     const run = (): void => {
-      create("bad.ts", { template: "x", options: { fn: () => {} } as unknown as JsonValue });
+      create("bad.ts", { template: "x", options: { ratio: 0 / 0 } });
     };
 
     const result = await runFactoryForTest(run, undefined);

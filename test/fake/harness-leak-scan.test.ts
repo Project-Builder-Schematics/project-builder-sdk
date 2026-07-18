@@ -19,7 +19,6 @@ import { describe, it, expect } from "bun:test";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { create, find, AuthoringError } from "../../src/commons/index.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
-import type { JsonValue } from "../../src/core/wire.ts";
 import * as rejectionMessages from "../../src/testing/rejection-messages.ts";
 
 const LEAK_DICTIONARY: readonly string[] = Object.values(rejectionMessages).filter(
@@ -120,8 +119,11 @@ describe("REQ-ATH-12.1 — harness result carries no leaked fragment", () => {
   });
 
   it("unrepresentable-content rejection (REQ-ATH-09.1) leaks nothing", async () => {
+    // typed-options-feeder §4.2d reconcile (same pattern as REQ-14.3/REQ-ATH-09.1 in
+    // harness-result.test.ts): a function value now rejects earlier, at scheduling time
+    // inside encodeOptions — NaN still reaches this flush-time round-trip-drop guard.
     const run = (): void => {
-      create("bad.ts", { template: "x", options: { fn: () => {} } as unknown as JsonValue });
+      create("bad.ts", { template: "x", options: { ratio: 0 / 0 } });
     };
     const result = await runFactoryForTest(run, undefined);
 
