@@ -21,7 +21,7 @@ import { readFileSync } from "node:fs";
 import { AuthoringError, invalidInput } from "../core/authoring-error.ts";
 import type { Directive, JsonValue } from "../core/wire.ts";
 import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../core/wire.ts";
-import { forceEntry } from "../core/directive-factory.ts";
+import { encodeOptions, forceEntry } from "../core/directive-factory.ts";
 import { validateSourceContainment } from "./containment.ts";
 
 export type ClassificationVerdict = "by-value" | "by-reference";
@@ -153,9 +153,17 @@ export function classifyTransport(params: ClassifyParams): ClassifyResult {
   // against `EMIT_BATCH_BUDGET_BYTES`, the SAME boundary `exceedsEmitBatchBudget` enforces
   // at emit (spec V4 REQ-WPS-04.1: the cap reserves the frame-envelope allowance).
   // `>` (not `>=`) — exactly-at-budget still fits (REQ-CCL-02.3).
+  //
+  // REQ-CCL-02.4: `options` is run through the SAME shared `encodeOptions` (fit-39's one
+  // other sanctioned call site) real `create()` emission applies — never the caller's raw,
+  // pre-encode shape. A composite option value's JSON-string form carries its own
+  // quote/backslash-escaping inflation once re-embedded and serialized again here, closing
+  // the pre-encode/post-encode misclassification gap: measuring the raw shape would
+  // under-count and could wrongly classify by-value a directive that is actually over
+  // budget once the real encode step runs.
   const prospectiveDirective: Directive = {
     op: "create",
-    create: { pathTemplate: destPath, template: content, options, ...forceEntry(force) },
+    create: { pathTemplate: destPath, template: content, options: encodeOptions(options), ...forceEntry(force) },
   };
   const directiveSize = serializedBatchSize([prospectiveDirective]);
   if (directiveSize > EMIT_BATCH_BUDGET_BYTES) {

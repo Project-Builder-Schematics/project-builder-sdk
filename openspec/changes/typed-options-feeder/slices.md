@@ -150,12 +150,12 @@ Cross-surface consistency is a HARD requirement anchored to an ABSOLUTE expected
 **Acceptance**: GIVEN the same composite options WHEN routed through `create()` inline/`templateFile`/scaffold, the testing recorder, `dryRun()`, and the budget estimator THEN all surfaces agree on the encoded bytes, `dryRun()` stays options-blind, and docs/fitness confirm the invariant.
 
 ### Tasks
-- [ ] S-003.1 RED+GREEN: `test/scaffold/classify-transport.test.ts` — post-encode boundary (CCL-02.4); import `encodeOptions` into `classify-transport.ts`
-- [ ] S-003.2 RED: `encode-surface-parity.test.ts` — inline/scaffold/templateFile byte-identical to absolute anchor (TOE-06.1/.2)
-- [ ] S-003.3 RED: `test/fake/encode-recorded-batch.test.ts` — recorded batch encoded (TOE-07.1) + `createOp` oracle parity (TOE-07.2)
-- [ ] S-003.4 RED: `test/dry-run/plan.test.ts` — no options field in `DryRunEntry` (TOE-08.1)
-- [ ] S-003.5 Docs: rewrite `docs/create-templates.md` (native §1, delete Appendix, TW-F4-safe observability note — see constraint below) + `test/docs/encode-options-docs.test.ts` (TOE-09.1/.2)
-- [ ] S-003.6 `test/fitness/fit-39-single-encode-site.test.ts` — source-scan, single encode site
+- [x] S-003.1 RED+GREEN: `test/scaffold/classify-transport.test.ts` — post-encode boundary (CCL-02.4); import `encodeOptions` into `classify-transport.ts`
+- [x] S-003.2 RED: `encode-surface-parity.test.ts` — inline/scaffold/templateFile byte-identical to absolute anchor (TOE-06.1/.2)
+- [x] S-003.3 RED: `test/fake/encode-recorded-batch.test.ts` — recorded batch encoded (TOE-07.1) + `createOp` oracle parity (TOE-07.2)
+- [x] S-003.4 RED: `test/dry-run/plan.test.ts` — no options field in `DryRunEntry` (TOE-08.1)
+- [x] S-003.5 Docs: rewrite `docs/create-templates.md` (native §1, delete Appendix, TW-F4-safe observability note — see constraint below) + `test/docs/encode-options-docs.test.ts` (TOE-09.1/.2)
+- [x] S-003.6 `test/fitness/fit-39-single-encode-site.test.ts` — source-scan, single encode site
 
 ---
 

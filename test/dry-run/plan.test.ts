@@ -135,3 +135,23 @@ describe("dryRunPlan — integration: snapshot from real Session (REQ-04.3)", ()
     ] satisfies DryRunEntry[]);
   });
 });
+
+describe("dryRunPlan — REQ-TOE-08.1 (S-003, typed-options-feeder): composite options never surface [characterization]", () => {
+  it("a create directive carrying encoded composite options produces a DryRunEntry with only verb/path/kind — no options field, encoded or native", () => {
+    const factory = new DirectiveFactory();
+    const directive = factory.create({
+      pathTemplate: "src/widget.ts",
+      template: "content",
+      options: { methods: [{ name: "load" }] },
+    });
+    // Sanity: the directive genuinely carries non-trivial ENCODED options, so the assertion
+    // below is not vacuously true for an already-empty options object.
+    if (directive.op !== "create") throw new Error("fixture invariant broken: expected a create directive");
+    expect(directive.create.options).toEqual({ methods: '[{"name":"load"}]' });
+
+    const [entry] = dryRunPlan([directive]);
+
+    expect(entry).toEqual({ verb: "create", path: "src/widget.ts", kind: "rendered" } satisfies DryRunEntry);
+    expect(Object.keys(entry as object).sort()).toEqual(["kind", "path", "verb"]);
+  });
+});
