@@ -1,0 +1,11 @@
+{
+  "change": "typed-options-feeder",
+  "triage": "M",
+  "phase": "build-complete",
+  "spec_status": "signed",
+  "slices": true,
+  "plan_verify": "ready",
+  "verify_final": "pass-with-followups",
+  "arch_audit": "clean",
+  "updated_at": "2026-07-18"
+}

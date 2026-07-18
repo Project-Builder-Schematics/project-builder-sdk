@@ -61,7 +61,7 @@ create("src/{= .name | dasherize =}/{= .name | dasherize =}.component.ts", {
     "{= range .methods =}  {= .name =}() {}\n{= end =}}\n",
   options: {
     name: "userProfile",
-    methods: JSON.stringify([{ name: "load" }, { name: "save" }]),
+    methods: [{ name: "load" }, { name: "save" }],
   },
 });
 ```
@@ -77,8 +77,12 @@ export class UserProfileComponent {
 }
 ```
 
-(Why the `JSON.stringify` around the array — see
-[the appendix](#appendix-passing-arrays-and-objects-in-v1).)
+Array- and object-valued options — `methods` above — pass as plain native values; you never
+hand-encode them.
+
+Recorded batches from `@pbuilder/sdk/testing` show these values already in their encoded
+wire form — asserting on `options.methods` in a test sees the JSON string
+`'[{"name":"load"},{"name":"save"}]'`, not the native array you passed.
 
 ### Overwrite behavior (`force`)
 
@@ -477,25 +481,3 @@ matter of reading the position, not hunting.
 - **pipe** — one of the 7 case/word transforms. Built-in operators (`eq`, `len`, …) are not
   pipes, even though they look similar.
 - **force** — the overwrite flag; not part of the template language.
-
----
-
-## Appendix: passing arrays and objects in v1
-
-The SDK forwards `options` to the engine verbatim, and the engine's v1 wire expects array- and
-object-valued options as **JSON-encoded strings** — it promotes a string value that begins with
-`[` or `{` into a real array/object before rendering. So to `range` over a list today, encode it:
-
-```ts
-create("src/{= .name | dasherize =}.component.ts", {
-  template: "export class {= .name | classify =}Component {\n{= range .methods =}  {= .name =}() {}\n{= end =}}\n",
-  options: {
-    name: "userProfile",
-    methods: JSON.stringify([{ name: "load" }, { name: "save" }]),
-  },
-});
-```
-
-Inside the template the promoted value behaves as a real array — `range`, `len`, `index`, and
-nested field access all work as documented above. A typed feeder that accepts native arrays and
-objects is planned; until then, `JSON.stringify` at the call site is the v1 mechanism.

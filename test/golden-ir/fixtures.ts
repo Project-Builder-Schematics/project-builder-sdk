@@ -13,7 +13,9 @@ export const GOLDEN_CREATE: Extract<Directive, { op: "create" }> = {
   create: {
     pathTemplate: "src/{= name | dasherize =}/{= name | dasherize =}.component.ts",
     template: "<% for (const m of methods) { %>\nexport function {= m.name =}() {}\n<% } %>",
-    options: { name: "userProfile", methods: [{ name: "load" }, { name: "save" }] },
+    // REQ-TOE-01.1: methods (native array) encodes to the compact JSON string at the wire
+    // boundary; `name` (a string) passes through verbatim (REQ-TOE-02).
+    options: { name: "userProfile", methods: '[{"name":"load"},{"name":"save"}]' },
   },
 };
 

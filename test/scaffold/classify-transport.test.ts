@@ -23,6 +23,8 @@ import * as fs from "node:fs";
 import { join } from "node:path";
 import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
 import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
+import type { Directive } from "../../src/core/wire.ts";
+import { encodeOptions } from "../../src/core/directive-factory.ts";
 import { scaffold } from "../../src/commons/index.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { collectOps } from "../support/spy-client.ts";
@@ -260,6 +262,84 @@ describe("REQ-CCL-02.3 — exactly-at-budget boundary, directive-inclusive, driv
 
     expect(result.error).toBeUndefined();
     expect(result.tree.get("out/at.ts")).toEqual(content);
+  });
+});
+
+// Deterministic escaping arithmetic (REQ-CCL-02.4, design §4.8): a top-level composite
+// (array) option value whose sole element is `q` literal `"` characters. ONE JSON.stringify
+// pass over the whole directive (the pre-fix/structural measure — options embedded as a
+// native array, never independently encoded first) escapes each quote once (`"` -> `\"`,
+// 2 bytes), contributing exactly `2*q + 4` bytes for the `blob` field. `encodeOptions`
+// (REQ-TOE-01) then JSON.stringifies that array as its OWN step, producing a STRING that
+// itself carries `q` backslashes and `q+2` quote characters; embedding that STRING as the
+// value and stringifying the outer directive a SECOND time escapes every one of those
+// characters again — contributing exactly `2*(2*q+4) = 4*q+8` bytes, precisely DOUBLE the
+// structural measure. `q` is picked (via the real per-directive overhead, same style as
+// `soloDirectiveOverhead` above) so the pre-encode field size fits the budget and the
+// post-encode (doubled) field size exceeds it — the misclassification gap this REQ closes.
+function quoteHeavyOptions(q: number): { blob: string[] } {
+  return { blob: ['"'.repeat(q)] };
+}
+
+describe("REQ-CCL-02.4 — composite-valued option measured post-encode at the boundary (NEW)", () => {
+  it("pre-encode structural size fits budget, post-encode encoded-string size exceeds it — classifies by-reference", () => {
+    const dir = scratchDir();
+    const destPath = "small.ts";
+    writeFileSync(join(dir, "small.ts"), "x", "utf-8");
+
+    const baseOverhead = serializedBatchSize([
+      { op: "create", create: { pathTemplate: destPath, template: "x", options: {} } },
+    ]);
+    const q = Math.floor((EMIT_BATCH_BUDGET_BYTES - baseOverhead) * 0.4);
+    const rawOptions = quoteHeavyOptions(q);
+
+    const preEncodeDirective: Directive = {
+      op: "create",
+      create: { pathTemplate: destPath, template: "x", options: rawOptions },
+    };
+    const postEncodeDirective: Directive = {
+      op: "create",
+      create: { pathTemplate: destPath, template: "x", options: encodeOptions(rawOptions) },
+    };
+    // Pins the DIRECTIVE-inclusive quantities the fix is actually based on, before driving
+    // classifyTransport — mirrors REQ-CCL-02.2/.3's own established "pin then assert" style.
+    expect(serializedBatchSize([preEncodeDirective])).toBeLessThanOrEqual(EMIT_BATCH_BUDGET_BYTES);
+    expect(serializedBatchSize([postEncodeDirective])).toBeGreaterThan(EMIT_BATCH_BUDGET_BYTES);
+
+    const result = classifyTransport({
+      packageDir: dir,
+      packageRoot: dir,
+      relPath: "small.ts",
+      isTemplateMarked: false,
+      destPath,
+      options: rawOptions,
+    });
+
+    expect(result.verdict).toEqual("by-reference");
+  });
+
+  it("a real scaffold() run with the same near-boundary composite options succeeds gracefully via copyIn — no options field on the emitted directive, no rejection at emit", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    const destPath = "out/small.ts";
+    writeFileSync(join(dir, "files", "small.ts"), "x", "utf-8");
+
+    const baseOverhead = serializedBatchSize([
+      { op: "create", create: { pathTemplate: destPath, template: "x", options: {} } },
+    ]);
+    const q = Math.floor((EMIT_BATCH_BUDGET_BYTES - baseOverhead) * 0.4);
+    const rawOptions = quoteHeavyOptions(q);
+
+    const run = (): void => {
+      scaffold({ from: "files", to: "out", options: rawOptions });
+    };
+    const result = await runFactoryForTest(run, undefined, { packageDir: dir });
+
+    expect(result.error).toBeUndefined();
+    const copyInDirectives = collectOps(result.emitted, "copyIn");
+    expect(copyInDirectives).toHaveLength(1);
+    expect(copyInDirectives[0]?.copyIn).toEqual({ from: "files/small.ts", to: "out/small.ts" });
+    expect("options" in (copyInDirectives[0]?.copyIn ?? {})).toBe(false);
   });
 });
 

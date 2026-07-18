@@ -2,6 +2,29 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `typed-options-feeder` (2026-07-18)
+
+### `Object.defineProperty` defaults are a silent-drop trap in encode paths
+**What**: `defineProperty` defaults `enumerable: false` — an assembled object whose keys were
+added with default descriptors serializes to `{}` at `JSON.stringify` time with no error. A
+blind plan-verify judge caught the unpinned descriptor before build; the pinned
+`{ value, enumerable: true, writable: true, configurable: true }` is load-bearing wherever
+`__proto__`-safe assembly forces `defineProperty` over plain assignment.
+
+### Top-level-sibling tests do not exercise per-entry-scoped traversal state
+**What**: `encodeOptions` validates each top-level entry with a FRESH ancestor set, so a
+shared-reference test at top level (`{a: s, b: s}`) never exercises delete-on-ascent — the
+mutant that drops the delete survived the full suite while nested siblings (`{cfg: [s, s]}`)
+false-positived as circular. When an invariant lives inside per-entry-scoped state, the test
+must place the probe INSIDE one entry, not across entries. (QA council, empirical mutant kill.)
+
+### An Executor Context section is what makes a slices artefact judge-proof
+**What**: Plan-verify's simulated-executor judge (slices-only, by protocol) returned 13
+blocking questions against a task-map slices doc; inlining the load-bearing mechanics
+(encoding contract, predicate, cycle algorithm, error template, file map with signatures,
+fixture procedures, hard ACs) converged 13→2→0 across three iterations with zero re-decisions.
+Enrichment, not re-decision, is the fix for executor-insufficiency gaps.
+
 ## From `stdio-engine-client` (2026-07-16)
 
 ### Blind dual-judge review catches what a full council with context does not

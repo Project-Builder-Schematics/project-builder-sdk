@@ -78,3 +78,15 @@ The SDK emits the directive correctly; the engine drops it until the apply pass 
   method — the table gates the wire contract.
 - `find` being read-only (no directive at call time) is an invariant the `Session` enforces:
   only `buffer(directive)` calls add to the pending queue.
+
+## Amendment: Wire Value-Lowering Exception (2026-07-18, ADR-0060)
+
+The factory's "pure args→Directive" characterization has one exception: **wire value-lowering** for
+composite option values in `create` directives. ADR-0060 (accepted 2026-07-18, change `typed-options-feeder`)
+amends this decision to clarify that JSON-encoding native array/object `options` values before they
+cross the wire is a shallow transform distinct from template rendering or AST manipulation — both of
+which remain banned. The implementation (`encodeOptions` in `src/core/directive-factory.ts`) applies
+only to the `create` method's `options` field and is transparent to all other operations. This value-lowering
+pattern may be reused for similar wire-shaping transforms in future changes.
+
+See ADR-0060 for full context and rationale.
