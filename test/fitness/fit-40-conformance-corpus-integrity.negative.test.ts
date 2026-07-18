@@ -28,6 +28,8 @@ import {
   checkCollectionJsonMarker,
   checkSeedExpectedResolution,
   checkFactoryModuleResolution,
+  checkFactoryExportResolution,
+  checkCreateQuarantine,
   checkSchematicLoweringFiles,
   checkNonEmptyCases,
   checkValidClass,
@@ -279,6 +281,131 @@ describe("FIT-40 negative paths — fail-closed branches proven against syntheti
       expect(violations).toEqual([
         ruleFail(fixture.id, c.name, "REQ-CFX-10", 'expected:"zero-effect" requires a non-empty pre-run seed; seed is null'),
       ]);
+    });
+  });
+
+  describe("REQ-CSC-02.2 — case-level factory.export names a real export (judgment-day JD-3)", () => {
+    it("fails, naming the fixture and case, when a case's factory.export is a typo'd/nonexistent named export", () => {
+      const root = tempCorpusRoot();
+      const dir = join(root, "typo-export");
+      mkdirSync(dir);
+      writeFileSync(join(dir, "factory.ts"), "export default function main() {}\nexport function realExport() {}\n");
+      const c = baseCase({ name: "twin", factory: { module: "factory.ts", export: "typoedExport" } });
+      const fixture: LoadedFixture = { id: "typo-export", dir, manifest: baseManifest({ id: "typo-export", cases: [c] }) };
+
+      const violations = checkFactoryExportResolution([fixture]);
+      expect(violations).toEqual([
+        ruleFail("typo-export", "twin", "REQ-CSC-02.2", 'factory.export "typoedExport" is not a named export of module "factory.ts"'),
+      ]);
+    });
+
+    it("fails when a fixture-level factory.export is null but the module has no default export", () => {
+      const root = tempCorpusRoot();
+      const dir = join(root, "no-default");
+      mkdirSync(dir);
+      writeFileSync(join(dir, "factory.ts"), "export function namedOnly() {}\n");
+      const fixture: LoadedFixture = { id: "no-default", dir, manifest: baseManifest({ id: "no-default" }) };
+
+      const violations = checkFactoryExportResolution([fixture]);
+      expect(violations).toEqual([
+        ruleFail("no-default", null, "REQ-CSC-02.2", 'factory.export is null but module "factory.ts" declares no default export'),
+      ]);
+    });
+
+    it("passes async functions and export const forms (regex robustness)", () => {
+      const root = tempCorpusRoot();
+      const dir = join(root, "async-and-const-exports");
+      mkdirSync(dir);
+      writeFileSync(
+        join(dir, "factory.ts"),
+        "export default async function main() {}\nexport const namedConst = () => {};\nexport async function namedAsync() {}\n"
+      );
+      const withConst = baseCase({ name: "const-twin", factory: { module: "factory.ts", export: "namedConst" } });
+      const withAsync = baseCase({ name: "async-twin", factory: { module: "factory.ts", export: "namedAsync" } });
+      const fixture: LoadedFixture = {
+        id: "async-and-const-exports",
+        dir,
+        manifest: baseManifest({ id: "async-and-const-exports", cases: [withConst, withAsync] }),
+      };
+
+      expect(checkFactoryExportResolution([fixture])).toEqual([]);
+    });
+  });
+
+  describe("REQ-CFX-02.1 — create() quarantine within a single file (judgment-day JD-2)", () => {
+    it("fails when a second create() is authored in the sanctioned file's default export, outside the quarantined named-export block", () => {
+      const root = tempCorpusRoot();
+      const dir = join(root, "smuggled-create");
+      mkdirSync(dir);
+      writeFileSync(
+        join(dir, "factory.ts"),
+        [
+          'import { create } from "../../src/index.ts";',
+          "export default function main() {",
+          '  create("smuggled.txt", { template: "x", options: {} });',
+          "}",
+          "export function probeExport() {",
+          '  create("probe.txt", { template: "x", options: {} });',
+          "}",
+        ].join("\n")
+      );
+      const c = baseCase({ name: "twin", factory: { module: "factory.ts", export: "probeExport" } });
+      const fixture: LoadedFixture = { id: "smuggled-create", dir, manifest: baseManifest({ id: "smuggled-create", cases: [c] }) };
+
+      const violations = checkCreateQuarantine([fixture]);
+      expect(violations).toEqual([
+        ruleFail(
+          "smuggled-create",
+          null,
+          "REQ-CFX-02.1",
+          "factory file \"factory.ts\" authors create() outside its quarantined named-export block(s) (2 total call(s), only 1 inside quarantine)"
+        ),
+      ]);
+    });
+
+    it("fails, naming the file, when create() is authored but no case references any quarantining named export", () => {
+      const root = tempCorpusRoot();
+      const dir = join(root, "unquarantined-create");
+      mkdirSync(dir);
+      writeFileSync(
+        join(dir, "factory.ts"),
+        ['import { create } from "../../src/index.ts";', "export default function main() {", '  create("x.txt", { template: "x", options: {} });', "}"].join(
+          "\n"
+        )
+      );
+      const fixture: LoadedFixture = { id: "unquarantined-create", dir, manifest: baseManifest({ id: "unquarantined-create" }) };
+
+      const violations = checkCreateQuarantine([fixture]);
+      expect(violations).toEqual([
+        ruleFail(
+          "unquarantined-create",
+          null,
+          "REQ-CFX-02.1",
+          "factory file \"factory.ts\" authors create() but no quarantined named-export block was found to contain it"
+        ),
+      ]);
+    });
+
+    it("passes when the file's only create() call lies fully inside the quarantined named-export block", () => {
+      const root = tempCorpusRoot();
+      const dir = join(root, "clean-quarantine");
+      mkdirSync(dir);
+      writeFileSync(
+        join(dir, "factory.ts"),
+        [
+          'import { replaceContent, create } from "../../src/index.ts";',
+          "export default function main() {",
+          '  replaceContent("existing.txt", "composed");',
+          "}",
+          "export function probeExport() {",
+          '  create("probe.txt", { template: "x", options: {} });',
+          "}",
+        ].join("\n")
+      );
+      const c = baseCase({ name: "twin", factory: { module: "factory.ts", export: "probeExport" } });
+      const fixture: LoadedFixture = { id: "clean-quarantine", dir, manifest: baseManifest({ id: "clean-quarantine", cases: [c] }) };
+
+      expect(checkCreateQuarantine([fixture])).toEqual([]);
     });
   });
 });

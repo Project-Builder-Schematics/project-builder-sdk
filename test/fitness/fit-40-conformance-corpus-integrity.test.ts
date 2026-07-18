@@ -37,6 +37,8 @@ import {
   checkCollectionJsonMarker,
   checkSeedExpectedResolution,
   checkFactoryModuleResolution,
+  checkFactoryExportResolution,
+  checkCreateQuarantine,
   checkSchematicLoweringFiles,
   checkNonEmptyCases,
   checkValidClass,
@@ -143,8 +145,12 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(checkSeedExpectedResolution(fixtures)).toEqual([]);
     });
 
-    it("REQ-CSC-02.2: every fixture's factory.module resolves to an existing file", () => {
+    it("REQ-CSC-02.2: every fixture's factory.module resolves to an existing file (fixture-level + every case-level override)", () => {
       expect(checkFactoryModuleResolution(fixtures)).toEqual([]);
+    });
+
+    it("REQ-CSC-02.2: every fixture-level and case-level factory.export names a real export of its module", () => {
+      expect(checkFactoryExportResolution(fixtures)).toEqual([]);
     });
 
     it("REQ-CSC-02.1: lowering.mode === 'schematic' implies schematic/schema.json + at least one schematic/files/** entry", () => {
@@ -256,6 +262,14 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
         violations.push(ruleFail("m2-create-composition", null, "REQ-CFX-02.1", `expected the sole sanctioned create() site "${SANCTIONED_SITE}" to author create(), found none`));
       }
       expect(violations).toEqual([]);
+    });
+
+    it("REQ-CFX-02.1: within the sanctioned file, every create() call lies inside its quarantined named-export block (never the default export)", () => {
+      // The scan above only sees WHICH FILES contain create() — it cannot see a SECOND
+      // create() added to the sanctioned file's own default export. checkCreateQuarantine
+      // extracts each case-referenced named-export function's block and proves every
+      // create() call in the file falls inside one of those blocks.
+      expect(checkCreateQuarantine(fixtures)).toEqual([]);
     });
 
     it("REQ-CFX-03.1: the reject-probe's create call is preceded by a DO-NOT-COPY 5-clause comment", () => {
