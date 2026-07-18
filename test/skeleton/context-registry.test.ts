@@ -133,12 +133,12 @@ describe("REQ-MIS-01 (accessor contract) — resolveRunAls: occupied-slot fail-l
 describe("REQ-MIS-01 (accessor contract) — resolveRunAls: valid-reuse and absent-slot (S-001.5c)", () => {
   it("a real ALS slot value is returned verbatim — the SAME instance, not a copy", () => {
     const realAls = new AsyncLocalStorage<unknown>();
-    expect(resolveRunAls(realAls)).toBe(realAls);
+    expect(resolveRunAls(realAls) as unknown).toBe(realAls);
   });
 
   it("[design intent, ADR-01 addendum] a duck-valid but non-real-ALS object is accepted verbatim too — no brand check", () => {
     const duckAls = { run: () => {}, getStore: () => undefined };
-    expect(resolveRunAls(duckAls)).toBe(duckAls);
+    expect(resolveRunAls(duckAls) as unknown).toBe(duckAls);
   });
 
   it("an absent (undefined) slot value returns a fresh AsyncLocalStorage instance", () => {
