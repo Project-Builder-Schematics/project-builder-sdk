@@ -31,6 +31,22 @@ export function ensureTscBuild(): string {
   return tscBuildDist;
 }
 
+/**
+ * Fail-loud guard (context-singleton-fix, REQ-MIS-06.1): asserts the two build artifacts a
+ * dist-runner e2e needs are actually present under `distDir`. Called AFTER `ensureTscBuild()`
+ * so a build failure is caught there first — this only catches the residual case where the
+ * build "succeeded" but the expected output layout changed (a silent skip would false-pass
+ * the dual-realm regression e2e instead of exercising the real bug).
+ */
+export function requireDistArtifacts(distDir: string): void {
+  const requiredArtifacts = [join(distDir, "bin/pbuilder-runner.js"), join(distDir, "core/context.js")];
+  for (const artifact of requiredArtifacts) {
+    if (!existsSync(artifact)) {
+      throw new Error(`requireDistArtifacts: missing build artifact ${artifact} — run "bun run build" first`);
+    }
+  }
+}
+
 const minifiedEntryCache = new Map<string, { sizeBytes: number; output: string }>();
 
 /**

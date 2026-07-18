@@ -71,7 +71,62 @@ export interface RunContext {
   packageAnchors?: { packageDir: string; packageRoot: string };
 }
 
-const als = new AsyncLocalStorage<RunContext>();
+// context-singleton-fix (REQ-MIS-01/02, design §4.3): a module-scope `als` is realm-local —
+// when `dist/bin/pbuilder-runner.js` and a src-relative `.ts` factory co-execute in one Bun
+// process, each resolves its OWN copy of this module and its OWN `als`, so a run entered in
+// one realm is invisible to `currentContext()` in the other. The store is therefore parked at
+// `globalThis[Symbol.for(RUN_ALS_REGISTRY_KEY)]` — a process-singleton every realm resolving
+// this file reaches via the SAME well-known key — lazily installed on first access.
+export const RUN_ALS_REGISTRY_KEY = "@pbuilder/sdk:core/context#run-als";
+
+function isAsyncLocalStorageLike(value: unknown): value is AsyncLocalStorage<RunContext> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { run?: unknown }).run === "function" &&
+    typeof (value as { getStore?: unknown }).getStore === "function"
+  );
+}
+
+// PURE 3-state decision (design §4.3, rev 3 purity split) — no globalThis, no side effects.
+// `undefined` (slot absent) -> fresh ALS; a duck-valid ALS-shaped value (cross-realm reuse)
+// -> returned verbatim, SAME instance; anything else -> fail LOUD (occupied-slot contract,
+// ADR-01 addendum): a foreign/corrupted occupant under this well-known key must never be
+// trusted or silently clobbered. Plain `Error` (NOT AuthoringError) — this is
+// environment/integration corruption, not author-input misuse; the closed reason enum has no
+// member for it (mirrors `validateAtRunBoundary`'s read-path posture).
+export function resolveRunAls(slotValue: unknown): AsyncLocalStorage<RunContext> {
+  if (slotValue === undefined) {
+    return new AsyncLocalStorage<RunContext>();
+  }
+  if (isAsyncLocalStorageLike(slotValue)) {
+    return slotValue;
+  }
+  throw new Error(
+    `[pbuilder] run-context registry slot Symbol.for("${RUN_ALS_REGISTRY_KEY}") is occupied by an ` +
+      `incompatible value (expected an AsyncLocalStorage, got ${typeof slotValue}) — another module ` +
+      "may have polluted globalThis"
+  );
+}
+
+// IMPURE thin shell: reads the shared slot, delegates the 3-state decision to the pure
+// `resolveRunAls`, and installs the resolved ALS ONLY when the slot was absent — a frozen
+// descriptor (non-enumerable, non-configurable, non-writable) so REQ-MIS-01.2's no-pollution
+// guarantee holds and the slot can never be silently reassigned after first install.
+function getRunAls(): AsyncLocalStorage<RunContext> {
+  const registryKey = Symbol.for(RUN_ALS_REGISTRY_KEY);
+  const slot = (globalThis as Record<symbol, unknown>)[registryKey];
+  const resolved = resolveRunAls(slot);
+  if (slot === undefined) {
+    Object.defineProperty(globalThis, registryKey, {
+      value: resolved,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    });
+  }
+  return resolved;
+}
 
 // ADR-04 (stdio-engine-client, REQ-RUN-06): a non-enumerable, non-configurable brand
 // stamped on defineFactory's returned wrapper — arity-independent double-wrap detection
@@ -90,7 +145,7 @@ export function isDefineFactoryWrapped(value: unknown): boolean {
 // not a plain Error. The prose lives in authoring-error.ts's outside-run message template
 // (the third template, REQ-AEC-06); this is the one call site that reaches it.
 export function currentContext(): RunContext {
-  const ctx = als.getStore();
+  const ctx = getRunAls().getStore();
   if (ctx === undefined) {
     throw new AuthoringError({
       verb: undefined,
@@ -337,7 +392,7 @@ export function defineFactory<O>(
     // rejection (an unawaited chain that threw) routes through the SAME catch below as a
     // flush rejection already does.
     try {
-      await als.run(ctx, () => fn(o));
+      await getRunAls().run(ctx, () => fn(o));
       await ctx.dialects.drain();
       await ctx.session.flush();
       await ctx.session.commit();
