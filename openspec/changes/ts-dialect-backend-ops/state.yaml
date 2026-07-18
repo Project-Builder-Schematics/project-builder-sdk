@@ -5,18 +5,61 @@ scope_version: 2 # Group 1 (import/export variants) only — full catalog in pen
 completed_phases:
   - triage
   - explore
-current_phase: explore
-current_phase_status: paused # owner-paused 2026-07-14, after explore, before propose
+  - propose # 2026-07-18 — council: PM concerns (3 must-fixes, no halt), BA sound-conditional; all routed into spec inputs
+current_phase: spec
+current_phase_status: paused # owner-paused 2026-07-18 with spec V2 draft-awaiting-sign
+spec_version: 2
 in_loop_iteration: 0
 plan_verify_iteration: 0
-next_phase: propose
+next_phase: design # BLOCKED on owner signing spec V2
+# Resume point: spec V2 (15 REQs / 67 scenarios: TSD 11/51 + REQ-TSD-21 new, DAS 1/5, TIV 3/11)
+# resolved ALL 26 council findings (council-spec-v1.md), zero rebuttals. Owner sign-off pending.
+# Two items for owner attention at sign time:
+#   1. Spec Decision 6 (addNamespaceImport merging into default-only decl) is NOT probe-verified —
+#      flagged in-spec; probe before sign, or accept flagged risk into design.
+#   2. Pre-existing REQ-TSD-08..11 numbering gap in the MAIN typescript-dialect spec (archive-sync
+#      defect, unrelated) left untouched — track separately.
+# On sign: mark spec_status signed → launch sdd-design (arch baseline injected, ADR-0063+ reserved,
+# .modify(fn) terminology — never `.raw()`, fail-RED guard).
 execution_mode: automatic
 artifact_store: hybrid
 personas:
   always: [architect, qa-engineer, business-analyst, pm]
   conditional: [security-engineer, tech-writer]
 
-# Propose is BLOCKED on four owner decisions surfaced by the explore council:
+# Owner decisions RATIFIED 2026-07-18 (all four resolved; propose unblocked):
+ratified_decisions:
+  - id: a
+    ruling: FOLD IN — identifier validation (pending row 22) enters this change's scope,
+      covering the `name` params of ALL ops (7 new + 5 existing). Injection CONFIRMED vs
+      ts-morph@28; 4th deferral rejected.
+  - id: b
+    ruling: SEPARATE STATEMENT — addTypeImport always emits its own `import type { X } from 'm'`
+      declaration; never merges inline `{ type X }` into an existing value import.
+  - id: c
+    ruling: NAMED RE-EXPORTS ONLY — removeExport targets `export { x } from 'm'` (name+module,
+      mirror of removeImport). Add/remove asymmetry ACCEPTED for v1; documented explicitly and
+      missing remove counterparts registered as pending followups.
+  - id: d
+    ruling: NO `as ns` — addExportAll covers `export * from 'm'` only (module-only idempotency
+      identity, no collision surface). `export * as ns` deferred to pending with the
+      value-binding note.
+  # Second ratification round — 2026-07-18, from spec V1 council review (council-spec-v1.md):
+  - id: e
+    ruling: AMENDS (b)'s consequence — addTypeImport is a NO-OP when a same-name VALUE import of
+      the same module exists (value import already provides the type meaning). Ruling (b) itself
+      stands for the emitting case. Fixes QA C1 (probe-verified TS2300).
+  - id: f
+    ruling: addVariable.kind gets RUNTIME validation vs the exact const|let|var allow-list, same
+      branded dialectError. Closes the sibling raw splice (ops.ts:114) security found.
+  - id: g
+    ruling: TIV grammar = ASCII-only ^[A-Za-z_$][A-Za-z0-9_$]*$ + reserved words REJECTED +
+      \u escapes and non-ASCII REJECTED. Unicode identifiers = pending followup.
+  - id: h
+    ruling: aliased export specifiers match by SOURCE name (removeImport mirror); visible-alias
+      side documented non-match. Applies to removeExport targeting + addReExport identity.
+
+# Original questions preserved for the record:
 blocking_decisions:
   - id: a
     question: Fold pending-changes row (22) identifier validation into this change?
