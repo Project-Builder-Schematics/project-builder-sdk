@@ -81,8 +81,9 @@ Notes: negative twins are extra `cases[]` on the SAME fixture, never separate fi
 directive-level codes (`not-found`, `collision`) and `null` for batch-level ones
 (`unrepresentable`).
 
-**PROPOSED — case-level `factory` override (requires engine-loader support + engine sign-off
-before the submodule pin advances)**: a `cases[]` entry MAY carry its own
+**ACCEPTED (engine sign-off 2026-07-18, loader support landed engine-side on branch
+`sdk-live-conformance/build` @ `17a49ab` — `m2-create-composition/manifest.json` may now be
+authored against this schema)**: a `cases[]` entry MAY carry its own
 `"factory": { "module": "factory.ts", "export": "<name>" }`, overriding the fixture-level
 `factory` for THAT case only. `m2-create-composition` needs this: its `positive` case authors a
 `modify` via the DEFAULT export, while `wire-create-reject-twin` must author the raw wire `create`
@@ -91,9 +92,16 @@ are cases on the same fixture (never separate fixtures), and branching a single 
 would pull a `create` path into the positive authoring, muddying the representable-ops-only
 quarantine. The engine's Go loader would need to resolve a case-level `factory.export` to a
 `file://…/conformance/<id>/factory.ts#<name>` pointer for that case (default export otherwise).
-UNTIL the engine team confirms loader support and signs off on this schema delta,
-`m2-create-composition/manifest.json` MUST NOT be authored — a rejected mechanism means
-re-authoring the fixture. (Origin: SDK-side `conformance-corpus` change, design ADR-0065.)
+(Origin: SDK-side `conformance-corpus` change, design ADR-0065. The earlier authoring hold is
+LIFTED by the acceptance above.)
+
+**Engine loader strictness (effective with the same commit)**: the engine's manifest/corpus
+decoding is now STRICT (`DisallowUnknownFields`) — any unknown key at any level (top-level,
+`factory`, `lowering`, `cases[]`, `outcome`, `transcript`, `corpus.json`) is a hard failure
+engine-side, not ignored. Schema evolution must go through this doc BEFORE a fixture ships a new
+key. The corpus-root ambiguity guard is also live: an undeclared directory containing `factory.ts`
+or `manifest.json` is fatal; non-fixture stray files (e.g. `collection.json`) and non-fixture dirs
+are inert.
 
 **Also flagged, SDK-side only (engine-loader-invisible)**: the corpus ships a presence-only
 `conformance/collection.json` marker at its root. The SDK runner's `defineFactory({packageDir})`

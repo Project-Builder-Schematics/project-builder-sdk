@@ -1,0 +1,36 @@
+{
+  "id": "m1-vehicle",
+  "wireSpecVersion": 1,
+  "class": "handshake",
+  "factory": { "module": "factory.ts", "export": null },
+  "input": {},
+  "lowering": { "mode": "schematic" },
+  "cases": [
+    {
+      "name": "positive",
+      "greetingVersion": 1,
+      "seed": null,
+      "expected": "expected",
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["out.txt"] },
+      "transcript": {
+        "callbacks": ["tree.read", "ir.emit", "ir.commit"],
+        "singleCommit": true,
+        "forbidDiscard": true,
+        "emitBeforeCommit": true
+      }
+    },
+    {
+      "name": "greeting-mismatch-twin",
+      "greetingVersion": 2,
+      "seed": null,
+      "expected": "empty",
+      "outcome": { "exitCode": 1, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": [] },
+      "transcript": {
+        "callbacks": [],
+        "singleCommit": true,
+        "forbidDiscard": true,
+        "emitBeforeCommit": true
+      }
+    }
+  ]
+}

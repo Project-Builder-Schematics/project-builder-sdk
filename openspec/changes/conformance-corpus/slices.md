@@ -31,17 +31,17 @@ the committed workspace or full disk state (north-star Q2). Surface before PR#1 
   `conformance/**` in dist
 
 ### Tasks
-- [ ] S-000.1 `conformance/corpus.json` = `{wireSpecVersion:1, fixtures:["m1-vehicle"]}`
-- [ ] S-000.2 `conformance/collection.json` (presence-only marker)
-- [ ] S-000.3 `conformance/README.md` (4-way disambiguation + honesty boundary + authoring
+- [x] S-000.1 `conformance/corpus.json` = `{wireSpecVersion:1, fixtures:["m1-vehicle"]}`
+- [x] S-000.2 `conformance/collection.json` (presence-only marker)
+- [x] S-000.3 `conformance/README.md` (4-way disambiguation + honesty boundary + authoring
       checklist, §4.3b)
-- [ ] S-000.4 `conformance/m1-vehicle/{manifest.json,factory.ts,schematic/,expected/}` (both cases; `expected/out.txt` = `v2` COMMITTED as a directory for the positive case — the twin's `expected: "empty"` is manifest-field-only, no dir; per design File Changes + REQ-CSC-02 presence assertion)
-- [ ] S-000.5 `.gitattributes` (`* eol=lf`) + renormalize dry-check
-- [ ] S-000.6 `test/support/conformance-fixture-loader.ts` (shapes + loader, §4.3)
-- [ ] S-000.7 `test/fitness/fit-40-conformance-corpus-integrity.test.ts` — RED first (write
+- [x] S-000.4 `conformance/m1-vehicle/{manifest.json,factory.ts,schematic/,expected/}` (both cases; `expected/out.txt` = `v2` COMMITTED as a directory for the positive case — the twin's `expected: "empty"` is manifest-field-only, no dir; per design File Changes + REQ-CSC-02 presence assertion)
+- [x] S-000.5 `.gitattributes` (`* eol=lf`) + renormalize dry-check
+- [x] S-000.6 `test/support/conformance-fixture-loader.ts` (shapes + loader, §4.3)
+- [x] S-000.7 `test/fitness/fit-40-conformance-corpus-integrity.test.ts` — RED first (write
       against the not-yet-landed corpus), then GREEN once S-000.1-4 land; must implement the
       failure-message contract (fixture id + case name + rule)
-- [ ] S-000.8 Verify `tsconfig.json` carries NO `exclude` for `conformance/**` (CFX-14/design Q3);
+- [x] S-000.8 Verify `tsconfig.json` carries NO `exclude` for `conformance/**` (CFX-14/design Q3);
       retire `openspec/pending-changes.md` row 306
 
 **Out of scope**: any `m2-*` fixture, ADR-0065 schema delta, runner-driven proof (CFX-11 honesty

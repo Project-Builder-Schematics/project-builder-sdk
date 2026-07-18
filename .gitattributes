@@ -1,0 +1,7 @@
+* eol=lf
+
+# Deliberately CRLF/BOM golden fixtures (test/dialects/typescript/golden/*crlf*.txt) —
+# their whole purpose is exercising CRLF/BOM handling; the blanket eol=lf rule above would
+# silently renormalize them to LF on the next `git add`/checkout, defeating that purpose.
+# `-text` opts them fully out of EOL conversion in both directions (REQ-CDT-02 dry-check).
+test/dialects/typescript/golden/*crlf*.txt -text
