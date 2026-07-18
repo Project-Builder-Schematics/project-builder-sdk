@@ -4,7 +4,7 @@
 // (RUN-01..04 gates) rather than re-implementing parameter validation (BRB-01.3).
 //
 // CRITICAL (engram discovery obs #2205): this module runs IN THE ENGINE'S OWN PROCESS
-// (embedded, not spawned) — it MUST NEVER call process.exit; only bin/pbuilder-runner.ts
+// (embedded, not spawned) — it MUST NEVER call process.exit; only src/bin/pbuilder-runner.ts
 // (the spawned argv entry) holds that privilege. Failure is communicated exclusively via a
 // thrown error or a rejected Promise — the caller (the engine's own bootstrap, out of this
 // repo's scope) decides what to do with that outcome, including whether/how to exit its own

@@ -1,5 +1,5 @@
 // The runner composition root (design § 4.2, ADR-01): lives in src/transport/ — NOT bin/ —
-// so BOTH entry paths (argv spawn via bin/pbuilder-runner.ts, in-process bridge in S-003)
+// so BOTH entry paths (argv spawn via src/bin/pbuilder-runner.ts, in-process bridge in S-003)
 // share this ONE validation-gate chokepoint (FIT-15 bars src/->bin/ imports).
 //
 // ADR-07: this file is the sanctioned production `defineFactory` caller — fit-29's

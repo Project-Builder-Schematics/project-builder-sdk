@@ -66,7 +66,8 @@
     "typecheck": "tsc --noEmit",
     "typecheck:permissive-proof": "tsc --noEmit -p tsconfig.permissive-proof.json",
     "prebuild": "rm -rf dist",
-    "build": "tsc -p tsconfig.build.json && bun build bin/pbuilder-codegen.ts --outfile dist/bin/pbuilder-codegen.js --target node --banner \"#!/usr/bin/env node\"",
+    "build": "tsc -p tsconfig.build.json && bun run build:codegen",
+    "build:codegen": "bun build bin/pbuilder-codegen.ts --outfile dist/bin/pbuilder-codegen.js --target node --banner \"#!/usr/bin/env node\"",
     "prepublishOnly": "bun run build",
     "publish:dry": "npm publish --dry-run",
     "link:sdk": "bun run build && bun link"

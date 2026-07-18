@@ -22,7 +22,7 @@ import { FrameReader } from "../../src/transport/frame-reader.ts";
 import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../src/transport/wire-protocol.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
-const RUNNER_BIN = new URL("../../bin/pbuilder-runner.ts", import.meta.url).pathname;
+const RUNNER_BIN = new URL("../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;
 const BRIDGE_STUB = new URL("../fixtures/bridge-bootstrap-stub.ts", import.meta.url).pathname;
 const HAPPY_POINTER = `file://${new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;
 const COLLIDE_POINTER = `file://${new URL("../fixtures/frame-runner/collide/", import.meta.url).pathname}factory.ts`;

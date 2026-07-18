@@ -1,6 +1,6 @@
 // TEST-ONLY stand-in for the ENGINE's own embedded bootstrap (out of this repo's scope) —
 // exists solely so the e2e suite can exercise bootstrap-bridge.ts's REAL (non-injected)
-// fd-1/console protection over REAL spawned stdio. Mirrors bin/pbuilder-runner.ts's role for
+// fd-1/console protection over REAL spawned stdio. Mirrors src/bin/pbuilder-runner.ts's role for
 // the argv-spawn path: the ONE place in this test fixture allowed to call process.exit,
 // since IT — not bootstrap-bridge.ts itself — owns this process (engram discovery obs
 // #2205: the bridge module must never call process.exit).

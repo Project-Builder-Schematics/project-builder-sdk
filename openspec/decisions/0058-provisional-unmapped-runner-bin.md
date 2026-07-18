@@ -27,6 +27,16 @@ concern, not this change's.
 
 1. **Add `#bin` now** — Rejected: churns FIT-14 and exposes an unstable CLI pre-1.0.
 
+## Amendment (2026-07-18)
+
+The `dist/bin` build wiring half of followup F-5 landed early: engine integration needs a
+spawnable `dist/bin/pbuilder-runner.js` (the engine invokes it by absolute path). The entry
+moved from `bin/pbuilder-runner.ts` to `src/bin/pbuilder-runner.ts` so `tsc` emits it as a
+THIN module resolving against the sibling `dist/transport/*.js` files — never a
+self-contained bundle, which would ship a second copy of the `runner.ts` composition root.
+FIT-14's tarball baseline gained the one new entry; the decision's core holds: still NO
+`package.json#bin` entry — that half of F-5 remains deferred to the public-package plan.
+
 ## Origin
 
 Promoted from design section 4.5 (ADR-06) of change `stdio-engine-client` (2026-07-16),

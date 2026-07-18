@@ -1,6 +1,10 @@
-// Thin argv entry for the engine-spawned runner (design § 4.2). Provisional/unmapped
-// (ADR-06): ships in dist/bin when the public-package plan registers it — deliberately NO
-// `package.json#bin` entry, in contrast with the mapped `pbuilder-codegen`.
+// Thin argv entry for the engine-spawned runner (design § 4.2). Lives under src/ so tsc
+// emits it to dist/bin/pbuilder-runner.js as a THIN module whose relative imports resolve
+// against the sibling dist/transport/*.js files — never a self-contained bundle, which
+// would ship a second copy of the runner.ts composition root (ADR-01's one-chokepoint
+// invariant holds at the artifact level, not just in source). Provisional/unmapped
+// (ADR-0058): deliberately NO `package.json#bin` entry, in contrast with the mapped
+// `pbuilder-codegen` — the engine spawns this file by absolute path.
 //
 // REQ-RUN-08: the fd-1 frame writer is captured AND console.* is redirected to stderr
 // FIRST, before the composition root can import any factory code — the SAME defence-in-
@@ -9,11 +13,11 @@
 // ONE validation-gate chokepoint both this entry and the bridge share (FIT-15 bars
 // src/ -> bin/ imports, so the shared root cannot live here).
 
-import { runRunner } from "../src/transport/runner.ts";
-import { captureFd1FrameWriter, redirectConsoleToStderr } from "../src/transport/framing.ts";
-import { classifyExitCode } from "../src/transport/exit-codes.ts";
-import { TransportFault } from "../src/transport/stdio-engine-client.ts";
-import { boundMessage } from "../src/transport/error-text.ts";
+import { runRunner } from "../transport/runner.ts";
+import { captureFd1FrameWriter, redirectConsoleToStderr } from "../transport/framing.ts";
+import { classifyExitCode } from "../transport/exit-codes.ts";
+import { TransportFault } from "../transport/stdio-engine-client.ts";
+import { boundMessage } from "../transport/error-text.ts";
 
 if (import.meta.main) {
   const writeFrame = captureFd1FrameWriter();

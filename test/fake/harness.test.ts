@@ -28,7 +28,7 @@ import * as rejectionMessages from "../../src/testing/rejection-messages.ts";
 import { CONFORMANCE_CORPUS } from "./conformance-corpus.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
-const RUNNER_BIN = new URL("../../bin/pbuilder-runner.ts", import.meta.url).pathname;
+const RUNNER_BIN = new URL("../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;
 const HARNESS_SOURCE_PATH = new URL("./fake-engine-harness.ts", import.meta.url).pathname;
 const HARNESS_TEST_PATH = new URL("./harness.test.ts", import.meta.url).pathname;
 

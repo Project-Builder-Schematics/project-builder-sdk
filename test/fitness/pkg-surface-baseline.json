@@ -37,6 +37,8 @@
     "LICENSE",
     "README.md",
     "dist/bin/pbuilder-codegen.js",
+    "dist/bin/pbuilder-runner.d.ts",
+    "dist/bin/pbuilder-runner.js",
     "dist/commons/classify-content.d.ts",
     "dist/commons/classify-content.js",
     "dist/commons/index.d.ts",
