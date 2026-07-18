@@ -218,26 +218,42 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
     // REQ-CFX-02.1's literal "exactly one" is scoped over "all 12 cases" (post-PR#2); the
     // corpus-wide invariant that stays green at BOTH checkpoints is "at most one, and if
     // present it is m2-create-composition/wire-create-reject-twin's createRejectProbe".
-    it("REQ-CFX-02: no more than one create-authoring case corpus-wide, and only the reject-probe", () => {
-      const createCases = fixtures.flatMap((f) =>
-        f.manifest.cases
-          .filter((c) => {
-            const factoryPath = join(f.dir, (c.factory ?? f.manifest.factory).module);
-            if (!existsSync(factoryPath)) return false;
-            const source = stripComments(readFileSync(factoryPath, "utf8"));
-            return /\bcreate\s*\(/.test(source) && (c.factory?.export ?? f.manifest.factory.export) !== null;
-          })
-          .map((c) => ({ fixtureId: f.id, caseName: c.name, exportName: c.factory?.export ?? null }))
-      );
+    it("REQ-CFX-02: create() appears in exactly the corpus's sole sanctioned factory file", () => {
+      // Structural invariant, not a case-scoped scan: collects the SET of factory files
+      // (corpus-wide, across every fixture AND every case-level factory override) whose
+      // source contains a `create(` call. A default-export factory authoring `create()`
+      // used to slip past the old predicate (it filtered on `export !== null`, which only
+      // ever matches NAMED-export cases) — this catches `create()` in ANY factory file,
+      // default-export included, while still accepting the one sanctioned reject-probe site.
+      const SANCTIONED_SITE = "m2-create-composition/factory.ts";
+      const factoryFilesWithCreate = new Map<string, string>(); // "fixtureId/module" -> fixtureId
+
+      for (const f of fixtures) {
+        const modules = new Set<string>([
+          f.manifest.factory.module,
+          ...f.manifest.cases.map((c) => c.factory?.module ?? f.manifest.factory.module),
+        ]);
+        for (const module of modules) {
+          const factoryPath = join(f.dir, module);
+          if (!existsSync(factoryPath)) continue; // REQ-CSC-02.2 already flags this
+          const source = stripComments(readFileSync(factoryPath, "utf8"));
+          if (/\bcreate\s*\(/.test(source)) {
+            factoryFilesWithCreate.set(`${f.id}/${module}`, f.id);
+          }
+        }
+      }
 
       const violations: string[] = [];
-      if (createCases.length > 1) {
-        violations.push(`REQ-CFX-02.1: ${createCases.length} create-authoring cases found corpus-wide, expected at most 1`);
-      }
-      for (const cc of createCases) {
-        if (cc.fixtureId !== "m2-create-composition" || cc.caseName !== "wire-create-reject-twin") {
-          violations.push(ruleFail(cc.fixtureId, cc.caseName, "REQ-CFX-02.1", "authors create() outside the sole sanctioned reject probe"));
+      for (const [path, fixtureId] of factoryFilesWithCreate) {
+        if (path !== SANCTIONED_SITE) {
+          violations.push(ruleFail(fixtureId, null, "REQ-CFX-02.1", `factory file "${path}" authors create() outside the sole sanctioned reject probe (${SANCTIONED_SITE})`));
         }
+      }
+      // Vacuous before m2-create-composition lands (two-checkpoint cadence, PR#1): only
+      // demand the sanctioned site once the fixture it lives in is actually part of the
+      // loaded corpus.
+      if (fixtures.some((f) => f.id === "m2-create-composition") && !factoryFilesWithCreate.has(SANCTIONED_SITE)) {
+        violations.push(ruleFail("m2-create-composition", null, "REQ-CFX-02.1", `expected the sole sanctioned create() site "${SANCTIONED_SITE}" to author create(), found none`));
       }
       expect(violations).toEqual([]);
     });
@@ -248,6 +264,33 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       const factoryPath = join(probeFixture.dir, probeFixture.manifest.factory.module);
       const source = readFileSync(factoryPath, "utf8");
       expect(/DO-NOT-COPY/.test(source)).toBe(true);
+
+      // Vacuous-assertion guard: the DO-NOT-COPY token alone doesn't prove the comment
+      // conveys all five clauses the spec requires. Locate each `(a)`..`(e)` marker and
+      // require a stable, distinctive keyword within ITS clause span (up to the next
+      // marker) — resistant to rewording, RED if a clause (or its substance) is deleted.
+      const normalized = source.replace(/\/\//g, " ").replace(/\s+/g, " ");
+      const markerRe = /\([a-e]\)/g;
+      const markers: Array<{ letter: string; index: number }> = [];
+      for (const m of normalized.matchAll(markerRe)) markers.push({ letter: m[0], index: m.index });
+
+      const CLAUSE_KEYWORDS: Record<string, RegExp> = {
+        "(a)": /one-create-corpus-wide/,
+        "(b)": /REJECT PROBE/,
+        "(c)": /do NOT imitate/i,
+        "(d)": /unrepresentable/,
+        "(e)": /modify\/delete\/rename\/move/,
+      };
+
+      const missingClauses = Object.keys(CLAUSE_KEYWORDS).filter((letter) => {
+        const marker = markers.find((m) => m.letter === letter);
+        if (marker === undefined) return true;
+        const nextIndex = markers.find((m) => m.index > marker.index)?.index ?? normalized.length;
+        const clauseText = normalized.slice(marker.index, nextIndex);
+        return !CLAUSE_KEYWORDS[letter]!.test(clauseText);
+      });
+
+      expect(missingClauses).toEqual([]);
     });
   });
 
