@@ -1,0 +1,27 @@
+# Orchestrator-owned DAG state — sub-agents never write this file.
+change: typed-options-feeder
+triage: M
+completed_phases:
+  - triage
+  - explore
+  - propose
+  - spec
+  - design
+completed_phases_append:
+  - plan-verify (READY, iteration 3/3, trajectory 13→2→0)
+current_phase: plan-complete
+current_status: PLAN COMPLETE — spec V2 signed, design rev 2, slices rev 3 (S-000 → S-001+S-002 → S-003), plan-verify READY, foresight ALIGNED + CQs affirmed, publish skipped (internal)
+in_loop_iteration: 0
+next_phase: /build (S-000 walking skeleton first, mandatory)
+execution_mode: automatic (owner-switched 2026-07-18 mid-plan-verify)
+artifact_store: hybrid
+notes: >-
+  Council split at triage: pm recommended S, architect M-minimum with
+  L-escalation conditional on a security-engineer ruling over the
+  security (IPC) sensitive row; sdd-triage classified M with an explicit
+  evidence-based no-override check (transport layer never references
+  options; payload stays JsonValue one layer above framing).
+  Resolution: M accepted; security-engineer joins explore as conditional
+  persona to ratify or overturn the IPC ruling — an overturn re-triages
+  to L (halt: sensitive-area).
+updated: 2026-07-18
