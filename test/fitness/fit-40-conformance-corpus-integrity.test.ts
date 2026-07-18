@@ -20,12 +20,31 @@
  * `toEqual([])` (matches fit-01/fit-19/fit-27's established pattern in this repo).
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import packageJson from "../../package.json" with { type: "json" };
 import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
 import { IMPORT_SPECIFIER_RE, stripComments } from "../support/import-scan.ts";
 import { loadCorpus, listSubdirectories, type Case } from "../support/conformance-fixture-loader.ts";
+import {
+  ruleFail,
+  collectFilesRecursive,
+  checkMissingManifestIds,
+  checkOrphanFactoryWithoutManifest,
+  checkManifestIdMatchesDir,
+  checkOrphanDirectories,
+  checkWireSpecVersionAgreement,
+  checkCollectionJsonMarker,
+  checkSeedExpectedResolution,
+  checkFactoryModuleResolution,
+  checkSchematicLoweringFiles,
+  checkNonEmptyCases,
+  checkValidClass,
+  checkTranscriptShape,
+  checkOutcomeShape,
+  checkOutcomeTripleConsistency,
+  checkZeroEffectSeed,
+} from "../support/conformance-validators.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const CORPUS_ROOT = join(PROJECT_ROOT, "conformance");
@@ -33,26 +52,6 @@ const DIST_ROOT = join(PROJECT_ROOT, "dist");
 
 const loaded = loadCorpus(CORPUS_ROOT);
 const { corpus, fixtures, missingManifestIds } = loaded;
-const REVERSE_METHODS = ["tree.read", "ir.emit", "ir.commit", "ir.discard"];
-const DIRECTIVE_LEVEL_CODES = ["not-found", "collision"];
-const BATCH_LEVEL_CODES = ["unrepresentable"];
-
-function ruleFail(fixtureId: string, caseName: string | null, rule: string, detail: string): string {
-  const scope = caseName === null ? `[${fixtureId}]` : `[${fixtureId}/${caseName}]`;
-  return `${scope} ${rule}: ${detail}`;
-}
-
-/** Every regular file under `dir`, recursively. */
-function collectFilesRecursive(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    const st = statSync(full);
-    if (st.isDirectory()) out.push(...collectFilesRecursive(full));
-    else out.push(full);
-  }
-  return out;
-}
 
 describe("FIT-40 — conformance corpus structural integrity", () => {
   describe("REQ-CCR-01 — corpus.json schema", () => {
@@ -72,37 +71,21 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
 
   describe("REQ-CCR-02 / REQ-CSC-01 — fail-closed structural invariants (mirrors engine loader)", () => {
     it("(a) every corpus.json-listed id has a manifest.json", () => {
-      const violations = missingManifestIds.map((id) =>
-        ruleFail(id, null, "REQ-CCR-02(a)", "listed in corpus.json#fixtures but no manifest.json on disk")
-      );
-      expect(violations).toEqual([]);
+      expect(checkMissingManifestIds(missingManifestIds)).toEqual([]);
     });
 
     it("(b) every directory with factory.ts has a manifest.json", () => {
-      const violations: string[] = [];
-      for (const dirName of listSubdirectories(CORPUS_ROOT)) {
-        const dir = join(CORPUS_ROOT, dirName);
-        if (existsSync(join(dir, "factory.ts")) && !existsSync(join(dir, "manifest.json"))) {
-          violations.push(ruleFail(dirName, null, "REQ-CCR-02(b)", "has factory.ts but no manifest.json"));
-        }
-      }
-      expect(violations).toEqual([]);
+      expect(checkOrphanFactoryWithoutManifest(CORPUS_ROOT, listSubdirectories(CORPUS_ROOT))).toEqual([]);
     });
 
     it("(c) every manifest.json#id equals its directory name", () => {
-      const violations = fixtures
-        .filter((f) => f.manifest.id !== f.id)
-        .map((f) => ruleFail(f.id, null, "REQ-CCR-02(c)", `manifest id "${f.manifest.id}" !== dirname "${f.id}"`));
-      expect(violations).toEqual([]);
+      expect(checkManifestIdMatchesDir(fixtures)).toEqual([]);
     });
   });
 
   describe("REQ-CCR-05 — corpus-derived inventory, no orphan directories (two-checkpoint cadence)", () => {
     it("REQ-CCR-05.2: every directory under conformance/ is registered in corpus.json#fixtures", () => {
-      const violations = listSubdirectories(CORPUS_ROOT)
-        .filter((dirName) => !corpus.fixtures.includes(dirName))
-        .map((dirName) => ruleFail(dirName, null, "REQ-CCR-05.2", "directory exists under conformance/ but is not listed in corpus.json#fixtures (orphan)"));
-      expect(violations).toEqual([]);
+      expect(checkOrphanDirectories(listSubdirectories(CORPUS_ROOT), corpus.fixtures)).toEqual([]);
     });
 
     it("every listed fixture landed (no dangling id)", () => {
@@ -141,17 +124,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
 
   describe("REQ-CCR-07 — wireSpecVersion agreement", () => {
     it("REQ-CCR-07.1: corpus.json + every manifest's wireSpecVersion all agree", () => {
-      const violations = fixtures
-        .filter((f) => f.manifest.wireSpecVersion !== corpus.wireSpecVersion)
-        .map((f) =>
-          ruleFail(
-            f.id,
-            null,
-            "REQ-CCR-07.1",
-            `manifest wireSpecVersion ${f.manifest.wireSpecVersion} !== corpus.json wireSpecVersion ${corpus.wireSpecVersion}`
-          )
-        );
-      expect(violations).toEqual([]);
+      expect(checkWireSpecVersionAgreement(fixtures, corpus.wireSpecVersion)).toEqual([]);
     });
 
     it("REQ-CCR-07.2: the agreed value equals WIRE_PROTOCOL_VERSION (src/transport/wire-protocol.ts)", () => {
@@ -161,144 +134,51 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
 
   describe("REQ-CCR-08 / REQ-CSC-02.3 — collection.json package-anchor marker", () => {
     it("REQ-CCR-08.1/REQ-CSC-02.3: conformance/collection.json exists (checked once, shared ancestor of every fixture)", () => {
-      expect(existsSync(join(CORPUS_ROOT, "collection.json"))).toBe(true);
+      expect(checkCollectionJsonMarker(CORPUS_ROOT)).toEqual([]);
     });
   });
 
   describe("REQ-CSC-02 — seed/expected/schematic/factory reference resolution", () => {
     it("REQ-CSC-02.1: every case's seed/expected directory reference resolves on disk", () => {
-      const violations: string[] = [];
-      for (const f of fixtures) {
-        for (const c of f.manifest.cases) {
-          for (const [field, value] of [
-            ["seed", c.seed],
-            ["expected", c.expected],
-          ] as const) {
-            if (value === null || value === "zero-effect" || value === "empty") continue;
-            if (!existsSync(join(f.dir, value))) {
-              violations.push(ruleFail(f.id, c.name, "REQ-CSC-02.1", `${field} references "${value}" — no such directory under ${f.id}/`));
-            }
-          }
-        }
-      }
-      expect(violations).toEqual([]);
+      expect(checkSeedExpectedResolution(fixtures)).toEqual([]);
     });
 
     it("REQ-CSC-02.2: every fixture's factory.module resolves to an existing file", () => {
-      const violations = fixtures
-        .filter((f) => !existsSync(join(f.dir, f.manifest.factory.module)))
-        .map((f) => ruleFail(f.id, null, "REQ-CSC-02.2", `factory.module "${f.manifest.factory.module}" does not resolve on disk`));
-      expect(violations).toEqual([]);
+      expect(checkFactoryModuleResolution(fixtures)).toEqual([]);
     });
 
     it("REQ-CSC-02.1: lowering.mode === 'schematic' implies schematic/schema.json + at least one schematic/files/** entry", () => {
-      const violations: string[] = [];
-      for (const f of fixtures) {
-        if (f.manifest.lowering.mode !== "schematic") continue;
-        const root = f.manifest.lowering.schematicRoot ?? "schematic";
-        const schemaPath = join(f.dir, root, "schema.json");
-        const filesDir = join(f.dir, root, "files");
-        if (!existsSync(schemaPath)) {
-          violations.push(ruleFail(f.id, null, "REQ-CSC-02.1", `lowering.mode is "schematic" but ${root}/schema.json is missing`));
-        }
-        if (!existsSync(filesDir) || collectFilesRecursive(filesDir).length === 0) {
-          violations.push(ruleFail(f.id, null, "REQ-CSC-02.1", `lowering.mode is "schematic" but ${root}/files/ has no entries`));
-        }
-      }
-      expect(violations).toEqual([]);
+      expect(checkSchematicLoweringFiles(fixtures)).toEqual([]);
     });
   });
 
   describe("REQ-CSC-03 — manifest schema validity (incl. transcript + outcome shape)", () => {
     it("REQ-CSC-03.1: every manifest has a non-empty cases array", () => {
-      const violations = fixtures
-        .filter((f) => !Array.isArray(f.manifest.cases) || f.manifest.cases.length === 0)
-        .map((f) => ruleFail(f.id, null, "REQ-CSC-03.1", "cases[] is empty or not an array"));
-      expect(violations).toEqual([]);
+      expect(checkNonEmptyCases(fixtures)).toEqual([]);
     });
 
     it("REQ-CSC-03: class is one of handshake|wire-mutation|composition", () => {
-      const violations = fixtures
-        .filter((f) => !["handshake", "wire-mutation", "composition"].includes(f.manifest.class))
-        .map((f) => ruleFail(f.id, null, "REQ-CSC-03", `class "${f.manifest.class}" is not one of handshake|wire-mutation|composition`));
-      expect(violations).toEqual([]);
+      expect(checkValidClass(fixtures)).toEqual([]);
     });
 
     it("REQ-CSC-03.2: every case has a fully-shaped transcript object (callbacks[], singleCommit, forbidDiscard, emitBeforeCommit)", () => {
-      const violations: string[] = [];
-      for (const f of fixtures) {
-        for (const c of f.manifest.cases) {
-          const t = c.transcript as Transcript | undefined;
-          if (t === undefined) {
-            violations.push(ruleFail(f.id, c.name, "REQ-CSC-03.2", "missing transcript object"));
-            continue;
-          }
-          if (!Array.isArray(t.callbacks) || t.callbacks.some((m) => !REVERSE_METHODS.includes(m))) {
-            violations.push(ruleFail(f.id, c.name, "REQ-CSC-03.2", "transcript.callbacks is not an array of the 4 reverse-callback methods"));
-          }
-          for (const field of ["singleCommit", "forbidDiscard", "emitBeforeCommit"] as const) {
-            if (typeof t[field] !== "boolean") {
-              violations.push(ruleFail(f.id, c.name, "REQ-CSC-03.2", `transcript.${field} is not a boolean`));
-            }
-          }
-        }
-      }
-      expect(violations).toEqual([]);
+      expect(checkTranscriptShape(fixtures)).toEqual([]);
     });
 
     it("REQ-CSC-03: every case has a fully-shaped outcome object (exitCode, emitRejectionCode, failedIndex, writtenPaths)", () => {
-      const violations: string[] = [];
-      for (const f of fixtures) {
-        for (const c of f.manifest.cases) {
-          const o = c.outcome;
-          if (!Number.isInteger(o.exitCode)) violations.push(ruleFail(f.id, c.name, "REQ-CSC-03", "outcome.exitCode is not an integer"));
-          if (o.emitRejectionCode !== null && typeof o.emitRejectionCode !== "string") {
-            violations.push(ruleFail(f.id, c.name, "REQ-CSC-03", "outcome.emitRejectionCode is neither null nor a string"));
-          }
-          if (o.failedIndex !== null && !Number.isInteger(o.failedIndex)) {
-            violations.push(ruleFail(f.id, c.name, "REQ-CSC-03", "outcome.failedIndex is neither null nor an integer"));
-          }
-          if (!Array.isArray(o.writtenPaths) || o.writtenPaths.some((p) => typeof p !== "string")) {
-            violations.push(ruleFail(f.id, c.name, "REQ-CSC-03", "outcome.writtenPaths is not an array of strings"));
-          }
-        }
-      }
-      expect(violations).toEqual([]);
+      expect(checkOutcomeShape(fixtures)).toEqual([]);
     });
   });
 
   describe("REQ-CSC-04 / REQ-CFX-04 — outcome triple internal consistency", () => {
     it("REQ-CFX-04.1/.2 + REQ-CSC-04.1: exitCode 2 iff emitRejectionCode non-null; failedIndex null only for batch-level codes", () => {
-      const violations: string[] = [];
-      for (const f of fixtures) {
-        for (const c of f.manifest.cases) {
-          const { exitCode, emitRejectionCode, failedIndex } = c.outcome;
-          const isExit2 = exitCode === 2;
-          const hasCode = emitRejectionCode !== null;
-          if (isExit2 !== hasCode) {
-            violations.push(ruleFail(f.id, c.name, "REQ-CFX-04.1", `exitCode ${exitCode} and emitRejectionCode ${JSON.stringify(emitRejectionCode)} disagree (2 iff non-null)`));
-            continue;
-          }
-          if (!hasCode) continue;
-          if (DIRECTIVE_LEVEL_CODES.includes(emitRejectionCode!) && !Number.isInteger(failedIndex)) {
-            violations.push(ruleFail(f.id, c.name, "REQ-CFX-04", `emitRejectionCode "${emitRejectionCode}" is directive-level but failedIndex is not an integer`));
-          }
-          if (BATCH_LEVEL_CODES.includes(emitRejectionCode!) && failedIndex !== null) {
-            violations.push(ruleFail(f.id, c.name, "REQ-CFX-04.2", `emitRejectionCode "${emitRejectionCode}" is batch-level but failedIndex is not null`));
-          }
-        }
-      }
-      expect(violations).toEqual([]);
+      expect(checkOutcomeTripleConsistency(fixtures)).toEqual([]);
     });
   });
 
   describe("REQ-CFX-10 — zero-effect vs empty semantics", () => {
     it("REQ-CFX-10.1: a case declaring expected:\"zero-effect\" has a non-empty pre-run state (a seed dir)", () => {
-      const violations = fixtures
-        .flatMap((f) => f.manifest.cases.map((c) => ({ f, c })))
-        .filter(({ c }) => c.expected === "zero-effect" && c.seed === null)
-        .map(({ f, c }) => ruleFail(f.id, c.name, "REQ-CFX-10", 'expected:"zero-effect" requires a non-empty pre-run seed; seed is null'));
-      expect(violations).toEqual([]);
+      expect(checkZeroEffectSeed(fixtures)).toEqual([]);
     });
   });
 
@@ -508,10 +388,3 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
     });
   });
 });
-
-interface Transcript {
-  callbacks: string[];
-  singleCommit: boolean;
-  forbidDiscard: boolean;
-  emitBeforeCommit: boolean;
-}
