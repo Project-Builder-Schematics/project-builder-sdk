@@ -6,6 +6,8 @@
 > evidence-driven correction and is a DRAFT awaiting owner RE-SIGN (spec-summary.md). This design
 > rev 2 is produced against V3 at the orchestrator's explicit direction; archive MUST gate on the
 > V3 re-sign. See §4.11 risks.
+> **RESOLVED**: V3 RE-SIGNED by owner 2026-07-18 (spec-summary.md Status line) — this gate is
+> satisfied; the note above is retained as history only.
 
 ## 4.1 Architecture Overview
 

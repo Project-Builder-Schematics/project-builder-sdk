@@ -15,13 +15,19 @@
   "slices": true,
   "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004"],
   "slices_detail": "5 slices (obs #1258 + slices.md): S-000 skeleton=PR#1 (m1+ALL scaffolding, non-blocking pre-merge gate: greeting cleanup confirm); S-001..004 PR#2 commit-atomic monotonic (modify→delete→rename-move→create-composition); S-004 hard pre-authoring gate ADR-0065; 35/35 REQs traced; Step 8b no-op (internal)",
-  "phase": "plan-complete",
+  "phase": "archive",
+  "phase_status": "EVALUATE 2026-07-19: verify final PASS-WITH-FOLLOWUPS (obs #1307; 35/35 REQs; code-audit clean; adversarial_review REQUIRED) + council 3x approve-with-notes (architect: renumber-obligation-cross-repo + monotonic-floor followup + V3-gate-already-satisfied; QA: F1 inline-checks-no-negative-proof, F2 five-clause-vacuous, F3 create-scan-blind, F4 seed-bytes-unpinned, F6, F7; TW: handoff-L73-drift, README strict-decoding + twin-mechanics gaps, root-README pointer). Council fix batch LANDED (348bb75+f46e8fd). JUDGMENT-DAY APPROVED 2026-07-19: R1 3 confirmed real fixed @ caff939 (pr-gate artefact-set, in-file create quarantine, export resolution; suite 2041/0) + 1 refuted (commit order) + CFX-09 spec-prose reconciliation deferred to archive sync (owner-approved); R2 = 0 confirmed CRITICALs/reals (A's strict-decoding-mirror suspect → TOP followup; theoreticals → followups). CQ-3 OWNER-RULED ship-now (obs #1308). STEWARD RECKONING + ARCH AUDIT IN FLIGHT. NEXT: archive (RENUMBER ADRs 0063-0067→0065-0069 w/ handoff alias note + CFX-09 prose note) → PR#2",
+  "verify_final_detail": "pass-with-followups (obs #1307): W1 factory-export validator (CLOSED by JD-3 @ caff939), W2 create-scan precision (superseded by JD-2), W3 ADR-0065 scope prose (followup)",
+  "in_loop_iterations_s001_s004": 1,
+  "in_loop_iterations_s000": 2,
   "plan_complete": true,
-  "plan_verify": "READY (owner-ruled at iteration 2, 2026-07-18; trajectory 20→3→0 actionable; Judge A clean 2x; residue = ADR-0065 engine sign-off as S-004 entry gate; verify-plan-1 + verify-plan-2 persisted)",
+  "plan_verify_detail": "READY (owner-ruled at iteration 2, 2026-07-18; trajectory 20→3→0 actionable; Judge A clean 2x; residue = ADR-0065 engine sign-off as S-004 entry gate; verify-plan-1 + verify-plan-2 persisted)",
   "next": "/build --scope=slice:S-000 (walking skeleton → PR#1, unblocks engine M1); pre-PR#1-merge gate: engine confirms greeting-exit-1 cleanup; S-004 gated on ADR-0065 sign-off",
-  "plan_verify": null,
-  "verify_final": null,
-  "arch_audit": null,
+  "plan_verify": "ready",
+  "verify_final": "pass-with-followups",
+  "arch_audit": "clean",
+  "adversarial_review": "approved (judgment-day R2, obs #1311)",
+  "steward_reckoning": "delivered (obs #1312)",
   "completed_phases": [
     "triage",
     "explore",
@@ -32,8 +38,8 @@
   ],
   "steward_foresight": "ALIGNED (obs #1256 + north-star.md); 3 conscience questions OWNER-ANSWERED 2026-07-18: declaration-only suffices / greeting-cleanup CONFIRM WITH ENGINE PRE-PR#1 (new gate) / loader-change coordination accepted",
   "cross_repo_gates": {
-    "pre_pr1": "engine confirms greeting-exit-1 cleanup semantics (owner-mandated at foresight)",
-    "pre_pr2": "engine signs off case-level factory schema delta (ADR-0065 hard gate)"
+    "pre_pr1": "RESOLVED 2026-07-18: engine CONFIRMED greeting-exit-1 cleanup (staged creates never touch disk pre-commit; zero callbacks on exit 1 → workspace byte-empty). PR#1 unblocked (obs #1265)",
+    "pre_pr2": "SIGNED OFF 2026-07-18: ADR-0065 case-level factory accepted as proposed; loader support landing on engine build branch; AWAIT handoff PROPOSED→ACCEPTED SHA stamp before authoring m2-create-composition manifest. Engine loader moving to strict decoding (DisallowUnknownFields) — unknown manifest keys become hard failures (obs #1265)"
   },
   "triage_detail": "L (skill tie-break over 2x persona M votes; cross-repo fail-closed contract + mandatory walking skeleton; sensitive override NOT fired; low-confidence security(IPC) row touch \u2014 explore to confirm no wire-spec changes)",
   "council": {
