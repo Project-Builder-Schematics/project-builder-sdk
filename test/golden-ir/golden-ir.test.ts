@@ -19,11 +19,13 @@ import {
 const factory = new DirectiveFactory();
 
 describe("DirectiveFactory golden-IR", () => {
-  it("create — exact keys, template byte-identical (DSL syntax unrendered)", () => {
+  it("create — exact keys, template byte-identical (DSL syntax unrendered); composite options encode at the wire boundary (REQ-TOE-01.1)", () => {
+    // Author-facing input is the NATIVE array (never the pre-encoded fixture value) — this is
+    // what proves the wire-boundary encode seam end-to-end, not mere passthrough identity.
     const directive = factory.create({
       pathTemplate: GOLDEN_CREATE.create.pathTemplate,
       template: GOLDEN_CREATE.create.template,
-      options: GOLDEN_CREATE.create.options,
+      options: { name: "userProfile", methods: [{ name: "load" }, { name: "save" }] },
     });
     expect(directive).toEqual(GOLDEN_CREATE);
   });

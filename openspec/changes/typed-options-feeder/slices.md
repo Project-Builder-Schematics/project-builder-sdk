@@ -92,11 +92,11 @@ Cross-surface consistency is a HARD requirement anchored to an ABSOLUTE expected
 **Acceptance**: GIVEN `options.methods = [{name:"load"},{name:"save"}]` WHEN `create()` schedules THEN `GOLDEN_CREATE`'s emitted `create.options.methods` is the JSON string.
 
 ### Tasks
-- [ ] S-000.1 RED: `test/core/encode-options.test.ts` — array/object encode (TOE-01.1/.2)
-- [ ] S-000.2 GREEN: add `isPlainObject` + minimal `encodeOptions` (composite→`JSON.stringify`, else passthrough) in `directive-factory.ts`
-- [ ] S-000.3 Wire `encodeOptions(a.options)` into `create()`
-- [ ] S-000.4 Re-record `test/golden-ir/fixtures.ts` `GOLDEN_CREATE.create.options.methods`
-- [ ] S-000.5 Confirm full suite green (no other collateral breaks)
+- [x] S-000.1 RED: `test/core/encode-options.test.ts` — array/object encode (TOE-01.1/.2)
+- [x] S-000.2 GREEN: add `isPlainObject` + minimal `encodeOptions` (composite→`JSON.stringify`, else passthrough) in `directive-factory.ts`
+- [x] S-000.3 Wire `encodeOptions(a.options)` into `create()`
+- [x] S-000.4 Re-record `test/golden-ir/fixtures.ts` `GOLDEN_CREATE.create.options.methods`
+- [x] S-000.5 Confirm full suite green (no other collateral breaks)
 
 ---
 

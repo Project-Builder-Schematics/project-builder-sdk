@@ -1,14 +1,11 @@
 {
   "change": "typed-options-feeder",
   "triage": "M",
-  "phase": "plan-verify",
-  "phase_status": "done",
-  "spec_status": "signed-v2",
-  "slices": 4,
-  "plan_verify": "ready-iter-3",
+  "phase": "apply",
+  "spec_status": "signed",
+  "slices": true,
+  "plan_verify": "ready",
   "verify_final": null,
   "arch_audit": null,
-  "next": "spec",
-  "in_loop_iteration": 0,
-  "updated": "2026-07-18"
+  "updated_at": "2026-07-18"
 }

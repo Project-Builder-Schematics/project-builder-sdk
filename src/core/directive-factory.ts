@@ -48,6 +48,25 @@ export function forceEntry(force: boolean | undefined): { force?: boolean } {
   return force !== undefined ? { force } : {};
 }
 
+// REQ-TOE-01: shallow top-level composite (array/plain-object) -> JSON string; everything
+// else passes through verbatim. Assembly uses Object.defineProperty (never spread/`result[k]=`)
+// per REQ-TOE-05 — enumerable:true is load-bearing, defineProperty defaults it to false and an
+// unenumerable key silently drops from JSON.stringify at the wire boundary.
+function isPlainObject(v: unknown): v is { [key: string]: JsonValue } {
+  return typeof v === "object" && v !== null && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
+}
+
+export function encodeOptions(options: JsonValue): JsonValue {
+  if (!isPlainObject(options)) return options;
+
+  const result: { [key: string]: JsonValue } = {};
+  for (const [key, value] of Object.entries(options)) {
+    const encoded: JsonValue = Array.isArray(value) || isPlainObject(value) ? JSON.stringify(value) : value;
+    Object.defineProperty(result, key, { value: encoded, enumerable: true, writable: true, configurable: true });
+  }
+  return result;
+}
+
 export class DirectiveFactory {
   create(a: CreateArgs): Directive {
     return {
@@ -55,7 +74,7 @@ export class DirectiveFactory {
       create: {
         pathTemplate: a.pathTemplate,
         template: a.template,
-        options: a.options,
+        options: encodeOptions(a.options),
         ...forceEntry(a.force),
       },
     };
