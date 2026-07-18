@@ -141,13 +141,13 @@ do not proceed on assumption.
 - WHEN the corpus-wide create scan runs — THEN exactly one `create` site exists (this probe)
 
 ### Tasks
-- [ ] S-004.1 Confirm ADR-0065 engine sign-off (HARD GATE) — do not proceed unconfirmed
-- [ ] S-004.2 RED: fit-40 targets m2-create-composition's 2-case set + corpus-wide create-count +
+- [x] S-004.1 Confirm ADR-0065 engine sign-off (HARD GATE) — do not proceed unconfirmed
+- [x] S-004.2 RED: fit-40 targets m2-create-composition's 2-case set + corpus-wide create-count +
       DO-NOT-COPY scan
-- [ ] S-004.3 `conformance/m2-create-composition/{manifest.json,factory.ts,seed/,expected/,schematic/}`
+- [x] S-004.3 `conformance/m2-create-composition/{manifest.json,factory.ts,seed/,expected/,schematic/}`
       (per-case `factory` override; `createRejectProbe` named export)
-- [ ] S-004.4 `corpus.json#fixtures` += `"m2-create-composition"` — same commit
-- [ ] S-004.5 GREEN: fit-40 passes at 5 fixtures/12 cases (CCR-05.1 absolute gate now live)
+- [x] S-004.4 `corpus.json#fixtures` += `"m2-create-composition"` — same commit
+- [x] S-004.5 GREEN: fit-40 passes at 5 fixtures/12 cases (CCR-05.1 absolute gate now live)
 
 **Out of scope**: no second `create` site anywhere in the corpus; no fake-fidelity fixes; no
 wire-spec touches.

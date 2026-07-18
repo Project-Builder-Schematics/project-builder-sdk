@@ -485,6 +485,34 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
     });
   });
 
+  describe("REQ-CFX-09 — m2-create-composition behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-create-composition");
+
+    it("REQ-CFX-09.1: positive case declares one commit, two composed halves", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["generated.txt"] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(readFileSync(join(f.dir, "expected", "generated.txt"), "utf8")).toBe("generated");
+      expect(readFileSync(join(f.dir, "expected", "existing.txt"), "utf8")).toBe("composed");
+    });
+
+    it("REQ-CFX-09.2/.3: wire-create-reject-twin's outcome triple is pinned to the ADR-0064-resolved values, never an unresolved placeholder", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "wire-create-reject-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "unrepresentable", failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+      expect(c.factory).toEqual({ module: "factory.ts", export: "createRejectProbe" });
+    });
+  });
+
   describe("REQ-CSC-06 — self-check exits non-zero on violations (structural — proven by every describe block above)", () => {
     it("this suite itself runs under bun test and every assertion above is fail-closed (no describe is soft-skipped by default)", () => {
       // The green/RED behaviour of every block above IS the REQ-CSC-06 proof — bun test's
