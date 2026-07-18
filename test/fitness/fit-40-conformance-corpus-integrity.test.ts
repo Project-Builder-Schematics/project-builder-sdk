@@ -445,6 +445,46 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
     });
   });
 
+  describe("REQ-CFX-08 — m2-rename-move behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-rename-move");
+
+    it("REQ-CFX-08.1: positive case declares an exact-bytes rename", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(existsSync(join(f.dir, "expected", "src.txt"))).toBe(false);
+      expect(readFileSync(join(f.dir, "expected", "dst.txt"), "utf8")).toBe("payload");
+      expect(readFileSync(join(f.dir, "expected", "occupied.txt"), "utf8")).toBe("taken");
+      expect(readFileSync(join(f.dir, "expected", "adir", "child.txt"), "utf8")).toBe("x");
+    });
+
+    it("REQ-CFX-08.2: collision twin declares a directive-level rejection", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "collision-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "collision", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("dir-source twin declares an unrepresentable rejection (sibling of REQ-CFX-08.2, same corrective pattern as REQ-CFX-07.2)", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "dir-source-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "unrepresentable", failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+  });
+
   describe("REQ-CSC-06 — self-check exits non-zero on violations (structural — proven by every describe block above)", () => {
     it("this suite itself runs under bun test and every assertion above is fail-closed (no describe is soft-skipped by default)", () => {
       // The green/RED behaviour of every block above IS the REQ-CSC-06 proof — bun test's

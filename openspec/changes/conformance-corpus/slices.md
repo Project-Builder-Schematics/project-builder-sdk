@@ -109,10 +109,10 @@ boundary — this repo has none).
 - WHEN dir-source-twin (source=`adir`) — THEN exit 2/`unrepresentable`/`failedIndex:null`/zero-effect
 
 ### Tasks
-- [ ] S-003.1 RED: fit-40 assertions target m2-rename-move's 3-case set
-- [ ] S-003.2 `conformance/m2-rename-move/{manifest.json,factory.ts,seed/,expected/}`
-- [ ] S-003.3 `corpus.json#fixtures` += `"m2-rename-move"` — same commit
-- [ ] S-003.4 GREEN: fit-40 passes at 4 fixtures/10 cases
+- [x] S-003.1 RED: fit-40 assertions target m2-rename-move's 3-case set
+- [x] S-003.2 `conformance/m2-rename-move/{manifest.json,factory.ts,seed/,expected/}`
+- [x] S-003.3 `corpus.json#fixtures` += `"m2-rename-move"` — same commit
+- [x] S-003.4 GREEN: fit-40 passes at 4 fixtures/10 cases
 
 **Out of scope**: no other fixtures. Verb is PINNED: `rename` (design File Changes table, m2-rename-move row — "rename verb"); `move` stays unexercised (registered corpus followup, not this slice).
 
