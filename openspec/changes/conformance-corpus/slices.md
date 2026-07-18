@@ -63,10 +63,10 @@ boundary — this repo has none).
   `expected:"zero-effect"`, transcript `[ir.emit,ir.discard]`, `forbidDiscard:false`
 
 ### Tasks
-- [ ] S-001.1 RED: fit-40 assertions target m2-modify's 2-case set
-- [ ] S-001.2 `conformance/m2-modify/{manifest.json,factory.ts,seed/,expected/}`
-- [ ] S-001.3 `corpus.json#fixtures` += `"m2-modify"` — SAME commit as .2 (CCR-04)
-- [ ] S-001.4 GREEN: fit-40 passes at 2 fixtures/4 cases
+- [x] S-001.1 RED: fit-40 assertions target m2-modify's 2-case set
+- [x] S-001.2 `conformance/m2-modify/{manifest.json,factory.ts,seed/,expected/}`
+- [x] S-001.3 `corpus.json#fixtures` += `"m2-modify"` — SAME commit as .2 (CCR-04)
+- [x] S-001.4 GREEN: fit-40 passes at 2 fixtures/4 cases
 
 **Out of scope**: any other fixture; no fake-fidelity fixes; no wire-spec touches.
 

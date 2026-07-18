@@ -1,4 +1,4 @@
 {
   "wireSpecVersion": 1,
-  "fixtures": ["m1-vehicle"]
+  "fixtures": ["m1-vehicle", "m2-modify"]
 }

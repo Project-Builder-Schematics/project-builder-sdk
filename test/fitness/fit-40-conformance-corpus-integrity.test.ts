@@ -25,7 +25,7 @@ import { join } from "node:path";
 import packageJson from "../../package.json" with { type: "json" };
 import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
 import { IMPORT_SPECIFIER_RE, stripComments } from "../support/import-scan.ts";
-import { loadCorpus, listSubdirectories, type Case } from "../support/conformance-fixture-loader.ts";
+import { loadCorpus, listSubdirectories, type Case, type LoadedFixture } from "../support/conformance-fixture-loader.ts";
 import {
   ruleFail,
   collectFilesRecursive,
@@ -376,6 +376,33 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(c.outcome).toEqual({ exitCode: 1, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
       expect(c.transcript).toEqual({ callbacks: [], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
       expect(c.expected).toBe("empty");
+    });
+  });
+
+  describe("REQ-CFX-06 — m2-modify behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-modify");
+
+    it("REQ-CFX-06.1: positive case declares a target-only replace", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(readFileSync(join(f.dir, "expected", "target.txt"), "utf8")).toBe("replaced");
+      expect(readFileSync(join(f.dir, "expected", "sibling.txt"), "utf8")).toBe("keep");
+    });
+
+    it("REQ-CFX-06.2: not-found twin declares a zero-effect rejection", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "not-found-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "not-found", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
     });
   });
 
