@@ -483,3 +483,31 @@ official `docs/create-templates.md` (2026-07-18). One mechanism gap surfaced dur
 | **Scaffold budget estimator double-encode (optimization)**: scaffold by-value path encodes options twice (estimate + emit) — thread/cache the encoded result across the estimator and real factory path to avoid re-computing the same `JSON.stringify` | refactor | XS | — | **perf/refactor pass** |
 | **React-dialect entries in engram architecture baseline** (pre-existing, surfaced here at obs #652): documenting that react-dialect pending items exist in the baseline obs for future cross-dialect decisions | docs | XS | — | **react-dialect archive completion** |
 | **Stale IPC sensitive-area row** (sdd-init refresh needed): the registered `security (IPC)` sensitive-area row carries "no concrete code yet" — this change does not touch `src/core/session.ts` (the JSON-RPC transport), confirming the row remains aspirational | docs | XS | — | **sdd-init refresh to clarify scope** |
+
+## From `conformance-corpus` (2026-07-19) — accepted as non-blocking at archive
+
+Verify verdict `pass-with-followups` (2 robustness gaps + 1 documentation-debt, W1/W2/W3 —
+W1 CLOSED in-change by JD-3, W2 superseded by JD-2, W3 CLOSED at this archive by ADR-0065's
+generalized scope prose). Judgment-day APPROVED at Round 2 (R1: 3 confirmed real findings fixed
+@ `caff939`; 1 finding refuted by orchestrator — Judge B misread commit order). Followup ledger
+consolidated at judgment-day (engram obs #1311), registered below in full — 16 items, including
+the architect's monotonic fixture-floor item (row 5).
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| Strict-decoding mirror — closed-key-set whitelist per manifest level, rejecting unknown keys instead of silently ignoring them (JD-R2 suspect-A real; tech-writer risk #2) | refactor | S | — | **next fit-40 touch** |
+| Inline fit-40 checks → extracted validators + negative coverage per rule (QA F1, judgment-day confirmed) | refactor | S | — | **next fit-40 touch** |
+| Create total-count==1 + `session.buffer` raw `{op:"create"}` shape scan — widen the exactly-one-create invariant beyond the named-export heuristic | test-coverage | S | — | **next fit-40 touch** |
+| REQ-CDT-05 POSIX-path scan gap: per-case `factory.module` + `schematicRoot` paths not covered (judgment-day confirmed, theoretical) | test-coverage | XS | — | **next fit-40 touch** |
+| Monotonic fixture floor (corpus.json#fixtures.length MUST NOT decrease) + derive absolute case counts from the manifest set instead of a hardcoded literal (architect + judgment-day Judge A) | refactor | S | — | **next corpus-growth touch** |
+| `seed/**` byte pinning — no scan currently proves seed file bytes match their documented content (QA F4) | test-coverage | S | — | **next fit-40 touch** |
+| Import allow-list (REQ-CFX-01) is a deny-list in practice (bans known-bad imports) rather than a real allow-list (rejects anything not explicitly permitted) — tighten to allow-list semantics | refactor | S | — | **next fit-40 touch** |
+| `manifest.json` `JSON.parse` failure doesn't name the offending fixture id in the thrown error — wrap with fixture-id context (QA F6) | refactor | XS | — | **next fit-40 touch** |
+| Transcript coherence cross-checks (`callbacks[]` vs `outcome`) + an `exitCode` allow-list (only 0/1/2/3 are valid) (QA F7) | test-coverage | S | — | **next fit-40 touch** |
+| Zero-effect schematic-cleanup open question: does the engine remove pre-staged-but-uncommitted files on a greeting-time exit-1 (`m1-vehicle`'s `greeting-mismatch-twin`)? Escalate to the engine team (judgment-day Judge B) | edge-case | — | Cross-repo — engine confirmation | **engine repo, cross-repo flag** |
+| `greetingVersion` absent-default semantics need engine confirmation — what the engine assumes when a manifest omits the field (judgment-day Judge A) | edge-case | — | Cross-repo — engine confirmation | **engine repo, cross-repo flag** |
+| Payload variety — no case exercises non-ASCII content, empty-string content, deeply-nested schematic trees, or near-cap-size payloads | test-coverage | S | — | **corpus-growth candidate** |
+| ~~ADR-0065 scope prose — the ADR was written for "the multi-behaviour composition fixture" only, yet the per-case `factory` mechanism it introduces is depended on by 5/12 cases across all 4 `m2-*` fixtures~~ **CLOSED 2026-07-19 (this archive)** — `openspec/decisions/0065-per-case-factory-override-composition-fixture.md` states the generalized scope explicitly | docs | XS | — | ~~next design audit~~ **closed** |
+| Engine M1 confirmation of the corpus (first real submodule-consumed run) — external, non-gating per steward reckoning CQ-3 | other | — | Engine M1 milestone | **engine repo, cross-repo flag** |
+| Negative-suite (`fit-40-*.negative.test.ts`) temp-dir cleanup — confirm every `mkdtemp` fixture tree is removed on both pass and fail paths | test-infra | XS | — | **next negative-suite touch** |
+| README first-paragraph anchor could name the dist-early-return guarantee (REQ-CFX-14) alongside the four-way disambiguation, for a reader who lands mid-doc | docs | XS | — | **next README touch** |
