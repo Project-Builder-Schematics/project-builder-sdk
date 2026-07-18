@@ -86,10 +86,10 @@ boundary — this repo has none).
   2/`unrepresentable`/`failedIndex:null`/zero-effect, transcript `[ir.emit,ir.discard]`
 
 ### Tasks
-- [ ] S-002.1 RED: fit-40 assertions target m2-delete's 3-case set
-- [ ] S-002.2 `conformance/m2-delete/{manifest.json,factory.ts,seed/,expected/}`
-- [ ] S-002.3 `corpus.json#fixtures` += `"m2-delete"` — same commit
-- [ ] S-002.4 GREEN: fit-40 passes at 3 fixtures/7 cases
+- [x] S-002.1 RED: fit-40 assertions target m2-delete's 3-case set
+- [x] S-002.2 `conformance/m2-delete/{manifest.json,factory.ts,seed/,expected/}`
+- [x] S-002.3 `corpus.json#fixtures` += `"m2-delete"` — same commit
+- [x] S-002.4 GREEN: fit-40 passes at 3 fixtures/7 cases
 
 **Out of scope**: dir-target unrepresentable is this slice's only directory-op twin; no other fixtures.
 
