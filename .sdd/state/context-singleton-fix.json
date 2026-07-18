@@ -1,0 +1,39 @@
+{
+  "change": "context-singleton-fix",
+  "triage": "M",
+  "phase": "build-complete",
+  "phase_status": "BUILD COMPLETE + PR #40 OPEN 2026-07-19: S-000 @ 326668b (fix + dual-realm e2e, RED proof in red-evidence.md), S-001 @ 3892c44 (13 guardrail tests, mutation-checked), typecheck-fix @ d69431e; verify-in-loop-1 NEEDS_FIX (2 TS2769, fixed inline by orchestrator) -> verify-in-loop-2 PASS (obs #1306); suite 1983/0, typecheck+build clean; NEXT: /evaluate (verify final + steward reckoning — CQ-3 needs owner) then archive; engine unblock = merge #40 + pin advance",
+  "in_loop_iterations": 2,
+  "plan_detail": "design rev 3 (obs #1296; resolveRunAls/getRunAls purity split; ADR-01 unqualified-key+collision addendum, ADR-02 Symbol.for boundary; impact modifying); steward foresight ALIGNED (obs #1297; CQ-1/CQ-2 closed with code evidence, CQ-3 pending owner at reckoning); plan-verify READY iter 3/3 (trajectory 14→2→1-wording)",
+  "slices": true,
+  "slice_ids": ["S-000", "S-001"],
+  "plan_verify": "ready (iter 3, orchestrator-ruled, owner directive on record)",
+  "steward_foresight": "ALIGNED (obs #1297): CQ-1 topology-faithful CONFIRMED by evidence (corpus factories import ../../src/index.ts inside SDK checkout = engine submodule layout); CQ-2 covered-path CONFIRMED (no corpus factory uses templateFile/scaffold/copyIn; sole create() is the reject probe, engine-side rejection); CQ-3 (does engine confirmation gate archive?) PENDING OWNER at reckoning",
+  "spec_status": "signed",
+  "spec_signed": "V1 SIGNED by owner 2026-07-19 (7 REQs MIS-01..07, obs #1293; ~965w declared deviation)",
+  "propose_detail": "ok (obs #1292 + proposal.md): 1 new capability module-identity-safe-run-context; FU-1 done-by-explore, FU-2..FU-5 registered; open questions routed (key-qualification -> design ADR w/ rec unqualified; probe hardening -> FU-5; hazard-2 residual -> FU-4); risk low, single-file revertible",
+  "phase_status": "explore COMPLETE 2026-07-19 (obs #1291 + explore.md; ready_for_proposal yes; Symbol.for dedupe EMPIRICALLY verified under Bun thin-dist build shape; A3: context.ts deviates → ADR; hazard #2 narrowed to templateFile/scaffold/copyIn residual, NOT M1-reachable; single-instance-probe false-negative confirmed; 3 technical open questions → spec/design); propose launching",
+  "mode": "automatic",
+  "problem_statement": "Engine repo (sdk-live-conformance, PC-PROTO-02) blocked on M1: shipped dist runner fails all authoring verbs (AuthoringError, exit 4) with .ts-source factories — dual Bun module instance of core/context creates two ALS singletons (dist runner enters dist copy, factory verbs consult src copy). Engine-diagnosed with control experiment. Fix must land on main + pin advance for engine to resume.",
+  "scope": {
+    "in_scope": [
+      "module-identity-safe context singleton in src/core/context.ts (globalThis/Symbol.for registry, version-qualified key per architect)",
+      "dist-runner e2e regression test spawning dist/bin/pbuilder-runner.js against a .ts-source factory (two-instance topology mandatory or test is false-green)",
+      "sweep-and-report sibling module-local singletons (report-only)"
+    ],
+    "out_of_scope": [
+      "corpus fixture changes",
+      "handoff .ts-source factory convention",
+      "engine-side changes",
+      "compiling fixture factories into built graph (rejected)",
+      "fixing hazard #2 (instanceof error classification across copies) and #3 (contained WeakSet) — followups unless explore proves M1-blocking"
+    ]
+  },
+  "council_notes": "architect (opus): vote M; hazard is a 3-member class (ALS #1 = the bug; instanceof error classification runner.ts:338 #2; contained WeakSet dialect-error.ts #3); registry key MUST be major-version-qualified (bare key = silent RunContext-shape corruption across majors); DEFINE_FACTORY_BRAND precedent argues AGAINST Symbol.for for error brands (unforgeability); e2e must recreate two-instance topology or false-green; negative leg (factory-thrown AuthoringError) pins hazard #2. pm (opus): vote S; minimal cut fix+e2e only; FU-1 sweep report, FU-2 dist verb matrix, FU-3 CI dist-proven gate, FU-4 per-hazard fixes; DONE = merged + green on main + pin advanced + engine M1 confirmation (external followup); priority engine-unblock > corpus merge; check shared e2e-scaffolding conflict surface vs conformance-corpus PRs.",
+  "sibling_singletons_from_triage": ["hadBom (ts+react ast.ts)", "astHandlePaths (dialect-handle.ts:37)", "runInFlight (runner.ts:172)", "realFd1Write (framing.ts:75)"],
+  "completed_phases": ["triage"],
+  "next": "sdd-explore (A2 entry) -> propose -> spec -> design -> slice -> plan-verify -> build",
+  "branch": "fix/context-singleton (off main 6db2f5e)",
+  "urgency": "P0 cross-repo unblock; engine M1 + pin advance wait on this",
+  "updated_at": "2026-07-19"
+}
