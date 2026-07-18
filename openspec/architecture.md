@@ -67,7 +67,7 @@ Note 4: `./testing` and `pbuilder-codegen` retain their stage-4/4b postures — 
   Primary:        commons/index.ts (author verbs: create/find/replaceContent/remove/rename/move/copy + dryRun)
                     ──► core/context.ts (currentContext / defineFactory<O>; AsyncLocalStorage RunContext with session + factory + dialects; run-boundary schema validation + reserved-name scan)
                     ──► core/session.ts (buffer + flush-before-read + pendingSnapshot)
-                    ──► core/directive-factory.ts (args ──► Directive)
+                    ──► core/directive-factory.ts (args ──► Directive; incl. shallow wire value-lowering of composite `create` options via `encodeOptions` — JSON-encoding a serializable option value, distinct from template rendering / AST manipulation, which remain banned per ADR-01 (typed-options-feeder); second sanctioned call site `scaffold/classify-transport.ts` imports `encodeOptions` for the CCL-02.4 post-encode budget estimate, guarded by fit-39 [single-encode-site] + fit-07)
                     ──► core/wire.ts (Directive / Batch shapes)
                     ──► core/engine-client.ts (EngineClient port ──► engine)
   Dialect surface: dialects/typescript/index.ts (find(path): Handle<"found", SourceFile, TypeScriptOps>)

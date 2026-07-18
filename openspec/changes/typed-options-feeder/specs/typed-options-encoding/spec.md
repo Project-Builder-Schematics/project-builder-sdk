@@ -1,7 +1,7 @@
 # Typed Options Encoding Specification
 
 **Spec version**: V3
-**Status**: signed (V2, owner 2026-07-18) + V3 micro-unfreeze pending owner ratification
+**Status**: signed (V3, owner 2026-07-18 — V2 signature + V3 micro-unfreeze ratified at archive checkpoint)
 **Change**: `typed-options-feeder`
 
 ## Purpose
