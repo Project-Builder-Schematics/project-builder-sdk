@@ -1,0 +1,65 @@
+{
+  "change": "conformance-corpus",
+  "triage": "L",
+  "phase": "spec",
+  "propose_detail": "ok (obs #1240 + proposal.md): 4 new capabilities (conformance-corpus, conformance-fixtures, conformance-self-check, corpus-determinism); 5 ADR-bound design decisions; accepted-risk note (single-PR) carried; council BA+PM synthesized (BA: 7-capability cut, commit-atomic corpus.json REQ, SC numerics; PM: 7-point done-list, 8 followups w/ owners, monotonic twin ordering)",
+  "mode": "automatic",
+  "spec_status": "signed",
+  "spec_signed_v3": "V3 RE-SIGNED by owner 2026-07-18 (35 REQs / 60 scenarios; supersedes V2 signature)",
+  "design": "rev 2 COMPLETE (obs #1249 upserted + design.md; additive re-justified; ADRs 0063-0067 draft incl. new 0067 collection.json marker; ADR-0064 frozen: exit-2 emit branch [ir.emit, ir.discard] conditional on CCR-08; createRejectProbe + conformance-fixture-loader renames; handoff AMENDED w/ PROPOSED case-level factory field, obs #1255; 35/35 REQs in test derivation; HARD GATE: engine sign-off on schema delta before m2-create-composition manifest in PR#2)",
+  "spec_signed": "V2 SIGNED by owner 2026-07-18 (34 REQs / 54 scenarios)",
+  "design": "complete rev 1 (obs #1249 + design.md; architecture_impact ADDITIVE; ADRs 0063-0066 draft; CFX-09 RESOLVED exit-2 satisfiable w/ code evidence, obs #1250, NO escalation; 34/34 REQs in test derivation; spec correction: WIRE_PROTOCOL_VERSION lives in src/transport/wire-protocol.ts not core/wire.ts; NEW cross-repo flag: per-case factory override in manifest not in handoff schema — engine loader confirmation needed); blind architect+TW review in flight",
+  "spec_v2_detail": "34 REQs / 54 scenarios (V1: 29/40); +CCR-07, CFX-12/13/14, CDT-07; both blockers repaired (CFX-09 fail-closed precondition clause 09.3; CFX-13 transcript oracle 12 cases pinned); ID stability audit PASS; declared deviation: conformance-fixtures ~2899w (blocker repairs); 5 technical questions to design (CFX-09 exit path = design-blocking ADR)",
+  "spec_review": "blind BA+QA both needs-V2 (convergent: transcript oracle B2≡M1, honesty boundary M6≡M3, wireSpecVersion M2; QA-only: B1 CFX-09 quiet-pass, failedIndex pin, factory.ts existence, determinism owner, byte oracle, writtenPaths rule); proposal.md single-PR lines repaired inline by orchestrator (BA-M4)",
+  "spec_detail": "V1 (obs #1242 + specs/ 4 domains): 29 REQs / 40 scenarios (CCR-01..06, CFX-01..11, CSC-01..06, CDT-01..06); 4 technical questions routed to design; declared deviation: conformance-fixtures domain ~1430 words (5 behavioral contracts, accepted); blind BA+QA review in flight; arch baseline REFRESHED (both stores merged, obs #652 upserted + architecture.md rewritten 2026-07-18) — design unblocked",
+  "slices": true,
+  "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004"],
+  "slices_detail": "5 slices (obs #1258 + slices.md): S-000 skeleton=PR#1 (m1+ALL scaffolding, non-blocking pre-merge gate: greeting cleanup confirm); S-001..004 PR#2 commit-atomic monotonic (modify→delete→rename-move→create-composition); S-004 hard pre-authoring gate ADR-0065; 35/35 REQs traced; Step 8b no-op (internal)",
+  "phase": "plan-complete",
+  "plan_complete": true,
+  "plan_verify": "READY (owner-ruled at iteration 2, 2026-07-18; trajectory 20→3→0 actionable; Judge A clean 2x; residue = ADR-0065 engine sign-off as S-004 entry gate; verify-plan-1 + verify-plan-2 persisted)",
+  "next": "/build --scope=slice:S-000 (walking skeleton → PR#1, unblocks engine M1); pre-PR#1-merge gate: engine confirms greeting-exit-1 cleanup; S-004 gated on ADR-0065 sign-off",
+  "plan_verify": null,
+  "verify_final": null,
+  "arch_audit": null,
+  "completed_phases": [
+    "triage",
+    "explore",
+    "propose",
+    "spec",
+    "design",
+    "steward-foresight"
+  ],
+  "steward_foresight": "ALIGNED (obs #1256 + north-star.md); 3 conscience questions OWNER-ANSWERED 2026-07-18: declaration-only suffices / greeting-cleanup CONFIRM WITH ENGINE PRE-PR#1 (new gate) / loader-change coordination accepted",
+  "cross_repo_gates": {
+    "pre_pr1": "engine confirms greeting-exit-1 cleanup semantics (owner-mandated at foresight)",
+    "pre_pr2": "engine signs off case-level factory schema delta (ADR-0065 hard gate)"
+  },
+  "triage_detail": "L (skill tie-break over 2x persona M votes; cross-repo fail-closed contract + mandatory walking skeleton; sensitive override NOT fired; low-confidence security(IPC) row touch \u2014 explore to confirm no wire-spec changes)",
+  "council": {
+    "always": [
+      "architect",
+      "business-analyst",
+      "pm",
+      "qa-engineer"
+    ],
+    "conditional": [
+      "tech-writer (manifest schema = cross-repo documented contract)",
+      "security-engineer (IPC consult only)"
+    ]
+  },
+  "open_product_questions": [],
+  "owner_rulings": {
+    "delivery_unit": "REVISED by owner 2026-07-18 (supersedes same-day single-PR ruling): full plan for all 5 fixtures in ONE change, TWO PRs — PR#1 = m1-vehicle + all cross-cutting scaffolding as soon as it verifies green (engine unblocks M1 early, corpus.json lists ONLY m1 at that SHA), PR#2 = m2-* fixtures. Slice/commit atomicity: every intermediate SHA fail-closed clean.",
+    "gitattributes": "IN SCOPE repo-wide (* eol=lf, closes pending #306); must verify no re-normalization surprise on tracked files"
+  },
+  "updated_at": "2026-07-18",
+  "explore_detail": "ok, ready_for_proposal yes (obs #1234 + explore.md); council 3x convergent (architect/qa/security); security override NOT fired (documented non-touch); CRITICAL: committed architecture.md stale (missing src/transport/**) \u2014 engram obs #652 rev14 accurate, refresh scheduled pre-design",
+  "carried_technical_questions": [
+    "self-check approach 1/2/3 -> design",
+    "wire-create-reject exit 1 vs 2 unsatisfiable-claim risk -> design MUST verify (QA)",
+    "tsconfig exclude vs sweep conformance/**/*.ts -> design",
+    "wireSpecVersion pin vs WIRE_PROTOCOL_VERSION -> design",
+    "cap/exit-3/exit-4 twin gaps -> cross-repo followup candidate"
+  ]
+}

@@ -1,0 +1,29 @@
+change: conformance-corpus
+triage: L
+mode: automatic
+completed_phases:
+  - triage
+  - explore
+  - propose
+  - spec
+  - design
+  - steward-foresight
+  - slice
+  - verify-plan
+current_phase: plan-complete
+current_status: READY (owner-ruled, iteration 2, 2026-07-18)
+in_loop_iteration: 0
+next: /build --scope=slice:S-000
+spec_status: signed (V3 re-signed 2026-07-18; 35 REQs / 60 scenarios)
+slices: true
+slice_ids: [S-000, S-001, S-002, S-003, S-004]
+plan_verify: READY owner-ruled iter 2 (trajectory 20→3→0 actionable; Judge A clean 2x)
+notes: >-
+  PLAN COMPLETE. Design rev 2 (ADRs 0063-0067, additive; CFX-09 frozen exit-2 via ADR-0064).
+  Steward foresight ALIGNED, 3 conscience questions owner-answered. Two-PR delivery:
+  PR#1 = S-000 (m1-vehicle + scaffolding, corpus.json = ["m1-vehicle"], unblocks engine M1);
+  PR#2 = S-001..S-004. Cross-repo gates: pre-PR#1-merge = engine confirms greeting-exit-1
+  cleanup; S-004 pre-authoring = engine sign-off on ADR-0065 case-level factory schema delta
+  (PROPOSED amendment documented in CONFORMANCE-CORPUS-HANDOFF.md). Step 8b publish no-op
+  (spec_source internal).
+updated_at: 2026-07-18
