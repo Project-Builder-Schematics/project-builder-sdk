@@ -1,7 +1,7 @@
 {
   "change": "typed-options-feeder",
   "triage": "M",
-  "phase": "apply",
+  "phase": "build-complete",
   "spec_status": "signed",
   "slices": true,
   "plan_verify": "ready",

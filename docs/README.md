@@ -6,7 +6,7 @@ quickstart; the rest is reference, read in whatever order you need it.
 1. **[Quickstart](./quickstart.md)** — install, generate types, write and test a typed
    factory. The fastest way to a working example.
 2. **[Authoring verbs](./authoring-verbs.md)** — the seven directive-shaped verbs
-   (`create`, `modify`, `remove`, `rename`, `move`, `copy`, `copyIn`) and the
+   (`create`, `replaceContent`, `remove`, `rename`, `move`, `copy`, `copyIn`) and the
    `find().read()` read-trichotomy rule.
 3. **[Authoring `create` templates](./create-templates.md)** — the template language inside
    `create()`: delimiters, the 7 pipes, loops/conditionals (a JS-to-template mapping),

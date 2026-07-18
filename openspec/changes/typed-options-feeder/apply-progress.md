@@ -221,3 +221,61 @@ None new. `classify-transport.ts`'s change is measurement-only (the verdict comp
 ### Next Recommended
 
 S-003 was the closing slice (all 4 slices, `full` scope of `typed-options-feeder`, now complete). Recommend `sdd-verify --mode=in-loop` on this S-003 batch (or the full S-000..S-003 change if no prior in-loop verify covered S-001+S-002 yet), then proceed toward `/evaluate` once verify is clean.
+
+## Council Fix Round (post-final-verify, pre-judgment-day)
+
+Four surgical items from the council's final-verify round. Branch `feat/typed-options-feeder` @ `471997a`.
+
+### 1. QA-F1 (MED — surviving mutant, delete-on-ascent uncovered)
+
+The pre-existing shared-ref-DAG regression test (`{a: s, b: s}`, top-level siblings) gives each top-level key its OWN fresh `ancestors` `Set` (`encodeOptions` calls `assertEncodable(value, key)` per `Object.entries` iteration with the default-parameter `new Set()`), so `ancestors.delete(value)` in `assertEncodable`'s `finally` block was never exercised by that test — commenting it out left the whole suite green while `{cfg: [s, s]}` (a shared reference at NESTED sibling positions, sharing ONE `ancestors` Set across both occurrences) would false-positive as circular.
+
+**Fix**: added 2 tests to `test/core/encode-options.test.ts` (`REQ-TOE-01 (shared-ref DAG, ARCH-F2)` describe block) — nested-array (`{cfg: [s, s]}`) and nested-object (`{cfg: {p: s, q: s}}`) sibling shared references, both asserting successful encode (not a circular rejection).
+
+**Mutant-kill confirmation** (TDD, source temporarily reverted after): commented out `ancestors.delete(value);` in `src/core/directive-factory.ts`'s `assertEncodable` → ran `bun test test/core/encode-options.test.ts` → both new tests failed RED:
+```
+error: option "cfg" is not a plain-JSON value the engine can render (a circular reference at cfg[1]). ...
+error: option "cfg" is not a plain-JSON value the engine can render (a circular reference at cfg.q). ...
+23 pass / 2 fail
+```
+Restored the delete line, confirmed `diff` against the pre-edit backup was byte-identical, re-ran → 25 pass / 0 fail.
+
+### 2. QA-F2 (MED-LOW — pin + document the non-finite carve-out)
+
+`NaN`/`Infinity` are `typeof "number"`, pass `assertEncodable`'s predicate, and are DESIGN-INTENDED to do so (design §4.2d: rejecting them would make Stage-2 REQ-14.3's flush-time `unrepresentable-content` guard unreachable for create-options). Nothing previously pinned this in a test or recorded it as a REQ scenario.
+
+**Fix**:
+- Added 2 tests to `test/core/encode-options.test.ts` (REQ-TOE-03 describe block): top-level `{n: NaN}` passes through as `NaN` unmodified (verbatim passthrough — encodeOptions only `JSON.stringify`s composite/array/object values, so a top-level scalar is never coerced by this boundary), and nested `{nums: [Infinity]}` encodes to `'[null]'` (the composite gets `JSON.stringify`'d, and `JSON.stringify`'s own semantics turn non-finite numbers into `null` inside that call — not an SDK-introduced transform).
+- Micro-unfroze the signed spec `openspec/changes/typed-options-feeder/specs/typed-options-encoding/spec.md`: added Scenario REQ-TOE-03.3 documenting both the top-level passthrough and nested-`null`-coercion halves of the carve-out, referencing design §4.2d. Bumped the version header to V3 (`**Status**: signed (V2, owner 2026-07-18) + V3 micro-unfreeze pending owner ratification`) and added a `## Changelog` section recording the V3 micro-unfreeze as behaviour-recording only, no production change, owner ratification pending at archive.
+
+### 3. TW drift fix (pre-existing, one word)
+
+`docs/README.md` line 9 still listed the verb as `` `modify` `` — retired for `` `replaceContent` `` per ADR-0050, and every other doc (`docs/authoring-verbs.md`) already uses the current name. Changed the one word on that line only. `bun test test/docs/` — 71 pass / 0 fail (unchanged from baseline, confirms no doc-content fitness check depended on the stale word).
+
+### 4. Followups registered
+
+Appended 4 items to `openspec/changes/typed-options-feeder/design.md` §Followups (graduate to `project/pending-changes` at archive):
+- **ARCH-F1**: construction-direction fitness guard — assert production `create` directives originate only at `DirectiveFactory` (fit-39 blocks a 2nd encode call site, not a 4th surface hand-building directives; FIT-15/22 style).
+- **QA-F3**: `toJSON`-bearing plain objects reject here, stricter than native `JSON.stringify` (which honors `toJSON`) — document or revisit.
+- **QA-F4**: exotic inputs (throwing getters, hostile Proxy, ~50k-deep nesting) surface raw errors bypassing the key-named reject contract — known limit, guard candidate.
+- **QA-F5**: classify-transport's stat-gate `>` boundary comparison is unpinned by an exact-boundary test (benign, verdict-equivalent).
+
+### Files Touched
+
+| File | Action | What |
+|---|---|---|
+| `test/core/encode-options.test.ts` | Modified | +4 tests: QA-F1 nested-sibling shared-ref (array + object), QA-F2 non-finite carve-out (top-level NaN passthrough + nested Infinity→null) |
+| `openspec/changes/typed-options-feeder/specs/typed-options-encoding/spec.md` | Modified | Added Scenario REQ-TOE-03.3; version header V2→V3; added `## Changelog` |
+| `docs/README.md` | Modified | `modify` → `replaceContent` (line 9, ADR-0050 drift fix) |
+| `openspec/changes/typed-options-feeder/design.md` | Modified | Appended ARCH-F1/QA-F3/QA-F4/QA-F5 to §Followups |
+
+### Verification
+
+- `bun test test/core/encode-options.test.ts` — 25 pass / 0 fail (mutant-kill proof run separately, source restored byte-identical, see item 1 above)
+- `bun test test/docs/` — 71 pass / 0 fail
+- `bun test` (full suite) — 1966 pass / 0 fail (up from 1962 baseline; +4 new tests)
+- `bun run typecheck` — clean, no errors
+
+### Deviations
+
+None. All four items landed exactly as scoped — no scope creep beyond the council's four findings.

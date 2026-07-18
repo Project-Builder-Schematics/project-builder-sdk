@@ -75,6 +75,23 @@ describe("REQ-TOE-03 — scalar and null option values pass through verbatim", (
     const result = encodeOptions({ note: null }) as { note: unknown };
     expect(result.note).toBeNull();
   });
+
+  // QA-F2 / REQ-TOE-03.3 (design §4.2d): non-finite numbers (NaN/Infinity) are `typeof
+  // "number"` and deliberately pass the plain-JSON predicate uncaught — pinning this here
+  // records it as INTENTIONAL, not an oversight. Rejecting them at scheduling time would make
+  // Stage-2 REQ-14.3's flush-time `unrepresentable-content` guard unreachable for create-
+  // options (the guard's live path depends on a value that survives encodeOptions but still
+  // fails the fake's JSON round-trip). They coerce to the wire as JSON.stringify's own `null`
+  // (JSON semantics, not an SDK transform) and the engine's typed null-error makes that LOUD
+  // at render time, downstream of this boundary.
+  it("[characterization] Scenario REQ-TOE-03.3: a top-level non-finite number (NaN) passes the predicate and coerces to wire null (REQ-TOE-03 carve-out)", () => {
+    const result = encodeOptions({ n: NaN }) as { n: unknown };
+    expect(result.n).toBeNaN();
+  });
+
+  it("[characterization] Scenario REQ-TOE-03.3: a non-finite number (Infinity) nested inside a composite value coerces to JSON null in the encoded string", () => {
+    expect(encodeOptions({ nums: [Infinity] })).toEqual({ nums: "[null]" });
+  });
 });
 
 describe("REQ-TOE-04 — loud rejection of non-plain-JSON option values", () => {
@@ -169,6 +186,24 @@ describe("REQ-TOE-01 (shared-ref DAG, ARCH-F2) — an acyclic shared reference e
     const s = { x: 1 };
     const options = { a: s, b: s };
     expect(encodeOptions(options)).toEqual({ a: '{"x":1}', b: '{"x":1}' });
+  });
+
+  // QA-F1: the top-level-sibling test above gives EACH key a fresh `ancestors` Set
+  // (encodeOptions calls assertEncodable(value, key) per Object.entries iteration), so it
+  // never exercises delete-on-ascent — commenting out `ancestors.delete(value)` still passes
+  // it. A shared reference at NESTED sibling positions shares the SAME ancestors Set across
+  // both occurrences within one top-level call, so it only encodes correctly if the first
+  // occurrence's descent is cleaned up (deleted) before the second occurrence is checked.
+  it("the SAME object reference used at NESTED sibling positions (array) encodes both, not rejected as circular", () => {
+    const s = { x: 1 };
+    const options = { cfg: [s, s] };
+    expect(encodeOptions(options)).toEqual({ cfg: '[{"x":1},{"x":1}]' });
+  });
+
+  it("the SAME object reference used at NESTED sibling positions (object) encodes both, not rejected as circular", () => {
+    const s = { x: 1 };
+    const options = { cfg: { p: s, q: s } };
+    expect(encodeOptions(options)).toEqual({ cfg: '{"p":{"x":1},"q":{"x":1}}' });
   });
 });
 

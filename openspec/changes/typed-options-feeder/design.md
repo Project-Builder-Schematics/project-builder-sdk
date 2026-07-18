@@ -289,6 +289,24 @@ vs "add" is a mechanism detail, not a spec ambiguity.
   documenting. Interim behavior (plain `Error` naming the key + allowed-set echo) is fully spec-covered
   by REQ-TOE-04 and needs no separate doc entry now.
 
+- **ARCH-F1 (council fix round, post-final-verify)**: construction-direction fitness guard — assert
+  that production `create` directives originate ONLY at `DirectiveFactory`. fit-39 (§4.2c) blocks a
+  second `encodeOptions`/options-`JSON.stringify` call site but does not block a fourth surface that
+  hand-builds a `create` directive literal bypassing the factory entirely (`createOp`'s test-only raw
+  construction is the sanctioned exception, ADR-03). Style precedent: FIT-15/22.
+- **QA-F3 (council fix round)**: `toJSON`-bearing plain objects reject as non-plain-JSON under this
+  change's predicate, stricter than native `JSON.stringify` (which honors a `toJSON` method and
+  serializes its return value instead of throwing). Document the divergence or revisit whether
+  `toJSON`-bearing values should be admitted, when this area is next touched.
+- **QA-F4 (council fix round)**: exotic inputs — a throwing getter, a hostile `Proxy`, or ~50k-deep
+  nesting — surface their raw underlying error (stack overflow, proxy trap exception) rather than the
+  key-named `rejectOption` contract REQ-TOE-04 promises for the documented non-plain-JSON kinds. Known
+  limit; a depth/guard mechanism is a candidate for a future slice, not scoped here.
+- **QA-F5 (council fix round)**: the classify-transport stat-gate's `>` boundary comparison (§4.2c /
+  `classify-transport.ts`) is unpinned by a dedicated exact-boundary test — benign (verdict-equivalent
+  to `>=` for the byte-count domain in play) but worth a pinning test if that comparator is ever
+  touched again.
+
 ## Revision Note (rev 2)
 
 Blind-review round (architect `revise`, tech-writer `approve-with-notes`). REQ-IDs untouched —

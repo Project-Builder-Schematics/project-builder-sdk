@@ -1,7 +1,7 @@
 # Typed Options Encoding Specification
 
-**Spec version**: V2
-**Status**: signed (V2, owner 2026-07-18)
+**Spec version**: V3
+**Status**: signed (V2, owner 2026-07-18) + V3 micro-unfreeze pending owner ratification
 **Change**: `typed-options-feeder`
 
 ## Purpose
@@ -133,6 +133,20 @@ The SDK MUST pass top-level number, boolean, and `null` option values through un
 - GIVEN `options = { note: null }`
 - WHEN encoded
 - THEN `options.note` is `null` (not the string `"null"`)
+
+#### Scenario REQ-TOE-03.3: A non-finite number (`NaN`/`Infinity`) is a deliberate carve-out, not rejected
+
+- GIVEN a top-level option value that is a non-finite number (`NaN`, `Infinity`, `-Infinity`)
+- WHEN encoded
+- THEN it passes the plain-JSON predicate (`typeof "number"`) like any other number and is NOT
+  rejected by REQ-TOE-04 — this is DELIBERATE, not an oversight: rejecting non-finite numbers at
+  scheduling time would make Stage-2 REQ-14.3's flush-time `unrepresentable-content` guard
+  unreachable for create-options (design §4.2d)
+- AND GIVEN the same non-finite number nested inside a composite (array/object) option value
+- WHEN that composite is JSON-encoded
+- THEN the non-finite number coerces to JSON `null` in the encoded string (plain
+  `JSON.stringify` semantics, not an SDK-introduced transform) — the engine's typed
+  "present but null" error makes this LOUD downstream, at render time, not silently accepted
 
 ### REQ-TOE-04: Loud Rejection of Non-Plain-JSON Option Values
 
@@ -327,3 +341,8 @@ V2 pins it as explicitly preserved.)
 No sensitive areas covered. This change reshapes a JSON-serializable value one layer above the
 JSON-RPC wire client (`src/core/session.ts`, the registered `security (IPC)` row); the
 transport/framing layer is untouched, matching triage's and explore's own crosscheck.
+
+## Changelog
+
+- **V3 micro-unfreeze (post-final-verify council round)**: REQ-TOE-03.3 added, behaviour-
+  recording only, no production change — owner ratification at archive.
