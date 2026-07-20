@@ -13,6 +13,100 @@ design's assumptions exactly against current `main` — no `architectural-confli
 
 ---
 
+## Pre-satisfied scenarios (verify-only — no new code)
+
+Three signed scenarios are already satisfied on `main`, by an earlier change
+(`author-write-surface`/`foundations-skeleton`'s repo-wide `.raw(` sweep), not by this change's
+own work. They belong to no SPIDR slice — they are wired into **S-000.6** as confirm-stay-green
+checks; this change must not regress them.
+
+| REQ-ID | Status | Evidence |
+|---|---|---|
+| REQ-TSD-01.1 | Pre-satisfied | `test/dialects/typescript/ops-exact-set.test.ts` — exact op-set `toEqual` assertion exists; op-set membership is unchanged by this port |
+| REQ-TSD-01.3 | Pre-satisfied | Collision-hint wording already reads `.modify()`, not `.raw()` — confirmed `rg '\.raw\('` over `src/dialects/typescript/` = zero hits; `fit-raw-sweep.test.ts` sweeps repo-wide and stays green |
+| REQ-TSD-01.4 | Pre-satisfied | Module-level JSDoc (`typescript/index.ts`) already reads `.modify()` — same zero-hit sweep covers it |
+
+## Executor context
+
+Read before building any slice:
+- **Spec**: `openspec/changes/ts-addimport-collision/specs/typescript-dialect/spec.md` — full
+  REQ-TSD-01/03/13 bodies, all 50 scenario Given/When/Then blocks, Sign-Off Block (4 ratifications)
+- **Design**: `openspec/changes/ts-addimport-collision/design.md` — §4.3 (data model/algorithm
+  helpers), §4.4 (interface contract, two reject shapes), §4.8 (migration/rollout,
+  pending-changes registration), ADR-01 (mirror + FIT-41 parity), ADR-02 (inline validation,
+  ARCH-2 debt), ADR-03 (shebang fallback)
+- **North star**: `openspec/changes/ts-addimport-collision/north-star.md` — the outcome bar
+  reckoning will hold this against
+
+**Algorithm digest** (design §4.3 / spec REQ-TSD-01, applied IN THIS ORDER — spec-level invariant):
+1. Already-bound (idempotency, SAME module only): a value-bound default/namespace/unaliased-named
+   or SELF-ALIASED-named specifier with matching local name → no-op. Self-alias (`{X as X}`) is a
+   DELIBERATE deviation from React's V8 (owner-ratified).
+2. Collision (file-wide): `name` CLAIMED anywhere — any import specifier's local name (value-bound
+   or type-only) OR a top-level value-namespace declaration (`isValueNamespaceClaimed`) → reject,
+   `dialectError`, BEFORE any AST mutation.
+3. Merge: the FIRST declaration (source order) with a non-type-only named-import clause for `from`
+   → add an unaliased named specifier.
+4. Create: otherwise, insert a fresh, separate `import { name } from "from";` (directive-prologue-
+   aware once S-003 lands).
+
+S-000 builds Steps 1/3/4 only — Step 2 is DEFERRED to S-001 by design. S-000's interim `addImport`
+has no collision reject until S-001 lands; that is an acceptable mid-change state, not a
+shippable increment on its own.
+
+**Reject-message shapes** (spec REQ-TSD-13, design §4.4 — TWO deliberate shapes, never unified):
+- **Validation reject** (S-002): `assertValidImportBinding` (`src/core/jsx-name-validator.ts`),
+  reused verbatim, PATH-LESS. Zero echo for grammar failures; ≤16-char bounded echo for
+  reserved-word/denylist failures (`boundedFragment`, `src/core/reject-tail.ts`).
+- **Collision reject** (S-001): TS house-style, `dialectError` (`src/core/dialect-error.ts`) built
+  INLINE in `ops.ts`, carries the `on "{handlePathFor(ast)}"` clause (`src/core/dialect-handle.ts`)
+  plus an "already exists"/"already bound" distinguishing substring. Full name echoed
+  (post-validation, safe — REQ-TSD-01.32).
+- Negative pin (S-002.4): a validation reject NEVER contains the path clause.
+
+**Source-material pointers**:
+- `src/dialects/react/ops.ts:81-234` — port source for `boundNamesIn`/`satisfiesIdempotency`/
+  `isNonTypeOnlyNamedImportClause` (verbatim)
+- `src/dialects/typescript/ops.ts:54-75` — existing `assertNoCollision`, host of the extracted
+  `isValueNamespaceClaimed`
+- `src/core/dialect-handle.ts:248-258` — `#invokeContained`, the containment boundary the shebang
+  case (S-004) relies on
+- Printer determinism — per-dialect `ast.ts` frozen `ManipulationSettings` + BOM `WeakMap`
+  (unmodified by this change; goldens depend on this staying stable)
+
+**Behaviour-change classes** (spec's behaviour-change note, feeds S-005's CHANGELOG):
+- Class A (5 fixes, silently-broken → loud/correct): type-only merge; cross-module + value-
+  namespace collisions; aliased-to-different-name collisions; same-local-name idempotency vs
+  default/namespace/mixed; directive-prologue placement.
+- Class B (1 member, correct → differently-correct): side-effect import preserved + separate
+  named decl (`.20`), `.modify()` escape available.
+- Neither class: shebang (`.33`) — its own bucket, outcome conditional on which ADR-03 arm ships
+  (this change ships the fallback — see Owner-settled note below).
+
+## Repo conventions
+
+- Test runner: `bun test`
+- Goldens: committed fixture files under `test/dialects/typescript/golden/*.txt`, referenced by
+  name from the test file, asserted `toBe` (byte-exact)
+- Fitness naming: `test/fitness/fit-NN-*.test.ts`; **FIT-41 confirmed next free** (39/40 taken by
+  unrelated changes since design)
+- Dialect imports in tests: in-repo workspace subpath entrypoints (`@pbuilder/sdk/typescript`,
+  `@pbuilder/sdk/react`), matching how an installed consumer resolves them;
+  `installed-consumer.e2e.test.ts` is the installed-parity check, untouched by this change
+
+## Owner-settled product decisions (cited, not reopened)
+
+1. **Siblings stay raw-spliced this change** — `addFunction`/`addVariable`/`addClass`'s
+   `name`/`source`/`initializer` remain unvalidated. Ratified at spec V3.1 sign-off: REQ-TSD-13.5
+   mandates the affirmative "still-raw" JSDoc characterization (S-002.2/.5); closure is tracked
+   separately in `project/pending-changes`, out of this change's scope.
+2. **Shebang ships fail-closed, permanently for this release** — ADR-03's pre-authorized fallback
+   arm (spec `.33`) ships: containment pinned (S-004.2), insertion upgrade deferred as a followup
+   (S-004.4). Reconfirmed by the steward foresight conscience answer, 2026-07-21: "Aceptable,
+   fail-closed."
+
+---
+
 ## S-000: Walking Skeleton — port the happy-path algorithm (no-op / merge / create)
 
 **Scope**: walking-skeleton
@@ -31,7 +125,7 @@ V8 algorithm's Steps 1/3/4 thread through the dialect leaf and the coalescing co
 - [ ] S-000.3 Create `test/dialects/typescript/ops-addImport.test.ts`: merge (.5), idempotency no-op (.10/.11/.12/.13/.31), fresh create (.19)
 - [ ] S-000.4 Add golden fixtures for the merge/create shapes (.2/.19 byte-exact pattern)
 - [ ] S-000.5 Extend `dialect-modify.e2e.test.ts` with one merge-through-public-handle case (Flow 1)
-- [ ] S-000.6 Confirm REQ-TSD-01.2 and REQ-TSD-03.10 stay green under the new implementation
+- [ ] S-000.6 Confirm REQ-TSD-01.2 and REQ-TSD-03.10 stay green under the new implementation; confirm the three PRE-SATISFIED scenarios stay green (verify-only, no new code) — REQ-TSD-01.1 (`ops-exact-set.test.ts`), .3/.4 (`.raw()`→`.modify()` already migrated, zero `rg '\.raw\('` hits under `src/dialects/typescript/`, `fit-raw-sweep` green)
 
 ---
 
