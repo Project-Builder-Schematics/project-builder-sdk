@@ -1,0 +1,17 @@
+{
+  "change": "ts-addimport-collision",
+  "triage": "L",
+  "phase": "design",
+  "phase_status": "DESIGN COMPLETE at revision V2 — 14/14 council findings applied (disposition table in envelope), no ADR reopened; arm a mirror + FIT-39 parity (positive-divergence encoding), inline fold-in, .33 fallback all stand; CHANGELOG.md Create row added; addImport behavioural JSDoc rewrite planned; row 460 → PARTIAL close ruling; 2 new ledger followups (sibling collision-scan asymmetry, sibling JSDoc obligation)",
+  "next_phase": "steward-foresight → slice → plan-verify",
+  "spec_status": "signed",
+  "slices": false,
+  "plan_verify": "none",
+  "verify_final": "none",
+  "arch_audit": "none",
+  "in_loop_iteration": 0,
+  "execution_mode": "interactive",
+  "artifact_store": "hybrid",
+  "sensitivity_override": "src/dialects/typescript/** = security (code execution): high — L floor",
+  "updated_at": "2026-07-17"
+}

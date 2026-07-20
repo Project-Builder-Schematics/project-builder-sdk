@@ -1,0 +1,23 @@
+change: ts-addimport-collision
+triage: L
+completed_phases:
+  - triage
+  - explore
+  - propose
+  - spec
+  - design
+current_phase: design
+current_phase_status: "DESIGN COMPLETE (design.md + engram #2314) against SIGNED spec V3.1. architecture_impact: MODIFYING (jsx-name-validator gains 2nd consumer, ARCH-2 premise falsified — deviation with ADR-02). Decisions: ADR-01 arm a mirror-in-leaf + FIT-39 predicate-sync fitness (react stays byte-sealed, no scope expansion); ADR-02 consume assertValidImportBinding as-is INLINE (TS house style, not validatedOp wrapper), rename debt registered; ADR-03 .33 ships the pre-authorized FALLBACK (empirical probe: shebang is SourceFile leading trivia, insertImportDeclaration throws — different mechanism than .21's directive fix which DOES ship; containment pinned, insertion → followup). Files: 4 create / 3 modify. Test Derivation: all 50 scenario IDs mapped. Next: council design review (architect/security/tech-writer) → steward foresight gate → slice → plan-verify"
+next_phase: design-review → steward-foresight → slice → plan-verify
+in_loop_iteration: 0
+execution_mode: interactive
+artifact_store: hybrid
+spec_source: internal
+sensitivity_override: "src/dialects/typescript/** = security (code execution): high — L floor"
+council_downstream:
+  always: [architect, business-analyst, pm, qa-engineer]
+  conditional: [security-engineer, tech-writer]
+  excluded: [ux-designer, dba]
+scope_pending:
+  - "row 340 (raw-splice injection): explore recommends fold-in vs separate, owner decides at propose/spec"
+updated_at: "2026-07-17"
