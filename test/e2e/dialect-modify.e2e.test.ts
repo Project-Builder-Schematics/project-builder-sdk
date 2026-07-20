@@ -19,6 +19,22 @@ import * as ts from "../../src/dialects/typescript/index.ts";
 import { golden } from "../support/golden.ts";
 
 describe("e2e — dialect modify (S-002, real TypeScript dialect)", () => {
+  // S-000 (ts-addimport-collision) — the ported V8 happy-path algorithm (Steps 1/3/4) threads
+  // through the public handle and the coalescing controller: merging into an existing
+  // non-type-only named clause is byte-exact end to end. Collision (Step 2) is deferred to
+  // S-001; that case completes this pair (slices.md S-005.2).
+  it("Flow 1 (ts-addimport-collision S-000): addImport merges into an existing named clause through the public handle", async () => {
+    const fake = new ContractFake({ seed: { "a.ts": golden("merge-add-import-before.txt") } });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:fs");
+    });
+    await run(undefined, { client: fake });
+
+    const goldenTree = new Map([["a.ts", golden("merge-add-import-after.txt")]]);
+    expect(fake.committedTree()).toEqual(goldenTree);
+  });
+
   it("Flow 1: addImport + .modify() on one file coalesce into a single committed modify", async () => {
     const fake = new ContractFake({ seed: { "a.ts": golden("add-import-before.txt") } });
 
