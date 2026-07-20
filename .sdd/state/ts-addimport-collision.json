@@ -1,11 +1,12 @@
 {
   "change": "ts-addimport-collision",
   "triage": "L",
-  "phase": "design",
-  "phase_status": "DESIGN COMPLETE at revision V2 — 14/14 council findings applied (disposition table in envelope), no ADR reopened; arm a mirror + FIT-39 parity (positive-divergence encoding), inline fold-in, .33 fallback all stand; CHANGELOG.md Create row added; addImport behavioural JSDoc rewrite planned; row 460 → PARTIAL close ruling; 2 new ledger followups (sibling collision-scan asymmetry, sibling JSDoc obligation)",
-  "next_phase": "steward-foresight → slice → plan-verify",
+  "phase": "slice",
+  "phase_status": "SLICES COMPLETE 2026-07-21: 6 slices — S-000 walking skeleton (happy-path no-op/merge/create through public handle), S-001 loud collision reject + shared predicate extraction, S-002 injection-safety validation gate (REQ-TSD-13), S-003 input-shape variants, S-004 explicit contract postures (asymmetry/shebang-fallback/idempotency), S-005 cross-dialect parity fitness + CHANGELOG. Coverage: all 50 scenario IDs + design file-table rows mapped, no gaps. Drift resolved: parity fitness renumbered FIT-39→FIT-41 (39/40 taken on main); 3 modify-targets verified unchanged vs design. FORESIGHT GATE CLOSED: owner answered both conscience questions 2026-07-21 — proceed now (significance affirmed), shebang fail-closed acceptable. Prior: foresight ALIGNED (north-star.md); reckoning armed on ledger honesty (rows 342/343/459/340/456 + 3 new followups at archive)",
+  "next_phase": "plan-verify (orchestrator-executed gate, 2 blind opus judges) → apply",
   "spec_status": "signed",
-  "slices": false,
+  "slices": true,
+  "viz_url": "https://claude.ai/code/artifact/e11cd6b2-ae1a-46a8-a8b4-e03a2f7e3608",
   "plan_verify": "none",
   "verify_final": "none",
   "arch_audit": "none",
@@ -13,5 +14,5 @@
   "execution_mode": "interactive",
   "artifact_store": "hybrid",
   "sensitivity_override": "src/dialects/typescript/** = security (code execution): high — L floor",
-  "updated_at": "2026-07-17"
+  "updated_at": "2026-07-21"
 }
