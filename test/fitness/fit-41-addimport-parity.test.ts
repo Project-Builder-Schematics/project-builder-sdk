@@ -29,18 +29,21 @@ import * as ts from "../../src/dialects/typescript/index.ts";
 import * as react from "../../src/dialects/react/index.ts";
 import { defineFactory } from "../../src/core/context.ts";
 import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
+import { IMPORT_SPECIFIER_RE, stripComments } from "../support/import-scan.ts";
 
 type Verdict = "no-op" | "reject" | "merge" | "create";
 type Modify = { modify: { content: string } };
 
-// Counts how many import declarations target `from` in `content`, via the literal
-// `from "{from}"` substring — sufficient for this battery's hand-authored, single-quote-style
-// fixtures (every seed/output pair in this file uses `from` values that appear nowhere else in
-// the fixture text), without needing a second ts-morph parse just to classify an outcome.
+// Counts how many import declarations target `from` in `content`, via the shared
+// `IMPORT_SPECIFIER_RE` (FIT-15/21/25/27's precompiled, comment-aware specifier scanner) —
+// counts matches whose captured module specifier (group 1) equals `from`, rather than
+// hand-rolling escaping + a fresh RegExp per call.
 function countDeclarationsFor(content: string, from: string): number {
-  const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`from "${escaped}"`, "g");
-  return (content.match(pattern) ?? []).length;
+  let count = 0;
+  for (const match of stripComments(content).matchAll(IMPORT_SPECIFIER_RE)) {
+    if (match[1] === from) count++;
+  }
+  return count;
 }
 
 // The classification engine itself, pure and I/O-free — separated from the two dialect

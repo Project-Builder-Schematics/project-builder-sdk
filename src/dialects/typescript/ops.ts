@@ -205,17 +205,26 @@ export function addImport(ast: SourceFile, name: string, from: string): void {
   // via validation, never collision (REQ-TSD-13.6).
   assertValidImportBinding(name);
 
-  const declarationsForModule = ast
-    .getImportDeclarations()
-    .filter((decl) => decl.getModuleSpecifierValue() === from);
+  // Single pass: one `getImportDeclarations()` call, one `boundNamesIn` per declaration —
+  // Step 1 and Step 2 below both read from `declarationBoundNames` instead of each re-walking
+  // the AST. Step 1 still fully evaluates (and early-returns) before Step 2 ever runs
+  // (REQ-TSD-01.24/REQ-TSD-13.6 ordering pin) — this is code motion only, not reordering.
+  const allDeclarations = ast.getImportDeclarations();
+  const declarationsForModule = allDeclarations.filter((decl) => decl.getModuleSpecifierValue() === from);
+  const declarationBoundNames: Array<readonly [ImportDeclaration, BoundName[]]> = allDeclarations.map((decl) => [
+    decl,
+    boundNamesIn(decl),
+  ]);
 
-  const alreadyBound = declarationsForModule.some((decl) =>
-    boundNamesIn(decl).some((bound) => bound.localName === name && satisfiesIdempotency(bound))
+  const alreadyBound = declarationBoundNames.some(
+    ([decl, bound]) =>
+      decl.getModuleSpecifierValue() === from &&
+      bound.some((b) => b.localName === name && satisfiesIdempotency(b))
   );
   if (alreadyBound) return;
 
   const claimed =
-    ast.getImportDeclarations().some((decl) => boundNamesIn(decl).some((bound) => bound.localName === name)) ||
+    declarationBoundNames.some(([, bound]) => bound.some((b) => b.localName === name)) ||
     isValueNamespaceClaimed(ast, name);
   if (claimed) {
     throw dialectError(

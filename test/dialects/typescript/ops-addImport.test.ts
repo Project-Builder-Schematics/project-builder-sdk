@@ -55,96 +55,88 @@ async function expectCollisionReject(
   return { err, content };
 }
 
+// Success-path sibling of `expectCollisionReject`: seeds `a.ts`, runs the op, and asserts the
+// single expected observable — exactly one modify directive whose content matches
+// `expectedContent`. Shared skeleton for every merge/create call site below; a case with extra
+// assertions beyond this skeleton stays hand-rolled instead of forcing them through here.
+async function expectSingleModify(seed: string, run: () => Promise<void>, expectedContent: string): Promise<void> {
+  const { client, emitted } = makeSpyClient({ "a.ts": seed });
+  const factory = defineFactory<void>(run);
+  await factory(undefined, { client });
+
+  const modifies = collectModifies(emitted);
+  expect(modifies).toHaveLength(1);
+  expect(modifies[0]?.modify.content).toBe(expectedContent);
+}
+
+// No-op sibling of `expectSingleModify`: asserts the dual observable idempotency/never-claimed
+// cases share — zero directives emitted AND the file byte-unchanged on re-read.
+async function expectNoOp(seed: string, run: () => Promise<void>): Promise<void> {
+  const { client, emitted } = makeSpyClient({ "a.ts": seed });
+  const factory = defineFactory<void>(run);
+  await factory(undefined, { client });
+
+  expect(collectModifies(emitted)).toHaveLength(0);
+  expect(await client.read("a.ts")).toBe(seed);
+}
+
 describe("addImport — REQ-TSD-01 Steps 1/3/4 (S-000, ts-addimport-collision)", () => {
   it("REQ-TSD-01.5: merges into an existing non-type-only named clause", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": golden("merge-add-import-before.txt") });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("readFileSync", "node:fs");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe(golden("merge-add-import-after.txt"));
+    await expectSingleModify(
+      golden("merge-add-import-before.txt"),
+      async () => {
+        await ts.find("a.ts").addImport("readFileSync", "node:fs");
+      },
+      golden("merge-add-import-after.txt")
+    );
   });
 
   it("REQ-TSD-01.10: default import, SAME local name — idempotent no-op, byte-identical", async () => {
-    const seed = 'import Def from "m";\n';
-    const { client, emitted } = makeSpyClient({ "a.ts": seed });
-
-    const run = defineFactory<void>(async () => {
+    await expectNoOp('import Def from "m";\n', async () => {
       await ts.find("a.ts").addImport("Def", "m");
     });
-    await run(undefined, { client });
-
-    expect(collectModifies(emitted)).toHaveLength(0);
-    expect(await client.read("a.ts")).toBe(seed);
   });
 
   it("REQ-TSD-01.11: default import, DIFFERENT name — separate named decl inserted, default untouched", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": 'import Def from "m";\n' });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("Other", "m");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import Def from "m";\nimport { Other } from "m";\n');
+    await expectSingleModify(
+      'import Def from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("Other", "m");
+      },
+      'import Def from "m";\nimport { Other } from "m";\n'
+    );
   });
 
   it("REQ-TSD-01.12: namespace import, DIFFERENT name — separate named decl inserted, no throw, namespace untouched", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": 'import * as ns from "m";\n' });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("X", "m");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import * as ns from "m";\nimport { X } from "m";\n');
+    await expectSingleModify(
+      'import * as ns from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "m");
+      },
+      'import * as ns from "m";\nimport { X } from "m";\n'
+    );
   });
 
   it("REQ-TSD-01.13: namespace import, SAME local name — idempotent no-op, byte-identical", async () => {
-    const seed = 'import * as ns from "m";\n';
-    const { client, emitted } = makeSpyClient({ "a.ts": seed });
-
-    const run = defineFactory<void>(async () => {
+    await expectNoOp('import * as ns from "m";\n', async () => {
       await ts.find("a.ts").addImport("ns", "m");
     });
-    await run(undefined, { client });
-
-    expect(collectModifies(emitted)).toHaveLength(0);
-    expect(await client.read("a.ts")).toBe(seed);
   });
 
   it("REQ-TSD-01.19: no prior declaration for the module — fresh separate import inserted", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": golden("add-import-before.txt") });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("readFileSync", "node:fs");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe(golden("add-import-after.txt"));
+    await expectSingleModify(
+      golden("add-import-before.txt"),
+      async () => {
+        await ts.find("a.ts").addImport("readFileSync", "node:fs");
+      },
+      golden("add-import-after.txt")
+    );
   });
 
   it("REQ-TSD-01.31: unaliased named specifier, SAME local name — idempotent no-op, byte-identical", async () => {
-    const seed = 'import { X } from "m";\n';
-    const { client, emitted } = makeSpyClient({ "a.ts": seed });
-
-    const run = defineFactory<void>(async () => {
+    await expectNoOp('import { X } from "m";\n', async () => {
       await ts.find("a.ts").addImport("X", "m");
     });
-    await run(undefined, { client });
-
-    expect(collectModifies(emitted)).toHaveLength(0);
-    expect(await client.read("a.ts")).toBe(seed);
   });
 });
 
@@ -210,16 +202,13 @@ describe("addImport — REQ-TSD-01 Step 2 collision reject (S-001, ts-addimport-
   });
 
   it("REQ-TSD-01.28: aliased-underlying merge — GREEN pair for .14, claimed-scan keys on LOCAL NAME not exported name", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": 'import { Foo as x } from "m";\n' });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("Foo", "m");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import { Foo as x, Foo } from "m";\n');
+    await expectSingleModify(
+      'import { Foo as x } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("Foo", "m");
+      },
+      'import { Foo as x, Foo } from "m";\n'
+    );
   });
 
   it("REQ-TSD-01.32: collision tail echoes a realistic 29-char name IN FULL, never truncated", async () => {
@@ -233,167 +222,115 @@ describe("addImport — REQ-TSD-01 Step 2 collision reject (S-001, ts-addimport-
 
 describe("addImport — REQ-TSD-01 input-shape variants (S-003, ts-addimport-collision)", () => {
   it("REQ-TSD-01.7: type-only declaration, DIFFERENT name — succeeds, the type-only decl is untouched", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": 'import type { X } from "m";\n' });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("Y", "m");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import type { X } from "m";\nimport { Y } from "m";\n');
+    await expectSingleModify(
+      'import type { X } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("Y", "m");
+      },
+      'import type { X } from "m";\nimport { Y } from "m";\n'
+    );
   });
 
   it("REQ-TSD-01.9: type-only ALIASED specifier — X was never claimed (only XT was), separate import inserted", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": 'import type { X as XT } from "m";\n' });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("X", "m");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import type { X as XT } from "m";\nimport { X } from "m";\n');
+    await expectSingleModify(
+      'import type { X as XT } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "m");
+      },
+      'import type { X as XT } from "m";\nimport { X } from "m";\n'
+    );
   });
 
   it("REQ-TSD-01.15: self-alias `{ X as X }` — idempotent no-op (owner-ratified V8 deviation)", async () => {
-    const seed = 'import { X as X } from "m";\n';
-    const { client, emitted } = makeSpyClient({ "a.ts": seed });
-
-    const run = defineFactory<void>(async () => {
+    await expectNoOp('import { X as X } from "m";\n', async () => {
       await ts.find("a.ts").addImport("X", "m");
     });
-    await run(undefined, { client });
-
-    expect(collectModifies(emitted)).toHaveLength(0);
-    expect(await client.read("a.ts")).toBe(seed);
   });
 
   it("REQ-TSD-01.18: top-level `type` alias — not in the value namespace, separate import inserted", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": "type Icon = string;\n" });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("Icon", "./icons");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import { Icon } from "./icons";\n\ntype Icon = string;\n');
+    await expectSingleModify(
+      "type Icon = string;\n",
+      async () => {
+        await ts.find("a.ts").addImport("Icon", "./icons");
+      },
+      'import { Icon } from "./icons";\n\ntype Icon = string;\n'
+    );
   });
 
   it("REQ-TSD-01.18: top-level `interface` — not in the value namespace, separate import inserted", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": "interface Icon {\n  x: number;\n}\n" });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("Icon", "./icons");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe(
+    await expectSingleModify(
+      "interface Icon {\n  x: number;\n}\n",
+      async () => {
+        await ts.find("a.ts").addImport("Icon", "./icons");
+      },
       'import { Icon } from "./icons";\n\ninterface Icon {\n  x: number;\n}\n'
     );
   });
 
   it("REQ-TSD-01.20: side-effect import preserved byte-unchanged, separate named decl added (Class B)", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": 'import "polyfill";\n' });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("X", "polyfill");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import "polyfill";\nimport { X } from "polyfill";\n');
+    await expectSingleModify(
+      'import "polyfill";\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "polyfill");
+      },
+      'import "polyfill";\nimport { X } from "polyfill";\n'
+    );
   });
 
   it("REQ-TSD-01.21: directive prologue — import lands AFTER it, byte-exact golden", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": golden("directive-add-import-before.txt") });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("readFileSync", "node:fs");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe(golden("directive-add-import-after.txt"));
+    await expectSingleModify(
+      golden("directive-add-import-before.txt"),
+      async () => {
+        await ts.find("a.ts").addImport("readFileSync", "node:fs");
+      },
+      golden("directive-add-import-after.txt")
+    );
   });
 
   it("REQ-TSD-01.21 (triangulation): TWO leading directives — both preserved, import lands after both", async () => {
-    const { client, emitted } = makeSpyClient({
-      "a.ts": '"use strict";\n"use client";\nconst x = 1;\n',
-    });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("readFileSync", "node:fs");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe(
+    await expectSingleModify(
+      '"use strict";\n"use client";\nconst x = 1;\n',
+      async () => {
+        await ts.find("a.ts").addImport("readFileSync", "node:fs");
+      },
       '"use strict";\n"use client";\n\nimport { readFileSync } from "node:fs";\n\nconst x = 1;\n'
     );
   });
 
   it("REQ-TSD-01.22: multiple declarations for the same module — merges into the FIRST (source order)", async () => {
-    const { client, emitted } = makeSpyClient({
-      "a.ts": 'import { a } from "m";\nimport { b } from "m";\n',
-    });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("c", "m");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import { a, c } from "m";\nimport { b } from "m";\n');
+    await expectSingleModify(
+      'import { a } from "m";\nimport { b } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("c", "m");
+      },
+      'import { a, c } from "m";\nimport { b } from "m";\n'
+    );
   });
 
   it("REQ-TSD-01.23: empty named-import clause `{}` is a valid merge target", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": 'import {} from "m";\n' });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("X", "m");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import { X } from "m";\n');
+    await expectSingleModify(
+      'import {} from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "m");
+      },
+      'import { X } from "m";\n'
+    );
   });
 
   it("REQ-TSD-01.29: mixed default+named declaration — merge adds to the named clause, default untouched", async () => {
-    const { client, emitted } = makeSpyClient({ "a.ts": 'import Def, { B } from "m";\n' });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("C", "m");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import Def, { B, C } from "m";\n');
+    await expectSingleModify(
+      'import Def, { B } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("C", "m");
+      },
+      'import Def, { B, C } from "m";\n'
+    );
   });
 
   it("REQ-TSD-01.30: mixed default+named declaration — matching the default name is a no-op", async () => {
-    const seed = 'import Def, { B } from "m";\n';
-    const { client, emitted } = makeSpyClient({ "a.ts": seed });
-
-    const run = defineFactory<void>(async () => {
+    await expectNoOp('import Def, { B } from "m";\n', async () => {
       await ts.find("a.ts").addImport("Def", "m");
     });
-    await run(undefined, { client });
-
-    expect(collectModifies(emitted)).toHaveLength(0);
-    expect(await client.read("a.ts")).toBe(seed);
   });
 });
 
@@ -512,18 +449,13 @@ describe("addImport JSDoc — REQ-TSD-13.5 trust-boundary guard (S-002, ts-addim
 
 describe("addImport / removeImport — REQ-TSD-01.25 match-cardinality asymmetry (S-004, ts-addimport-collision, CORRECTED V3.2)", () => {
   it("REQ-TSD-01.25: addImport merges into ONLY the first declaration for the module (per .22) — first-match posture", async () => {
-    const { client, emitted } = makeSpyClient({
-      "a.ts": 'import { a } from "m";\nimport { b } from "m";\n',
-    });
-
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("c", "m");
-    });
-    await run(undefined, { client });
-
-    const modifies = collectModifies(emitted);
-    expect(modifies).toHaveLength(1);
-    expect(modifies[0]?.modify.content).toBe('import { a, c } from "m";\nimport { b } from "m";\n');
+    await expectSingleModify(
+      'import { a } from "m";\nimport { b } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("c", "m");
+      },
+      'import { a, c } from "m";\nimport { b } from "m";\n'
+    );
   });
 
   it("REQ-TSD-01.25: removeImport SEARCHES every declaration matching `from` but REMOVES from only the FIRST one containing the binding — the second, later duplicate survives (hand-authored, TS2300-invalid fixture)", async () => {
