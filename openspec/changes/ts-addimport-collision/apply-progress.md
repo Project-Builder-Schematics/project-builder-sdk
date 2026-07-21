@@ -97,3 +97,33 @@ audit without data.
 
 Ready for `/build --scope=slice:S-001` (loud collision reject) — S-000's walking skeleton is the
 prerequisite every later slice depends on.
+
+## Fix Iteration 1→2 (verify-in-loop-1.md, Finding 1 — WARNING)
+
+**Finding**: `.10`/`.13`/`.31` idempotency cases in `ops-addImport.test.ts` asserted only
+`toHaveLength(0)` (zero directives), not the spec's full dual observable ("printed output
+byte-IDENTICAL to input"). House precedent — `test/dialects/react/ops.test.ts:461` (REQ-RXD-05.6)
+and `:502` (REQ-RXD-05.9) — asserts BOTH `toHaveLength(0)` AND `expect(await client.read(path)).toBe(before)`
+for the identical scenario shape.
+
+**Fix (test-only, `src/` untouched)**: added `expect(await client.read("a.ts")).toBe(seed)` to the
+three flagged cases (`.10`, `.13`, `.31`) in `test/dialects/typescript/ops-addImport.test.ts`,
+mirroring the react precedent exactly. `.11`/`.12` are create-branch cases (not the no-op shape),
+so no change applied there — confirmed they don't share the finding's scope.
+
+**Assertion diff summary**: 3 lines added, one per case, immediately after the existing
+`expect(collectModifies(emitted)).toHaveLength(0);` line:
+```ts
+expect(await client.read("a.ts")).toBe(seed);
+```
+
+**Verification**:
+- `bun test test/dialects/typescript/ops-addImport.test.ts`: 7 pass, 0 fail, 14 expect() calls
+  (up from 11 pre-fix, +3 — one new assertion per fixed case, test count unchanged)
+- `bun test` (full suite): 2064 pass, 0 fail, 4430 expect() calls, 191 files (up from 4427
+  pre-fix, +3, zero regressions, zero test-count change)
+- `bun run typecheck`: clean
+
+**Files changed this iteration**: `test/dialects/typescript/ops-addImport.test.ts` (modified, 3
+lines added) and this apply-progress.md entry. No other files touched — no `src/` change, no
+state files, no commit.

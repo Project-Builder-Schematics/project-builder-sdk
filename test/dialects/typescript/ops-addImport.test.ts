@@ -36,6 +36,7 @@ describe("addImport — REQ-TSD-01 Steps 1/3/4 (S-000, ts-addimport-collision)",
     await run(undefined, { client });
 
     expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("a.ts")).toBe(seed);
   });
 
   it("REQ-TSD-01.11: default import, DIFFERENT name — separate named decl inserted, default untouched", async () => {
@@ -74,6 +75,7 @@ describe("addImport — REQ-TSD-01 Steps 1/3/4 (S-000, ts-addimport-collision)",
     await run(undefined, { client });
 
     expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("a.ts")).toBe(seed);
   });
 
   it("REQ-TSD-01.19: no prior declaration for the module — fresh separate import inserted", async () => {
@@ -99,5 +101,6 @@ describe("addImport — REQ-TSD-01 Steps 1/3/4 (S-000, ts-addimport-collision)",
     await run(undefined, { client });
 
     expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("a.ts")).toBe(seed);
   });
 });
