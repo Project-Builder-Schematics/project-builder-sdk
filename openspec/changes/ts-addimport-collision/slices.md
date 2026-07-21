@@ -163,11 +163,11 @@ REJECTS via `assertValidImportBinding` BEFORE Step 1/2 ever evaluate — zero di
 for grammar failures, ≤16-char echo for reserved/denylist failures.
 
 ### Tasks
-- [ ] S-002.1 Import `assertValidImportBinding` from `jsx-name-validator.ts`; call INLINE as `addImport`'s first statement (ADR-02, not `validatedOp`)
-- [ ] S-002.2 Rewrite `addImport`'s JSDoc: full 4-branch behaviour + REQ-TSD-13.5 trust-boundary note affirmatively naming `addFunction`/`addVariable`/`addClass` as still raw-spliced
-- [ ] S-002.3 Cover 13.1 (confirmed injection, zero echo), 13.2 (reserved-word + denylist battery + substring negatives), 13.3 (grammar battery), 13.4 (`from`-escaping regression), 13.6 (precedence vs collision)
-- [ ] S-002.4 Add negative test: a validation-reject message NEVER contains the `on "{path}"` clause (13.x-neg, F12, kills the consistency-fix mutant)
-- [ ] S-002.5 Guard-test 13.5's JSDoc trust-boundary assertion (scan, fails RED if weakened to passive disclaimer)
+- [x] S-002.1 Import `assertValidImportBinding` from `jsx-name-validator.ts`; call INLINE as `addImport`'s first statement (ADR-02, not `validatedOp`)
+- [x] S-002.2 Rewrite `addImport`'s JSDoc: full 4-branch behaviour + REQ-TSD-13.5 trust-boundary note affirmatively naming `addFunction`/`addVariable`/`addClass` as still raw-spliced
+- [x] S-002.3 Cover 13.1 (confirmed injection, zero echo), 13.2 (reserved-word + denylist battery + substring negatives), 13.3 (grammar battery), 13.4 (`from`-escaping regression), 13.6 (precedence vs collision)
+- [x] S-002.4 Add negative test: a validation-reject message NEVER contains the `on "{path}"` clause (13.x-neg, F12, kills the consistency-fix mutant)
+- [x] S-002.5 Guard-test 13.5's JSDoc trust-boundary assertion (scan, fails RED if weakened to passive disclaimer)
 
 ---
 

@@ -340,3 +340,108 @@ this run's launch prompt. Flagged for the orchestrator.
 Ready for `/build --scope=slice:S-002` (injection-safety validation gate — `Requires: S-001`,
 already satisfied) or `/build --scope=slice:S-004` (explicit contract postures — `Requires:
 S-003`, now satisfied) per the Build Order table.
+
+## S-002: Injection-safety validation gate (REQ-TSD-13)
+
+**Status**: complete (5/5 tasks)
+
+### Safety Net (Phase 0)
+
+`bun test` baseline before this slice: **2087 pass, 0 fail, 4541 expect() calls, 191 files**
+(post S-003) — all green.
+
+### Deviation caught and corrected mid-slice (self-flagged)
+
+Implementation was drafted (import + JSDoc + inline `assertValidImportBinding(name)` call) BEFORE
+the RED tests were written — a direct violation of the double-loop/RED-first discipline this
+harness mandates. Caught before any test was run against it: the production edit was fully
+REVERTED (three `Edit` calls undoing the import, the JSDoc rewrite, and the call site) back to
+byte-identical S-003 state (confirmed via `git diff --stat` showing 0 lines, after fixing one
+stray whitespace artifact from the revert itself), THEN the full RED-battery below was written and
+run against the reverted (pre-S-002) code to capture real failing evidence, THEN the same
+implementation was reapplied to drive GREEN. No fabricated RED evidence exists in this slice —
+every row below quotes the actual pre-implementation failure.
+
+### TDD Cycle Evidence — S-002
+
+All 11 new test-cases were written together as one RED battery (per REQ-TSD-13's own scenario
+grouping) and run once against the pre-validation-gate code; actual pass/fail split recorded
+below, not assumed.
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| S-002.1/.3 | `ops-addImport.test.ts::REQ-TSD-13.1` (confirmed injection breakout, zero echo) | integration | `expect(caught).toBeInstanceOf(Error)` — `Received value: undefined` (no validation existed; the hostile name silently reached the Create branch, splicing raw injected syntax into the AST call rather than rejecting) | ✅ | — | — |
+| S-002.1/.3 | `ops-addImport.test.ts::REQ-TSD-13.2` (11-word reserved-word/strict-mode battery) | integration | Same shape, all 11 sub-cases — `caught` was `undefined` for every reserved word (each silently created a spurious import instead of rejecting) | ✅ | 11 forcing cases in one battery — completes the 48-entry reserved-word set's coverage sample | — |
+| S-002.1/.3 | `ops-addImport.test.ts::REQ-TSD-13.2` (3-entry `JSX_NAME_DENYLIST` battery, SEPARATE check) | integration | Same shape, all 3 sub-cases (`__proto__`/`constructor`/`prototype`) — no denylist check existed in `addImport` at all pre-slice | ✅ | 3rd forcing case (`prototype`) confirms the denylist check is exact-Set, not folded into the reserved-word check | — |
+| S-002.1/.3 | `ops-addImport.test.ts::REQ-TSD-13.3` (5-case grammar battery: empty/whitespace/leading-digit/space/brace) | integration | Same shape, all 5 sub-cases — grammar-invalid names were never checked, all silently created spurious imports | ✅ | 5 forcing cases (empty string skipped from the zero-echo sub-assertion — `"".includes("")` is vacuously true, a deliberate assertion-design note, not a gap) | — |
+| S-002.1/.3/coverage | `ops-addImport.test.ts::REQ-TSD-13.2` (lookalike substrings accepted: `classroom`/`imported`/`defaultValue`/`evaluate`/`argumentsList`) | integration | Passed immediately — with no validation gate at all pre-slice, nothing rejected these either; becomes the genuine exact-Set-vs-substring regression guard once the gate exists | ✅ (unchanged) | n/a — regression coverage, not driving | — |
+| S-002.1/.3/coverage | `ops-addImport.test.ts::REQ-TSD-13.4` (`from`-escaping regression, hostile module specifier) | integration | Passed immediately — ts-morph's own string-literal escaping of `moduleSpecifier` already contained this pre-slice (this REQ pins the assumption, doesn't newly implement it); byte-exact assertion confirmed against the actual ts-morph escape output | ✅ (unchanged) | n/a — regression pin, not driving | — |
+| S-002.1/.3 | `ops-addImport.test.ts::REQ-TSD-13.6` (precedence: denylisted name ALSO value-namespace-claimed) | integration | `Expected to contain: "reserved name" / Received: "...a value or import binding named \"__proto__\" already exists..."` — pre-slice, Step 2's collision check fired first (no competing validation gate), proving the ordering-sensitive assertion was real | ✅ | — | — |
+| S-002.4 | `ops-addImport.test.ts::REQ-TSD-13.x-neg` (3 cases: grammar/reserved-word/denylist rejects never carry the path clause) | integration | `expect(caught).toBeInstanceOf(Error)` — `Received value: undefined` for all 3 (no reject existed yet to check the shape of) | ✅ | 3 forcing cases across all three validation branches (grammar/reserved-word/denylist), each independently proving the path clause absence, per F12's kill-the-consistency-fix-mutant framing | — |
+| S-002.2/.5 | `ops-addImport.test.ts::JSDoc trust-boundary guard` (scans `ops.ts` source for the `Trust boundary` block) | architectural | `expect(trustBoundaryBlock).toBeDefined() / Received: undefined` — no `Trust boundary` JSDoc block existed in `ops.ts` pre-slice | ✅ | n/a — single structural assertion, not a class of inputs | — |
+| Refactor | — | — | n/a | ✅ (all green throughout) | n/a | None needed — the implementation (one import + one call + one JSDoc rewrite) was already minimal; no post-GREEN cleanup found |
+
+### Files Changed
+
+| File | Action | What Was Done |
+|---|---|---|
+| `src/dialects/typescript/ops.ts` | Modified | Added `assertValidImportBinding` import from `jsx-name-validator.ts` (WHY comment: misnomer + ADR-02 pointer); added the `ts-addimport-collision/S-002` paragraph to the file-header comment; added `assertValidImportBinding(name);` as `addImport`'s first statement (WHY comment: deliberate path-less shape vs Step 2's path-ful tail, REQ-TSD-13.6 precedence); rewrote `addImport`'s JSDoc — new "Step 0" validation paragraph ahead of Steps 1-4, and a trailing "Trust boundary (REQ-TSD-13.5)" paragraph affirmatively naming `addFunction`/`addVariable`/`addClass`'s `name`/`source`/`initializer` as RAW-SPLICED, unvalidated by this change |
+| `test/dialects/typescript/ops-addImport.test.ts` | Modified | Added `readFileSync` import; updated the file-header comment with an S-002 paragraph explaining `expectCollisionReject`'s reuse across both reject shapes; added 3 new describe blocks: REQ-TSD-13 battery (7 cases), REQ-TSD-13.x-neg (3 cases), JSDoc trust-boundary guard (1 case) |
+| `openspec/changes/ts-addimport-collision/slices.md` | Modified | Marked S-002's 5 tasks `[x]` |
+
+### Deviations from Design
+
+**One flagged, self-corrected process deviation** (see "Deviation caught and corrected mid-slice"
+above) — implementation was briefly written ahead of RED, caught before any test ran against it,
+fully reverted, and redone in the correct RED→GREEN order. No implementation trace of the
+premature draft remains; `git diff` on `ops.ts` before the correct RED run showed zero lines
+(confirmed).
+
+**One flagged, non-silent TDD-evidence deviation** — same pattern as every prior slice in this
+change: REQ-TSD-13.4 (`from`-escaping) and REQ-TSD-13.2's lookalike-acceptance sub-case passed
+**immediately** against the pre-gate code, rather than failing red first. Root cause, verified
+empirically: `.4`'s safety was never a new-code claim — the spec itself frames it as "pinned by a
+regression scenario, never assumed silently" against ts-morph's PRE-EXISTING string-literal
+escaping; and the lookalike-acceptance sub-case is a GREEN boundary that trivially held with no
+validation gate at all (nothing rejected anything). Both are legitimate regression coverage, not
+fabricated RED. Every genuinely NEW-behavior case (13.1, both 13.2 reject batteries, 13.3, 13.6,
+all three 13.x-neg cases, the JSDoc guard) DID fail red for the right reason (real
+`caught === undefined` or real message-content mismatches), as itemized in the evidence table.
+
+No other deviations — implementation matches design §4.4 (interface contract, inline validation
+per ADR-02, two-shape reject posture) and slices.md's S-002 task list exactly. `validatedOp` was
+NOT used (ADR-02 explicit decision, TS house style stays inline like `assertNoCollision`).
+
+### Halt / Issues Found
+
+None.
+
+### Post-Slice Audit (Step 7c)
+
+Skipped — same reason as every prior slice in this change: no architecture baseline/ADR context
+was injected into this run's launch prompt (skipped per the audit's own `architecture.adrs is
+empty` short-circuit condition, since no baseline was provided to check against). Flagged for the
+orchestrator, as in S-000/S-001/S-003.
+
+### Test Results
+
+- `bun test test/dialects/typescript/ops-addImport.test.ts`: **39 pass, 0 fail, 254 expect() calls**
+  (up from 28 pre-slice, +11 new tests)
+- `bun test` (full suite, post-change): **2098 pass, 0 fail, 4673 expect() calls, 191 files** — up
+  from the 2087/191 S-003 baseline by exactly 11 new tests, zero regressions
+- `bun run typecheck`: clean, no errors
+
+### Overall Progress
+
+| Metric | Value |
+|---|---|
+| Slices in this scope | 1 (S-002) |
+| Slices complete | 1 |
+| Slices in progress | 0 |
+| Tasks complete | 5/5 |
+
+### Next Step
+
+Ready for `/build --scope=slice:S-004` (explicit contract postures — `Requires: S-003`, already
+satisfied) per the Build Order table; S-005 (`Requires: S-002, S-004`) unlocks once S-004 also
+lands.

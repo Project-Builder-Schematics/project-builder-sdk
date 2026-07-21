@@ -11,8 +11,15 @@
  * BYTE-UNCHANGED on re-read after the catch. Every row also asserts the collision-specific
  * "already exists" distinguishing substring (QA M4) — the shared "dialect operation failed: "
  * prefix alone discriminates nothing.
+ *
+ * S-002 — REQ-TSD-13's injection-safety validation gate. Same dual-observable reject shape as
+ * S-001's collision rejects (throw + zero directives/byte-unchanged), but PATH-LESS (design
+ * §4.4, two deliberate reject shapes) — `expectCollisionReject` below is reused as-is for both,
+ * since the mechanics it asserts are shape-identical; only the message-content assertions in
+ * each `it()` differ per reject kind.
  */
 import { describe, it, expect } from "bun:test";
+import { readFileSync } from "node:fs";
 import * as ts from "../../../src/dialects/typescript/index.ts";
 import { makeSpyClient, collectModifies } from "../../support/spy-client.ts";
 import { golden } from "../../support/golden.ts";
@@ -381,5 +388,118 @@ describe("addImport — REQ-TSD-01 input-shape variants (S-003, ts-addimport-col
 
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("a.ts")).toBe(seed);
+  });
+});
+
+describe("addImport — REQ-TSD-13 injection-safety validation gate (S-002, ts-addimport-collision)", () => {
+  it("REQ-TSD-13.1: confirmed injection breakout name rejects, zero imports, zero echo of the hostile payload", async () => {
+    const hostileName = 'x } from "evil"; import { y';
+    const { err } = await expectCollisionReject("const x = 1;\n", [hostileName, "react"]);
+    expect(err.message).toContain("`name`");
+    expect(err.message).toContain("valid JavaScript identifier");
+    expect(err.message).not.toContain("evil");
+    expect(err.message).not.toContain("x }");
+    expect(err.message).not.toContain("import { y");
+  });
+
+  it("REQ-TSD-13.2: the 48-entry reserved-word/strict-mode-restricted set rejects pre-mutation, ≤16-char echo", async () => {
+    const reservedWords = [
+      "default", "import", "class", "null", "this", "function", "let", "yield", "await", "eval", "arguments",
+    ];
+    for (const word of reservedWords) {
+      const { err } = await expectCollisionReject("const x = 1;\n", [word, "m"]);
+      expect(err.message).toContain(`"${word}"`);
+      expect(err.message).toContain("reserved word");
+    }
+  });
+
+  it("REQ-TSD-13.2: the SEPARATE 3-entry JSX_NAME_DENYLIST rejects pre-mutation via its own check, ≤16-char echo", async () => {
+    const denylisted = ["__proto__", "constructor", "prototype"];
+    for (const word of denylisted) {
+      const { err } = await expectCollisionReject("const x = 1;\n", [word, "m"]);
+      expect(err.message).toContain(`"${word}"`);
+      expect(err.message).toContain("reserved name");
+    }
+  });
+
+  it("REQ-TSD-13.2: names merely CONTAINING a reserved/denylisted word as a substring are accepted, never rejected", async () => {
+    const lookalikes = ["classroom", "imported", "defaultValue", "evaluate", "argumentsList"];
+    for (const name of lookalikes) {
+      const { client, emitted } = makeSpyClient({ "a.ts": "const x = 1;\n" });
+
+      const run = defineFactory<void>(async () => {
+        await ts.find("a.ts").addImport(name, "m");
+      });
+      await run(undefined, { client });
+
+      expect(collectModifies(emitted)).toHaveLength(1);
+    }
+  });
+
+  it("REQ-TSD-13.3: grammar-invalid names reject pre-mutation, zero echo of the rejected value", async () => {
+    const invalidNames = ["", "   ", "123abc", "Foo bar", "Foo=1}"];
+    for (const name of invalidNames) {
+      const { err } = await expectCollisionReject("const x = 1;\n", [name, "m"]);
+      expect(err.message).toContain("valid JavaScript identifier");
+      if (name.trim() !== "") {
+        expect(err.message).not.toContain(name);
+      }
+    }
+  });
+
+  it('REQ-TSD-13.4: a hostile `from` attempting to terminate its own string literal stays ONE escaped import, no "evil" import', async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": "const x = 1;\n" });
+    const hostileFrom = 'a"; import {y} from "evil';
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("X", hostileFrom);
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]?.modify.content;
+    expect(content).toBe('import { X } from "a\\"; import {y} from \\"evil";\n\nconst x = 1;\n');
+    expect(content?.match(/^import /gm)).toHaveLength(1);
+    expect(content).not.toContain('from "evil"');
+  });
+
+  it("REQ-TSD-13.6: a name BOTH denylisted AND value-namespace-claimed rejects via validation, never collision", async () => {
+    const { err } = await expectCollisionReject("const __proto__ = 1;\n", ["__proto__", "m"]);
+    expect(err.message).toContain("reserved name");
+    expect(err.message).not.toContain("already exists");
+  });
+});
+
+describe("addImport — REQ-TSD-13.x-neg: a validation reject NEVER carries the collision path clause (S-002)", () => {
+  it('a grammar-failure validation reject never contains `on "{path}"`', async () => {
+    const { err } = await expectCollisionReject("const x = 1;\n", ["123abc", "m"]);
+    expect(err.message).not.toContain('on "a.ts"');
+  });
+
+  it('a reserved-word validation reject never contains `on "{path}"`', async () => {
+    const { err } = await expectCollisionReject("const x = 1;\n", ["default", "m"]);
+    expect(err.message).not.toContain('on "a.ts"');
+  });
+
+  it('a denylist validation reject never contains `on "{path}"`', async () => {
+    const { err } = await expectCollisionReject("const x = 1;\n", ["__proto__", "m"]);
+    expect(err.message).not.toContain('on "a.ts"');
+  });
+});
+
+describe("addImport JSDoc — REQ-TSD-13.5 trust-boundary guard (S-002, ts-addimport-collision)", () => {
+  const OPS_SOURCE = readFileSync(
+    new URL("../../../src/dialects/typescript/ops.ts", import.meta.url).pathname,
+    "utf-8"
+  );
+
+  it("affirmatively names addFunction/addVariable/addClass as still-raw, unvalidated ops — never a passive disclaimer", () => {
+    const trustBoundaryBlock = OPS_SOURCE.match(/\/\*\*[\s\S]*?Trust boundary[\s\S]*?\*\//)?.[0];
+    expect(trustBoundaryBlock).toBeDefined();
+
+    expect(trustBoundaryBlock).toContain("addFunction");
+    expect(trustBoundaryBlock).toContain("addVariable");
+    expect(trustBoundaryBlock).toContain("addClass");
+    expect(trustBoundaryBlock).toContain("RAW-SPLICED");
+    expect(trustBoundaryBlock).not.toContain("not covered here");
   });
 });

@@ -20,10 +20,19 @@
 // inline, NOT reusing `assertNoCollision`'s own message: "two bindings sharing a name" here,
 // vs "two value declarations sharing a name" there — `addImport`'s collision surface also
 // fires on import-vs-import and type-only claims, which are not value declarations, F10).
+//
+// ts-addimport-collision/S-002: REQ-TSD-13's injection-safety validation gate lands here —
+// `assertValidImportBinding` (reused verbatim from `src/core/jsx-name-validator.ts`, ADR-02)
+// runs INLINE as `addImport`'s first statement, strictly BEFORE Step 1/2/3/4 ever evaluate
+// `name` (REQ-TSD-13.6 precedence pin). Its PATH-LESS reject shape is deliberately distinct
+// from Step 2's path-ful `dialectError` tail below — see `addImport`'s own JSDoc.
 
 import { SyntaxKind, type ImportDeclaration, type SourceFile } from "ts-morph";
 import { dialectError } from "../../core/dialect-error.ts";
 import { handlePathFor } from "../../core/dialect-handle.ts";
+// A misnomer surviving from its JSX-only origin (`jsx-name-validator.ts`) — this dialect is
+// its first non-JSX consumer, sharpening ARCH-2's now-realised "one consumer" debt (ADR-02).
+import { assertValidImportBinding } from "../../core/jsx-name-validator.ts";
 
 // Ported verbatim from `react/ops.ts` (design §4.3 data model) — a bound name, tagged with
 // enough shape to answer BOTH "does this SAME-MODULE binding satisfy idempotency" (Step 1)
@@ -138,8 +147,16 @@ function leadingDirectiveCount(ast: SourceFile): number {
 
 /**
  * Adds `import { name } from "from";`, or merges `name` into an EXISTING NAMED-import
- * clause from the SAME module `from` if one already exists (REQ-TSD-01):
+ * clause from the SAME module `from` if one already exists (REQ-TSD-01). `name` is
+ * validated at the op boundary BEFORE any of the four branches below ever run (REQ-TSD-13)
+ * — see the trust-boundary note at the end of this doc.
  *
+ * 0. Validation (REQ-TSD-13, runs FIRST, strictly before Step 1): `name` MUST be a valid
+ *    plain-JS identifier, MUST NOT be a reserved or strict-mode-restricted word, and MUST
+ *    NOT be a denylisted name (`assertValidImportBinding`, reused verbatim from
+ *    `src/core/jsx-name-validator.ts`) — REJECTS via a PATH-LESS `dialectError` before Step
+ *    1/2/3/4 ever evaluate `name`, even when `name` would ALSO collide under Step 2
+ *    (REQ-TSD-13.6, precedence pinned: validation wins, never the collision message).
  * 1. Already-bound (idempotency, SAME module only): if an EXISTING declaration for `from`
  *    has a VALUE-BOUND specifier whose local name equals `name`, AND that specifier is a
  *    default specifier, a namespace specifier, an UNALIASED named specifier, or a
@@ -173,8 +190,19 @@ function leadingDirectiveCount(ast: SourceFile): number {
  *
  * Idempotent: calling this twice with the same `name`+`from` produces a single import line,
  * never a duplicate (REQ-TSD-03.10).
+ *
+ * Trust boundary (REQ-TSD-13.5): `name` and `from` are the ONLY two channels this op
+ * validates. `addFunction`/`addVariable`/`addClass`'s own `name`/`source`/`initializer`
+ * arguments remain RAW-SPLICED, author-trusted input this change does NOT validate or
+ * protect — that gap is tracked separately in `project/pending-changes`, out of this
+ * change's scope.
  */
 export function addImport(ast: SourceFile, name: string, from: string): void {
+  // REQ-TSD-13 validation gate: a deliberately PATH-LESS reject (contrast Step 2's path-ful
+  // `dialectError` below) — runs first, so a `name` that is BOTH invalid AND claimed rejects
+  // via validation, never collision (REQ-TSD-13.6).
+  assertValidImportBinding(name);
+
   const declarationsForModule = ast
     .getImportDeclarations()
     .filter((decl) => decl.getModuleSpecifierValue() === from);
