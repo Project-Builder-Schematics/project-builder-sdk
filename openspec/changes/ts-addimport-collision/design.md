@@ -20,7 +20,7 @@ Port the judgment-day-APPROVED React `addImport` (CLAIMED four-branch V8, `src/d
 | `test/dialects/typescript/ops-addImport.test.ts` | Create | Merge/idempotency/collision battery + injection/validation battery + asymmetry + JSDoc guard (REQ-TSD-01.5–.23,.25–.33; REQ-TSD-13.1–.5) |
 | `test/dialects/typescript/dialect.test.ts` | Modify | REQ-TSD-01.24 ordering; REQ-TSD-03.11 seed-with-own-output (.2/.03.10 exist) |
 | `test/dialects/typescript/ops-exact-set.test.ts` | Read-only | REQ-TSD-01.1 exact op-set (membership unchanged) |
-| `test/dialects/typescript/ops-removeImport.test.ts` | Read-only | Zero-directive no-op assertion shape (.11); all-match half of asymmetry (.25) |
+| `test/dialects/typescript/ops-removeImport.test.ts` | Read-only | Zero-directive no-op assertion shape (.11); search-all/remove-first half of asymmetry (.25, corrected per spec V3.2 — S-004.1 empirical finding) |
 | `test/dialects/typescript/golden/*.txt` | Create | Byte-exact goldens: merge/create shapes, CRLF (.8), directive-prologue (.21, QA note b) |
 | `test/fitness/fit-39-addimport-parity.test.ts` | Create | Predicate-PARITY fitness — TS vs React `addImport` verdict agreement per shared battery, with the self-alias row as an explicit expected-divergence assertion (ADR-01 obligation) |
 | `test/dialects/typescript/ops-declarations.test.ts` | Read-only | Sibling-collision coverage anchor — addFunction/addVariable/addClass reject suite MUST stay green after the `isValueNamespaceClaimed` extraction (Sec N2, behaviour-preservation guard) |
@@ -111,7 +111,7 @@ Assertion discipline: byte-exact golden (`toBe`) on every merge/create/idempoten
 | 01.22 | multi-decl same module → merge FIRST, scan ALL | integration | ops-addImport.test.ts | — |
 | 01.23 | empty `{}` clause is a valid merge target | integration | ops-addImport.test.ts | — |
 | 01.24 | ordering — idempotency BEFORE claimed (mutant-kill) | integration | dialect.test.ts | — |
-| 01.25 | asymmetry: addImport first-match / removeImport all-match | integration | ops-addImport.test.ts | — |
+| 01.25 | asymmetry: addImport merges first-declaration-only / removeImport searches ALL declarations but removes exactly one hit (spec V3.2 correction — all-match removal was a factual error, only observable on illegal duplicate-binding input) | integration | ops-addImport.test.ts | — |
 | 01.26/01.27 | type-only default / namespace specifier reject | integration | ops-addImport.test.ts | — |
 | 01.28 | aliased-underlying merge (local-name keying, GREEN for .14) | integration | ops-addImport.test.ts | — |
 | 01.29/01.30 | mixed default+named: merge to named / default-name no-op | integration | ops-addImport.test.ts | — |

@@ -17,6 +17,12 @@
  * §4.4, two deliberate reject shapes) — `expectCollisionReject` below is reused as-is for both,
  * since the mechanics it asserts are shape-identical; only the message-content assertions in
  * each `it()` differ per reject kind.
+ *
+ * S-004 — REQ-TSD-01.25 (CORRECTED at V3.2) pins the match-cardinality asymmetry: `addImport`
+ * merges into ONLY the first declaration; `removeImport` SEARCHES every declaration matching
+ * `from` but REMOVES the binding from only the first one it finds it in. REQ-TSD-01.33 pins
+ * ADR-03's pre-authorized FALLBACK: a shebang file stays a HANDLE-contained fail-closed reject
+ * (design ADR-03) — shebang-aware insertion is deferred as a followup, NOT built this change.
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -501,5 +507,69 @@ describe("addImport JSDoc — REQ-TSD-13.5 trust-boundary guard (S-002, ts-addim
     expect(trustBoundaryBlock).toContain("addClass");
     expect(trustBoundaryBlock).toContain("RAW-SPLICED");
     expect(trustBoundaryBlock).not.toContain("not covered here");
+  });
+});
+
+describe("addImport / removeImport — REQ-TSD-01.25 match-cardinality asymmetry (S-004, ts-addimport-collision, CORRECTED V3.2)", () => {
+  it("REQ-TSD-01.25: addImport merges into ONLY the first declaration for the module (per .22) — first-match posture", async () => {
+    const { client, emitted } = makeSpyClient({
+      "a.ts": 'import { a } from "m";\nimport { b } from "m";\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("c", "m");
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    expect(modifies[0]?.modify.content).toBe('import { a, c } from "m";\nimport { b } from "m";\n');
+  });
+
+  it("REQ-TSD-01.25: removeImport SEARCHES every declaration matching `from` but REMOVES from only the FIRST one containing the binding — the second, later duplicate survives (hand-authored, TS2300-invalid fixture)", async () => {
+    const { client, emitted } = makeSpyClient({
+      "a.ts": 'import { a, x } from "m";\nimport { y, x } from "m";\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").removeImport("x", "m");
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    // A mutant that continues scanning past the first hit (a real "remove from every matching
+    // declaration" implementation) would ALSO strip "x" from the second declaration, producing
+    // 'import { a } from "m";\nimport { y } from "m";\n' — this asserts the SHIPPED first-match
+    // posture, not the once-believed (and now-corrected, V3.2) all-match one.
+    expect(modifies[0]?.modify.content).toBe('import { a } from "m";\nimport { y, x } from "m";\n');
+  });
+});
+
+describe("addImport — REQ-TSD-01.33 shebang fallback (S-004, ts-addimport-collision, ADR-03)", () => {
+  it("REQ-TSD-01.33: a shebang file stays a HANDLE-contained fail-closed reject — pinned message, .cause undefined, zero directives, byte-unchanged (ADR-03 fallback; shebang-aware insertion deferred, see openspec/pending-changes.md)", async () => {
+    const seed = "#!/usr/bin/env node\nconst x = 1;\n";
+    const { client, emitted } = makeSpyClient({ "a.ts": seed });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:fs");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    // Same generic foreign-wrap tail #invokeContained uses for any uncaught internal error
+    // (dialect-handle.ts:248-258) — ts-morph's ManipulationError propagates out of addImport
+    // itself (the shebang is SourceFile leading trivia, not a statement `.21`'s mechanism can
+    // target) and is caught + branded at the HANDLE boundary, never inside the op.
+    expect(err.message).toBe('dialect operation failed: addImport() on "a.ts" threw');
+    expect(err.cause).toBeUndefined();
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("a.ts")).toBe(seed);
   });
 });

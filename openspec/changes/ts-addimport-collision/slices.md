@@ -206,10 +206,10 @@ reject (ADR-03 fallback — `.cause` undefined, zero directives, byte-unchanged)
 regression guard, not upgraded to insertion this change.
 
 ### Tasks
-- [ ] S-004.1 Add REQ-TSD-01.25 asymmetry test: `addImport` merges FIRST-match only, `removeImport` removes ALL matches — pin as an explicit contract fact
-- [ ] S-004.2 Pin ADR-03's fallback: assert shebang stays a handle-level contained fail-closed reject (`.cause` undefined, zero directives, byte-unchanged) — REQ-TSD-01.33
-- [ ] S-004.3 Add REQ-TSD-03.11 seed-with-own-output test to `dialect.test.ts`: a FRESH run seeded with `addImport`'s own prior output emits ZERO directives
-- [ ] S-004.4 Register the shebang-insertion upgrade as a `project/pending-changes` followup (ADR-03, design §4.8) — deferred, no code this slice
+- [x] S-004.1 Add REQ-TSD-01.25 asymmetry test: `addImport` merges FIRST-match only, `removeImport` SEARCHES all but removes from the FIRST match only (CORRECTED V3.2, owner-ratified spec fix — see apply-progress.md S-004) — pinned as an explicit contract fact
+- [x] S-004.2 Pin ADR-03's fallback: assert shebang stays a handle-level contained fail-closed reject (`.cause` undefined, zero directives, byte-unchanged) — REQ-TSD-01.33
+- [x] S-004.3 Add REQ-TSD-03.11 seed-with-own-output test to `dialect.test.ts`: a FRESH run seeded with `addImport`'s own prior output emits ZERO directives
+- [x] S-004.4 Register the shebang-insertion upgrade as a `project/pending-changes` followup (ADR-03, design §4.8) — deferred, no code this slice
 
 ---
 

@@ -1,7 +1,8 @@
 # Delta for typescript-dialect
 
-**Spec version**: V3.1
-**Status**: signed (owner, 2026-07-17)
+**Spec version**: V3.2
+**Status**: signed (owner, 2026-07-21 — targeted amendment; original sign-off 2026-07-17 stands
+for everything else)
 **Change**: `ts-addimport-collision`
 
 (This delta amends the already-signed main spec's REQ-TSD-01 — authorised via
@@ -67,6 +68,23 @@ scenario-ID list (the normative one, in the prose above) was over-broad — tigh
 neither belongs in the duplicate-binding-idempotency bucket. Also carried QA's two non-blocking
 test-derivation strengthening notes into Design-Reserved (`collectModifies` length assertion for
 `.33`; an explicit committed golden for `.21`).)
+
+(V3.2 — targeted amendment, factual correction, `unfreeze=true`, owner-ratified 2026-07-21;
+SCOPED to `.25` ONLY, no other scenario or requirement touched. `.25`'s claim that `removeImport`
+"removes `x` from EVERY matching declaration it appears in (all-matches behaviour)" was factually
+wrong about the shipped code (`src/dialects/typescript/ops.ts:353-368`, empirically probed twice,
+byte-identical results): `removeImport` WALKS every declaration matching `from` (the judgment-day
+Issue 2 fix — the search is all-declarations, not first-declaration-only) but REMOVES the binding
+from only the FIRST declaration that contains it, then returns — a later duplicate survives. On
+legal (non-duplicate-binding) TypeScript this is observationally indistinguishable from a true
+all-matches removal, which is why it was never caught; the distinguishing fixture (the same local
+name bound in two declarations for one module) is itself a TS2300 compile error, reachable only by
+hand-authored/legacy, compile-invalid input. `.25` is REWRITTEN to state the asymmetry truthfully:
+`addImport` merges into ONLY the first declaration (unchanged); `removeImport` searches all
+declarations but removes from the first match only, exactly once. Owner ratification: "Corregir la
+spec" — the spec is corrected to match shipped behaviour; ZERO production-code change; the
+containing slice (S-004) stays pins-only. No REQ-ID or scenario-ID change; `.25`'s ID and role as
+the explicit asymmetry posture pin are preserved, only its CONTENT is corrected.)
 
 ## MODIFIED Requirements
 
@@ -356,19 +374,24 @@ on the shared prefix alone, does not satisfy this REQ's scenarios.
   is designed to kill exactly that mutant, and its outcome is the same invariant REQ-TSD-03.10
   and REQ-TSD-03.11 also depend on
 
-#### Scenario REQ-TSD-01.25: match-cardinality asymmetry — addImport merges into the FIRST declaration, removeImport removes ALL matches (explicit posture pin)
+#### Scenario REQ-TSD-01.25: match-cardinality asymmetry — addImport merges into the FIRST declaration, removeImport searches ALL but removes from the FIRST match only (explicit posture pin, CORRECTED at V3.2)
 
 - GIVEN a seeded file with two declarations for the same module, `import { a } from
   "m";\nimport { b } from "m";`, and separately a second fixture where `"x"` is bound as a named
-  import in BOTH of two declarations for `"m"` (a state only reachable by hand-authored/legacy
-  input, since `addImport` itself never produces it)
+  import in BOTH of two declarations for `"m"` (a state only reachable by hand-authored/legacy —
+  and, since duplicate local-name bindings across declarations are a TS2300 compile error, also
+  compile-INVALID — input, since `addImport` itself never produces it)
 - WHEN `addImport("c", "m")` is applied to the first fixture, AND `removeImport("x", "m")` is
   applied to the second
 - THEN `addImport` merges into ONLY the first declaration (per `.22`) — first-match, scoped to
-  this shipped op pair only, not a general SDK convention — WHILE `removeImport` removes `"x"`
-  from EVERY matching declaration it appears in (its existing, unchanged all-matches behaviour,
-  judgment-day Issue 2) — the asymmetry is a stated fact of this pair's contract, not an
-  oversight
+  this shipped op pair only, not a general SDK convention — WHILE `removeImport` SEARCHES every
+  declaration matching `from` (its judgment-day Issue 2 fix — the scan is all-declarations, not
+  first-declaration-only) but REMOVES the binding from only the FIRST declaration that contains
+  it, then returns — the second, later `"x"` survives untouched; on any legal (non-duplicate)
+  input this is observationally identical to an all-matches removal, which is why the distinction
+  is only reachable through the hand-authored/legacy, compile-invalid fixture above — the
+  asymmetry (merge: first-declaration target; remove: all-declarations search, first-match-only
+  removal) is a stated fact of this pair's shipped contract, not an oversight
 
 #### Scenario REQ-TSD-01.26: type-only DEFAULT specifier collision rejects (NEW, V2 — QA M1)
 
@@ -681,12 +704,13 @@ a golden file the way `.2`/`.33` do.
 ## Sign-Off Block
 
 **Signed by**: owner, via orchestrator
-**Date**: 2026-07-17
-**Spec version at signing**: V3.1
-**Status transition**: draft → signed
+**Date**: 2026-07-17 (original sign-off); amended 2026-07-21 (V3.2, see amendment #5 below)
+**Spec version at signing**: V3.1 (original); V3.2 (current, post-amendment)
+**Status transition**: draft → signed (2026-07-17); signed → unfrozen → signed (2026-07-21,
+targeted amendment via `unfreeze=true`, scoped to `.25` only)
 
 Four ratifications recorded at sign-off, closing every item this delta had left open for the
-owner across V1–V3.1:
+owner across V1–V3.1, plus one post-sign-off amendment (V3.2):
 
 1. **REQ-TSD-01.20 side-effect-import posture — RATIFIED.** The PM+QA-recommended V8 posture
    ships as specified: `addImport` preserves a pre-existing side-effect-only import
@@ -716,3 +740,14 @@ No scenario content changes at sign-off beyond what ratification #1 required (mo
 out of "pending" framing, into the signed body — its scenario text itself was already correct and
 is unchanged). REQ-IDs and scenario IDs are unchanged from V3.1: REQ-TSD-01 `.1`–`.33`, REQ-TSD-03
 `.1`–`.11`, REQ-TSD-13 `.1`–`.6`.
+
+5. **REQ-TSD-01.25 `removeImport` cardinality claim — CORRECTED, V3.2 (2026-07-21).** Post-sign-off,
+   empirical probing (twice, byte-identical results) established that `.25`'s original text
+   misdescribed the shipped `removeImport` (`src/dialects/typescript/ops.ts:353-368`) as removing a
+   binding from EVERY matching declaration. The shipped op WALKS every declaration matching `from`
+   (the judgment-day Issue 2 fix, unchanged) but REMOVES from only the FIRST declaration containing
+   the binding, then returns — a later duplicate survives. Owner ratification: **"Corregir la
+   spec"** — `.25` is rewritten to state the true, first-match-only removal semantics; ZERO
+   production-code change; slice S-004 stays pins-only (test + JSDoc alignment, no behaviour
+   change). This is a targeted amendment via `unfreeze=true`, scoped to `.25` alone — no other
+   scenario, requirement, or ratification #1-#4 is reopened or affected.

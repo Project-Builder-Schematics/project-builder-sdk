@@ -445,3 +445,288 @@ orchestrator, as in S-000/S-001/S-003.
 Ready for `/build --scope=slice:S-004` (explicit contract postures — `Requires: S-003`, already
 satisfied) per the Build Order table; S-005 (`Requires: S-002, S-004`) unlocks once S-004 also
 lands.
+
+## S-004: Explicit contract postures — asymmetry, shebang fallback, idempotency durability
+
+**Status**: complete (4/4 tasks). S-004.1 was HALTED mid-slice, routed to the orchestrator, and
+RESOLVED: the owner reviewed the empirical probe evidence and ratified a spec correction
+("Corregir la spec") over a production-code change. Spec V3.2 (signed, `unfreeze=true`, scoped
+to `.25` alone) now states the TRUE `removeImport` semantics this executor established. S-004.1 is
+now pinned against the corrected scenario — see "S-004.1 — RESOLVED" below.
+
+**Process note**: the host process crashed mid-slice, after S-004.2's and S-004.3's tests were
+already written and passing on disk but before S-004.4/apply-progress/slices.md were updated.
+Resumed from the saved transcript; the S-004.1 halt narrative below was authored post-crash and
+every empirical claim in it was RE-VERIFIED against current HEAD after resume, not carried over
+from pre-crash memory — see "Re-verification after crash-resume" below. S-004.1 itself was then
+completed in a THIRD pass, after the orchestrator routed the halt to the owner and returned with
+the ratified spec correction.
+
+### Safety Net (Phase 0)
+
+`bun test` baseline before this slice: **2098 pass, 0 fail, 4665 expect() calls, 191 files**
+(post S-002, per this slice's launch prompt) — all green.
+
+### S-004.1 — HALTED (spec/implementation mismatch, empirically confirmed)
+
+**Task**: pin REQ-TSD-01.25's asymmetry claim — `addImport` merges FIRST-match only,
+`removeImport` removes ALL matches.
+
+**Finding**: `addImport`'s first-match-only half is real and already covered (S-003's `.22` test,
+`ops-addImport.test.ts`). `removeImport`'s claimed "all-match" half is **NOT what the shipped
+code does**. `removeImport` (`src/dialects/typescript/ops.ts:353-368`) walks every declaration
+matching `from` to LOCATE the one containing `name`, but `return`s immediately after handling the
+FIRST declaration where it finds a match — it never continues to a second declaration that also
+binds the same local name.
+
+**Empirical proof** (throwaway probe script, not committed — run twice, once before the crash and
+once after resume against current HEAD, byte-identical result both times):
+
+```ts
+// seed: 'import { a, x } from "m";\nimport { y, x } from "m";\n' — "x" bound in BOTH declarations
+await ts.find("a.ts").removeImport("x", "m");
+// actual result: 'import { a } from "m";\nimport { y, x } from "m";\n'
+// — the FIRST declaration's "x" is removed; the SECOND declaration's "x" survives untouched.
+// REQ-TSD-01.25's claim ("removes x from EVERY matching declaration it appears in") would
+// predict: 'import { a } from "m";\nimport { y } from "m";\n' — NOT what happens.
+```
+
+A second probe against `import { x } from "m";\nimport { y, x } from "m";\n"` (first decl is a
+last-binding-only whole-statement deletion) gives the same story: only the first decl's `x` is
+removed (`import { y, x } from "m";` survives as the sole remaining line).
+
+**Root cause**: `removeImport`'s "Judgment-day round 1, Issue 2" fix (see its JSDoc and
+`ops-removeImport.test.ts`'s own comment at line 86) walks every declaration to find WHICHEVER ONE
+contains `name` — fixing the bug where only the first declaration was ever inspected at all. It
+was never extended to continue searching for and removing ADDITIONAL occurrences once the first is
+found. In ordinary use this distinction is invisible: a name can only be bound once across a
+file's imports without `addImport` itself ever producing a duplicate (TypeScript would otherwise
+reject the duplicate identifier), so "search every declaration, act on whichever one has it" and
+"remove from every declaration that has it" are indistinguishable — UNTIL a hand-authored fixture
+puts the same local name in two declarations at once, exactly as REQ-TSD-01.25's second fixture
+does.
+
+**Not an isolated misreading**: this same "removeImport iterates ALL matching declarations
+(judgment-day Issue 2 fix)" framing already appears, independently, in
+`openspec/pending-changes.md:341` (registered from `ts-dialect-backend-ops` planning, 2026-07-14)
+and in the design.md Test Derivation table (row 114) for this change — the imprecise belief is
+carried across at least three documents (JSDoc, a prior pending-changes row, and this change's own
+signed spec/design), not a one-off error in the spec text alone.
+
+**Action taken**: per the launch prompt's explicit instruction ("if a pin unexpectedly FAILS, halt
+and report — do not 'fix' contract behaviour without orchestrator routing"), this task is HALTED,
+not implemented and not silently skipped. No test asserting the false "all-match" claim was
+written (it would be a fabricated-to-fail RED with no sanctioned fix in this pin-only slice — the
+opposite of the honesty rule this harness enforces). No production code was touched.
+`slices.md`'s S-004.1 checkbox is left unchecked with a pointer to this section.
+
+**Routing recommendation for the orchestrator**: closest existing halt bucket is `spec-ambiguity`
+(routes to Planner / `sdd-spec`) — though this is better described as a factual/empirical error in
+an already-signed spec scenario than a wording ambiguity. Two honest paths forward, either is
+spec-conformant once decided: (a) correct REQ-TSD-01.25's `removeImport` half to describe the TRUE
+existing behaviour (finds and removes from whichever ONE declaration actually contains the
+binding, not every one) and pin THAT instead; or (b) explicitly author a NEW behaviour change to
+`removeImport` (continue the loop, remove from every matching declaration) — a real, if small,
+production change outside this "pins only, zero production code" slice's own framing, needing its
+own RED-GREEN cycle and its own review of blast radius (this function is exercised by
+`ops-removeImport.test.ts`'s 8 existing passing tests). Not routing myself to either — this is a
+product/spec decision, not an implementation judgment call.
+
+### S-004.1 — RESOLVED: option (a), spec corrected to V3.2, ZERO production-code change
+
+**Owner ratification**: shown the probe evidence above, the owner chose **"Corregir la spec"**
+(option a) — `openspec/changes/ts-addimport-collision/specs/typescript-dialect/spec.md` REQ-TSD-01.25
+is rewritten (V3.2, `unfreeze=true`, scoped to `.25` alone; ratification #5 in the spec's sign-off
+history) to state the TRUE semantics: `addImport` merges into ONLY the first declaration
+(unchanged); `removeImport` SEARCHES every declaration matching `from` (its judgment-day Issue 2
+fix, unchanged) but REMOVES the binding from only the FIRST declaration containing it, then
+returns — on the hand-authored, TS2300-compile-invalid duplicate-binding fixture, the second `x`
+survives untouched. `design.md` (file table + Test Derivation row `.25`) and
+`openspec/pending-changes.md:341`'s `removeImport` clause were corrected by the orchestrator in
+lockstep — not touched by this executor.
+
+**Task, as re-scoped by V3.2**: pin the corrected asymmetry as an explicit contract fact — no
+production-code change (the owner ratified correcting the SPEC, not the implementation).
+
+**Pre-write probe (Strict TDD posture for pins)**: both halves re-probed against current HEAD
+before writing the committed test, to confirm the exact fixture/output pair the test would assert:
+- `addImport` half: seed `import { a } from "m";\nimport { b } from "m";\n"`,
+  `addImport("c", "m")` → `import { a, c } from "m";\nimport { b } from "m";\n"` (merges into the
+  FIRST declaration only — same mechanism S-003's `.22` already covers, now also pinned here as
+  half of the stated asymmetry fact).
+- `removeImport` half: seed `import { a, x } from "m";\nimport { y, x } from "m";\n"`,
+  `removeImport("x", "m")` → `import { a } from "m";\nimport { y, x } from "m";\n"` — identical to
+  the halt section's probe result above (this fixture/output pair was independently re-verified a
+  THIRD time here, still byte-identical).
+
+**Mechanism-level root cause** (same as established during the halt, now the CORRECT reading):
+`removeImport` (`src/dialects/typescript/ops.ts:353-368`) filters `ast.getImportDeclarations()` to
+those matching `from`, then loops — `continue`ing past declarations that don't contain `name` (the
+judgment-day Issue 2 fix: the search is NOT scoped to the first declaration), but `return`ing
+immediately once it finds and removes the binding from the FIRST declaration that DOES contain it.
+`addImport`'s merge target is `declarationsForModule.find(isNonTypeOnlyNamedImportClause)` —
+`Array.prototype.find` returns the first match, unconditionally first-declaration-scoped, no
+search/removal distinction to make.
+
+**Both tests pin EXISTING, unchanged production behaviour** — genuinely green-on-arrival, not a
+defect-discovery pair. No `src/` file was touched for this task; the JSDoc-only edits (below) are
+comments, not behaviour.
+
+### JSDoc alignment (comment-only, no behaviour change)
+
+Two stale JSDoc passages referenced the disproven "all-match" framing; both corrected to state the
+search-all/remove-first-hit semantics V3.2 now pins:
+
+- `src/dialects/typescript/ops.ts` (~line 176-178, inside `addImport`'s Step 3 JSDoc): "contrast
+  `removeImport`'s all-match posture" → rewritten to name the actual posture (searches every
+  declaration, removes from only the first it finds the binding in) and points to
+  `removeImport`'s own JSDoc.
+- `src/dialects/typescript/ops.ts` (~line 341-354, `removeImport`'s own JSDoc, "Judgment-day round
+  1 (Issue 2)" paragraph): tightened from "operates on whichever one actually contains `name`"
+  (accurate but ambiguous about cardinality) to an explicit statement — search is all-declarations,
+  removal is first-match-only, with the REQ-TSD-01.25/V3.2 cross-reference and the "why this was
+  invisible on legal input" reasoning inlined.
+
+### S-004.2 — Pin ADR-03's shebang fallback (REQ-TSD-01.33)
+
+**Mechanism-level root cause (verified empirically before writing the test, twice — once
+pre-crash, once post-resume against current HEAD, identical result both times)**: a shebang file
+run through `ts.find("a.ts").addImport("readFileSync", "node:fs")` throws
+`dialect operation failed: addImport() on "a.ts" threw`, `.cause` is `undefined`, zero directives
+are emitted, and the read-back content is byte-identical to the seed. This matches ADR-03's own
+documented finding exactly: `addImport` itself does not catch anything — ts-morph's
+`insertImportDeclaration`/`addImportDeclaration` throws `ManipulationError: A syntax error was
+inserted` because a shebang is `SourceFile` leading trivia, not a statement, so the Create branch's
+insertion (whether prologue-aware per `.21` or not) cannot target it; the throw propagates out of
+the op and is caught + branded by `dialect-handle.ts`'s `#invokeContained` (`:248-258`), the SAME
+generic foreign-wrap path `REQ-TSD-04.1`/`REQ-DG-06.1` already pin for other internal ts-morph
+failures.
+
+### S-004.3 — REQ-TSD-03.11 seed-with-own-output (durability of the idempotent no-op)
+
+**Mechanism-level root cause (verified empirically before writing the test)**: a first,
+independent run applies `addImport("readFileSync", "node:fs")` against `golden
+("add-import-before.txt")` and produces `golden("add-import-after.txt")` (asserted). A SECOND,
+genuinely separate run (fresh `makeSpyClient`/`Project`) seeded with that exact output and given
+the identical `addImport` call emits ZERO directives. This is Step 1's `satisfiesIdempotency`
+check (ported at S-000, unchanged since) recognizing the already-merged unaliased named specifier
+on re-parse — the same invariant `.24` already proved holds within one run/chain now holds across a
+fresh run boundary reading only the prior run's printed bytes, closing exactly the gap the spec's
+own justification note (row 500-507 of the spec) describes: `.10` proves duplicate CALLS in one
+run don't double-emit; `.11` proves a SEPARATE run reading the prior op's own output makes no
+further change at all.
+
+### TDD Cycle Evidence — S-004
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| S-004.1 | `ops-addImport.test.ts::REQ-TSD-01.25: addImport merges into ONLY the first declaration…` | integration | **Passed immediately on first run** — verified-pin against V3.2; mechanism confirmed via a pre-write probe (see S-004.1 above), same mechanism S-003's `.22` already covers (`Array.prototype.find`, unconditionally first-match) | ✅ (unchanged) | n/a — single documented posture, not a class of inputs | — |
+| S-004.1 | `ops-addImport.test.ts::REQ-TSD-01.25: removeImport SEARCHES every declaration…but REMOVES from only the FIRST…` | integration | **Passed immediately on first run** — verified-pin against V3.2 (the SAME fixture/output pair probed three times total across this slice's two passes, byte-identical every time); mechanism: `removeImport`'s loop `continue`s past non-matching declarations but `return`s on the first successful removal | ✅ (unchanged) | n/a — single hand-authored contract-fact fixture, not a class of inputs | — |
+| S-004.2 | `ops-addImport.test.ts::REQ-TSD-01.33: a shebang file stays a HANDLE-contained fail-closed reject…` | integration | **Passed immediately on first run** — verified-pin, not a defect-discovery test; mechanism confirmed via a pre-write probe (see S-004.2 above), matching ADR-03's own documented empirical finding exactly (design.md, `ManipulationError` on shebang top-of-file insertion) | ✅ (unchanged) | n/a — single documented containment shape, not a class of inputs | — |
+| S-004.3 | `dialect.test.ts::REQ-TSD-03.11: seed-with-own-output — a FRESH, separate run…` | integration | **Passed immediately on first run** — verified-pin; mechanism confirmed via a pre-write probe (see S-004.3 above), the same `satisfiesIdempotency` invariant `.24` already exercises within one run, now proven across a fresh run boundary | ✅ (unchanged) | n/a — single durability proof, not a class of inputs | — |
+| Refactor | — | — | n/a | ✅ (all green throughout) | n/a | None needed — both new tests are minimal, matching existing house shapes (`expectCollisionReject`-equivalent inline assertions for `.33`; the two-run pattern already used by `.24`'s second case for `.11`) |
+
+Both S-004.2 and S-004.3 are green-on-arrival by design (this slice's launch prompt frames this as
+the expected norm for posture pins) — no implementation drove them; each row above names the real
+mechanism proven by an empirical probe BEFORE the committed test was written, per the harness's
+honesty rule (never fabricate RED, never assert a mechanism without locating it).
+
+### Re-verification after crash-resume
+
+Both empirical claims in this section were re-run against current HEAD after the crash-resume,
+independent of pre-crash memory:
+- The S-004.1 `removeImport` two-declaration probe: re-run, byte-identical result
+  (`'import { a } from "m";\nimport { y, x } from "m";\n'`).
+- `bun test test/dialects/typescript/ops-addImport.test.ts test/dialects/typescript/dialect.test.ts`:
+  re-run, **59 pass, 0 fail, 306 expect() calls** — both S-004.2/.3 tests still present on disk and
+  still green.
+
+### Files Changed
+
+| File | Action | What Was Done |
+|---|---|---|
+| `test/dialects/typescript/ops-addImport.test.ts` | Modified | Added a new describe block "addImport / removeImport — REQ-TSD-01.25 match-cardinality asymmetry (S-004, ts-addimport-collision, CORRECTED V3.2)" with two tests (addImport first-match half + removeImport search-all/remove-first-hit half); added a new describe block "addImport — REQ-TSD-01.33 shebang fallback (S-004, ts-addimport-collision, ADR-03)" with one test pinning the contained fail-closed reject shape; updated the file-header docstring with an S-004 paragraph covering both `.25` and `.33` |
+| `test/dialects/typescript/dialect.test.ts` | Modified | Added one new test, `REQ-TSD-03.11: seed-with-own-output…`, to the existing REQ-TSD-03 describe block, immediately after `.10` |
+| `src/dialects/typescript/ops.ts` | Modified (comment-only) | Two JSDoc corrections aligning with spec V3.2's `.25` semantics — `addImport`'s Step 3 paragraph (removed the "all-match posture" reference) and `removeImport`'s own "Judgment-day round 1 (Issue 2)" paragraph (made the search-all/remove-first-hit cardinality explicit). No behaviour change — confirmed by full-suite green before/after and an unchanged production diff outside comment lines |
+| `openspec/pending-changes.md` | Modified | Registered the shebang-aware-insertion followup (ADR-03) under a new `From \`ts-addimport-collision\` (2026-07-21) — ADR-03 shebang-aware insertion, registered at S-004` section, matching the file's existing per-change table format. (Row 341's `removeImport` clause was separately corrected by the orchestrator, per the resume instructions — not touched by this executor.) |
+| `openspec/changes/ts-addimport-collision/slices.md` | Modified | Marked S-004.1/.2/.3/.4 all `[x]` — S-004.1's checkbox note records the V3.2 correction and points to this section |
+| `openspec/changes/ts-addimport-collision/specs/typescript-dialect/spec.md` | Not touched by this executor | Corrected to V3.2 by the orchestrator per the owner's ratification, before this executor's third pass began — read, not written, this pass |
+
+### Deviations from Design
+
+**One flagged, non-silent deviation — the same "green-on-arrival" pattern as every prior slice**:
+S-004.2 and S-004.3 both passed immediately, which the launch prompt explicitly frames as the
+expected norm for this slice ("mostly PINS — new production code is likely ZERO"). Each is
+documented above with its real mechanism, located via an empirical probe before the test was
+written, not assumed.
+
+**One flagged, load-bearing deviation, now RESOLVED — S-004.1 was HALTED, then completed in a
+third pass**: see the dedicated sections above. This was a genuine spec/implementation mismatch
+discovered during apply, correctly not resolved unilaterally by this executor (the launch prompt
+was explicit: "do not 'fix' contract behaviour without orchestrator routing"). The orchestrator
+routed the halt to the owner, who ratified a spec correction (option a, V3.2) over a
+production-code change (option b) — S-004.1 was then completed against the corrected spec text
+with zero production-code change, only the two JSDoc alignments noted above.
+
+**One flagged process note**: this slice's apply run crashed mid-execution (host process crash,
+not a task failure) after S-004.2/.3's tests were written but before S-004.4/this file/slices.md
+were updated. Resumed from the saved transcript per the orchestrator's resume protocol; every
+empirical claim was re-verified against current HEAD post-resume rather than trusted from
+pre-crash memory (see "Re-verification after crash-resume" above).
+
+**Design/slices.md tension, noted not resolved**: design.md §4.8 frames the pending-changes
+registration (item 2, shebang-aware insertion) as an ARCHIVE-time action ("Archive-time (sdd-apply,
+NOT apply)... REGISTER THREE NEW rows"), while `slices.md`'s S-004.4 task explicitly schedules the
+SAME registration now, at apply-time. Followed `slices.md` (the executable task list this run was
+launched against, and the launch prompt's own constraints explicitly permit writing
+`openspec/pending-changes.md` for S-004.4) — flagging the tension rather than silently picking one.
+If `sdd-archive` later re-registers the same followup, it should recognize this row as already
+present rather than duplicating it.
+
+### Halt / Issues Found
+
+**S-004.1 was HALTED, now RESOLVED.** Original routing recommendation (closest existing bucket:
+`spec-ambiguity`, Planner / `sdd-spec`) was followed by the orchestrator; the owner reviewed the
+probe evidence and ratified "Corregir la spec" (option a). Spec V3.2 (signed,
+`unfreeze=true`, scoped to `.25` alone) now states the true semantics; S-004.1 is pinned against
+it with zero production-code change. No unresolved halts remain in this slice.
+
+### Post-Slice Audit (Step 7c)
+
+Skipped — same reason as every prior slice in this change: no architecture baseline/ADR context
+was injected into this run's launch prompt beyond the inline "Architecture context" paragraph
+(which names the containment boundary and ADR-03's fallback arm directly, both already consumed
+above); no separate `architecture.adrs` artefact was provided to run a structured audit against.
+Flagged for the orchestrator, as in S-000/S-001/S-002/S-003.
+
+### Test Results
+
+- `bun test test/dialects/typescript/ops-addImport.test.ts test/dialects/typescript/dialect.test.ts`
+  (final, all 4 S-004 tasks in place): **61 pass, 0 fail, 310 expect() calls**
+- `bun test` (full suite, post-change, `--timeout=30000` — see ambient-load note below): **2102
+  pass, 0 fail, 4684 expect() calls, 191 files** — up from the 2098/191 S-002 baseline by exactly
+  4 new tests (S-004.1's 2 + S-004.2's 1 + S-004.3's 1), zero regressions
+- `bun run typecheck`: clean, no errors (both before and after the JSDoc-only `ops.ts` edits)
+- **Ambient system load note**: this environment showed heavy, unrelated concurrent load (other
+  repos' Jest workers, load average 8-15 at points during this run) that can produce flaky
+  subprocess-timeout failures (`react-conformance`, `copyin-parity`, `scaffold-e2e`) under bun's
+  default 5000ms per-test timeout on unrelated, pre-existing tests — NOT caused by this slice's
+  changes (none of S-004's edits touch those files or subsystems; this class of flake is itself
+  pre-documented in `openspec/pending-changes.md`, "Subprocess-timeout debt" /
+  "Cold-start suite non-determinism"). `--timeout=30000` was used throughout this pass and the
+  final full-suite run above was clean (0 fail) at that timeout.
+
+### Overall Progress
+
+| Metric | Value |
+|---|---|
+| Slices in this scope | 1 (S-004) |
+| Slices complete | 1 |
+| Slices in progress | 0 |
+| Tasks complete | 4/4 |
+
+### Next Step
+
+S-004 is complete. S-005 (`Requires: S-002, S-004`) is now unblocked — both its prerequisites are
+satisfied. Ready for `/build --scope=slice:S-005` (cross-dialect parity guarantee + release
+documentation), the final slice per the Build Order table.

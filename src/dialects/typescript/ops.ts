@@ -173,8 +173,10 @@ function leadingDirectiveCount(ast: SourceFile): number {
  *    named-import clause — INCLUDING an empty one (`import {} from "from"`) — add a NEW,
  *    UNALIASED named specifier to it. Walks EVERY declaration for `from` (a module can be
  *    imported via several separate declarations) and merges into the FIRST one in source
- *    order (REQ-TSD-01.22/.25 — a known, deliberate first-match asymmetry, contrast
- *    `removeImport`'s all-match posture). A side-effect-only import (`import "from";`, no
+ *    order (REQ-TSD-01.22/.25 — a known, deliberate first-match asymmetry; contrast
+ *    `removeImport`, which also SEARCHES every declaration matching `from` but REMOVES the
+ *    binding from only the first one it finds it in, then returns — see `removeImport`'s own
+ *    JSDoc). A side-effect-only import (`import "from";`, no
  *    clause at all) is never a merge target and is never converted into a combined form
  *    (REQ-TSD-01.20, Class B) — it is left byte-unchanged, coexisting beside the fresh
  *    declaration Step 4 inserts. (Reaching this step guarantees `name` is claimed nowhere in
@@ -346,9 +348,14 @@ export function addClass(ast: SourceFile, name: string, source: string, options?
  * whole-statement-deleted (only the matched named specifier is removed).
  *
  * Judgment-day round 1 (Issue 2): a module can be imported via SEVERAL separate
- * declarations (`import { a } from "m"; import { b } from "m";`, legal TS) — this walks
- * every declaration matching `from`, not just the first, and operates on whichever one
- * actually contains `name`. Sibling declarations from the same module are never touched.
+ * declarations (`import { a } from "m"; import { b } from "m";`, legal TS) — this SEARCHES
+ * every declaration matching `from`, not just the first, to locate whichever one actually
+ * contains `name`. Once found, the binding is removed from that ONE declaration and the
+ * function returns — a legal file never binds the same local name twice, so this is
+ * observationally a full removal on any real input; on the illegal, hand-authored fixture
+ * where `name` is duplicated across two declarations for `from` (REQ-TSD-01.25, CORRECTED
+ * V3.2), only the FIRST one loses the binding — the search is all-declarations, the removal
+ * is first-match-only. Sibling declarations from the same module are never touched.
  */
 export function removeImport(ast: SourceFile, name: string, from: string): void {
   const decls = ast.getImportDeclarations().filter((d) => d.getModuleSpecifierValue() === from);
