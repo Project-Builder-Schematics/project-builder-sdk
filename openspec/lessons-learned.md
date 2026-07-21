@@ -734,3 +734,31 @@ Source: change `stage-2-error-attribution` (2026-07-06)
 **Where**: Any spec that scans for a particular token or identifier as an invariant; especially REQs that emerged mid-cycle (REQ-ATH-20 was added at spec V2, not V1).
 **Learned**: When a spec scenario depends on a token absence, explicitly state whether the absence is enforced by code structure (active guard, allowlist, ban), verified by type system, or merely observed as a side effect of today's implementation. If it's the latter, register a "drift risk" as a future architecture guard or refactoring candidate, not a permanent invariant.
 
+## From `ts-addimport-collision` (2026-07-21)
+
+### A signed spec's factual claim about existing behaviour can survive multiple review passes until an executor's probe falsifies it
+**What**: REQ-TSD-01.25's original text claimed `removeImport` "removes `x` from EVERY matching declaration it appears in." The claim was false — the shipped op searches all declarations but removes from only the first match. It survived V1 through V3.1 sign-off (four spec revisions, three review lenses) until slice S-004's executor empirically probed the shipped code (twice, byte-identical results) and falsified it, forcing a targeted `unfreeze=true` amendment (V3.2) after sign-off.
+**Why**: Every review pass up to that point reasoned from the claim's plausibility and internal consistency, not from running the actual code against a distinguishing fixture — and the distinguishing fixture (duplicate local-name bindings across two declarations for one module) is itself only reachable via hand-authored/legacy, compile-invalid input, so ordinary usage never exposed the gap.
+**Where**: Any spec clause asserting "existing/shipped behaviour is X" without a cited empirical probe — a pattern this project also hit with REQ-TSD-01.21/.33's shebang classification (V2 wrongly claimed a crash based on bypassing the dialect's own containment wrapper).
+**Learned**: A spec clause describing CURRENT (not proposed) behaviour needs the same evidentiary bar as a scenario's THEN clause — an executor pin-probe against the real, shipped code, not inference from the surrounding prose. Schedule at least one such probe before sign-off for any "today's behaviour is..." claim on load-bearing logic.
+
+### Blind adversarial judges catch corruption that in-loop verification and a 50/50 final verify both miss when they share the same test fixtures
+**What**: Judgment-day's blind judges (Round 1) found that inserting an import into a file with BOTH a leading comment and a directive prologue landed the import BETWEEN the comment and the directive, voiding the directive — a real corruption that escaped all 7 in-loop verify iterations and the final verify's 50/50 scenario matrix.
+**Why**: Every prior test fixture for the directive-prologue scenario used a BARE directive (no leading comment) — the in-loop and final-verify passes all read the same fixture shape the builder had already validated against, so the gap was invisible to anyone reasoning from those fixtures. The blind judges, given only the diff and spec (not the test suite's fixture conventions), constructed an adversarial fixture combining two orthogonal shapes the builder had tested separately but never together.
+**Where**: Any change whose fixtures are all authored by the same agent that also wrote the implementation — a form of fixture-authoring bias, not a process failure.
+**Learned**: "50/50 scenarios pass" is a claim about the fixtures that exist, not about the input space. Blind adversarial review earns its cost specifically by constructing fixtures the builder didn't think to combine — budget it for any L/sensitive change, and don't treat a clean in-loop history as a substitute.
+
+### ts-morph's statement-insertion index is comment-inclusive, not directive-inclusive
+**What**: `SourceFile#insertImportDeclaration(index, ...)` and the underlying `getStatementsWithComments()` index leading comments as part of the statement list — an index computed to land "after the directive prologue" can silently land between a leading comment and the directive it precedes, if the comment-counting and directive-counting use different statement-enumeration methods.
+**Why**: The two ts-morph APIs (`getStatements()` vs `getStatementsWithComments()`) diverge exactly on leading comments, and nothing in ts-morph's own typings signals which one a given insertion index expects.
+**Where**: Any TS-dialect code computing an insertion index relative to leading trivia (directives, shebangs, comments) — `src/dialects/typescript/ops.ts`'s directive/shebang handling is the concrete instance; a reusable gotcha for any future ts-morph-based insertion logic.
+**Learned**: When an insertion index must land relative to leading trivia, use ONE statement-enumeration method consistently for both counting and inserting, and add a fixture that combines the trivia kind under test with at least one OTHER trivia kind (comment + directive, comment + shebang) — a bare-trivia-only fixture cannot catch this class of off-by-one.
+
+### Commit-after-every-seal plus filesystem-backed state survives host crashes losslessly
+**What**: This change's execution survived two host crashes mid-build with zero rework — S-000 and S-001 both show "post-crash recovery re-verified" in their apply history, and the change resumed from the last sealed slice with no lost work.
+**Why**: The SDD harness's discipline of committing after every slice seal (not just at change-end) plus persisting all phase state to the filesystem (`openspec/changes/{change}/*`, `.sdd/state/*`) meant the crash's blast radius was bounded to at most one in-flight, uncommitted slice — never the whole change.
+**Where**: SDD harness process discipline — applies to any change, not specific to this codebase area.
+**Learned**: The commit-per-seal convention is not just git hygiene; it is the crash-recovery mechanism. Any process deviation that batches multiple slices into one commit (to "keep history clean") trades away this property — treat it as a hard rule for long-running L changes, not a style preference.
+
+Source: change `ts-addimport-collision` (2026-07-21)
+
