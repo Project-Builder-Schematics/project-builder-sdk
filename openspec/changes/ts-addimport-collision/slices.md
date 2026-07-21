@@ -185,11 +185,11 @@ multi-declaration, empty clause, mixed default+named), WHEN `addImport` runs, TH
 matches its dedicated scenario exactly, byte-exact where applicable.
 
 ### Tasks
-- [ ] S-003.1 Cover create-branch variants: .7/.9 (type-only+diff-name / aliased-type-only → create), .18 (`type`/`interface` exempt → create)
-- [ ] S-003.2 Cover merge-branch variants: .22 (multi-decl → merge FIRST, scan ALL), .23 (empty `{}` clause is a valid target), .29/.30 (mixed default+named: merge to named / default-name no-op)
-- [ ] S-003.3 Cover .20 (side-effect import preserved byte-unchanged + separate named decl, Class B) and .15 (self-alias `{X as X}` idempotent no-op, owner deviation)
-- [ ] S-003.4 Implement directive-prologue-aware Create (`leadingDirectiveCount`; `insertImportDeclaration` after the prologue vs `addImportDeclaration`) for .21
-- [ ] S-003.5 Add goldens: directive-prologue (.21) + CRLF+addImport (.8, QA strengthening note b)
+- [x] S-003.1 Cover create-branch variants: .7/.9 (type-only+diff-name / aliased-type-only → create), .18 (`type`/`interface` exempt → create)
+- [x] S-003.2 Cover merge-branch variants: .22 (multi-decl → merge FIRST, scan ALL), .23 (empty `{}` clause is a valid target), .29/.30 (mixed default+named: merge to named / default-name no-op)
+- [x] S-003.3 Cover .20 (side-effect import preserved byte-unchanged + separate named decl, Class B) and .15 (self-alias `{X as X}` idempotent no-op, owner deviation)
+- [x] S-003.4 Implement directive-prologue-aware Create (`leadingDirectiveCount`; `insertImportDeclaration` after the prologue vs `addImportDeclaration`) for .21
+- [x] S-003.5 Add goldens: directive-prologue (.21) + CRLF+addImport (.8, QA strengthening note b)
 
 ---
 

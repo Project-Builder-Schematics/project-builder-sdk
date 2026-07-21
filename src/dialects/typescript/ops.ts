@@ -33,6 +33,7 @@ interface BoundName {
   kind: "default" | "namespace" | "named";
   aliased: boolean;
   valueBound: boolean;
+  selfAliased: boolean;
 }
 
 // Collects every local name a single declaration binds, across all three clause shapes at
@@ -44,7 +45,13 @@ function boundNamesIn(decl: ImportDeclaration): BoundName[] {
   const names: BoundName[] = [];
   const defaultImport = decl.getDefaultImport();
   if (defaultImport !== undefined) {
-    names.push({ localName: defaultImport.getText(), kind: "default", aliased: false, valueBound: !declTypeOnly });
+    names.push({
+      localName: defaultImport.getText(),
+      kind: "default",
+      aliased: false,
+      valueBound: !declTypeOnly,
+      selfAliased: false,
+    });
   }
   const namespaceImport = decl.getNamespaceImport();
   if (namespaceImport !== undefined) {
@@ -53,6 +60,7 @@ function boundNamesIn(decl: ImportDeclaration): BoundName[] {
       kind: "namespace",
       aliased: false,
       valueBound: !declTypeOnly,
+      selfAliased: false,
     });
   }
   for (const specifier of decl.getNamedImports()) {
@@ -62,18 +70,24 @@ function boundNamesIn(decl: ImportDeclaration): BoundName[] {
       kind: "named",
       aliased: alias !== undefined,
       valueBound: !declTypeOnly && !specifier.isTypeOnly(),
+      selfAliased: alias !== undefined && alias.getText() === specifier.getName(),
     });
   }
   return names;
 }
 
 // Step 1's idempotency-satisfying shape: a value-bound default specifier, a value-bound
-// namespace specifier, or a value-bound UNALIASED named specifier. An aliased named
+// namespace specifier, a value-bound UNALIASED named specifier, or a value-bound
+// SELF-ALIASED named specifier (`{ X as X }`). An aliased-to-a-DIFFERENT-name named
 // specifier's local name identifies a DIFFERENT export and a type-only binding at either
 // granularity does not satisfy the value-binding promise — neither counts here.
+//
+// DELIBERATE DEVIATION (S-003, REQ-TSD-01.15, owner-ratified): self-alias satisfying
+// idempotency diverges from this predicate's twin in `react/ops.ts` (which rejects it) —
+// FIT-41 pins the divergence as a POSITIVE expected-mismatch row, never a row exclusion.
 function satisfiesIdempotency(bound: BoundName): boolean {
   if (!bound.valueBound) return false;
-  return bound.kind !== "named" || !bound.aliased;
+  return bound.kind !== "named" || !bound.aliased || bound.selfAliased;
 }
 
 // A valid MERGE target (Step 3) is a declaration that (a) is NOT type-only and (b) has a
@@ -104,27 +118,58 @@ function isValueNamespaceClaimed(ast: SourceFile, name: string): boolean {
   );
 }
 
+// S-003, REQ-TSD-01.21: counts the file's LEADING directive prologue — string-literal
+// `ExpressionStatement`s starting at statement 0, stopping at the first non-directive
+// statement (a directive is only live when first-in-scope; a string literal appearing
+// later in the file is an ordinary expression statement, not a directive). A shebang is
+// SourceFile leading trivia, never a statement, so it never contributes here — the Create
+// branch below falls through to its pre-existing `addImportDeclaration` path for a shebang
+// file, leaving REQ-TSD-01.33's fail-closed containment untouched (ADR-03).
+function leadingDirectiveCount(ast: SourceFile): number {
+  let count = 0;
+  for (const statement of ast.getStatements()) {
+    if (statement.getKind() !== SyntaxKind.ExpressionStatement) break;
+    const expression = statement.asKindOrThrow(SyntaxKind.ExpressionStatement).getExpression();
+    if (expression.getKind() !== SyntaxKind.StringLiteral) break;
+    count++;
+  }
+  return count;
+}
+
 /**
  * Adds `import { name } from "from";`, or merges `name` into an EXISTING NAMED-import
  * clause from the SAME module `from` if one already exists (REQ-TSD-01):
  *
  * 1. Already-bound (idempotency, SAME module only): if an EXISTING declaration for `from`
  *    has a VALUE-BOUND specifier whose local name equals `name`, AND that specifier is a
- *    default specifier, a namespace specifier, or an UNALIASED named specifier — this is a
- *    no-op. Runs strictly BEFORE Step 2 (REQ-TSD-01.24, mutant-kill ordering invariant): a
- *    same-module already-bound specifier is a no-op, NEVER a collision reject.
+ *    default specifier, a namespace specifier, an UNALIASED named specifier, or a
+ *    SELF-ALIASED named specifier (`{ name as name }`) — this is a no-op. The self-aliased
+ *    case is a DELIBERATE DEVIATION from the `react` dialect's twin predicate, which rejects
+ *    it (REQ-TSD-01.15, owner-ratified). Runs strictly BEFORE Step 2 (REQ-TSD-01.24,
+ *    mutant-kill ordering invariant): a same-module already-bound specifier is a no-op,
+ *    NEVER a collision reject.
  * 2. Collision: otherwise, if `name` is CLAIMED anywhere in the file — EITHER the local name
  *    of ANY import specifier, in ANY module, value-bound or type-only alike, OR a top-level
  *    value-namespace declaration (`isValueNamespaceClaimed`) — REJECT via `dialectError`
  *    BEFORE any AST mutation.
  * 3. Merge: otherwise, if an EXISTING declaration for `from` has a non-type-only
- *    named-import clause, add a NEW, UNALIASED named specifier to it. (Reaching this step
- *    guarantees `name` is claimed nowhere in the file, so the merge is always safe.)
- * 4. Create: otherwise (no declaration for `from`; every one is type-only, default-only, or
- *    namespace-only), INSERT a FRESH, SEPARATE `import { name } from "from";` — a
- *    type-only, default-only, or namespace-only declaration's clause structure is NEVER
- *    mutated to graft a named binding onto it. (Reaching this step also guarantees `name` is
- *    claimed nowhere in the file, so the fresh declaration never collides.)
+ *    named-import clause — INCLUDING an empty one (`import {} from "from"`) — add a NEW,
+ *    UNALIASED named specifier to it. Walks EVERY declaration for `from` (a module can be
+ *    imported via several separate declarations) and merges into the FIRST one in source
+ *    order (REQ-TSD-01.22/.25 — a known, deliberate first-match asymmetry, contrast
+ *    `removeImport`'s all-match posture). A side-effect-only import (`import "from";`, no
+ *    clause at all) is never a merge target and is never converted into a combined form
+ *    (REQ-TSD-01.20, Class B) — it is left byte-unchanged, coexisting beside the fresh
+ *    declaration Step 4 inserts. (Reaching this step guarantees `name` is claimed nowhere in
+ *    the file, so the merge is always safe.)
+ * 4. Create: otherwise (no declaration for `from`; every one is type-only, default-only,
+ *    namespace-only, or side-effect-only), INSERT a FRESH, SEPARATE
+ *    `import { name } from "from";` — a type-only, default-only, or namespace-only
+ *    declaration's clause structure is NEVER mutated to graft a named binding onto it. A
+ *    leading directive prologue (`"use client";` and similar) is preserved as the file's
+ *    first statement(s) — the fresh declaration is inserted AFTER it, never above
+ *    (REQ-TSD-01.21). (Reaching this step also guarantees `name` is claimed nowhere in the
+ *    file, so the fresh declaration never collides.)
  *
  * Idempotent: calling this twice with the same `name`+`from` produces a single import line,
  * never a duplicate (REQ-TSD-03.10).
@@ -155,7 +200,12 @@ export function addImport(ast: SourceFile, name: string, from: string): void {
     return;
   }
 
-  ast.addImportDeclaration({ moduleSpecifier: from, namedImports: [name] });
+  const directiveCount = leadingDirectiveCount(ast);
+  if (directiveCount === 0) {
+    ast.addImportDeclaration({ moduleSpecifier: from, namedImports: [name] });
+  } else {
+    ast.insertImportDeclaration(directiveCount, { moduleSpecifier: from, namedImports: [name] });
+  }
 }
 
 // Shared `{ export?: boolean }` shape across addFunction/addVariable/addClass — addVariable

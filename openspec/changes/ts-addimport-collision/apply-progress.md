@@ -223,3 +223,120 @@ session's launch prompts. Flagged for the orchestrator.
 Ready for `/build --scope=slice:S-002` (injection-safety validation gate, REQ-TSD-13) or
 `/build --scope=slice:S-003` (input-shape variants) — both list `Requires: S-001`/`S-000`
 respectively per the Build Order table; S-002 additionally requires S-001 specifically.
+
+## S-003: Input-shape variants — merge/create branch edge data
+
+**Status**: complete (5/5 tasks)
+
+### Safety Net (Phase 0)
+
+`bun test` baseline before this slice: **2075 pass, 0 fail, 4517 expect() calls, 191 files**
+(post S-001) — all green.
+
+### Pre-implementation probe (empirical, not assumed)
+
+Before writing any test, each of S-003's ten scenarios was driven through the public handle
+against the S-000/S-001 code (a throwaway probe script, not committed) to determine honestly
+which shapes the ported V8 algorithm already handles correctly as a byproduct of its general
+form, vs which need genuinely new logic. Result: **8 of 10 already pass** (`.7`, `.9`, `.18`
+type + interface, `.20`, `.22`, `.23`, `.29`, `.30`) — the general `boundNamesIn`/
+`isValueNamespaceClaimed`/`isNonTypeOnlyNamedImportClause` machinery from S-000/S-001 already
+covers these shapes without any shape-specific special-casing. **2 genuinely require new
+production code**: `.15` (self-alias — the current `satisfiesIdempotency` verbatim-ported from
+react REJECTS `{ X as X }` instead of no-op'ing it) and `.21` (directive prologue — the current
+Create branch always calls `addImportDeclaration`, which inserts ABOVE the directive, silently
+neutering it).
+
+### TDD Cycle Evidence — S-003
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| S-003.3 | `ops-addImport.test.ts::REQ-TSD-01.15: self-alias {X as X} — idempotent no-op` | integration | Threw `dialect operation failed: addImport("X") on "a.ts" — a value or import binding named "X" already exists...` instead of no-op'ing — `satisfiesIdempotency` did not yet recognize self-alias, so Step 1 fell through to Step 2's claimed-scan and rejected | ✅ | n/a — single-case owner-ratified deviation, explicitly bounded by the spec, not a class of inputs | — |
+| S-003.4 | `ops-addImport.test.ts::REQ-TSD-01.21: directive prologue — import lands AFTER it, byte-exact golden` | integration | `Expected: "\"use client\";\n\nimport {...} ...` / `Received: "import {...} ...\n\n\"use client\";..."` — pre-fix Create branch called `addImportDeclaration` unconditionally, inserting above the directive | ✅ | 2nd case (two leading directives) forces genuine statement-counting logic — an implementation hard-coding "insert at index 1" would fail this case while passing the single-directive one | — |
+| S-003.4 (triangulation) | `ops-addImport.test.ts::REQ-TSD-01.21 (triangulation): TWO leading directives` | integration | Same shape as above — both directives landed after the spuriously-inserted import instead of staying first | ✅ | completes the 0/1/2-directive matrix (0 already covered by every other create-branch case in this file) | — |
+| S-003.1/coverage | `ops-addImport.test.ts::REQ-TSD-01.7` (type-only+diff-name → create), `.9` (aliased type-only → create) | integration | Passed immediately — `isValueNamespaceClaimed`'s file-wide scan and `boundNamesIn`'s specifier-level `isTypeOnly()` read already correctly exclude these from CLAIMED, ported unchanged from S-001 | ✅ (unchanged) | n/a — regression coverage, not driving | — |
+| S-003.1/coverage | `ops-addImport.test.ts::REQ-TSD-01.18` (`type` alias + `interface` exempt → create, 2 sub-cases) | integration | Passed immediately — `isValueNamespaceClaimed` never checks `type`/`interface` declarations (ADR-0039 exemption, already true pre-S-003) | ✅ (unchanged) | n/a — regression coverage | — |
+| S-003.2/coverage | `ops-addImport.test.ts::REQ-TSD-01.22` (multi-decl → merge FIRST, scan ALL) | integration | Passed immediately — the merge-target search already uses `.find()` (first match) and the claimed-scan already uses `.some()` over ALL `ast.getImportDeclarations()`, not scoped to one decl | ✅ (unchanged) | n/a — regression coverage | — |
+| S-003.2/coverage | `ops-addImport.test.ts::REQ-TSD-01.23` (empty `{}` clause is a valid merge target) | integration | Passed immediately — `isNonTypeOnlyNamedImportClause` already checks for the `NamedImports` NODE's presence, not specifier count | ✅ (unchanged) | n/a — regression coverage | — |
+| S-003.2/coverage | `ops-addImport.test.ts::REQ-TSD-01.29`/`.30` (mixed default+named: merge to named / default-name no-op) | integration | Passed immediately — `boundNamesIn` already collects BOTH the default and named clause from one declaration; this is exactly the Class A bucket-4 fix S-000's general port already closed as a byproduct, not a special case | ✅ (unchanged) | n/a — regression coverage; confirms S-000's port already subsumed this Class A member | — |
+| S-003.3/coverage | `ops-addImport.test.ts::REQ-TSD-01.20` (side-effect import preserved, separate named decl, Class B) | integration | Passed immediately — `isNonTypeOnlyNamedImportClause` already returns `false` for a side-effect-only declaration (no `ImportClause` at all → `getNamedBindings()` is `undefined`), so it was never a merge target; Step 4 already inserts a fresh separate declaration | ✅ (unchanged) | n/a — regression coverage | — |
+| Refactor | — | — | n/a | ✅ (all green throughout) | n/a | Rewrote `addImport`'s JSDoc Steps 1/3/4 prose to document the self-alias deviation, the first-match/side-effect-coexistence facts, and the directive-prologue placement fact — no behavior change, confirmed by full-suite green before/after |
+
+### Files Changed
+
+| File | Action | What Was Done |
+|---|---|---|
+| `src/dialects/typescript/ops.ts` | Modified | Added `selfAliased` to `BoundName` + `boundNamesIn`; changed `satisfiesIdempotency` to treat a self-aliased named specifier as idempotency-satisfying (deliberate deviation, REQ-TSD-01.15); added `leadingDirectiveCount` (counts leading string-literal `ExpressionStatement`s); Create branch now calls `ast.insertImportDeclaration(directiveCount, ...)` when a directive prologue exists, `ast.addImportDeclaration(...)` otherwise (shebang path untouched — 0 directives, same branch as before); rewrote `addImport`'s JSDoc Steps 1/3/4 |
+| `test/dialects/typescript/ops-addImport.test.ts` | Modified | Added a new describe block covering `.7`/`.9`/`.15`/`.18`(×2)/`.20`/`.21`(+triangulation)/`.22`/`.23`/`.29`/`.30` |
+| `test/dialects/typescript/golden/directive-add-import-before.txt` | Created | Golden fixture: seed file with a `"use client";` directive prologue |
+| `test/dialects/typescript/golden/directive-add-import-after.txt` | Created | Golden fixture: expected output, import inserted after the directive |
+| `openspec/changes/ts-addimport-collision/slices.md` | Modified | Marked S-003's 5 tasks `[x]` |
+
+REQ-TSD-03.8 (CRLF + addImport) was NOT modified — its golden fixtures (`crlf-add-import-before.txt`/
+`crlf-add-import-after.txt`) and its test in `dialect.test.ts` already existed pre-change (from the
+archived `stage-5-first-dialect` change); confirmed still green post-S-003 (regression-only, no new
+code, per the slice's own "confirm .8 stays green" framing — its goldens were already committed, so
+the only S-003.5 golden work was `.21`'s pair).
+
+### Deviations from Design
+
+**One flagged, non-silent deviation** — same pattern as S-000/S-001: 8 of the 10 covered
+scenarios (`.7`, `.9`, `.18`×2, `.20`, `.22`, `.23`, `.29`, `.30`) passed **immediately** against
+the pre-S-003 code, rather than failing red first. Root cause, verified empirically via a
+throwaway probe before writing any test (not assumed): S-000's port of the general V8 algorithm
+(`boundNamesIn`, `isValueNamespaceClaimed`, `isNonTypeOnlyNamedImportClause`) already handles
+these ten shapes correctly as a natural consequence of its general form — none of them needed
+shape-specific special-casing. This is consistent with the spec's own framing: `.30` is
+explicitly a Class A bucket-4 member (same-local-name idempotency vs MIXED shapes) that the
+port's general default/namespace idempotency logic already subsumed at S-000, and `.7`/`.9`/`.18`/
+`.22`/`.23`/`.29` were never separately-naive-coded special cases in the original shipped
+`addImport` to begin with — the V8 port's uniform treatment closes them for free. The genuinely
+NEW behavior this slice adds — self-alias idempotency (`.15`) and directive-prologue-aware
+insertion (`.21`) — DID fail red for the right reason (verified: a real thrown collision reject
+where a no-op was expected, and a real byte-mismatch with the import misplaced above the
+directive). No test was modified to make it pass; no implementation was written ahead of a
+failing test for the behavior it drives.
+
+No other deviations — implementation matches design (§4.3 data model's `leadingDirectiveCount`
+addition, §4.4's directive-prologue Create-branch contract). The self-alias deviation's exact
+mechanism (`selfAliased` field on `BoundName`, threaded through `satisfiesIdempotency`) was not
+spelled out in design §4.3's terse ported-signature comment (which mirrors react's unmodified
+formula) — the deviation itself IS in the algorithm digest (slices.md) and the signed spec
+(REQ-TSD-01 Step 1, REQ-TSD-01.15), so this is filling in an implementation detail the design left
+to the executor, not contradicting a design decision.
+
+### Halt / Issues Found
+
+None.
+
+### Post-Slice Audit (Step 7c)
+
+Skipped — same reason as S-000/S-001: no architecture baseline/ADR context was injected into
+this run's launch prompt. Flagged for the orchestrator.
+
+### Test Results
+
+- `bun test test/dialects/typescript/ops-addImport.test.ts`: **28 pass, 0 fail, 122 expect() calls**
+  (up from 16 pre-slice, +12 new tests)
+- `bun test` (targeted: `dialect.test.ts`, `ops-addImport.test.ts`, `ops-declarations.test.ts`,
+  `ops-removeImport.test.ts`, `ops-exact-set.test.ts`, `dialect-modify.e2e.test.ts`,
+  `dialect-handle.test.ts`, `fit-raw-sweep.test.ts`): **124 pass, 0 fail, 356 expect() calls** —
+  includes REQ-TSD-03.8 (CRLF+addImport) confirmed still green
+- `bun test` (full suite, post-change): **2087 pass, 0 fail, 4541 expect() calls, 191 files** — up
+  from the 2075/191 S-001 baseline by exactly 12 new tests, zero regressions
+- `bun run typecheck`: clean, no errors
+
+### Overall Progress
+
+| Metric | Value |
+|---|---|
+| Slices in this scope | 1 (S-003) |
+| Slices complete | 1 |
+| Slices in progress | 0 |
+| Tasks complete | 5/5 |
+
+### Next Step
+
+Ready for `/build --scope=slice:S-002` (injection-safety validation gate — `Requires: S-001`,
+already satisfied) or `/build --scope=slice:S-004` (explicit contract postures — `Requires:
+S-003`, now satisfied) per the Build Order table.
