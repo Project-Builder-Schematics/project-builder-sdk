@@ -35,6 +35,32 @@ describe("e2e — dialect modify (S-002, real TypeScript dialect)", () => {
     expect(fake.committedTree()).toEqual(goldenTree);
   });
 
+  // ts-addimport-collision S-005.2 — the failure-path twin of the case directly above: closes
+  // the "shape-safe merge + collision reject" pair through the SAME public handle (Step 2,
+  // REQ-TSD-01, design §4.4). Dual observable per house convention: synchronous throw + the
+  // target file byte-unchanged on re-read after the catch, no directives ever committed.
+  it("Flow 1 (ts-addimport-collision S-001/S-005): addImport rejects a file-wide collision through the public handle, byte-unchanged", async () => {
+    const seed = 'import { readFileSync } from "node:fs";\n';
+    const fake = new ContractFake({ seed: { "a.ts": seed } });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:other");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client: fake });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("already exists");
+    expect((caught as Error).cause).toBeUndefined();
+    expect(fake.committedTree()).toEqual(new Map());
+    expect(await fake.read("a.ts")).toBe(seed);
+  });
+
   it("Flow 1: addImport + .modify() on one file coalesce into a single committed modify", async () => {
     const fake = new ContractFake({ seed: { "a.ts": golden("add-import-before.txt") } });
 

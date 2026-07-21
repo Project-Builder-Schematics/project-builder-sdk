@@ -730,3 +730,156 @@ Flagged for the orchestrator, as in S-000/S-001/S-002/S-003.
 S-004 is complete. S-005 (`Requires: S-002, S-004`) is now unblocked — both its prerequisites are
 satisfied. Ready for `/build --scope=slice:S-005` (cross-dialect parity guarantee + release
 documentation), the final slice per the Build Order table.
+
+## S-005: Cross-dialect parity guarantee + release documentation
+
+**Status**: complete (4/4 tasks). LAST slice of this change — no production code shipped this
+slice (per its own scope: architectural fitness + e2e + docs only). `src/dialects/typescript/
+ops.ts` and every react-dialect file were read-only this slice, confirmed via `git diff --stat`
+touching only test files, `CHANGELOG.md`, and this change's own artefacts.
+
+### Safety Net (Phase 0)
+
+`bun test` baseline before this slice: **2102 pass, 0 fail, 4684 expect() calls, 191 files**
+(post S-004) — all green.
+
+### S-005.1 — FIT-41 predicate-parity fitness (pin, not defect-discovery)
+
+**Pre-write probe (Strict TDD posture for pins, same discipline as S-004)**: before writing the
+committed fitness test, a throwaway probe script (`scratchpad/probe-parity.ts`, not committed)
+ran a 24-row `(seed, name, from)` battery through BOTH `ts.find(...).addImport` and
+`react.find(...).addImport` via the public handle (`makeSpyClient` + `defineFactory`), covering
+the design's five bucket families (merge/idempotency/create/type-only-collision/cross-module-
+collision) plus the self-alias row, and printed each dialect's classified verdict
+(no-op/reject/merge/create) side by side.
+
+**First probe run surfaced one authoring error, not a drift finding**: the `.9`
+("aliased type-only → create") row was initially fixtured as `import { type X as Y } from "m";`
+(SPECIFIER-level type-only inside a non-type-only DECLARATION) — this is actually a valid MERGE
+target (`decl.isTypeOnly()` is false, so `isNonTypeOnlyNamedImportClause` returns true), and both
+dialects correctly classified it `merge`, not `create`. Re-checked against the signed spec's own
+`.9` scenario table row (`import type { X as XT } from m` — DECL-level type-only, aliased) and
+corrected the fixture to match; the corrected row classified `create` on both dialects as
+expected. This was a battery-authoring mistake caught by re-reading the spec, not a genuine
+TS/React disagreement — recorded here per the honesty rule (empirically verify, don't assume).
+
+**Final probe result (all 24 rows, re-run after the `.9` correction)**: 23 of 24 rows AGREE
+(TS verdict === React verdict); the self-alias row (`.15`) DIVERGES exactly as ADR-01 N1
+predicts — TS `no-op`, React `reject`. Zero unexpected disagreements. This is the expected
+green-on-arrival outcome the launch prompt frames as the norm: FIT-41 is a drift GUARD over
+already-correct, already-parity-matched production code, not a defect-discovery test.
+
+**Committed test** (`test/fitness/fit-41-addimport-parity.test.ts`): 23-row `PARITY_ROWS` table
+(REQ-ID + bucket + description + seed/name/from per row, `describe.each`-driven, one `it` per
+row asserting `reactVerdict === tsVerdict`) + a dedicated self-alias divergence describe block
+(two separate `it`s: TS asserted `no-op`, React asserted `reject` — the row is NEVER excluded or
+skipped, per ADR-01 N1's explicit instruction) + a red-proof group exercising the pure
+`classifyOutcome`/`countDeclarationsFor` classification engine directly (5 cases: reject-wins,
+zero-modifies no-op, unchanged-declaration-count merge, increased-declaration-count create, and
+an unrelated-module declaration-count that must NOT perturb classification) + one sanity test
+confirming the battery is non-vacuous and covers all five design buckets. Verdict classification
+is structural (throw / directive-count / declaration-count-for-`from`), never byte-exact —
+parity is about outcome-KIND agreement, matching design §4.4 F14 (message text legitimately
+diverges by dialect house style; FIT-41 never compares it).
+
+`react.find()` requires a `.tsx` path (REQ-RXD-02) — every React-leg run in the battery seeds
+`"a.tsx"` (plain import statements, no JSX needed for `addImport`) while the TS-leg seeds `"a.ts"`
+with the identical content; both dialects' public `find()` entry points are exercised, not their
+internal `ops.ts` functions directly.
+
+### S-005.2 — e2e collision-reject case (closes the Flow 1 pair)
+
+Added one case to `test/e2e/dialect-modify.e2e.test.ts`'s existing S-000 describe block,
+immediately after the S-000 merge case it pairs with (per the file's own header comment, which
+already named this as the pending "collision reject" half of the pair). Cross-module collision
+shape (`import { readFileSync } from "node:fs";` seeded, `addImport("readFileSync",
+"node:other")` called) driven through the real `ContractFake` + public handle — asserts the dual
+observable: synchronous throw, `"already exists"` substring present, `.cause` undefined, nothing
+promoted to `committedTree()`, and `fake.read("a.ts")` byte-identical to the seed after the catch.
+Green on first run (pin against S-001's already-shipped Step 2, not new production behavior).
+
+### S-005.3 — CHANGELOG.md
+
+Confirmed no `CHANGELOG.md` existed at repo root before creating one (`fd`/`ls` check, per the
+launch prompt's halt-if-exists instruction). Content lifted from the signed spec's own
+"Behaviour-change note" (`specs/typescript-dialect/spec.md` lines ~165-229): Class A's full
+five-member list (type-only merge; cross-module + value-namespace collisions;
+aliased-to-different-name collisions; same-local-name idempotency vs default/namespace/mixed;
+directive-prologue placement), Class B's sole member (`.20` side-effect import preserved +
+separate named decl) with its `.modify()` escape note, an injection-safety paragraph scoped
+precisely per the spec's own instruction (closes `addImport`'s injection only, siblings remain
+raw-spliced, pointer to `openspec/pending-changes.md`), and the shebang entry under the SHIPPED
+fallback arm (ADR-03): no shebang behaviour change — existing fail-closed containment pinned as a
+regression guard, insertion deferred, pointed at the exact pending-changes.md followup row S-004.4
+registered ("ADR-03 shebang-aware insertion, registered at S-004"). No migration guide (pre-release,
+`0.0.0`, per package.json). English, factual, no marketing language.
+
+### S-005.4 — installed-consumer parity confirmation (verify-only, no code)
+
+`bun test test/e2e/installed-consumer.e2e.test.ts --timeout=30000`: **16 pass, 0 fail, 66
+expect() calls** — op-set membership and signature parity (proposal success criterion #6)
+unaffected by this change. This file was READ-ONLY this slice (design's own file table marks it
+read-only) — no edit was needed or made; this task is a confirmation run, not an implementation.
+
+### Deviations from Design
+
+**One flagged, self-corrected authoring deviation** — S-005.1's first probe pass used a wrong
+fixture for the `.9` battery row (specifier-level vs decl-level type-only alias), caught by
+re-reading the signed spec's own scenario table before committing the test, corrected, and
+re-probed. No incorrect assertion was ever committed; see the dedicated section above for the
+full account, per the harness's honesty rule (verify empirically, document the correction rather
+than silently fixing it).
+
+No other deviations — FIT-41 matches design §4.7's bucket cross-reference and ADR-01's N1
+positive-divergence-assertion mandate; the e2e case matches design §4.2b's Flow 1 extension; the
+CHANGELOG matches design §4.2/§4.8's file-table instruction and the spec's own behaviour-change
+note verbatim in substance (paraphrased for changelog prose, not copy-pasted spec markup, since a
+changelog entry and a spec scenario serve different readers — the FACTS carried over unchanged).
+
+### Halt / Issues Found
+
+None.
+
+### Post-Slice Audit (Step 7c)
+
+Skipped — same reason as every prior slice in this change: no separate `architecture.adrs`
+artefact was injected into this run's launch prompt beyond the inline "Architecture context"
+paragraph (already consumed above: ARCH-2's falsified premise, the mirror-in-leaf strategy FIT-41
+implements). Flagged for the orchestrator, as in S-000/S-001/S-002/S-003/S-004. This is also this
+change's LAST slice — the orchestrator's `sdd-verify --mode=final` (Step 11b) is the next
+architectural checkpoint regardless.
+
+### Test Results
+
+- `bun test test/fitness/fit-41-addimport-parity.test.ts`: **31 pass, 0 fail, 36 expect() calls**
+- `bun test test/e2e/dialect-modify.e2e.test.ts`: **7 pass, 0 fail, 16 expect() calls** (up from
+  6 pre-slice, +1 new collision-reject case)
+- `bun test test/e2e/installed-consumer.e2e.test.ts`: **16 pass, 0 fail, 66 expect() calls**
+  (unchanged — confirmation run, S-005.4)
+- `bun test` (targeted: `fit-41-addimport-parity.test.ts`, `dialect-modify.e2e.test.ts`,
+  `installed-consumer.e2e.test.ts`, `ops-addImport.test.ts`, `dialect.test.ts`,
+  `test/dialects/react/*`, `--timeout=30000`): **302 pass, 0 fail, 1022 expect() calls, 10 files**
+- `bun test` (full suite, `--timeout=30000`): **2134 pass, 0 fail, 4725 expect() calls, 192
+  files** — up from the 2102/191 S-004 baseline by exactly 32 new tests (31 in the new
+  `fit-41-addimport-parity.test.ts` file + 1 in `dialect-modify.e2e.test.ts`) and exactly 1 new
+  file, zero regressions
+- `bun run typecheck`: clean, no errors
+
+### Overall Progress
+
+| Metric | Value |
+|---|---|
+| Slices in this scope | 1 (S-005) |
+| Slices complete | 1 |
+| Slices in progress | 0 |
+| Tasks complete | 4/4 |
+
+### Next Step
+
+**S-005 is complete — all 6 slices of `ts-addimport-collision` (S-000 through S-005) are now
+done.** Ready for `/evaluate` — `sdd-verify --mode=final` (this change's `adversarial_review:
+required` per design.md's closing line: L triage + `security (code execution): high` sensitive
+area, so verify-final should run judgment-day blind), followed by archive-time reconciliation of
+`openspec/pending-changes.md` rows 342/343/459/340/339(a)/456/460 and the three new rows
+registered at S-004.4/design §4.8 (sibling raw-splice exposure, shebang-aware insertion, sibling
+collision-scan asymmetry) per design.md's own archive-time instruction.

@@ -226,10 +226,10 @@ regression guard, not upgraded to insertion this change.
 except the self-alias row, which asserts the KNOWN divergence explicitly (never excluded).
 
 ### Tasks
-- [ ] S-005.1 Create `test/fitness/fit-41-addimport-parity.test.ts` (renumbered — see drift note above): shared battery across merge/idempotency/create/type-only-collision/cross-module-collision buckets; self-alias as a positive expected-divergence assertion (ADR-01 N1)
-- [ ] S-005.2 Complete `dialect-modify.e2e.test.ts` with the collision-reject case through the public handle (Flow 1, closes the "shape-safe merge + collision reject" pair)
-- [ ] S-005.3 Create `CHANGELOG.md`: Class A five-member list, Class B (.20) with its `.modify()` escape note, shebang entry CONDITIONAL on ADR-03's fallback (none shipped — followup noted instead)
-- [ ] S-005.4 Confirm `installed-consumer.e2e.test.ts` op-set membership/signature parity is unaffected (proposal success criterion #6)
+- [x] S-005.1 Create `test/fitness/fit-41-addimport-parity.test.ts` (renumbered — see drift note above): shared battery across merge/idempotency/create/type-only-collision/cross-module-collision buckets; self-alias as a positive expected-divergence assertion (ADR-01 N1)
+- [x] S-005.2 Complete `dialect-modify.e2e.test.ts` with the collision-reject case through the public handle (Flow 1, closes the "shape-safe merge + collision reject" pair)
+- [x] S-005.3 Create `CHANGELOG.md`: Class A five-member list, Class B (.20) with its `.modify()` escape note, shebang entry CONDITIONAL on ADR-03's fallback (none shipped — followup noted instead)
+- [x] S-005.4 Confirm `installed-consumer.e2e.test.ts` op-set membership/signature parity is unaffected (proposal success criterion #6)
 
 ---
 
