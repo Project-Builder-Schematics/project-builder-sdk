@@ -59,7 +59,10 @@ arguments remain raw-spliced, author-trusted input; tracked separately in
 `openspec/pending-changes.md`, out of scope for this change.
 
 **No change** — a shebang file (`#!/usr/bin/env node`) still rejects `addImport` calls with a
-contained, fail-closed error (zero directives, target file byte-unchanged); this existing
-behaviour is now pinned as a regression guard rather than upgraded to successful insertion.
-Shebang-aware insertion is deferred and tracked as a followup in
-`openspec/pending-changes.md` ("ADR-03 shebang-aware insertion, registered at S-004").
+contained, fail-closed error (zero directives, target file byte-unchanged) **on the
+fresh-create path with no directive prologue** — the only path that inserts at the very top
+of the file; this existing behaviour is pinned as a regression guard rather than upgraded to
+successful insertion. A shebang file whose import lands via another branch succeeds normally
+(merging into an existing import, or creating below a directive prologue — the shebang stays
+on line 1 in both). Shebang-aware top-of-file insertion is deferred and tracked as a followup
+in `openspec/pending-changes.md` ("ADR-03 shebang-aware insertion, registered at S-004").

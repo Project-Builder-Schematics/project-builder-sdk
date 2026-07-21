@@ -21,8 +21,10 @@
  * S-004 — REQ-TSD-01.25 (CORRECTED at V3.2) pins the match-cardinality asymmetry: `addImport`
  * merges into ONLY the first declaration; `removeImport` SEARCHES every declaration matching
  * `from` but REMOVES the binding from only the first one it finds it in. REQ-TSD-01.33 pins
- * ADR-03's pre-authorized FALLBACK: a shebang file stays a HANDLE-contained fail-closed reject
- * (design ADR-03) — shebang-aware insertion is deferred as a followup, NOT built this change.
+ * ADR-03's pre-authorized FALLBACK: a shebang file rejects HANDLE-contained and fail-closed on
+ * the fresh-create-no-directive path only — the sole branch that inserts at the very top of the
+ * file; merge and directive-prologue creates succeed on shebang files with the shebang intact.
+ * Shebang-aware top-of-file insertion is deferred as a followup, NOT built this change.
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -297,6 +299,26 @@ describe("addImport — REQ-TSD-01 input-shape variants (S-003, ts-addimport-col
     );
   });
 
+  it("REQ-TSD-01.21 (comment prologue, block): a leading block comment ABOVE the directive must not let the import land BETWEEN them — the directive stays the file's first statement", async () => {
+    await expectSingleModify(
+      '/* lic */\n"use client";\nconst x = 1;\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "node:fs");
+      },
+      '/* lic */\n"use client";\n\nimport { X } from "node:fs";\n\nconst x = 1;\n'
+    );
+  });
+
+  it("REQ-TSD-01.21 (comment prologue, line): a leading line comment ABOVE the directive must not let the import land BETWEEN them — the directive stays the file's first statement", async () => {
+    await expectSingleModify(
+      '// lic\n"use client";\nconst x = 1;\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "node:fs");
+      },
+      '// lic\n"use client";\n\nimport { X } from "node:fs";\n\nconst x = 1;\n'
+    );
+  });
+
   it("REQ-TSD-01.22: multiple declarations for the same module — merges into the FIRST (source order)", async () => {
     await expectSingleModify(
       'import { a } from "m";\nimport { b } from "m";\n',
@@ -384,7 +406,7 @@ describe("addImport — REQ-TSD-13 injection-safety validation gate (S-002, ts-a
     for (const name of invalidNames) {
       const { err } = await expectCollisionReject("const x = 1;\n", [name, "m"]);
       expect(err.message).toContain("valid JavaScript identifier");
-      if (name.trim() !== "") {
+      if (name !== "") {
         expect(err.message).not.toContain(name);
       }
     }
@@ -497,8 +519,10 @@ describe("addImport — REQ-TSD-01.33 shebang fallback (S-004, ts-addimport-coll
     const err = caught as Error;
     // Same generic foreign-wrap tail #invokeContained uses for any uncaught internal error
     // (dialect-handle.ts:248-258) — ts-morph's ManipulationError propagates out of addImport
-    // itself (the shebang is SourceFile leading trivia, not a statement `.21`'s mechanism can
-    // target) and is caught + branded at the HANDLE boundary, never inside the op.
+    // itself (top-of-file insertion collides with the shebang's leading trivia) and is caught
+    // + branded at the HANDLE boundary, never inside the op. This reject is specific to the
+    // fresh-create-no-directive branch: with a directive prologue or a mergeable import
+    // present, addImport takes a different branch and succeeds with the shebang preserved.
     expect(err.message).toBe('dialect operation failed: addImport() on "a.ts" threw');
     expect(err.cause).toBeUndefined();
     expect(collectModifies(emitted)).toHaveLength(0);

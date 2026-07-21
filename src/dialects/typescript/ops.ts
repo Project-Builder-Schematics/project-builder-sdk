@@ -30,6 +30,7 @@
 import { SyntaxKind, type ImportDeclaration, type SourceFile } from "ts-morph";
 import { dialectError } from "../../core/dialect-error.ts";
 import { handlePathFor } from "../../core/dialect-handle.ts";
+import { elementNameEcho } from "../../core/reject-tail.ts";
 // A misnomer surviving from its JSX-only origin (`jsx-name-validator.ts`) — this dialect is
 // its first non-JSX consumer, sharpening ARCH-2's now-realised "one consumer" debt (ADR-02).
 import { assertValidImportBinding } from "../../core/jsx-name-validator.ts";
@@ -145,6 +146,22 @@ function leadingDirectiveCount(ast: SourceFile): number {
   return count;
 }
 
+// Judgment-day-confirmed WARNING fix: `SourceFile#insertImportDeclaration`'s `index` argument
+// is NOT a statement index — ts-morph's `_insertChildren` resolves it against
+// `getStatementsWithComments()`, which counts leading COMMENT TRIVIA as its own entries ahead
+// of the statements they precede. Passing `leadingDirectiveCount` (a statement-only count, no
+// comments) straight through as that index silently lands the import BETWEEN a leading comment
+// and the directive it precedes (`/* lic */` + `"use client";` -> `/* lic */` + new import +
+// `"use client";`), demoting the directive off statement position 0 and voiding it — a license
+// header above a directive is an ordinary file shape, not an edge case. This locates the LAST
+// directive statement's own position in the comment-inclusive list and inserts immediately
+// after it, so a comment stays above the directive it was already above, and the directive
+// stays the file's first real statement either way.
+function directiveInsertIndex(ast: SourceFile, directiveCount: number): number {
+  const lastDirective = ast.getStatements()[directiveCount - 1];
+  return ast.getStatementsWithComments().findIndex((statement) => statement === lastDirective) + 1;
+}
+
 /**
  * Adds `import { name } from "from";`, or merges `name` into an EXISTING NAMED-import
  * clause from the SAME module `from` if one already exists (REQ-TSD-01). `name` is
@@ -227,8 +244,13 @@ export function addImport(ast: SourceFile, name: string, from: string): void {
     declarationBoundNames.some(([, bound]) => bound.some((b) => b.localName === name)) ||
     isValueNamespaceClaimed(ast, name);
   if (claimed) {
+    // `name` is POST-VALIDATION here (Step 0 already ran) but its grammar has no length
+    // ceiling — echoed through `elementNameEcho` (the wide, marked 100-char bound shared with
+    // `setJsxProp`'s reject tails), never left raw, so a pathological-length name can't blow up
+    // this message (REQ-TSD-01.32 pins realistic names, e.g. 29 chars, staying UNCUT).
+    const echoedName = elementNameEcho(name);
     throw dialectError(
-      `addImport("${name}") on "${handlePathFor(ast)}" — a value or import binding named "${name}" already exists; ` +
+      `addImport("${echoedName}") on "${handlePathFor(ast)}" — a value or import binding named "${echoedName}" already exists; ` +
         `TypeScript forbids two bindings sharing a name. Rename or remove the existing one, or edit it with .modify().`
     );
   }
@@ -243,7 +265,10 @@ export function addImport(ast: SourceFile, name: string, from: string): void {
   if (directiveCount === 0) {
     ast.addImportDeclaration({ moduleSpecifier: from, namedImports: [name] });
   } else {
-    ast.insertImportDeclaration(directiveCount, { moduleSpecifier: from, namedImports: [name] });
+    ast.insertImportDeclaration(directiveInsertIndex(ast, directiveCount), {
+      moduleSpecifier: from,
+      namedImports: [name],
+    });
   }
 }
 
