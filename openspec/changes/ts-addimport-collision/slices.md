@@ -142,11 +142,11 @@ declaration), WHEN `addImport` runs, THEN it REJECTS synchronously before any AS
 path-carrying `dialectError`, zero directives, byte-unchanged.
 
 ### Tasks
-- [ ] S-001.1 Extract `isValueNamespaceClaimed` from `assertNoCollision`; wire it into BOTH `assertNoCollision` and `addImport`'s new Step 2 (ADR-01)
-- [ ] S-001.2 Add file-wide claimed-scan (import specifiers + value-namespace) as Step 2, AFTER Step 1; inline `dialectError` with path clause + distinguishing "already exists"/"already bound" substring
-- [ ] S-001.3 Cover .6/.8/.26/.27 (type-only reject: named/inline/default/namespace), .14/.28 (aliased reject + GREEN local-name-keying pair), .16 (cross-module), .17 (8-kind value-namespace battery), .32 (full 29-char echo, uncut)
-- [ ] S-001.4 Add REQ-TSD-01.24 ordering/mutant-kill test (idempotency BEFORE claimed) to `dialect.test.ts`
-- [ ] S-001.5 Confirm `ops-declarations.test.ts` (addFunction/addVariable/addClass collision suite) stays green post-extraction (behaviour-preservation guard)
+- [x] S-001.1 Extract `isValueNamespaceClaimed` from `assertNoCollision`; wire it into BOTH `assertNoCollision` and `addImport`'s new Step 2 (ADR-01)
+- [x] S-001.2 Add file-wide claimed-scan (import specifiers + value-namespace) as Step 2, AFTER Step 1; inline `dialectError` with path clause + distinguishing "already exists"/"already bound" substring
+- [x] S-001.3 Cover .6/.8/.26/.27 (type-only reject: named/inline/default/namespace), .14/.28 (aliased reject + GREEN local-name-keying pair), .16 (cross-module), .17 (8-kind value-namespace battery), .32 (full 29-char echo, uncut)
+- [x] S-001.4 Add REQ-TSD-01.24 ordering/mutant-kill test (idempotency BEFORE claimed) to `dialect.test.ts`
+- [x] S-001.5 Confirm `ops-declarations.test.ts` (addFunction/addVariable/addClass collision suite) stays green post-extraction (behaviour-preservation guard)
 
 ---
 

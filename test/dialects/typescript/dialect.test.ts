@@ -48,6 +48,34 @@ describe("TypeScript dialect — REQ-TSD-01 subpath + thin op-pack shape", () =>
   });
 });
 
+describe("TypeScript dialect — REQ-TSD-01.24 ordering invariant (S-001, ts-addimport-collision)", () => {
+  it("REQ-TSD-01.24: idempotency (Step 1) runs BEFORE the claimed check (Step 2) — a second addImport for an already-bound name is a no-op, never a collision reject", async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": 'import { readFileSync } from "node:fs";\n' });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:fs");
+    });
+    await run(undefined, { client });
+
+    // A mutant reordering Step 1/Step 2 would make this SAME-module, already-bound specifier
+    // match the claimed scan and throw instead of no-op.
+    expect(collectModifies(emitted)).toHaveLength(0);
+  });
+
+  it("REQ-TSD-01.24: the same invariant holds seeded with a PRIOR run's own output (fresh Project)", async () => {
+    const alreadyImported = 'import { readFileSync } from "node:fs";\n';
+    const { client, emitted } = makeSpyClient({ "a.ts": alreadyImported });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:fs");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("a.ts")).toBe(alreadyImported);
+  });
+});
+
 describe("TypeScript dialect — REQ-TSD-02 ts-morph determinism pins", () => {
   it("REQ-TSD-02.1: the same chain run twice against a fresh Project is byte-identical AND matches the golden", async () => {
     const before = golden("add-import-before.txt");

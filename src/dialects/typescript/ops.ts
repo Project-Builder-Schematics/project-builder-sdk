@@ -10,15 +10,24 @@
 // ts-addimport-collision/S-000: `addImport`'s original naive first-match unconditional
 // merge is REPLACED by the V8 four-branch algorithm ported from the react leaf verbatim
 // (`react/ops.ts:81-234`, design §4.1/§4.3) — idempotency (Step 1) -> merge (Step 3) ->
-// create (Step 4). Step 2 (file-wide collision reject) is DEFERRED to S-001.
+// create (Step 4).
+//
+// ts-addimport-collision/S-001: Step 2 (file-wide collision reject) lands here, strictly
+// AFTER Step 1 (REQ-TSD-01.24, mutant-kill ordering invariant) and before Step 3/4.
+// `isValueNamespaceClaimed` is EXTRACTED from `assertNoCollision` below (design §4.5 ADR-01)
+// and consumed by BOTH `assertNoCollision` (behaviour-preserving, siblings' own import-scan
+// posture UNCHANGED) and `addImport`'s new Step 2 (design §4.4 — TS house-style tail, built
+// inline, NOT reusing `assertNoCollision`'s own message: "two bindings sharing a name" here,
+// vs "two value declarations sharing a name" there — `addImport`'s collision surface also
+// fires on import-vs-import and type-only claims, which are not value declarations, F10).
 
 import { SyntaxKind, type ImportDeclaration, type SourceFile } from "ts-morph";
 import { dialectError } from "../../core/dialect-error.ts";
 import { handlePathFor } from "../../core/dialect-handle.ts";
 
 // Ported verbatim from `react/ops.ts` (design §4.3 data model) — a bound name, tagged with
-// enough shape to answer "does this SAME-MODULE binding satisfy idempotency" (Step 1). The
-// file-wide CLAIMED half (Step 2, `isValueNamespaceClaimed`) lands in S-001.
+// enough shape to answer BOTH "does this SAME-MODULE binding satisfy idempotency" (Step 1)
+// and, via `boundNamesIn` walked file-wide, "is this name CLAIMED anywhere" (Step 2, below).
 interface BoundName {
   localName: string;
   kind: "default" | "namespace" | "named";
@@ -80,21 +89,42 @@ function isNonTypeOnlyNamedImportClause(decl: ImportDeclaration): boolean {
   return namedBindings !== undefined && namedBindings.getKind() === SyntaxKind.NamedImports;
 }
 
+// ADR-0039 collision-namespace pin (owner ruling #4), EXTRACTED (S-001, design §4.5 ADR-01)
+// from `assertNoCollision` below so both it and `addImport`'s Step 2 share ONE predicate: a
+// top-level VALUE-NAMESPACE declaration (function/const/let/var/class/enum/namespace) under
+// `name` collides; `type`/`interface` are exempt (legal TS coexistence). Syntactic search
+// only (no language service, REQ-TSD-02.3) — SourceFile-wide, not scope-aware.
+function isValueNamespaceClaimed(ast: SourceFile, name: string): boolean {
+  return (
+    ast.getFunction(name) !== undefined ||
+    ast.getVariableDeclaration(name) !== undefined ||
+    ast.getClass(name) !== undefined ||
+    ast.getEnum(name) !== undefined ||
+    ast.getModule(name) !== undefined
+  );
+}
+
 /**
  * Adds `import { name } from "from";`, or merges `name` into an EXISTING NAMED-import
- * clause from the SAME module `from` if one already exists (REQ-TSD-01, S-000 subset —
- * Steps 1/3/4 only; Step 2's file-wide collision reject lands in S-001):
+ * clause from the SAME module `from` if one already exists (REQ-TSD-01):
  *
  * 1. Already-bound (idempotency, SAME module only): if an EXISTING declaration for `from`
  *    has a VALUE-BOUND specifier whose local name equals `name`, AND that specifier is a
  *    default specifier, a namespace specifier, or an UNALIASED named specifier — this is a
- *    no-op.
- * 2. Merge: otherwise, if an EXISTING declaration for `from` has a non-type-only
- *    named-import clause, add a NEW, UNALIASED named specifier to it.
- * 3. Create: otherwise (no declaration for `from`; every one is type-only, default-only, or
+ *    no-op. Runs strictly BEFORE Step 2 (REQ-TSD-01.24, mutant-kill ordering invariant): a
+ *    same-module already-bound specifier is a no-op, NEVER a collision reject.
+ * 2. Collision: otherwise, if `name` is CLAIMED anywhere in the file — EITHER the local name
+ *    of ANY import specifier, in ANY module, value-bound or type-only alike, OR a top-level
+ *    value-namespace declaration (`isValueNamespaceClaimed`) — REJECT via `dialectError`
+ *    BEFORE any AST mutation.
+ * 3. Merge: otherwise, if an EXISTING declaration for `from` has a non-type-only
+ *    named-import clause, add a NEW, UNALIASED named specifier to it. (Reaching this step
+ *    guarantees `name` is claimed nowhere in the file, so the merge is always safe.)
+ * 4. Create: otherwise (no declaration for `from`; every one is type-only, default-only, or
  *    namespace-only), INSERT a FRESH, SEPARATE `import { name } from "from";` — a
  *    type-only, default-only, or namespace-only declaration's clause structure is NEVER
- *    mutated to graft a named binding onto it.
+ *    mutated to graft a named binding onto it. (Reaching this step also guarantees `name` is
+ *    claimed nowhere in the file, so the fresh declaration never collides.)
  *
  * Idempotent: calling this twice with the same `name`+`from` produces a single import line,
  * never a duplicate (REQ-TSD-03.10).
@@ -108,6 +138,16 @@ export function addImport(ast: SourceFile, name: string, from: string): void {
     boundNamesIn(decl).some((bound) => bound.localName === name && satisfiesIdempotency(bound))
   );
   if (alreadyBound) return;
+
+  const claimed =
+    ast.getImportDeclarations().some((decl) => boundNamesIn(decl).some((bound) => bound.localName === name)) ||
+    isValueNamespaceClaimed(ast, name);
+  if (claimed) {
+    throw dialectError(
+      `addImport("${name}") on "${handlePathFor(ast)}" — a value or import binding named "${name}" already exists; ` +
+        `TypeScript forbids two bindings sharing a name. Rename or remove the existing one, or edit it with .modify().`
+    );
+  }
 
   const mergeTarget = declarationsForModule.find(isNonTypeOnlyNamedImportClause);
   if (mergeTarget !== undefined) {
@@ -127,11 +167,17 @@ function exportPrefixFor(options?: DeclarationOptions): string {
 }
 
 // ADR-0039 collision-namespace pin (owner ruling #4): a VALUE-namespace declaration
-// (function/const/let/var/class) OR a named-import binding under `name` collides,
-// cross-kind; `type`/`interface` are exempt (legal TS coexistence). Syntactic search only
-// (no language service, per REQ-TSD-02.3's own no-LS commitment) — SourceFile-wide, not
-// scope-aware (matches the "no language service needed" owner framing; every signed
-// scenario seeds top-level declarations only).
+// (`isValueNamespaceClaimed`, S-001-extracted, shared with `addImport`'s Step 2 above) OR a
+// named-import binding under `name` collides, cross-kind; `type`/`interface` are exempt
+// (legal TS coexistence). Syntactic search only (no language service, per REQ-TSD-02.3's own
+// no-LS commitment) — SourceFile-wide, not scope-aware (matches the "no language service
+// needed" owner framing; every signed scenario seeds top-level declarations only).
+//
+// Behaviour-preservation (S-001, ops-declarations.test.ts guard): the import-binding half of
+// this predicate stays NAMED-imports-only, UNCHANGED by the extraction — `addFunction`/
+// `addVariable`/`addClass` stay blind to a default/namespace import collision, same as
+// before (design §4.8's registered "sibling collision-scan asymmetry" followup, not closed
+// by this change).
 //
 // `handlePathFor(ast)` (final-verify fix, dialect-handle.ts) is the ONLY channel through
 // which an op function can recover the author-facing path for its own dialectError()-branded
@@ -140,15 +186,7 @@ function exportPrefixFor(options?: DeclarationOptions): string {
 // `options` regardless of which trailing args the author omitted.
 function assertNoCollision(ast: SourceFile, name: string, opName: string): void {
   const collides =
-    ast.getFunction(name) !== undefined ||
-    ast.getVariableDeclaration(name) !== undefined ||
-    ast.getClass(name) !== undefined ||
-    // Judgment-day round 1 (Issue 3): enum and namespace declarations also occupy the
-    // value namespace (TypeScript rejects `enum Foo {}` / `namespace Foo {}` coexisting
-    // with a same-named function/const/class — TS2451) — missing these two let addFunction/
-    // addVariable/addClass emit invalid TS instead of rejecting.
-    ast.getEnum(name) !== undefined ||
-    ast.getModule(name) !== undefined ||
+    isValueNamespaceClaimed(ast, name) ||
     ast
       .getImportDeclarations()
       .some((decl) =>

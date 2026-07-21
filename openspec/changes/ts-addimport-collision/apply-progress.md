@@ -127,3 +127,99 @@ expect(await client.read("a.ts")).toBe(seed);
 **Files changed this iteration**: `test/dialects/typescript/ops-addImport.test.ts` (modified, 3
 lines added) and this apply-progress.md entry. No other files touched — no `src/` change, no
 state files, no commit.
+
+## S-001: Loud collision reject — the failure path vs S-000's happy path
+
+**Status**: complete (5/5 tasks)
+
+### Safety Net (Phase 0)
+
+`bun test` baseline before this slice: **2064 pass, 0 fail, 4430 expect() calls, 191 files**
+(post S-000 + its fix iteration) — all green.
+
+### TDD Cycle Evidence — S-001
+
+RED tests were written together (8 collision-reject cases + the `.28` GREEN pair + the `.24`
+ordering pair) and run once against the pre-Step-2 code before any implementation, per the same
+methodology as S-000 — actual pass/fail split recorded below, not assumed.
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| S-001.1+.2 | `ops-addImport.test.ts::REQ-TSD-01.6` (type-only decl reject) | integration | `Expected constructor: [class Error] / Received value: undefined` — pre-Step-2 code silently created a second, invalid decl instead of rejecting | ✅ | — | — |
+| S-001.1+.2 | `ops-addImport.test.ts::REQ-TSD-01.8` (inline `{ type X }` reject) | integration | Same shape as `.6` — pins the specifier-level (not only decl-level) type-only check | ✅ | 2nd case, forces the `specifier.isTypeOnly()` branch of `boundNamesIn` to matter for CLAIMED, not only for idempotency | — |
+| S-001.1+.2 | `ops-addImport.test.ts::REQ-TSD-01.14` (aliased-to-different-name reject) | integration | Same shape — pre-Step-2 code merged a second, colliding unaliased `x` instead of rejecting | ✅ | 3rd case, forces claimed-scan to key on LOCAL NAME (alias), not the exported name | — |
+| S-001.1+.2 | `ops-addImport.test.ts::REQ-TSD-01.16` (cross-module reject) | integration | Same shape — pre-Step-2 code created a duplicate `readFileSync` binding under a different module | ✅ | 4th case, forces the claimed-scan to run file-wide (`ast.getImportDeclarations()`), not scoped to `declarationsForModule` | — |
+| S-001.1+.2 | `ops-addImport.test.ts::REQ-TSD-01.17` (8-kind value-namespace battery: function/const/let/var/class/enum/namespace/export-default-function) | integration | Same shape, all 8 sub-cases — pre-Step-2 code had NO value-namespace check in `addImport` at all | ✅ | 8 forcing cases in one battery — completes the `isValueNamespaceClaimed` predicate's kind coverage inside `addImport`'s own Step 2 (previously only exercised via the sibling ops) | — |
+| S-001.1+.2 | `ops-addImport.test.ts::REQ-TSD-01.26`/`.27` (type-only default/namespace specifier reject) | integration | Same shape — pins that CLAIMED reaches the default/namespace specifier code paths in `boundNamesIn`, not only the named-specifier path `.6`/`.8` cover | ✅ | — | — |
+| S-001.1+.2 | `ops-addImport.test.ts::REQ-TSD-01.32` (29-char name echoed in full) | integration | Same shape — pre-Step-2 code created instead of rejecting, so no echo existed to check at all | ✅ | — | — |
+| S-001.1+.2/coverage | `ops-addImport.test.ts::REQ-TSD-01.28` (aliased-underlying merge, GREEN pair for `.14`) | integration | Passed immediately — pre-Step-2 merge already produced the correct output for this input (Step 3's merge logic was unaffected); becomes a genuine regression guard against a claimed-scan keyed on exported name instead of local name once Step 2 exists | ✅ (post-Step-2, unchanged) | n/a — regression coverage, not driving | — |
+| S-001.4/coverage | `dialect.test.ts::REQ-TSD-01.24` (both cases: chained second call, fresh-run seed) | integration | Passed immediately — with no Step 2 yet, there was no competing check for Step 1 to beat; becomes the genuine ordering regression guard once Step 2 exists | ✅ (post-Step-2, unchanged) | n/a — ordering-invariant coverage, confirmed still correct post-implementation | — |
+| S-001.5 | `ops-declarations.test.ts` (full suite, 213 lines) | integration | n/a — behaviour-preservation guard, not a new-behavior test | ✅ (14/14 unchanged) | n/a | Refactored `assertNoCollision` to call the extracted `isValueNamespaceClaimed`; same predicate, same message, same import-scan posture — confirmed via full pass, zero assertion changes needed |
+| Collateral fix | `test/core/dialect-handle.test.ts::REQ-TSD-08.6` | integration | Full-suite run surfaced 1 regression: this pre-existing test's fixture (`const x = 1;`) coincidentally collides with its own `addImport("x", "m")` call under the new, correct Step 2 — an incidental name choice unrelated to the test's actual subject (RYOW add+remove in one chain) | ✅ after renaming the import to `"y"` | n/a — fixture rename, not new behavior | — |
+| Refactor | — | — | n/a | ✅ (all green throughout) | n/a | Updated a now-stale S-000-era comment ("lands in S-001") to reflect Step 2 having landed; no behavior change |
+
+### Files Changed
+
+| File | Action | What Was Done |
+|---|---|---|
+| `src/dialects/typescript/ops.ts` | Modified | Extracted `isValueNamespaceClaimed` from `assertNoCollision`; wired it into both `assertNoCollision` (behaviour-preserving refactor) and `addImport`'s new Step 2; added the file-wide claimed-scan + inline `dialectError` (TS house-style tail, "two bindings sharing a name") strictly after Step 1; updated `addImport`'s JSDoc to the full 4-step algorithm |
+| `test/dialects/typescript/ops-addImport.test.ts` | Modified | Added a `expectCollisionReject` test helper (dual observable: throw + byte-unchanged read-back) and a new describe block covering `.6`/`.8`/`.14`/`.16`/`.17`/`.26`/`.27`/`.28`/`.32` |
+| `test/dialects/typescript/dialect.test.ts` | Modified | Added a new describe block with the two `.24` ordering-invariant cases |
+| `test/core/dialect-handle.test.ts` | Modified | Renamed a colliding fixture import name (`"x"` → `"y"`) in `REQ-TSD-08.6`, collateral fix caused by the new, correct Step 2 behavior — see Deviations |
+| `openspec/changes/ts-addimport-collision/slices.md` | Modified | Marked S-001's 5 tasks `[x]` |
+
+### Deviations from Design
+
+**One flagged, non-silent deviation** — same pattern as S-000's: two groups of tests (`.28`'s GREEN
+pair and both `.24` ordering cases) passed immediately against the pre-Step-2 code, rather than
+failing red first, because there was no competing Step 2 logic yet for them to guard against. This
+is expected and documented, not fabricated RED — the genuinely new Step 2 behavior (the 8 reject
+scenarios) DID fail red for the right reason (verified: either a thrown-error assertion with no
+throw occurring, or a byte-unchanged assertion failing because the file WAS silently, incorrectly
+mutated).
+
+**One necessary collateral fix, not a design deviation**: `test/core/dialect-handle.test.ts`'s
+pre-existing `REQ-TSD-08.6` test used `addImport("x", "m")` against a fixture containing a
+top-level `const x = 1;` — an incidental name choice (the test is about RYOW add+remove chaining,
+not collision) that now correctly collides under the new, spec-mandated Step 2 check. Fixed by
+renaming the import to `"y"`; the test's actual subject (RYOW mechanics) is unaffected and the fix
+required zero behavioral reasoning beyond avoiding the unrelated collision.
+
+No other deviations — implementation matches design (§4.4 interface contract, §4.5 ADR-01/ADR-02
+extraction). `isValueNamespaceClaimed`'s extraction is behaviour-preserving for the siblings:
+`assertNoCollision`'s own import-scan stays NAMED-imports-only (unchanged), confirmed by
+`ops-declarations.test.ts`'s 14 tests staying green with zero assertion changes.
+
+### Halt / Issues Found
+
+None.
+
+### Post-Slice Audit (Step 7c)
+
+Skipped — same reason as S-000: no architecture baseline/ADR context was injected into this
+session's launch prompts. Flagged for the orchestrator.
+
+### Test Results
+
+- `bun test test/dialects/typescript/ops-addImport.test.ts test/dialects/typescript/dialect.test.ts test/dialects/typescript/ops-declarations.test.ts`: **45 pass, 0 fail, 172 expect() calls**
+- `bun test` (full suite, post-change + collateral fix): **2075 pass, 0 fail, 4517 expect() calls,
+  191 files** — up from the 2064/191 S-000 baseline by exactly 11 new tests (8 collision cases +
+  `.28` + 2 `.24` cases), zero unresolved regressions (the 1 transient regression from the
+  incidental fixture collision was fixed, not ignored)
+- `bun run typecheck`: clean (one transient error — `client.read()`'s `string | undefined` return
+  type vs the test helper's declared `string` — fixed by widening the helper's return type)
+
+### Overall Progress
+
+| Metric | Value |
+|---|---|
+| Slices in this scope | 1 (S-001) |
+| Slices complete | 1 |
+| Slices in progress | 0 |
+| Tasks complete | 5/5 |
+
+### Next Step
+
+Ready for `/build --scope=slice:S-002` (injection-safety validation gate, REQ-TSD-13) or
+`/build --scope=slice:S-003` (input-shape variants) — both list `Requires: S-001`/`S-000`
+respectively per the Build Order table; S-002 additionally requires S-001 specifically.
