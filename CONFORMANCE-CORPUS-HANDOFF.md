@@ -105,7 +105,14 @@ decoding is now STRICT (`DisallowUnknownFields`) — any unknown key at any leve
 engine-side, not ignored. Schema evolution must go through this doc BEFORE a fixture ships a new
 key. The corpus-root ambiguity guard is also live: an undeclared directory containing `factory.ts`
 or `manifest.json` is fatal; non-fixture stray files (e.g. `collection.json`) and non-fixture dirs
-are inert.
+are inert. The same inertness holds one level down, INSIDE a registered fixture's own directory:
+`m2-copyin` introduces `assets/`, a package-local in-fixture source directory holding raw bytes
+that its factory's `copyIn(from, …)` call reads by path, resolved against the fixture's own
+`packageDir` — a NEW fixture-subdir kind alongside `seed/`/`expected/`/`schematic/`. The Go loader
+treats unknown files/dirs inside a fixture directory as inert too (owner-confirmed fact 3(c)), so
+`assets/` needs ZERO schema changes and is safe for the loader to encounter — same posture as the
+`collection.json` marker note below. Flagged here explicitly for engine-team awareness. (Origin:
+design ADR-0073.)
 
 **Also flagged, SDK-side only (engine-loader-invisible)**: the corpus ships a presence-only
 `conformance/collection.json` marker at its root. The SDK runner's `defineFactory({packageDir})`
