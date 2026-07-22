@@ -85,7 +85,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
     });
   });
 
-  describe("REQ-CCR-05 — corpus-derived inventory, no orphan directories (two-checkpoint cadence)", () => {
+  describe("REQ-CCR-05 — manifest-derived inventory, no orphan directories (ADR-0075)", () => {
     it("REQ-CCR-05.2: every directory under conformance/ is registered in corpus.json#fixtures", () => {
       expect(checkOrphanDirectories(listSubdirectories(CORPUS_ROOT), corpus.fixtures)).toEqual([]);
     });
@@ -96,15 +96,24 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
 
     const totalCases = fixtures.reduce((sum, f) => sum + f.manifest.cases.length, 0);
 
-    it('REQ-CCR-05.3: PR#1 checkpoint — corpus.json === ["m1-vehicle"] passes at 1 fixture / 2 cases', () => {
-      if (corpus.fixtures.length !== 1) return; // not the PR#1 checkpoint
-      expect(corpus.fixtures).toEqual(["m1-vehicle"]);
-      expect(totalCases).toBe(2);
-    });
+    it("REQ-CCR-05.1/.5: fixture inventory and case count are DERIVED from corpus.json#fixtures, never a hardcoded absolute", () => {
+      // Loaded-set identity: the ids `loadCorpus` actually resolved a manifest for must be
+      // EXACTLY corpus.json's own declared list, in order — surfaces a silent drop at the
+      // inventory level, independent of the dedicated missingManifestIds check above.
+      expect(fixtures.map((f) => f.id)).toEqual(corpus.fixtures);
 
-    it("REQ-CCR-05.1: POST-PR#2 gate — exactly 5 fixtures / 12 cases (never evaluated at PR#1)", () => {
-      if (corpus.fixtures.length !== 5) return; // PR#1 state — REQ-CCR-05.3 forbids evaluating this
-      expect(totalCases).toBe(12);
+      // Independent re-derivation of the case count, re-reading each manifest.json off disk
+      // by id (bypassing the `fixtures`/loadCorpus indirection entirely) rather than folding
+      // over the already-loaded array — cross-checks totalCases against a second code path
+      // so no absolute figure is ever baked into this assertion (the length-based early-return
+      // gates this replaces went silently vacuous the moment a 6th fixture landed).
+      const recomputedTotalCases = corpus.fixtures.reduce((sum, id) => {
+        const manifestPath = join(CORPUS_ROOT, id, "manifest.json");
+        if (!existsSync(manifestPath)) return sum;
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { cases: unknown[] };
+        return sum + manifest.cases.length;
+      }, 0);
+      expect(totalCases).toBe(recomputedTotalCases);
     });
   });
 
@@ -379,10 +388,20 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(violations).toEqual([]);
     });
 
-    it("REQ-CDT-06.1/.2: no undeclared trailing newline under expected/** or schematic/files/**", () => {
+    it("REQ-CDT-06.1/.2: no undeclared trailing newline under expected*/**, assets/**, or schematic/files/**", () => {
       const violations: string[] = [];
       for (const f of fixtures) {
-        for (const sub of ["expected", (f.manifest.lowering.schematicRoot ?? "schematic") + "/files"]) {
+        // Two-leg union (ADR-0075, B1/B2/N4). Leg 1 is a readdir glob — never an enumerated
+        // literal — over every "expected"-prefixed dir plus "assets", so a future
+        // multi-positive expected* dir or a fixture's by-value assets/ source is covered
+        // automatically. Leg 2 is the RETAINED schematic/files/** leg, the only determinism
+        // guard for lowered templates. Do NOT add `s === "schematic"` to leg 1 — that
+        // recurses into the legitimately-varying schema.json (B2 trap).
+        const subs = [
+          ...listSubdirectories(f.dir).filter((s) => s.startsWith("expected") || s === "assets"),
+          (f.manifest.lowering.schematicRoot ?? "schematic") + "/files",
+        ];
+        for (const sub of subs) {
           const dir = join(f.dir, sub);
           if (!existsSync(dir)) continue;
           for (const file of collectFilesRecursive(dir)) {
