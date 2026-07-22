@@ -1,4 +1,4 @@
 {
   "wireSpecVersion": 1,
-  "fixtures": ["m1-vehicle", "m2-modify", "m2-delete", "m2-rename-move", "m2-create-composition", "m2-copy"]
+  "fixtures": ["m1-vehicle", "m2-modify", "m2-delete", "m2-rename-move", "m2-create-composition", "m2-copy", "m2-copyin"]
 }
