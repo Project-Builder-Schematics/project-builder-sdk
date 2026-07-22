@@ -16,7 +16,7 @@ export default function m2CreateCompositionFactory(_input: Record<string, never>
 // (b) this is a REJECT PROBE, not a demonstration of a working `create` flow.
 // (c) do NOT imitate this pattern when authoring a new fixture.
 // (d) the engine refuses this batch at emit — `unrepresentable`, exit 2 (ADR-0064, frozen).
-// (e) to author a new fixture, copy the default export's modify/delete/rename/move
+// (e) to author a new fixture, copy the default export's modify/delete/rename/move/copy
 //     pattern above instead.
 export function createRejectProbe(_input: Record<string, never>): void {
   create("wire-create-reject-probe.txt", { template: "unrepresentable", options: {} });

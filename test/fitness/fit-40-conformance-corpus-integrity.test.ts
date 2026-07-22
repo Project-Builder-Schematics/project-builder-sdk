@@ -302,7 +302,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
         "(b)": /REJECT PROBE/,
         "(c)": /do NOT imitate/i,
         "(d)": /unrepresentable/,
-        "(e)": /modify\/delete\/rename\/move/,
+        "(e)": /move\/copy/,
       };
 
       const missingClauses = Object.keys(CLAUSE_KEYWORDS).filter((letter) => {
@@ -586,6 +586,84 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
       expect(c.expected).toBe("zero-effect");
       expect(c.factory).toEqual({ module: "factory.ts", export: "createRejectProbe" });
+    });
+  });
+
+  describe("REQ-CFX-15 — m2-copy behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-copy");
+
+    it("REQ-CFX-15.1: positive case declares an exact-bytes copy, source intact", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(readFileSync(join(f.dir, "expected", "dst.txt"), "utf8")).toBe("payload");
+      // Inverse of m2-rename-move's fit-40:535 — copy, unlike rename, must NOT remove the source.
+      expect(existsSync(join(f.dir, "expected", "src.txt"))).toBe(true);
+      expect(readFileSync(join(f.dir, "expected", "src.txt"), "utf8")).toBe("payload");
+      expect(readFileSync(join(f.dir, "expected", "occupied.txt"), "utf8")).toBe("taken");
+      expect(readFileSync(join(f.dir, "expected", "adir", "child.txt"), "utf8")).toBe("x");
+    });
+
+    it("REQ-CFX-15.2: collision-with-force overwrites and exits 0", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "collision-with-force");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(readFileSync(join(f.dir, "expected-force", "occupied.txt"), "utf8")).toBe("payload");
+      expect(readFileSync(join(f.dir, "expected-force", "src.txt"), "utf8")).toBe("payload");
+    });
+
+    it("REQ-CFX-15.3: collision-no-force twin rejects fail-closed", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "collision-no-force-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "collision", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("REQ-CFX-15.4: missing-source twin rejects not-found", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "missing-source-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "not-found", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("REQ-CFX-15.5: dir-source twin rejects unrepresentable (batch-level)", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "dir-source-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "unrepresentable", failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("REQ-CFX-15.6: copy-then-modify collapses to the modify's bytes, single flush", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positiveTwin = f.manifest.cases.find((c) => c.name === "copy-then-modify");
+      expect(positiveTwin).not.toBeUndefined();
+      const c = positiveTwin as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      // ONE flush, two directives applied sequentially in array order — never a doubled ir.emit.
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(readFileSync(join(f.dir, "expected-modify", "dst2.txt"), "utf8")).toBe("final");
+      expect(readFileSync(join(f.dir, "expected-modify", "src.txt"), "utf8")).toBe("payload");
     });
   });
 
