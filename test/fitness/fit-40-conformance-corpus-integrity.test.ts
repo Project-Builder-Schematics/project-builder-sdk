@@ -714,7 +714,11 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       const c = twin as Case;
       expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
-      expect(readFileSync(join(f.dir, "expected-force", "occupied.txt"), "utf8")).toBe("by-reference-payload");
+      // Defense-in-depth symmetry with REQ-CFX-16.1: ties the force-case output directly to the
+      // shared by-reference source, so a stray byte in assets/ goes RED through BOTH paths.
+      expect(readFileSync(join(f.dir, "expected-force", "occupied.txt"), "utf8")).toBe(
+        readFileSync(join(f.dir, "assets", "payload.txt"), "utf8"),
+      );
       expect(readFileSync(join(f.dir, "expected-force", "existing-dir", "child.txt"), "utf8")).toBe("x");
     });
 
