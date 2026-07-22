@@ -302,7 +302,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
         "(b)": /REJECT PROBE/,
         "(c)": /do NOT imitate/i,
         "(d)": /unrepresentable/,
-        "(e)": /move\/copy/,
+        "(e)": /move\/copy\/copyIn/,
       };
 
       const missingClauses = Object.keys(CLAUSE_KEYWORDS).filter((letter) => {
@@ -664,6 +664,88 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
       expect(readFileSync(join(f.dir, "expected-modify", "dst2.txt"), "utf8")).toBe("final");
       expect(readFileSync(join(f.dir, "expected-modify", "src.txt"), "utf8")).toBe("payload");
+    });
+  });
+
+  describe("REQ-CFX-16 — m2-copyin behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies; branch-held per REQ-CCR-09)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-copyin");
+
+    it("REQ-CFX-16.1: positive case declares by-reference bytes landing at a new path, assets/expected byte-tied", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      const dstBytes = readFileSync(join(f.dir, "expected", "dst.txt"), "utf8");
+      expect(dstBytes).toBe("by-reference-payload");
+      expect(readFileSync(join(f.dir, "expected", "occupied.txt"), "utf8")).toBe("taken");
+      expect(readFileSync(join(f.dir, "expected", "existing-dir", "child.txt"), "utf8")).toBe("x");
+      // B1 defense-in-depth: ties the verbatim by-reference source directly to the declared
+      // output, independent of the REQ-CDT-06 determinism-loop coverage — a stray byte in
+      // assets/ must go RED locally, not silently at engine pin-advance.
+      expect(readFileSync(join(f.dir, "assets", "payload.txt"), "utf8")).toBe(dstBytes);
+    });
+
+    it("REQ-CFX-16.2: verbatim-content case declares the token present, unrendered, in BOTH source and expected", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "verbatim-content");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      const assetBytes = readFileSync(join(f.dir, "assets", "verbatim.txt"), "utf8");
+      const expectedBytes = readFileSync(join(f.dir, "expected-verbatim", "dst2.txt"), "utf8");
+      // Anti-tautology: byte-equality alone would pass for any unrelated-but-equal pair —
+      // the token PRESENCE assertion is what proves by-reference bypasses the by-value
+      // template engine that would otherwise have rendered `{= name =}`.
+      expect(expectedBytes).toBe(assetBytes);
+      expect(assetBytes.includes("{= name =}")).toBe(true);
+      expect(expectedBytes.includes("{= name =}")).toBe(true);
+    });
+
+    it("REQ-CFX-16.3: collision-with-force overwrites and exits 0", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "collision-with-force");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      // Defense-in-depth symmetry with REQ-CFX-16.1: ties the force-case output directly to the
+      // shared by-reference source, so a stray byte in assets/ goes RED through BOTH paths.
+      expect(readFileSync(join(f.dir, "expected-force", "occupied.txt"), "utf8")).toBe(
+        readFileSync(join(f.dir, "assets", "payload.txt"), "utf8"),
+      );
+      expect(readFileSync(join(f.dir, "expected-force", "existing-dir", "child.txt"), "utf8")).toBe("x");
+    });
+
+    it("REQ-CFX-16.4: collision-no-force twin rejects fail-closed", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "collision-no-force-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "collision", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("REQ-CFX-16.5: dest-dir twin rejects as a collision, never unrepresentable", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "dest-dir-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      // Owner-confirmed engine behaviour: a directory DESTINATION resolves to collision,
+      // NOT unrepresentable — unlike m2-copy's directory-SOURCE case (batch-level,
+      // unrepresentable). This is the highest-uncertainty pin in the corpus (no SDK-fake
+      // corroboration) — see REQ-CCR-09 un-hold checklist item 5.
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "collision", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
     });
   });
 
