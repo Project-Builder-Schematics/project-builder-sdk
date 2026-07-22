@@ -1,0 +1,128 @@
+# DAG state — orchestrator-owned. Sub-agents never write this file.
+change: copy-copyin-conformance-fixtures
+triage: L
+completed_phases:
+  - triage
+  - explore
+  - propose
+  - spec (V2 SIGNED by owner 2026-07-22; council: TW approve, QA approve-with-notes, BA approve)
+  - design (rev 3, architect APPROVE; architecture_impact: additive; ADRs 0073/0074/0075 drafted)
+  - steward-foresight (verdict: ALIGNED; north-star.md persisted; 2 conscience_questions filed forward to reckoning)
+  - slice (rev 4: 6 slices S-000..S-005; walking skeleton = fit-40 rewrite proven at 5/12; executor
+    surface self-sufficient after 3 gate-driven revisions)
+  - verify-plan (READY — owner-ruled at iteration 3 ceiling, conditioned on rev 4, condition met;
+    Judge A clean 3x, Judge B 12→7→4→answered)
+current_phase: archive
+arch_audit: "violations → OWNER OVERRIDE (2026-07-22, reason persisted engram #2396 topic
+  sdd/copy-copyin-conformance-fixtures/architecture-override): both findings pre-existing
+  (Node engines>=25.9 vs CI Node 22; conformance-pr-gate.ts orphan), zero overlap with this
+  change's diff which audited clean. Baseline refreshed with assets/ seam (#2001). Archive
+  must register the Node-engines/CI mismatch as its own pending-change row."
+steward_reckoning: "DELIVERED (2026-07-22, gate closed) — no outcome-gap; 3 CQs owner-ruled:
+  CQ-1 banking YES worth it; CQ-2 oracle DEFERRED (archive proceeds, engine harness is the
+  real oracle per REQ-CFX-11); CQ-3 staleness horizon NONE explicit. outcome-verdict.md +
+  engram #2395. Awaiting arch audit verdict, then sdd-archive (MUST register REQ-CCR-09.3
+  ADR-0074 debt row + fit-40 hardening followup row into project/pending-changes)."
+judgment_day: "APPROVED (2026-07-22, Round 1) — 0 confirmed CRITICALs/real WARNINGs, 0
+  contradictions; 2 theoretical warnings as INFO; CFX-16.3 assets-tie suggestion fixed
+  post-approval (owner-approved, branch-only, no re-judge); ADR-0073 citation resolved correct;
+  4 improvements folded into ONE fit-40 hardening followup row for archive. Verdict:
+  judgment-day-verdict.md + engram #2393."
+verify_final: "pass-with-followups (2026-07-22) — gates green both sides (main 54/2141 at 6/18;
+  branch 59/2146 at 7/23), REQ coverage 31/32 (only REQ-CCR-09.3 = archive-time), audit Step
+  11b clean (one Nit = registered simplify followup), REQ-CCR-04 atomicity SATISFIED despite
+  merge-commit divergence (diff 52952a9..6b68aaa empty), hold semantics intact, S-005 addendum
+  verified. adversarial_review: REQUIRED (L). Report verify-report.md + engram #2391. Risks:
+  2 owner-pinned rejection codes engine-unconfirmed — un-hold checklist item 5, non-blocking."
+current_phase_status: ALL SIX SLICES DELIVERED (2026-07-22) — acceptance bar met, no emergency
+  valve used. Critical path merged to main — S-000 7ea80d1 (PR #43), S-001+S-002 6b68aaa
+  (PR #44, atomic m2-copy commit); main at 6 fixtures/18 cases, copy at 3 sync sites. Banked
+  arm held — S-003+S-004 7a03b62 + S-005 d4f1ce2 on m2-copyin-banked-arm, draft PR #45 (open,
+  isDraft, never merged this change); branch green in isolation at 7/23. In-loop verify: 3
+  iterations, 3 PASS (verify-in-loop-{1,2,3}); S-005 doc-only (test layers none per slice) —
+  no dedicated in-loop verify, covered by verify final over the full diff. HANDOFF assets/
+  addendum extends existing inertness note, cross-refs ADR-0073. AWAITING OWNER: /evaluate
+  (simplify gate → verify final → judgment-day if required → steward reckoning → archive).
+  ADR-0074 debt-row inputs for archive: branch m2-copyin-banked-arm, commits 7a03b62+d4f1ce2,
+  draft PR #45 URL, un-hold trigger + 5-item checklist verbatim in slices.md S-005 section.
+design_notes: |
+  Rev history: rev 1 → architect B1 (determinism guard missed assets/) + N1-N4 → rev 2 → architect B2
+  (glob rewrite dropped schematic/files leg) → rev 3 → APPROVE. Final REQ-CDT-06 form: UNION of readdir
+  glob (expected* + assets) and retained (schematicRoot ?? "schematic")+"/files" leg, existsSync-guarded;
+  s==="schematic" recursion trap documented. Commit 1 (main): m2-copy + corpus.json + README step-1 +
+  clause-(e) prose AND regex + derived-counts rewrite + REQ-CFX-15 block → 6/18 green. Commit 2
+  (branch-held): m2-copyin + assets/ + its sync sites + REQ-CFX-16 block (incl. assets↔expected
+  byte-equality) + HANDOFF addendum → 7/23 green. Probe exports pinned. TDD-on-declarative-data:
+  strict not-toBeUndefined blocks RED-first in worktree, fixture bytes then land, atomic commit.
+steward_foresight_conscience_questions: |
+  Filed forward to reckoning (non-blocking at foresight):
+  1. Is banking m2-copyin NOW (vs authoring fresh at engine copyIn start) worth the archive-time debt?
+  2. Declare outcome "delivered" at merge with engine harness as deferred oracle, or couple this
+     change's archive to the engine harness run?
+in_loop_iteration: 3
+plan_verify_iteration: 0
+simplify_gate: "ok (2026-07-22) — applied 1 (CFX-16.1 double read, commit 11dfffc on held
+  branch), skipped 1 (getCase helper: 6/11 sites already on main — followup registered for
+  next fit-40 touch, all 16 sites one pass), reuse+simplification lenses clean. Report:
+  simplify-report.md + engram #2387."
+next_phase: spec sign-off (V2 drafted, council re-check clean: TW approve, QA approve-with-notes,
+  BA approve-on-specs; BA's proposal-count blocker fixed inline by orchestrator — 5 copyin cases, 7/23.
+  dest-dir-twin (2,"collision",0) added by owner ruling. Residual accepted notes: dest-dir collision code
+  is the highest-uncertainty triple (no SDK-fake corroboration — gated by un-hold checklist item 5);
+  pre-existing spurious-extra-case hole (out of scope). Awaiting owner signature → design.)
+spec_v1_council_verdicts: |
+  QA needs-revision — BLOCKING: m2-copyin seed tree + dest path unpinned (collision/expected bytes unauthorable).
+  BA needs-revision — BLOCKING: REQ-CFX-15.6 "WHEN the batch is applied" breaches REQ-CFX-11 declaration framing.
+  TW approve-with-notes — BLOCKING: fit-40 clause-(e) regex is prefix-match, tolerates missing `copy` — REQ-CFX-17
+    must mandate tightening the regex per landing step.
+  Shared notes for V2: verbatim-content must assert token PRESENCE (anti-tautology); REQ-CCR-05.1 derived-sum is
+    self-referential — per-fixture blocks are the load-bearing count guard, say so; REQ-CCR-05.4 monotonic floor
+    needs a verification-cadence note (PR-gate, not bun-test); delete dead hardcoded gates explicitly; REQ-CCR-09
+    needs a fit-40-green-on-branch-at-7/22 scenario (hold-time baseline); enumerate the un-hold re-validation
+    checklist concretely (incl. copyIn sync-sites cross-ref + engine-fact re-check of copy missing-source
+    "not-found" code — owner-pinned but engine-unconfirmed); REQ-CFX-12 parenthetical wording; m2-copyin naming
+    note (deliberate single-token id); SDK verb docs (docs/README, quickstart, authoring-verbs) are NOT sync
+    sites — record why; followup breadcrumb: verb docs claim copyIn works today (pre-existing drift).
+  Proposal reconciled inline by orchestrator (3rd-checkpoint → manifest-derived row 502; two-step README/fit-40
+    success criteria).
+  OPEN product question for owner: copyIn onto existing DIRECTORY destination — engine-plane rejection (5th case)?
+owner_rulings_post_explore: |
+  1. m2-copy = 6 cases (adds collision-no-force + missing-source twins).
+  2. m2-copyin = engine-plane only (positive, verbatim-content, collision±force); SDK-plane twins DESCOPED
+     (non-gating, indistinguishable (1,null,null,[]), duplicate SDK unit coverage) — register followup.
+  3. Landing: m2-copy → main first; m2-copyin authored now, branch-held until engine copyIn inclusion in flight.
+  4. Engine facts (writtenPaths, intra-batch ordering, assets/ loader inertness) confirmed by owner pre-spec.
+council_propose_pushback: |
+  - PM: prefer m2-copyin as its OWN change (plan now, build/merge gated on engine trigger) — archive honesty
+    (can't archive with half the scope branch-held), drift risk vs actively-churning corpus (16 followups in 3
+    days), fit-40 count-dance. Row 502 collision: manifest-derived fit-40 counts — "this change IS that touch",
+    disposition DO-NOW.
+  - BA: bundle acceptable ONLY with two separate done-definitions + m2-copy independently landable; success
+    criteria must be honesty-bounded (declarations, never behaviour-proof at merge); README must not claim
+    copyIn representable while its fixture is off main. AC-1..AC-6 sketch in BA report.
+  - Both converge: m2-copy critical path must never be hostage to m2-copyin churn.
+viz_url: https://claude.ai/code/artifact/2a99ccea-0c86-4d75-b352-07ca44924d47
+explore_key_findings: |
+  - m2-copy: clean m2-rename-move template clone; QA demands collision-WITHOUT-force twin added (force-flag triangulation).
+  - m2-copyin: NOT a template clone. Two HIGH structural items: (1) package-local source has no home in documented
+    layout (packageDir-relative, loader knows seed/expected/schematic only) — needs in-fixture assets/ decision, no new
+    manifest key, engine loader inertness confirmation; (2) positive-case pin ratchet — copyIn SDK-plane twins
+    (containment-escape, missing-source, dir-source) are exit-1 pre-emit (1,null,null,[]) + EMPTY transcript, engine
+    never sees them → pin-SAFE but non-gating; engine-plane cases (positive, verbatim-content, collision±force) are
+    the true gate and NOT pin-safe until engine copyIn inclusion.
+  - copy-then-modify "collapse" = TWO wire directives (no coalescing); disk-effect only; intra-batch ordering
+    engine-authoritative OPEN.
+  - writtenPaths semantics for copy/copyIn destinations UNDERIVABLE from precedent — needs engine-team confirmation.
+  - fit-40: new fixtures need their own hand-authored per-fixture assertion blocks (REQ-CFX-08 pattern); checkpoint
+    cadence hard-coded to 1 and 5 fixtures → 3rd checkpoint or generalization (technical OQ → design).
+  - Representable-ops list lives in 3 places (README, DO-NOT-COPY clause e, fit-40 regex) — keep in sync (tech-writer).
+execution_mode: interactive
+artifact_store: openspec-only (hybrid configured; engram unavailable this session)
+council:
+  - architect
+  - pm
+  - business-analyst
+  - qa-engineer
+  - tech-writer (conditional — README representable-ops sentence is an external contract)
+landing_sequence: m2-copy lands first (engine pins that commit), m2-copyin second — pin-ratchet mitigation, owner-accepted
+origin: "GitHub issue #42; owner bundled m2-copyin on 2026-07-22"

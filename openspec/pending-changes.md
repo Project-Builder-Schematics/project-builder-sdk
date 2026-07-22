@@ -543,6 +543,21 @@ the alignment row below is that override's registered obligation.
 | **Judgment-day INFO bundle — contract pins** (Round 1 + Round 2, both judges, non-gating): (1) a directive-prologue + existing-same-module-import insertion-position pin (untested combination: an import merge target that also has a leading directive); (2) shebang + directive posture wording in scenario `.33` needs tightening now that the fallback arm is confirmed shipped; (3) an ASCII-only identifier grammar i18n note — `IMPORT_RESERVED_WORDS`/the grammar regex are ASCII-only by design, undocumented as a stated limit rather than an oversight | docs | XS | — | **next `REQ-TSD-01.33` / grammar-note touch** |
 | **Engines/CI version alignment** (obligation from `architecture-override.md`, HUMAN OVERRIDE 2026-07-21): `package.json:27` declares `engines.node >=25.9.0` while `.github/workflows/publish.yml:42` runs CI on `node-version: "22"` — pre-existing, unrelated to this change, but this change's archive is where the override's registration obligation is discharged. Direction (bump CI to match engines, or relax engines to match CI) is this future change's own decision to make | bugfix | XS | — | **own scoped mini-change** |
 
+---
+
+**[INSERTED 2026-07-22 at archive]**
+
+## From `copy-copyin-conformance-fixtures` (2026-07-22) — accepted as non-blocking at archive
+
+Verify verdict `pass-with-followups` (31/32 findings immaterial/deferred). Judgment-day APPROVED (0 CRITICAL, 0 REAL WARNINGs). Steward reckoning DELIVERED (3 owner CQs affirmed). Architecture override pre-existing (zero diff overlap).
+
+| # | Description | Type | Size | Trigger | Owner |
+|---|---|---|---|---|---|
+| CCF-1 | **`m2-copyin` authored-but-held (ADR-0074)**. Branch `m2-copyin-banked-arm` (ee6501f, draft PR #45), unmerged. Un-hold trigger: Engine `copyIn` wire-inclusion in flight. **Checklist**: (1) rebase/re-validate against then-current schema; (2) fit-40 green at then-current derived count; (3) tighten all 3 sync sites + regex; (4) confirm engine `copyIn` in flight; (5) re-verify two owner-pinned rejection codes against actual engine. **Staleness horizon**: NONE (explicit CQ-3 ruling — checklist item 1 absorbs drift; decide at un-hold time with real data). | branch-hold | — | Engine `copyIn` wire-inclusion signal | Daniel |
+| CCF-2 | **fit-40 hardening (4 sub-tasks, one integrated pass)**: (a) `getCase` helper extraction (16 sites); (b) carrier-file byte pinning (secondary expected-* dirs); (c) clause-(e) regex → token-presence form; (d) REQ-CCR-05.1 fail-loud on missing manifest. All from simplify-gate + judgment-day findings. Execute ALL FOUR together, never inline. | refactor | S | Next fit-40 touch (coupled) | TBD |
+| CCF-3 | **SDK verb-docs honesty note (pre-existing drift)**. Docs enumerate `copyIn` as working today; pre-existing (not introduced by this change). Add "not yet wire-representable on `main`" note at un-hold commit. | docs | XS | At `m2-copyin` un-hold | TBD |
+| CCF-4 | **Node engines / CI mismatch (pre-existing build debt)**. `package.json#engines.node >=25.9.0` vs `.github/workflows/publish.yml` Node "22"; orphan `scripts/conformance-pr-gate.ts`. Surfaced by arch audit override #2396 (pre-existing, zero diff). Visibility item; no current blocker. | build-debt | XS | No trigger; deferred CI audit | TBD |
+
 ## From `runner-integrity-manifest` archive (2026-07-25) — judgment-day ESCALATED, full debt register
 
 Verify final `pass-with-followups` (63/65 COMPLIANT, 0 FAILING, 0 UNTESTED). Judgment-day
