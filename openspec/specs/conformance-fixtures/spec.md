@@ -44,14 +44,22 @@ itself, but follows from "factories are loaded from source, never executed as pr
 
 ### REQ-CFX-02: Representable-Ops-Only, Exactly One Wire `create` Corpus-Wide
 
-Across the whole corpus, factories MUST author only `modify`/`delete`/`rename`/`move` via the
-public commons verbs. EXACTLY ONE case in the entire corpus — `m2-create-composition`'s
+Across the whole corpus, factories MUST author only `modify`/`delete`/`rename`/`move`/`copy`/
+`copyIn` via the public commons verbs — `copy` and `copyIn` join the representable set per this
+change, subject to REQ-CFX-17's branch-hold two-step (`copyIn` is representable-in-declaration
+but its landing commit stays branch-held until the engine's `copyIn` wire-inclusion is in
+flight). EXACTLY ONE case in the entire corpus — `m2-create-composition`'s
 `wire-create-reject-twin` — MAY emit a wire `create` directive, as a deliberate reject probe. No
 other case may emit `create`.
 
+(Previously: representable set was `modify`/`delete`/`rename`/`move` only. This change adds
+`copy`/`copyIn` per owner ruling 1/2 (2026-07-22) — the `create` exception is unchanged.)
+
 #### Scenario REQ-CFX-02.1: Only one create exists corpus-wide
 
-- GIVEN all 12 cases across the 5 fixtures
+- GIVEN every case across every fixture CURRENTLY listed in `corpus.json#fixtures` (a
+  manifest-derived count, never a hardcoded literal — consistent with `conformance-corpus`
+  REQ-CCR-05's generalization)
 - WHEN each factory's emitted directive ops are inspected
 - THEN exactly one case (`m2-create-composition/wire-create-reject-twin`) emits `create`
 
@@ -61,31 +69,36 @@ The code path authoring the raw wire `create` in `wire-create-reject-twin` MUST 
 beginning `DO-NOT-COPY` that conveys, at minimum: (a) this deliberately violates REQ-CFX-02's
 one-create-corpus-wide invariant; (b) it exists as a reject PROBE, not a template; (c) it MUST
 NOT be imitated by any other fixture; (d) the engine REFUSES this batch (`unrepresentable`,
-REQ-CFX-04) — the exact exit path (client-side authoring-time exit 1, or host-side emit-time exit
-2) is the open question REQ-CFX-09 routes to `sdd-design`'s ADR, so the comment MUST NOT assert a
-specific exit code as settled fact ahead of that ADR; (e) what to copy INSTEAD when authoring a
-new fixture — the positive case's `modify`/`delete`/`rename`/`move` default-export pattern. A
+REQ-CFX-04) — the exact exit path is resolved by ADR-0064 (2/unrepresentable/null, emit-time);
+(e) what to copy INSTEAD when authoring a new fixture — the positive case's
+`modify`/`delete`/`rename`/`move`/`copy`/`copyIn` default-export pattern, widening IN STEP with
+REQ-CFX-02's representable set (REQ-CFX-17) — before `copyIn` un-holds, a new fixture wanting the
+by-reference shape copies `m2-copy`'s already-merged pattern, not `m2-copyin`'s held one. A
 CLAUSE LIST, not frozen prose — the exact wording is an implementation choice as long as all five
-points are conveyed. (Provenance note: this is an in-repo hygiene convention this spec proposes,
-not a handoff-mandated requirement — REQ-CFX-02 already guards the invariant structurally;
-`sdd-design`/the owner MAY demote this from MUST to advisory if judged unnecessary.)
+points are conveyed.
 
-(Previously: a single unstructured paragraph naming only clauses (a)-(c). V3 folds in (d) and (e)
-per evidence review — (d)'s wording is deliberately hedged against REQ-CFX-09's still-open
-exit-path question rather than asserting "exit 2" as the literal correction text proposed, since
-that would freeze an unresolved design question inside a code comment.)
+(Previously: clause (e) named only `modify`/`delete`/`rename`/`move`. This change widens it to
+include `copy`/`copyIn` per REQ-CFX-02's expanded representable set, with the branch-hold caveat
+for `copyIn` specifically.)
 
-**Resolution note (archive-time)**: exit path resolved by ADR-0064 (2/unrepresentable/null,
-emit-time); the temporal hedge in clause (d) is closed; the shipped comment's assertion cites
-that ADR and is consistent.
+**Branch-hold clarification (spec-internal only, TW, 2026-07-22)**: the parenthetical guidance
+above about `copyIn`'s branch-hold status (REQ-CFX-17) is guidance for THIS SPEC's readers and
+for whoever authors a FUTURE fixture — it is NEVER text that belongs in the on-`main`
+`DO-NOT-COPY` comment itself. At the `m2-copy`-landing step, the shipped comment's clause (e)
+names ONLY `modify`/`delete`/`rename`/`move`/`copy` — no mention of `copyIn`, no
+planning/sequencing noise of any kind. The comment is an EXTERNAL, on-disk contract read by any
+engine-team member browsing the file; it states current fact, never roadmap.
+
+**Resolution note (archive-time, carried from V3)**: exit path resolved by ADR-0064; the shipped
+comment's assertion cites that ADR and is consistent.
 
 #### Scenario REQ-CFX-03.1: Reject-probe code is marked with all five clauses
 
 - GIVEN `m2-create-composition/factory.ts`'s `wire-create-reject-twin` branch
 - WHEN read
 - THEN a `DO-NOT-COPY`-prefixed comment precedes the raw `create` authoring and conveys clauses
-  (a) through (e) — including that the engine refuses the batch and what to copy instead, without
-  asserting a specific exit code the ADR has not yet resolved
+  (a) through (e) — clause (e) naming the CURRENT representable set at the time of reading,
+  never a stale one
 
 ### REQ-CFX-04: `manifest.json` Outcome Triple Internal Consistency
 
@@ -401,15 +414,16 @@ ctx.session.discard()` on ANY error thrown by `fn`, `dialects.drain()`, `session
 `session.commit()` before re-throwing. `Session.discard()` (`src/core/session.ts`) delegates to
 the client's `discard()`, which for `StdioEngineClient` (`src/transport/stdio-engine-client.ts`
 ~283-284) issues an `ir.discard` reverse callback. A rejected case's transcript therefore ends in
-`ir.discard`, not in the rejected `ir.emit` — the run does not halt before a subsequent callback,
-it discards. No fixture in this corpus exercises a DOUBLE-commit, and every case that reaches
-`ir.commit` does so strictly after its `ir.emit`; `singleCommit` and `emitBeforeCommit` therefore
-pin `true` for all 12 cases (vacuously true wherever the callback in question never occurs).
-`forbidDiscard` is NOT uniformly `true`: it pins `true` only for cases whose run reaches
-`ir.commit` without any prior rejection (every POSITIVE case) plus `greeting-mismatch-twin`
-(whose exit-1 greeting failure is decided before `defineFactory` is ever invoked, so no `Session`
-exists to discard) — it pins `false` for every case whose run rejects mid-flight, since
-`ir.discard` DOES fire for those. `callbacks[]` and `forbidDiscard` both vary per case:
+`ir.discard`, not in the rejected `ir.emit`. A batch carrying MULTIPLE directives that all
+succeed (e.g. `m2-copy`'s `copy-then-modify` case, or `m2-create-composition`'s two composed
+halves) is still flushed via a SINGLE `ir.emit` covering the whole directive array — the engine
+applies the array's entries STRICTLY SEQUENTIALLY in array order (engine-confirmed, ruling 3(b))
+— so `copy-then-modify`'s transcript has the SAME shape as any other single-commit positive case,
+not a doubled `ir.emit`. `singleCommit` and `emitBeforeCommit` therefore pin `true` for all cases
+in the corpus (vacuously true wherever the callback in question never occurs). `forbidDiscard`
+pins `true` only for cases whose run reaches `ir.commit` without any prior rejection plus
+`greeting-mismatch-twin` (decided pre-`defineFactory`) — it pins `false` for every case whose run
+rejects mid-flight. `callbacks[]` and `forbidDiscard` both vary per case:
 
 | Fixture / Case | `callbacks[]` | `forbidDiscard` |
 |---|---|---|
@@ -424,19 +438,27 @@ exists to discard) — it pins `false` for every case whose run rejects mid-flig
 | m2-rename-move / collision-twin | `[ir.emit, ir.discard]` | `false` |
 | m2-rename-move / dir-source-twin | `[ir.emit, ir.discard]` | `false` |
 | m2-create-composition / positive | `[ir.emit, ir.commit]` | `true` |
-| m2-create-composition / wire-create-reject-twin | `[ir.emit, ir.discard]` IF resolved to the exit-2 emit-time path; `[ir.discard]` IF resolved to the exit-1 authoring-time path (see REQ-CFX-09 — EITHER WAY `defineFactory`'s catch fires and issues `ir.discard`, since an authoring-time rejection is thrown from inside `fn`, which the SAME try block covers alongside `flush`/`commit`; only whether `ir.emit` was reached first differs) | `false` (either resolution) |
+| m2-create-composition / wire-create-reject-twin | `[ir.emit, ir.discard]` IF resolved to the exit-2 emit-time path; `[ir.discard]` IF resolved to the exit-1 authoring-time path (see REQ-CFX-09) | `false` (either resolution) |
+| m2-copy / positive | `[ir.emit, ir.commit]` | `true` |
+| m2-copy / collision-with-force | `[ir.emit, ir.commit]` | `true` |
+| m2-copy / collision-no-force-twin | `[ir.emit, ir.discard]` | `false` |
+| m2-copy / missing-source-twin | `[ir.emit, ir.discard]` | `false` |
+| m2-copy / dir-source-twin | `[ir.emit, ir.discard]` | `false` |
+| m2-copy / copy-then-modify | `[ir.emit, ir.commit]` (ONE flush, two directives applied in array order) | `true` |
+| m2-copyin / positive | `[ir.emit, ir.commit]` | `true` |
+| m2-copyin / verbatim-content | `[ir.emit, ir.commit]` | `true` |
+| m2-copyin / collision-with-force | `[ir.emit, ir.commit]` | `true` |
+| m2-copyin / collision-no-force-twin | `[ir.emit, ir.discard]` | `false` |
+| m2-copyin / dest-dir-twin | `[ir.emit, ir.discard]` | `false` |
 
-`tree.read` appears ONLY in `m1-vehicle`'s positive case — the sole factory whose handoff
-description calls `.read()`; no other factory in the corpus reads before authoring (verified
-against each fixture's own factory contract in REQ-CFX-05 through REQ-CFX-09: none of the six
-corrected rows' factories call `.read()` before authoring the directive that gets rejected).
+`tree.read` appears ONLY in `m1-vehicle`'s positive case — no other factory in the corpus,
+including `m2-copy`/`m2-copyin`, reads before authoring the directive.
 
-(Previously: claimed "the run halts before any subsequent callback" and "No fixture in this
-corpus exercises ... an `ir.discard` call" — both FALSE. `defineFactory`'s catch calls
-`ctx.session.discard()` on every flush/emit rejection, and `Session.discard()` issues `ir.discard`
-via the client. V3 corrects the six reject-twin rows above per code verification —
-`src/core/context.ts` ~339-361, `src/core/session.ts` ~51-53, `src/transport/stdio-engine-client.ts`
-~283-284 — and removes the false universal `forbidDiscard: true` pin.)
+(Previously: table did not include `m2-copy`/`m2-copyin` rows, and the prose did not describe
+multi-directive single-flush sequencing. Both added by this change; the six pre-existing rows and
+their rationale are unchanged. V2 adds the `m2-copyin / dest-dir-twin` row per the 2026-07-22
+owner-ruling extension — a directive-level rejection, same shape as every other
+directive-level twin in this table.)
 
 #### Scenario REQ-CFX-13.1: A wire-mutation positive case's transcript is single-emit-single-commit
 
@@ -449,28 +471,29 @@ via the client. V3 corrects the six reject-twin rows above per code verification
 
 - GIVEN `m2-modify`'s not-found-twin
 - WHEN `cases[].transcript` is inspected
-- THEN `callbacks = [ir.emit, ir.discard]` (the rejected `ir.emit` triggers `defineFactory`'s
-  all-or-nothing teardown, which issues `ir.discard` before re-throwing — the run does NOT
-  silently stop at the rejected `ir.emit`), `singleCommit: true` (vacuously — zero commits),
-  `forbidDiscard: false`, `emitBeforeCommit: true` (vacuously)
+- THEN `callbacks = [ir.emit, ir.discard]`, `singleCommit: true` (vacuously), `forbidDiscard:
+  false`, `emitBeforeCommit: true` (vacuously)
 
 #### Scenario REQ-CFX-13.3: A batch-level reject twin discards identically to a directive-level one
 
 - GIVEN `m2-delete`'s `dir-target-twin` (batch-level `unrepresentable`, `failedIndex: null`)
 - WHEN `cases[].transcript` is inspected
 - THEN `callbacks = [ir.emit, ir.discard]` and `forbidDiscard: false`, identically to a
-  directive-level twin — the discard trigger is ANY flush/emit rejection, not conditioned on
-  whether the rejection is directive-level or batch-level
+  directive-level twin
 
 #### Scenario REQ-CFX-13.4: wire-create-reject-twin discards under either exit-path resolution
 
-- GIVEN `m2-create-composition`'s `wire-create-reject-twin`, whose outcome triple is UNRESOLVED
-  pending `sdd-design`'s ADR (REQ-CFX-09)
+- GIVEN `m2-create-composition`'s `wire-create-reject-twin`
 - WHEN `cases[].transcript` is inspected under EITHER candidate resolution
 - THEN `ir.discard` is present as the LAST callback in both cases and `forbidDiscard: false` in
-  both — `defineFactory`'s catch covers an error thrown during `fn` execution (the authoring-time
-  path) exactly as it covers an error thrown by `flush()` (the emit-time path); only whether
-  `ir.emit` precedes `ir.discard` in `callbacks[]` remains open until the ADR resolves it
+  both
+
+#### Scenario REQ-CFX-13.5: A two-directive positive batch is a single flush, not a doubled emit
+
+- GIVEN `m2-copy`'s `copy-then-modify` case (one batch, `copy` then `modify` on the same dest)
+- WHEN `cases[].transcript` is inspected
+- THEN `callbacks = [ir.emit, ir.commit]` exactly once each — the two directives share ONE
+  flush, applied sequentially in array order (ruling 3(b)), never two `ir.emit` calls
 
 ### REQ-CFX-14: Factory Build Isolation and Export Convention
 
@@ -485,6 +508,209 @@ run build` MUST stay green with `conformance/` present in the tree (handoff deli
 - GIVEN `conformance/` landed at repo root
 - WHEN `bun install --frozen-lockfile && bun run build` runs
 - THEN it exits 0 and no `conformance/**` file appears in the build output tree
+
+### REQ-CFX-15: `m2-copy` Behavioral Contract (owner ruling 1, 2026-07-22)
+
+`class: wire-mutation`, `lowering: none`. Seed: `src.txt = "payload"`, `occupied.txt = "taken"`,
+`adir/child.txt = "x"` (mirrors `m2-rename-move`'s seed, ADR-0065 per-case `factory` override).
+UNLIKE `rename`/`move`, `copy`'s positive case MUST leave the source path INTACT — the
+destination receives a byte-identical copy; the source is NEVER removed. `writtenPaths` pin:
+REQ-CFX-12 (`[]` for every case — pure wire-mutation, no schematic lowering, per ruling 3(a)).
+
+| Case | exitCode | emitRejectionCode | failedIndex | expected | notes |
+|---|---|---|---|---|---|
+| positive | 0 | null | null | `dst.txt="payload"`, `src.txt="payload"` (unchanged), `occupied.txt="taken"`, `adir/child.txt="x"` | source survives the copy |
+| collision-with-force | 0 | null | null | `occupied.txt="payload"` (overwritten), `src.txt` unchanged | `force:true` targets an existing destination |
+| collision-no-force-twin | 2 | `collision` | 0 | `"zero-effect"` | dest = `occupied.txt`, no `force` |
+| missing-source-twin | 2 | `not-found` | 0 | `"zero-effect"` | source = `missing.txt` |
+| dir-source-twin | 2 | `unrepresentable` | null | `"zero-effect"` | source = `adir` (a directory) |
+| copy-then-modify | 0 | null | null | final dest bytes = the MODIFY directive's content, never the copy's | ONE batch, two directives: `copy(src→dst2)` then `modify(dst2,…)`; intra-batch apply is STRICTLY SEQUENTIAL in array order (engine-confirmed, ruling 3(b)) — proves array-order collapse, not a race |
+
+#### Scenario REQ-CFX-15.1: Positive case declares an exact-bytes copy, source intact
+
+- GIVEN `m2-copy`'s manifest + seed (`src.txt = "payload"`) + `expected/`
+- WHEN the fixture's declared artefacts are inspected (structural, no runner spawn)
+- THEN `outcome.exitCode: 0`, `expected/dst.txt` byte-equals `"payload"`, `expected/src.txt`
+  ALSO byte-equals `"payload"` (source never removed) — a DECLARATION (REQ-CFX-11)
+
+#### Scenario REQ-CFX-15.2: Collision-with-force overwrites and exits 0
+
+- GIVEN the collision-with-force case targets existing `occupied.txt` with `force:true`
+- WHEN the fixture's declared artefacts are inspected (structural, no runner spawn)
+- THEN the manifest declares `outcome.exitCode: 0`, `expected/occupied.txt` byte-equals the
+  source's content — a DECLARATION (REQ-CFX-11)
+
+#### Scenario REQ-CFX-15.3: Collision-no-force twin rejects fail-closed
+
+- GIVEN the collision-no-force-twin targets existing `occupied.txt`, no `force`
+- WHEN the fixture's declared artefacts are inspected
+- THEN the manifest declares `outcome.exitCode: 2`, `emitRejectionCode: "collision"`,
+  `failedIndex: 0`, `expected: "zero-effect"`
+
+#### Scenario REQ-CFX-15.4: Missing-source twin rejects not-found
+
+- GIVEN the missing-source-twin's source path does not exist in the seed
+- WHEN the fixture's declared artefacts are inspected
+- THEN the manifest declares `outcome.exitCode: 2`, `emitRejectionCode: "not-found"`,
+  `failedIndex: 0`, `expected: "zero-effect"`
+
+#### Scenario REQ-CFX-15.5: Directory-source twin rejects unrepresentable
+
+- GIVEN the dir-source-twin's source is `adir` (a directory)
+- WHEN the fixture's declared artefacts are inspected
+- THEN the manifest declares `outcome.exitCode: 2`, `emitRejectionCode: "unrepresentable"`,
+  `failedIndex: null` (batch-level), `expected: "zero-effect"`
+
+#### Scenario REQ-CFX-15.6: Copy-then-modify collapses to the modify's bytes (declaration, not a runtime claim)
+
+- GIVEN a single batch authoring `copy(src→dst2)` immediately followed by
+  `modify(dst2, "final")` in the SAME array
+- WHEN the fixture's declared artefacts are inspected (structural, no runner spawn)
+- THEN the manifest declares `outcome.exitCode: 0`, `expected/dst2.txt` byte-equals `"final"`
+  (the modify's content, never the copy's intermediate bytes) — the collapse is a DECLARATION
+  traced from the engine-confirmed sequential array-order fact (ruling 3(b)), not an SDK-run
+  proof; one flush, `singleCommit: true`
+
+### REQ-CFX-16: `m2-copyin` Behavioral Contract — Engine-Plane Cases Only (owner ruling 2, extended 2026-07-22)
+
+`class: wire-mutation`, `lowering: none`. Structurally novel: introduces a PACKAGE-LOCAL
+in-fixture source directory (`assets/`) — the bytes `copyIn` references live INSIDE the fixture
+package itself, resolved against `packageDir` = the fixture's own directory. [SEAM] The engine's
+Go fixture loader treats unknown files/dirs inside a fixture dir as INERT (engine-confirmed,
+ruling 3(c)) — an in-fixture `assets/` source needs ZERO schema changes; flagged for engine-team
+awareness, same posture as `conformance-corpus` REQ-CCR-08's `collection.json` note. 5
+engine-plane cases are in scope (extended from 4 by the 2026-07-22 owner-ruling addition of
+`dest-dir-twin`) — SDK-plane twins remain explicitly DESCOPED (see Followups; a deliberate,
+recorded exclusion, never a silent gap). The fixture id `m2-copyin` is DELIBERATELY a single
+token — `copyIn` is ONE verb, not a compound `copy` + `in` operation — a future reader MUST NOT
+"correct" it to `m2-copy-in`, which would falsely echo the two-op `m2-rename-move` fixture's
+naming shape (that fixture names two DISTINCT verbs; this one names one).
+
+**Fixture layout (bytes pinned to the exact byte, mirroring REQ-CFX-15's precision)**:
+
+- `assets/payload.txt = "by-reference-payload"` — package-local by-reference source (used by
+  `positive`, `collision-with-force`, `dest-dir-twin`)
+- `assets/verbatim.txt = "Hello {= name =}!"` — contains a literal template-token sequence in
+  the `folder-scaffold` REQ-FSC-05 syntax (ground truth: REQ-FSC-05's token-translation form is
+  `{= x =}` / `{= x | filter =}`), used only by `verbatim-content`
+- `seed/occupied.txt = "taken"` — pre-existing destination for the collision cases
+- `seed/existing-dir/child.txt = "x"` — a pre-existing DIRECTORY at the path `dest-dir-twin`
+  targets as its destination
+
+| Case | exitCode | emitRejectionCode | failedIndex | expected | notes |
+|---|---|---|---|---|---|
+| positive | 0 | null | null | `dst.txt = "by-reference-payload"`; `occupied.txt`/`existing-dir/child.txt` unchanged | dest is a genuinely NEW path — see REQ-CFX-12 |
+| verbatim-content | 0 | null | null | `dst2.txt = "Hello {= name =}!"` byte-identical, token present verbatim | proves REQ-CCL-04's documented escape; fit-40 MUST assert token PRESENCE in both source and expected — byte-equality alone is tautological (Scenario .2) |
+| collision-with-force | 0 | null | null | `occupied.txt = "by-reference-payload"` (overwritten) | `force:true` |
+| collision-no-force-twin | 2 | `collision` | 0 | `"zero-effect"` | dest = `occupied.txt`, no `force` |
+| dest-dir-twin | 2 | `collision` | 0 | `"zero-effect"` | dest = `existing-dir` (an existing DIRECTORY in seed) — owner-confirmed: the engine treats a directory destination as a DESTINATION COLLISION, indexed to directive 0, NOT `unrepresentable` |
+
+**This is `copyIn`'s ONLY engine-plane rejection twin.** `copyIn` has NO `unrepresentable`-coded
+twin in this corpus, unlike `m2-copy`'s directory-SOURCE case — a reviewer MUST NOT read that
+absence as a gap: a directory SOURCE is rejected SDK-side pre-emit (source-side,
+`authoring-rejected`, descoped below, never reaches the engine), while a directory DESTINATION
+is the one case that DOES reach the engine, and the engine resolves it to `collision`, never
+`unrepresentable`.
+
+**Descope note (owner ruling 2, non-gating)**: SOURCE-side rejections
+(containment-escape, missing-source, a directory SOURCE) are SDK-plane — declared
+`(1,null,null,[])` + empty transcript, `AuthoringError.origin: "authoring-rejected"` before any
+emit — and remain explicitly DESCOPED from this corpus (see Followups). Only the
+DESTINATION-side cases (collision-with-force/no-force/dest-dir) are engine-plane and therefore
+fixture-worthy.
+
+`writtenPaths` pin: REQ-CFX-12 (`[]` for every exit-0 case, including `positive`, whose
+destination is a genuinely new path — see REQ-CFX-12's tightened governing clause).
+
+#### Scenario REQ-CFX-16.1: Positive case declares by-reference bytes landing at a new path
+
+- GIVEN `m2-copyin`'s manifest + `assets/payload.txt = "by-reference-payload"` + `expected/`
+- WHEN the fixture's declared artefacts are inspected (structural, no runner spawn)
+- THEN the manifest declares `outcome.exitCode: 0`, `expected/dst.txt` byte-equals
+  `"by-reference-payload"`, `outcome.writtenPaths: []` — a DECLARATION (REQ-CFX-11); the first
+  real proof is the engine's Go harness at pin-advance
+
+#### Scenario REQ-CFX-16.2: Verbatim-content case declares the token present, unrendered, in BOTH source and expected
+
+- GIVEN `assets/verbatim.txt = "Hello {= name =}!"` (a REQ-FSC-05-shaped token)
+- WHEN the fixture's declared artefacts are inspected
+- THEN `expected/dst2.txt` is byte-IDENTICAL to the source AND both are asserted to contain the
+  literal `{= name =}` sequence — token PRESENCE, not byte-equality alone (an
+  `expected == source` check alone would pass even for an unrelated file pair; the token proves
+  by-reference bypasses the by-value template engine that would otherwise have rendered it)
+
+#### Scenario REQ-CFX-16.3: Collision-with-force overwrites and exits 0
+
+- GIVEN the collision-with-force case targets existing `occupied.txt = "taken"` with
+  `force:true`
+- WHEN the fixture's declared artefacts are inspected
+- THEN the manifest declares `outcome.exitCode: 0`, `expected/occupied.txt` byte-equals
+  `"by-reference-payload"`
+
+#### Scenario REQ-CFX-16.4: Collision-no-force twin rejects fail-closed
+
+- GIVEN the collision-no-force-twin targets existing `occupied.txt`, no `force`
+- WHEN the fixture's declared artefacts are inspected
+- THEN the manifest declares `outcome.exitCode: 2`, `emitRejectionCode: "collision"`,
+  `failedIndex: 0`, `expected: "zero-effect"`
+
+#### Scenario REQ-CFX-16.5: Dest-dir twin rejects as a collision, never unrepresentable
+
+- GIVEN the dest-dir-twin targets `existing-dir`, a pre-existing DIRECTORY in `seed/`
+- WHEN the fixture's declared artefacts are inspected
+- THEN the manifest declares `outcome.exitCode: 2`, `emitRejectionCode: "collision"`
+  (owner-confirmed engine behaviour — NOT `unrepresentable`), `failedIndex: 0`,
+  `expected: "zero-effect"`
+
+### REQ-CFX-17: Representable-Ops Sync Sites — Consistency and Branch-Hold Two-Step
+
+Widening the corpus's representable-ops set MUST update, in the SAME commit that widens it,
+every site that ENFORCEABLY documents the current op set: (a) `conformance/README.md`'s
+representable-ops sentence; (b) `m2-create-composition/factory.ts`'s DO-NOT-COPY clause (e)
+("what to copy instead", REQ-CFX-03); (c) `fit-40`'s clause-(e) consistency check — which MUST
+itself be TIGHTENED in the same commit, not merely re-read. `fit-40`'s existing clause-(e) check
+(`test/fitness/fit-40-conformance-corpus-integrity.test.ts` ~line 296) is a PREFIX regex
+(`/modify\/delete\/rename\/move/`) that matches a SUBSTRING of clause (e)'s text and therefore
+stays green whether or not `copy`/`copyIn` are present — as WRITTEN TODAY its enforcement of a
+widened set is illusory (verified by reading the check: it never asserts the ABSENCE of
+anything, only the presence of the original four verbs). This change's landing steps MUST
+tighten the regex alongside the clause text: the `m2-copy`-landing commit requires the regex to
+positively match `copy`'s presence (e.g. `/move\/copy/` or equivalent), and `m2-copyin`'s
+un-hold commit requires it to additionally match `copyIn`'s presence — widening clause (e)'s
+prose WITHOUT correspondingly tightening the regex does NOT satisfy this REQ.
+
+Because this change's two fixtures land on DIFFERENT schedules (REQ-CCR-09): `copy` MUST be
+added to every sync site (README, clause (e) text, and its regex) in the SAME commit `m2-copy`
+lands on `main`; `copyIn` MUST NOT be added to ANY sync site until the commit that un-holds
+`m2-copyin` from its branch — a sync site claiming `copyIn` representable while `m2-copyin`'s
+commit is still branch-held is a false declaration, worse than an omission.
+
+**Not sync sites (verified, this REQ does NOT extend to them)**: the SDK's author-facing verb
+docs — `docs/README.md:9`, `docs/quickstart.md` (Next Steps, ~line 179-180), and
+`docs/authoring-verbs.md:9` — already enumerate `copy`/`copyIn` among the SDK's seven author
+verbs. This is an AUTHOR-SURFACE enumeration (what verbs exist to call), NOT a
+wire-representability contract (what this corpus declares the engine can actually land) — the
+two claims serve different audiences, and holding the docs to this REQ's sync discipline would
+conflate them. This is PRE-EXISTING drift (the docs already present `copyIn` as fully working
+while it yields zero bytes pre-engine-inclusion), not introduced by this change — see Followups
+for its disposition. `CONFORMANCE-CORPUS-HANDOFF.md:96-97` references "the representable-ops-only
+quarantine" by NAME only, without enumerating the actual op list — it cannot go stale as the set
+widens and is therefore not a sync site either.
+
+#### Scenario REQ-CFX-17.1: `copy` lands in every sync site, regex included, with `m2-copy`'s commit
+
+- GIVEN the commit that lands `m2-copy` on `main`
+- WHEN README, the DO-NOT-COPY clause (e) text, and `fit-40`'s clause-(e) regex are read
+- THEN all three name/match `copy` as representable, in that SAME commit — the regex change is
+  not deferred to a later cleanup commit
+
+#### Scenario REQ-CFX-17.2: `copyIn` is absent from every sync site while branch-held — enforced by commit sequencing, not a test guard
+
+- GIVEN `main` at any point before `m2-copyin`'s un-hold commit merges
+- WHEN the same three sync sites are read
+- THEN none of them names/matches `copyIn` as representable — this is enforced ENTIRELY by
+  which commits have merged (commit sequencing); NO `fit-40` assertion polices a
+  must-NOT-appear guard for `copyIn`, and none should be assumed to exist
 
 ## Sensitive Areas Coverage
 
