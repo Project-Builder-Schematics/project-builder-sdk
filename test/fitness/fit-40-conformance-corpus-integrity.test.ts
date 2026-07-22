@@ -678,13 +678,14 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       const c = positive as Case;
       expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
-      expect(readFileSync(join(f.dir, "expected", "dst.txt"), "utf8")).toBe("by-reference-payload");
+      const dstBytes = readFileSync(join(f.dir, "expected", "dst.txt"), "utf8");
+      expect(dstBytes).toBe("by-reference-payload");
       expect(readFileSync(join(f.dir, "expected", "occupied.txt"), "utf8")).toBe("taken");
       expect(readFileSync(join(f.dir, "expected", "existing-dir", "child.txt"), "utf8")).toBe("x");
       // B1 defense-in-depth: ties the verbatim by-reference source directly to the declared
       // output, independent of the REQ-CDT-06 determinism-loop coverage — a stray byte in
       // assets/ must go RED locally, not silently at engine pin-advance.
-      expect(readFileSync(join(f.dir, "assets", "payload.txt"), "utf8")).toBe(readFileSync(join(f.dir, "expected", "dst.txt"), "utf8"));
+      expect(readFileSync(join(f.dir, "assets", "payload.txt"), "utf8")).toBe(dstBytes);
     });
 
     it("REQ-CFX-16.2: verbatim-content case declares the token present, unrendered, in BOTH source and expected", () => {
