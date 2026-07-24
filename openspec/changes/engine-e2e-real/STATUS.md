@@ -12,19 +12,21 @@ for anything on the engine side, so it yields.
 
 No production code was written. This branch carries planning artefacts only.
 
-## Blocking question to answer on resume
+## Blocking question — ANSWERED 2026-07-25
 
-Where does the gap-A artefact live?
+Where does the gap-A artefact live? **Owner ruled: (a) — a standalone SDK e2e in `test/e2e/`**,
+sibling of `installed-consumer.e2e.test.ts` and `dist-runner-dual-realm.e2e.test.ts`.
 
-- **(a)** A standalone SDK e2e in `test/e2e/` — sibling of `installed-consumer.e2e.test.ts` and
-  `dist-runner-dual-realm.e2e.test.ts`. SDK-owned, low risk. Does NOT hand the engine a consumable
-  corpus fixture.
-- **(b)** A fixture registered in `conformance/corpus.json`, consumed by the engine harness —
-  satisfies the engine brief's Deliverable 2 literally, but clashes with the corpus's
-  relative-source-import convention and needs a package-resolution setup no corpus fixture has.
-- **(c)** Both.
+Rationale (PM lens, ratified by owner): forcing a package-resolution fixture into
+`conformance/corpus.json` fights the relative-source-import convention that `conformance-corpus`
+deliberately established, and needs a resolution setup no corpus fixture has. Option (b) is
+registered as a followup rather than built now.
 
-This is a product decision, not a technical one — the technical path is settled (see `explore.md`).
+**Constraint carried forward**: this e2e must NOT assert manifest verification. Gap A resolves via
+`bun link` (SEC-07 realpath), and on that path the manifest is fully self-asserted — asserting it
+would encode a guarantee the linked path cannot provide.
+
+No planning blockers remain. Resume goes straight to `sdd-propose`.
 
 ## What exploration already settled
 
@@ -50,5 +52,10 @@ this change's `triage.md` assumed.
 
 ## Resume
 
-Answer the blocking question above, then run `sdd-propose` (merged mode) with the chosen home and
-the bun-link / SEC-07 constraint carried in as a hard requirement.
+**Resume point**: the moment `runner-integrity-manifest`'s generator merges to `main` and FIT-14's
+`pkg-surface-baseline.json` is regenerated there. That is well before that change archives — the two
+are serialised only because both regenerate that baseline and both touch the `dist/` build pipeline.
+Running them concurrently guarantees a baseline conflict; that is the whole dependency.
+
+Then run `sdd-propose` (merged mode) with home = (a) and the bun-link / SEC-07 constraint carried in
+as a hard requirement.
