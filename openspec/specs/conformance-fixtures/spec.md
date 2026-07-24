@@ -365,7 +365,12 @@ Pinned values, every positive case: `m1-vehicle` = `["out.txt"]` (schematic-lowe
 `out.txt` + factory `modify` of the same `out.txt` → deduped to one entry); `m2-modify` =
 `["target.txt"]`; `m2-delete` = `["target.txt"]`; `m2-rename-move` = `["dst.txt"]`;
 `m2-create-composition` = `["existing.txt", "generated.txt"]` (schematic-lowered `create` of
-`generated.txt` + factory `modify` of `existing.txt`, sorted). Every negative twin = `[]`.
+`generated.txt` + factory `modify` of `existing.txt`, sorted). Each committed case of `m2-copy`
+and `m2-copyin` lists its `copy`/`copyIn` **destination** (the by-reference `assets/` source is
+read, never written, so it is absent): `m2-copy` positive = `["dst.txt"]`, collision-with-force =
+`["occupied.txt"]`, copy-then-modify = `["dst2.txt"]`; `m2-copyin` positive = `["dst.txt"]`,
+verbatim-content = `["dst2.txt"]`, collision-with-force = `["occupied.txt"]`. Every negative twin =
+`[]`.
 
 #### Scenario REQ-CFX-12.1: Same-path create+modify deduplicates to one entry
 

@@ -48,6 +48,34 @@ describe("TypeScript dialect — REQ-TSD-01 subpath + thin op-pack shape", () =>
   });
 });
 
+describe("TypeScript dialect — REQ-TSD-01.24 ordering invariant (S-001, ts-addimport-collision)", () => {
+  it("REQ-TSD-01.24: idempotency (Step 1) runs BEFORE the claimed check (Step 2) — a second addImport for an already-bound name is a no-op, never a collision reject", async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": 'import { readFileSync } from "node:fs";\n' });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:fs");
+    });
+    await run(undefined, { client });
+
+    // A mutant reordering Step 1/Step 2 would make this SAME-module, already-bound specifier
+    // match the claimed scan and throw instead of no-op.
+    expect(collectModifies(emitted)).toHaveLength(0);
+  });
+
+  it("REQ-TSD-01.24: the same invariant holds seeded with a PRIOR run's own output (fresh Project)", async () => {
+    const alreadyImported = 'import { readFileSync } from "node:fs";\n';
+    const { client, emitted } = makeSpyClient({ "a.ts": alreadyImported });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:fs");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("a.ts")).toBe(alreadyImported);
+  });
+});
+
 describe("TypeScript dialect — REQ-TSD-02 ts-morph determinism pins", () => {
   it("REQ-TSD-02.1: the same chain run twice against a fresh Project is byte-identical AND matches the golden", async () => {
     const before = golden("add-import-before.txt");
@@ -249,6 +277,27 @@ describe("TypeScript dialect — REQ-TSD-03 edge scenarios (S-003)", () => {
     expect(modifies[0]?.modify.content).toBe(golden("add-import-after.txt"));
     const importLines = modifies[0]!.modify.content.split("\n").filter((l) => l.startsWith("import "));
     expect(importLines).toHaveLength(1);
+  });
+
+  it("REQ-TSD-03.11: seed-with-own-output — a FRESH, separate run reading a prior addImport's own output emits ZERO directives", async () => {
+    const before = golden("add-import-before.txt");
+    const { client: firstClient, emitted: firstEmitted } = makeSpyClient({ "a.ts": before });
+    const firstRun = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:fs");
+    });
+    await firstRun(undefined, { client: firstClient });
+    const priorOutput = collectModifies(firstEmitted)[0]?.modify.content;
+    expect(priorOutput).toBe(golden("add-import-after.txt"));
+
+    // A genuinely SEPARATE run (fresh Project/client), seeded with the prior run's own output
+    // as its starting state — distinct from .10's single-run chained-call proof.
+    const { client, emitted } = makeSpyClient({ "a.ts": priorOutput! });
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:fs");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)).toHaveLength(0);
   });
 
   // REQ-TSD-03.7: multibyte-UTF-8 fixture sized so RAW bytes < BATCH_CAP_BYTES <= SERIALIZED

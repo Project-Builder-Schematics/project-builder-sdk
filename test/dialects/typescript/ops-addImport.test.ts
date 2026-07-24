@@ -1,0 +1,531 @@
+/**
+ * S-000 (`ts-addimport-collision`) — the ported V8 happy-path algorithm (design §4.3/§4.4,
+ * spec REQ-TSD-01 Steps 1/3/4 only; Step 2 collision is DEFERRED to S-001). Every content
+ * assertion is byte-exact against a committed golden (constraint 7).
+ *
+ * Covers REQ-TSD-01.5 (merge), .10/.11/.12/.13/.31 (idempotency — default/namespace/named),
+ * .19 (fresh create).
+ *
+ * S-001 — the file-wide collision reject (Step 2, design §4.4). Every REJECT row asserts the
+ * dual observable REQ-TSD-01 defines battery-wide: synchronous throw + the target file
+ * BYTE-UNCHANGED on re-read after the catch. Every row also asserts the collision-specific
+ * "already exists" distinguishing substring (QA M4) — the shared "dialect operation failed: "
+ * prefix alone discriminates nothing.
+ *
+ * S-002 — REQ-TSD-13's injection-safety validation gate. Same dual-observable reject shape as
+ * S-001's collision rejects (throw + zero directives/byte-unchanged), but PATH-LESS (design
+ * §4.4, two deliberate reject shapes) — `expectCollisionReject` below is reused as-is for both,
+ * since the mechanics it asserts are shape-identical; only the message-content assertions in
+ * each `it()` differ per reject kind.
+ *
+ * S-004 — REQ-TSD-01.25 (CORRECTED at V3.2) pins the match-cardinality asymmetry: `addImport`
+ * merges into ONLY the first declaration; `removeImport` SEARCHES every declaration matching
+ * `from` but REMOVES the binding from only the first one it finds it in. REQ-TSD-01.33 pins
+ * ADR-03's pre-authorized FALLBACK: a shebang file rejects HANDLE-contained and fail-closed on
+ * the fresh-create-no-directive path only — the sole branch that inserts at the very top of the
+ * file; merge and directive-prologue creates succeed on shebang files with the shebang intact.
+ * Shebang-aware top-of-file insertion is deferred as a followup, NOT built this change.
+ */
+import { describe, it, expect } from "bun:test";
+import { readFileSync } from "node:fs";
+import * as ts from "../../../src/dialects/typescript/index.ts";
+import { makeSpyClient, collectModifies } from "../../support/spy-client.ts";
+import { golden } from "../../support/golden.ts";
+import { defineFactory } from "../../../src/core/context.ts";
+
+async function expectCollisionReject(
+  seed: string,
+  callArgs: [name: string, from: string]
+): Promise<{ err: Error; content: string | undefined }> {
+  const { client } = makeSpyClient({ "a.ts": seed });
+
+  const run = defineFactory<void>(async () => {
+    await ts.find("a.ts").addImport(...callArgs);
+  });
+
+  let caught: unknown;
+  try {
+    await run(undefined, { client });
+  } catch (err) {
+    caught = err;
+  }
+  expect(caught).toBeInstanceOf(Error);
+  const err = caught as Error;
+  expect(err.cause).toBeUndefined();
+  const content = await client.read("a.ts");
+  expect(content).toBe(seed);
+  return { err, content };
+}
+
+// Success-path sibling of `expectCollisionReject`: seeds `a.ts`, runs the op, and asserts the
+// single expected observable — exactly one modify directive whose content matches
+// `expectedContent`. Shared skeleton for every merge/create call site below; a case with extra
+// assertions beyond this skeleton stays hand-rolled instead of forcing them through here.
+async function expectSingleModify(seed: string, run: () => Promise<void>, expectedContent: string): Promise<void> {
+  const { client, emitted } = makeSpyClient({ "a.ts": seed });
+  const factory = defineFactory<void>(run);
+  await factory(undefined, { client });
+
+  const modifies = collectModifies(emitted);
+  expect(modifies).toHaveLength(1);
+  expect(modifies[0]?.modify.content).toBe(expectedContent);
+}
+
+// No-op sibling of `expectSingleModify`: asserts the dual observable idempotency/never-claimed
+// cases share — zero directives emitted AND the file byte-unchanged on re-read.
+async function expectNoOp(seed: string, run: () => Promise<void>): Promise<void> {
+  const { client, emitted } = makeSpyClient({ "a.ts": seed });
+  const factory = defineFactory<void>(run);
+  await factory(undefined, { client });
+
+  expect(collectModifies(emitted)).toHaveLength(0);
+  expect(await client.read("a.ts")).toBe(seed);
+}
+
+describe("addImport — REQ-TSD-01 Steps 1/3/4 (S-000, ts-addimport-collision)", () => {
+  it("REQ-TSD-01.5: merges into an existing non-type-only named clause", async () => {
+    await expectSingleModify(
+      golden("merge-add-import-before.txt"),
+      async () => {
+        await ts.find("a.ts").addImport("readFileSync", "node:fs");
+      },
+      golden("merge-add-import-after.txt")
+    );
+  });
+
+  it("REQ-TSD-01.10: default import, SAME local name — idempotent no-op, byte-identical", async () => {
+    await expectNoOp('import Def from "m";\n', async () => {
+      await ts.find("a.ts").addImport("Def", "m");
+    });
+  });
+
+  it("REQ-TSD-01.11: default import, DIFFERENT name — separate named decl inserted, default untouched", async () => {
+    await expectSingleModify(
+      'import Def from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("Other", "m");
+      },
+      'import Def from "m";\nimport { Other } from "m";\n'
+    );
+  });
+
+  it("REQ-TSD-01.12: namespace import, DIFFERENT name — separate named decl inserted, no throw, namespace untouched", async () => {
+    await expectSingleModify(
+      'import * as ns from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "m");
+      },
+      'import * as ns from "m";\nimport { X } from "m";\n'
+    );
+  });
+
+  it("REQ-TSD-01.13: namespace import, SAME local name — idempotent no-op, byte-identical", async () => {
+    await expectNoOp('import * as ns from "m";\n', async () => {
+      await ts.find("a.ts").addImport("ns", "m");
+    });
+  });
+
+  it("REQ-TSD-01.19: no prior declaration for the module — fresh separate import inserted", async () => {
+    await expectSingleModify(
+      golden("add-import-before.txt"),
+      async () => {
+        await ts.find("a.ts").addImport("readFileSync", "node:fs");
+      },
+      golden("add-import-after.txt")
+    );
+  });
+
+  it("REQ-TSD-01.31: unaliased named specifier, SAME local name — idempotent no-op, byte-identical", async () => {
+    await expectNoOp('import { X } from "m";\n', async () => {
+      await ts.find("a.ts").addImport("X", "m");
+    });
+  });
+});
+
+describe("addImport — REQ-TSD-01 Step 2 collision reject (S-001, ts-addimport-collision)", () => {
+  it("REQ-TSD-01.6: type-only DECLARATION collision — rejects before any AST mutation", async () => {
+    const { err } = await expectCollisionReject('import type { X } from "m";\n', ["X", "m"]);
+    expect(err.message).toContain('addImport("X")');
+    expect(err.message).toContain('a value or import binding named "X" already exists');
+  });
+
+  it("REQ-TSD-01.8: inline `{ type X }` specifier-level type-only collision — rejects the same way as .6", async () => {
+    const { err } = await expectCollisionReject('import { type X } from "m";\n', ["X", "m"]);
+    expect(err.message).toContain('addImport("X")');
+    expect(err.message).toContain('a value or import binding named "X" already exists');
+  });
+
+  it("REQ-TSD-01.14: aliased-to-a-different-name collision — a second unaliased specifier would duplicate the local name", async () => {
+    const { err } = await expectCollisionReject('import { Foo as x } from "m";\n', ["x", "m"]);
+    expect(err.message).toContain('addImport("x")');
+    expect(err.message).toContain('a value or import binding named "x" already exists');
+  });
+
+  it("REQ-TSD-01.16: cross-module collision — the claimed scan is file-wide, not scoped to the SAME module", async () => {
+    const { err } = await expectCollisionReject('import { readFileSync } from "node:fs";\n', [
+      "readFileSync",
+      "./local",
+    ]);
+    expect(err.message).toContain('addImport("readFileSync")');
+    expect(err.message).toContain('a value or import binding named "readFileSync" already exists');
+  });
+
+  it("REQ-TSD-01.17: every value-namespace declaration kind claims its name — 8-kind battery, each isolated", async () => {
+    const kinds: Array<{ label: string; seed: string }> = [
+      { label: "function", seed: "function Icon() {}\n" },
+      { label: "const", seed: "const Icon = 1;\n" },
+      { label: "let", seed: "let Icon = 1;\n" },
+      { label: "var", seed: "var Icon = 1;\n" },
+      { label: "class", seed: "class Icon {}\n" },
+      { label: "enum", seed: "enum Icon { A }\n" },
+      { label: "namespace", seed: "namespace Icon {}\n" },
+      { label: "export default function (8th kind, QA L1)", seed: "export default function Icon() {}\n" },
+    ];
+
+    for (const { label, seed } of kinds) {
+      const { err } = await expectCollisionReject(seed, ["Icon", "./icons"]);
+      expect(err.message).toContain('addImport("Icon")');
+      expect(err.message).toContain('a value or import binding named "Icon" already exists');
+      // Label surfaces which kind failed if this loop's assertion above ever fails.
+      expect(label).toBeTruthy();
+    }
+  });
+
+  it("REQ-TSD-01.26: type-only DEFAULT specifier collision — reaches the default-specifier code path, not only named", async () => {
+    const { err } = await expectCollisionReject('import type Def from "m";\n', ["Def", "m"]);
+    expect(err.message).toContain('addImport("Def")');
+    expect(err.message).toContain('a value or import binding named "Def" already exists');
+  });
+
+  it("REQ-TSD-01.27: type-only NAMESPACE specifier collision — the namespace-specifier mirror of .26", async () => {
+    const { err } = await expectCollisionReject('import type * as NS from "m";\n', ["NS", "m"]);
+    expect(err.message).toContain('addImport("NS")');
+    expect(err.message).toContain('a value or import binding named "NS" already exists');
+  });
+
+  it("REQ-TSD-01.28: aliased-underlying merge — GREEN pair for .14, claimed-scan keys on LOCAL NAME not exported name", async () => {
+    await expectSingleModify(
+      'import { Foo as x } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("Foo", "m");
+      },
+      'import { Foo as x, Foo } from "m";\n'
+    );
+  });
+
+  it("REQ-TSD-01.32: collision tail echoes a realistic 29-char name IN FULL, never truncated", async () => {
+    const { err } = await expectCollisionReject('const NotificationPreferencesPanel = 1;\n', [
+      "NotificationPreferencesPanel",
+      "./somewhere",
+    ]);
+    expect(err.message).toContain("NotificationPreferencesPanel");
+  });
+});
+
+describe("addImport — REQ-TSD-01 input-shape variants (S-003, ts-addimport-collision)", () => {
+  it("REQ-TSD-01.7: type-only declaration, DIFFERENT name — succeeds, the type-only decl is untouched", async () => {
+    await expectSingleModify(
+      'import type { X } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("Y", "m");
+      },
+      'import type { X } from "m";\nimport { Y } from "m";\n'
+    );
+  });
+
+  it("REQ-TSD-01.9: type-only ALIASED specifier — X was never claimed (only XT was), separate import inserted", async () => {
+    await expectSingleModify(
+      'import type { X as XT } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "m");
+      },
+      'import type { X as XT } from "m";\nimport { X } from "m";\n'
+    );
+  });
+
+  it("REQ-TSD-01.15: self-alias `{ X as X }` — idempotent no-op (owner-ratified V8 deviation)", async () => {
+    await expectNoOp('import { X as X } from "m";\n', async () => {
+      await ts.find("a.ts").addImport("X", "m");
+    });
+  });
+
+  it("REQ-TSD-01.18: top-level `type` alias — not in the value namespace, separate import inserted", async () => {
+    await expectSingleModify(
+      "type Icon = string;\n",
+      async () => {
+        await ts.find("a.ts").addImport("Icon", "./icons");
+      },
+      'import { Icon } from "./icons";\n\ntype Icon = string;\n'
+    );
+  });
+
+  it("REQ-TSD-01.18: top-level `interface` — not in the value namespace, separate import inserted", async () => {
+    await expectSingleModify(
+      "interface Icon {\n  x: number;\n}\n",
+      async () => {
+        await ts.find("a.ts").addImport("Icon", "./icons");
+      },
+      'import { Icon } from "./icons";\n\ninterface Icon {\n  x: number;\n}\n'
+    );
+  });
+
+  it("REQ-TSD-01.20: side-effect import preserved byte-unchanged, separate named decl added (Class B)", async () => {
+    await expectSingleModify(
+      'import "polyfill";\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "polyfill");
+      },
+      'import "polyfill";\nimport { X } from "polyfill";\n'
+    );
+  });
+
+  it("REQ-TSD-01.21: directive prologue — import lands AFTER it, byte-exact golden", async () => {
+    await expectSingleModify(
+      golden("directive-add-import-before.txt"),
+      async () => {
+        await ts.find("a.ts").addImport("readFileSync", "node:fs");
+      },
+      golden("directive-add-import-after.txt")
+    );
+  });
+
+  it("REQ-TSD-01.21 (triangulation): TWO leading directives — both preserved, import lands after both", async () => {
+    await expectSingleModify(
+      '"use strict";\n"use client";\nconst x = 1;\n',
+      async () => {
+        await ts.find("a.ts").addImport("readFileSync", "node:fs");
+      },
+      '"use strict";\n"use client";\n\nimport { readFileSync } from "node:fs";\n\nconst x = 1;\n'
+    );
+  });
+
+  it("REQ-TSD-01.21 (comment prologue, block): a leading block comment ABOVE the directive must not let the import land BETWEEN them — the directive stays the file's first statement", async () => {
+    await expectSingleModify(
+      '/* lic */\n"use client";\nconst x = 1;\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "node:fs");
+      },
+      '/* lic */\n"use client";\n\nimport { X } from "node:fs";\n\nconst x = 1;\n'
+    );
+  });
+
+  it("REQ-TSD-01.21 (comment prologue, line): a leading line comment ABOVE the directive must not let the import land BETWEEN them — the directive stays the file's first statement", async () => {
+    await expectSingleModify(
+      '// lic\n"use client";\nconst x = 1;\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "node:fs");
+      },
+      '// lic\n"use client";\n\nimport { X } from "node:fs";\n\nconst x = 1;\n'
+    );
+  });
+
+  it("REQ-TSD-01.22: multiple declarations for the same module — merges into the FIRST (source order)", async () => {
+    await expectSingleModify(
+      'import { a } from "m";\nimport { b } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("c", "m");
+      },
+      'import { a, c } from "m";\nimport { b } from "m";\n'
+    );
+  });
+
+  it("REQ-TSD-01.23: empty named-import clause `{}` is a valid merge target", async () => {
+    await expectSingleModify(
+      'import {} from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("X", "m");
+      },
+      'import { X } from "m";\n'
+    );
+  });
+
+  it("REQ-TSD-01.29: mixed default+named declaration — merge adds to the named clause, default untouched", async () => {
+    await expectSingleModify(
+      'import Def, { B } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("C", "m");
+      },
+      'import Def, { B, C } from "m";\n'
+    );
+  });
+
+  it("REQ-TSD-01.30: mixed default+named declaration — matching the default name is a no-op", async () => {
+    await expectNoOp('import Def, { B } from "m";\n', async () => {
+      await ts.find("a.ts").addImport("Def", "m");
+    });
+  });
+});
+
+describe("addImport — REQ-TSD-13 injection-safety validation gate (S-002, ts-addimport-collision)", () => {
+  it("REQ-TSD-13.1: confirmed injection breakout name rejects, zero imports, zero echo of the hostile payload", async () => {
+    const hostileName = 'x } from "evil"; import { y';
+    const { err } = await expectCollisionReject("const x = 1;\n", [hostileName, "react"]);
+    expect(err.message).toContain("`name`");
+    expect(err.message).toContain("valid JavaScript identifier");
+    expect(err.message).not.toContain("evil");
+    expect(err.message).not.toContain("x }");
+    expect(err.message).not.toContain("import { y");
+  });
+
+  it("REQ-TSD-13.2: the 48-entry reserved-word/strict-mode-restricted set rejects pre-mutation, ≤16-char echo", async () => {
+    const reservedWords = [
+      "default", "import", "class", "null", "this", "function", "let", "yield", "await", "eval", "arguments",
+    ];
+    for (const word of reservedWords) {
+      const { err } = await expectCollisionReject("const x = 1;\n", [word, "m"]);
+      expect(err.message).toContain(`"${word}"`);
+      expect(err.message).toContain("reserved word");
+    }
+  });
+
+  it("REQ-TSD-13.2: the SEPARATE 3-entry JSX_NAME_DENYLIST rejects pre-mutation via its own check, ≤16-char echo", async () => {
+    const denylisted = ["__proto__", "constructor", "prototype"];
+    for (const word of denylisted) {
+      const { err } = await expectCollisionReject("const x = 1;\n", [word, "m"]);
+      expect(err.message).toContain(`"${word}"`);
+      expect(err.message).toContain("reserved name");
+    }
+  });
+
+  it("REQ-TSD-13.2: names merely CONTAINING a reserved/denylisted word as a substring are accepted, never rejected", async () => {
+    const lookalikes = ["classroom", "imported", "defaultValue", "evaluate", "argumentsList"];
+    for (const name of lookalikes) {
+      const { client, emitted } = makeSpyClient({ "a.ts": "const x = 1;\n" });
+
+      const run = defineFactory<void>(async () => {
+        await ts.find("a.ts").addImport(name, "m");
+      });
+      await run(undefined, { client });
+
+      expect(collectModifies(emitted)).toHaveLength(1);
+    }
+  });
+
+  it("REQ-TSD-13.3: grammar-invalid names reject pre-mutation, zero echo of the rejected value", async () => {
+    const invalidNames = ["", "   ", "123abc", "Foo bar", "Foo=1}"];
+    for (const name of invalidNames) {
+      const { err } = await expectCollisionReject("const x = 1;\n", [name, "m"]);
+      expect(err.message).toContain("valid JavaScript identifier");
+      if (name !== "") {
+        expect(err.message).not.toContain(name);
+      }
+    }
+  });
+
+  it('REQ-TSD-13.4: a hostile `from` attempting to terminate its own string literal stays ONE escaped import, no "evil" import', async () => {
+    const { client, emitted } = makeSpyClient({ "a.ts": "const x = 1;\n" });
+    const hostileFrom = 'a"; import {y} from "evil';
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("X", hostileFrom);
+    });
+    await run(undefined, { client });
+
+    const content = collectModifies(emitted)[0]?.modify.content;
+    expect(content).toBe('import { X } from "a\\"; import {y} from \\"evil";\n\nconst x = 1;\n');
+    expect(content?.match(/^import /gm)).toHaveLength(1);
+    expect(content).not.toContain('from "evil"');
+  });
+
+  it("REQ-TSD-13.6: a name BOTH denylisted AND value-namespace-claimed rejects via validation, never collision", async () => {
+    const { err } = await expectCollisionReject("const __proto__ = 1;\n", ["__proto__", "m"]);
+    expect(err.message).toContain("reserved name");
+    expect(err.message).not.toContain("already exists");
+  });
+});
+
+describe("addImport — REQ-TSD-13.x-neg: a validation reject NEVER carries the collision path clause (S-002)", () => {
+  it('a grammar-failure validation reject never contains `on "{path}"`', async () => {
+    const { err } = await expectCollisionReject("const x = 1;\n", ["123abc", "m"]);
+    expect(err.message).not.toContain('on "a.ts"');
+  });
+
+  it('a reserved-word validation reject never contains `on "{path}"`', async () => {
+    const { err } = await expectCollisionReject("const x = 1;\n", ["default", "m"]);
+    expect(err.message).not.toContain('on "a.ts"');
+  });
+
+  it('a denylist validation reject never contains `on "{path}"`', async () => {
+    const { err } = await expectCollisionReject("const x = 1;\n", ["__proto__", "m"]);
+    expect(err.message).not.toContain('on "a.ts"');
+  });
+});
+
+describe("addImport JSDoc — REQ-TSD-13.5 trust-boundary guard (S-002, ts-addimport-collision)", () => {
+  const OPS_SOURCE = readFileSync(
+    new URL("../../../src/dialects/typescript/ops.ts", import.meta.url).pathname,
+    "utf-8"
+  );
+
+  it("affirmatively names addFunction/addVariable/addClass as still-raw, unvalidated ops — never a passive disclaimer", () => {
+    const trustBoundaryBlock = OPS_SOURCE.match(/\/\*\*[\s\S]*?Trust boundary[\s\S]*?\*\//)?.[0];
+    expect(trustBoundaryBlock).toBeDefined();
+
+    expect(trustBoundaryBlock).toContain("addFunction");
+    expect(trustBoundaryBlock).toContain("addVariable");
+    expect(trustBoundaryBlock).toContain("addClass");
+    expect(trustBoundaryBlock).toContain("RAW-SPLICED");
+    expect(trustBoundaryBlock).not.toContain("not covered here");
+  });
+});
+
+describe("addImport / removeImport — REQ-TSD-01.25 match-cardinality asymmetry (S-004, ts-addimport-collision, CORRECTED V3.2)", () => {
+  it("REQ-TSD-01.25: addImport merges into ONLY the first declaration for the module (per .22) — first-match posture", async () => {
+    await expectSingleModify(
+      'import { a } from "m";\nimport { b } from "m";\n',
+      async () => {
+        await ts.find("a.ts").addImport("c", "m");
+      },
+      'import { a, c } from "m";\nimport { b } from "m";\n'
+    );
+  });
+
+  it("REQ-TSD-01.25: removeImport SEARCHES every declaration matching `from` but REMOVES from only the FIRST one containing the binding — the second, later duplicate survives (hand-authored, TS2300-invalid fixture)", async () => {
+    const { client, emitted } = makeSpyClient({
+      "a.ts": 'import { a, x } from "m";\nimport { y, x } from "m";\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").removeImport("x", "m");
+    });
+    await run(undefined, { client });
+
+    const modifies = collectModifies(emitted);
+    expect(modifies).toHaveLength(1);
+    // A mutant that continues scanning past the first hit (a real "remove from every matching
+    // declaration" implementation) would ALSO strip "x" from the second declaration, producing
+    // 'import { a } from "m";\nimport { y } from "m";\n' — this asserts the SHIPPED first-match
+    // posture, not the once-believed (and now-corrected, V3.2) all-match one.
+    expect(modifies[0]?.modify.content).toBe('import { a } from "m";\nimport { y, x } from "m";\n');
+  });
+});
+
+describe("addImport — REQ-TSD-01.33 shebang fallback (S-004, ts-addimport-collision, ADR-03)", () => {
+  it("REQ-TSD-01.33: a shebang file stays a HANDLE-contained fail-closed reject — pinned message, .cause undefined, zero directives, byte-unchanged (ADR-03 fallback; shebang-aware insertion deferred, see openspec/pending-changes.md)", async () => {
+    const seed = "#!/usr/bin/env node\nconst x = 1;\n";
+    const { client, emitted } = makeSpyClient({ "a.ts": seed });
+
+    const run = defineFactory<void>(async () => {
+      await ts.find("a.ts").addImport("readFileSync", "node:fs");
+    });
+
+    let caught: unknown;
+    try {
+      await run(undefined, { client });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    // Same generic foreign-wrap tail #invokeContained uses for any uncaught internal error
+    // (dialect-handle.ts:248-258) — ts-morph's ManipulationError propagates out of addImport
+    // itself (top-of-file insertion collides with the shebang's leading trivia) and is caught
+    // + branded at the HANDLE boundary, never inside the op. This reject is specific to the
+    // fresh-create-no-directive branch: with a directive prologue or a mergeable import
+    // present, addImport takes a different branch and succeeds with the shebang preserved.
+    expect(err.message).toBe('dialect operation failed: addImport() on "a.ts" threw');
+    expect(err.cause).toBeUndefined();
+    expect(collectModifies(emitted)).toHaveLength(0);
+    expect(await client.read("a.ts")).toBe(seed);
+  });
+});

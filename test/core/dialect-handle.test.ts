@@ -882,7 +882,11 @@ describe("dialect handle — removeImport mechanism proofs (REQ-TSD-08.4/08.6, S
     const { client, emitted } = makeSpyClient({ "a.ts": "const x = 1;\n" });
 
     const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("x", "m").removeImport("x", "m");
+      // "y", not "x": ts-addimport-collision/S-001 — addImport now rejects a name CLAIMED
+      // anywhere in the file (Step 2), and this fixture's own top-level `const x` would
+      // collide with "x". The name choice here is incidental to this test's actual subject
+      // (RYOW add+remove in one chain); "y" avoids the unrelated collision.
+      await ts.find("a.ts").addImport("y", "m").removeImport("y", "m");
     });
     await run(undefined, { client });
 

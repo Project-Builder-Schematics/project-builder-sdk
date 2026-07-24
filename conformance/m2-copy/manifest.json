@@ -1,0 +1,87 @@
+{
+  "id": "m2-copy",
+  "wireSpecVersion": 1,
+  "class": "wire-mutation",
+  "factory": { "module": "factory.ts", "export": null },
+  "input": {},
+  "lowering": { "mode": "none" },
+  "cases": [
+    {
+      "name": "positive",
+      "seed": "seed",
+      "expected": "expected",
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["dst.txt"] },
+      "transcript": {
+        "callbacks": ["ir.emit", "ir.commit"],
+        "singleCommit": true,
+        "forbidDiscard": true,
+        "emitBeforeCommit": true
+      }
+    },
+    {
+      "name": "collision-with-force",
+      "seed": "seed",
+      "expected": "expected-force",
+      "factory": { "module": "factory.ts", "export": "collisionWithForceProbe" },
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["occupied.txt"] },
+      "transcript": {
+        "callbacks": ["ir.emit", "ir.commit"],
+        "singleCommit": true,
+        "forbidDiscard": true,
+        "emitBeforeCommit": true
+      }
+    },
+    {
+      "name": "collision-no-force-twin",
+      "seed": "seed",
+      "expected": "zero-effect",
+      "factory": { "module": "factory.ts", "export": "collisionNoForceProbe" },
+      "outcome": { "exitCode": 2, "emitRejectionCode": "collision", "failedIndex": 0, "writtenPaths": [] },
+      "transcript": {
+        "callbacks": ["ir.emit", "ir.discard"],
+        "singleCommit": true,
+        "forbidDiscard": false,
+        "emitBeforeCommit": true
+      }
+    },
+    {
+      "name": "missing-source-twin",
+      "seed": "seed",
+      "expected": "zero-effect",
+      "factory": { "module": "factory.ts", "export": "missingSourceProbe" },
+      "outcome": { "exitCode": 2, "emitRejectionCode": "not-found", "failedIndex": 0, "writtenPaths": [] },
+      "transcript": {
+        "callbacks": ["ir.emit", "ir.discard"],
+        "singleCommit": true,
+        "forbidDiscard": false,
+        "emitBeforeCommit": true
+      }
+    },
+    {
+      "name": "dir-source-twin",
+      "seed": "seed",
+      "expected": "zero-effect",
+      "factory": { "module": "factory.ts", "export": "dirSourceProbe" },
+      "outcome": { "exitCode": 2, "emitRejectionCode": "unrepresentable", "failedIndex": null, "writtenPaths": [] },
+      "transcript": {
+        "callbacks": ["ir.emit", "ir.discard"],
+        "singleCommit": true,
+        "forbidDiscard": false,
+        "emitBeforeCommit": true
+      }
+    },
+    {
+      "name": "copy-then-modify",
+      "seed": "seed",
+      "expected": "expected-modify",
+      "factory": { "module": "factory.ts", "export": "copyThenModifyProbe" },
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["dst2.txt"] },
+      "transcript": {
+        "callbacks": ["ir.emit", "ir.commit"],
+        "singleCommit": true,
+        "forbidDiscard": true,
+        "emitBeforeCommit": true
+      }
+    }
+  ]
+}

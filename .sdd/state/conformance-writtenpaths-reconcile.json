@@ -1,7 +1,7 @@
 {
   "change": "conformance-writtenpaths-reconcile",
   "triage": "M",
-  "phase": "build-complete-evaluate-pass",
+  "phase": "archived-pr-open",
   "spec_status": "signed",
   "slices": ["S-000"],
   "plan_verify": "n/a (spec_source=internal, no publish)",

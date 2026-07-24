@@ -85,7 +85,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
     });
   });
 
-  describe("REQ-CCR-05 — corpus-derived inventory, no orphan directories (two-checkpoint cadence)", () => {
+  describe("REQ-CCR-05 — manifest-derived inventory, no orphan directories (ADR-0075)", () => {
     it("REQ-CCR-05.2: every directory under conformance/ is registered in corpus.json#fixtures", () => {
       expect(checkOrphanDirectories(listSubdirectories(CORPUS_ROOT), corpus.fixtures)).toEqual([]);
     });
@@ -96,15 +96,24 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
 
     const totalCases = fixtures.reduce((sum, f) => sum + f.manifest.cases.length, 0);
 
-    it('REQ-CCR-05.3: PR#1 checkpoint — corpus.json === ["m1-vehicle"] passes at 1 fixture / 2 cases', () => {
-      if (corpus.fixtures.length !== 1) return; // not the PR#1 checkpoint
-      expect(corpus.fixtures).toEqual(["m1-vehicle"]);
-      expect(totalCases).toBe(2);
-    });
+    it("REQ-CCR-05.1/.5: fixture inventory and case count are DERIVED from corpus.json#fixtures, never a hardcoded absolute", () => {
+      // Loaded-set identity: the ids `loadCorpus` actually resolved a manifest for must be
+      // EXACTLY corpus.json's own declared list, in order — surfaces a silent drop at the
+      // inventory level, independent of the dedicated missingManifestIds check above.
+      expect(fixtures.map((f) => f.id)).toEqual(corpus.fixtures);
 
-    it("REQ-CCR-05.1: POST-PR#2 gate — exactly 5 fixtures / 12 cases (never evaluated at PR#1)", () => {
-      if (corpus.fixtures.length !== 5) return; // PR#1 state — REQ-CCR-05.3 forbids evaluating this
-      expect(totalCases).toBe(12);
+      // Independent re-derivation of the case count, re-reading each manifest.json off disk
+      // by id (bypassing the `fixtures`/loadCorpus indirection entirely) rather than folding
+      // over the already-loaded array — cross-checks totalCases against a second code path
+      // so no absolute figure is ever baked into this assertion (the length-based early-return
+      // gates this replaces went silently vacuous the moment a 6th fixture landed).
+      const recomputedTotalCases = corpus.fixtures.reduce((sum, id) => {
+        const manifestPath = join(CORPUS_ROOT, id, "manifest.json");
+        if (!existsSync(manifestPath)) return sum;
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { cases: unknown[] };
+        return sum + manifest.cases.length;
+      }, 0);
+      expect(totalCases).toBe(recomputedTotalCases);
     });
   });
 
@@ -293,7 +302,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
         "(b)": /REJECT PROBE/,
         "(c)": /do NOT imitate/i,
         "(d)": /unrepresentable/,
-        "(e)": /modify\/delete\/rename\/move/,
+        "(e)": /move\/copy\/copyIn/,
       };
 
       const missingClauses = Object.keys(CLAUSE_KEYWORDS).filter((letter) => {
@@ -379,10 +388,20 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(violations).toEqual([]);
     });
 
-    it("REQ-CDT-06.1/.2: no undeclared trailing newline under expected/** or schematic/files/**", () => {
+    it("REQ-CDT-06.1/.2: no undeclared trailing newline under expected*/**, assets/**, or schematic/files/**", () => {
       const violations: string[] = [];
       for (const f of fixtures) {
-        for (const sub of ["expected", (f.manifest.lowering.schematicRoot ?? "schematic") + "/files"]) {
+        // Two-leg union (ADR-0075, B1/B2/N4). Leg 1 is a readdir glob — never an enumerated
+        // literal — over every "expected"-prefixed dir plus "assets", so a future
+        // multi-positive expected* dir or a fixture's by-value assets/ source is covered
+        // automatically. Leg 2 is the RETAINED schematic/files/** leg, the only determinism
+        // guard for lowered templates. Do NOT add `s === "schematic"` to leg 1 — that
+        // recurses into the legitimately-varying schema.json (B2 trap).
+        const subs = [
+          ...listSubdirectories(f.dir).filter((s) => s.startsWith("expected") || s === "assets"),
+          (f.manifest.lowering.schematicRoot ?? "schematic") + "/files",
+        ];
+        for (const sub of subs) {
           const dir = join(f.dir, sub);
           if (!existsSync(dir)) continue;
           for (const file of collectFilesRecursive(dir)) {
@@ -567,6 +586,166 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
       expect(c.expected).toBe("zero-effect");
       expect(c.factory).toEqual({ module: "factory.ts", export: "createRejectProbe" });
+    });
+  });
+
+  describe("REQ-CFX-15 — m2-copy behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-copy");
+
+    it("REQ-CFX-15.1: positive case declares an exact-bytes copy, source intact", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["dst.txt"] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(readFileSync(join(f.dir, "expected", "dst.txt"), "utf8")).toBe("payload");
+      // Inverse of m2-rename-move's fit-40:535 — copy, unlike rename, must NOT remove the source.
+      expect(existsSync(join(f.dir, "expected", "src.txt"))).toBe(true);
+      expect(readFileSync(join(f.dir, "expected", "src.txt"), "utf8")).toBe("payload");
+      expect(readFileSync(join(f.dir, "expected", "occupied.txt"), "utf8")).toBe("taken");
+      expect(readFileSync(join(f.dir, "expected", "adir", "child.txt"), "utf8")).toBe("x");
+    });
+
+    it("REQ-CFX-15.2: collision-with-force overwrites and exits 0", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "collision-with-force");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["occupied.txt"] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(readFileSync(join(f.dir, "expected-force", "occupied.txt"), "utf8")).toBe("payload");
+      expect(readFileSync(join(f.dir, "expected-force", "src.txt"), "utf8")).toBe("payload");
+    });
+
+    it("REQ-CFX-15.3: collision-no-force twin rejects fail-closed", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "collision-no-force-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "collision", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("REQ-CFX-15.4: missing-source twin rejects not-found", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "missing-source-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "not-found", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("REQ-CFX-15.5: dir-source twin rejects unrepresentable (batch-level)", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "dir-source-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "unrepresentable", failedIndex: null, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("REQ-CFX-15.6: copy-then-modify collapses to the modify's bytes, single flush", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positiveTwin = f.manifest.cases.find((c) => c.name === "copy-then-modify");
+      expect(positiveTwin).not.toBeUndefined();
+      const c = positiveTwin as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["dst2.txt"] });
+      // ONE flush, two directives applied sequentially in array order — never a doubled ir.emit.
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(readFileSync(join(f.dir, "expected-modify", "dst2.txt"), "utf8")).toBe("final");
+      expect(readFileSync(join(f.dir, "expected-modify", "src.txt"), "utf8")).toBe("payload");
+    });
+  });
+
+  describe("REQ-CFX-16 — m2-copyin behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies; branch-held per REQ-CCR-09)", () => {
+    const fixture = fixtures.find((f) => f.id === "m2-copyin");
+
+    it("REQ-CFX-16.1: positive case declares by-reference bytes landing at a new path, assets/expected byte-tied", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const positive = f.manifest.cases.find((c) => c.name === "positive");
+      expect(positive).not.toBeUndefined();
+      const c = positive as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["dst.txt"] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      const dstBytes = readFileSync(join(f.dir, "expected", "dst.txt"), "utf8");
+      expect(dstBytes).toBe("by-reference-payload");
+      expect(readFileSync(join(f.dir, "expected", "occupied.txt"), "utf8")).toBe("taken");
+      expect(readFileSync(join(f.dir, "expected", "existing-dir", "child.txt"), "utf8")).toBe("x");
+      // B1 defense-in-depth: ties the verbatim by-reference source directly to the declared
+      // output, independent of the REQ-CDT-06 determinism-loop coverage — a stray byte in
+      // assets/ must go RED locally, not silently at engine pin-advance.
+      expect(readFileSync(join(f.dir, "assets", "payload.txt"), "utf8")).toBe(dstBytes);
+    });
+
+    it("REQ-CFX-16.2: verbatim-content case declares the token present, unrendered, in BOTH source and expected", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "verbatim-content");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["dst2.txt"] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      const assetBytes = readFileSync(join(f.dir, "assets", "verbatim.txt"), "utf8");
+      const expectedBytes = readFileSync(join(f.dir, "expected-verbatim", "dst2.txt"), "utf8");
+      // Anti-tautology: byte-equality alone would pass for any unrelated-but-equal pair —
+      // the token PRESENCE assertion is what proves by-reference bypasses the by-value
+      // template engine that would otherwise have rendered `{= name =}`.
+      expect(expectedBytes).toBe(assetBytes);
+      expect(assetBytes.includes("{= name =}")).toBe(true);
+      expect(expectedBytes.includes("{= name =}")).toBe(true);
+    });
+
+    it("REQ-CFX-16.3: collision-with-force overwrites and exits 0", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "collision-with-force");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["occupied.txt"] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      // Defense-in-depth symmetry with REQ-CFX-16.1: ties the force-case output directly to the
+      // shared by-reference source, so a stray byte in assets/ goes RED through BOTH paths.
+      expect(readFileSync(join(f.dir, "expected-force", "occupied.txt"), "utf8")).toBe(
+        readFileSync(join(f.dir, "assets", "payload.txt"), "utf8"),
+      );
+      expect(readFileSync(join(f.dir, "expected-force", "existing-dir", "child.txt"), "utf8")).toBe("x");
+    });
+
+    it("REQ-CFX-16.4: collision-no-force twin rejects fail-closed", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "collision-no-force-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "collision", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
+    });
+
+    it("REQ-CFX-16.5: dest-dir twin rejects as a collision, never unrepresentable", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "dest-dir-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      // Owner-confirmed engine behaviour: a directory DESTINATION resolves to collision,
+      // NOT unrepresentable — unlike m2-copy's directory-SOURCE case (batch-level,
+      // unrepresentable). This is the highest-uncertainty pin in the corpus (no SDK-fake
+      // corroboration) — see REQ-CCR-09 un-hold checklist item 5.
+      expect(c.outcome).toEqual({ exitCode: 2, emitRejectionCode: "collision", failedIndex: 0, writtenPaths: [] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
+      expect(c.expected).toBe("zero-effect");
     });
   });
 
