@@ -1,0 +1,19 @@
+{
+  "triage": "M",
+  "phase": "explore",
+  "phase_status": "complete",
+  "pipeline_status": "PAUSED",
+  "paused_at": "2026-07-25",
+  "paused_reason": "Deprioritised in favour of the engine's Deliverable 4 (runner integrity manifest, PC-RUN-01) which is a build gate for the engine consuming the real runner.",
+  "spec_status": "none",
+  "slices": [],
+  "plan_verify": "skipped-internal-no-publish",
+  "verify_final": null,
+  "arch_audit": null,
+  "viz_url": null,
+  "next_phase": "propose",
+  "next_phase_blocked_on": "product-open-question: fixture home (a) standalone e2e in test/e2e/ vs (b) conformance corpus fixture vs (c) both — owner decision required before propose",
+  "problem_statement": "engine<->SDK e2e is a fiction: all conformance fixtures import the SDK by relative source path; gap A needs a package-resolvable demo through the runner+wire so a real e2e exists.",
+  "explore_findings": "package-resolution machinery already exists (ensureLinkedConsumer/installed-consumer e2e); residual gap = compose package-resolution + runner-wire (the intersection neither covers). MUST use bun link not tarball (SEC-07 single-instance-probe rejects differing package roots).",
+  "updated_at": "2026-07-25T00:00:00Z"
+}
