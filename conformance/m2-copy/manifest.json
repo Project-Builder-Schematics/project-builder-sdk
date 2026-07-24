@@ -10,7 +10,7 @@
       "name": "positive",
       "seed": "seed",
       "expected": "expected",
-      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": [] },
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["dst.txt"] },
       "transcript": {
         "callbacks": ["ir.emit", "ir.commit"],
         "singleCommit": true,
@@ -23,7 +23,7 @@
       "seed": "seed",
       "expected": "expected-force",
       "factory": { "module": "factory.ts", "export": "collisionWithForceProbe" },
-      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": [] },
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["occupied.txt"] },
       "transcript": {
         "callbacks": ["ir.emit", "ir.commit"],
         "singleCommit": true,
@@ -75,7 +75,7 @@
       "seed": "seed",
       "expected": "expected-modify",
       "factory": { "module": "factory.ts", "export": "copyThenModifyProbe" },
-      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": [] },
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["dst2.txt"] },
       "transcript": {
         "callbacks": ["ir.emit", "ir.commit"],
         "singleCommit": true,

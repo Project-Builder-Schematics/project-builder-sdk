@@ -511,6 +511,7 @@ the architect's monotonic fixture-floor item (row 5).
 | Engine M1 confirmation of the corpus (first real submodule-consumed run) — external, non-gating per steward reckoning CQ-3 | other | — | Engine M1 milestone | **engine repo, cross-repo flag** |
 | Negative-suite (`fit-40-*.negative.test.ts`) temp-dir cleanup — confirm every `mkdtemp` fixture tree is removed on both pass and fail paths | test-infra | XS | — | **next negative-suite touch** |
 | README first-paragraph anchor could name the dist-early-return guarantee (REQ-CFX-14) alongside the four-way disambiguation, for a reader who lands mid-doc | docs | XS | — | **next README touch** |
+| PC-CONF-09: WrittenPaths committed-set contract — engine closes the `#153` coverage gap (add `WrittenPaths` assertions to the modify/delete/rename conformance tests; today only `mutation_create_test.go` asserts the field) then advances the SDK submodule pin — that pin-advance is the byte-exact proof of `conformance-writtenpaths-reconcile` | test-coverage | — | Cross-repo — engine confirmation | **engine repo, cross-repo flag** |
 
 ## From `ts-addimport-collision` (2026-07-21) — ADR-03 shebang-aware insertion, registered at S-004
 
