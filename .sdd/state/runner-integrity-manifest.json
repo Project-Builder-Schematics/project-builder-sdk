@@ -1,0 +1,22 @@
+{
+  "triage": "L",
+  "phase": "explore",
+  "phase_status": "complete",
+  "spec_status": "none",
+  "slices": [],
+  "plan_verify": "required",
+  "verify_final": null,
+  "arch_audit": null,
+  "viz_url": null,
+  "next_phase": "propose",
+  "architecture_impact": "additive",
+  "ready_for_proposal": "partial",
+  "sensitivity_override": "security — integrity mechanism is the change's core subject; alters the publish boundary",
+  "personas": ["business-analyst", "pm", "architect", "qa-engineer", "security-engineer", "tech-writer"],
+  "external_gate": "engine PC-RUN-01 (production-runner-selection) is BLOCKED on this deliverable",
+  "blocking_engine_question": "Which runtime executes dist/bin/pbuilder-runner.js in production — Bun or Node? Blocks the Constraint-1 enforcement mechanism in design (loader-observation feasibility + injection surface).",
+  "engine_reply_pending": "4 contract corrections (4th precondition createRequire, 5th engine-side loader injection, entry-24 justification is type:module not packageRootFor, algorithm/entry must be engine-side constants) + 4 questions (runtime, verify-once-vs-per-spawn, mustNotExist acceptance, extra-field tolerance)",
+  "problem_statement": "The engine must verify the integrity of the real pbuilder-runner.js before exec'ing code it does not own. The runner is thin and multi-file, so neither digest-pinning nor a bundle hash applies; it needs a manifest of the runner's static import closure, which only the SDK can produce.",
+  "critical_findings": "C1 publish.yml rewrites package.json AFTER build (entry #24 digest invalid; rescued only by accidental prepublishOnly) — blocks 0.1.0. C2 manifest cannot express absence: planted dist/package.json redirects packageRootFor AND its type field reinterprets all 23 hashed files with zero digest change. A1 FOURTH precondition missing: createRequire is ALREADY in the closure (single-instance-probe.ts:28,39); .resolve() discipline is convention only. S4 bias toward permissive: false alarm = 100% of users fail closed.",
+  "updated_at": "2026-07-25T00:00:00Z"
+}
