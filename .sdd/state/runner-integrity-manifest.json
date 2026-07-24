@@ -1,6 +1,6 @@
 {
   "triage": "L",
-  "phase": "explore",
+  "phase": "propose",
   "phase_status": "complete",
   "spec_status": "none",
   "slices": [],
@@ -8,15 +8,24 @@
   "verify_final": null,
   "arch_audit": null,
   "viz_url": null,
-  "next_phase": "propose",
+  "next_phase": "spec",
   "architecture_impact": "additive",
-  "ready_for_proposal": "partial",
+  "adr_budget": 4,
+  "adr_budget_breach_action": "6 ADRs triggers re-triage, not acceptance (owner-ratified 2026-07-25)",
   "sensitivity_override": "security — integrity mechanism is the change's core subject; alters the publish boundary",
   "personas": ["business-analyst", "pm", "architect", "qa-engineer", "security-engineer", "tech-writer"],
-  "external_gate": "engine PC-RUN-01 (production-runner-selection) is BLOCKED on this deliverable",
-  "blocking_engine_question": "Which runtime executes dist/bin/pbuilder-runner.js in production — Bun or Node? Blocks the Constraint-1 enforcement mechanism in design (loader-observation feasibility + injection surface).",
-  "engine_reply_pending": "4 contract corrections (4th precondition createRequire, 5th engine-side loader injection, entry-24 justification is type:module not packageRootFor, algorithm/entry must be engine-side constants) + 4 questions (runtime, verify-once-vs-per-spawn, mustNotExist acceptance, extra-field tolerance)",
+  "external_gate": "engine PC-RUN-01 — unblock DEFINED (owner 2026-07-25) as generator on main + submodule pin advance, NOT 0.1.0 published",
+  "owner_rulings_2026_07_25": {
+    "unblock_definition": "generator on main + submodule pin; publishing handled separately later",
+    "adr_budget": "4; 6 triggers re-triage",
+    "gap_a_home": "(a) standalone e2e in test/e2e/; (b) corpus fixture registered as followup",
+    "manifest_sha_print": "in this change (overrules PM cut)",
+    "constraint_1_enforcement": "CI-breaking fitness test, not docs-only"
+  },
+  "capabilities": ["runner-closure-derivation", "manifest-emission", "manifest-determinism", "build-pipeline-integration", "closure-sealing-tripwires", "bundler-disjointness-invariant", "packaged-manifest-fidelity", "integrity-invariants-documentation"],
+  "hard_rule_constraint_1": "Structural shape (injective dist->src correspondence + closure-graph baseline + bundler-output disjointness) is THE shipping mechanism, not a fallback. If the engine's Bun-vs-Node answer has not arrived by design sign-off, it ships and is not revisited this cycle.",
   "problem_statement": "The engine must verify the integrity of the real pbuilder-runner.js before exec'ing code it does not own. The runner is thin and multi-file, so neither digest-pinning nor a bundle hash applies; it needs a manifest of the runner's static import closure, which only the SDK can produce.",
-  "critical_findings": "C1 publish.yml rewrites package.json AFTER build (entry #24 digest invalid; rescued only by accidental prepublishOnly) — blocks 0.1.0. C2 manifest cannot express absence: planted dist/package.json redirects packageRootFor AND its type field reinterprets all 23 hashed files with zero digest change. A1 FOURTH precondition missing: createRequire is ALREADY in the closure (single-instance-probe.ts:28,39); .resolve() discipline is convention only. S4 bias toward permissive: false alarm = 100% of users fail closed.",
+  "risk_retired": "npm pack AND bun pm pack both preserve package.json byte-for-byte (same sha256 1bb0296... in working tree, bun tarball, npm tarball). Entry #24 viable as specified; PMF-03 halt condition closed empirically.",
+  "critical_findings": "C1 publish.yml:49 build -> :56 npm version rewrites package.json -> :71 publish; entry #24 digest stale, rescued only by accidental prepublishOnly. Fix is OUT (go-live batch owns the mechanism); the property is pinned via fit-23 extension + a MANDATORY-precondition ledger row. C2 manifest cannot express absence (planted dist/package.json). A1 fourth precondition: createRequire already in closure.",
   "updated_at": "2026-07-25T00:00:00Z"
 }
