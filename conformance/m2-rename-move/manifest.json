@@ -10,7 +10,7 @@
       "name": "positive",
       "seed": "seed",
       "expected": "expected",
-      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": [] },
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["dst.txt"] },
       "transcript": {
         "callbacks": ["ir.emit", "ir.commit"],
         "singleCommit": true,

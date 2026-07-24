@@ -136,7 +136,7 @@ only. (Origin: design ADR-0067 / REQ-CCR-08.)
 - **Seed**: `target.txt` = `orig`, `sibling.txt` = `keep`.
 - **Factory**: `modify` of `target.txt`, content `replaced`.
 - **Cases**: `positive` (exit 0; `expected/` = `{target.txt: "replaced", sibling.txt: "keep"}`;
-  `writtenPaths: []`); `not-found-twin` (`modify` of `missing.txt` → `not-found`, `failedIndex: 0`,
+  `writtenPaths: ["target.txt"]`); `not-found-twin` (`modify` of `missing.txt` → `not-found`, `failedIndex: 0`,
   exit 2, `zero-effect`).
 
 ### 3. `m2-delete` — `class: wire-mutation`, `lowering: none`
@@ -167,7 +167,7 @@ only. (Origin: design ADR-0067 / REQ-CCR-08.)
 - **Factory**: `modify` of `existing.txt`, content `composed`.
 - **Cases**:
   - `positive`: exit 0; single `ir.commit` flushes both halves; `expected/` =
-    `{generated.txt: "generated", existing.txt: "composed"}`; `writtenPaths: ["generated.txt"]`
+    `{generated.txt: "generated", existing.txt: "composed"}`; `writtenPaths: ["existing.txt", "generated.txt"]`
     exactly.
   - `wire-create-reject-twin`: the factory emits a RAW `{op: "create", …}` batch entry — authored
     SDK-side (via normal create authoring or `currentContext().session.buffer`; the engine will

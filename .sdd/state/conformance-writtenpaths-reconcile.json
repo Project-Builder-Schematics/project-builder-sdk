@@ -1,0 +1,12 @@
+{
+  "change": "conformance-writtenpaths-reconcile",
+  "triage": "M",
+  "phase": "build-complete-evaluate-pass",
+  "spec_status": "signed",
+  "slices": ["S-000"],
+  "plan_verify": "n/a (spec_source=internal, no publish)",
+  "verify_final": "pass",
+  "arch_audit": "n/a (M)",
+  "viz_url": null,
+  "notes": "writtenPaths contract drift vs engine mutation-event-streaming. Blocking open question: per-op-class Op.Path for delete + rename/move (engine #153). m2-modify + m2-create-composition pins determinable; m2-delete + m2-rename-move quarantined."
+}

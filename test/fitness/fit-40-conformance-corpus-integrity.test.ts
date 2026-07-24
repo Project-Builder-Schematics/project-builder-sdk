@@ -445,7 +445,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       const positive = f.manifest.cases.find((c) => c.name === "positive");
       expect(positive).not.toBeUndefined();
       const c = positive as Case;
-      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["target.txt"] });
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
       expect(readFileSync(join(f.dir, "expected", "target.txt"), "utf8")).toBe("replaced");
       expect(readFileSync(join(f.dir, "expected", "sibling.txt"), "utf8")).toBe("keep");
@@ -472,7 +472,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       const positive = f.manifest.cases.find((c) => c.name === "positive");
       expect(positive).not.toBeUndefined();
       const c = positive as Case;
-      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["target.txt"] });
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
       expect(existsSync(join(f.dir, "expected", "target.txt"))).toBe(false);
       expect(readFileSync(join(f.dir, "expected", "sibling.txt"), "utf8")).toBe("keep");
@@ -511,7 +511,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       const positive = f.manifest.cases.find((c) => c.name === "positive");
       expect(positive).not.toBeUndefined();
       const c = positive as Case;
-      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: [] });
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["dst.txt"] });
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
       expect(existsSync(join(f.dir, "expected", "src.txt"))).toBe(false);
       expect(readFileSync(join(f.dir, "expected", "dst.txt"), "utf8")).toBe("payload");
@@ -551,7 +551,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       const positive = f.manifest.cases.find((c) => c.name === "positive");
       expect(positive).not.toBeUndefined();
       const c = positive as Case;
-      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["generated.txt"] });
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["existing.txt", "generated.txt"] });
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
       expect(readFileSync(join(f.dir, "expected", "generated.txt"), "utf8")).toBe("generated");
       expect(readFileSync(join(f.dir, "expected", "existing.txt"), "utf8")).toBe("composed");

@@ -1,8 +1,8 @@
 # Conformance Fixtures Specification
 
-**Spec version**: V3
-**Status**: SIGNED (V3 re-signed by owner 2026-07-18; evidence-driven V2→V3 corrections — see spec-summary.md log)
-**Change**: `conformance-corpus`
+**Spec version**: V4
+**Status**: SIGNED (V4 — `conformance-writtenpaths-reconcile`: REQ-CFX-12 rewritten to the engine's committed-mutation-set `WrittenPaths` contract, REQ-CFX-09 pin updated; V3 re-signed by owner 2026-07-18 — see spec-summary.md log)
+**Change**: `conformance-writtenpaths-reconcile`
 
 ## Purpose
 
@@ -229,7 +229,7 @@ REQ-CFX-12.
 
 | Case | exitCode | emitRejectionCode | failedIndex | expected |
 |---|---|---|---|---|
-| positive | 0 | null | null | `{generated.txt: "generated", existing.txt: "composed"}`, `writtenPaths: ["generated.txt"]` exactly |
+| positive | 0 | null | null | `{generated.txt: "generated", existing.txt: "composed"}`, `writtenPaths: ["existing.txt", "generated.txt"]` exactly |
 | wire-create-reject-twin | **UNRESOLVED — see below** | `unrepresentable` | null | `"zero-effect"` |
 
 **PRECONDITION for freezing `wire-create-reject-twin`'s outcome triple (design-blocking, not a
@@ -270,7 +270,7 @@ the open question this REQ routes to `sdd-design`'s ADR — the discard fact doe
   `existing.txt` + `expected/`
 - WHEN the fixture's declared artefacts are inspected
 - THEN the manifest declares a single `ir.commit` flush, `outcome.exitCode: 0`, both files at
-  their final content in `expected/`, `outcome.writtenPaths = ["generated.txt"]`
+  their final content in `expected/`, `outcome.writtenPaths = ["existing.txt", "generated.txt"]`
 
 #### Scenario REQ-CFX-09.2: Reject-twin's outcome triple is pinned only after design resolves the path
 
@@ -340,29 +340,47 @@ EXPECTED, harmless output on every run — not a failure signal, and not somethi
 manifest or self-check makes any claim about. The engine team should not read its presence in a
 fixture's stderr as a defect.
 
-### REQ-CFX-12: `writtenPaths` Rule — Engine-Materialized Paths Only
+### REQ-CFX-12: `writtenPaths` Rule — Committed-Mutation Set (all six op classes)
 
-`outcome.writtenPaths` for a case MUST list ONLY paths NEWLY MATERIALIZED on disk by
-engine-side schematic-lowering staging (a schematic-lowered `create`) — pure wire-mutation
-cases (`modify`/`delete`/`rename`/`move` of an already-seeded or already-materialized path)
-MUST NOT list any path in `writtenPaths`, since a mutation changes or removes an existing path
-rather than materializing a new one. Pinned values, every positive case: `m1-vehicle` =
-`["out.txt"]` (schematic-lowered create); `m2-modify`, `m2-delete`, `m2-rename-move` = `[]`
-(pure wire-mutation, `lowering: none`); `m2-create-composition` = `["generated.txt"]` exactly
-(schematic-lowered create — the factory's own `modify` of the pre-seeded `existing.txt` does
-NOT add to `writtenPaths`, since `existing.txt` already existed pre-run).
+`outcome.writtenPaths` for a case MUST list **every workspace-relative path touched by a committed
+mutation during the run** — derived from the committed set across all six op classes
+(`create` / `modify` / `rename` / `delete` / `copyIn` / `copy`), **including engine-side
+schematic-lowered `create` staging** — deduplicated and **sorted** (the self-check and the engine
+harness compare positionally, so order is part of the contract). This mirrors the engine's
+`Result.WrittenPaths` contract (`project-builder-engine`, `mutation-event-streaming`): *"every
+`Success==true` committed entry's `Op.Path`, deduplicated and sorted, covering all six
+`PlannedOp.Class` values — unlike the old pre-run `OpCreate`-only batch."*
 
-#### Scenario REQ-CFX-12.1: Schematic-lowered positive case pins its materialized path
+Per-op-class semantics (engine-confirmed, code-grounded):
 
-- GIVEN `m1-vehicle`'s positive case (schematic-lowered `out.txt`)
+- A committed `modify` or `delete` lists its target path. A `delete` lists the **removed** path —
+  the contract is the committed *set*, not "bytes written".
+- A committed `rename`/`move` lists **only the destination** path. The source becomes a moved-away
+  tombstone (`StatusMovedAway`) that `PlanOf` skips and never enters the committed journal, so
+  `WrittenPaths` never sees it.
+- A `create` followed by a `modify` of the **same** path deduplicates to a single entry.
+- A rejected or discarded run commits nothing, so its `writtenPaths` is `[]`.
+
+Pinned values, every positive case: `m1-vehicle` = `["out.txt"]` (schematic-lowered `create` of
+`out.txt` + factory `modify` of the same `out.txt` → deduped to one entry); `m2-modify` =
+`["target.txt"]`; `m2-delete` = `["target.txt"]`; `m2-rename-move` = `["dst.txt"]`;
+`m2-create-composition` = `["existing.txt", "generated.txt"]` (schematic-lowered `create` of
+`generated.txt` + factory `modify` of `existing.txt`, sorted). Every negative twin = `[]`.
+
+#### Scenario REQ-CFX-12.1: Same-path create+modify deduplicates to one entry
+
+- GIVEN `m1-vehicle`'s positive case (schematic-lowered `create` of `out.txt`, then a factory
+  `modify` of `out.txt`)
 - WHEN `outcome.writtenPaths` is inspected
-- THEN it equals `["out.txt"]` exactly
+- THEN it equals `["out.txt"]` exactly — the two committed mutations on the same path deduplicate
 
-#### Scenario REQ-CFX-12.2: Pure wire-mutation positive cases pin an empty list
+#### Scenario REQ-CFX-12.2: Wire-mutation positive cases pin their committed target path
 
-- GIVEN `m2-modify`, `m2-delete`, or `m2-rename-move`'s positive case (no schematic)
+- GIVEN `m2-modify` (modify `target.txt`), `m2-delete` (delete `target.txt`), or `m2-rename-move`
+  (rename `src.txt` → `dst.txt`) positive case
 - WHEN `outcome.writtenPaths` is inspected
-- THEN it equals `[]`
+- THEN `m2-modify` = `["target.txt"]`, `m2-delete` = `["target.txt"]`, `m2-rename-move` =
+  `["dst.txt"]` — the rename lists the destination only; its source is absent (moved-away tombstone)
 
 ### REQ-CFX-13: Transcript Oracle — Every Case Carries a Full `transcript` Object
 
