@@ -1,223 +1,301 @@
-# Spec V1: Runner Integrity Manifest (runner-integrity-manifest)
+# Spec V2: Runner Integrity Manifest (runner-integrity-manifest)
 
 **Status**: DRAFT — awaiting owner signature
-**Triage**: L | **Capabilities**: 8 | **REQ-IDs**: 41 | **ADR budget**: 4
+**Triage**: L | **Capabilities**: 8 | **REQ-IDs**: 58 | **Red-proofs**: 18 | **ADR budget**: 4
 
-> Scenarios use Given/When/Then. Every scenario names a **concrete observable** — "is deterministic"
-> is not a scenario; "the SHA-256 of the manifest's bytes is identical across both runs" is.
+**V2 changes**: QA adversarial review (11 mutation escapes closed), tech-writer review (Capability 8
+was unverifiable — no REQ named the file), and the engine's round-2 reply (all four corrections
+accepted; `packageVersion` now welcomed; **Bun confirmed** as the production runtime).
+
+> Every scenario names a **concrete observable**. Terminology is pinned in § Terminology — in
+> particular `entry` (the JSON field) and **file record** (a member of `files`) are different things.
 
 ---
 
 ## Contract Ambiguities — resolved for signature
 
-The engine's contract admits two readings in nine places. Each is resolved below; **A, D and I are
-the ones that change behaviour and need explicit owner assent.**
-
 | # | Ambiguity | RESOLUTION |
 |---|---|---|
-| **A** | Is "23" a contract constant or a derived value? | **Regenerable baseline.** The spec asserts *derived == committed baseline*, whose value is 23 today. A future legitimate closure change is a deliberate baseline edit, not a cross-repo breaking event. **The engine must confirm their mirror does not hard-code 23** (carried in the reply). |
-| B | Sort scope — 23 sorted then `package.json` appended, or all 24 together? | **All 24 sorted together**, byte-wise ascending. Today both readings coincide by ASCII accident (`d` < `p`); they stop coinciding the moment a closure path sorts above `p`. |
-| C | "Stable JSON key order" — which order, what whitespace? | **Pinned exactly**: top-level `manifestVersion, algorithm, entry, files`; each entry `path, sha256`; 2-space indent; exactly one trailing `\n`. Invisible to the engine (they compare digests) but observable once we publish the manifest's own SHA-256. |
-| **D** | "The factory-import site" — file-scoped or site-scoped? | **Site-scoped.** A second dynamic `import()` inside `transport/runner.ts` itself must ALSO fail. File-scoped is the only other reading and it defeats the constraint's intent. |
-| E | "Mutating any closure file changes exactly that file's digest" | **Reading 2**: that entry changes **and no other entry does**. Reading 1 (merely content-sensitive) is vacuous. |
-| F | Is `entry` also a `files` member? | **Yes.** 24 = 23 closure + `package.json`; `entry` is one of the 23 and appears exactly once in `files`. |
-| G | Is the manifest itself excluded? | **Yes** — self-inclusion is unsatisfiable. Asserted explicitly (RME-03) rather than left obvious. |
-| H | "Rebuilding an unchanged tree" — same machine or any machine? | **Any machine** (the Determinism section's own wording). The weak reading is trivially satisfiable and worthless. |
-| **I** | Is `bun link` in scope for verification? | **In scope, with the guarantee stated honestly**: on linked installs the same build produces both the bytes and the digests, so verification degrades to a **build-consistency check**. Documented in those words (IID-06). Our own e2e suite uses linked installs, so this is not academic. |
+| **A** | Is "23" a contract constant or derived? | **Regenerable baseline.** Assert *derived == committed baseline* (23 today). A legitimate closure change is a deliberate baseline edit, not a cross-repo breaking event. Engine confirmed their mirror does not hard-code it. |
+| B | Sort scope | **All 24 file records sorted together**, byte-wise ascending. |
+| C | Key order / whitespace | **Pinned via a round-trip identity** (RME-06.1) — not prose. |
+| **D** | Factory-import site: file- or site-scoped? | **Site-scoped.** A second dynamic `import()` inside `runner.ts` itself must also fail. |
+| E | "Mutating any closure file changes exactly that file's digest" | **Exactly that file record changes and no other.** |
+| F | Is `entry` also a file record? | **Yes** — 24 = 23 closure + `package.json`; `entry` names one of the 23 and appears exactly once in `files`. |
+| G | Manifest excludes itself | **Yes**, asserted explicitly (RME-03.1). |
+| H | "Rebuilding an unchanged tree" | **Any machine.** |
+| **I** | `bun link` scope | **In scope, guarantee stated honestly**: same build produces both bytes and digests → verification degrades to a **build-consistency check** (IID-06). Engine agreed: "useful there as a wrong-artefact detector and nothing more." |
+| **J** *(new — found by QA + tech-writer)* | Which realm do specifier-KIND checks scan, and which path do errors name? | **Set from emitted `dist/**.js`; kind checks on `dist` via AST; errors name the `src/**` path the reader must EDIT** (emitted counterpart named second). BDI-02 already asserts the `dist → src` map is injective, so this costs nothing. Reporting a `dist` line to someone who must edit `src` fails at the one job the message has. |
 
-**Push-back recorded**: engine acceptance box 6 says "the three Constraints". There are **five**
-preconditions — the engine's three, plus the fourth (no unhashed-code-execution primitive) and the
-fifth (engine-side loader injection). This spec documents **five**, each marked by owner. Signing a
-spec that documents three would be documenting a lemma we know to be unsound.
+**Engine round-2 outcomes folded in**: all four SDK corrections accepted; the fourth precondition
+adopted into the engine's own mirror check; the fifth stated as an explicit loader-injection control
+on their side; entry #24 re-justified on `"type": "module"`; verifier-dispatched fields pinned
+engine-side; **omissions rejected as firmly as extras**; `packageVersion` **welcomed** (Q4);
+**Bun is the production runtime, definitively** (Q1); verification runs **before every spawn** (Q2);
+the no-intermediate-`package.json` rule is adopted **engine-side** rather than as a manifest field (Q3).
+
+---
+
+## Design Rulings (owner, 2026-07-25)
+
+- **R1 — AST, not regex.** Derivation and kind checks parse with **ts-morph** (already a project
+  dependency; the generator lives in unshipped `scripts/`). *Forced by a verified day-one failure:
+  `removeComments` is unset, so JSDoc survives into `dist`; `src/core/authoring-error.ts:229` carries
+  `import { AuthoringError } from "@pbuilder/sdk/commons"` inside an `@example` (a bare specifier →
+  false Constraint-3 alarm) and `src/core/context.ts:352` carries `import type { Input } from
+  "./schema.generated.ts"` (relative → **phantom closure node**). Both files are in the 23.*
+- **R2 — Realm split** per ambiguity J.
+- **R3 — Constraint 4 is an outright ban on `createRequire` in the closure**, with the single
+  legitimate site exempted by the same anchor idiom as CST-03. The call-vs-`.resolve()` rule is
+  evadable by one variable (`const req = createRequire(u); req("./x")`) and by the namespace form.
+- **R4 — Constraint 1 ships structural** (owner, after Bun was confirmed): injective correspondence +
+  closure-graph baseline + bundler-output disjointness. Loader observation is a followup.
 
 ---
 
 ## Capability 1 — `runner-closure-derivation` (RCD)
 
-**REQ-RCD-01** — The closure is derived by walking static `import` / `export … from` / side-effect specifiers transitively from the emitted entry, following relative specifiers and ignoring `node:` builtins.
-- **RCD-01.1** — *Given* a clean `bun run build`, *when* the closure is derived from `dist/bin/pbuilder-runner.js`, *then* the resulting set equals the committed closure-graph baseline **as a set of paths** (not a count).
+**REQ-RCD-00 — Root-parameterised and unit-addressable.** `scripts/derive-runner-closure.ts` exports
+`deriveRunnerClosure(distRoot, entryRelPath)`, `comparePaths`, `serialiseManifest` and `sha256File`.
+*Rationale: without this, every red-proof, RMD-04 and RMD-02's cheap form are unimplementable.*
 
-**REQ-RCD-02** — Derivation targets the **emitted `dist/**.js`**, never `src/**.ts`.
-- **RCD-02.1** — *Given* `src/core/engine-client.ts` is reachable only via `import type` (`stdio-engine-client.ts:17`, `context.ts:9`, `session.ts:11`), *when* the closure is derived, *then* `dist/core/engine-client.js` is **absent** from the manifest, asserted **by name**.
-- **RCD-02.2** — *Given* the derived closure, *when* its size is measured, *then* it is 23 — the exact count a source-derived walk would get wrong (it yields 24).
+**REQ-RCD-01 — Transitive static walk.**
+- **RCD-01.1** — *Given* a clean build, *when* the closure is derived from `dist/bin/pbuilder-runner.js`, *then* the result equals the committed closure-graph baseline **as a set of paths**.
+- **RCD-01.2 — THE ANTI-TAUTOLOGY SCENARIO.** *Given* a synthetic tree at a temp root (entry imports A and B; A imports C; D present but unimported), *when* `deriveRunnerClosure(root, entry)` runs, *then* the result is exactly `{entry, A, B, C}` and **D is absent, asserted by name**. *Every other RCD scenario is satisfiable by a generator that merely reads the committed baseline; this one is not.*
+- **RCD-01.3** — *Given* a synthetic tree with a cycle (A↔B), *when* derivation runs, *then* it terminates and yields `{entry, A, B}`.
+- **RCD-01.4** — *Given* an entry with zero imports, *then* the closure is exactly 1 file.
 
-**REQ-RCD-03** — Zero silent skips: every import-like construct is classified into exactly one of {relative specifier, `node:` builtin, the sanctioned dynamic-import site} or the build fails.
-- **RCD-03.1** — *Given* a closure file containing an unclassifiable construct (non-literal `import(expr)`, computed `export * from`), *when* the build runs, *then* it exits non-zero, **no `dist/runner-manifest.json` exists on disk**, and stderr names the file, the line and the construct.
+**REQ-RCD-02 — Emitted realm only.**
+- **RCD-02.1** — *Given* `src/core/engine-client.ts` is reachable only via `import type`, *then* `dist/core/engine-client.js` is **absent**, asserted by name.
+- **RCD-02.2** — *Given* the derived closure, *then* its size is 23 — the count a source walk gets wrong (it yields 24).
+- **RCD-02.3** — The closure set is **not** filtered by `.js`: a specifier resolving to `.mjs`/`.cjs` is followed. *(`module: NodeNext` can emit `.mjs`; an `endsWith(".js")` filter silently loses a subtree.)*
 
-**REQ-RCD-04** — `node:`-prefixed builtins are excluded from the file set without failing.
-- **RCD-04.1** — *Given* the current closure, *when* derivation completes, *then* exactly six builtins are seen — `node:async_hooks, node:console, node:fs, node:module, node:path, node:url` — asserted by name.
+**REQ-RCD-03 — Zero silent skips, parser-grade (R1).**
+- **RCD-03.1** — *Given* an unclassifiable construct (non-literal `import(expr)`, computed `export * from`), *then* the build exits non-zero, **no manifest exists**, and stderr names the **`src` path**, the line and the construct.
+- **RCD-03.2** — *Given* a relative specifier resolving to a nonexistent path, *then* the build fails naming importer, specifier and attempted path. **No silent subset** — never `catch { continue }`.
+- **RCD-03.3 — THE DAY-ONE SCENARIO.** *Given* `dist/core/authoring-error.js` (JSDoc `@example` quoting `@pbuilder/sdk/commons`) and `dist/core/context.js` (JSDoc quoting `./schema.generated.ts`), *when* derivation runs, *then* **neither is treated as an edge and neither reports a violation** — asserted against those two files **by name**, so it can never be "fixed" by deleting the examples.
+- **RCD-03.4** — *Given* a specifier carrying a query or fragment (`./x.js?v=1`), *then* it is an explicit classification failure, never a silent skip.
+- **RCD-03.5** — *Given* an unreadable closure file (mode 000), *then* the build fails naming the path. *Test skips under uid 0, else it false-passes in containers.*
+
+**REQ-RCD-04 — `node:` builtins excluded without failing.**
+- **RCD-04.1** — *Given* the current closure, *then* the observed builtin set equals the **baseline's** builtin row (six today), not a literal in-test list. *A literal turns a legitimate future `node:buffer` into a red build — against the spec's permissive bias.*
+
+**REQ-RCD-05 — Symlinks do not escape the package.**
+- **RCD-05.1** — *Given* a closure specifier resolving through a symlink whose target lies outside the package root, *then* the build fails rather than hashing foreign bytes under an in-package path. *(`bun link` makes this non-academic.)*
 
 ## Capability 2 — `manifest-emission` (RME)
 
-**REQ-RME-01** — Shape: 24 entries in the contract's declared schema.
-- **RME-01.1** — *Given* a successful build, *when* `dist/runner-manifest.json` is parsed, *then* `manifestVersion === 1`, `algorithm === "sha256"`, `files.length === 24`, `entry === "dist/bin/pbuilder-runner.js"` and `entry` appears **exactly once** in `files` (ambiguity F).
-- **RME-01.2** — *Given* the manifest, *when* `files` is inspected, *then* exactly one entry has `path === "package.json"` and all 23 others start with `dist/`.
+**REQ-RME-01 — Shape.**
+- **RME-01.1** — `manifestVersion === 1`, `algorithm === "sha256"`, `files.length === 24`, `entry === "dist/bin/pbuilder-runner.js"`, and `entry` appears exactly once among the file records.
+- **RME-01.2** — Exactly one file record has `path === "package.json"`; the other 23 start with `dist/`.
+- **RME-01.3** — The top-level key set is **exactly** `{manifestVersion, algorithm, entry, packageVersion, files}` and every file record's key set is **exactly** `{path, sha256}`. *Closes the "a `generatedAt` field slips past everything" escape.*
 
-**REQ-RME-02** — Digests are lowercase-hex SHA-256 over exact on-disk bytes.
-- **RME-02.1** — *Given* the manifest, *when* each entry's digest is recomputed by an independent SHA-256 over the bytes at `path`, *then* every value matches and every value matches `/^[0-9a-f]{64}$/`.
+**REQ-RME-02 — Digests.**
+- **RME-02.1** — Each digest recomputed over the bytes at `path` matches, and matches `/^[0-9a-f]{64}$/`.
+- **RME-02.2 — Known-answer.** *Given* a zero-byte file and a file containing exactly `\n`, *then* `sha256File` returns `e3b0c442…b855` and `01ba4719…0b`. *An external oracle — RME-02.1 alone is `f(x) === f(x)` if the test imports the generator's own hasher.*
 
-**REQ-RME-03** — Exclusions are exact; extra entries are a mismatch to the engine.
-- **RME-03.1** — *Given* the manifest, *when* `files[].path` is inspected, *then* no entry matches `*.d.ts`, `dist/dialects/**`, `dist/commons/**`, `dist/conformance/**`, `dist/testing/**`, `node_modules/**`, **or `dist/runner-manifest.json` itself** (ambiguity G).
+**REQ-RME-03 — Exclusions.**
+- **RME-03.1** — No file record matches `*.d.ts`, `dist/dialects/**`, `dist/commons/**`, `dist/conformance/**`, `dist/testing/**`, `node_modules/**`, or `dist/runner-manifest.json` itself.
 
-**REQ-RME-04** — Paths are normalised and unique.
-- **RME-04.1** — *Given* the manifest, *when* `files[].path` is inspected, *then* every path uses `/`, has no leading `./`, is not absolute, contains no `..` segment, and no path appears twice.
+**REQ-RME-04 — Path hygiene.**
+- **RME-04.1** — Every `path` uses `/`, no leading `./`, not absolute, no `..` segment, no duplicates.
 
-**REQ-RME-05** — Ordering is byte-wise over all 24 (ambiguity B).
-- **RME-05.1** — *Given* the manifest, *when* consecutive `files[].path` pairs are compared with `Buffer.compare`, *then* each is strictly less than the next.
-- **RME-05.2** — *Given* a path set where byte order and locale collation **disagree**, *when* the comparator sorts it, *then* the result matches byte order — proving the implementation does not use `localeCompare`.
+**REQ-RME-05 — Byte-wise ordering.**
+- **RME-05.1** — Consecutive paths compare strictly ascending under `Buffer.compare`.
+- **RME-05.2** — *Given* the discriminating pairs `dist/Z.js` vs `dist/a.js` (byte: `Z`=0x5A < `a`=0x61; ICU: `a` first) **and** `dist/a-b.js` vs `dist/aB.js` (ICU ignores punctuation), *when* the exported `comparePaths` sorts them, *then* the result matches byte order. *Kills `localeCompare`.*
 
-**REQ-RME-06** — Serialisation is pinned (ambiguity C).
-- **RME-06.1** — *Given* the manifest's raw bytes, *when* inspected, *then* top-level keys appear in order `manifestVersion, algorithm, entry, files`, entry keys in order `path, sha256`, indentation matches the pinned form, and the file ends with exactly one `\n`.
+**REQ-RME-06 — Serialisation pinned by identity, not prose.**
+- **RME-06.1** — *Given* the manifest's raw text, *then* `raw === JSON.stringify(JSON.parse(raw), null, 2) + "\n"`. *One assertion kills 4-space, tabs, CRLF, missing trailing newline and key reordering.*
+
+**REQ-RME-07 — `packageVersion` (engine Q4: accepted and welcomed).**
+- **RME-07.1** — The manifest carries a top-level `packageVersion` equal to the root `package.json`'s `version`. *Lets the engine report **version-mismatch** distinctly from **integrity-mismatch** — version skew will vastly outnumber genuine tampering, and collapsing them manufactures alarm fatigue against the one signal that must never be routine.*
 
 ## Capability 3 — `manifest-determinism` (RMD)
 
-**REQ-RMD-01** — Same tree, same bytes, across rebuilds.
-- **RMD-01.1** — *Given* an unchanged tree, *when* `bun run build` runs twice, *then* the SHA-256 of the manifest's bytes is identical.
+**REQ-RMD-01 — Reproducible.**
+- **RMD-01.1** — Two consecutive builds of an unchanged tree yield byte-identical manifests.
+- **RMD-01.2 — Locale.** *Given* the same tree, *when* the generator runs in a **child process** under `LC_ALL=C` and again under `LC_ALL=tr_TR.UTF-8`, *then* the bytes are identical. *Never mutate `process.env` in-test.*
 
-**REQ-RMD-02** — Same tree, same bytes, across **machines** (ambiguity H).
-- **RMD-02.1** — *Given* two checkouts of the same commit at **different absolute paths, one containing a non-ASCII segment**, *when* each is built, *then* the two manifests' bytes are identical.
+**REQ-RMD-02 — Path-independent.**
+- **RMD-02.1** — *Given* the built `dist/` + `package.json` copied to a temp root whose absolute path contains **both a non-ASCII segment and a space**, *when* only the generator is re-run there, *then* the bytes are identical to the canonical run. *The cheap form is sufficient because `declarationMap: false` and no source maps mean tsc output cannot carry a path — the generator is the only component that can leak one. Recorded so the limitation is explicit.*
 
-**REQ-RMD-03** — No CRLF in the closure; `newLine: "lf"` pinned.
-- **RMD-03.1** — *Given* `tsconfig.build.json`, *when* read, *then* `newLine` is `"lf"`.
-- **RMD-03.2** — *Given* the emitted closure files, *when* their bytes are scanned, *then* none contains `\r\n`; proven non-vacuous against a synthetic CRLF fixture.
+**REQ-RMD-03 — Line endings and BOM.**
+- **RMD-03.1** — `tsconfig.build.json` sets `newLine: "lf"`.
+- **RMD-03.2** — No emitted closure file contains `\r\n`; proven against a **test-time-generated** CRLF fixture (a committed one is normalised by `.gitattributes` on the next `git add`).
+- **RMD-03.3** — `.gitattributes` normalises `src/**` to LF with no `-text` exception covering it. *This is the real cross-machine guard: `newLine` governs only tsc-emitted terminators, while newlines inside template literals pass through verbatim from source.*
+- **RMD-03.4** — No closure source or emitted file begins with `EF BB BF`.
 
-**REQ-RMD-04** — Tamper localisation (ambiguity E).
-- **RMD-04.1** — *Given* a manifest from an unchanged tree, *when* one byte is appended to `dist/core/session.js` and the manifest is regenerated, *then* **exactly one** entry's digest differs, the other 23 are byte-identical, `files.length` is unchanged and the array order is unchanged.
+**REQ-RMD-04 — Tamper localisation, on a copied root.**
+- **RMD-04.1** — *Given* a **copy** of the built tree at a temp root, *when* one byte is appended to its `dist/core/session.js` and the manifest is regenerated there, *then* exactly one file record's digest differs, the other 23 are identical, and length and order are unchanged. *Must not touch the real `dist/` — `ensureTscBuild()` is memoized and FIT-04/FIT-14/the dist-runner e2e all read that tree afterwards.*
 
-**REQ-RMD-05** — No machine-identifying content.
-- **RMD-05.1** — *Given* the manifest's bytes, *when* scanned, *then* they contain no absolute path, no home-directory segment, no username, and no timestamp.
+**REQ-RMD-05 — No machine-identifying content.**
+- **RMD-05.1** — The manifest's bytes contain neither `process.cwd()` nor `os.userInfo().username`, and the exact-key-set assertion (RME-01.3) structurally excludes a timestamp field. *`os.homedir()` is deliberately NOT scanned: on GitHub runners the checkout lives under `/home/runner`, so a homedir substring scan fires on any legitimate relative path.*
 
 ## Capability 4 — `build-pipeline-integration` (BPI)
 
-**REQ-BPI-01** — Produced by `bun run build`, never a separate command.
-- **BPI-01.1** — *Given* a clean checkout with no `dist/`, *when* `bun run build` completes, *then* `dist/runner-manifest.json` exists, with no additional command invoked.
+**REQ-BPI-01 — Produced by the build.**
+- **BPI-01.1** — *Given* `package.json#scripts.build` parsed structurally, *then* it contains the `build:manifest` step and no other script is required to produce the manifest. *(Observable — "no additional command invoked" is not.)*
+- **BPI-01.2** — The generator is the **last** step in the chain. *Otherwise a later failing `build:codegen` leaves a valid-looking manifest on a broken tree until the next `prebuild`.*
 
-**REQ-BPI-02** — No artefact survives a failed derivation.
-- **BPI-02.1** — *Given* a build whose derivation fails for any RCD/CST reason, *when* the build exits, *then* it exits non-zero **and** `dist/runner-manifest.json` does not exist — including when a manifest from a previous successful run was present beforehand.
+**REQ-BPI-02 — Fail-closed and atomic.**
+- **BPI-02.1** — *Given* the generator invoked **directly against a prepared root that already contains a manifest**, *when* derivation fails, *then* exit ≠ 0 and no manifest remains. *Must not go through `bun run build` — `prebuild: rm -rf dist` would make the assertion vacuous.*
+- **BPI-02.2 — Atomicity.** *Given* a file that becomes unreadable mid-derivation, *then* exit ≠ 0 and **no file at all** at `dist/runner-manifest.json` — never a truncated one. Implementation: hash-all-then-write-once, or write-then-rename.
 
-**REQ-BPI-03** — The publish-ordering **property** is pinned (mechanism is out of scope).
-- **BPI-03.1** — *Given* `.github/workflows/publish.yml`, *when* its steps are parsed structurally, *then* either the `package.json` version stamp precedes the build, or a rebuild occurs between the stamp and publish — asserted against the workflow file, never against a comment. Green today via `prepublishOnly`; red the instant `--ignore-scripts`, `bun publish` or `bun pm pack` enters the workflow.
+**REQ-BPI-03 — Publish-ordering property (mechanism out of scope).**
+- **BPI-03.1** — *Given* `publish.yml` parsed structurally, *then* either the version stamp precedes the build, or a rebuild occurs between stamp and publish. Green today via `prepublishOnly`; red the instant `--ignore-scripts`, `bun publish` or `bun pm pack` enters the workflow.
 
-**REQ-BPI-04** — The build reports the manifest's own identity (owner ruling: in this change).
-- **BPI-04.1** — *Given* a successful build, *when* stdout is captured, *then* it contains the SHA-256 of `dist/runner-manifest.json` itself, in a stable machine-parseable form a release note can copy.
+**REQ-BPI-04 — Manifest identity printed (pinned form).**
+- **BPI-04.1** — *Given* a successful build, *then* stdout contains exactly two lines: `runner-manifest: 24 files -> dist/runner-manifest.json` and `runner-manifest-sha256: <64 lowercase hex>`. *The key must contain `manifest` — the failure mode is a release note pasting one of the 24 file digests instead of the digest **of** the manifest. Check for collision with FIT-30 (stdout-sacred).*
 
 ## Capability 5 — `closure-sealing-tripwires` (CST)
 
-Each rule below has a mandatory red-proof (§ Red-Proofs). A rule without its negative companion is unproven.
+Realm per ambiguity J: kind checks on `dist` via AST; **errors name the `src` path**. Message prefix
+`runner-manifest:`; every message states rule, why, and **fix**. Project-relative paths always; no
+character ceiling (REQ-WPS-07's wire budget does not govern build tooling) — cap by offender count
+(`… and N more`).
 
-**REQ-CST-01** — No bare specifier in the closure.
-- **CST-01.1** — *Given* a closure file importing a third-party package, *when* the build runs, *then* it fails, emits no manifest, and names the file, line, specifier and "Constraint 3 — bare specifier in the closure".
+**REQ-CST-01 — No bare specifier.**
+- **CST-01.1** — A third-party import in a closure file fails the build, emits no manifest, and names the `src` path, line, specifier and "Constraint 3".
 
-**REQ-CST-02** — Builtins must be literally `node:`-prefixed — never a name allowlist.
-- **CST-02.1** — *Given* a closure file with `import { readFileSync } from "fs"`, *when* the build runs, *then* it **fails** — an unprefixed builtin occupies a `node_modules`-shadowable name and must not be silently accepted.
+**REQ-CST-02 — Builtins literally `node:`-prefixed.**
+- **CST-02.1** — `import { readFileSync } from "fs"` **fails**. The rule is on the PREFIX, never a builtin-name allowlist, and the message says so — *the wrong repair (adding `"fs"` to an allowlist) is more likely than the right one.*
 
-**REQ-CST-03** — Exactly one sanctioned dynamic `import()`, site-scoped (ambiguity D).
-- **CST-03.1** — *Given* a dynamic `import()` in a closure file other than `transport/runner.ts`, *when* the build runs, *then* it fails, naming the file, line, specifier and "Constraint 2 — dynamic import outside the factory site".
-- **CST-03.2** — *Given* a **second** dynamic `import()` inside `transport/runner.ts` itself, *when* the build runs, *then* it **also** fails, naming which site is the sanctioned one.
-- **CST-03.3** — *Given* the single sanctioned site, *when* the scan runs, *then* it is accepted, identified by a **stable anchor** — not a line number that churns on unrelated edits.
+**REQ-CST-03 — Exactly one sanctioned dynamic `import()`, site-scoped.**
+- **CST-03.1** — A dynamic `import()` in any closure file other than `runner.ts` fails, naming "Constraint 2".
+- **CST-03.2** — A **second** dynamic `import()` inside `runner.ts` **also** fails, and the message names the sanctioned site and states the sanction is **per-SITE, not per-file**.
+- **CST-03.3 — Anchor defined.** The invariant is: the count of dynamic `import()` in `dist/transport/runner.js` is **exactly 1**, and in every other closure file **exactly 0**; the sanctioned site carries the source marker `SANCTIONED-FACTORY-IMPORT`. *(CST-03.2 falls out of the count.)*
 
-**REQ-CST-04** — FOURTH PRECONDITION: no unhashed-code-execution primitive in the closure.
-- **CST-04.1** — *Given* a closure file calling the require function returned by `createRequire(x)` (rather than `.resolve()`), *when* the build runs, *then* it fails, naming the file, line, construct and "unhashed-code-execution primitive in the closure". *Rationale: `single-instance-probe.ts:28,39` already imports `createRequire`; only calling `.resolve()` keeps it resolution-only, and that is convention, not enforcement.*
-- **CST-04.2** — *Given* a closure file using `eval(…)`, `new Function(…)`, `node:vm`, `Bun.plugin(…)` or `process.binding(…)`, *when* the build runs, *then* it fails, naming which primitive.
-- **CST-04.3** — *Given* the current tree, *when* the deny-scan runs, *then* it reports zero violations — and `single-instance-probe.ts`'s legitimate `.resolve()` call is **not** flagged.
+**REQ-CST-04 — Constraint 4: outright ban (R3).**
+- **CST-04.1** — Any `createRequire` reference in a closure file fails the build, **except** at the single anchored site in `single-instance-probe.ts`. *A call-vs-`.resolve()` rule is evaded by `const req = createRequire(u); req("./x")` and by the namespace form.*
+- **CST-04.2** — `eval`, `new Function`, `node:vm`, `Bun.plugin`, `process.binding` in a closure file fail, naming which primitive.
+- **CST-04.3** — *Given* the current tree, *then* the deny-scan reports zero violations and the anchored `single-instance-probe.ts` site is **not** flagged.
+- **CST-04.4** — *Given* a **synthetic** closure file with the indirect form and another with the namespace form, *then* both fail. *(CST-04.3 alone only proves the check does not fire on the one real file that happens to be shaped right.)*
 
-**REQ-CST-05** — No `package.json` strictly between the entry and the package root (SDK-side half of C2).
-- **CST-05.1** — *Given* the built tree, *when* checked, *then* neither `dist/package.json` nor `dist/bin/package.json` exists. *This does not close the C2 bypass — only the engine can (their question 3) — but it stops the SDK being the source of the file.*
+**REQ-CST-05 — No `package.json` between entry and package root (SDK-side hygiene).**
+- **CST-05.1** — Neither `dist/package.json` nor `dist/bin/package.json` exists. *The engine adopted this as an engine-side rule (their Q3), keeping the manifest a pure inclusion list; this half stops the SDK being the source of the file.*
 
-**REQ-CST-06** — Failure quality is asserted, not assumed.
-- **CST-06.1** — *Given* any tripwire violation, *when* the build fails, *then* the test asserts the message **by substring**, so "it fails" is never accepted as "it fails usefully".
+**REQ-CST-06 — Failure quality asserted.**
+- **CST-06.1** — Every tripwire message is asserted **by substring**, so "it fails" is never accepted as "it fails usefully".
 
 ## Capability 6 — `bundler-disjointness-invariant` (BDI)
 
-Owner ruling 2026-07-25: Constraint 1 is a CI-breaking fitness test, not documentation. Scoped to the **closure**, not to all of `dist/` — a bundler already runs in this build (`build:codegen` → `dist/bin/pbuilder-codegen.js`).
+**REQ-BDI-01 — Bundler outputs disjoint from the closure.**
+- **BDI-01.1** — Every `--outfile`, `--outdir` (by **directory containment**) and `-o` target in `package.json#scripts` is outside the closure path set — proven non-vacuous by `dist/bin/pbuilder-codegen.js` being present and correctly judged outside.
+- **BDI-01.2** — Non-`scripts` invocation surfaces (workflow steps, `Bun.build({outdir})`, `scripts/*.ts` calls) are **explicitly out of scope**, stated so the requirement does not read stronger than it is.
 
-**REQ-BDI-01** — Bundler outputs are disjoint from the closure.
-- **BDI-01.1** — *Given* `package.json#scripts`, *when* every `--outfile`/`--outdir` target is extracted, *then* none is inside the closure path set — proven non-vacuous by `dist/bin/pbuilder-codegen.js` being present and correctly judged **outside** the closure.
+**REQ-BDI-02 — Graph-preserving emit.**
+- **BDI-02.1** — For each closure `.js`, its relative-specifier **multiset** equals its `.ts` source's, after `.ts→.js` rewriting and **modulo type-only erasure**. *Replaces the near-vacuous "exactly one source exists" check — this goes red the instant a module is inlined.*
+- **BDI-02.2** — *Given* a source with a type-only import (`session.ts`, `stdio-engine-client.ts`), *then* it is **not** flagged.
+- **BDI-02.3** — The reverse (`src → dist`) is NOT asserted: `dist/core/engine-client.js` legitimately exists outside the closure.
 
-**REQ-BDI-02** — Injective source correspondence, `dist → src` only.
-- **BDI-02.1** — *Given* every closure `.js`, *when* mapped back to `src/`, *then* exactly one `.ts` exists at the corresponding path, and no two closure files map to the same source.
-- **BDI-02.2** — The reverse (`src → dist`) is **NOT** asserted: `dist/core/engine-client.js` legitimately exists outside the closure.
-
-**REQ-BDI-03** — Committed closure-graph baseline; regeneration is deliberate.
-- **BDI-03.1** — *Given* the committed baseline (23 nodes + every relative edge, sorted), *when* a closure file is added, removed, or its imports change, *then* the fitness test fails naming the added/removed **node or edge**.
+**REQ-BDI-03 — Closure-graph baseline (nodes AND edges).**
+- **BDI-03.1** — *Given* the committed `runner-closure-graph-baseline.json` (`{nodes, edges}`), *when* a node is added or removed, *or an edge is redirected with the node set unchanged*, *then* the fitness test fails naming the added/removed/redirected node or edge.
 
 ## Capability 7 — `packaged-manifest-fidelity` (PMF)
 
-**REQ-PMF-01** — The manifest ships.
-- **PMF-01.1** — *Given* `npm pack`, *when* the tarball's file list is read, *then* it contains `dist/runner-manifest.json`.
+**Normative packer: `npm pack`** (what `publish.yml` uses). FIT-14 continues to use `bun pm pack` for
+its own listing; PMF assertions are `npm`. The `package/` tarball prefix is stripped explicitly.
 
-**REQ-PMF-02** — Digests match the **extracted tarball's** bytes, not the working tree.
-- **PMF-02.1** — *Given* the packed tarball extracted to a temp directory, *when* all 24 digests are recomputed against the **extracted** bytes, *then* all match. *This is the only criterion that catches packer normalisation.*
-- **PMF-02.2** — *Given* `npm pack --ignore-scripts` (so `prepublishOnly` does not fire), *when* the tarball is extracted, *then* entry #24's digest matches the packed `package.json` bytes. *This is what proves the publish-ordering property rather than relying on an accidental rescue.*
+**REQ-PMF-01** — `npm pack`'s file list contains `dist/runner-manifest.json`.
 
-**REQ-PMF-03** — The publish-surface baseline admits the manifest deliberately.
-- **PMF-03.1** — *Given* `test/fitness/pkg-surface-baseline.json`, *when* FIT-14 runs after the first successful emission, *then* it passes because the baseline was deliberately updated to include `dist/runner-manifest.json`.
+**REQ-PMF-02 — Verified against packed and installed bytes.**
+- **PMF-02.1** — All 24 digests recomputed against the **extracted tarball's** bytes match.
+- **PMF-02.2 — Red-proof for BPI-03.** *Given* a build, *when* `package.json#version` is rewritten and `npm pack --ignore-scripts` runs, *then* entry #24's digest **MISMATCHES**, naming the field. *This is the actual behavioural proof of the publish-ordering property. The V1 form of this scenario could not fail: with `--ignore-scripts` the packed `package.json` IS the one the manifest hashed.*
+- **PMF-02.3 — Registry-install round trip.** *Given* `npm pack` then `npm install ./<tarball>` into a temp project, *when* entry #24 is recomputed against `node_modules/@pbuilder/sdk/package.json`, *then* it matches. *`npm-normalize-package-bin` is a known rewriter and this package HAS a `bin` field; the release target makes registry install the production path. Being wrong here fails closed on 100% of users.*
 
-> **Retired**: `npm pack` and `bun pm pack` were both verified 2026-07-25 to preserve `package.json`
-> byte-for-byte (identical SHA-256 across working tree, bun tarball and npm tarball), so entry #24 is
-> viable as specified. PMF-02 remains a requirement because it must **stay** true.
+**REQ-PMF-03** — `test/fitness/pkg-surface-baseline.json` is deliberately updated to include the manifest, so FIT-14 passes.
+
+> **Verified 2026-07-25, not assumed**: `npm pack` and `bun pm pack` both preserve `package.json`
+> byte-for-byte at **pack** time (identical SHA-256 across working tree and both tarballs). PMF-02.1
+> and PMF-02.3 remain requirements because this must **stay** true, and because pack-time identity
+> says nothing about the **install** boundary.
 
 ## Capability 8 — `integrity-invariants-documentation` (IID)
 
-**REQ-IID-01** — Five preconditions, each with its enforcement mechanism or an explicit "unenforced, engine-owned".
-- **IID-01.1** — *Given* the invariants document, *when* read, *then* it states all five: (1) no bundler with code-splitting, (2) no dynamic import on an infrastructure path, (3) no bare third-party specifier, (4) no unhashed-code-execution primitive, (5) no loader-level injection at spawn — **(5) marked engine-owned**.
+**Home**: `docs/runner-integrity-invariants.md`, linked from `docs/README.md` (*Contributor notes*),
+matching the `docs/engine-sdk-wire-spec.md` cross-repo-normative precedent. Guarded by
+`test/docs/runner-integrity-docs.test.ts` (precedent: `test/docs/security-authoring-guard.test.ts` —
+frozen strings are copied from `design.md`, which wins on divergence). Freeze 1–3 sentences per REQ,
+never whole passages. Plus a three-sentence `SECURITY.md` subsection that **subtracts** (scope-limits)
+rather than announces.
 
-**REQ-IID-02** — Honest scope boundary, verbatim.
-- **IID-02.1** — *Given* the document, *when* the scope statement is read, *then* it says the manifest verifies **the pre-factory bootstrap only**, and that `dist/commons/**`, `dist/dialects/**`, `dist/testing/**` and `node_modules/**` load into the same process at the same privilege moments later.
+**REQ-IID-01 — Five Constraints, structurally enforced.**
+- **IID-01.1** — *Given* `docs/runner-integrity-invariants.md`, *then* it lists five Constraints, each with an `enforced-by:` field naming **either a FIT id that exists as a file on disk, or the literal `engine-owned`**. *A prose-only assertion passes against a document that says the right words while the code does something else; this one cannot.*
+- **IID-01.2** — Constraint 2 is stated in its **resolved site-scoped form**, not the engine's original "no dynamic import on an infrastructure path". *That looser wording contradicts ambiguity D and would ship a document our own build enforces more strictly than it describes.*
+- **IID-01.3** — Constraints 4 and 5 are marked **SDK-added** and **engine-owned** respectively on first use, and no Constraint is cited by bare number. *Guards against silent cross-repo numbering divergence.*
 
-**REQ-IID-03** — The justification that survives scrutiny.
-- **IID-03.1** — *Given* the document, *when* the rationale is read, *then* it states the real value — wrong-artefact detection, the closure-sealing tripwires, and coverage of the postinstall adversary the engine's model excludes — rather than "stops a malicious schematic author", which is provably not what it does.
+**REQ-IID-02 — Honest scope.**
+- **IID-02.1** — The document states that the manifest **covers** the pre-factory bootstrap only, and that the engine's verification therefore attests only to those bytes — listing `dist/commons/**`, `dist/dialects/**`, `dist/conformance/**`, `dist/testing/**` and `node_modules/**` as loading into the same process at the same privilege moments later. *(“The manifest verifies X” is itself the error the paragraph exists to prevent: a JSON file verifies nothing; the engine verifies.)*
+- **IID-02.2** — A single supplied pull-quote sentence exists, so paraphrases are controlled rather than invented.
 
-**REQ-IID-04** — The closure-portability answer is recorded as an invariant.
-- **IID-04.1** — *Given* the document, *when* read, *then* it records "one manifest per published package, no per-platform map", with its evidence.
+**REQ-IID-03** — The justification states the real value (wrong-artefact detection; the tripwires, which are independent of the manifest; the install-script adversary the engine's model excludes) rather than "stops a malicious schematic author".
 
-**REQ-IID-05** — Entry #24 is justified correctly.
-- **IID-05.1** — *Given* the document, *when* entry #24 is justified, *then* the reason given is `"type": "module"` governing the parse mode of all 23 closure files — **not** `packageRootFor()`, which content hashing structurally cannot constrain.
+**REQ-IID-04** — Records "one manifest per published package, no per-platform map", with evidence.
 
-**REQ-IID-06** — The `bun link` guarantee is stated honestly (ambiguity I).
-- **IID-06.1** — *Given* the document, *when* the linked-install section is read, *then* it states that on `bun link` installs the same build produces both the bytes and the digests, so verification degrades to a **build-consistency check**.
+**REQ-IID-05** — Entry #24 is justified by `"type": "module"` governing parse mode of all 23 files — **not** `packageRootFor()`.
 
-**REQ-IID-07** — Known gaps are documented, not omitted.
-- **IID-07.1** — *Given* the document, *when* read, *then* it records the C2 bypass (a planted `dist/package.json` redirects `packageRootFor` and reinterprets parse mode with zero digest change) as an **open cross-repo gap** pending the engine's answer.
+**REQ-IID-06** — States that on `bun link` installs verification degrades to a **build-consistency check**.
 
----
+**REQ-IID-07** — Records the C2 residual (a planted `dist/package.json` redirects `packageRootFor` and reinterprets parse mode with zero digest change) and notes the engine closed it engine-side (their Q3).
 
-## Red-Proofs (mandatory — a rule without its negative companion is unproven)
-
-Precedent: `fit-40-conformance-corpus-integrity.negative.test.ts` — plant the violation, assert the failure is non-empty **and names the offender**.
-
-| # | Planted | Must fail as | Must name |
-|---|---|---|---|
-| RP-1 | one byte appended to `dist/core/session.js` | digest mismatch; **exactly one** entry differs | path, expected, observed |
-| RP-2 | a 24th closure file, imported by an existing one | baseline diff fails | the added node **and the edge that admitted it** |
-| RP-2b | a closure file / import removed | baseline diff fails | the removed node/edge — absence fails as loudly as addition |
-| RP-3 | dynamic `import()` in a closure file ≠ `runner.ts` | build fails, no manifest | file, line, specifier, Constraint 2 |
-| RP-3b | a **second** dynamic `import()` inside `runner.ts` | build fails (ambiguity D) | which site is sanctioned |
-| RP-4 | `import { Project } from "ts-morph"` in a closure file | build fails, no manifest | file, line, specifier, Constraint 3 |
-| RP-5 | `import { readFileSync } from "fs"` | build fails — a name allowlist would wrongly pass this | file, line, `"fs"`, the `node:`-prefix rule |
-| RP-6 | `dist/package.json` planted | fitness assertion fails | the path, and that it redirects `packageRootFor()` **with no digest change** |
-| RP-7 | `createRequire(anchorUrl)("./x")` — the require function **called** | build fails (fourth precondition) | file, line, construct |
-| RP-7b | `eval` / `new Function` / `node:vm` / `Bun.plugin` / `process.binding` | build fails | which primitive |
-| RP-8 | `--outfile dist/transport/runner.js` added to a script | disjointness fails | script name, target, colliding closure file |
-| RP-9 | a closure file emitted with CRLF | line-ending check fails | path and offset |
-| RP-10 | paths where byte order and locale collation disagree | ordering fails if implemented with `localeCompare` | both orderings |
-| RP-11 | manifest with duplicate / absolute / `..` path | shape validation fails | which rule, which entry |
+**REQ-IID-08** — `src/transport/single-instance-probe.ts`'s header gains one sentence converting its eleven-line convention argument into a pointer: Constraint 4 is **enforced** (naming `fit-42`), not conventional.
 
 ---
 
-## Out of Scope (explicit)
+## Red-Proofs (18)
 
-Editing `.github/workflows/publish.yml` (property pinned, mechanism owned by the go-live batch);
-publishing `0.1.0`; `mustNotExist` entries and a `packageVersion` field (engine questions 3 and 4 —
-adding schema fields unilaterally risks a strict parser fail-closing 100% of installs); loader
-observation for Constraint 1 (followup, conditioned on the engine's Bun-vs-Node answer); the fifth
-precondition's enforcement (engine-owned); any `src/**` behaviour change — **do not refactor
-`single-instance-probe.ts`**; gap A / `engine-e2e-real`.
+Tier A = synthetic mini-closure at a temp root (unit, milliseconds). Tier B = one real-tree negative
+(copied `dist/`, generator as subprocess). Tier C = packaging.
+
+| # | Tier | Planted | Must fail as | Must name |
+|---|---|---|---|---|
+| RP-1 | A | byte appended to a closure file | exactly one file record differs | path, expected, observed |
+| RP-2 | A | a 24th closure file, imported | baseline diff | added node **and the edge that admitted it** |
+| RP-2b | A | closure file / import removed | baseline diff | removed node/edge |
+| **RP-2c** | A | **edge redirected, node set constant** | baseline diff | the redirected edge — *the real closure-sealing case* |
+| RP-3 | A | dynamic `import()` outside `runner.ts` | build fails, no manifest | src path, line, specifier, Constraint 2 |
+| RP-3b | A | second dynamic `import()` **inside** `runner.ts` | build fails | sanctioned site; per-SITE clause |
+| RP-4 | A+B | bare third-party specifier | build fails, no manifest | src path, line, specifier, Constraint 3 |
+| RP-5 | A | `"fs"` **and** `"node:fs"` in one fixture | exactly ONE violation | only `"fs"` — *a name allowlist would wrongly pass* |
+| RP-6 | A | `dist/package.json` planted | fitness fails | path; that it redirects with **no digest change** |
+| RP-7 | A | `createRequire` direct call | build fails | src path, line, Constraint 4 |
+| **RP-7b** | A | `createRequire` **indirect variable** + **namespace import** forms | build fails | which form |
+| RP-7c | A | `eval` / `new Function` / `node:vm` / `Bun.plugin` / `process.binding` | build fails | which primitive |
+| RP-8 | A | `--outdir dist/transport` **and** `-o` short form | disjointness fails | script, target, colliding file |
+| RP-9 | A | CRLF (generated at test time) | line-ending check fails | path, offset |
+| RP-10 | A | the two discriminating path pairs | ordering fails under `localeCompare` | both orderings |
+| RP-11 | A | duplicate / absolute / `..` path | shape validation fails | which rule, which record |
+| **RP-12** | A | JSDoc `@example` quoting a bare specifier **and** a relative one | **must NOT fail and must NOT add a node** | *inverse red-proof — the day-one false alarm* |
+| RP-13 | A | unresolvable relative specifier | build fails | importer, specifier, attempted path |
+
+---
+
+## Out of Scope
+
+Editing `publish.yml` (property pinned, mechanism owned by the go-live batch); loader observation for
+Constraint 1 (followup — Bun is confirmed, so it is now feasible, but structural ships per R4); the
+fifth precondition's enforcement (engine-owned); any `src/**` behaviour change beyond IID-08's header
+sentence — **do not refactor `single-instance-probe.ts`'s logic**; gap A.
+
+## Release Checklist (engine round-2, item 2)
+
+**`0.1.0` MUST ship `dist/runner-manifest.json`** — a `0.1.0` published without it cannot be executed
+by a production engine; it fails closed by design. Same owner owns both, so this is a
+release-checklist line, not a cross-team dependency — but a **hard-fail** one. Registered in
+`openspec/pending-changes.md` alongside the go-live batch.
+
+## Terminology
+
+`entry` (code font) = the JSON field. **File record** = a member of `files` — never "entry" for these.
+**Runner closure** = the 23 emitted `.js`. **Pre-factory bootstrap** = the 23 + `package.json` as
+executed code. **Constraint N — `<name>`** = always named and numbered. **Tripwire** = the build check;
+**Constraint** = the rule. **The sanctioned factory-import site** = one canonical phrase, matching the
+`SANCTIONED-FACTORY-IMPORT` marker. **Covers / attests** — the engine verifies; the manifest covers.
 
 ## Signature Block
 
-Requires owner assent on **A** (23 as regenerable baseline, not a contract constant), **D**
-(site-scoped factory-import site), **I** (`bun link` in scope with verification stated as a
-build-consistency check), and the **five-preconditions push-back** against acceptance box 6.
+Owner assent required on: **A** (regenerable baseline), **D** (site-scoped), **I** (`bun link`
+build-consistency framing), **J** (realm split), **R1** (ts-morph AST), **R3** (`createRequire` ban),
+**R4** (structural Constraint 1), and the **five-Constraints push-back** against acceptance box 6.
 
 - [ ] **Signed** — owner: ____________ date: __________
