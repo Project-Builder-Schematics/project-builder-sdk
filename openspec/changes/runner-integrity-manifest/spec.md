@@ -1,6 +1,6 @@
 # Spec V2: Runner Integrity Manifest (runner-integrity-manifest)
 
-**Status**: DRAFT — awaiting owner signature
+**Status**: **SIGNED** — Daniel Ramirez, 2026-07-25. Frozen; changes require `unfreeze=true`.
 **Triage**: L | **Capabilities**: 8 | **REQ-IDs**: 58 | **Red-proofs**: 18 | **ADR budget**: 4
 
 **V2 changes**: QA adversarial review (11 mutation escapes closed), tech-writer review (Capability 8
@@ -294,8 +294,19 @@ executed code. **Constraint N — `<name>`** = always named and numbered. **Trip
 
 ## Signature Block
 
-Owner assent required on: **A** (regenerable baseline), **D** (site-scoped), **I** (`bun link`
-build-consistency framing), **J** (realm split), **R1** (ts-morph AST), **R3** (`createRequire` ban),
-**R4** (structural Constraint 1), and the **five-Constraints push-back** against acceptance box 6.
+Owner assent given on all eight:
 
-- [ ] **Signed** — owner: ____________ date: __________
+| Item | Ruling | Assented |
+|---|---|---|
+| **A** | "23" is a **regenerable baseline**, not a contract constant | ✅ 2026-07-25 |
+| **D** | Factory-import site is **site-scoped** — a second `import()` inside `runner.ts` also fails | ✅ 2026-07-25 |
+| **I** | `bun link` in scope; verification stated as a **build-consistency check** | ✅ 2026-07-25 |
+| **J** | Set from `dist`, kind checks on `dist` via AST, **errors name `src`** | ✅ 2026-07-25 |
+| **R1** | Parse with **ts-morph**, not regex | ✅ 2026-07-25 |
+| **R3** | Constraint 4 is an **outright ban** on `createRequire`, legitimate site anchored | ✅ 2026-07-25 |
+| **R4** | Constraint 1 ships **structural**; loader observation is a followup | ✅ 2026-07-25 |
+| — | **Five Constraints**, not the contract's three (engine accepted in round 2) | ✅ 2026-07-25 |
+
+- [x] **SIGNED** — owner: **Daniel Ramirez** — date: **2026-07-25**
+
+Frozen. Any change requires `sdd-spec unfreeze=true` and re-signature.
