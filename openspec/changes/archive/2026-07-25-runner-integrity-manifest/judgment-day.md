@@ -188,3 +188,64 @@ One of the three Round-1 fixes held (path normalisation, modulo R2-6's edge). On
 The pattern is the lesson: **these are AST-shape checks, and shapes have a long tail.** Each round closes the spellings someone imagined. If Round 3 surfaces further variants of the same class, the answer is not another round — it is that Constraint 4 wants a *structural invariant*, not a shape scanner, and that is a design decision rather than a fix.
 
 Nothing here is on `main` by accident: PR #50 shipped the manifest — correct, deterministic, digests verified — and the engine is unblocked. All of Round 2 concerns tripwire hardening in the still-open PR #51. Abandoning #51 is a real option with no cost to the delivered outcome.
+
+---
+
+# Fix iteration 2 — R2-1 and R2-2 only (owner-scoped)
+
+Owner decision, 2026-07-25: **one final fix, no Round 3.** The scope was cut to the two
+CONFIRMED CRITICALs; R2-3, R2-4, R2-5 and R2-6 were registered as debt instead of fixed.
+
+| Finding | Action | Commit |
+|---|---|---|
+| **R2-1** anchor exemption evadable via unaliased decoy + alias | **Fixed — invariant inverted** | `4b4914a` |
+| **R2-2** RP-12 real-tree assertion unfalsifiable | **Deleted, not repaired** | `39f3349` |
+| R2-3 version guard renders under the wrong rule | registered as debt | — |
+| R2-4 `JSON.parse` unguarded outside `failClosed` | registered as debt | — |
+| R2-5 namespace-form false positive at the anchor | registered as debt | — |
+| R2-6 `.//dist/x` escapes disjointness normalisation | registered as debt | — |
+
+**R2-1 — the invariant, not the shape.** The exemption is no longer *searched for* among
+whatever the anchor imports; it is a shape the anchor must **prove**: exactly one
+`createRequire` binding, unaliased. Any other arrangement forfeits it outright, and every
+bound name found becomes denied text — so no spelling reaches a name the text ban cannot see.
+This follows Round 2's own fix direction verbatim: invert the invariant rather than enumerate
+more AST shapes.
+
+Red-proof first, per Strict TDD: the new fixture (unaliased decoy + aliased execution)
+returned `violations: 0` against the pre-fix scanner — the judges' exploit, reproduced in the
+suite — then went green. `test/fitness/fit-42-runner-closure-integrity.negative.test.ts`,
+REQ-CST-04.3.
+
+**R2-2 — deleted.** The property is proven by the Tier-A negative test, which plants the
+relative target **on disk** and pins `nodes` to an exact set, so it can genuinely go red. The
+real-tree assertion could not, under either spelling. A test that cannot fail, carrying a
+comment that misdocuments why it exists, is worse than no test.
+
+**Verification**: suite **2334 pass / 0 fail**, 196 files. `tsc --noEmit` exit 0.
+
+---
+
+# JUDGMENT: ESCALATED
+
+Terminal state per the protocol's own rule — after two fix iterations the owner decides
+whether to continue, and the owner chose to stop. This is **not** an approval, and the archive
+must not read as one: two independent judges found this change's tripwires defective, one
+fix iteration did not fully close them, and four findings ship unresolved.
+
+**What is settled.** The manifest itself was never in question in either round. PR #50 is
+merged: `dist/runner-manifest.json` is correct, deterministic, digest-verified, fail-closed,
+and the engine's `PC-RUN-01` is unblocked. Every Round-1 and Round-2 finding concerns the
+**build-time tripwires** that guard against future drift — not the artefact they guard.
+
+**What is not.** Constraint 4's enforcement is an AST-shape scanner, and shapes have a long
+tail. Two rounds of judging closed the spellings two judges imagined; nothing establishes that
+the set is now closed. R2-1's fix is the first that inverts the burden of proof rather than
+adding a case, which is why it is the first with no obvious next variant — but "no obvious
+variant" is not "decidably none".
+
+The honest summary: **this cycle needed roughly 25 review-and-fix rounds, and that count is
+itself the finding.** The mechanism was mismatched to the constraint from the design phase
+onward. Iterating did not fix that; changing the mechanism did, once, at the very end. The
+remaining debt below should be read in that light — as candidates for a *different* approach
+to Constraint 4, not as a queue of shapes to patch.
