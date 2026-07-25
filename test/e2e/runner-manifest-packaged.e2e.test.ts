@@ -76,6 +76,23 @@ function run(command: string, args: readonly string[], cwd: string): string {
   return result.stdout;
 }
 
+/** Writes a minimal consumer `package.json` into `dir` — setup scaffolding, not a pinned shape. */
+function writeConsumerPackageJson(dir: string, name: string, opts?: { esm?: boolean }): void {
+  writeFileSync(
+    join(dir, "package.json"),
+    `${JSON.stringify(
+      {
+        name,
+        version: "0.0.0",
+        private: true,
+        ...(opts?.esm === true ? { type: "module" } : {}),
+      },
+      null,
+      2
+    )}\n`
+  );
+}
+
 /** A package root holding exactly what npm would publish: `files: ["dist"]` plus package.json. */
 function packageRootCopy(prefix: string): string {
   const root = temporaryRoot(prefix);
@@ -203,14 +220,7 @@ describe("PMF-02.3 — entry #24 survives a real registry install", () => {
 
   beforeAll(() => {
     const consumer = temporaryRoot("pmf-consumer-");
-    writeFileSync(
-      join(consumer, "package.json"),
-      `${JSON.stringify(
-        { name: "pmf-consumer", version: "0.0.0", private: true, type: "module" },
-        null,
-        2
-      )}\n`
-    );
+    writeConsumerPackageJson(consumer, "pmf-consumer", { esm: true });
 
     run("npm", ["install", "--ignore-scripts", tarballPath], consumer);
 
@@ -250,10 +260,7 @@ describe("R-2 — this harness fails loudly, it never skips", () => {
     "an unreachable registry fails loudly with a network diagnosis, never a skip",
     () => {
       const consumer = temporaryRoot("pmf-deadreg-");
-      writeFileSync(
-        join(consumer, "package.json"),
-        `${JSON.stringify({ name: "pmf-deadreg", version: "0.0.0", private: true }, null, 2)}\n`
-      );
+      writeConsumerPackageJson(consumer, "pmf-deadreg");
       // `npm pack` never contacts a registry — verified: against a dead one it still emits a
       // tarball. Only resolution during `install` reaches the network, so this is the ONLY
       // invocation that can exercise the property criterion 5 names.
