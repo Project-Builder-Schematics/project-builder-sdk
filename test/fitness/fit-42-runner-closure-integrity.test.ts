@@ -24,8 +24,11 @@ import {
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
+  CREATE_REQUIRE_ANCHOR_FILE,
+  SANCTIONED_DYNAMIC_IMPORT_FILE,
   comparePaths,
   deriveRunnerClosure,
+  readSpecifiers,
   type ClosureEdge,
   type ClosurePath,
 } from "../../scripts/derive-runner-closure.ts";
@@ -34,9 +37,16 @@ import { ensureTscBuild } from "../support/shared-build.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { PROJECT_ROOT, hashFile } from "../support/scratch-consumer.ts";
 import {
+  diffClosureBaseline,
   findBomOffenders,
+  findBundlerTargets,
   findCrlfOffenders,
+  findDisjointnessViolations,
+  findGraphEmitMismatches,
+  findIntermediatePackageJsons,
   findPathHygieneViolations,
+  hasDrift,
+  type EmitComparisonEntry,
 } from "../support/closure-integrity-checks.ts";
 
 const MANIFEST_RELATIVE_PATH = "runner-manifest.json";
@@ -423,4 +433,146 @@ describe("FIT-42 S-002 — the generator fails closed and leaves nothing behind"
       expect(existsSync(manifestIn(root))).toBe(false);
     }
   );
+});
+
+// Reads go through the beforeAll snapshot, never the live dist/: another file's unmemoized
+// build deletes and rebuilds the real tree mid-suite.
+const snapshotDist = (): string => join(pristineRoot, "dist");
+
+describe("FIT-42 S-003 — the real tree honours Constraints 2, 4 and 5", () => {
+  it("REQ-CST-03.3: exactly one dynamic import() in the closure, and it is in transport/runner.js", () => {
+    const counts = deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH)
+      .nodes.map((node) => ({
+        node,
+        count: readSpecifiers(join(snapshotDist(), node)).dynamicImportCount,
+      }))
+      .filter(({ count }) => count > 0);
+    expect(counts).toEqual([{ node: SANCTIONED_DYNAMIC_IMPORT_FILE, count: 1 }]);
+  });
+
+  it("REQ-CST-03.3: the sanctioned site carries the SANCTIONED-FACTORY-IMPORT marker in source", () => {
+    const source = readFileSync(join(PROJECT_ROOT, "src/transport/runner.ts"), "utf-8");
+    expect(source).toContain("SANCTIONED-FACTORY-IMPORT");
+  });
+
+  it("REQ-CST-04.3: the deny-scan reports zero violations against the real closure", () => {
+    expect([...deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH).violations]).toEqual([]);
+  });
+
+  // Non-vacuity: the anchored file really does hold createRequire references, so "no
+  // violations" above is an exemption working, not a file that happens to be clean.
+  it("REQ-CST-04.3: the anchored probe genuinely references createRequire and is not flagged", () => {
+    const probe = readFileSync(join(snapshotDist(), CREATE_REQUIRE_ANCHOR_FILE), "utf-8");
+    expect(probe.split("createRequire").length - 1).toBeGreaterThanOrEqual(2);
+    const flagged = deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH).violations.filter(
+      (violation) => violation.file === CREATE_REQUIRE_ANCHOR_FILE
+    );
+    expect(flagged).toEqual([]);
+  });
+
+  it("REQ-CST-05.1: no package.json sits between the runner entry and the package root", () => {
+    expect(findIntermediatePackageJsons(pristineRoot, `dist/${ENTRY_RELATIVE_PATH}`)).toEqual([]);
+    expect(existsSync(join(snapshotDist(), "package.json"))).toBe(false);
+    expect(existsSync(join(snapshotDist(), "bin/package.json"))).toBe(false);
+  });
+});
+
+describe("FIT-42 S-003 — the closure graph is the one the sources describe", () => {
+  const relativeOnly = (specifiers: readonly string[]): string[] =>
+    specifiers.filter((specifier) => specifier.startsWith("./") || specifier.startsWith("../"));
+
+  function emitComparison(): EmitComparisonEntry[] {
+    return deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH).nodes.map((node) => {
+      const source = readSpecifiers(join(PROJECT_ROOT, "src", node.replace(/\.js$/, ".ts")));
+      return {
+        path: node,
+        emitted: relativeOnly(readSpecifiers(join(snapshotDist(), node)).staticSpecifiers),
+        source: relativeOnly(source.staticSpecifiers),
+        sourceTypeOnly: relativeOnly(source.typeOnlyStatic),
+      };
+    });
+  }
+
+  it("REQ-BDI-02.1: every closure file's specifier multiset survives emission unchanged", () => {
+    const entries = emitComparison();
+    expect(entries.length).toBe(23);
+    expect(findGraphEmitMismatches(entries)).toEqual([]);
+  });
+
+  // BDI-02.2 by name: both carry type-only imports, which is exactly the erasure that would
+  // false-alarm a naive dist-vs-src comparison.
+  it("REQ-BDI-02.2: session.ts and stdio-engine-client.ts carry type-only imports and are not flagged", () => {
+    const named = emitComparison().filter((entry) =>
+      ["core/session.js", "transport/stdio-engine-client.js"].includes(entry.path)
+    );
+    expect(named.map((entry) => entry.path).sort()).toEqual([
+      "core/session.js",
+      "transport/stdio-engine-client.js",
+    ]);
+    expect(named.every((entry) => entry.sourceTypeOnly.length > 0)).toBe(true);
+    expect(findGraphEmitMismatches(named)).toEqual([]);
+  });
+
+  it("REQ-BDI-01.1: every bundler target in package.json#scripts lands outside the closure", () => {
+    const scripts = (
+      JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
+        scripts: Record<string, string>;
+      }
+    ).scripts;
+    const targets = findBundlerTargets(scripts);
+    const closurePaths = deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH).nodes.map(
+      (node) => `dist/${node}`
+    );
+
+    // Non-vacuous: the codegen bundle IS a real target and IS correctly judged outside.
+    expect(targets.map((target) => target.target)).toContain("dist/bin/pbuilder-codegen.js");
+    expect(closurePaths).not.toContain("dist/bin/pbuilder-codegen.js");
+    expect(findDisjointnessViolations(targets, closurePaths)).toEqual([]);
+  });
+
+  it("REQ-BDI-03.1: the derived graph shows no drift against the committed baseline", () => {
+    const observed = deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH);
+    const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as ClosureBaseline;
+    const drift = diffClosureBaseline(observed, baseline);
+    expect(baseline.edges.length).toBeGreaterThan(0);
+    expect(hasDrift(drift)).toBe(false);
+  });
+});
+
+describe("FIT-42 S-003 — the one real-tree negative, and the epilogue each tool prints", () => {
+  // RP-4's Tier-B half. QA's tier rule allows exactly one real-tree negative; the other
+  // eleven red-proofs are synthetic, in the negative file.
+  it("REQ-CST-01.1: a bare specifier planted in a copied real tree fails, naming the src file", () => {
+    const root = copiedPackageRoot();
+    appendFileSync(join(root, "dist/core/wire.js"), 'import { Project } from "ts-morph";\n');
+
+    const result = runGenerator(root);
+    const stderr = result.stderr as unknown as string;
+
+    expect(result.status).not.toBe(0);
+    expect(existsSync(manifestIn(root))).toBe(false);
+    expect(stderr).toContain("runner-manifest: src/core/wire.ts");
+    expect(stderr).toContain('"ts-morph"');
+    expect(stderr).toContain("Constraint 3 — no bare third-party specifier inside the closure.");
+    expect(stderr).toContain("No manifest was written; dist/runner-manifest.json does not exist.");
+  });
+
+  it("REQ-CST-06.1: the baseline writer's failure names the baseline, never the manifest", () => {
+    const root = copiedPackageRoot();
+    mkdirSync(join(root, "test/fitness"), { recursive: true });
+    appendFileSync(join(root, "dist/core/wire.js"), 'import { Project } from "ts-morph";\n');
+
+    const result = spawnSync("bun", ["scripts/regen-closure-baseline.ts", root], {
+      cwd: PROJECT_ROOT,
+      encoding: "utf-8",
+    });
+    const stderr = result.stderr as unknown as string;
+
+    expect(result.status).not.toBe(0);
+    expect(stderr).toContain("Constraint 3 — no bare third-party specifier inside the closure.");
+    expect(stderr).toContain(
+      "No baseline was written; test/fitness/runner-closure-graph-baseline.json is unchanged."
+    );
+    expect(stderr).not.toContain("No manifest was written");
+  });
 });

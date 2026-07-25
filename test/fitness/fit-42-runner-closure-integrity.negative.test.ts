@@ -18,14 +18,23 @@ import {
   SANCTIONED_DYNAMIC_IMPORT_FILE,
   comparePaths,
   deriveRunnerClosure,
+  readSpecifiers,
   renderViolations,
   sha256File,
+  VIOLATION_RULES,
 } from "../../scripts/derive-runner-closure.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import {
   findBomOffenders,
   findCrlfOffenders,
+  diffClosureBaseline,
+  findBundlerTargets,
+  findDisjointnessViolations,
+  findGraphEmitMismatches,
+  findIntermediatePackageJsons,
   findPathHygieneViolations,
+  hasDrift,
+  renderBaselineDrift,
 } from "../support/closure-integrity-checks.ts";
 
 const scratchRoot = scratchDirFactory("fit-42n-");
@@ -424,5 +433,426 @@ describe("FIT-42N S-002 — the manifest-shape and byte-hygiene checkers fire", 
         { path: "dist/bom.js", bytes: Buffer.from("﻿const a = 1;\n") },
       ])
     ).toEqual(["dist/bom.js"]);
+  });
+});
+
+describe("FIT-42N S-003 — readSpecifiers separates value imports from erased ones", () => {
+  it("REQ-BDI-02.1: returns static specifiers in source order with duplicates preserved", () => {
+    const root = plantTree({
+      "m.ts": 'import "./a.ts";\nimport { b } from "./b.ts";\nimport { c } from "./a.ts";\n',
+    });
+    expect(readSpecifiers(join(root, "m.ts")).staticSpecifiers).toEqual([
+      "./a.ts",
+      "./b.ts",
+      "./a.ts",
+    ]);
+  });
+
+  it("REQ-BDI-02.2: reports a whole-declaration `import type` as erased", () => {
+    const root = plantTree({ "m.ts": 'import type { X } from "./x.ts";\n' });
+    const read = readSpecifiers(join(root, "m.ts"));
+    expect(read.staticSpecifiers).toEqual(["./x.ts"]);
+    expect(read.typeOnlyStatic).toEqual(["./x.ts"]);
+  });
+
+  // The inline form erases too, and it is the form a value-syntax import would be confused
+  // with — an implementation checking only `isTypeOnly()` on the declaration misses it.
+  it("REQ-BDI-02.2: reports a declaration whose every named binding is inline-`type` as erased", () => {
+    const root = plantTree({ "m.ts": 'import { type Y, type Z } from "./y.ts";\n' });
+    expect(readSpecifiers(join(root, "m.ts")).typeOnlyStatic).toEqual(["./y.ts"]);
+  });
+
+  it("REQ-BDI-02.2: does NOT report a declaration mixing a value binding with a type binding", () => {
+    const root = plantTree({ "m.ts": 'import { value, type W } from "./w.ts";\n' });
+    expect(readSpecifiers(join(root, "m.ts")).typeOnlyStatic).toEqual([]);
+  });
+
+  it("REQ-CST-03.3: counts dynamic imports without treating them as static specifiers", () => {
+    const root = plantTree({ "m.ts": 'import "./a.ts";\nconst later = import("./b.ts");\n' });
+    const read = readSpecifiers(join(root, "m.ts"));
+    expect(read.staticSpecifiers).toEqual(["./a.ts"]);
+    expect(read.dynamicImportCount).toBe(1);
+  });
+});
+
+describe("FIT-42N S-003 — the violation epilogue is true for the tool that printed it", () => {
+  const bareSpecifierTree = { "entry.js": 'import { Project } from "ts-morph";\n' };
+
+  it("REQ-CST-06.1: the build path keeps the frozen no-manifest sentence", () => {
+    const rendered = renderedFor(plantTree(bareSpecifierTree));
+    expect(rendered).toContain("No manifest was written; dist/runner-manifest.json does not exist.");
+  });
+
+  // The baseline writer reuses this renderer. Telling a maintainer whose BASELINE
+  // regeneration failed that no MANIFEST was written names the wrong artefact entirely.
+  it("REQ-CST-06.1: a caller-supplied epilogue replaces it, and the manifest sentence is gone", () => {
+    const rendered = renderViolations(
+      deriveRunnerClosure(plantTree(bareSpecifierTree), "entry.js").violations,
+      { distDirName: "dist", srcDirName: "src", outcome: "No baseline was written." }
+    );
+    expect(rendered).toContain("No baseline was written.");
+    expect(rendered).not.toContain("No manifest was written");
+  });
+});
+
+describe("FIT-42N S-003 — Constraint 3 / 3a: what may be named inside the closure", () => {
+  // RP-4, Tier A half. The B half lives in fit-42 (the ONE real-tree negative).
+  it("REQ-CST-01.1: a bare specifier names the src path, the line, the specifier and Constraint 3", () => {
+    const rendered = renderedFor(
+      plantTree({ "transport/entry.js": 'import { Project } from "ts-morph";\n' }),
+      "transport/entry.js"
+    );
+    expect(rendered).toContain("runner-manifest: src/transport/entry.ts");
+    expect(rendered).toContain("(emitted: dist/transport/entry.js:1)");
+    expect(rendered).toContain('"ts-morph"');
+    expect(rendered).toContain("Constraint 3 — no bare third-party specifier inside the closure.");
+  });
+
+  // RP-5 — the discriminating fixture. A name-allowlist implementation passes a fixture
+  // containing only "fs"; it cannot pass one that also contains "node:fs" and must flag
+  // exactly one of them.
+  it("REQ-CST-02.1: a fixture holding BOTH `fs` and `node:fs` yields exactly ONE violation", () => {
+    const root = plantTree({
+      "entry.js": 'import { readFileSync } from "fs";\nimport { join } from "node:fs";\n',
+    });
+    const derivation = deriveRunnerClosure(root, "entry.js");
+    expect(derivation.violations.length).toBe(1);
+    expect(derivation.violations[0]?.rule).toBe("constraint-3a-unprefixed-builtin");
+    expect(derivation.violations[0]?.detail).toBe("fs");
+  });
+
+  it("REQ-CST-02.1: `node:fs` in that same fixture is still recorded as an ordinary builtin", () => {
+    const root = plantTree({
+      "entry.js": 'import { readFileSync } from "fs";\nimport { join } from "node:fs";\n',
+    });
+    expect([...deriveRunnerClosure(root, "entry.js").builtins]).toEqual(["node:fs"]);
+  });
+
+  it("REQ-CST-02.1: the message says the rule is the PREFIX, not an allowlist", () => {
+    const rendered = renderedFor(
+      plantTree({ "entry.js": 'import { readFileSync } from "fs";\nimport { join } from "node:fs";\n' })
+    );
+    expect(rendered).toContain(
+      'The check is on the PREFIX, not on a list of builtin names — adding "fs" to an allowlist is not the fix.'
+    );
+  });
+});
+
+describe("FIT-42N S-003 — Constraint 2: the sanction is per-SITE, not per-file", () => {
+  // RP-3.
+  it("REQ-CST-03.1: a dynamic import() outside the sanctioned file names Constraint 2", () => {
+    const rendered = renderedFor(
+      plantTree({ "transport/session.js": "const later = import(specifier);\n" }),
+      "transport/session.js"
+    );
+    expect(rendered).toContain("runner-manifest: src/transport/session.ts");
+    expect(rendered).toContain("dynamic import() outside the sanctioned factory-import site");
+    expect(rendered).toContain("Constraint 2 — the closure contains exactly one dynamic import()");
+  });
+
+  // RP-3b — the proof that Constraint 2 is site-scoped. A path-scoped implementation passes
+  // RP-3 and fails only here.
+  it("REQ-CST-03.2: a second import() inside the sanctioned file names the site and the per-SITE clause", () => {
+    const root = plantTree({
+      [SANCTIONED_DYNAMIC_IMPORT_FILE]: "const f = import(moduleUrl);\nconst p = import(pluginUrl);\n",
+    });
+    const rendered = renderedFor(root, SANCTIONED_DYNAMIC_IMPORT_FILE);
+    expect(rendered).toContain("second dynamic import() inside the factory-import file");
+    expect(rendered).toContain("src/transport/runner.ts:SANCTIONED-FACTORY-IMPORT");
+    expect(rendered).toContain(
+      "Constraint 2 — the sanction is per-SITE, not per-file. Living in runner.ts does not make an import() sanctioned."
+    );
+  });
+});
+
+describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE", () => {
+  // RP-7.
+  it("REQ-CST-04.1: a direct createRequire call names Constraint 4 and the primitive", () => {
+    const rendered = renderedFor(
+      plantTree({ "entry.js": 'createRequire(anchorUrl)("./x.js");\n' })
+    );
+    expect(rendered).toContain("unhashed-code-execution primitive in the closure");
+    expect(rendered).toContain("Constraint 4 — the closure may RESOLVE, never EXECUTE.");
+    expect(rendered).toContain("forbidden primitive: createRequire");
+  });
+
+  // RP-7b — the two forms a call-vs-.resolve() rule is defeated by.
+  it("REQ-CST-04.4: the indirect-variable form is named by the construct it found", () => {
+    const rendered = renderedFor(
+      plantTree({ "entry.js": "const req = createRequire(anchorUrl);\nreq('./x.js');\n" })
+    );
+    expect(rendered).toContain("found: const req = createRequire(anchorUrl);");
+    expect(rendered).toContain("forbidden primitive: createRequire");
+  });
+
+  it("REQ-CST-04.4: the namespace form is named by the construct it found", () => {
+    const rendered = renderedFor(
+      plantTree({ "entry.js": 'import * as m from "node:module";\nm.createRequire(u)("./x.js");\n' })
+    );
+    expect(rendered).toContain('found: m.createRequire(u)("./x.js");');
+    expect(rendered).toContain("forbidden primitive: createRequire");
+  });
+
+  // RP-7c — one file per primitive, each naming its own.
+  const primitives: Array<[string, string, string]> = [
+    ["eval", "p1.js", "export const r = eval(payload);\n"],
+    ["Function", "p2.js", "export const r = new Function(body);\n"],
+    ["node:vm", "p3.js", 'import "node:vm";\n'],
+    ["Bun.plugin", "p4.js", "Bun.plugin(definition);\n"],
+    ["process.binding", "p5.js", "process.binding('fs');\n"],
+  ];
+
+  for (const [primitive, file, source] of primitives) {
+    it(`REQ-CST-04.2: ${primitive} is denied and named as the forbidden primitive`, () => {
+      const rendered = renderedFor(plantTree({ [file]: source }), file);
+      expect(rendered).toContain(`forbidden primitive: ${primitive}`);
+      expect(rendered).toContain("Constraint 4 — the closure may RESOLVE, never EXECUTE.");
+    });
+  }
+});
+
+describe("FIT-42N S-003 — every rule in the closed set renders a usable message", () => {
+  it("REQ-CST-06.1: the exported rule set is the nine-member closed set", () => {
+    expect([...VIOLATION_RULES].sort()).toEqual([
+      "constraint-2-dynamic-import",
+      "constraint-2-second-site",
+      "constraint-3-bare-specifier",
+      "constraint-3a-unprefixed-builtin",
+      "constraint-4-execution-primitive",
+      "symlink-escape",
+      "unclassifiable-construct",
+      "unreadable-file",
+      "unresolvable-specifier",
+    ]);
+  });
+
+  it("REQ-CST-06.1: every rule renders the full skeleton — found, rule, why, fix, epilogue", () => {
+    expect(VIOLATION_RULES.length).toBe(9);
+    const missing = [...VIOLATION_RULES].filter((rule) => {
+      const rendered = renderViolations(
+        [{ rule, file: "core/x.js", line: 7, found: "planted", detail: "planted-detail" }],
+        { distDirName: "dist", srcDirName: "src" }
+      );
+      return !(
+        rendered.includes("runner-manifest: src/core/x.ts") &&
+        rendered.includes("found: planted") &&
+        rendered.includes("  rule:  ") &&
+        rendered.includes("  why:   ") &&
+        rendered.includes("  fix:   ") &&
+        rendered.includes("No manifest was written")
+      );
+    });
+    expect(missing).toEqual([]);
+  });
+});
+
+describe("FIT-42N S-003 — Constraint 5: no package.json between the entry and the root", () => {
+  // RP-6.
+  it("REQ-CST-05.1: a planted dist/package.json is found and reported", () => {
+    const root = plantTree({
+      "dist/bin/entry.js": "export const e = 1;\n",
+      "dist/package.json": '{ "type": "commonjs" }\n',
+    });
+    expect(findIntermediatePackageJsons(root, "dist/bin/entry.js")).toEqual([
+      {
+        path: "dist/package.json",
+        reason:
+          "terminates the package-root walk early and reinterprets parse mode with NO digest change",
+      },
+    ]);
+  });
+
+  it("REQ-CST-05.1: a tree with no intermediate package.json produces no finding", () => {
+    const root = plantTree({ "dist/bin/entry.js": "export const e = 1;\n" });
+    expect(findIntermediatePackageJsons(root, "dist/bin/entry.js")).toEqual([]);
+  });
+});
+
+describe("FIT-42N S-003 — Constraint 1: bundler output stays off the closure", () => {
+  const closurePaths = ["dist/bin/pbuilder-runner.js", "dist/transport/runner.js"];
+
+  it("REQ-BDI-01.1: --outfile, --outdir and the -o short form are all extracted", () => {
+    expect(
+      findBundlerTargets({
+        a: "bun build x.ts --outfile dist/bin/codegen.js",
+        b: "bun build y.ts --outdir dist/transport",
+        c: "bun build z.ts -o dist/bin/other.js",
+      })
+    ).toEqual([
+      { script: "a", flag: "--outfile", target: "dist/bin/codegen.js" },
+      { script: "b", flag: "--outdir", target: "dist/transport" },
+      { script: "c", flag: "-o", target: "dist/bin/other.js" },
+    ]);
+  });
+
+  // RP-8 — both planted forms must fail, the --outdir one by directory containment.
+  it("REQ-BDI-01.1: an --outdir containing a closure file is a disjointness violation", () => {
+    const targets = findBundlerTargets({ leak: "bun build z.ts --outdir dist/transport" });
+    expect(findDisjointnessViolations(targets, closurePaths)).toEqual([
+      {
+        script: "leak",
+        target: "dist/transport",
+        colliding: "dist/transport/runner.js",
+      },
+    ]);
+  });
+
+  it("REQ-BDI-01.1: an -o short form writing a closure file is a disjointness violation", () => {
+    const targets = findBundlerTargets({ leak: "bun build z.ts -o dist/transport/runner.js" });
+    expect(findDisjointnessViolations(targets, closurePaths)).toEqual([
+      {
+        script: "leak",
+        target: "dist/transport/runner.js",
+        colliding: "dist/transport/runner.js",
+      },
+    ]);
+  });
+
+  it("REQ-BDI-01.1: a target outside the closure is not a violation", () => {
+    const targets = findBundlerTargets({ ok: "bun build x.ts --outfile dist/bin/codegen.js" });
+    expect(targets.length).toBe(1);
+    expect(findDisjointnessViolations(targets, closurePaths)).toEqual([]);
+  });
+});
+
+describe("FIT-42N S-003 — the closure-graph baseline catches node AND edge drift", () => {
+  const baseline = {
+    nodes: ["a.js", "b.js", "entry.js"],
+    edges: [
+      { from: "entry.js", to: "a.js", specifier: "./a.js" },
+      { from: "a.js", to: "b.js", specifier: "./b.js" },
+    ],
+  };
+
+  it("REQ-BDI-03.1: an unchanged graph reports no drift", () => {
+    const drift = diffClosureBaseline(baseline, baseline);
+    expect(drift).toEqual({
+      addedNodes: [],
+      removedNodes: [],
+      addedEdges: [],
+      removedEdges: [],
+    });
+    expect(hasDrift(drift)).toBe(false);
+  });
+
+  // RP-2 — must name the added node AND the edge that admitted it.
+  it("REQ-BDI-03.1: an added node is reported with the edge that admitted it", () => {
+    const observed = {
+      nodes: ["a.js", "b.js", "c.js", "entry.js"],
+      edges: [...baseline.edges, { from: "b.js", to: "c.js", specifier: "./c.js" }],
+    };
+    const drift = diffClosureBaseline(observed, baseline);
+    expect(drift.addedNodes).toEqual(["c.js"]);
+    expect(drift.addedEdges).toEqual([{ from: "b.js", to: "c.js", specifier: "./c.js" }]);
+    expect(hasDrift(drift)).toBe(true);
+  });
+
+  // RP-2b.
+  it("REQ-BDI-03.1: a removed node and its edge are both reported", () => {
+    const observed = {
+      nodes: ["a.js", "entry.js"],
+      edges: [{ from: "entry.js", to: "a.js", specifier: "./a.js" }],
+    };
+    const drift = diffClosureBaseline(observed, baseline);
+    expect(drift.removedNodes).toEqual(["b.js"]);
+    expect(drift.removedEdges).toEqual([{ from: "a.js", to: "b.js", specifier: "./b.js" }]);
+    expect(hasDrift(drift)).toBe(true);
+  });
+
+  // RP-2c — THE closure-sealing case. The node set is byte-identical to the baseline's, so
+  // a nodes-only comparison passes this while the graph has been rewritten underneath it.
+  it("REQ-BDI-03.1: an edge redirected with the node set unchanged is still reported", () => {
+    const observed = {
+      nodes: ["a.js", "b.js", "entry.js"],
+      edges: [
+        { from: "entry.js", to: "a.js", specifier: "./a.js" },
+        { from: "entry.js", to: "b.js", specifier: "./b.js" },
+      ],
+    };
+    const drift = diffClosureBaseline(observed, baseline);
+    expect(drift.addedNodes).toEqual([]);
+    expect(drift.removedNodes).toEqual([]);
+    expect(drift.addedEdges).toEqual([{ from: "entry.js", to: "b.js", specifier: "./b.js" }]);
+    expect(drift.removedEdges).toEqual([{ from: "a.js", to: "b.js", specifier: "./b.js" }]);
+    expect(hasDrift(drift)).toBe(true);
+  });
+
+  it("REQ-BDI-03.1: the rendered drift keeps the permissive register and the three repair steps", () => {
+    const observed = {
+      nodes: ["a.js", "b.js", "c.js", "entry.js"],
+      edges: [...baseline.edges, { from: "b.js", to: "c.js", specifier: "./c.js" }],
+    };
+    const rendered = renderBaselineDrift(diffClosureBaseline(observed, baseline), {
+      observed: 4,
+      baseline: 3,
+    });
+    expect(rendered).toContain("fit-42: the runner closure changed.");
+    expect(rendered).toContain(
+      "4 files are reachable from dist/bin/pbuilder-runner.js; the committed baseline has 3."
+    );
+    expect(rendered).toContain("added node:  c.js");
+    expect(rendered).toContain("added edge:  b.js -> ./c.js   (src/b.ts)");
+    expect(rendered).toContain("removed:     (none)");
+    expect(rendered).toContain(
+      "This is not automatically wrong — the closure is allowed to grow."
+    );
+    expect(rendered).toContain("bun run build && bun run regen:closure-baseline");
+    expect(rendered).toContain("commit test/fitness/runner-closure-graph-baseline.json in the SAME commit");
+  });
+});
+
+describe("FIT-42N S-003 — the emitted graph still matches the source graph", () => {
+  it("REQ-BDI-02.1: a file whose specifiers correspond after .ts→.js rewriting is clean", () => {
+    expect(
+      findGraphEmitMismatches([
+        { path: "core/a.js", emitted: ["./b.js"], source: ["./b.ts"], sourceTypeOnly: [] },
+      ])
+    ).toEqual([]);
+  });
+
+  // A bundler inlining a module leaves the emitted file importing something its source never
+  // named — this is the direction that actually detects a rewritten graph.
+  it("REQ-BDI-02.1: an emitted specifier absent from source is reported", () => {
+    expect(
+      findGraphEmitMismatches([
+        { path: "core/a.js", emitted: ["./b.js", "./inlined.js"], source: ["./b.ts"], sourceTypeOnly: [] },
+      ])
+    ).toEqual([
+      { path: "core/a.js", missingInSource: ["./inlined.js"], unexplainedInSource: [] },
+    ]);
+  });
+
+  it("REQ-BDI-02.2: a source specifier erased as type-only is NOT reported", () => {
+    expect(
+      findGraphEmitMismatches([
+        {
+          path: "core/session.js",
+          emitted: ["./wire.js"],
+          source: ["./wire.ts", "./engine-client.ts"],
+          sourceTypeOnly: ["./engine-client.ts"],
+        },
+      ])
+    ).toEqual([]);
+  });
+
+  it("REQ-BDI-02.1: a source VALUE specifier missing from the emit is reported", () => {
+    expect(
+      findGraphEmitMismatches([
+        { path: "core/a.js", emitted: [], source: ["./dropped.ts"], sourceTypeOnly: [] },
+      ])
+    ).toEqual([
+      { path: "core/a.js", missingInSource: [], unexplainedInSource: ["./dropped.ts"] },
+    ]);
+  });
+
+  // Multiset, not set: two imports of the same module collapsing to one is a rewrite.
+  it("REQ-BDI-02.1: a duplicate specifier collapsing to a single emit is reported", () => {
+    expect(
+      findGraphEmitMismatches([
+        { path: "core/a.js", emitted: ["./b.js"], source: ["./b.ts", "./b.ts"], sourceTypeOnly: [] },
+      ])
+    ).toEqual([
+      { path: "core/a.js", missingInSource: [], unexplainedInSource: ["./b.ts"] },
+    ]);
   });
 });
