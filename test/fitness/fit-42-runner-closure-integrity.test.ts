@@ -37,7 +37,7 @@ import {
   type ClosurePath,
   type RunnerManifest,
 } from "../../scripts/derive-runner-closure.ts";
-import { tmpdir, userInfo } from "node:os";
+import { homedir, tmpdir, userInfo } from "node:os";
 import { ensureTscBuild } from "../support/shared-build.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { PROJECT_ROOT, hashFile } from "../support/scratch-consumer.ts";
@@ -312,9 +312,18 @@ describe("FIT-42 S-002 — the manifest's shape, exclusions, hygiene and orderin
     expect(notAscending).toEqual([]);
   });
 
-  it("REQ-RMD-05.1: the manifest bytes carry no cwd and no username", () => {
+  // A bare substring test on the username is undiscriminating: the CI user is named `runner`,
+  // which every closure path legitimately contains (`dist/bin/pbuilder-runner.js`). The leak
+  // this guards against is an ABSOLUTE path escaping into the manifest, so the identity is
+  // tested where it could actually appear — as a path segment — plus the two roots that carry it.
+  it("REQ-RMD-05.1: the manifest bytes carry no cwd, no home directory and no username segment", () => {
     expect(manifestRaw).not.toContain(process.cwd());
-    expect(manifestRaw).not.toContain(userInfo().username);
+    expect(manifestRaw).not.toContain(homedir());
+    const username = userInfo().username;
+    const leakedSegments = JSON.parse(manifestRaw)
+      .files.map((file: { path: string }) => file.path)
+      .filter((path: string) => path.split("/").includes(username));
+    expect(leakedSegments).toEqual([]);
   });
 });
 
