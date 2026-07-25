@@ -14,6 +14,7 @@ import {
   deriveRunnerClosure,
   renderViolations,
   serialiseManifest,
+  sha256Bytes,
   sha256File,
   type RunnerManifest,
   type Violation,
@@ -41,6 +42,15 @@ function failClosed(violations: readonly Violation[]): never {
 const derivation = deriveRunnerClosure(distRoot, ENTRY_RELATIVE_PATH);
 if (derivation.violations.length > 0) failClosed(derivation.violations);
 
+// Read once, reused for both the digest and `packageVersion` below — mirrors the
+// derivation's own read-once discipline for the closure files (`fileBytes`).
+let packageJsonBytes: Buffer;
+try {
+  packageJsonBytes = readFileSync(join(packageRoot, "package.json"));
+} catch {
+  failClosed([{ rule: "unreadable-file", file: "package.json", line: null, found: "package.json" }]);
+}
+
 // All 24 records sort together (ambiguity B) — package.json is not appended after the
 // dist/ ones.
 const manifestPaths = [
@@ -49,25 +59,21 @@ const manifestPaths = [
 ].sort(comparePaths);
 
 // Nothing is opened for writing before every byte is known, so a truncated manifest has no
-// source in this design (REQ-BPI-02.2).
+// source in this design (REQ-BPI-02.2). Bytes come from `derivation.fileBytes` (already read
+// once during the walk) or `packageJsonBytes` above — never a second disk read per file.
 const files = manifestPaths.map((path) => {
-  try {
-    return { path, sha256: sha256File(join(packageRoot, path)) };
-  } catch {
-    return failClosed([
-      {
-        rule: "unreadable-file",
-        file: path.startsWith(`${DIST_DIR_NAME}/`) ? path.slice(DIST_DIR_NAME.length + 1) : path,
-        line: null,
-        found: path,
-      },
-    ]);
+  if (path === "package.json") {
+    return { path, sha256: sha256Bytes(packageJsonBytes) };
   }
+  const node = path.slice(DIST_DIR_NAME.length + 1);
+  const bytes = derivation.fileBytes.get(node);
+  if (bytes === undefined) {
+    return failClosed([{ rule: "unreadable-file", file: node, line: null, found: path }]);
+  }
+  return { path, sha256: sha256Bytes(bytes) };
 });
 
-const rootPackage = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf-8")) as {
-  version: string;
-};
+const rootPackage = JSON.parse(packageJsonBytes.toString("utf-8")) as { version: string };
 
 const manifest: RunnerManifest = {
   manifestVersion: 1,

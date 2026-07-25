@@ -65,6 +65,8 @@ export interface ClosureDerivation {
   readonly edges: readonly ClosureEdge[];
   readonly builtins: readonly string[];
   readonly violations: readonly Violation[];
+  /** Raw bytes read for each node during the walk — lets a caller hash without a second read. */
+  readonly fileBytes: ReadonlyMap<ClosurePath, Buffer>;
 }
 
 /** The engine's field names, not ours to improve. Key order is fixed by construction. */
@@ -83,7 +85,12 @@ export function serialiseManifest(manifest: RunnerManifest): string {
 
 /** REQ-RME-02: sha256 over the file's raw BYTES (never a utf-8 round trip). Lowercase hex. */
 export function sha256File(absolutePath: string): string {
-  return createHash("sha256").update(readFileSync(absolutePath)).digest("hex");
+  return sha256Bytes(readFileSync(absolutePath));
+}
+
+/** Same digest as {@link sha256File}, over bytes already in memory — no second disk read. */
+export function sha256Bytes(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
 }
 
 /** REQ-RCD-00. `entryRelPath` is distRoot-relative (e.g. "bin/pbuilder-runner.js"). */
@@ -97,6 +104,7 @@ export function deriveRunnerClosure(distRoot: string, entryRelPath: string): Clo
   const edges: ClosureEdge[] = [];
   const builtins = new Set<string>();
   const violations: Violation[] = [];
+  const fileBytes = new Map<ClosurePath, Buffer>();
   const queue: ClosurePath[] = [entryRelPath];
 
   while (queue.length > 0) {
@@ -105,14 +113,17 @@ export function deriveRunnerClosure(distRoot: string, entryRelPath: string): Clo
     nodes.add(current);
 
     const absolute = join(root, current);
-    let text: string;
+    let bytes: Buffer;
     try {
-      text = readFileSync(absolute, "utf-8");
+      bytes = readFileSync(absolute);
     } catch {
       violations.push({ rule: "unreadable-file", file: current, line: null, found: current });
       continue;
     }
-    const sourceFile = project.createSourceFile(absolute, text, { overwrite: true });
+    fileBytes.set(current, bytes);
+    const sourceFile = project.createSourceFile(absolute, bytes.toString("utf-8"), {
+      overwrite: true,
+    });
     violations.push(...denyScan(sourceFile, current));
 
     for (const site of staticSpecifierSites(sourceFile)) {
@@ -139,6 +150,7 @@ export function deriveRunnerClosure(distRoot: string, entryRelPath: string): Clo
     edges: edges.sort(compareEdges),
     builtins: [...builtins].sort(comparePaths),
     violations,
+    fileBytes,
   };
 }
 
