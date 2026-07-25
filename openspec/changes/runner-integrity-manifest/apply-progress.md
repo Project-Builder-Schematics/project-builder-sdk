@@ -403,3 +403,131 @@ Clean — no Bug- or Architecture-severity finding.
   a failed *baseline regeneration* reports something about the *manifest*. Not touched here.
 - The `describe` blocks added by this slice are all prefixed `FIT-42 S-002 —` / `FIT-42N S-002 —` /
   `FIT-23 S-002 —`, leaving S-003's extensions collision-free.
+
+---
+
+# S-003 — Closure-sealing tripwires + bundler/graph-drift disjointness
+
+**Scope**: `slice:S-003` · **Mode**: Strict TDD (double-loop) · **Base**: `c3d7f87` (S-002 verified, 18/18)
+**Suite after S-003**: `bun test` → **2287 pass / 0 fail** across 194 files (+50 vs S-002) · `tsc --noEmit` clean.
+**status**: complete — 9/9 criteria, all 12 red-proofs landed, both carried obligations discharged.
+
+## Files changed
+
+| File | Action | What was done |
+|---|---|---|
+| `src/transport/runner.ts` | modified | **The only `src/` write in the change.** Three comment lines adding the `SANCTIONED-FACTORY-IMPORT` marker at the sanctioned site. Zero logic diff — see Audit. |
+| `scripts/derive-runner-closure.ts` | modified | `readSpecifiers` implemented (S-000 deferred it here); `VIOLATION_RULES` exported as the closed set with `ViolationRule` **derived** from it; `renderViolations` gains a caller-supplied `outcome`; `dynamicImportCalls` extracted (was duplicated). |
+| `scripts/regen-closure-baseline.ts` | modified | Passes its own epilogue, so a failed baseline regeneration no longer reports on the manifest. |
+| `test/support/closure-integrity-checks.ts` | extended | Six new checkers: `findIntermediatePackageJsons`, `findBundlerTargets`, `findDisjointnessViolations`, `diffClosureBaseline`, `hasDrift`, `renderBaselineDrift`, `findGraphEmitMismatches`. |
+| `test/fitness/fit-42-…negative.test.ts` | extended | Eight `FIT-42N S-003 —` describes, 34 tests: all eleven synthetic red-proofs, the closed-rule-set shape test, the epilogue proof. |
+| `test/fitness/fit-42-…test.ts` | extended | Three `FIT-42 S-003 —` describes, 11 tests: real-tree CST-03.3/04.3/05.1, BDI-01.1/02.1/02.2/03.1, the one real-tree negative (RP-4's B half), and the baseline-writer epilogue proof. |
+
+## Red-Proof Ledger — all 12
+
+Observed output captured by invoking each check against its planted mutation, not paraphrased.
+
+| RP | Planted mutation | Caught by | Observed output (leading lines) |
+|---|---|---|---|
+| **RP-2** | a 24th closure file, imported | `…negative::REQ-BDI-03.1 an added node is reported with the edge that admitted it` | `4 files are reachable …; the committed baseline has 3.` / `added node:  c.js` / `added edge:  b.js -> ./c.js   (src/b.ts)` / `removed:     (none)` |
+| **RP-2b** | closure file + its import removed | `…negative::REQ-BDI-03.1 a removed node and its edge are both reported` | `2 files are reachable …; the committed baseline has 3.` / `added node:  (none)` / `added edge:  (none)` / `removed:     b.js` |
+| **RP-2c** | **edge redirected, node set constant** | `…negative::REQ-BDI-03.1 an edge redirected with the node set unchanged is still reported` | `3 files are reachable …; the committed baseline has 3.` / `added node:  (none)` / `added edge:  entry.js -> ./b.js   (src/entry.ts)` / `removed:     a.js -> ./b.js` — **node counts identical on both sides; only the edge diff fires** |
+| **RP-3** | dynamic `import()` outside `runner.ts` | `…negative::REQ-CST-03.1` | `runner-manifest: src/transport/session.ts — dynamic import() outside the sanctioned factory-import site.` / `found: import(s)     (emitted: dist/transport/session.js:1)` / `rule:  Constraint 2 — the closure contains exactly one dynamic import(): … marked SANCTIONED-FACTORY-IMPORT.` |
+| **RP-3b** | **second** dynamic `import()` INSIDE `runner.ts` | `…negative::REQ-CST-03.2` | `runner-manifest: src/transport/runner.ts — second dynamic import() inside the factory-import file.` / `found: import(v)     (emitted: dist/transport/runner.js:2)` / `rule:  Constraint 2 — the sanction is per-SITE, not per-file. Living in runner.ts does not make an import() sanctioned.` / `why: src/transport/runner.ts:SANCTIONED-FACTORY-IMPORT is the author-code boundary; this is a different site…` |
+| **RP-4** | bare third-party specifier (A **and** the one real-tree B) | `…negative::REQ-CST-01.1` + `fit-42::REQ-CST-01.1 … copied real tree` | `runner-manifest: src/core/wire.ts — bare specifier in the runner closure.` / `found: import { Project } from "ts-morph";     (emitted: dist/core/wire.js:1)` / `rule:  Constraint 3 — no bare third-party specifier inside the closure.` — B half also asserts exit ≠ 0 and no manifest |
+| **RP-5** | `"fs"` **and** `"node:fs"` in ONE fixture | `…negative::REQ-CST-02.1 … exactly ONE violation` | `violations=1  detail=fs  builtins=["node:fs"]` — one violation, naming only `fs`, while `node:fs` is recorded as an ordinary builtin. A name-allowlist implementation cannot produce this. |
+| **RP-6** | `dist/package.json` planted | `…negative::REQ-CST-05.1 a planted dist/package.json is found` | `[{"path":"dist/package.json","reason":"terminates the package-root walk early and reinterprets parse mode with NO digest change"}]` |
+| **RP-7** | `createRequire` direct call | `…negative::REQ-CST-04.1` | `runner-manifest: src/entry.ts — unhashed-code-execution primitive in the closure.` / `found: createRequire(a)("./x.js");` / `rule:  Constraint 4 — the closure may RESOLVE, never EXECUTE.` + `forbidden primitive: createRequire` |
+| **RP-7b** | indirect-variable **and** namespace forms | `…negative::REQ-CST-04.4` ×2 | indirect: `found: const req = createRequire(a);` · namespace: `found: m.createRequire(u)("./x.js");` — both `forbidden primitive: createRequire`. The `found:` line is what names which form. |
+| **RP-7c** | `eval` / `new Function` / `node:vm` / `Bun.plugin` / `process.binding` | `…negative::REQ-CST-04.2` ×5, one per primitive | e.g. `found: export const r = new Function(body);` + `forbidden primitive: Function`; each of the five names its own primitive |
+| **RP-8** | `--outdir dist/transport` **and** `-o` short form | `…negative::REQ-BDI-01.1` ×2 | `[{"script":"leak","target":"dist/transport","colliding":"dist/transport/runner.js"}]` — the `--outdir` case collides by **directory containment**, which an exact-match check would miss |
+
+## TDD Cycle Evidence — S-003
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| `readSpecifiers` (production) | `…negative::REQ-BDI-02.1 returns static specifiers in source order` | A | `error: not implemented at readSpecifiers (…derive-runner-closure.ts:391:36)` | ts-morph read + `isErasedImport` | **yes** — whole-declaration `import type`, the inline `{ type Y }` form, and the mixed value+type case (must NOT be erased) | `dynamicImportCalls` extracted; `denyScan` now shares it |
+| Caller-supplied epilogue (production) | `…negative::REQ-CST-06.1 a caller-supplied epilogue replaces it` | A | `Expected to contain: "No baseline was written."` / `Received: "…No manifest was written; dist/runner-manifest.json does not exist.\n"` | optional `outcome`, frozen default retained | **yes** — sibling test pins the frozen sentence still renders on the build path | `regen-closure-baseline` passes its own |
+| Closed rule set (production) | `…negative::REQ-CST-06.1 the exported rule set is the nine-member closed set` | A | assertion failure against the deliberate `VIOLATION_RULES = []` stub | nine members; `ViolationRule` derived via `(typeof VIOLATION_RULES)[number]` | **yes** — the skeleton test iterates the set | duplicated union removed — the type now cannot drift from the list |
+| `findIntermediatePackageJsons` | `…negative::REQ-CST-05.1` ×2 (**RP-6**) | A | `error: not implemented` | upward walk to the package root | **yes** — clean-tree case returns `[]` | no |
+| `findBundlerTargets` | `…negative::REQ-BDI-01.1 --outfile, --outdir and -o are all extracted` | A | `error: not implemented` | one regex, three flags | **yes** — three flag forms in one call | no |
+| `findDisjointnessViolations` | `…negative::REQ-BDI-01.1` ×3 (**RP-8**) | A | `error: not implemented` | exact match, plus directory containment for `--outdir` | **yes** — outdir vs `-o` vs an outside target | no |
+| `diffClosureBaseline` / `hasDrift` | `…negative::REQ-BDI-03.1` ×4 (**RP-2/2b/2c**) | A | `error: not implemented` | node **and** edge multiset diff | **yes** — the RP-2c case (node set constant) fails a nodes-only implementation | no |
+| `renderBaselineDrift` | `…negative::REQ-BDI-03.1 the rendered drift keeps the permissive register` | A | `error: not implemented` | design §9 `BASELINE_DRIFT_MESSAGE` | **yes** — `(none)` branches exercised by RP-2b/2c | no |
+| `findGraphEmitMismatches` | `…negative::REQ-BDI-02.1/02.2` ×5 | A | `error: not implemented` | `.ts→.js` rewrite, type-only erasure, multiset subtraction | **yes** — emitted-only, source-only, type-only-exempt, and duplicate-collapse cases | no |
+| CST message red-proofs | `…negative` RP-3 / RP-3b / RP-4 / RP-5 / RP-7 / RP-7b / RP-7c | A | **green on arrival** — S-000's renderer already names every fact; asserted from the criterion text first and it passed. RP-5's *exactly-one* count and RP-3b's per-SITE clause are new assertions, not new behaviour. | — | **yes** — RP-5 discriminates a name allowlist; RP-3b discriminates a path-scoped Constraint 2 | no |
+| Real-tree Tier B | `fit-42::REQ-CST-03.3 ×2 / 04.3 ×2 / 05.1`, `BDI-01.1`, `BDI-02.1/02.2`, `BDI-03.1` | B | CST-03.3's marker assertion was **genuinely RED** until `src/transport/runner.ts` gained the marker; the rest green on arrival | marker added | n/a | reads routed through the `beforeAll` snapshot, per S-002's finding |
+
+## Acceptance criteria — S-003 (all 9)
+
+| # | Criterion | Verified how | Result |
+|---|---|---|---|
+| 1 | Bare specifier, A **and** B | `…negative::REQ-CST-01.1` (message facts incl. the specifier) + `fit-42::REQ-CST-01.1` on a copied real tree via generator subprocess: exit ≠ 0, no manifest, stderr names `src/core/wire.ts`, `"ts-morph"`, `Constraint 3` | PASS |
+| 2 | RP-5 exactly-one | `…negative` ×3 — violation count is `1`, its detail is `fs`, and `node:fs` from the same fixture is recorded as an ordinary builtin; plus the frozen allowlist clause asserted verbatim | PASS |
+| 3 | Constraint 2 site-scoping + real tree | `…negative` RP-3 / RP-3b; `fit-42::REQ-CST-03.3` — the per-file dynamic-import count over all 23 nodes reduces to exactly `[{transport/runner.js, 1}]`, and the source marker is asserted present | PASS |
+| 4 | Constraint 4, four forms + real tree | `…negative` RP-7/7b/7c (7 tests); `fit-42::REQ-CST-04.3` ×2 — zero violations, **and** the anchored probe is asserted to genuinely hold ≥2 `createRequire` references so the exemption is exercised rather than absent | PASS |
+| 5 | No intermediate `package.json` | `fit-42::REQ-CST-05.1` (checker + both `existsSync` assertions) and `…negative::REQ-CST-05.1` (RP-6) | PASS |
+| 6 | Rendered text by substring + rule-set shape | `…negative::REQ-CST-06.1` ×4 — every one of the nine rules renders `found:`/`rule:`/`why:`/`fix:`/epilogue; the set is pinned at nine; both epilogue forms asserted | PASS |
+| 7 | Bundler disjointness, non-vacuous | `fit-42::REQ-BDI-01.1` — asserts `dist/bin/pbuilder-codegen.js` IS among the extracted targets and IS outside the closure, then zero violations; `…negative` RP-8 ×2 | PASS |
+| 8 | Graph-preserving emit | `fit-42::REQ-BDI-02.1` (all 23 entries compared, count asserted) and `REQ-BDI-02.2` (both named files asserted to actually carry type-only imports, then not flagged) | PASS |
+| 9 | Drift: add / remove / **redirect** | `…negative::REQ-BDI-03.1` ×5 including the unchanged-graph control; `fit-42::REQ-BDI-03.1` proves no drift against the committed baseline with `baseline.edges.length > 0` asserted | PASS |
+
+## Obligations discharged
+
+1. **`SANCTIONED-FACTORY-IMPORT` marker added** to `src/transport/runner.ts`. This closed a live
+   defect, not just a test gap: the renderer already told maintainers the site was "marked
+   SANCTIONED-FACTORY-IMPORT" while the string existed nowhere in `src/`. Three comment lines, zero
+   logic diff (full `git diff -- src/` in the Audit below).
+2. **Epilogue corrected for both consumers.** `review-tech-writer.md` freezes "No manifest was written;
+   dist/runner-manifest.json does not exist." (lines 177/190/207), so that text is unchanged and still
+   renders on the build path. `renderViolations` gained an optional `outcome`; the baseline writer
+   passes `No baseline was written; test/fitness/runner-closure-graph-baseline.json is unchanged.` —
+   which is also *true*, since S-001 deliberately leaves an existing baseline in place on failure.
+   Both forms are asserted, and the manifest sentence is asserted **absent** from the baseline path.
+3. **`BASELINE_DRIFT_MESSAGE` landed** (design §9), closing S-001's risk note.
+
+## Deviations from design
+
+1. **`renderViolations` gains an optional `outcome`** beyond design §3.1's signature. Required to make
+   the frozen sentence true of the tool that prints it; the frozen text itself is untouched and remains
+   the default.
+2. **`ViolationRule` is now derived from an exported `VIOLATION_RULES`** rather than written as a
+   standalone union. Criterion 6 demands a runtime shape test over the closed set, which a type-only
+   union cannot provide. Strictly less code — the list existed twice, now once.
+3. **`renderBaselineDrift` omits the line number** in `added edge: … (<src path>)`. Design §9's frozen
+   block shows `(<src path>)` with no line; review-tech-writer §5's example shows `:14`. Design §9 is
+   the stated source of truth and wins, and the baseline carries no line numbers to render.
+
+## Post-slice audit (S-003 diff)
+
+Clean — no Bug- or Architecture-severity finding.
+
+- **`src/` diff is three comment lines and nothing else** — `git diff -- src/` reproduced in full during
+  the audit shows only the added marker block inside the existing `try {`. No statement, signature or
+  control-flow change. `architecture_impact` stays `additive`; FIT-04's `.d.ts` baselines are untouched
+  (full suite green).
+- **Control-character scan** over all six delta files: clean. `git diff --numstat` reports no binary
+  files.
+- **FIT-27 re-checked, not assumed.** `closure-integrity-checks.ts` gained `node:fs`/`node:path`
+  imports, so it is no longer literally dependency-free; its header now says "no repo imports (node
+  builtins only)". FIT-27 walks relative specifiers from `test/support/**`, so node builtins add
+  nothing to that graph — and FIT-27 was run directly: 8/8 green.
+- **Vacuity swept as written, per the standing instruction.** Every new "must be `[]`" assertion has a
+  companion pinning its input non-empty: the emit comparison asserts 23 entries; BDI-02.2 asserts both
+  named files actually carry type-only imports; BDI-01.1 asserts the codegen target is really among the
+  extracted targets; CST-04.3 asserts the probe really holds ≥2 `createRequire` references; BDI-03.1
+  asserts `baseline.edges.length > 0`; the rule-set shape test asserts nine rules before iterating.
+- **Isolation**: every new Tier-B read goes through the `beforeAll` snapshot (`snapshotDist()`), so this
+  slice adds **zero** new body-time reads of the live `dist/`.
+- **Manifest digest changed** (`ae3df4e3…`) because `dist/transport/runner.js` gained the marker comment.
+  Expected — the manifest tracks bytes. The closure-graph baseline is unaffected (a comment adds no node
+  or edge) and its self-consistency test stays green.
+
+## Notes for later slices
+
+- **S-005** owns BDI-01.2 — the explicit statement that non-`scripts` bundler surfaces (workflow steps,
+  `Bun.build({outdir})`, `scripts/*.ts` calls) are out of scope. north-star.md judges BDI-01 the weakest
+  addition in the change precisely because of that limit, so the docs page must state it rather than let
+  the requirement read stronger than it is.
+- **S-004** (Tier C packaging) is unblocked and independent of everything here.
+- The `describe` blocks added by this slice are prefixed `FIT-42 S-003 —` / `FIT-42N S-003 —`.

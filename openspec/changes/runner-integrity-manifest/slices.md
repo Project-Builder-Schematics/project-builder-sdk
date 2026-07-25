@@ -35,7 +35,7 @@ Everything else follows design's Order column directly: S-001 = Order 2 (rows 5�
 | **S-000** | Walking skeleton: derive → generate → build-wire → LF → FIT-14 remediation | 1, 2, 3(partial), 4, 11, 12 | **No** — foundation | **[x] built** |
 | **S-001** | Baseline writer + committed closure-graph baseline | 3(partial), 5, 6 | Degraded — see below | **[x] built** |
 | **S-002** | Manifest correctness, shape, determinism, build-pipeline hardening | 7(partial), 8(partial), 9(partial), 10 | **No** — core substance | **[x] built (1 criterion flagged)** |
-| **S-003** | Closure-sealing tripwires + bundler/graph-drift disjointness | 7(partial), 8(partial) | **No** — the durable security value | pending |
+| **S-003** | Closure-sealing tripwires + bundler/graph-drift disjointness | 7(partial), 8(partial) | **No** — the durable security value | **[x] built** |
 | **S-004** | Packaged-manifest fidelity (Tier C: pack/extract/install) | 13 | Yes — cost stated below | pending |
 | **S-005** | Integrity-invariants documentation + `SECURITY.md` + probe header | 14, 15, 16, 17, 18 | Yes — cost stated below | pending |
 
@@ -256,32 +256,35 @@ durable security value... even if the manifest itself were retired tomorrow."
   CST-03.1/03.2, CST-04.1/04.2/04.4, CST-05.1, CST-06.1 synthetic scenarios; BDI-01.1's red-proof (RP-8);
   BDI-03.1's drift red-proofs (RP-2, RP-2b, RP-2c).
 
-**Acceptance criteria (observable):**
-1. A bare third-party specifier planted synthetically (A) and in a copied real tree (B, the one real-tree
+**Acceptance criteria (observable)** — all 9 **[x] DONE**; all 12 red-proofs land with observed output
+recorded in `apply-progress.md` → S-003 → Red-Proof Ledger:
+1. [x] A bare third-party specifier planted synthetically (A) and in a copied real tree (B, the one real-tree
    negative per QA's tier rule) both fail the build, no manifest, message names src path/line/specifier/
    "Constraint 3" (RP-4).
-2. One fixture containing both `"fs"` and `"node:fs"` produces **exactly ONE** violation naming only
+2. [x] One fixture containing both `"fs"` and `"node:fs"` produces **exactly ONE** violation naming only
    `"fs"` — proves the rule is on the prefix, not a name allowlist (RP-5).
-3. A dynamic `import()` outside `runner.ts` fails (RP-3); a **second** one inside `runner.ts` also fails,
+3. [x] A dynamic `import()` outside `runner.ts` fails (RP-3); a **second** one inside `runner.ts` also fails,
    naming the sanctioned site and the per-SITE clause (RP-3b); on the real tree, the dynamic-import count
    is exactly 1 in `dist/transport/runner.js` and 0 elsewhere, with the `SANCTIONED-FACTORY-IMPORT`
-   marker present.
-4. `createRequire` direct call (RP-7), indirect-variable and namespace-import forms (RP-7b), and
+   marker present. *(The marker was ADDED to `src/transport/runner.ts` in this slice — the only `src/`
+   write in the change so far, three comment lines, zero logic.)*
+4. [x] `createRequire` direct call (RP-7), indirect-variable and namespace-import forms (RP-7b), and
    `eval`/`new Function`/`node:vm`/`Bun.plugin`/`process.binding` (RP-7c) all fail, naming which form; on
    the real tree the deny-scan reports zero violations and the anchored `single-instance-probe.ts` site
    is not flagged.
-5. Neither `dist/package.json` nor `dist/bin/package.json` exists; a planted `dist/package.json`
+5. [x] Neither `dist/package.json` nor `dist/bin/package.json` exists; a planted `dist/package.json`
    red-proof states it redirects with no digest change (RP-6).
-6. Every violation's rendered text is asserted by substring (rule/why/fix/no-manifest line), plus a shape
-   test over the closed `ViolationRule` set.
-7. Every `--outfile`/`--outdir` (by directory containment)/`-o` target in `package.json#scripts` is
+6. [x] Every violation's rendered text is asserted by substring (rule/why/fix/no-manifest line), plus a shape
+   test over the closed `ViolationRule` set. *(The epilogue is now caller-supplied: the frozen manifest
+   sentence stays on the build path, and the baseline writer states what IT failed to write.)*
+7. [x] Every `--outfile`/`--outdir` (by directory containment)/`-o` target in `package.json#scripts` is
    outside the closure path set, non-vacuous because `dist/bin/pbuilder-codegen.js` is present and
    correctly judged outside; a planted `--outdir dist/transport` + `-o` short form both fail disjointness
    (RP-8).
-8. For each closure `.js`, its relative-specifier multiset equals its `.ts` source's after `.ts→.js`
+8. [x] For each closure `.js`, its relative-specifier multiset equals its `.ts` source's after `.ts→.js`
    rewriting, modulo type-only erasure; `session.ts`/`stdio-engine-client.ts`'s type-only imports are NOT
    flagged.
-9. Adding a node (RP-2), removing a node/edge (RP-2b), or redirecting an edge with the node set unchanged
+9. [x] Adding a node (RP-2), removing a node/edge (RP-2b), or redirecting an edge with the node set unchanged
    (RP-2c — "the real closure-sealing case") each fails the baseline comparison, naming the offender.
 
 **REQ-IDs**: closes **CST-01, CST-02, CST-03, CST-04, CST-05, CST-06, BDI-02**, and the `.1` half of
