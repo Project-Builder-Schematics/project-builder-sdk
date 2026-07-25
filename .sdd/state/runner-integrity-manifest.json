@@ -15,14 +15,16 @@
   "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
   "slice_count": 6,
   "slices_complete": ["S-000", "S-001", "S-002", "S-003"],
-  "slices_built_pending_verify": ["S-005"],
+  "slices_built_pending_verify": ["S-005", "S-004"],
+  "req_delivery": "42/42 signed REQs delivered; all 18 red-proofs landed",
   "in_loop_iterations": {
     "S-000": { "iteration": 1, "verdict": "PASS" },
     "S-001": { "iteration": 1, "verdict": "PASS" },
     "S-002": { "iteration": 1, "verdict": "PASS" },
     "S-003": { "iteration": 1, "verdict": "PASS — engine handover point cleared" }
   },
-  "suite": "2310 pass / 0 fail (from 2146 at branch point); whole-change src/ diff is 6 comment lines across 2 files",
+  "suite": "2318 pass / 0 fail (from 2146 at branch point, +172); whole-change src/ diff is 6 insertions across 2 files, every one a comment line",
+  "tier_c_measurement": "6 Tier-C harness invocations, 5 green, 1 red — and the red was an executor bug (the no-skip regex matched the `it.skipIf(offline)` inside the file's own header comment), NOT harness instability. CAVEAT THAT MUST SURVIVE TO ARCHIVE: npm's cache was WARM on this machine. A fresh consumer was hand-verified to resolve the full transitive tree (ts-morph@28.0.0, @ts-morph/*, code-block-writer, tinyglobby, fdir, picomatch, minimatch, brace-expansion, balanced-match, path-browserify), so resolution genuinely happens — but the bytes came from ~/.npm, not the network. A cold CI cache is the condition R-2 measured. 5/5 is NOT a refutation of the ~25% posture.",
   "req_coverage": "complete — all 42 REQs and all 18 red-proofs mapped, no orphans; 10 REQs are compound (opened S-000/S-001, closed S-002/S-003) and documented as handoffs",
   "plan_verify": "not-required — spec_source=internal and write_mode=sync, so Step 8b publish never fires; the plan-verify gate is L-plus-publish only",
   "steward_foresight": "aligned — gate PASSED 2026-07-25 after owner answered 3 conscience questions",
