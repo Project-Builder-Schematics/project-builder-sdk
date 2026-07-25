@@ -34,7 +34,7 @@ Everything else follows design's Order column directly: S-001 = Order 2 (rows 5�
 |---|---|---|---|---|
 | **S-000** | Walking skeleton: derive → generate → build-wire → LF → FIT-14 remediation | 1, 2, 3(partial), 4, 11, 12 | **No** — foundation | **[x] built** |
 | **S-001** | Baseline writer + committed closure-graph baseline | 3(partial), 5, 6 | Degraded — see below | **[x] built** |
-| **S-002** | Manifest correctness, shape, determinism, build-pipeline hardening | 7(partial), 8(partial), 9(partial), 10 | **No** — core substance | pending |
+| **S-002** | Manifest correctness, shape, determinism, build-pipeline hardening | 7(partial), 8(partial), 9(partial), 10 | **No** — core substance | **[x] built (1 criterion flagged)** |
 | **S-003** | Closure-sealing tripwires + bundler/graph-drift disjointness | 7(partial), 8(partial) | **No** — the durable security value | pending |
 | **S-004** | Packaged-manifest fidelity (Tier C: pack/extract/install) | 13 | Yes — cost stated below | pending |
 | **S-005** | Integrity-invariants documentation + `SECURITY.md` + probe header | 14, 15, 16, 17, 18 | Yes — cost stated below | pending |
@@ -186,33 +186,40 @@ property rather than an assumption.
   property (`publish.yml` parsed structurally; version stamp precedes build, or a rebuild occurs between
   stamp and publish). No new home — extends the existing file, per review-tech-writer §4 flag 3.
 
-**Acceptance criteria (observable):**
-1. `RCD-01.1`: derived closure (real tree) equals the S-001 baseline as a set of paths.
-2. `RCD-01.3`/`RCD-01.4`: synthetic cycle terminates at `{entry,A,B}`; zero-import entry yields exactly 1.
-3. `RCD-02.3`: a synthetic `./x.mjs` specifier is followed (not filtered by `.js`-only).
-4. `RCD-03.1`/`03.2`/`03.4`/`03.5`: unclassifiable construct, unresolvable specifier (RP-13), query
+**Acceptance criteria (observable)** — 17 of 18 **[x] DONE**; criterion 10's `RMD-01.2` half is
+**[!] UNPROVABLE AS WRITTEN under Bun** (see `apply-progress.md` S-002 → Halt). Proving test per
+criterion in `apply-progress.md`:
+1. [x] `RCD-01.1`: derived closure (real tree) equals the S-001 baseline as a set of paths.
+2. [x] `RCD-01.3`/`RCD-01.4`: synthetic cycle terminates at `{entry,A,B}`; zero-import entry yields exactly 1.
+3. [x] `RCD-02.3`: a synthetic `./x.mjs` specifier is followed (not filtered by `.js`-only).
+4. [x] `RCD-03.1`/`03.2`/`03.4`/`03.5`: unclassifiable construct, unresolvable specifier (RP-13), query
    suffix, and unreadable file (mode 000, skipped under uid 0) each fail the build naming the right facts.
-5. `RCD-04.1`: observed builtin set equals the baseline's `builtins` row (never a literal list).
-6. `RCD-05.1`: a specifier resolving through a symlink escaping the root fails as `symlink-escape`.
-7. `RME-01.3`: exact top-level and per-record key sets (kills a smuggled `generatedAt` field).
-8. `RME-02.2`: known-answer digest vectors (empty file, single `\n`) match published constants.
-9. `RME-03.1`/`RME-04.1`/`RME-05.1`: exclusions, path hygiene, and real-tree ordering all hold.
-10. `RMD-01.1`/`01.2`: two consecutive builds and two child processes under different `LC_ALL` values
-    produce byte-identical manifests.
-11. `RMD-02.1`: a copied root whose path contains a space AND a non-ASCII segment, generator-only re-run,
+5. [x] `RCD-04.1`: observed builtin set equals the baseline's `builtins` row (never a literal list).
+6. [x] `RCD-05.1`: a specifier resolving through a symlink escaping the root fails as `symlink-escape`.
+   *(Already proven by the S-000 Tier-A test of the same name; not duplicated.)*
+7. [x] `RME-01.3`: exact top-level and per-record key sets (kills a smuggled `generatedAt` field).
+8. [x] `RME-02.2`: known-answer digest vectors (empty file, single `\n`) match published constants.
+9. [x] `RME-03.1`/`RME-04.1`/`RME-05.1`: exclusions, path hygiene, and real-tree ordering all hold.
+10. [x] `RMD-01.1` / **[!] `01.2`**: two consecutive builds produce byte-identical manifests **[x]**;
+    two child processes under different `LC_ALL` values **[!]** — the runs agree, but under Bun no locale
+    env var moves the default collator (`Intl.Collator()` resolves `en-US` under `LC_ALL`, `LANG` and
+    `LC_COLLATE` alike, verified), so the scenario cannot discriminate `localeCompare` from
+    `Buffer.compare`. NOT weakened, NOT claimed as passing. The mutation it targets is independently
+    killed by `RME-05.2`'s pinned pairs (S-000). Needs an owner ruling.
+11. [x] `RMD-02.1`: a copied root whose path contains a space AND a non-ASCII segment, generator-only re-run,
     matches the canonical bytes.
-12. `RMD-03.2`/`03.4`: a test-time-generated CRLF fixture and a BOM-prefixed fixture each fail the check
+12. [x] `RMD-03.2`/`03.4`: a test-time-generated CRLF fixture and a BOM-prefixed fixture each fail the check
     (RP-9); no closure file begins with `EF BB BF`.
-13. `RMD-04.1`: on a **copy** of the built tree, appending one byte to `dist/core/session.js` and
+13. [x] `RMD-04.1`: on a **copy** of the built tree, appending one byte to `dist/core/session.js` and
     regenerating there changes exactly one record's digest, 23 others unchanged, length/order unchanged
     (RP-1) — never touches the real memoized `dist/`.
-14. `RMD-05.1`: manifest bytes contain neither `process.cwd()` nor `os.userInfo().username`.
-15. `BPI-02.1`: generator invoked **directly** (never via `bun run build`) against a prepared root that
+14. [x] `RMD-05.1`: manifest bytes contain neither `process.cwd()` nor `os.userInfo().username`.
+15. [x] `BPI-02.1`: generator invoked **directly** (never via `bun run build`) against a prepared root that
     already has a manifest plus a planted violation → exit ≠ 0, **no manifest remains**.
-16. `BPI-02.2`: a closure file made unreadable mid-derivation → exit ≠ 0, **no file at all** at the
+16. [x] `BPI-02.2`: a closure file made unreadable mid-derivation → exit ≠ 0, **no file at all** at the
     manifest path.
-17. `BPI-03.1`: `publish.yml` parsed with `YAML.parse` proves the ordering property holds today.
-18. `RMD-03.3`: `.gitattributes` scope assertion passes.
+17. [x] `BPI-03.1`: `publish.yml` parsed with `YAML.parse` proves the ordering property holds today.
+18. [x] `RMD-03.3`: `.gitattributes` scope assertion passes.
 
 **REQ-IDs**: closes **RCD-01, RCD-02, RCD-03, RCD-04, RCD-05, RME-01, RME-02, RME-03, RME-04, RME-05,
 RMD-01, RMD-02, RMD-03, RMD-04, RMD-05, BPI-02, BPI-03**. (RCD-00 reinforced structurally via the same
