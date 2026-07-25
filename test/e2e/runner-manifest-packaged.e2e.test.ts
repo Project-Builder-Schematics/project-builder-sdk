@@ -33,6 +33,9 @@ const MANIFEST_RELATIVE_PATH = "dist/runner-manifest.json";
 const PACKAGE_NAME = "@pbuilder/sdk";
 const EXPECTED_RECORD_COUNT = 24;
 
+// Port 1 is reserved and never listening; the fast-fail flags keep the failure inside seconds.
+const DEAD_REGISTRY = "http://127.0.0.1:1";
+
 interface RunnerManifest {
   manifestVersion: number;
   algorithm: string;
@@ -258,10 +261,45 @@ describe("PMF-02.3 — entry #24 survives a real registry install", () => {
 });
 
 describe("R-2 — this harness fails loudly, it never skips", () => {
-  it("the runner surfaces a non-zero exit as a thrown failure carrying the command output", () => {
-    expect(() => run("npm", ["pack", "--registry", "http://127.0.0.1:1"], temporaryRoot("pmf-loud-")))
-      .toThrow(/This test never skips/);
+  // Property 1: ANY non-zero exit becomes a throw carrying the command's own diagnosis.
+  // Demonstrated with a missing package.json, which is a local failure on purpose — this
+  // test says nothing about registries, and used to imply that it did.
+  it("a non-zero exit becomes a throw carrying the command's own output", () => {
+    const attempt = (): string => run("npm", ["pack"], temporaryRoot("pmf-loud-"));
+    expect(attempt).toThrow(/This test never skips/);
+    expect(attempt).toThrow(/ENOENT/);
   });
+
+  it(
+    "an unreachable registry fails loudly with a network diagnosis, never a skip",
+    () => {
+      const consumer = temporaryRoot("pmf-deadreg-");
+      writeFileSync(
+        join(consumer, "package.json"),
+        `${JSON.stringify({ name: "pmf-deadreg", version: "0.0.0", private: true }, null, 2)}\n`
+      );
+      // `npm pack` never contacts a registry — verified: against a dead one it still emits a
+      // tarball. Only resolution during `install` reaches the network, so this is the ONLY
+      // invocation that can exercise the property criterion 5 names.
+      const attempt = (): string =>
+        run(
+          "npm",
+          [
+            "install",
+            "--ignore-scripts",
+            "--registry",
+            DEAD_REGISTRY,
+            "--fetch-retries=0",
+            "--fetch-timeout=3000",
+            tarballPath,
+          ],
+          consumer
+        );
+      expect(attempt).toThrow(/ECONNREFUSED/);
+      expect(attempt).toThrow(/This test never skips/);
+    },
+    TIER_C_TIMEOUT
+  );
 
   // Guards the NEXT editor, not this one: when this harness flakes on a bad network the
   // cheap fix is a conditional skip, and that is the one change that would make the suite
