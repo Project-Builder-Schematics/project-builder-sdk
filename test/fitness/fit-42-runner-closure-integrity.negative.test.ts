@@ -19,8 +19,14 @@ import {
   comparePaths,
   deriveRunnerClosure,
   renderViolations,
+  sha256File,
 } from "../../scripts/derive-runner-closure.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import {
+  findBomOffenders,
+  findCrlfOffenders,
+  findPathHygieneViolations,
+} from "../support/closure-integrity-checks.ts";
 
 const scratchRoot = scratchDirFactory("fit-42n-");
 
@@ -265,5 +271,158 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
       { rule: "constraint-4-execution-primitive", file: "p4.js" },
       { rule: "constraint-4-execution-primitive", file: "p5.js" },
     ]);
+  });
+});
+
+describe("FIT-42N S-002 — walk shapes S-000 never exercised", () => {
+  it("REQ-RCD-01.3: a cyclic import graph terminates at its reachable set", () => {
+    const root = plantTree({
+      "entry.js": 'import "./a.js";\n',
+      "a.js": 'import "./b.js";\n',
+      "b.js": 'import "./a.js";\n',
+    });
+    expect([...deriveRunnerClosure(root, "entry.js").nodes]).toEqual([
+      "a.js",
+      "b.js",
+      "entry.js",
+    ]);
+  });
+
+  it("REQ-RCD-01.4: an entry with zero imports yields exactly one node, not zero and not an error", () => {
+    const root = plantTree({ "entry.js": "export const only = 1;\n" });
+    const derivation = deriveRunnerClosure(root, "entry.js");
+    expect([...derivation.nodes]).toEqual(["entry.js"]);
+    expect([...derivation.violations]).toEqual([]);
+  });
+
+  // `module: NodeNext` can emit `.mjs`, so a walker filtering `endsWith(".js")` would
+  // silently lose the whole subtree behind this specifier.
+  it("REQ-RCD-02.3: a specifier resolving to .mjs is followed, not filtered out by extension", () => {
+    const root = plantTree({
+      "entry.js": 'import "./x.mjs";\n',
+      "x.mjs": 'import "./deep.js";\n',
+      "deep.js": "export const deep = 1;\n",
+    });
+    expect([...deriveRunnerClosure(root, "entry.js").nodes]).toEqual([
+      "deep.js",
+      "entry.js",
+      "x.mjs",
+    ]);
+  });
+});
+
+function renderedFor(root: string, entry = "entry.js"): string {
+  return renderViolations(deriveRunnerClosure(root, entry).violations, {
+    distDirName: "dist",
+    srcDirName: "src",
+  });
+}
+
+describe("FIT-42N S-002 — a failing classification names the facts the reader needs", () => {
+  it("REQ-RCD-03.1: an unclassifiable construct names the src path, the line and the construct", () => {
+    const rendered = renderedFor(plantTree({ "entry.js": 'import "file:///etc/passwd";\n' }));
+    expect(rendered).toContain("runner-manifest: src/entry.ts");
+    expect(rendered).toContain("(emitted: dist/entry.js:1)");
+    expect(rendered).toContain('import "file:///etc/passwd";');
+  });
+
+  // RP-13.
+  it("REQ-RCD-03.2: an unresolvable specifier names the importer, the specifier and the attempted path", () => {
+    const rendered = renderedFor(
+      plantTree({ "core/entry.js": 'import "./missing.js";\n' }),
+      "core/entry.js"
+    );
+    expect(rendered).toContain("src/core/entry.ts");
+    expect(rendered).toContain('import "./missing.js";');
+    expect(rendered).toContain("core/missing.js");
+  });
+
+  it("REQ-RCD-03.4: a query-suffixed specifier is reported as a classification failure naming the suffix", () => {
+    const rendered = renderedFor(
+      plantTree({ "entry.js": 'import "./a.js?v=1";\n', "a.js": "export const a = 1;\n" })
+    );
+    expect(rendered).toContain("could not be classified");
+    expect(rendered).toContain('query or fragment in "./a.js?v=1"');
+  });
+
+  it.skipIf(process.getuid?.() === 0)(
+    "REQ-RCD-03.5: an unreadable closure file names the path that could not be read",
+    () => {
+      const root = plantTree({
+        "entry.js": 'import "./locked.js";\n',
+        "locked.js": "export const l = 1;\n",
+      });
+      chmodSync(join(root, "locked.js"), 0o000);
+      const rendered = renderedFor(root);
+      expect(rendered).toContain("closure file could not be read");
+      expect(rendered).toContain("(emitted: dist/locked.js)");
+    }
+  );
+});
+
+describe("FIT-42N S-002 — sha256File is checked against an external oracle", () => {
+  // RME-02.1 alone is f(x) === f(x) if the test imports the generator's own hasher; these
+  // two vectors are published constants no implementation of ours produced.
+  it("REQ-RME-02.2: a zero-byte file hashes to the published empty-input vector", () => {
+    const root = plantTree({ "empty.bin": "" });
+    expect(sha256File(join(root, "empty.bin"))).toBe(
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
+  });
+
+  it("REQ-RME-02.2: a file containing exactly one newline hashes to the published LF vector", () => {
+    const root = plantTree({ "newline.bin": "\n" });
+    expect(sha256File(join(root, "newline.bin"))).toBe(
+      "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    );
+  });
+});
+
+describe("FIT-42N S-002 — the manifest-shape and byte-hygiene checkers fire", () => {
+  // RP-11.
+  it("REQ-RME-04.1: a duplicate, an absolute and a `..` path each fail path hygiene, named by rule", () => {
+    expect(
+      findPathHygieneViolations([
+        "dist/a.js",
+        "dist/a.js",
+        "/etc/passwd",
+        "dist/../secret.js",
+      ])
+    ).toEqual([
+      { rule: "absolute", path: "/etc/passwd" },
+      { rule: "parent-segment", path: "dist/../secret.js" },
+      { rule: "duplicate", path: "dist/a.js" },
+    ]);
+  });
+
+  it("REQ-RME-04.1: a backslash separator and a leading ./ each fail path hygiene", () => {
+    expect(findPathHygieneViolations(["dist\\a.js", "./dist/b.js"])).toEqual([
+      { rule: "non-posix", path: "dist\\a.js" },
+      { rule: "leading-dot-slash", path: "./dist/b.js" },
+    ]);
+  });
+
+  it("REQ-RME-04.1: a well-formed path set produces no finding", () => {
+    expect(findPathHygieneViolations(["dist/a.js", "dist/b.js", "package.json"])).toEqual([]);
+  });
+
+  // RP-9. Generated at test time on purpose: a committed CRLF fixture is normalised back to
+  // LF by `.gitattributes`' `* eol=lf` on the next `git add`.
+  it("REQ-RMD-03.2: a CRLF-bearing file is reported with its path and the offset of the \\r", () => {
+    expect(
+      findCrlfOffenders([
+        { path: "dist/clean.js", bytes: Buffer.from("const a = 1;\nconst b = 2;\n") },
+        { path: "dist/crlf.js", bytes: Buffer.from("const a = 1;\r\n") },
+      ])
+    ).toEqual([{ path: "dist/crlf.js", offset: 12 }]);
+  });
+
+  it("REQ-RMD-03.4: a BOM-prefixed file is reported and a clean one is not", () => {
+    expect(
+      findBomOffenders([
+        { path: "dist/clean.js", bytes: Buffer.from("const a = 1;\n") },
+        { path: "dist/bom.js", bytes: Buffer.from("﻿const a = 1;\n") },
+      ])
+    ).toEqual(["dist/bom.js"]);
   });
 });

@@ -9,8 +9,18 @@
  * scenarios arrive in S-002 and the CST/BDI ones in S-003 — each in its own `describe`
  * block, so the extensions do not collide with this one.
  */
-import { describe, it, expect, beforeAll } from "bun:test";
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import {
+  appendFileSync,
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
@@ -19,9 +29,15 @@ import {
   type ClosureEdge,
   type ClosurePath,
 } from "../../scripts/derive-runner-closure.ts";
+import { tmpdir, userInfo } from "node:os";
 import { ensureTscBuild } from "../support/shared-build.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { PROJECT_ROOT, hashFile } from "../support/scratch-consumer.ts";
+import {
+  findBomOffenders,
+  findCrlfOffenders,
+  findPathHygieneViolations,
+} from "../support/closure-integrity-checks.ts";
 
 const MANIFEST_RELATIVE_PATH = "runner-manifest.json";
 const ENTRY_RELATIVE_PATH = "bin/pbuilder-runner.js";
@@ -50,12 +66,21 @@ let distDir = "";
 let manifestPath = "";
 let manifestRaw = "";
 let manifest: RunnerManifest;
+let pristineRoot = "";
 
 beforeAll(() => {
   distDir = ensureTscBuild();
   manifestPath = join(distDir, MANIFEST_RELATIVE_PATH);
   manifestRaw = readFileSync(manifestPath, "utf-8");
   manifest = JSON.parse(manifestRaw) as RunnerManifest;
+
+  pristineRoot = mkdtempSync(join(tmpdir(), "fit-42-pristine-"));
+  cpSync(distDir, join(pristineRoot, "dist"), { recursive: true });
+  cpSync(join(PROJECT_ROOT, "package.json"), join(pristineRoot, "package.json"));
+});
+
+afterAll(() => {
+  if (pristineRoot !== "") rmSync(pristineRoot, { recursive: true, force: true });
 });
 
 describe("FIT-42 S-000 — the build emits a runner manifest", () => {
@@ -188,4 +213,214 @@ describe("FIT-42 S-001 — the committed closure-graph baseline", () => {
     expect(regenerateAt(root).status).not.toBe(0);
     expect(existsSync(join(root, BASELINE_RELATIVE_PATH))).toBe(false);
   });
+});
+
+const EXCLUDED_FROM_MANIFEST = [
+  /\.d\.ts$/,
+  /^dist\/dialects\//,
+  /^dist\/commons\//,
+  /^dist\/conformance\//,
+  /^dist\/testing\//,
+  /(^|\/)node_modules\//,
+  /^dist\/runner-manifest\.json$/,
+];
+
+describe("FIT-42 S-002 — the manifest agrees with the committed baseline", () => {
+  it("REQ-RCD-01.1: the derived closure equals the baseline's node set", () => {
+    const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as ClosureBaseline;
+    const derived = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).nodes;
+    expect([...derived].sort(comparePaths)).toEqual([...baseline.nodes].sort(comparePaths));
+  });
+
+  // Never a literal six-element array: pinning the identity of today's builtins would turn a
+  // legitimate future `node:buffer` into a red build, against the design's permissive bias.
+  it("REQ-RCD-04.1: the observed builtin set equals the baseline's builtins row", () => {
+    const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as ClosureBaseline;
+    const derived = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).builtins;
+    expect([...derived]).toEqual([...baseline.builtins]);
+  });
+});
+
+describe("FIT-42 S-002 — the manifest's shape, exclusions, hygiene and ordering", () => {
+  it("REQ-RME-01.3: the top-level key set is exactly the five pinned fields", () => {
+    expect(Object.keys(manifest)).toEqual([
+      "manifestVersion",
+      "algorithm",
+      "entry",
+      "packageVersion",
+      "files",
+    ]);
+  });
+
+  it("REQ-RME-01.3: every file record's key set is exactly {path, sha256}", () => {
+    const offenders = manifest.files.filter(
+      (record) => JSON.stringify(Object.keys(record)) !== '["path","sha256"]'
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("REQ-RME-01.2: exactly one record is package.json and the other 23 start with dist/", () => {
+    const paths = manifest.files.map((record) => record.path);
+    expect(paths.filter((path) => path === "package.json").length).toBe(1);
+    expect(paths.filter((path) => path.startsWith("dist/")).length).toBe(23);
+  });
+
+  it("REQ-RME-03.1: no record matches an excluded tree, a .d.ts, or the manifest itself", () => {
+    const offenders = manifest.files
+      .map((record) => record.path)
+      .filter((path) => EXCLUDED_FROM_MANIFEST.some((pattern) => pattern.test(path)));
+    expect(offenders).toEqual([]);
+  });
+
+  it("REQ-RME-04.1: every record path passes path hygiene", () => {
+    expect(findPathHygieneViolations(manifest.files.map((record) => record.path))).toEqual([]);
+  });
+
+  it("REQ-RME-05.1: consecutive record paths are strictly ascending under Buffer.compare", () => {
+    const paths = manifest.files.map((record) => record.path);
+    const notAscending = paths.filter(
+      (path, index) => index > 0 && comparePaths(paths[index - 1] as string, path) >= 0
+    );
+    expect(notAscending).toEqual([]);
+  });
+
+  it("REQ-RMD-05.1: the manifest bytes carry no cwd and no username", () => {
+    expect(manifestRaw).not.toContain(process.cwd());
+    expect(manifestRaw).not.toContain(userInfo().username);
+  });
+});
+
+describe("FIT-42 S-002 — the closure's own bytes are line-ending and BOM clean", () => {
+  function closureFileBytes(): Array<{ path: string; bytes: Uint8Array }> {
+    const files: Array<{ path: string; bytes: Uint8Array }> = [];
+    for (const node of deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).nodes) {
+      files.push({ path: `dist/${node}`, bytes: readFileSync(join(distDir, node)) });
+      const source = join(PROJECT_ROOT, "src", node.replace(/\.js$/, ".ts"));
+      if (existsSync(source)) files.push({ path: `src/${node}`, bytes: readFileSync(source) });
+    }
+    return files;
+  }
+
+  it("REQ-RMD-03.2: no emitted closure file contains a CRLF pair", () => {
+    const emitted = closureFileBytes().filter(({ path }) => path.startsWith("dist/"));
+    expect(emitted.length).toBe(23);
+    expect(findCrlfOffenders(emitted)).toEqual([]);
+  });
+
+  it("REQ-RMD-03.4: no closure source or emitted file begins with a UTF-8 BOM", () => {
+    const files = closureFileBytes();
+    expect(files.filter(({ path }) => path.startsWith("src/")).length).toBeGreaterThan(0);
+    expect(findBomOffenders(files)).toEqual([]);
+  });
+});
+
+// Every mutating Tier-B case operates on its own copy. The real memoized dist/ is read by
+// FIT-04, FIT-14, the dist-runner e2e and this file's own digest checks — mutating it would
+// corrupt a tree nothing rebuilds within one `bun test` process.
+// Copies come from a snapshot taken ONCE in beforeAll, not from the live dist/: another
+// test file's unmemoized `bun run build` deletes and rebuilds the real tree mid-suite, and
+// a body-time read of it would race that rebuild five separate times.
+function copyPackageRootTo(root: string): string {
+  mkdirSync(root, { recursive: true });
+  cpSync(join(pristineRoot, "dist"), join(root, "dist"), { recursive: true });
+  cpSync(join(pristineRoot, "package.json"), join(root, "package.json"));
+  return root;
+}
+
+function copiedPackageRoot(): string {
+  return copyPackageRootTo(scratchRoot());
+}
+
+function runGenerator(root: string, extraEnv?: Record<string, string>): ReturnType<typeof spawnSync> {
+  return spawnSync("bun", ["scripts/generate-runner-manifest.ts", root], {
+    cwd: PROJECT_ROOT,
+    encoding: "utf-8",
+    env: extraEnv === undefined ? process.env : { ...process.env, ...extraEnv },
+  });
+}
+
+const manifestIn = (root: string): string => join(root, "dist", MANIFEST_RELATIVE_PATH);
+
+describe("FIT-42 S-002 — the manifest is deterministic", () => {
+  it("REQ-RMD-01.1: two consecutive generator runs on an unchanged tree agree byte for byte", () => {
+    const root = copiedPackageRoot();
+    expect(runGenerator(root).status).toBe(0);
+    const first = readFileSync(manifestIn(root), "utf-8");
+    expect(runGenerator(root).status).toBe(0);
+    expect(readFileSync(manifestIn(root), "utf-8")).toBe(first);
+  });
+
+  // Two CHILD processes, never a mutation of this process's env.
+  //
+  // SCOPE, stated so nobody reads this as more than it is: under Bun no locale env var
+  // (LC_ALL, LANG, LC_COLLATE) moves the default collator — `Intl.Collator()` resolves to
+  // en-US regardless, verified — so this proves cross-process byte-stability under a
+  // differing environment, NOT that a `localeCompare` implementation would be caught.
+  // The assertion that actually kills `localeCompare` is REQ-RME-05.2's pinned pairs.
+  it("REQ-RMD-01.2: runs under LC_ALL=C and LC_ALL=tr_TR.UTF-8 agree byte for byte", () => {
+    const root = copiedPackageRoot();
+    expect(runGenerator(root, { LC_ALL: "C" }).status).toBe(0);
+    const underC = readFileSync(manifestIn(root), "utf-8");
+    expect(runGenerator(root, { LC_ALL: "tr_TR.UTF-8" }).status).toBe(0);
+    expect(readFileSync(manifestIn(root), "utf-8")).toBe(underC);
+  });
+
+  it("REQ-RMD-02.1: a root whose path holds a space and a non-ASCII segment yields the canonical bytes", () => {
+    const root = copyPackageRootTo(join(scratchRoot(), "prüf ung"));
+    expect(root).toMatch(/ /);
+    expect(root).toMatch(/[^\x20-\x7e]/);
+
+    expect(runGenerator(root).status).toBe(0);
+    expect(readFileSync(manifestIn(root), "utf-8")).toBe(manifestRaw);
+  });
+});
+
+describe("FIT-42 S-002 — tampering is localised to the file that changed", () => {
+  // RP-1.
+  it("REQ-RMD-04.1: appending one byte to a copied session.js changes exactly that record", () => {
+    const root = copiedPackageRoot();
+    expect(runGenerator(root).status).toBe(0);
+    const before = JSON.parse(readFileSync(manifestIn(root), "utf-8")) as RunnerManifest;
+
+    appendFileSync(join(root, "dist/core/session.js"), "\n");
+    expect(runGenerator(root).status).toBe(0);
+    const after = JSON.parse(readFileSync(manifestIn(root), "utf-8")) as RunnerManifest;
+
+    expect(after.files.length).toBe(before.files.length);
+    expect(after.files.map((r) => r.path)).toEqual(before.files.map((r) => r.path));
+    const changed = after.files.filter(
+      (record, index) => record.sha256 !== (before.files[index] as { sha256: string }).sha256
+    );
+    expect(changed.map((record) => record.path)).toEqual(["dist/core/session.js"]);
+  });
+});
+
+describe("FIT-42 S-002 — the generator fails closed and leaves nothing behind", () => {
+  // Invoked DIRECTLY, never through the build wrapper: the `prebuild` clean would delete the
+  // prepared manifest before the generator ran, making the assertion vacuous.
+  it("REQ-BPI-02.1: a violating tree that already holds a manifest ends with no manifest", () => {
+    const root = copiedPackageRoot();
+    expect(runGenerator(root).status).toBe(0);
+    expect(existsSync(manifestIn(root))).toBe(true);
+
+    appendFileSync(join(root, "dist/core/wire.js"), 'import "ts-morph";\n');
+    const result = runGenerator(root);
+
+    expect(result.status).not.toBe(0);
+    expect(existsSync(manifestIn(root))).toBe(false);
+  });
+
+  it.skipIf(process.getuid?.() === 0)(
+    "REQ-BPI-02.2: an unreadable closure file leaves no file at all at the manifest path",
+    () => {
+      const root = copiedPackageRoot();
+      rmSync(manifestIn(root), { force: true });
+      chmodSync(join(root, "dist/core/session.js"), 0o000);
+
+      const result = runGenerator(root);
+
+      expect(result.status).not.toBe(0);
+      expect(existsSync(manifestIn(root))).toBe(false);
+    }
+  );
 });
