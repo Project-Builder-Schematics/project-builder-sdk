@@ -30,14 +30,14 @@ Everything else follows design's Order column directly: S-001 = Order 2 (rows 5�
 
 ## Slice overview
 
-| Slice | Title | Files (design row #) | Droppable |
-|---|---|---|---|
-| **S-000** | Walking skeleton: derive → generate → build-wire → LF → FIT-14 remediation | 1, 2, 3(partial), 4, 11, 12 | **No** — foundation |
-| **S-001** | Baseline writer + committed closure-graph baseline | 3(partial), 5, 6 | Degraded — see below |
-| **S-002** | Manifest correctness, shape, determinism, build-pipeline hardening | 7(partial), 8(partial), 9(partial), 10 | **No** — core substance |
-| **S-003** | Closure-sealing tripwires + bundler/graph-drift disjointness | 7(partial), 8(partial) | **No** — the durable security value |
-| **S-004** | Packaged-manifest fidelity (Tier C: pack/extract/install) | 13 | Yes — cost stated below |
-| **S-005** | Integrity-invariants documentation + `SECURITY.md` + probe header | 14, 15, 16, 17, 18 | Yes — cost stated below |
+| Slice | Title | Files (design row #) | Droppable | Status |
+|---|---|---|---|---|
+| **S-000** | Walking skeleton: derive → generate → build-wire → LF → FIT-14 remediation | 1, 2, 3(partial), 4, 11, 12 | **No** — foundation | **[x] built** |
+| **S-001** | Baseline writer + committed closure-graph baseline | 3(partial), 5, 6 | Degraded — see below | pending |
+| **S-002** | Manifest correctness, shape, determinism, build-pipeline hardening | 7(partial), 8(partial), 9(partial), 10 | **No** — core substance | pending |
+| **S-003** | Closure-sealing tripwires + bundler/graph-drift disjointness | 7(partial), 8(partial) | **No** — the durable security value | pending |
+| **S-004** | Packaged-manifest fidelity (Tier C: pack/extract/install) | 13 | Yes — cost stated below | pending |
+| **S-005** | Integrity-invariants documentation + `SECURITY.md` + probe header | 14, 15, 16, 17, 18 | Yes — cost stated below | pending |
 
 ---
 
@@ -75,29 +75,30 @@ landing in S-002/S-003.
 - `test/build/build-config.test.ts` — **created/modified, partial**: the two build-wiring assertions
   only (BPI-01.1/01.2, RMD-03.1). RMD-03.3 (`.gitattributes` scope) is added later, in S-002.
 
-**Acceptance criteria (observable):**
-1. `bun run build` succeeds and prints exactly two stdout lines matching `BUILD_IDENTITY_LINES`
+**Acceptance criteria (observable)** — all 10 **[x] DONE** (see `apply-progress.md` for the proving test
+per criterion):
+1. [x] `bun run build` succeeds and prints exactly two stdout lines matching `BUILD_IDENTITY_LINES`
    (`runner-manifest: 24 files -> dist/runner-manifest.json` / `runner-manifest-sha256: <64 hex>`).
-2. `dist/runner-manifest.json` exists, parses as JSON, `manifestVersion === 1`, `algorithm === "sha256"`,
+2. [x] `dist/runner-manifest.json` exists, parses as JSON, `manifestVersion === 1`, `algorithm === "sha256"`,
    `files.length === 24`, `entry === "dist/bin/pbuilder-runner.js"`, `packageVersion` equals root
    `package.json#version`.
-3. `dist/core/authoring-error.js` and `dist/core/context.js` (the two JSDoc-quoting files from ADR-01)
+3. [x] `dist/core/authoring-error.js` and `dist/core/context.js` (the two JSDoc-quoting files from ADR-01)
    appear as ordinary file records with **no violations** — the day-one false-alarm scenario, on the real
    tree, by name.
-4. `dist/core/engine-client.js` is **absent** from the closure and from `files`, by name (the 23-vs-24
+4. [x] `dist/core/engine-client.js` is **absent** from the closure and from `files`, by name (the 23-vs-24
    proof).
-5. A synthetic-tree unit test (`mkdtempSync`, entry→A,B; A→C; D unimported) proves `deriveRunnerClosure`
+5. [x] A synthetic-tree unit test (`mkdtempSync`, entry→A,B; A→C; D unimported) proves `deriveRunnerClosure`
    returns exactly `{entry,A,B,C}` with **D absent, asserted by name** — the anti-tautology scenario; the
    single test QA calls "the most important addition in V2," because it's the only one a
    baseline-reading stub cannot pass.
-6. Independently recomputed SHA-256 (test's own hasher, not the generator's) over every file at `path`
+6. [x] Independently recomputed SHA-256 (test's own hasher, not the generator's) over every file at `path`
    matches every digest in the manifest.
-7. The manifest's raw bytes satisfy `raw === JSON.stringify(JSON.parse(raw), null, 2) + "\n"`.
-8. `comparePaths` sorts the two discriminating pairs (`dist/Z.js`/`dist/a.js`,
+7. [x] The manifest's raw bytes satisfy `raw === JSON.stringify(JSON.parse(raw), null, 2) + "\n"`.
+8. [x] `comparePaths` sorts the two discriminating pairs (`dist/Z.js`/`dist/a.js`,
    `dist/a-b.js`/`dist/aB.js`) in byte order, not locale order.
-9. `test/fitness/pkg-surface-baseline.json#tarball` contains `dist/runner-manifest.json`; FIT-14 stays
+9. [x] `test/fitness/pkg-surface-baseline.json#tarball` contains `dist/runner-manifest.json`; FIT-14 stays
    green immediately after this slice merges — **the point of pulling row 11 forward**.
-10. `package.json#scripts.build` structurally contains `build:manifest` as its last `&&`-segment.
+10. [x] `package.json#scripts.build` structurally contains `build:manifest` as its last `&&`-segment.
 
 **REQ-IDs**: closes **RME-06, RME-07, BPI-01, BPI-04, PMF-03**. Partially covers (implementation
 complete, exhaustive scenario matrix completed in S-002/S-003): RCD-00, RCD-01 (RCD-01.2 only), RCD-02
