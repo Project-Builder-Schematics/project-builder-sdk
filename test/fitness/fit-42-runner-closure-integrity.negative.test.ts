@@ -290,6 +290,31 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
     ]);
   });
 
+  // judgment-day finding 1: the exemption used to key on "first non-import occurrence",
+  // never checking what that occurrence DID — an execute-shaped call evaded it entirely.
+  it("REQ-CST-04.3: an EXECUTING createRequire at the anchor is not exempt — resolve-only, never execute", () => {
+    const root = plantTree({
+      [CREATE_REQUIRE_ANCHOR_FILE]:
+        'import { createRequire } from "node:module";\ncreateRequire(anchor)("./x.js");\n',
+    });
+    expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([
+      { rule: "constraint-4-execution-primitive", file: CREATE_REQUIRE_ANCHOR_FILE },
+    ]);
+  });
+
+  // judgment-day finding 1 (Judge A): the exemption keyed on identifier TEXT "createRequire",
+  // so an aliased import left no such identifier at its use sites — unlimited, unflagged
+  // executions through the alias. An aliased binding forfeits the exemption entirely.
+  it("REQ-CST-04.3: an ALIASED createRequire import at the anchor forfeits the exemption entirely", () => {
+    const root = plantTree({
+      [CREATE_REQUIRE_ANCHOR_FILE]:
+        'import { createRequire as cr } from "node:module";\ncr(u)("./x.js");\ncr(u)("./y.js");\n',
+    });
+    const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
+    expect(violations.length).toBeGreaterThanOrEqual(2);
+    expect(violations.every((v) => v.rule === "constraint-4-execution-primitive")).toBe(true);
+  });
+
   it("REQ-CST-06.1: a rendered violation names the src file to edit, the rule, and the no-manifest outcome", () => {
     const root = plantTree({ "transport/entry.js": 'import { Project } from "ts-morph";\n' });
     const rendered = renderViolations(

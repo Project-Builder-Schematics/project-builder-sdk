@@ -195,14 +195,32 @@ function denyScan(sourceFile: SourceFile, file: ClosurePath): Violation[] {
     });
   });
 
-  let anchoredUses = 0;
+  const atCreateRequireAnchor = file === CREATE_REQUIRE_ANCHOR_FILE;
+  // Resolved ONLY for the anchor file: an aliased import (`createRequire as cr`) leaves no
+  // "createRequire"-text identifier at its use sites, so the ordinary text ban below would
+  // never see it there. Elsewhere the ban stays text-based on purpose — REQ-CST-04.4's
+  // synthetic fixtures use the bare identifier with no import at all and must still be caught.
+  const anchorLocalName = atCreateRequireAnchor ? createRequireLocalNameIn(sourceFile) : undefined;
+  const anchorAliased = anchorLocalName !== undefined && anchorLocalName !== "createRequire";
+  let anchorExemptionConsumed = false;
+
   for (const identifier of sourceFile.getDescendantsOfKind(SyntaxKind.Identifier)) {
     const name = identifier.getText();
-    if (!DENIED_IDENTIFIERS.has(name)) continue;
-    if (name === "createRequire" && file === CREATE_REQUIRE_ANCHOR_FILE) {
+    const isAnchorAliasUse = atCreateRequireAnchor && anchorAliased && name === anchorLocalName;
+    if (!DENIED_IDENTIFIERS.has(name) && !isAnchorAliasUse) continue;
+
+    // An aliased anchor import forfeits the exemption outright (judgment-day finding 1,
+    // Judge A) — every occurrence, including the import binding itself, is a violation.
+    if (name === "createRequire" && atCreateRequireAnchor && !anchorAliased) {
       if (identifier.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) !== undefined) continue;
-      if (anchoredUses++ === 0) continue;
+      // The ONE exempt use must be resolution, never execution (judgment-day finding 1): the
+      // callee of a call whose result is immediately `.resolve(...)`d.
+      if (!anchorExemptionConsumed && isResolveOnlyCreateRequireUse(identifier)) {
+        anchorExemptionConsumed = true;
+        continue;
+      }
     }
+
     found.push(primitiveViolation(identifier, file, name));
   }
 
@@ -212,6 +230,33 @@ function denyScan(sourceFile: SourceFile, file: ClosurePath): Violation[] {
   }
 
   return found;
+}
+
+/** The anchor file's createRequire local binding — `undefined` if it never imports it. */
+function createRequireLocalNameIn(sourceFile: SourceFile): string | undefined {
+  for (const declaration of sourceFile.getImportDeclarations()) {
+    if (declaration.getModuleSpecifierValue() !== "node:module") continue;
+    for (const specifier of declaration.getNamedImports()) {
+      if (specifier.getName() === "createRequire") {
+        return specifier.getAliasNode()?.getText() ?? specifier.getName();
+      }
+    }
+  }
+  return undefined;
+}
+
+// ADR-04: resolution, never execution. True only for `X(...).resolve(...)` — the identifier
+// is the callee of a call, that call's result is a `.resolve` property access, and THAT
+// access is itself called. A bare `X(...)("./x.js")` or `X(...).resolve` (never invoked)
+// both fail this shape.
+function isResolveOnlyCreateRequireUse(identifier: Node): boolean {
+  const call = identifier.getParent();
+  if (!Node.isCallExpression(call) || call.getExpression() !== identifier) return false;
+  const access = call.getParent();
+  if (!Node.isPropertyAccessExpression(access) || access.getExpression() !== call) return false;
+  if (access.getName() !== "resolve") return false;
+  const outerCall = access.getParent();
+  return Node.isCallExpression(outerCall) && outerCall.getExpression() === access;
 }
 
 function primitiveViolation(node: Node, file: ClosurePath, primitive: string): Violation {
