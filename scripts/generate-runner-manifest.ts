@@ -72,13 +72,26 @@ const files = manifestPaths.map((path) => {
   return { path, sha256: sha256Bytes(bytes) };
 });
 
-const rootPackage = JSON.parse(packageJsonBytes.toString("utf-8")) as { version: string };
+const rootPackage = JSON.parse(packageJsonBytes.toString("utf-8")) as { version?: unknown };
+
+// An `as` assertion trusts the shape; it does not check it. A `version`-less package.json
+// (or a non-string one) must fail the build, not silently produce a manifest whose
+// `packageVersion` JSON.stringify then drops — the engine needs that field to tell
+// version-mismatch apart from integrity-mismatch (REQ-RME-07.1).
+const packageVersion = rootPackage.version;
+if (typeof packageVersion !== "string" || packageVersion.length === 0) {
+  const found =
+    typeof packageVersion === "string"
+      ? `package.json has an empty "version" field`
+      : `package.json is missing a non-empty "version" field (found: ${JSON.stringify(packageVersion)})`;
+  failClosed([{ rule: "unreadable-file", file: "package.json", line: null, found }]);
+}
 
 const manifest: RunnerManifest = {
   manifestVersion: 1,
   algorithm: "sha256",
   entry: `${DIST_DIR_NAME}/${ENTRY_RELATIVE_PATH}`,
-  packageVersion: rootPackage.version,
+  packageVersion,
   files,
 };
 

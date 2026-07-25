@@ -762,3 +762,31 @@ Source: change `stage-2-error-attribution` (2026-07-06)
 
 Source: change `ts-addimport-collision` (2026-07-21)
 
+
+## From `runner-integrity-manifest` (2026-07-25)
+
+### An enumerating check is the wrong mechanism for a closed-set guarantee — invert the invariant instead
+**What**: Constraint 4 ("no `createRequire` in the runner closure, one anchored exemption") was enforced by scanning for forbidden AST *shapes*. Two blind-judgment rounds found two evasions in a row, each one a spelling the previous fix had not imagined: first `createRequire(u)("./x")` (execution, where the exemption assumed resolution), then an unaliased decoy import alongside `import { createRequire as cr }` (the alias check read only the first binding, so the decoy consumed the single exemption). The fix that finally held stopped enumerating and **required the anchor to prove a shape**: exactly one binding, unaliased, or the exemption is forfeit outright and every bound name becomes denied text.
+**Why**: An enumerating check answers "does this match something I forbade?" — its correctness depends on the author's imagination, and every round of review only adds the cases that round's reviewer thought of. An inverted invariant answers "does this prove the one shape I allow?", which is decidable and has no tail. The two are not the same rigour at different budgets; they are different guarantees.
+**Where**: `scripts/derive-runner-closure.ts` `denyScan`. The same class is still live in four registered followups (computed member access, the bare `Function` ban, the namespace form, JSDoc identifiers) — `pending-changes.md` registers the *mechanism decision* as their parent rather than queuing them as individual patches.
+**Learned**: When a check must guarantee that a set is closed (no execution primitives, no unhashed edges, no escape hatches), write it as a positive invariant the code must satisfy, not as a deny-list it must avoid. If a review round produces "add this spelling too", that is evidence about the mechanism, not about the spelling. Escalate to a design decision at the *second* such finding, not the fifth.
+
+### ~25 review-and-fix rounds is a mechanism diagnosis, not bad luck
+**What**: This cycle ran roughly 25 discrete review/fix rounds — 5 in-loop verifies (all PASS first time), then a long tail: a test-fidelity fix, a coverage gap, a CI-only failure, two blind-judgment rounds and two fix iterations. The build phase was clean; the tail was where the cost lived, and every finding in the tail concerned the same subsystem.
+**Why**: The concentration is the signal. Findings spread evenly across a change mean ordinary review; findings that keep landing on one mechanism mean the mechanism is mismatched to what it must guarantee. Iteration cannot fix a mismatch — it only enumerates its symptoms, and each round produces a fix that looks reasonable in isolation.
+**Where**: SDD process discipline; concretely, the judgment-day loop's convergence threshold.
+**Learned**: Track *where* findings land, not just how many. Two rounds landing on the same mechanism should trigger a design question ("is this the right kind of check?") rather than a third fix round. The judgment-day protocol's "ask the owner after 2 iterations" rule exists for exactly this moment and should be read as a prompt to re-examine the mechanism, not merely to decide whether to keep paying.
+
+### A test that cannot go red is worse than no test — and "pin the fixture" does not always fix vacuity
+**What**: RP-12's real-tree assertion (`expect(nodes).not.toContain("core/schema.generated.js")`) was flagged as vacuous, "fixed" by changing the id to `.ts` on the reasoning that this is what a regressed walker would emit — and Round 2 disproved that too: the file does not exist in `dist/`, so classification returns `unresolvable-specifier` **before** any node is pushed. Both spellings were equally unfalsifiable. The resolution was to **delete** it; the property is genuinely proven by a sibling test that plants the target on disk and pins the node set exactly.
+**Why**: A negative assertion over a *derived* set passes trivially whenever the derivation cannot produce the value under any circumstance — correct code and broken code look identical. Repairing the value being excluded does not help if the derivation still cannot reach it; only constructing a world where a regression genuinely *would* produce it does.
+**Where**: `test/fitness/fit-42-runner-closure-integrity.test.ts` (deleted) vs its surviving sibling in `.negative.test.ts`.
+**Learned**: To prove an exclusion, build the fixture where the excluded thing would exist if the code regressed — plant the file, make the specifier resolvable — and pin the resulting set exactly (`toEqual`), not by absence (`not.toContain`). And when a vacuity fix is proposed, ask "can this assertion go red?" before accepting it; two rounds were spent on an assertion whose replacement was equally dead.
+
+### Ship the unblocking slice separately from its hardening
+**What**: The slice plan explicitly recorded that the engine handover was complete after S-003 and that S-004/S-005 were "not required for the engine handover itself". The pipeline was nonetheless run as one atomic unit, so the engine stayed blocked for the entire cycle — including the ~25-round hardening tail — on work its own plan had marked separable. Split late, under time pressure: PR #50 merged the manifest, PR #51 carried the tripwire hardening.
+**Why**: Orchestration treated "the change" as the unit of delivery when the *plan itself* had already identified a smaller one. The cost was borne entirely by a downstream consumer who needed only the first half.
+**Where**: SDD orchestration — `/build` and `/evaluate` scope decisions for L changes.
+**Learned**: When a slices artefact names a handover point mid-plan, that point is a **shipping boundary**, not a note. Cut the PR there and let the remainder continue on its own branch. A downstream repo blocked on the first half of a change is the loudest possible signal that the unit of delivery was chosen wrong.
+
+Source: change `runner-integrity-manifest` (2026-07-25)

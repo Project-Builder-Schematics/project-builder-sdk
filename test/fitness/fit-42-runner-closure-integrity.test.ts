@@ -179,9 +179,13 @@ describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
     expect(paths).toContain("dist/core/context.js");
   });
 
-  it("REQ-RCD-03.3: the JSDoc-quoted relative specifier adds no phantom node", () => {
-    const derivation = derivedFromDistDir();
-    expect(derivation.nodes).not.toContain("core/schema.generated.js");
+  // judgment-day finding 3: none of the three original assertions here proved the @example
+  // JSDoc was still present — deleting it left all three green. Pin the fixture by content.
+  it("REQ-RCD-03.3: the two @example blocks — a bare specifier and a relative one — are still emitted", () => {
+    const authoringError = readFileSync(join(distDir, "core/authoring-error.js"), "utf-8");
+    const context = readFileSync(join(distDir, "core/context.js"), "utf-8");
+    expect(authoringError).toContain('import { AuthoringError } from "@pbuilder/sdk/commons";');
+    expect(context).toContain('import type { Input } from "./schema.generated.ts";');
   });
 
   // engine-client.ts is reachable only via `import type`, so tsc erases the edge: a SOURCE
@@ -460,6 +464,72 @@ describe("FIT-42 S-002 — the generator fails closed and leaves nothing behind"
       expect(existsSync(manifestIn(root))).toBe(false);
     }
   );
+});
+
+// JD finding 4: an `as { version: string }` assertion let a versionless package.json produce
+// a manifest silently missing `packageVersion` — no non-zero exit, no stderr line. These prove
+// the guard actually fails the build instead of trusting the assertion.
+describe("FIT-42 S-002 — the generator fails closed on an invalid package.json#version", () => {
+  function withVersion(root: string, version: unknown): void {
+    const packageJsonPath = join(root, "package.json");
+    const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8")) as Record<string, unknown>;
+    if (version === undefined) {
+      delete pkg.version;
+    } else {
+      pkg.version = version;
+    }
+    writeFileSync(packageJsonPath, JSON.stringify(pkg));
+  }
+
+  it("REQ-RME-07.1: package.json with no `version` field fails closed and removes a pre-existing manifest", () => {
+    const root = copiedPackageRoot();
+    expect(runGenerator(root).status).toBe(0);
+    expect(existsSync(manifestIn(root))).toBe(true);
+
+    withVersion(root, undefined);
+    const result = runGenerator(root);
+
+    expect(result.status).not.toBe(0);
+    expect(existsSync(manifestIn(root))).toBe(false);
+  });
+
+  // Triangulates the non-string class with ONE representative (a number): `undefined` above
+  // and a number both fail `typeof version !== "string"` the same way, so this is not
+  // re-asserting the same branch — it proves the guard rejects the type, not just absence.
+  it("REQ-RME-07.1: a non-string `version` (a number) fails closed and removes a pre-existing manifest", () => {
+    const root = copiedPackageRoot();
+    expect(runGenerator(root).status).toBe(0);
+    expect(existsSync(manifestIn(root))).toBe(true);
+
+    withVersion(root, 2);
+    const result = runGenerator(root);
+
+    expect(result.status).not.toBe(0);
+    expect(existsSync(manifestIn(root))).toBe(false);
+  });
+
+  // A distinct branch from "non-string": typeof is "string" but the value is empty, so a
+  // `typeof !== "string"` check alone would let it through.
+  it("REQ-RME-07.1: an empty-string `version` fails closed and removes a pre-existing manifest", () => {
+    const root = copiedPackageRoot();
+    expect(runGenerator(root).status).toBe(0);
+    expect(existsSync(manifestIn(root))).toBe(true);
+
+    withVersion(root, "");
+    const result = runGenerator(root);
+
+    expect(result.status).not.toBe(0);
+    expect(existsSync(manifestIn(root))).toBe(false);
+  });
+
+  it("REQ-RME-07.1: the failure names package.json and the missing version concretely on stderr", () => {
+    const root = copiedPackageRoot();
+    withVersion(root, undefined);
+    const result = runGenerator(root);
+
+    expect(result.stderr).toContain("package.json");
+    expect(result.stderr).toContain("version");
+  });
 });
 
 // Reads go through the beforeAll snapshot, never the live dist/: another file's unmemoized

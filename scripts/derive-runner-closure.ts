@@ -195,14 +195,34 @@ function denyScan(sourceFile: SourceFile, file: ClosurePath): Violation[] {
     });
   });
 
-  let anchoredUses = 0;
+  const atCreateRequireAnchor = file === CREATE_REQUIRE_ANCHOR_FILE;
+  // The exemption is granted to a SHAPE the anchor must PROVE, never searched for among
+  // whatever the file happens to import: exactly one createRequire binding, unaliased. Any
+  // other arrangement forfeits it, and every binding name found becomes denied text — so no
+  // spelling of the primitive can be reached through a name the text ban below cannot see.
+  // Elsewhere the ban stays purely text-based on purpose: REQ-CST-04.4's synthetic fixtures
+  // use the bare identifier with no import at all and must still be caught.
+  const anchorBindings = atCreateRequireAnchor ? createRequireBindingsIn(sourceFile) : [];
+  const anchorExempt = anchorBindings.length === 1 && anchorBindings[0] === "createRequire";
+  const deniedHere = anchorExempt
+    ? DENIED_IDENTIFIERS
+    : new Set([...DENIED_IDENTIFIERS, ...anchorBindings]);
+  let anchorExemptionConsumed = false;
+
   for (const identifier of sourceFile.getDescendantsOfKind(SyntaxKind.Identifier)) {
     const name = identifier.getText();
-    if (!DENIED_IDENTIFIERS.has(name)) continue;
-    if (name === "createRequire" && file === CREATE_REQUIRE_ANCHOR_FILE) {
+    if (!deniedHere.has(name)) continue;
+
+    if (anchorExempt && name === "createRequire") {
       if (identifier.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) !== undefined) continue;
-      if (anchoredUses++ === 0) continue;
+      // The ONE exempt use must be resolution, never execution (judgment-day finding 1): the
+      // callee of a call whose result is immediately `.resolve(...)`d.
+      if (!anchorExemptionConsumed && isResolveOnlyCreateRequireUse(identifier)) {
+        anchorExemptionConsumed = true;
+        continue;
+      }
     }
+
     found.push(primitiveViolation(identifier, file, name));
   }
 
@@ -212,6 +232,34 @@ function denyScan(sourceFile: SourceFile, file: ClosurePath): Violation[] {
   }
 
   return found;
+}
+
+/** EVERY local name the file binds createRequire to — the count is itself the invariant. */
+function createRequireBindingsIn(sourceFile: SourceFile): string[] {
+  const bindings: string[] = [];
+  for (const declaration of sourceFile.getImportDeclarations()) {
+    if (declaration.getModuleSpecifierValue() !== "node:module") continue;
+    for (const specifier of declaration.getNamedImports()) {
+      if (specifier.getName() === "createRequire") {
+        bindings.push(specifier.getAliasNode()?.getText() ?? specifier.getName());
+      }
+    }
+  }
+  return bindings;
+}
+
+// ADR-04: resolution, never execution. True only for `X(...).resolve(...)` — the identifier
+// is the callee of a call, that call's result is a `.resolve` property access, and THAT
+// access is itself called. A bare `X(...)("./x.js")` or `X(...).resolve` (never invoked)
+// both fail this shape.
+function isResolveOnlyCreateRequireUse(identifier: Node): boolean {
+  const call = identifier.getParent();
+  if (!Node.isCallExpression(call) || call.getExpression() !== identifier) return false;
+  const access = call.getParent();
+  if (!Node.isPropertyAccessExpression(access) || access.getExpression() !== call) return false;
+  if (access.getName() !== "resolve") return false;
+  const outerCall = access.getParent();
+  return Node.isCallExpression(outerCall) && outerCall.getExpression() === access;
 }
 
 function primitiveViolation(node: Node, file: ClosurePath, primitive: string): Violation {

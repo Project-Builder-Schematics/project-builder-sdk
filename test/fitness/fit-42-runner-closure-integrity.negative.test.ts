@@ -224,6 +224,31 @@ describe("FIT-42N S-000 — every static specifier classifies, none is silently 
   );
 });
 
+describe("FIT-42N S-000 — RP-12: a JSDoc @example never enters the walk, even when its target exists", () => {
+  // judgment-day finding 3: the real-tree version of this proof (fit-42.test.ts) can only
+  // show "no violation, no node" against specifiers whose target happens not to exist — that
+  // proves nothing about whether comments are structurally excluded. Here the relative
+  // target genuinely EXISTS on disk, so a regressed walker that started reading JSDoc text
+  // would add a real node/edge, not silently no-op because the file is missing.
+  it("REQ-RCD-03.3: a bare specifier and a resolvable relative specifier, both JSDoc-quoted, add nothing", () => {
+    const root = plantTree({
+      "entry.js": [
+        "/**",
+        " * @example",
+        ' * import { Thing } from "some-package";',
+        ' * import type { Other } from "./real-target.ts";',
+        " */",
+        "export const noop = 1;",
+      ].join("\n"),
+      "real-target.ts": "export const other = 1;\n",
+    });
+    const derivation = deriveRunnerClosure(root, "entry.js");
+    expect(derivation.violations).toEqual([]);
+    expect(derivation.nodes).toEqual(["entry.js"]);
+    expect(derivation.nodes).not.toContain("real-target.ts");
+  });
+});
+
 describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface", () => {
   it("REQ-CST-03.1: a dynamic import() outside the sanctioned file is a Constraint-2 violation", () => {
     const root = plantTree({ "entry.js": 'const later = import("./a.js");\n' });
@@ -288,6 +313,49 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
     expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([
       { rule: "constraint-4-execution-primitive", file: CREATE_REQUIRE_ANCHOR_FILE },
     ]);
+  });
+
+  // judgment-day finding 1: the exemption used to key on "first non-import occurrence",
+  // never checking what that occurrence DID — an execute-shaped call evaded it entirely.
+  it("REQ-CST-04.3: an EXECUTING createRequire at the anchor is not exempt — resolve-only, never execute", () => {
+    const root = plantTree({
+      [CREATE_REQUIRE_ANCHOR_FILE]:
+        'import { createRequire } from "node:module";\ncreateRequire(anchor)("./x.js");\n',
+    });
+    expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([
+      { rule: "constraint-4-execution-primitive", file: CREATE_REQUIRE_ANCHOR_FILE },
+    ]);
+  });
+
+  // judgment-day finding 1 (Judge A): the exemption keyed on identifier TEXT "createRequire",
+  // so an aliased import left no such identifier at its use sites — unlimited, unflagged
+  // executions through the alias. An aliased binding forfeits the exemption entirely.
+  it("REQ-CST-04.3: an ALIASED createRequire import at the anchor forfeits the exemption entirely", () => {
+    const root = plantTree({
+      [CREATE_REQUIRE_ANCHOR_FILE]:
+        'import { createRequire as cr } from "node:module";\ncr(u)("./x.js");\ncr(u)("./y.js");\n',
+    });
+    const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
+    expect(violations.length).toBeGreaterThanOrEqual(2);
+    expect(violations.every((v) => v.rule === "constraint-4-execution-primitive")).toBe(true);
+  });
+
+  // judgment-day Round 2: the alias check searched for THE binding and stopped at the first
+  // one, so a decoy unaliased import made `anchorAliased` false — the decoy consumed the
+  // single exemption and every execution through the alias was skipped as an unknown name.
+  // Both judges reproduced this end-to-end against the real tree: build green, zero violations.
+  it("REQ-CST-04.3: an unaliased decoy alongside an aliased import does not buy the alias an exemption", () => {
+    const root = plantTree({
+      [CREATE_REQUIRE_ANCHOR_FILE]: [
+        'import { createRequire } from "node:module";',
+        'import { createRequire as cr } from "node:module";',
+        'cr(u)("./evil.cjs");',
+        "",
+      ].join("\n"),
+    });
+    const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
+    expect(violations.length).toBeGreaterThanOrEqual(1);
+    expect(violations.every((v) => v.rule === "constraint-4-execution-primitive")).toBe(true);
   });
 
   it("REQ-CST-06.1: a rendered violation names the src file to edit, the rule, and the no-manifest outcome", () => {
@@ -751,6 +819,36 @@ describe("FIT-42N S-003 — Constraint 1: bundler output stays off the closure",
     const targets = findBundlerTargets({ ok: "bun build x.ts --outfile dist/bin/codegen.js" });
     expect(targets.length).toBe(1);
     expect(findDisjointnessViolations(targets, closurePaths)).toEqual([]);
+  });
+
+  // judgment-day finding 2: docs/runner-integrity-invariants.md:86-87 names exactly this
+  // drift as the realistic Constraint-1 failure, and `bun build --outdir ./dist/x` is the
+  // idiomatic spelling — an unnormalised string compare let all three evade detection.
+  it("REQ-BDI-01.1: a leading './' on --outdir still collides — idiomatic bun spelling", () => {
+    const targets = findBundlerTargets({ leak: "bun build z.ts --outdir ./dist/transport" });
+    expect(findDisjointnessViolations(targets, closurePaths)).toEqual([
+      { script: "leak", target: "./dist/transport", colliding: "dist/transport/runner.js" },
+    ]);
+  });
+
+  it("REQ-BDI-01.1: a leading './' on --outfile still collides", () => {
+    const targets = findBundlerTargets({
+      leak: "bun build z.ts --outfile ./dist/transport/runner.js",
+    });
+    expect(findDisjointnessViolations(targets, closurePaths)).toEqual([
+      {
+        script: "leak",
+        target: "./dist/transport/runner.js",
+        colliding: "dist/transport/runner.js",
+      },
+    ]);
+  });
+
+  it("REQ-BDI-01.1: a trailing '/' on --outdir still collides", () => {
+    const targets = findBundlerTargets({ leak: "bun build z.ts --outdir dist/transport/" });
+    expect(findDisjointnessViolations(targets, closurePaths)).toEqual([
+      { script: "leak", target: "dist/transport/", colliding: "dist/transport/runner.js" },
+    ]);
   });
 });
 
