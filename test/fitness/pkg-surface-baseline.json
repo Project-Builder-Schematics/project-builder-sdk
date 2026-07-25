@@ -115,6 +115,7 @@
     "dist/dry-run/plan.js",
     "dist/index.d.ts",
     "dist/index.js",
+    "dist/runner-manifest.json",
     "dist/scaffold/classify-transport.d.ts",
     "dist/scaffold/classify-transport.js",
     "dist/scaffold/containment.d.ts",

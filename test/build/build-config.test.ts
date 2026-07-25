@@ -48,3 +48,34 @@ describe("REQ-PPH-05.1: declarationMap is false in tsconfig.build.json", () => {
     expect(parsed.compilerOptions?.declarationMap).toBe(false);
   });
 });
+
+// runner-integrity-manifest S-000. RMD-03.3 (.gitattributes scope) joins these in S-002.
+describe("runner manifest — build wiring and emitted line endings", () => {
+  const buildScripts = JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
+    scripts: Record<string, string>;
+  };
+  const buildChain = buildScripts.scripts.build?.split("&&").map((step) => step.trim()) ?? [];
+
+  it("REQ-BPI-01.1: `scripts.build` chains the manifest step", () => {
+    expect(buildChain).toContain("bun run build:manifest");
+  });
+
+  it("REQ-BPI-01.1: exactly one script invokes the generator, so no second command is needed", () => {
+    const invokers = Object.entries(buildScripts.scripts)
+      .filter(([, command]) => command.includes("generate-runner-manifest"))
+      .map(([name]) => name);
+    expect(invokers).toEqual(["build:manifest"]);
+  });
+
+  // Not merely present but LAST: a later failing step would otherwise leave a
+  // valid-looking manifest on a broken tree until the next `prebuild`.
+  it("REQ-BPI-01.2: the manifest step is the final segment of the build chain", () => {
+    expect(buildChain[buildChain.length - 1]).toBe("bun run build:manifest");
+  });
+
+  it("REQ-RMD-03.1: tsconfig.build.json pins tsc's emitted line terminator to LF", () => {
+    const raw = readFileSync(join(PROJECT_ROOT, "tsconfig.build.json"), "utf-8");
+    const parsed = JSON.parse(raw) as { compilerOptions?: { newLine?: string } };
+    expect(parsed.compilerOptions?.newLine).toBe("lf");
+  });
+});
