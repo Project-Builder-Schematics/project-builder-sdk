@@ -33,7 +33,7 @@ Everything else follows design's Order column directly: S-001 = Order 2 (rows 5�
 | Slice | Title | Files (design row #) | Droppable | Status |
 |---|---|---|---|---|
 | **S-000** | Walking skeleton: derive → generate → build-wire → LF → FIT-14 remediation | 1, 2, 3(partial), 4, 11, 12 | **No** — foundation | **[x] built** |
-| **S-001** | Baseline writer + committed closure-graph baseline | 3(partial), 5, 6 | Degraded — see below | pending |
+| **S-001** | Baseline writer + committed closure-graph baseline | 3(partial), 5, 6 | Degraded — see below | **[x] built** |
 | **S-002** | Manifest correctness, shape, determinism, build-pipeline hardening | 7(partial), 8(partial), 9(partial), 10 | **No** — core substance | pending |
 | **S-003** | Closure-sealing tripwires + bundler/graph-drift disjointness | 7(partial), 8(partial) | **No** — the durable security value | pending |
 | **S-004** | Packaged-manifest fidelity (Tier C: pack/extract/install) | 13 | Yes — cost stated below | pending |
@@ -133,14 +133,15 @@ current, S-000-verified-correct closure — never hand-written).
   #5. (Deliberately not chained into `scripts.build` — see design §1.1/ADR-02: if the build regenerated
   its own oracle, BDI-03 could never fire.)
 
-**Acceptance criteria (observable):**
-1. `bun run regen:closure-baseline` writes `test/fitness/runner-closure-graph-baseline.json` with exactly
+**Acceptance criteria (observable)** — all 4 **[x] DONE** (see `apply-progress.md` for the proving test
+per criterion):
+1. [x] `bun run regen:closure-baseline` writes `test/fitness/runner-closure-graph-baseline.json` with exactly
    the three keys `{nodes, edges, builtins}`, each sorted.
-2. Run against the current (unmodified) tree, the written baseline is **byte-identical** to a fresh
+2. [x] Run against the current (unmodified) tree, the written baseline is **byte-identical** to a fresh
    `deriveRunnerClosure` call's `{nodes, edges, builtins}` — self-consistency at creation time.
-3. Run against a tree whose derivation returns violations, the script **fails** (non-zero exit, no file
+3. [x] Run against a tree whose derivation returns violations, the script **fails** (non-zero exit, no file
    written) rather than committing a broken baseline.
-4. `package.json#scripts.regen:closure-baseline` is **not** part of `scripts.build`'s `&&` chain.
+4. [x] `package.json#scripts.regen:closure-baseline` is **not** part of `scripts.build`'s `&&` chain.
 
 **REQ-IDs**: partially covers **BDI-03** (the baseline artefact exists and is self-consistent at
 creation; the red-proofs that prove the check **fires** on drift — RP-2/RP-2b/RP-2c — need the negative
