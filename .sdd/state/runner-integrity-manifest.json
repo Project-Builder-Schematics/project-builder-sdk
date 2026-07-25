@@ -14,8 +14,11 @@
   "slices": true,
   "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
   "slice_count": 6,
-  "slices_complete": ["S-000"],
-  "in_loop_iterations": { "S-000": { "iteration": 1, "verdict": "PASS" } },
+  "slices_complete": ["S-000", "S-001"],
+  "in_loop_iterations": {
+    "S-000": { "iteration": 1, "verdict": "PASS" },
+    "S-001": { "iteration": 1, "verdict": "PASS" }
+  },
   "req_coverage": "complete — all 42 REQs and all 18 red-proofs mapped, no orphans; 10 REQs are compound (opened S-000/S-001, closed S-002/S-003) and documented as handoffs",
   "plan_verify": "not-required — spec_source=internal and write_mode=sync, so Step 8b publish never fires; the plan-verify gate is L-plus-publish only",
   "steward_foresight": "aligned — gate PASSED 2026-07-25 after owner answered 3 conscience questions",
@@ -36,7 +39,8 @@
     "constraint_4": "outright createRequire ban, legitimate site anchored",
     "sequencing": "engine integrates against bun link now; go-live is a separate sequence",
     "user_remedy": "prevention only for 0.1.0; user-reachable diagnostic is a pre-live followup",
-    "exit_codes": "answered out-of-band 2026-07-25 (SDK-EXIT-CODE-CONFIRMATION.md)"
+    "exit_codes": "answered out-of-band 2026-07-25 (SDK-EXIT-CODE-CONFIRMATION.md)",
+    "rmd_01_2": "satisfied-in-intent (owner, 2026-07-25). Bun's default Intl.Collator resolves en-US regardless of LC_ALL/LANG/LC_COLLATE — independently probed — so the cross-process locale test passes even for a locale-sensitive implementation and proves nothing about locale. Spec V2 stays SIGNED and unmodified; the test is retained for its real residual value as a cross-process determinism regression. The scenario's INTENT (byte order, not ICU order) is already proven by RME-05.2's pinned pairs, verified to discriminate: Z.js vs a.js gives byte=-1 and ICU=+1. S-002 closes 18/18."
   },
   "carry_to_archive": [
     "VERIFY REGISTRATION WRITES EXPLICITLY — steward risk 2: this repo's archive agent skipped Engram/registration writes THREE times. The two rows carrying this change's outcome past merge (0.1.0 MANDATORY precondition, C1 mechanism handoff to the go-live batch) are both archive-time promises.",
