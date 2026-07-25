@@ -14,7 +14,8 @@
   "slices": true,
   "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
   "slice_count": 6,
-  "slices_complete": [],
+  "slices_complete": ["S-000"],
+  "in_loop_iterations": { "S-000": { "iteration": 1, "verdict": "PASS" } },
   "req_coverage": "complete — all 42 REQs and all 18 red-proofs mapped, no orphans; 10 REQs are compound (opened S-000/S-001, closed S-002/S-003) and documented as handoffs",
   "plan_verify": "not-required — spec_source=internal and write_mode=sync, so Step 8b publish never fires; the plan-verify gate is L-plus-publish only",
   "steward_foresight": "aligned — gate PASSED 2026-07-25 after owner answered 3 conscience questions",
@@ -42,7 +43,10 @@
     "Register followup: user-reachable integrity-mismatch diagnostic (pre-live) — journey (c) knowingly unowned until then",
     "Register followup: loader observation for Constraint 1 (Bun confirmed, so now feasible)",
     "Register followup: 0.1.0 MUST ship dist/runner-manifest.json — hard-fail release-checklist row",
-    "Promote change-local ADR-01..04 to 0073-0076"
+    "Promote change-local ADR-01..04 to 0073-0076",
+    "Register followup: build-config.test.ts REQ-PPH-04.1 runs a raw unmemoized `bun run build` against the real dist/ (rm -rf + rebuild). PRE-EXISTING, but this change widened its window from a 2-step to a 3-step build. One unreproduced full-suite failure was observed at S-000 (1 fail once, then 2191/0 across six runs). Route through ensureTscBuild() or isolate to a scratch root.",
+    "Register followup: promote the Constraint-4 anchor counting rule (import binding + FIRST use) into ADR-04 — the spec gives no counting rule, the executor resolved it as the unique reading satisfying both CST-04.1 and CST-04.3, and S-003's matrix depends on it",
+    "S-003 MUST add the SANCTIONED-FACTORY-IMPORT marker to src/transport/runner.ts — the S-000 classifier anchors on file+ordinal, so CST-03.3's real-tree assertion fails without it"
   ],
   "problem_statement": "The engine must verify the integrity of the real pbuilder-runner.js before exec'ing code it does not own. The runner is thin and multi-file, so neither digest-pinning nor a bundle hash applies; it needs a manifest of the runner's static import closure, which only the SDK can produce. Steward framing correction: re-read this as a COMPATIBILITY gate that happens to carry security tripwires, not as a security gate.",
   "head": "bc13df0",
