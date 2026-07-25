@@ -14,11 +14,14 @@
   "slices": true,
   "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
   "slice_count": 6,
-  "slices_complete": ["S-000", "S-001"],
+  "slices_complete": ["S-000", "S-001", "S-002"],
+  "slices_built_pending_verify": ["S-003"],
   "in_loop_iterations": {
     "S-000": { "iteration": 1, "verdict": "PASS" },
-    "S-001": { "iteration": 1, "verdict": "PASS" }
+    "S-001": { "iteration": 1, "verdict": "PASS" },
+    "S-002": { "iteration": 1, "verdict": "PASS" }
   },
+  "suite": "2287 pass / 0 fail (from 2146 at branch point)",
   "req_coverage": "complete — all 42 REQs and all 18 red-proofs mapped, no orphans; 10 REQs are compound (opened S-000/S-001, closed S-002/S-003) and documented as handoffs",
   "plan_verify": "not-required — spec_source=internal and write_mode=sync, so Step 8b publish never fires; the plan-verify gate is L-plus-publish only",
   "steward_foresight": "aligned — gate PASSED 2026-07-25 after owner answered 3 conscience questions",
@@ -50,7 +53,8 @@
     "Promote change-local ADR-01..04 to 0073-0076",
     "Register followup: build-config.test.ts REQ-PPH-04.1 runs a raw unmemoized `bun run build` against the real dist/ (rm -rf + rebuild). PRE-EXISTING, but this change widened its window from a 2-step to a 3-step build. One unreproduced full-suite failure was observed at S-000 (1 fail once, then 2191/0 across six runs, plus 2196/0 across four more at S-001). NARROWED 2026-07-25 — TWO occurrences, BOTH identities LOST (tailed instead of captured; the second loss was the executor's, self-reported). RULED OUT with evidence: (a) cross-file race — bun `--parallel` is opt-in (1.3.14), no bunfig.toml, and both package.json#scripts.test and .github/workflows/ci.yml run plain `bun test`, so test FILES are sequential; (b) varying file order — test-file ordering is deterministic (identical md5 of the emitted file sequence across three captured runs). NOT RULED OUT: (i) transient IO/resource failure during PPH-04.1's real rebuild; (ii) CONCURRENT `bun test` runs in the same worktree from different agents — PPH-04.1's `rm -rf dist` in one process poisons any other process reading the real dist/. OPERATIONAL RULE adopted: never run the suite concurrently in this worktree, and always capture full output to a file before re-running. Fix direction: isolate PPH-04.1 to a scratch root.",
     "Register followup: promote the Constraint-4 anchor counting rule (import binding + FIRST use) into ADR-04 — the spec gives no counting rule, the executor resolved it as the unique reading satisfying both CST-04.1 and CST-04.3, and S-003's matrix depends on it",
-    "S-003 MUST add the SANCTIONED-FACTORY-IMPORT marker to src/transport/runner.ts — the S-000 classifier anchors on file+ordinal, so CST-03.3's real-tree assertion fails without it"
+    "DISCHARGED in S-003 (979b1a1): the SANCTIONED-FACTORY-IMPORT marker is now at src/transport/runner.ts:268 — three comment lines, zero logic diff, the ONLY src/ write in the change. This was a LIVE DEFECT, not just a test gap: derive-runner-closure.ts:309/316 already rendered violation text naming a marker that existed nowhere in src/.",
+    "DISCHARGED in S-003 (979b1a1): renderViolations' trailing line is now caller-supplied. The frozen manifest sentence (review-tech-writer.md:177/190/207) is untouched and remains the default; the baseline writer gets a sentence that is true of it, since S-001 deliberately leaves an existing baseline in place on failure."
   ],
   "problem_statement": "The engine must verify the integrity of the real pbuilder-runner.js before exec'ing code it does not own. The runner is thin and multi-file, so neither digest-pinning nor a bundle hash applies; it needs a manifest of the runner's static import closure, which only the SDK can produce. Steward framing correction: re-read this as a COMPATIBILITY gate that happens to carry security tripwires, not as a security gate.",
   "head": "bc13df0",
