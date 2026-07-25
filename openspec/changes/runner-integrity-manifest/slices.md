@@ -37,7 +37,7 @@ Everything else follows design's Order column directly: S-001 = Order 2 (rows 5�
 | **S-002** | Manifest correctness, shape, determinism, build-pipeline hardening | 7(partial), 8(partial), 9(partial), 10 | **No** — core substance | **[x] built (1 criterion flagged)** |
 | **S-003** | Closure-sealing tripwires + bundler/graph-drift disjointness | 7(partial), 8(partial) | **No** — the durable security value | **[x] built** |
 | **S-004** | Packaged-manifest fidelity (Tier C: pack/extract/install) | 13 | Yes — cost stated below | pending |
-| **S-005** | Integrity-invariants documentation + `SECURITY.md` + probe header | 14, 15, 16, 17, 18 | Yes — cost stated below | pending |
+| **S-005** | Integrity-invariants documentation + `SECURITY.md` + probe header | 14, 15, 16, 17, 18 | Yes — cost stated below | **[x] built** |
 
 ---
 
@@ -369,27 +369,28 @@ subsection, and the one `src/` header sentence.
   `PROBE_HEADER_SENTENCE`). **The only `src/` change in this entire program — do not touch the file's
   logic.**
 
-**Acceptance criteria (observable):**
-1. The docs page lists exactly **five** Constraints, each with an `enforced-by:` field naming either a
+**Acceptance criteria (observable)** — all 10 **[x] DONE**; proving test per criterion in
+`apply-progress.md` → S-005. Guard: `test/docs/runner-integrity-docs.test.ts`, 23 tests.
+1. [x] The docs page lists exactly **five** Constraints, each with an `enforced-by:` field naming either a
    FIT id that **exists as a file on disk** (`existsSync`) or the literal `engine-owned` — resolved
    structurally, not by prose match. This requires `fit-42-*`, `fit-23-*`, and the other named files to
    already exist, which is why this slice depends on S-002/S-003.
-2. Constraint 2 is stated in its resolved **site-scoped** form (ambiguity D); the engine's looser
+2. [x] Constraint 2 is stated in its resolved **site-scoped** form (ambiguity D); the engine's looser
    "infrastructure path" wording is asserted **absent**.
-3. Constraints 4 and 5 carry `SDK-added`/`engine-owned` on first use; no bare-number Constraint citation
+3. [x] Constraints 4 and 5 carry `SDK-added`/`engine-owned` on first use; no bare-number Constraint citation
    anywhere on the page.
-4. The scope paragraph names all five excluded trees (`dist/commons/**`, `dist/dialects/**`,
+4. [x] The scope paragraph names all five excluded trees (`dist/commons/**`, `dist/dialects/**`,
    `dist/conformance/**`, `dist/testing/**`, `node_modules/**`); the supplied pull-quote sentence appears
    exactly once.
-5. The justification's three frozen claims (wrong-artefact detection, tripwires independent of the
+5. [x] The justification's three frozen claims (wrong-artefact detection, tripwires independent of the
    manifest, install-script adversary) are present verbatim.
-6. Entry #24 is justified by `"type": "module"`; `packageRootFor()` is asserted **absent** as a
+6. [x] Entry #24 is justified by `"type": "module"`; `packageRootFor()` is asserted **absent** as a
    justification.
-7. The `bun link` build-consistency-check sentence and the C2 residual are both present.
-8. `SECURITY.md` carries the three-sentence subsection, unchanged from review-tech-writer's draft.
-9. `single-instance-probe.ts`'s header contains the frozen pointer sentence naming `fit-42`; a diff of
+7. [x] The `bun link` build-consistency-check sentence and the C2 residual are both present.
+8. [x] `SECURITY.md` carries the three-sentence subsection, unchanged from review-tech-writer's draft.
+9. [x] `single-instance-probe.ts`'s header contains the frozen pointer sentence naming `fit-42`; a diff of
    the file shows **zero** logic changes, header-only.
-10. `docs/README.md` links the new page under *Contributor notes*.
+10. [x] `docs/README.md` links the new page under *Contributor notes*.
 
 **REQ-IDs**: closes **IID-01, IID-02, IID-03, IID-04, IID-05, IID-06, IID-07, IID-08**, and the `.2` half
 of **BDI-01** (BDI-01.2 — non-`scripts` bundler surfaces explicitly out of scope, completing the REQ that

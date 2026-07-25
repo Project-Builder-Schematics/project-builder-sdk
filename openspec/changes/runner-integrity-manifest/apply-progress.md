@@ -531,3 +531,108 @@ Clean — no Bug- or Architecture-severity finding.
   the requirement read stronger than it is.
 - **S-004** (Tier C packaging) is unblocked and independent of everything here.
 - The `describe` blocks added by this slice are prefixed `FIT-42 S-003 —` / `FIT-42N S-003 —`.
+
+---
+
+# S-005 — Integrity-invariants documentation + `SECURITY.md` + probe header
+
+**Scope**: `slice:S-005` · **Mode**: Strict TDD (guard-first) · **Base**: `dd9b265` (S-003 verified, 9/9)
+**Suite after S-005**: 2309 pass / **1 fail** across 195 files — the one failure is a pre-existing
+timeout flake in `test/conformance/react-conformance.test.ts`, diagnosed below, unrelated to this
+slice. `tsc --noEmit` clean. The S-005 guard is 23/23.
+**status**: complete — 10/10 criteria; IID-01..08 and BDI-01.2 closed.
+
+## Files changed
+
+| File | Action | What was done |
+|---|---|---|
+| `docs/runner-integrity-invariants.md` | **created** | The page. Honest-scope paragraph, justification, five Constraints each with `enforced-by:`, entry-#24 reason, portability, `bun link` limit, three known gaps. |
+| `test/docs/runner-integrity-docs.test.ts` | **created** | The machine guard — 23 tests. Written and run RED (22 failing) **before** a word of the page existed. |
+| `docs/README.md` | modified | Link under *Contributor notes*. |
+| `SECURITY.md` | modified | The three-sentence subsection, verbatim. GateGuard blocked the first write; the four demanded facts were verified (`rg -l`) and stated, then the same edit retried. |
+| `src/transport/single-instance-probe.ts` | modified | The frozen pointer sentence. **Second and final `src/` write in the change** — three comment lines, zero logic. |
+
+## TDD Cycle Evidence — S-005
+
+The inversion mattered here: IID-01.1 exists precisely because prose can pass a check the code fails,
+so the guard was written first and watched fail against an absent page.
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| The whole guard | `runner-integrity-docs.test.ts` (23 tests) | S | **22 of 23 failing** — `error: ENOENT … open '…/docs/runner-integrity-invariants.md'` plus `expect(received).toContain(expected)` across the frozen strings | the page, the index link, the `SECURITY.md` section and the probe header written to satisfy it | — | — |
+| `enforced-by` resolver | `…::IID-01.1 the resolver rejects a fitness id with no file on disk` | S | the one test that passed at RED — it tests the resolver, not the page | `readdirSync` prefix match | **yes** — `fit-99` false, `fit-42` true; without this the structural check is theatre | — |
+| Constraint parse | `…::IID-01.1 the page lists exactly five Constraints` | S | `[]` against an absent page | `### Constraint N [(marker)] — name` parse | **yes** — count, `enforced-by` presence and resolution are three separate assertions | heading regex widened to admit the `(SDK-added)` / `(engine-owned)` marker |
+| Bare-number guard | `…::IID-01.3 no Constraint is cited by bare number before its named heading` | S | genuine RED, then a **second RED from my own bug** — I compared a line-start index to a word index, so all five read as premature; fixed by offsetting to the citation inside the heading | first mention of each number must be its named heading | **yes** — asserts the named heading exists per number, so it cannot pass vacuously | — |
+| Probe header | `…::IID-08 the probe header carries the frozen pointer sentence, before any import` | S | `Expected to contain: "Constraint 4 (docs/…) makes this ENFORCED…"` / `Received:` the header without it | sentence added at the end of the header block | — | `flatComment()` added — `//` markers stripped before comparing words |
+
+**On "verbatim".** Frozen strings are compared after collapsing whitespace runs (`flat()`), because a
+markdown paragraph renders identically wrapped or unwrapped — every character except wrap position is
+still asserted exactly. The alternative (single-line paragraphs, as `SECURITY.md` uses) would have made
+the page itself unreadable. Declared rather than assumed.
+
+## Acceptance criteria — S-005 (all 10)
+
+| # | Criterion | Verified how | Result |
+|---|---|---|---|
+| 1 | Five Constraints, each `enforced-by:` resolving on disk or `engine-owned` | `IID-01.1` ×4 — structural parse yields exactly `[1,2,3,4,5]`; every entry carries the field; every value resolves via `readdirSync` against `test/fitness/`; **plus** a resolver-rejects test (`fit-99` → false) so the resolution check cannot be theatre | PASS |
+| 2 | Constraint 2 site-scoped; `infrastructure path` absent | `IID-01.2` ×2 — the parsed name contains `SITE`; the page is asserted not to contain the engine's unresolved wording (independently confirmed: `rg -c` returns 0 matches) | PASS |
+| 3 | `SDK-added` / `engine-owned` on first use; no bare-number citation | `IID-01.3` ×2 — markers asserted inside the headings themselves; for each of the five numbers, the FIRST occurrence in the document must be its named heading | PASS |
+| 4 | Five excluded trees named; pull-quote exactly once | `IID-02.1`/`02.2` — all five trees present (list length pinned at 5 so the filter cannot be vacuous); pull-quote occurrence count is exactly 1 | PASS |
+| 5 | Three frozen justification claims verbatim | `REQ-IID-03` ×4 — `not ceremony … three ways`, the `Wrong-artefact detection` label, `They are enforced by fit-42; they do not depend on the manifest existing.`, and the install-script-adversary sentence | PASS |
+| 6 | Entry #24 by `"type": "module"`; `packageRootFor()` ruled out | `IID-05` — the frozen `ENTRY_24_REASON` contains both halves, including the explicit **not** because of `packageRootFor()` | PASS |
+| 7 | `bun link` sentence and C2 residual both present | `IID-06` and `IID-07` | PASS |
+| 8 | `SECURITY.md` three-sentence subsection unchanged | `REQ-IID-08…` — heading plus the verbatim subsection; the pre-existing `security-authoring-guard.test.ts` re-run green, so no frozen sentence there was disturbed | PASS |
+| 9 | Probe header sentence; zero logic change | `IID-08` (sentence present before the first `import`) **and** `git diff -- src/transport/single-instance-probe.ts` reproduced in the audit: three added comment lines, nothing else | PASS |
+| 10 | `docs/README.md` links it under *Contributor notes* | asserted against the slice of the index following that heading, not the whole file | PASS |
+
+## Deviations from design
+
+1. **Frozen-string comparison collapses whitespace** (`flat()` / `flatComment()`), so the page can wrap
+   normally. Content is asserted character-for-character; only wrap position is free.
+2. **Constraint headings carry their marker as a parenthetical** — `### Constraint 4 (SDK-added) — …` —
+   rather than appending it in the body. IID-01.3 says "on first use", and the heading *is* the first
+   use, so this is the strictest available placement.
+3. **The justification's opening premise is rephrased**, as design §9 explicitly instructs
+   ("the first sentence must be phrased so it does not contradict their updated threat-model ADR").
+   review-tech-writer §3's original asserts the schematic author "has no write access to the installed
+   SDK tree"; the engine retracted exactly that. The page now records that one route did reach the tree
+   (a workspace `node_modules` write the containment gate did not exclude) and that the engine denies
+   `SDKRoot`-subtree writes at ingestion. **All four frozen sentences in that section are untouched** —
+   design §9 freezes those, not the premise.
+
+## Post-slice audit (S-005 diff)
+
+Clean — no Bug- or Architecture-severity finding.
+
+- **`src/` diff is three comment lines**, above the first `import`, zero logic. This is the second and
+  final `src/` write in the change; combined with S-003's marker, total `src/` diff for the whole
+  program is six comment lines.
+- **Control-character scan** over all five delta files: clean. No binary files in the diff.
+- **`infrastructure path` independently confirmed absent** from the page by `rg`, not only by the test.
+- **The pre-existing `security-authoring-guard.test.ts` re-run green** — the `SECURITY.md` edit is
+  purely additive and disturbed none of its frozen strings. Checked rather than asserted.
+- **Vacuity swept as written**: the `enforced-by` resolver has a rejects-test; `EXCLUDED_TREES.length`
+  is pinned at 5; the bare-number check asserts each named heading exists; the Constraint-count
+  assertion precedes every filter over that list.
+
+### The one suite failure — diagnosed, not mine, and not lost this time
+
+`test/conformance/react-conformance.test.ts::REQ-RXD-08.1` failed once at **5457.49 ms**. The log
+carries **no assertion diff**, and bun's default per-test timeout is **5000 ms**. Run in isolation with
+zero contention the file takes **6.12 s** wall-clock and the file declares **no custom timeout** (`rg`
+found none). So the mechanism is exact: a ts-morph JSX round-trip test whose runtime sits within noise
+of the default timeout, with nothing declared to give it headroom. It passed on the immediately
+preceding full run and passes in isolation.
+
+Unrelated to S-005 by construction — a docs page, an index link, a `SECURITY.md` section, three comment
+lines and 23 static-read tests cannot slow a JSX corpus. **Registered as a followup, not fixed**: the
+repair is a declared timeout on that file, which belongs to whoever owns the react dialect, not to a
+docs slice. Recorded here with its measurement so the next person does not have to rediscover it —
+unlike the S-002 flake, whose identity I lost.
+
+## Notes for later slices
+
+- **S-004 is the only slice left** (PMF-01, PMF-02). Nothing in S-005 blocks or affects it — no
+  Constraint's `enforced-by:` names the e2e file, by design.
+- Capability 8 is now closed: IID-01..08 plus BDI-01.2. After S-004 the signed spec's 42 REQs are
+  fully delivered.
