@@ -777,6 +777,36 @@ describe("FIT-42N S-003 — Constraint 1: bundler output stays off the closure",
     expect(targets.length).toBe(1);
     expect(findDisjointnessViolations(targets, closurePaths)).toEqual([]);
   });
+
+  // judgment-day finding 2: docs/runner-integrity-invariants.md:86-87 names exactly this
+  // drift as the realistic Constraint-1 failure, and `bun build --outdir ./dist/x` is the
+  // idiomatic spelling — an unnormalised string compare let all three evade detection.
+  it("REQ-BDI-01.1: a leading './' on --outdir still collides — idiomatic bun spelling", () => {
+    const targets = findBundlerTargets({ leak: "bun build z.ts --outdir ./dist/transport" });
+    expect(findDisjointnessViolations(targets, closurePaths)).toEqual([
+      { script: "leak", target: "./dist/transport", colliding: "dist/transport/runner.js" },
+    ]);
+  });
+
+  it("REQ-BDI-01.1: a leading './' on --outfile still collides", () => {
+    const targets = findBundlerTargets({
+      leak: "bun build z.ts --outfile ./dist/transport/runner.js",
+    });
+    expect(findDisjointnessViolations(targets, closurePaths)).toEqual([
+      {
+        script: "leak",
+        target: "./dist/transport/runner.js",
+        colliding: "dist/transport/runner.js",
+      },
+    ]);
+  });
+
+  it("REQ-BDI-01.1: a trailing '/' on --outdir still collides", () => {
+    const targets = findBundlerTargets({ leak: "bun build z.ts --outdir dist/transport/" });
+    expect(findDisjointnessViolations(targets, closurePaths)).toEqual([
+      { script: "leak", target: "dist/transport/", colliding: "dist/transport/runner.js" },
+    ]);
+  });
 });
 
 describe("FIT-42N S-003 — the closure-graph baseline catches node AND edge drift", () => {
