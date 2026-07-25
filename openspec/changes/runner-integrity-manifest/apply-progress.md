@@ -636,3 +636,103 @@ unlike the S-002 flake, whose identity I lost.
   Constraint's `enforced-by:` names the e2e file, by design.
 - Capability 8 is now closed: IID-01..08 plus BDI-01.2. After S-004 the signed spec's 42 REQs are
   fully delivered.
+
+---
+
+# S-004 — Packaged-manifest fidelity (Tier C: pack / extract / install)
+
+**Scope**: `slice:S-004` · **Mode**: Strict TDD · **Base**: `01d2aa2` (S-005 committed)
+**Suite after S-004**: `bun test` → **2318 pass / 0 fail** across 196 files (+8) · `tsc --noEmit` clean.
+**status**: complete — 5/5 criteria. **PMF-01 and PMF-02 closed; the signed spec's 42 REQs are now fully delivered.**
+
+## Files changed
+
+| File | Action | What was done |
+|---|---|---|
+| `test/e2e/runner-manifest-packaged.e2e.test.ts` | **created** | 8 tests, Tier C exclusively. `npm pack` (normative) → extract → 24 digests → version-rewrite mismatch proof → two real `npm install` round trips → two loudness guards. |
+
+Nothing else. The repo's `package.json`, `dist/` and `node_modules/` are untouched — confirmed by
+`git status` after the run.
+
+## Tier-C harness run accounting (the number requested for the archive)
+
+**6 invocations, 5 green, 1 red.**
+
+| # | Invocation | Result | Cause |
+|---|---|---|---|
+| 1 | standalone | **red** (8 pass / 1 fail) | **My bug, not the harness**: the no-skip guard's regex matched the `it.skipIf(offline)` written in this file's own header comment. Fixed by stripping comments and assembling the pattern so it cannot match its own source. |
+| 2 | standalone | green (8/8, 5.2 s) | — |
+| 3 | standalone | green (8/8) | — |
+| 4 | standalone | green (8/8) | — |
+| 5 | standalone | green (8/8) | — |
+| 6 | inside the full suite | green (2318/0) | — |
+
+**Zero failures attributable to network or harness instability across 6 runs.** That is a real
+measurement but a weak one against R-2's ~25% figure, for a reason worth recording rather than
+glossing: **npm's local cache was warm on this machine.** Verified by hand — an install into a fresh
+consumer resolves the full transitive tree (`ts-morph@28.0.0`, `@ts-morph/*`, `code-block-writer`,
+`tinyglobby`, `fdir`, `picomatch`, `minimatch`, `brace-expansion`, `balanced-match`,
+`path-browserify`), so dependency resolution genuinely happens, but the bytes came from
+`~/.npm` rather than the network. A cold CI cache is the condition R-2 measured, and these runs do
+not exercise it. **Do not read 5/5 as a refutation of the 25% posture.**
+
+## TDD Cycle Evidence — S-004
+
+Like S-002 and S-005's page, this slice proves existing behaviour at a new boundary, so most
+assertions are green-on-arrival and are disclosed as such. The genuine REDs came from the harness
+itself and from the one guard that is new logic.
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| No-skip guard | `…::declares no conditional skip in executable code` | C | **genuine RED**: `expect(received).not.toMatch(expected)` — the guard matched `it.skipIf(offline)` in its own header docblock | comments stripped; pattern assembled from parts so it cannot match its own source | **yes** — the same pattern is asserted to fire on a planted `it.skipIf(offline)` sample, so a guard that matched nothing would fail | replaced a dumped-whole-file assertion with a boolean |
+| Loudness runner | `…::the runner surfaces a non-zero exit as a thrown failure` | C | green on arrival — the runner was written to throw before any test used it | — | **yes** — points npm at `http://127.0.0.1:1` and asserts the throw carries `This test never skips` | — |
+| Entry-#24 accessor | typecheck | — | **genuine RED**: `TS2769 … Argument of type 'string | undefined' is not assignable` under `noUncheckedIndexedAccess` | `entryTwentyFour()` throws with the observed record count rather than optional-chaining the assertion away | — | three call sites de-optionalised |
+| PMF-01 file list | `…::npm pack's file list contains dist/runner-manifest.json` | C | green on arrival | — | n/a | — |
+| PMF-02.1 digests | `…::all 24 digests recompute from the extracted tarball's own bytes` | C | green on arrival | — | n/a | — |
+| PMF-02.2 mismatch | `…::rewriting package.json#version … makes entry #24's digest MISMATCH` | C | green on arrival | — | **yes** — asserts `version` is the ONLY differing key, so a wholesale rewrite would fail too | — |
+| PMF-02.3 install | `…::entry #24 recomputes correctly against the INSTALLED package.json` ×2 | C | green on arrival | — | **yes** — the sibling test recomputes all 24 installed digests, so #24 cannot pass alone | — |
+
+## Acceptance criteria — S-004 (all 5)
+
+| # | Criterion | Verified how | Result |
+|---|---|---|---|
+| 1 | `npm pack --dry-run` lists the manifest (PMF-01) | `--dry-run --json` parsed structurally; asserts the list is longer than 24 entries (non-vacuity) **and** contains `dist/runner-manifest.json` | PASS |
+| 2 | All 24 digests match the extracted bytes (PMF-02.1) | tarball extracted with `tar -xzf`, `package/` prefix stripped explicitly; every record hashed with the **test's own** `createHash`, never the generator's; record count pinned at 24 **before** the filter, so a zero-iteration loop cannot pass | PASS |
+| 3 | Version rewrite makes entry #24 MISMATCH (PMF-02.2) | version rewritten in a **copy**, repacked with `--ignore-scripts`, re-extracted; digest asserted `not.toBe` the manifest's; then the differing key set asserted to be exactly `["version"]` — the field, named | PASS |
+| 4 | Entry #24 matches after a real install (PMF-02.3) | `npm install <tarball>` into a temp consumer; #24 recomputed against `node_modules/@pbuilder/sdk/package.json`. `npm-normalize-package-bin` did **not** perturb it — the expected result, and now proven rather than assumed. A sibling test recomputes all 24 installed digests | PASS |
+| 5 | Fails loudly, never skips (R-2) | Two independent mechanisms: (a) `run()` throws on any non-zero exit carrying npm's own stdout/stderr, proven by pointing npm at an unreachable registry; (b) a guard test asserts no conditional skip exists in this file's executable code, itself proven non-vacuous against a planted sample | PASS |
+
+## Deviations from design
+
+1. **`npm pack --ignore-scripts` is used for every pack, including the non-red-proof ones.** Criterion 3
+   names the flag; I applied it uniformly for determinism. Verified this changes nothing: `package.json`
+   declares no `prepack` and no `prepare`, and `prepublishOnly` does not run on `npm pack` — so no
+   lifecycle script would have fired either way.
+2. **Packing runs from a copied package root**, not the repo root. `files: ["dist"]` plus `package.json`
+   is the entire publishable surface (no README/LICENSE/CHANGELOG at root — checked), so the copy packs
+   byte-identical content while keeping the real tree out of reach of a rewrite.
+3. **Two extra tests beyond the five criteria**: the all-24-installed-digests sibling (so PMF-02.3's #24
+   assertion cannot pass alone) and the no-skip guard. Both exist to make criteria 4 and 5 non-vacuous.
+
+## Post-slice audit (S-004 diff)
+
+Clean — no Bug- or Architecture-severity finding.
+
+- **One new file, nothing else.** `git status` after five harness runs shows only the untracked test;
+  `package.json`, `dist/` and the repo's `node_modules/` are unmodified. Every operation ran at its own
+  `mkdtemp` root with `afterAll` cleanup — verified: no `/tmp/pmf-*` roots survive the run except my own
+  manual diagnostic directory, which the test never created.
+- **Control-character scan** clean; no binary files in the diff.
+- **The only `.skipIf` occurrence in the file is inside the header comment** explaining why there isn't
+  one. The guard strips comments before scanning, which is why that is consistent rather than a loophole.
+- **Timeout declared** (`300_000` ms) on the network-bearing tests and on `beforeAll`. This is the direct
+  lesson from the `react-conformance` diagnosis: an undeclared timeout on a slow test is a latent flake,
+  and Tier C is the slowest thing in the suite.
+- **Vacuity swept as written**: record count pinned at 24 before every digest filter; the dry-run list
+  asserted longer than 24 before the `toContain`; the mismatch proof asserts the differing key set
+  exactly; the no-skip guard asserts its own pattern fires on a planted sample.
+
+## Change status after S-004
+
+All six slices are built. **42/42 signed REQs delivered**; all 18 red-proofs landed (2 in S-000, 4 in
+S-002, 12 in S-003). Whole-change `src/` diff: **6 insertions across 2 files, every one a comment line.**

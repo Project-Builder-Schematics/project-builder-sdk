@@ -36,7 +36,7 @@ Everything else follows design's Order column directly: S-001 = Order 2 (rows 5�
 | **S-001** | Baseline writer + committed closure-graph baseline | 3(partial), 5, 6 | Degraded — see below | **[x] built** |
 | **S-002** | Manifest correctness, shape, determinism, build-pipeline hardening | 7(partial), 8(partial), 9(partial), 10 | **No** — core substance | **[x] built (1 criterion flagged)** |
 | **S-003** | Closure-sealing tripwires + bundler/graph-drift disjointness | 7(partial), 8(partial) | **No** — the durable security value | **[x] built** |
-| **S-004** | Packaged-manifest fidelity (Tier C: pack/extract/install) | 13 | Yes — cost stated below | pending |
+| **S-004** | Packaged-manifest fidelity (Tier C: pack/extract/install) | 13 | Yes — cost stated below | **[x] built** |
 | **S-005** | Integrity-invariants documentation + `SECURITY.md` + probe header | 14, 15, 16, 17, 18 | Yes — cost stated below | **[x] built** |
 
 ---
@@ -318,18 +318,22 @@ extract, verify 24 digests against extracted bytes, plant the version-rewrite re
 **Files touched:**
 - #13 `test/e2e/runner-manifest-packaged.e2e.test.ts` — **created**.
 
-**Acceptance criteria (observable):**
-1. `npm pack --dry-run`'s file list contains `dist/runner-manifest.json` (PMF-01).
-2. Extracting the tarball (stripping the `package/` prefix) and recomputing all 24 digests against the
+**Acceptance criteria (observable)** — all 5 **[x] DONE**. Harness measured over **6 invocations,
+5 green**; the single red was a test-authoring bug in this slice's own no-skip guard, not instability
+(see `apply-progress.md` → S-004):
+1. [x] `npm pack --dry-run`'s file list contains `dist/runner-manifest.json` (PMF-01).
+2. [x] Extracting the tarball (stripping the `package/` prefix) and recomputing all 24 digests against the
    extracted bytes matches (PMF-02.1).
-3. Build → rewrite `package.json#version` → `npm pack --ignore-scripts` → entry #24's digest
+3. [x] Build → rewrite `package.json#version` → `npm pack --ignore-scripts` → entry #24's digest
    **MISMATCHES**, naming the field — the actual behavioural proof of the publish-ordering property
    (PMF-02.2).
-4. `npm pack` → `npm install ./<tarball>` into a temp project → entry #24 recomputed against
+4. [x] `npm pack` → `npm install ./<tarball>` into a temp project → entry #24 recomputed against
    `node_modules/@pbuilder/sdk/package.json` **matches** (`npm-normalize-package-bin` is a known rewriter
    and this package has a `bin` field) (PMF-02.3).
-5. On a missing/unreachable registry, the test **fails loudly** — it never silently skips (R-2's binding
-   rule: a silent skip false-passes the one scenario covering the production install path).
+5. [x] On a missing/unreachable registry, the test **fails loudly** — it never silently skips (R-2's binding
+   rule: a silent skip false-passes the one scenario covering the production install path). Enforced two
+   ways: the runner throws with npm's own output, and a guard test asserts no conditional skip exists in
+   this file's executable code.
 
 **REQ-IDs**: closes **PMF-01, PMF-02**. (PMF-03 already closed in S-000.)
 
