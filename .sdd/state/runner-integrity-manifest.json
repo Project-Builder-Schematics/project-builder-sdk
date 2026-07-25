@@ -1,0 +1,101 @@
+{
+  "change": "runner-integrity-manifest",
+  "triage": "L",
+  "phase": "evaluate",
+  "phase_status": "in-progress",
+  "pipeline_status": "EVALUATE \u2014 simplify gate done, verify final pass-with-followups; judgment-day next",
+  "spec_status": "signed",
+  "spec_version": "V2",
+  "spec_signed_by": "Daniel Ramirez",
+  "spec_signed_at": "2026-07-25",
+  "req_count": 42,
+  "scenario_count": 65,
+  "red_proof_count": 18,
+  "slices": true,
+  "slice_ids": [
+    "S-000",
+    "S-001",
+    "S-002",
+    "S-003",
+    "S-004",
+    "S-005"
+  ],
+  "slice_count": 6,
+  "slices_complete": [
+    "S-000",
+    "S-001",
+    "S-002",
+    "S-003",
+    "S-004",
+    "S-005"
+  ],
+  "req_delivery": "42/42 signed REQs delivered; all 18 red-proofs landed",
+  "in_loop_iterations": {
+    "S-000": {
+      "iteration": 1,
+      "verdict": "PASS"
+    },
+    "S-001": {
+      "iteration": 1,
+      "verdict": "PASS"
+    },
+    "S-002": {
+      "iteration": 1,
+      "verdict": "PASS"
+    },
+    "S-003": {
+      "iteration": 1,
+      "verdict": "PASS \u2014 engine handover point cleared"
+    },
+    "S-005+S-004": {
+      "iteration": 1,
+      "verdict": "PASS with one WARNING, fixed in-loop"
+    }
+  },
+  "suite": "2319 pass / 0 fail (from 2146 at branch point, +173); whole-change src/ diff is 6 insertions across 2 files, every one a comment line",
+  "tier_c_measurement": "6 Tier-C harness invocations, 5 green, 1 red \u2014 and the red was an executor bug (the no-skip regex matched the `it.skipIf(offline)` inside the file's own header comment), NOT harness instability. CAVEAT THAT MUST SURVIVE TO ARCHIVE: npm's cache was WARM on this machine. A fresh consumer was hand-verified to resolve the full transitive tree (ts-morph@28.0.0, @ts-morph/*, code-block-writer, tinyglobby, fdir, picomatch, minimatch, brace-expansion, balanced-match, path-browserify), so resolution genuinely happens \u2014 but the bytes came from ~/.npm, not the network. A cold CI cache is the condition R-2 measured. 5/5 is NOT a refutation of the ~25% posture.",
+  "req_coverage": "complete \u2014 all 42 REQs and all 18 red-proofs mapped, no orphans; 10 REQs are compound (opened S-000/S-001, closed S-002/S-003) and documented as handoffs",
+  "plan_verify": "not-required \u2014 spec_source=internal and write_mode=sync, so Step 8b publish never fires; the plan-verify gate is L-plus-publish only",
+  "steward_foresight": "aligned \u2014 gate PASSED 2026-07-25 after owner answered 3 conscience questions",
+  "verify_final": "pass-with-followups",
+  "arch_audit": null,
+  "viz_url": null,
+  "next_phase": "evaluate",
+  "architecture_impact": "additive",
+  "adr_budget": "4 of 4 used (change-local ADR-01..04, promote to 0073-0076 at archive; current max is 0072)",
+  "handover_point": "after S-003 \u2014 not S-000. A manifest that merely exists is insufficient for the bun-link integration the north star describes; that needs determinism, atomicity and the tripwires proven.",
+  "external_gate": "engine PC-RUN-01 \u2014 unblock = generator on main + submodule pin advance (owner ruling); 0.1.0 publish is a separate later sequence",
+  "owner_rulings": {
+    "unblock": "generator on main + submodule pin, not 0.1.0 published",
+    "adr_budget": "4; 6 triggers re-triage",
+    "constraint_1": "CI-breaking fitness test, structural shape ships (loader observation = followup)",
+    "parser": "ts-morph AST, not regex",
+    "realm_J": "set + kind checks from dist, errors name src",
+    "constraint_4": "outright createRequire ban, legitimate site anchored",
+    "sequencing": "engine integrates against bun link now; go-live is a separate sequence",
+    "user_remedy": "prevention only for 0.1.0; user-reachable diagnostic is a pre-live followup",
+    "exit_codes": "answered out-of-band 2026-07-25 (SDK-EXIT-CODE-CONFIRMATION.md)",
+    "rmd_01_2": "satisfied-in-intent (owner, 2026-07-25). Bun's default Intl.Collator resolves en-US regardless of LC_ALL/LANG/LC_COLLATE \u2014 independently probed \u2014 so the cross-process locale test passes even for a locale-sensitive implementation and proves nothing about locale. Spec V2 stays SIGNED and unmodified; the test is retained for its real residual value as a cross-process determinism regression. The scenario's INTENT (byte order, not ICU order) is already proven by RME-05.2's pinned pairs, verified to discriminate: Z.js vs a.js gives byte=-1 and ICU=+1. S-002 closes 18/18."
+  },
+  "carry_to_archive": [
+    "VERIFY REGISTRATION WRITES EXPLICITLY \u2014 steward risk 2: this repo's archive agent skipped Engram/registration writes THREE times. The two rows carrying this change's outcome past merge (0.1.0 MANDATORY precondition, C1 mechanism handoff to the go-live batch) are both archive-time promises.",
+    "Register followup: user-reachable integrity-mismatch diagnostic (pre-live) \u2014 journey (c) knowingly unowned until then",
+    "Register followup: loader observation for Constraint 1 (Bun confirmed, so now feasible)",
+    "Register followup: 0.1.0 MUST ship dist/runner-manifest.json \u2014 hard-fail release-checklist row",
+    "Promote change-local ADR-01..04 to 0073-0076",
+    "FLAKE DIAGNOSED 2026-07-25 \u2014 followup: `test/conformance/react-conformance.test.ts` declares NO custom timeout, so it runs under Bun's default 5000 ms PER-TEST timeout, while the file takes 6.16-6.29 s for 3 tests (measured in isolation, orchestrator-verified). Its ts-morph JSX round-trip therefore sits within noise of the ceiling with zero declared headroom. Observed once at 5457.49 ms with NO assertion diff \u2014 the signature of a timeout, not a wrong answer. This fits EVERY observation from all three lost/observed one-offs: single failure, no cascade, no assertion diff, unreproducible in isolation, and more likely under CPU contention (concurrent suite runs). FIX: declare a timeout on that file \u2014 it is owned by the react dialect, not by this change. NOT fixed here.",
+    "Superseded suspect (kept for the record): build-config.test.ts REQ-PPH-04.1 runs a raw unmemoized `bun run build` against the real dist/ (rm -rf + rebuild). PRE-EXISTING; this change widened its window from a 2-step to a 3-step build. Still worth isolating to a scratch root, but it is NOT the flake mechanism. NARROWED 2026-07-25 \u2014 TWO occurrences, BOTH identities LOST (tailed instead of captured; the second loss was the executor's, self-reported). RULED OUT with evidence: (a) cross-file race \u2014 bun `--parallel` is opt-in (1.3.14), no bunfig.toml, and both package.json#scripts.test and .github/workflows/ci.yml run plain `bun test`, so test FILES are sequential; (b) varying file order \u2014 test-file ordering is deterministic (identical md5 of the emitted file sequence across three captured runs). NOT RULED OUT: (i) transient IO/resource failure during PPH-04.1's real rebuild; (ii) CONCURRENT `bun test` runs in the same worktree from different agents \u2014 PPH-04.1's `rm -rf dist` in one process poisons any other process reading the real dist/. OPERATIONAL RULE adopted: never run the suite concurrently in this worktree, and always capture full output to a file before re-running. Fix direction: isolate PPH-04.1 to a scratch root.",
+    "Register followup: promote the Constraint-4 anchor counting rule (import binding + FIRST use) into ADR-04 \u2014 the spec gives no counting rule, the executor resolved it as the unique reading satisfying both CST-04.1 and CST-04.3, and S-003's matrix depends on it",
+    "DISCHARGED in S-003 (979b1a1): the SANCTIONED-FACTORY-IMPORT marker is now at src/transport/runner.ts:268 \u2014 three comment lines, zero logic diff, the ONLY src/ write in the change. This was a LIVE DEFECT, not just a test gap: derive-runner-closure.ts:309/316 already rendered violation text naming a marker that existed nowhere in src/.",
+    "DISCHARGED in S-003 (979b1a1): renderViolations' trailing line is now caller-supplied. The frozen manifest sentence (review-tech-writer.md:177/190/207) is untouched and remains the default; the baseline writer gets a sentence that is true of it, since S-001 deliberately leaves an existing baseline in place on failure."
+  ],
+  "problem_statement": "The engine must verify the integrity of the real pbuilder-runner.js before exec'ing code it does not own. The runner is thin and multi-file, so neither digest-pinning nor a bundle hash applies; it needs a manifest of the runner's static import closure, which only the SDK can produce. Steward framing correction: re-read this as a COMPATIBILITY gate that happens to carry security tripwires, not as a security gate.",
+  "head": "c30d516",
+  "updated_at": "2026-07-25T00:00:00Z",
+  "adversarial_review": "required (triage L + sensitive area)",
+  "simplify": "ok \u2014 9 applied, 3 skipped, 0 reverted; suite unchanged at 2319/0",
+  "compliance_matrix": "63/65 scenarios COMPLIANT, 0 FAILING, 0 UNTESTED, 2 PARTIAL (RMD-01.2 per owner ruling; IID-01.3 guard narrower than spec); 18/18 red-proofs",
+  "code_audit_pre_pr": "PASS \u2014 0 Bug / 0 Architecture / 0 MAJOR",
+  "manifest_sha256": "257ba3fe\u2026 (S-000's 1d5cc95e\u2026 is STALE \u2014 S-003's runner.ts comment moved dist/transport/runner.js bytes by design)",
+  "arch_refresh_required": "YES \u2014 architecture_impact=additive. The baseline claims ts-morph stays LEAF-ISOLATED, reachable ONLY from the two dialect leaves. It now has a THIRD importer: scripts/derive-runner-closure.ts, build-time and unshipped. Refresh before archive."
+}

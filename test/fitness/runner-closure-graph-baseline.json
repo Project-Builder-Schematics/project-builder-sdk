@@ -1,0 +1,252 @@
+{
+  "nodes": [
+    "bin/pbuilder-runner.js",
+    "core/authoring-error.js",
+    "core/context.js",
+    "core/directive-factory.js",
+    "core/emit-rejection.js",
+    "core/fs-errors.js",
+    "core/schema/input-rejection.js",
+    "core/schema/schema-discovery.js",
+    "core/schema/schema-locate.js",
+    "core/schema/schema-model.js",
+    "core/schema/schema-parse.js",
+    "core/schema/schema-validate.js",
+    "core/session.js",
+    "core/wire.js",
+    "transport/error-text.js",
+    "transport/exit-codes.js",
+    "transport/factory-pointer.js",
+    "transport/frame-reader.js",
+    "transport/framing.js",
+    "transport/runner.js",
+    "transport/single-instance-probe.js",
+    "transport/stdio-engine-client.js",
+    "transport/wire-protocol.js"
+  ],
+  "edges": [
+    {
+      "from": "bin/pbuilder-runner.js",
+      "to": "transport/error-text.js",
+      "specifier": "../transport/error-text.js"
+    },
+    {
+      "from": "bin/pbuilder-runner.js",
+      "to": "transport/exit-codes.js",
+      "specifier": "../transport/exit-codes.js"
+    },
+    {
+      "from": "bin/pbuilder-runner.js",
+      "to": "transport/framing.js",
+      "specifier": "../transport/framing.js"
+    },
+    {
+      "from": "bin/pbuilder-runner.js",
+      "to": "transport/runner.js",
+      "specifier": "../transport/runner.js"
+    },
+    {
+      "from": "bin/pbuilder-runner.js",
+      "to": "transport/stdio-engine-client.js",
+      "specifier": "../transport/stdio-engine-client.js"
+    },
+    {
+      "from": "core/authoring-error.js",
+      "to": "core/emit-rejection.js",
+      "specifier": "./emit-rejection.js"
+    },
+    {
+      "from": "core/context.js",
+      "to": "core/authoring-error.js",
+      "specifier": "./authoring-error.js"
+    },
+    {
+      "from": "core/context.js",
+      "to": "core/directive-factory.js",
+      "specifier": "./directive-factory.js"
+    },
+    {
+      "from": "core/context.js",
+      "to": "core/fs-errors.js",
+      "specifier": "./fs-errors.js"
+    },
+    {
+      "from": "core/context.js",
+      "to": "core/schema/input-rejection.js",
+      "specifier": "./schema/input-rejection.js"
+    },
+    {
+      "from": "core/context.js",
+      "to": "core/schema/schema-discovery.js",
+      "specifier": "./schema/schema-discovery.js"
+    },
+    {
+      "from": "core/context.js",
+      "to": "core/schema/schema-parse.js",
+      "specifier": "./schema/schema-parse.js"
+    },
+    {
+      "from": "core/context.js",
+      "to": "core/schema/schema-validate.js",
+      "specifier": "./schema/schema-validate.js"
+    },
+    {
+      "from": "core/context.js",
+      "to": "core/session.js",
+      "specifier": "./session.js"
+    },
+    {
+      "from": "core/schema/input-rejection.js",
+      "to": "core/authoring-error.js",
+      "specifier": "../authoring-error.js"
+    },
+    {
+      "from": "core/schema/schema-discovery.js",
+      "to": "core/fs-errors.js",
+      "specifier": "../fs-errors.js"
+    },
+    {
+      "from": "core/schema/schema-discovery.js",
+      "to": "core/schema/schema-model.js",
+      "specifier": "./schema-model.js"
+    },
+    {
+      "from": "core/schema/schema-parse.js",
+      "to": "core/schema/schema-locate.js",
+      "specifier": "./schema-locate.js"
+    },
+    {
+      "from": "core/schema/schema-parse.js",
+      "to": "core/schema/schema-model.js",
+      "specifier": "./schema-model.js"
+    },
+    {
+      "from": "core/schema/schema-validate.js",
+      "to": "core/schema/schema-model.js",
+      "specifier": "./schema-model.js"
+    },
+    {
+      "from": "core/session.js",
+      "to": "core/authoring-error.js",
+      "specifier": "./authoring-error.js"
+    },
+    {
+      "from": "transport/exit-codes.js",
+      "to": "core/authoring-error.js",
+      "specifier": "../core/authoring-error.js"
+    },
+    {
+      "from": "transport/exit-codes.js",
+      "to": "transport/stdio-engine-client.js",
+      "specifier": "./stdio-engine-client.js"
+    },
+    {
+      "from": "transport/factory-pointer.js",
+      "to": "core/context.js",
+      "specifier": "../core/context.js"
+    },
+    {
+      "from": "transport/frame-reader.js",
+      "to": "transport/framing.js",
+      "specifier": "./framing.js"
+    },
+    {
+      "from": "transport/frame-reader.js",
+      "to": "transport/stdio-engine-client.js",
+      "specifier": "./stdio-engine-client.js"
+    },
+    {
+      "from": "transport/framing.js",
+      "to": "core/wire.js",
+      "specifier": "../core/wire.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "core/authoring-error.js",
+      "specifier": "../core/authoring-error.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "core/context.js",
+      "specifier": "../core/context.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "core/schema/schema-locate.js",
+      "specifier": "../core/schema/schema-locate.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "core/schema/schema-parse.js",
+      "specifier": "../core/schema/schema-parse.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "transport/error-text.js",
+      "specifier": "./error-text.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "transport/exit-codes.js",
+      "specifier": "./exit-codes.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "transport/factory-pointer.js",
+      "specifier": "./factory-pointer.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "transport/frame-reader.js",
+      "specifier": "./frame-reader.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "transport/single-instance-probe.js",
+      "specifier": "./single-instance-probe.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "transport/stdio-engine-client.js",
+      "specifier": "./stdio-engine-client.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "transport/wire-protocol.js",
+      "specifier": "./wire-protocol.js"
+    },
+    {
+      "from": "transport/single-instance-probe.js",
+      "to": "transport/error-text.js",
+      "specifier": "./error-text.js"
+    },
+    {
+      "from": "transport/stdio-engine-client.js",
+      "to": "core/emit-rejection.js",
+      "specifier": "../core/emit-rejection.js"
+    },
+    {
+      "from": "transport/stdio-engine-client.js",
+      "to": "core/wire.js",
+      "specifier": "../core/wire.js"
+    },
+    {
+      "from": "transport/stdio-engine-client.js",
+      "to": "transport/error-text.js",
+      "specifier": "./error-text.js"
+    },
+    {
+      "from": "transport/stdio-engine-client.js",
+      "to": "transport/framing.js",
+      "specifier": "./framing.js"
+    }
+  ],
+  "builtins": [
+    "node:async_hooks",
+    "node:console",
+    "node:fs",
+    "node:module",
+    "node:path",
+    "node:url"
+  ]
+}

@@ -37,6 +37,10 @@ The `.modify(ast => …)` escape hatch executes dialect and schematic code with 
 
 Passing the conformance kit (`@pbuilder/sdk/conformance`) is not a security attestation: it proves a dialect keeps the seam serializable and its ops faithful, not that the dialect's `.modify()` code is safe to execute.
 
+## Runner integrity manifest
+
+Published releases carry `dist/runner-manifest.json`, which lets the engine check that the runner's pre-factory bootstrap — 23 files plus `package.json` — is the code we published. It is not a sandbox, not a signature, and not a check on the dialect, op-pack, or `node_modules` code that loads afterwards; those remain governed by the trust model above. See [docs/runner-integrity-invariants.md](./docs/runner-integrity-invariants.md).
+
 ## Publish pipeline
 
 Releases are published from the protected `main` branch only, via npm trusted publishing (OIDC)

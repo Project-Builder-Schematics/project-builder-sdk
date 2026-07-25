@@ -15,13 +15,17 @@
  * zero-deps invariant this file's tests originally asserted becomes a ONE-deps invariant,
  * still closed (REQ-FPS-02.1) — asserted below against the pinned baseline, not "empty".
  *
- * Self-building via an unconditional `beforeAll` (FIT-04 precedent, slices constraint 10)
- * so a bare `bun test` on a fresh checkout stays green.
+ * Self-building via `ensureTscBuild()` so a bare `bun test` on a fresh checkout stays
+ * green. It runs the SAME `bun run build` this file used to spawn unconditionally, but
+ * memoized: an independent spawn re-runs `prebuild: rm -rf dist`, deleting the tree every
+ * other `dist/`-reading file holds paths into, and the resulting failure is intermittent
+ * and gets blamed on the wrong test.
  */
 import { describe, it, expect, beforeAll } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { ensureTscBuild } from "../support/shared-build.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const BASELINE_PATH = join(PROJECT_ROOT, "test/fitness/pkg-surface-baseline.json");
@@ -36,13 +40,7 @@ interface PkgSurfaceBaseline {
 }
 
 beforeAll(() => {
-  const result = spawnSync("bun", ["run", "build"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
-  if (result.status !== 0) {
-    throw new Error(
-      `FIT-14: bun run build failed — cannot diff the package surface without a fresh build.\n` +
-      `stdout: ${result.stdout}\nstderr: ${result.stderr}`
-    );
-  }
+  ensureTscBuild();
 });
 
 // Parses `bun pm pack --dry-run`'s "packed <size> <path>" lines into a sorted path list —
@@ -181,6 +179,10 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
 
   it("the codegen bin's file is present in the tarball listing", () => {
     expect(baseline.tarball).toContain("dist/bin/pbuilder-codegen.js");
+  });
+
+  it("REQ-PMF-03: the runner manifest is a deliberately baselined member of the published surface", () => {
+    expect(baseline.tarball).toContain("dist/runner-manifest.json");
   });
 
   // RED-PROOF: a simulated new tarball entry is detected as drift.

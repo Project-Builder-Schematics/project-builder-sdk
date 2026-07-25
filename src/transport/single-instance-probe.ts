@@ -24,6 +24,9 @@
 // consumer project resolving `@pbuilder/sdk` as an ordinary `node_modules` dependency,
 // never as a self-reference — self-reference only arose in this repo's OWN dogfooding
 // tests, not in any real caller).
+//
+// Constraint 4 (docs/runner-integrity-invariants.md) makes this ENFORCED, not conventional:
+// any `createRequire` reference outside this anchored site fails the build (fit-42).
 import { existsSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";

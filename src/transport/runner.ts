@@ -265,6 +265,9 @@ async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
 
   let moduleNamespace: Record<string, unknown>;
   try {
+    // SANCTIONED-FACTORY-IMPORT — the ONE dynamic import() Constraint 2 permits in the runner
+    // closure, and the deliberate author-code boundary. The sanction is per-SITE, not
+    // per-file: a second import() anywhere, including in this file, fails the build (fit-42).
     moduleNamespace = (await import(moduleUrl)) as Record<string, unknown>;
   } catch (err) {
     if (isModuleLoadFailure(err)) {
