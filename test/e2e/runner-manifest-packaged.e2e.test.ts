@@ -17,11 +17,11 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureTscBuild } from "../support/shared-build.ts";
+import { hashFile } from "../support/scratch-consumer.ts";
 import type { RunnerManifest } from "../../scripts/derive-runner-closure.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
@@ -56,10 +56,9 @@ function entryTwentyFour(manifest: RunnerManifest): { path: string; sha256: stri
   return record;
 }
 
-// The test's OWN hasher — never the generator's, or PMF-02.1 degrades to f(x) === f(x).
-function sha256Of(absolutePath: string): string {
-  return createHash("sha256").update(readFileSync(absolutePath)).digest("hex");
-}
+// `hashFile` (test/support/scratch-consumer.ts) is a TEST-side hasher, never the
+// generator's, or PMF-02.1 degrades to f(x) === f(x). fit-42 imports the same helper for the
+// identical recompute-and-compare purpose.
 
 // Fails loudly with the command's own output. This is the mechanism criterion 5 names: an
 // unreachable registry surfaces here as a test failure carrying npm's diagnosis, never as
@@ -146,7 +145,7 @@ describe("PMF-02.1 — every digest holds against the packed bytes", () => {
 
   it("all 24 digests recompute from the extracted tarball's own bytes", () => {
     const mismatched = packedManifest.files.filter(
-      (record) => sha256Of(join(extracted, record.path)) !== record.sha256
+      (record) => hashFile(join(extracted, record.path)) !== record.sha256
     );
     expect(packedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
     expect(mismatched.map((record) => record.path)).toEqual([]);
@@ -170,7 +169,7 @@ describe("PMF-02.2 — a version stamped after the build breaks entry #24", () =
 
       const entry24 = entryTwentyFour(packedManifest);
       expect(entry24.path).toBe("package.json");
-      expect(sha256Of(join(stampedExtract, "package.json"))).not.toBe(entry24.sha256);
+      expect(hashFile(join(stampedExtract, "package.json"))).not.toBe(entry24.sha256);
 
       // Named: `version` is the field that moved, and it is the ONLY one.
       const shipped = JSON.parse(readFileSync(join(stampedExtract, "package.json"), "utf-8")) as Record<
@@ -218,7 +217,7 @@ describe("PMF-02.3 — entry #24 survives a real registry install", () => {
       expect(installedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
       const entry24 = entryTwentyFour(installedManifest);
       expect(entry24.path).toBe("package.json");
-      expect(sha256Of(installedPackageJson)).toBe(entry24.sha256);
+      expect(hashFile(installedPackageJson)).toBe(entry24.sha256);
     },
     TIER_C_TIMEOUT
   );
@@ -244,7 +243,7 @@ describe("PMF-02.3 — entry #24 survives a real registry install", () => {
       ) as RunnerManifest;
 
       const mismatched = installedManifest.files.filter(
-        (record) => sha256Of(join(installedRoot, record.path)) !== record.sha256
+        (record) => hashFile(join(installedRoot, record.path)) !== record.sha256
       );
       expect(installedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
       expect(mismatched.map((record) => record.path)).toEqual([]);
