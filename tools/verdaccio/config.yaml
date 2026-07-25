@@ -1,0 +1,37 @@
+# Local Verdaccio registry for testing real publishes of @pbuilder packages.
+# Run with: bun run registry:up   (storage lives next to this file, git-ignored)
+storage: ./storage/data
+
+auth:
+  htpasswd:
+    file: ./storage/htpasswd
+    # registration disabled — local publishes are anonymous (see packages below)
+    max_users: -1
+
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+    cache: true
+
+packages:
+  # No proxy on the @pbuilder scope: this registry is AUTHORITATIVE for it.
+  # A local publish can never be shadowed by (or leak requests to) public npmjs.
+  '@pbuilder/*':
+    access: $all
+    publish: $all
+    unpublish: $all
+
+  '**':
+    access: $all
+    proxy: npmjs
+
+server:
+  keepAliveTimeout: 60
+
+# prerelease tarballs with sourcemaps can get heavy
+max_body_size: 100mb
+
+publish:
+  allow_offline: true
+
+log: { type: stdout, format: pretty, level: warn }
