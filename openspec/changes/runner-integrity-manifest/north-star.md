@@ -139,4 +139,19 @@ design **discloses** this rather than overselling it, which is the right call.
    exit-code confirmation answered now, out-of-band, rather than deferred to a followup that does not
    yet exist?
 
-**Answers**: _pending owner_
+## Answers — owner, 2026-07-25. **GATE PASSED.**
+
+1. **Sequencing → the engine integrates against a `bun link`ed build now.** PC-RUN-01 unblocks the day
+   this merges; the manifest is self-asserted on that path (IID-06 states it) and that is accepted. The
+   go-live batch stays a separate, later sequence. *Consequence to carry: the manifest sits unexercised
+   against a registry install until go-live — risk 3 remains live and is owned by that batch.*
+2. **Usability → prevention only is accepted for `0.1.0`.** The design's false-alarm elimination is the
+   correct priority and is thoroughly executed. A user-reachable troubleshooting surface (or a
+   `pbuilder verify`-style diagnostic) is registered as a **pre-live followup**, not built here.
+   *Journey (c) is therefore knowingly unowned until then — recorded, not forgotten.*
+3. **Exit-code confirmation → answered NOW, out-of-band.** Delivered as
+   `SDK-EXIT-CODE-CONFIRMATION.md`. Confirms exit **2 = emit-rejection = DeveloperError**, corrects
+   the engine's §1.5 table (which omits `2` and would bucket it into "other → SystemError", attributing
+   an author's mistake to the host), and flags one honest caveat: `unknown` maps to exit 2, so an
+   engine-internal failure surfacing as an unclassifiable rejection would be attributed to the author —
+   a decision only they can make. Zero SDK code implied.
