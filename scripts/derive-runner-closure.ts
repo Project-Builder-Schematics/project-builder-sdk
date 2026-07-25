@@ -5,7 +5,14 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { join, posix, sep } from "node:path";
 import { builtinModules } from "node:module";
-import { Node, Project, SyntaxKind, type SourceFile } from "ts-morph";
+import {
+  Node,
+  Project,
+  SyntaxKind,
+  type CallExpression,
+  type ImportDeclaration,
+  type SourceFile,
+} from "ts-morph";
 
 /**
  * The sanctioned factory-import site's file (CST-03.3), distRoot-relative. The sanction is
@@ -30,16 +37,20 @@ export interface ClosureEdge {
   readonly specifier: string;
 }
 
-export type ViolationRule =
-  | "constraint-2-dynamic-import"
-  | "constraint-2-second-site"
-  | "constraint-3-bare-specifier"
-  | "constraint-3a-unprefixed-builtin"
-  | "constraint-4-execution-primitive"
-  | "unclassifiable-construct"
-  | "unresolvable-specifier"
-  | "unreadable-file"
-  | "symlink-escape";
+/** The closed rule set. `ViolationRule` is derived from it so the two cannot drift. */
+export const VIOLATION_RULES = [
+  "constraint-2-dynamic-import",
+  "constraint-2-second-site",
+  "constraint-3-bare-specifier",
+  "constraint-3a-unprefixed-builtin",
+  "constraint-4-execution-primitive",
+  "unclassifiable-construct",
+  "unresolvable-specifier",
+  "unreadable-file",
+  "symlink-escape",
+] as const;
+
+export type ViolationRule = (typeof VIOLATION_RULES)[number];
 
 export interface Violation {
   readonly rule: ViolationRule;
@@ -140,9 +151,7 @@ const DENIED_MEMBER_EXPRESSIONS = new Set(["Bun.plugin", "process.binding"]);
 function denyScan(sourceFile: SourceFile, file: ClosurePath): Violation[] {
   const found: Violation[] = [];
 
-  const dynamicImports = sourceFile
-    .getDescendantsOfKind(SyntaxKind.CallExpression)
-    .filter((call) => call.getExpression().getKind() === SyntaxKind.ImportKeyword);
+  const dynamicImports = dynamicImportCalls(sourceFile);
   const atSanctionedSite = file === SANCTIONED_DYNAMIC_IMPORT_FILE;
   dynamicImports.forEach((call, index) => {
     if (atSanctionedSite && index === 0) return;
@@ -271,6 +280,13 @@ function staticSpecifierSites(sourceFile: SourceFile): SpecifierSite[] {
   return sites;
 }
 
+// A raw SyntaxKind NUMBER returns nothing here — the imported enum is required (ADR-01).
+function dynamicImportCalls(sourceFile: SourceFile): CallExpression[] {
+  return sourceFile
+    .getDescendantsOfKind(SyntaxKind.CallExpression)
+    .filter((call) => call.getExpression().getKind() === SyntaxKind.ImportKeyword);
+}
+
 function siteOf(node: Node, value: string): SpecifierSite {
   return { value, line: node.getStartLineNumber(), found: oneLine(node.getText()) };
 }
@@ -351,7 +367,14 @@ const RULE_BODIES: Record<ViolationRule, (detail: string) => RuleBody> = {
 /** Renders violations into the frozen design §9 form. distRoot-relative in, src-relative out. */
 export function renderViolations(
   violations: readonly Violation[],
-  opts: { readonly distDirName: string; readonly srcDirName: string; readonly maxShown?: number }
+  opts: {
+    readonly distDirName: string;
+    readonly srcDirName: string;
+    readonly maxShown?: number;
+    // Frozen (design §9) for the BUILD path only. The baseline writer reuses this renderer
+    // and must state what IT failed to write — naming the manifest there is simply untrue.
+    readonly outcome?: string;
+  }
 ): string {
   const maxShown = opts.maxShown ?? 10;
   const shown = violations.slice(0, maxShown);
@@ -371,7 +394,8 @@ export function renderViolations(
     blocks.push(`… and ${violations.length - shown.length} more`);
   }
   blocks.push(
-    `No manifest was written; ${opts.distDirName}/runner-manifest.json does not exist.`
+    opts.outcome ??
+      `No manifest was written; ${opts.distDirName}/runner-manifest.json does not exist.`
   );
   return `${blocks.join("\n\n")}\n`;
 }
@@ -380,6 +404,54 @@ export function renderViolations(
 // at all. BDI-02 proves the dist -> src map is injective, which is what makes it sound.
 function srcPathFor(file: ClosurePath, srcDirName: string): string {
   return `${srcDirName}/${file.replace(/\.(js|mjs|cjs)$/, ".ts")}`;
+}
+
+/** Shared realm-agnostic extraction — the ONLY specifier reader in this change (BDI-02 needs src). */
+export function readSpecifiers(absolutePath: string): {
+  readonly staticSpecifiers: readonly string[];
+  readonly typeOnlyStatic: readonly string[];
+  readonly dynamicImportCount: number;
+} {
+  const project = new Project({
+    compilerOptions: { allowJs: true },
+    skipAddingFilesFromTsConfig: true,
+  });
+  const sourceFile = project.createSourceFile(
+    absolutePath,
+    readFileSync(absolutePath, "utf-8"),
+    { overwrite: true }
+  );
+
+  const declarations: Array<{ pos: number; value: string; erased: boolean }> = [];
+  for (const declaration of sourceFile.getImportDeclarations()) {
+    declarations.push({
+      pos: declaration.getPos(),
+      value: declaration.getModuleSpecifierValue(),
+      erased: isErasedImport(declaration),
+    });
+  }
+  for (const declaration of sourceFile.getExportDeclarations()) {
+    const value = declaration.getModuleSpecifierValue();
+    if (value === undefined) continue;
+    declarations.push({ pos: declaration.getPos(), value, erased: declaration.isTypeOnly() });
+  }
+  declarations.sort((a, b) => a.pos - b.pos);
+
+  return {
+    staticSpecifiers: declarations.map((d) => d.value),
+    typeOnlyStatic: declarations.filter((d) => d.erased).map((d) => d.value),
+    dynamicImportCount: dynamicImportCalls(sourceFile).length,
+  };
+}
+
+// tsc erases a declaration whose bindings are ALL type-only; a side-effect import (no
+// bindings at all) is never erased, and one value binding keeps the whole declaration.
+function isErasedImport(declaration: ImportDeclaration): boolean {
+  if (declaration.isTypeOnly()) return true;
+  if (declaration.getDefaultImport() !== undefined) return false;
+  if (declaration.getNamespaceImport() !== undefined) return false;
+  const named = declaration.getNamedImports();
+  return named.length > 0 && named.every((binding) => binding.isTypeOnly());
 }
 
 /** REQ-RME-05: byte-wise, via Buffer.compare. NEVER localeCompare. */

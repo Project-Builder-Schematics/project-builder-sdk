@@ -25,11 +25,16 @@ if (violations.length > 0) {
   process.stderr.write(
     "regen-closure-baseline: refusing to write a baseline from a tree that cannot build.\n\n"
   );
-  process.stderr.write(
-    renderViolations(violations, { distDirName: DIST_DIR_NAME, srcDirName: SRC_DIR_NAME })
-  );
   // Any existing baseline is left untouched: it is the maintainer's committed oracle, not
-  // this script's leftover output to clean up.
+  // this script's leftover output to clean up — which is what the epilogue has to say, since
+  // the renderer's default sentence is about the manifest and would be untrue here.
+  process.stderr.write(
+    renderViolations(violations, {
+      distDirName: DIST_DIR_NAME,
+      srcDirName: SRC_DIR_NAME,
+      outcome: `No baseline was written; ${BASELINE_RELATIVE_PATH} is unchanged.`,
+    })
+  );
   process.exit(1);
 }
 
