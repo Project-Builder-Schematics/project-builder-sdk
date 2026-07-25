@@ -24,13 +24,17 @@ import {
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
+  BASELINE_RELATIVE_PATH,
   CREATE_REQUIRE_ANCHOR_FILE,
+  ENTRY_RELATIVE_PATH,
+  MANIFEST_RELATIVE_PATH,
   SANCTIONED_DYNAMIC_IMPORT_FILE,
   comparePaths,
   deriveRunnerClosure,
   readSpecifiers,
   type ClosureEdge,
   type ClosurePath,
+  type RunnerManifest,
 } from "../../scripts/derive-runner-closure.ts";
 import { tmpdir, userInfo } from "node:os";
 import { ensureTscBuild } from "../support/shared-build.ts";
@@ -50,9 +54,6 @@ import {
   type EmitComparisonEntry,
 } from "../support/closure-integrity-checks.ts";
 
-const MANIFEST_RELATIVE_PATH = "runner-manifest.json";
-const ENTRY_RELATIVE_PATH = "bin/pbuilder-runner.js";
-const BASELINE_RELATIVE_PATH = "test/fitness/runner-closure-graph-baseline.json";
 const BASELINE_PATH = join(PROJECT_ROOT, BASELINE_RELATIVE_PATH);
 
 interface ClosureBaseline {
@@ -64,14 +65,6 @@ interface ClosureBaseline {
 const scratchRoot = scratchDirFactory("fit-42-");
 
 const edgeKey = (edge: ClosureEdge): string => `${edge.from} ${edge.to} ${edge.specifier}`;
-
-interface RunnerManifest {
-  manifestVersion: number;
-  algorithm: string;
-  entry: string;
-  packageVersion: string;
-  files: Array<{ path: string; sha256: string }>;
-}
 
 let distDir = "";
 let manifestPath = "";

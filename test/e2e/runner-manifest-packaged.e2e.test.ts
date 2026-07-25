@@ -22,6 +22,7 @@ import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureTscBuild } from "../support/shared-build.ts";
+import type { RunnerManifest } from "../../scripts/derive-runner-closure.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 
@@ -35,14 +36,6 @@ const EXPECTED_RECORD_COUNT = 24;
 
 // Port 1 is reserved and never listening; the fast-fail flags keep the failure inside seconds.
 const DEAD_REGISTRY = "http://127.0.0.1:1";
-
-interface RunnerManifest {
-  manifestVersion: number;
-  algorithm: string;
-  entry: string;
-  packageVersion: string;
-  files: Array<{ path: string; sha256: string }>;
-}
 
 const temporaryRoots: string[] = [];
 

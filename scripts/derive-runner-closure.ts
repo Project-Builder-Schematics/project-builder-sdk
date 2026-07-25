@@ -28,6 +28,14 @@ export const SANCTIONED_DYNAMIC_IMPORT_FILE: ClosurePath = "transport/runner.js"
  */
 export const CREATE_REQUIRE_ANCHOR_FILE: ClosurePath = "transport/single-instance-probe.js";
 
+// Closure-identity path constants, single-sourced here so the build script, the baseline
+// writer, and the fitness test cannot drift apart on what the runner closure even is.
+export const ENTRY_RELATIVE_PATH = "bin/pbuilder-runner.js";
+export const DIST_DIR_NAME = "dist";
+export const SRC_DIR_NAME = "src";
+export const MANIFEST_RELATIVE_PATH = "runner-manifest.json";
+export const BASELINE_RELATIVE_PATH = "test/fitness/runner-closure-graph-baseline.json";
+
 /** A node of the closure graph. Paths are ALWAYS distRoot-relative, POSIX, no leading "./". */
 export type ClosurePath = string;
 

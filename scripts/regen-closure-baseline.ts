@@ -8,12 +8,14 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { deriveRunnerClosure, renderViolations } from "./derive-runner-closure.ts";
-
-const DIST_DIR_NAME = "dist";
-const SRC_DIR_NAME = "src";
-const ENTRY_RELATIVE_PATH = "bin/pbuilder-runner.js";
-const BASELINE_RELATIVE_PATH = "test/fitness/runner-closure-graph-baseline.json";
+import {
+  deriveRunnerClosure,
+  renderViolations,
+  BASELINE_RELATIVE_PATH,
+  DIST_DIR_NAME,
+  ENTRY_RELATIVE_PATH,
+  SRC_DIR_NAME,
+} from "./derive-runner-closure.ts";
 
 const packageRoot = process.argv[2] ?? fileURLToPath(new URL("../", import.meta.url));
 const { nodes, edges, builtins, violations } = deriveRunnerClosure(

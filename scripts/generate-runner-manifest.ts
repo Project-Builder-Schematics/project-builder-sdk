@@ -16,14 +16,13 @@ import {
   serialiseManifest,
   sha256Bytes,
   sha256File,
+  DIST_DIR_NAME,
+  ENTRY_RELATIVE_PATH,
+  MANIFEST_RELATIVE_PATH,
+  SRC_DIR_NAME,
   type RunnerManifest,
   type Violation,
 } from "./derive-runner-closure.ts";
-
-const DIST_DIR_NAME = "dist";
-const SRC_DIR_NAME = "src";
-const ENTRY_RELATIVE_PATH = "bin/pbuilder-runner.js";
-const MANIFEST_RELATIVE_PATH = "runner-manifest.json";
 
 const packageRoot = process.argv[2] ?? fileURLToPath(new URL("../", import.meta.url));
 const distRoot = join(packageRoot, DIST_DIR_NAME);
