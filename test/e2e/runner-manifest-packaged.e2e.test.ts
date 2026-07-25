@@ -194,62 +194,46 @@ describe("PMF-02.3 — entry #24 survives a real registry install", () => {
   // `npm-normalize-package-bin` is a known rewriter and this package HAS a `bin` field, so
   // the install boundary is a genuinely different question from the pack boundary. A
   // mismatch here is a real finding, not a broken test.
-  it(
-    "entry #24 recomputes correctly against the INSTALLED package.json",
-    () => {
-      const consumer = temporaryRoot("pmf-consumer-");
-      writeFileSync(
-        join(consumer, "package.json"),
-        `${JSON.stringify(
-          { name: "pmf-consumer", version: "0.0.0", private: true, type: "module" },
-          null,
-          2
-        )}\n`
-      );
+  //
+  // ONE install shared by both `it`s below (Tier C is the slowest, most cold-cache-flaky leg
+  // of the suite) — both only READ the installed tree, so sharing costs neither assertion its
+  // own evidence: each still recomputes its own digest(s) straight from `installedRoot`.
+  let installedRoot = "";
+  let installedManifest: RunnerManifest;
 
-          run("npm", ["install", "--ignore-scripts", tarballPath], consumer);
+  beforeAll(() => {
+    const consumer = temporaryRoot("pmf-consumer-");
+    writeFileSync(
+      join(consumer, "package.json"),
+      `${JSON.stringify(
+        { name: "pmf-consumer", version: "0.0.0", private: true, type: "module" },
+        null,
+        2
+      )}\n`
+    );
 
-      const installedPackageJson = join(consumer, "node_modules", PACKAGE_NAME, "package.json");
-      const installedManifest = JSON.parse(
-        readFileSync(join(consumer, "node_modules", PACKAGE_NAME, MANIFEST_RELATIVE_PATH), "utf-8")
-      ) as RunnerManifest;
+    run("npm", ["install", "--ignore-scripts", tarballPath], consumer);
 
-      expect(installedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
-      const entry24 = entryTwentyFour(installedManifest);
-      expect(entry24.path).toBe("package.json");
-      expect(hashFile(installedPackageJson)).toBe(entry24.sha256);
-    },
-    TIER_C_TIMEOUT
-  );
+    installedRoot = join(consumer, "node_modules", PACKAGE_NAME);
+    installedManifest = JSON.parse(
+      readFileSync(join(installedRoot, MANIFEST_RELATIVE_PATH), "utf-8")
+    ) as RunnerManifest;
+  }, TIER_C_TIMEOUT);
 
-  it(
-    "every other installed digest holds too, so #24 is not passing alone",
-    () => {
-      const consumer = temporaryRoot("pmf-consumer-full-");
-      writeFileSync(
-        join(consumer, "package.json"),
-        `${JSON.stringify(
-          { name: "pmf-consumer-full", version: "0.0.0", private: true, type: "module" },
-          null,
-          2
-        )}\n`
-      );
+  it("entry #24 recomputes correctly against the INSTALLED package.json", () => {
+    expect(installedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
+    const entry24 = entryTwentyFour(installedManifest);
+    expect(entry24.path).toBe("package.json");
+    expect(hashFile(join(installedRoot, "package.json"))).toBe(entry24.sha256);
+  });
 
-          run("npm", ["install", "--ignore-scripts", tarballPath], consumer);
-
-      const installedRoot = join(consumer, "node_modules", PACKAGE_NAME);
-      const installedManifest = JSON.parse(
-        readFileSync(join(installedRoot, MANIFEST_RELATIVE_PATH), "utf-8")
-      ) as RunnerManifest;
-
-      const mismatched = installedManifest.files.filter(
-        (record) => hashFile(join(installedRoot, record.path)) !== record.sha256
-      );
-      expect(installedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
-      expect(mismatched.map((record) => record.path)).toEqual([]);
-    },
-    TIER_C_TIMEOUT
-  );
+  it("every other installed digest holds too, so #24 is not passing alone", () => {
+    const mismatched = installedManifest.files.filter(
+      (record) => hashFile(join(installedRoot, record.path)) !== record.sha256
+    );
+    expect(installedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
+    expect(mismatched.map((record) => record.path)).toEqual([]);
+  });
 });
 
 describe("R-2 — this harness fails loudly, it never skips", () => {
