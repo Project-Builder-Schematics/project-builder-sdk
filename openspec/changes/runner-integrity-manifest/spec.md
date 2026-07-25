@@ -1,7 +1,10 @@
 # Spec V2: Runner Integrity Manifest (runner-integrity-manifest)
 
 **Status**: **SIGNED** — Daniel Ramirez, 2026-07-25. Frozen; changes require `unfreeze=true`.
-**Triage**: L | **Capabilities**: 8 | **REQ-IDs**: 58 | **Red-proofs**: 18 | **ADR budget**: 4
+**Triage**: L | **Capabilities**: 8 | **REQs**: 42 (65 scenarios, 9 REQs scenario-less) | **Red-proofs**: 18 | **ADR budget**: 4
+
+> *Header count corrected 2026-07-25 (was "58 REQ-IDs" — a figure matching neither the REQ nor the
+> scenario count). Metadata only; no requirement text changed, so the signature stands.*
 
 **V2 changes**: QA adversarial review (11 mutation escapes closed), tech-writer review (Capability 8
 was unverifiable — no REQ named the file), and the engine's round-2 reply (all four corrections
