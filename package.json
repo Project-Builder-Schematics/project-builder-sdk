@@ -73,7 +73,7 @@
     "prepublishOnly": "bun run build",
     "publish:dry": "npm publish --dry-run",
     "registry:up": "bunx verdaccio --config tools/verdaccio/config.yaml --listen 4873",
-    "publish:local": "npm version \"0.0.0-local.$(date +%s)\" --no-git-tag-version && npm publish --registry http://localhost:4873 --tag local; git checkout -- package.json",
+    "publish:local": "npm publish --registry http://localhost:4873 --tag local",
     "link:sdk": "bun run build && bun link"
   },
   "devDependencies": {
