@@ -50,12 +50,12 @@ describe("REQ-PPH-05.1: declarationMap is false in tsconfig.build.json", () => {
 });
 
 // runner-integrity-manifest S-000. RMD-03.3 (.gitattributes scope) joins these in S-002.
-describe("runner manifest — build wiring and emitted line endings", () => {
-  const buildScripts = JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
-    scripts: Record<string, string>;
-  };
-  const buildChain = buildScripts.scripts.build?.split("&&").map((step) => step.trim()) ?? [];
+const buildScripts = JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
+  scripts: Record<string, string>;
+};
+const buildChain = buildScripts.scripts.build?.split("&&").map((step) => step.trim()) ?? [];
 
+describe("runner manifest — build wiring and emitted line endings", () => {
   it("REQ-BPI-01.1: `scripts.build` chains the manifest step", () => {
     expect(buildChain).toContain("bun run build:manifest");
   });
@@ -77,5 +77,20 @@ describe("runner manifest — build wiring and emitted line endings", () => {
     const raw = readFileSync(join(PROJECT_ROOT, "tsconfig.build.json"), "utf-8");
     const parsed = JSON.parse(raw) as { compilerOptions?: { newLine?: string } };
     expect(parsed.compilerOptions?.newLine).toBe("lf");
+  });
+});
+
+// runner-integrity-manifest S-001.
+describe("runner closure baseline — maintainer-only regeneration", () => {
+  it("REQ-BDI-03.1: `regen:closure-baseline` invokes the baseline writer", () => {
+    expect(buildScripts.scripts["regen:closure-baseline"]).toBe(
+      "bun scripts/regen-closure-baseline.ts"
+    );
+  });
+
+  // The build must never regenerate its own oracle: a self-healing tripwire cannot fire.
+  it("REQ-BDI-03.1: the baseline writer is absent from the build chain", () => {
+    expect(buildScripts.scripts.build).not.toContain("regen:closure-baseline");
+    expect(buildChain.filter((step) => step.includes("regen"))).toEqual([]);
   });
 });

@@ -10,15 +10,33 @@
  * block, so the extensions do not collide with this one.
  */
 import { describe, it, expect, beforeAll } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { deriveRunnerClosure } from "../../scripts/derive-runner-closure.ts";
+import {
+  comparePaths,
+  deriveRunnerClosure,
+  type ClosureEdge,
+  type ClosurePath,
+} from "../../scripts/derive-runner-closure.ts";
 import { ensureTscBuild } from "../support/shared-build.ts";
+import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { PROJECT_ROOT, hashFile } from "../support/scratch-consumer.ts";
 
 const MANIFEST_RELATIVE_PATH = "runner-manifest.json";
 const ENTRY_RELATIVE_PATH = "bin/pbuilder-runner.js";
+const BASELINE_RELATIVE_PATH = "test/fitness/runner-closure-graph-baseline.json";
+const BASELINE_PATH = join(PROJECT_ROOT, BASELINE_RELATIVE_PATH);
+
+interface ClosureBaseline {
+  nodes: ClosurePath[];
+  edges: ClosureEdge[];
+  builtins: string[];
+}
+
+const scratchRoot = scratchDirFactory("fit-42-");
+
+const edgeKey = (edge: ClosureEdge): string => `${edge.from} ${edge.to} ${edge.specifier}`;
 
 interface RunnerManifest {
   manifestVersion: number;
@@ -124,5 +142,50 @@ describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
 
   it("REQ-RCD-02.1: dist/core/engine-client.js is absent from the manifest's file records", () => {
     expect(manifest.files.map((record) => record.path)).not.toContain("dist/core/engine-client.js");
+  });
+});
+
+describe("FIT-42 S-001 — the committed closure-graph baseline", () => {
+  // Read-only on purpose. `bun run regen:closure-baseline` is deliberately outside the
+  // build so a drifted closure cannot re-baseline itself (design §1.1); a TEST that ran the
+  // regenerator against the real tree would reopen that hole one level up.
+  it("REQ-BDI-03.1: the committed baseline is byte-identical to a fresh derivation of the real tree", () => {
+    const { nodes, edges, builtins } = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH);
+    expect(readFileSync(BASELINE_PATH, "utf-8")).toBe(
+      `${JSON.stringify({ nodes, edges, builtins }, null, 2)}\n`
+    );
+  });
+
+  // Every run of the writer happens at an isolated root, never the repo's own.
+  function regenerateAt(root: string): ReturnType<typeof spawnSync> {
+    mkdirSync(join(root, "test/fitness"), { recursive: true });
+    return spawnSync("bun", ["scripts/regen-closure-baseline.ts", root], {
+      cwd: PROJECT_ROOT,
+      encoding: "utf-8",
+    });
+  }
+
+  it("REQ-BDI-03.1: the writer emits exactly {nodes, edges, builtins}, each sorted", () => {
+    const root = scratchRoot();
+    cpSync(distDir, join(root, "dist"), { recursive: true });
+
+    expect(regenerateAt(root).status).toBe(0);
+
+    const written = JSON.parse(
+      readFileSync(join(root, BASELINE_RELATIVE_PATH), "utf-8")
+    ) as ClosureBaseline;
+    expect(Object.keys(written)).toEqual(["nodes", "edges", "builtins"]);
+    expect(written.nodes).toEqual([...written.nodes].sort(comparePaths));
+    expect(written.builtins).toEqual([...written.builtins].sort(comparePaths));
+    expect(written.edges.map(edgeKey)).toEqual(written.edges.map(edgeKey).sort(comparePaths));
+  });
+
+  it("REQ-BDI-03.1: the writer refuses a tree whose derivation reports violations", () => {
+    const root = scratchRoot();
+    mkdirSync(join(root, "dist/bin"), { recursive: true });
+    writeFileSync(join(root, "dist/bin/pbuilder-runner.js"), 'import "ts-morph";\n', "utf-8");
+
+    expect(regenerateAt(root).status).not.toBe(0);
+    expect(existsSync(join(root, BASELINE_RELATIVE_PATH))).toBe(false);
   });
 });
