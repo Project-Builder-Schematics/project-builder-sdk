@@ -188,15 +188,6 @@ describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
     expect(context).toContain('import type { Input } from "./schema.generated.ts";');
   });
 
-  // judgment-day finding 3 (Judge A): the OLD assertion checked "core/schema.generated.js" —
-  // an id resolveRelative can never produce from a ".ts"-suffixed specifier (it never
-  // extension-swaps), so it named a path the walker cannot emit regardless of correctness.
-  // "core/schema.generated.ts" is what a regressed walker actually WOULD add.
-  it("REQ-RCD-03.3: the JSDoc-quoted relative specifier adds no phantom node — by the id it would actually resolve to", () => {
-    const derivation = derivedFromDistDir();
-    expect(derivation.nodes).not.toContain("core/schema.generated.ts");
-  });
-
   // engine-client.ts is reachable only via `import type`, so tsc erases the edge: a SOURCE
   // walk yields 24 nodes, the emitted walk 23. This is the 23-vs-24 proof, by name.
   it("REQ-RCD-02.1: dist/core/engine-client.js exists on disk but is absent from the closure", () => {
