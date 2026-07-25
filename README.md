@@ -159,6 +159,44 @@ bun run typecheck
 `conformance/` — SDK↔engine live conformance corpus, consumed by `project-builder-engine` as a
 pinned git submodule; see `conformance/README.md` and `CONFORMANCE-CORPUS-HANDOFF.md`.
 
+### Local registry (Verdaccio)
+
+Test real publishes — tarball, `files`, `exports`, `bin` — before anything reaches npmjs.
+Unlike `bun link`, this exercises the actual packaging step, so dist/packaging bugs surface
+locally instead of on first contact with a consumer.
+
+```sh
+# terminal 1 — start the registry (runs in foreground)
+bun run registry:up
+
+# terminal 2 — build + publish a local prerelease (0.0.0-local.<timestamp>, dist-tag `local`)
+bun run publish:local
+```
+
+Consume from another repo (e.g. `project-builder-engine`) by pointing only the `@pbuilder`
+scope at the local registry:
+
+```toml
+# bunfig.toml
+[install.scopes]
+"@pbuilder" = "http://localhost:4873"
+```
+
+```sh
+bun add @pbuilder/sdk@local   # always resolves the latest local publish
+```
+
+With npm, use `@pbuilder:registry=http://localhost:4873` in the consumer's `.npmrc` instead.
+
+Notes:
+
+- The `@pbuilder/*` scope is local-authoritative (no npmjs proxy) — a local publish can never
+  be shadowed by the public package. Everything else proxies through to npmjs with caching.
+- `publish:local` restores `package.json` via `git checkout` afterwards — run it with a clean
+  `package.json`, or uncommitted changes to it will be lost.
+- To reset the registry, stop it and delete `tools/verdaccio/storage/` (git-ignored).
+- Registry config lives in `tools/verdaccio/config.yaml`.
+
 ## License
 
 [MIT](./LICENSE)

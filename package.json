@@ -1,6 +1,6 @@
 {
   "name": "@pbuilder/sdk",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "The public TypeScript/Bun authoring layer for Project Builder schematics. Authors file mutations (create, modify, remove, rename, move, copy, copyIn), lowers them to IR, and talks to the Project Builder engine over framed stdio (see docs/engine-sdk-wire-spec.md).",
   "license": "MIT",
   "type": "module",
@@ -70,6 +70,8 @@
     "build:codegen": "bun build bin/pbuilder-codegen.ts --outfile dist/bin/pbuilder-codegen.js --target node --banner \"#!/usr/bin/env node\"",
     "prepublishOnly": "bun run build",
     "publish:dry": "npm publish --dry-run",
+    "registry:up": "bunx verdaccio --config tools/verdaccio/config.yaml --listen 4873",
+    "publish:local": "npm version \"0.0.0-local.$(date +%s)\" --no-git-tag-version && npm publish --registry http://localhost:4873 --tag local; git checkout -- package.json",
     "link:sdk": "bun run build && bun link"
   },
   "devDependencies": {
