@@ -46,6 +46,7 @@ import {
   findIntermediatePackageJsons,
   findPathHygieneViolations,
   hasDrift,
+  renderBaselineDrift,
   type EmitComparisonEntry,
 } from "../support/closure-integrity-checks.ts";
 
@@ -535,7 +536,18 @@ describe("FIT-42 S-003 — the closure graph is the one the sources describe", (
     const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as ClosureBaseline;
     const drift = diffClosureBaseline(observed, baseline);
     expect(baseline.edges.length).toBeGreaterThan(0);
-    expect(hasDrift(drift)).toBe(false);
+    // On failure, the instructional drift message (added node/edge, how to reconcile) IS the
+    // assertion's own failure output — not just a bare boolean a maintainer has to decode.
+    const drifted = hasDrift(drift);
+    expect(
+      drifted,
+      drifted
+        ? renderBaselineDrift(drift, {
+            observed: observed.nodes.length,
+            baseline: baseline.nodes.length,
+          })
+        : undefined
+    ).toBe(false);
   });
 });
 
