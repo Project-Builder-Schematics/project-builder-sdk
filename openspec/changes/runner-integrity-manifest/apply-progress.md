@@ -708,9 +708,16 @@ itself and from the one guard that is new logic.
    names the flag; I applied it uniformly for determinism. Verified this changes nothing: `package.json`
    declares no `prepack` and no `prepare`, and `prepublishOnly` does not run on `npm pack` — so no
    lifecycle script would have fired either way.
-2. **Packing runs from a copied package root**, not the repo root. `files: ["dist"]` plus `package.json`
-   is the entire publishable surface (no README/LICENSE/CHANGELOG at root — checked), so the copy packs
-   byte-identical content while keeping the real tree out of reach of a rewrite.
+2. **Packing runs from a copied package root**, not the repo root — so a version rewrite can never
+   reach the real tree. **Corrected after verify**: an earlier draft of this note claimed there was no
+   README/LICENSE/CHANGELOG at root and that the copy therefore packed byte-identical content. That was
+   **wrong on both counts**. `README.md`, `LICENSE` and `CHANGELOG.md` all exist at the repo root, and
+   `npm pack` auto-includes `LICENSE` and `README.md` regardless of `files: ["dist"]` — measured, the
+   real root packs **121** entries (`dist/**` + `LICENSE` + `README.md` + `package.json`) while the copy
+   packs **119** (`dist/**` + `package.json`). The correct justification is narrower and is the one that
+   actually matters: the copy reproduces the **manifest-relevant** surface exactly. All 24 tracked paths
+   — the 23 `dist/**` closure files plus `package.json` — are present and byte-identical in both, and
+   neither auto-included file is manifest-tracked, so no digest moves and no criterion is affected.
 3. **Two extra tests beyond the five criteria**: the all-24-installed-digests sibling (so PMF-02.3's #24
    assertion cannot pass alone) and the no-skip guard. Both exist to make criteria 4 and 5 non-vacuous.
 
@@ -731,6 +738,37 @@ Clean — no Bug- or Architecture-severity finding.
 - **Vacuity swept as written**: record count pinned at 24 before every digest filter; the dry-run list
   asserted longer than 24 before the `toContain`; the mismatch proof asserts the differing key set
   exactly; the no-skip guard asserts its own pattern fires on a planted sample.
+
+## Post-verify corrections (final in-loop verify, `d4b1559`)
+
+**The R-2 loudness test was fixed — it did not test what it claimed.** The original asserted an
+unreachable registry by running `npm pack --registry http://127.0.0.1:1` in an **empty** directory. It
+threw, so it passed, but it threw on `ENOENT` for a missing `package.json` — nothing to do with a
+registry. Verified independently, and the stronger finding is that the framing was unreachable in
+principle: with a valid `package.json` present, `npm pack` against a dead registry **succeeds and emits
+a tarball**. The RED that proved it:
+
+```
+Expected pattern: /ECONNREFUSED/
+Received function did not throw
+Received value: "pmf-deadreg-0.0.0.tgz\n"
+```
+
+`npm pack` never contacts a registry, so no arrangement of it could ever have exercised criterion 5's
+property. The underlying safety property was always true — `run()` does throw on any non-zero exit
+carrying the command's output — so this was a test-fidelity gap, not a live hole. But in the one slice
+whose point is that no test may claim more than it proves, it was the wrong test to leave standing.
+
+The two properties are now covered separately:
+
+| Test | Proves | Evidence |
+|---|---|---|
+| `a non-zero exit becomes a throw carrying the command's own output` | the runner's failure contract, demonstrated with a **local** failure and named as such | throws carrying both the never-skips banner and npm's `ENOENT` |
+| `an unreachable registry fails loudly with a network diagnosis, never a skip` | criterion 5's actual property, via `npm install` — the only invocation that reaches the network | `ECONNREFUSED`, `syscall: connect`, `port: 1`, `requiredBy: node_modules/@pbuilder/sdk`, in **0.60 s** |
+
+Bounded on purpose: `--fetch-retries=0 --fetch-timeout=3000` against reserved port 1. Without them the
+same install hangs 25+ seconds; with them the whole file still runs in **4.28 s**, far inside the
+declared 300 s ceiling. The no-skip guard is unchanged, and criterion 5 is not weakened.
 
 ## Change status after S-004
 
