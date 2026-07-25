@@ -130,3 +130,61 @@ The protocol's Round 1 rule is to present the verdict and let the owner decide w
 The merge is defensible on the merits: neither confirmed CRITICAL is externally exploitable (both require a commit to this repo), the manifest itself is correct and byte-reproducible, and the engine unblocks either way. What is deferred is a set of guards against future drift — and the drift they would miss is, by construction, the kind nobody notices. That is exactly why they are written down here rather than carried in anyone's memory.
 
 **Judgment day is not complete.** It reaches `APPROVED` only after block A is fixed and both judges are re-run blind on the resulting diff.
+
+---
+
+# Round 2 — after the fixes. **NOT APPROVED.**
+
+**Run**: 2026-07-25. PR #50 merged to `main` in between, so the manifest itself is shipped; Round 2 reviews **PR #51** (`c780084...7686a47`, 5 files, +241/−10) — the four hardening fixes.
+
+Both judges relaunched blind on the new diff, with **no knowledge of Round 1's findings**. They converged again.
+
+## Confirmed by both judges
+
+| # | Finding | Severity |
+|---|---|---|
+| R2-1 | A bare **and** aliased `createRequire` import together evades the anchor exemption entirely | **CRITICAL** |
+| R2-2 | The RP-12 "phantom node" assertion is **still unfalsifiable**; its new justifying comment is factually wrong | **CRITICAL** |
+| R2-3 | The invalid-`version` failure reuses the `unreadable-file` rule — 4 of 5 rendered lines are false | WARNING (real) |
+| R2-4 | A malformed `package.json` throws past `failClosed`, leaving a **stale manifest** on disk | WARNING (real) |
+| R2-5 | **False positive introduced**: the exemption now rejects `module.createRequire(u).resolve(s)` — the idiom the anchor file's own header documents | WARNING (real) |
+| R2-6 | A path spelling still escapes disjointness (`.//dist/x` per Judge A, `--outdir .` per Judge B) | WARNING (theoretical) |
+
+Suspect-A-only: element-access bypass (pre-existing), exemption granted when the anchor imports `createRequire` from nowhere, version-test subprocess cost. Suspect-B-only: version guard placed after the 24-file hashing pass.
+
+## R2-1 — the fix closed a shape, not the class
+
+`createRequireLocalNameIn` returns on the **first** named specifier matching `createRequire`, so it tracks exactly one binding. Put the unaliased form first and every alias becomes invisible: `anchorAliased` is `false`, so `isAnchorAliasUse` never fires; the alias identifier is not in `DENIED_IDENTIFIERS`; and the bare identifiers all sit inside import declarations, which are skipped.
+
+**Both judges proved it end-to-end against the real built tree.** Judge B's minimal reproduction — only the anchor's import line changed, the legitimate `.resolve` call left untouched:
+
+```js
+import { createRequire } from "node:module";
+import { createRequire as cr } from "node:module";
+cr(import.meta.url)("/tmp/evil.cjs");
+```
+
+```
+runner-manifest: 24 files -> dist/runner-manifest.json
+EXIT=0 — zero violations
+```
+
+A valid manifest is published while arbitrary CommonJS from outside the closure executes before the author's code, covered by no digest. `REQ-CST-04.1` does not hold. The behaviour is **order-dependent**: alias-first is caught, bare-first is not — which is exactly why the fix's own new red-proof (alias-only) passes while the property fails.
+
+**The orchestrator's own probe missed it too**: it tested aliased and unaliased separately, never combined.
+
+**Fix direction — invert the invariant rather than matching more shapes.** The anchor file must contain **exactly one** `createRequire` binding, unaliased; anything else forfeits the exemption. That is decidable and has no tail. Continuing to enumerate AST shapes is what produced this round.
+
+## R2-2 — the RP-12 fix did not fix it
+
+The assertion moved from `core/schema.generated.js` to `core/schema.generated.ts` on the reasoning that `.ts` "is what a regressed walker actually WOULD add". Both judges disproved it: `dist/core/schema.generated.ts` does not exist, so `classifySpecifier` returns `unresolvable-specifier` **before** any node is pushed. Judge B probed the maximal regression — a genuine non-JSDoc import of that exact specifier — and got `nodes: ["core/context.js"]`, `violations: ["unresolvable-specifier"]`, no node added. Both spellings are equally unfalsifiable.
+
+The property **is** covered, by the sibling `violations === []` assertion and by the new Tier-A negative test. **Recommended: delete this test rather than repair it.** A test that cannot go red, carrying a comment that misdocuments why it exists, is worse than no test.
+
+## Assessment
+
+One of the three Round-1 fixes held (path normalisation, modulo R2-6's edge). One closed a shape but not its class **and** introduced a false positive. One did not fix its defect and documented a false reason for the change.
+
+The pattern is the lesson: **these are AST-shape checks, and shapes have a long tail.** Each round closes the spellings someone imagined. If Round 3 surfaces further variants of the same class, the answer is not another round — it is that Constraint 4 wants a *structural invariant*, not a shape scanner, and that is a design decision rather than a fix.
+
+Nothing here is on `main` by accident: PR #50 shipped the manifest — correct, deterministic, digests verified — and the engine is unblocked. All of Round 2 concerns tripwire hardening in the still-open PR #51. Abandoning #51 is a real option with no cost to the delivered outcome.

@@ -3,7 +3,7 @@
   "triage": "L",
   "phase": "evaluate",
   "phase_status": "in-progress",
-  "pipeline_status": "EVALUATE \u2014 simplify gate done, verify final pass-with-followups; judgment-day next",
+  "pipeline_status": "PR #50 MERGED to main (engine unblocked). PR #51 OPEN \u2014 judgment-day Round 2 NOT APPROVED; fix iteration 2 in flight.",
   "spec_status": "signed",
   "spec_version": "V2",
   "spec_signed_by": "Daniel Ramirez",
@@ -97,5 +97,8 @@
   "compliance_matrix": "63/65 scenarios COMPLIANT, 0 FAILING, 0 UNTESTED, 2 PARTIAL (RMD-01.2 per owner ruling; IID-01.3 guard narrower than spec); 18/18 red-proofs",
   "code_audit_pre_pr": "PASS \u2014 0 Bug / 0 Architecture / 0 MAJOR",
   "manifest_sha256": "257ba3fe\u2026 (S-000's 1d5cc95e\u2026 is STALE \u2014 S-003's runner.ts comment moved dist/transport/runner.js bytes by design)",
-  "arch_refresh_required": "YES \u2014 architecture_impact=additive. The baseline claims ts-morph stays LEAF-ISOLATED, reachable ONLY from the two dialect leaves. It now has a THIRD importer: scripts/derive-runner-closure.ts, build-time and unshipped. Refresh before archive."
+  "arch_refresh_required": "YES \u2014 architecture_impact=additive. The baseline claims ts-morph stays LEAF-ISOLATED, reachable ONLY from the two dialect leaves. It now has a THIRD importer: scripts/derive-runner-closure.ts, build-time and unshipped. Refresh before archive.",
+  "pr": "#50 MERGED 2026-07-25T07:24:08Z (main @ c780084) | #51 OPEN \u2014 4 hardening fixes, CI green at 7686a47",
+  "judgment_day": "Round 1 ESCALATED (owner ruled merge-now-fix-after). Round 2 NOT APPROVED \u2014 both judges converged again: R2-1 a bare AND aliased createRequire import together evades the anchor exemption entirely (PROVEN END-TO-END on the real tree: exit 0, valid manifest, arbitrary CommonJS executes uncovered \u2014 createRequireLocalNameIn returns on the FIRST match, so unaliased-first hides every alias; order-dependent, which is why the fix's own alias-only red-proof passes while the property fails); R2-2 the RP-12 assertion is STILL unfalsifiable and its new comment is factually wrong (dist/core/schema.generated.ts does not exist -> unresolvable-specifier -> no node ever added); R2-3 the version failure reuses the unreadable-file rule so 4 of 5 message lines are false; R2-4 malformed package.json throws past failClosed leaving a stale manifest; R2-5 FALSE POSITIVE INTRODUCED \u2014 rejects module.createRequire(u).resolve(s), the idiom the anchor file's own header documents; R2-6 a path spelling still escapes disjointness. Full detail in judgment-day.md Round 2.",
+  "round2_lesson": "These are AST-SHAPE checks and shapes have a long tail. One of three Round-1 fixes held. Fix direction for R2-1 is to INVERT THE INVARIANT \u2014 the anchor file must contain exactly ONE createRequire binding, unaliased; anything else forfeits the exemption. Decidable, no tail. If Round 3 surfaces more variants of the same class, the answer is a structural invariant rather than another shape-matching round \u2014 a design decision, not a fix."
 }
