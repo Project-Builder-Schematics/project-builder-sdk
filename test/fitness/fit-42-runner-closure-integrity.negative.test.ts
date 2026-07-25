@@ -20,6 +20,7 @@ import {
   deriveRunnerClosure,
   readSpecifiers,
   renderViolations,
+  serialiseManifest,
   sha256File,
   VIOLATION_RULES,
 } from "../../scripts/derive-runner-closure.ts";
@@ -49,6 +50,44 @@ function plantTree(files: Record<string, string>): string {
   }
   return root;
 }
+
+describe("FIT-42N S-000 — REQ-RCD-00 — the four exported symbols are callable, not merely defined", () => {
+  // Every other Tier A case in this file already calls deriveRunnerClosure, comparePaths and
+  // sha256File; serialiseManifest, RCD-00's fourth export, is otherwise imported ONLY by
+  // generate-runner-manifest.ts and had no test proof at all. This block makes the RCD-00
+  // surface explicit and gives serialiseManifest its first behavioural check.
+  it("REQ-RCD-00: deriveRunnerClosure(distRoot, entryRelPath) walks a zero-import entry to exactly itself", () => {
+    const root = plantTree({ "entry.js": "export const x = 1;\n" });
+    expect(deriveRunnerClosure(root, "entry.js").nodes).toEqual(["entry.js"]);
+  });
+
+  it("REQ-RCD-00: comparePaths(a, b) is negative when a sorts before b under byte order", () => {
+    expect(comparePaths("a.js", "b.js")).toBeLessThan(0);
+    expect(comparePaths("b.js", "a.js")).toBeGreaterThan(0);
+  });
+
+  // RME-02.2 (below) already proves sha256File against a published oracle; this call exists
+  // only to complete the four-export surface guard RCD-00 asks for, not to re-derive that.
+  it("REQ-RCD-00: sha256File(path) is directly callable and returns the file's own digest", () => {
+    const root = plantTree({ "probe.bin": "" });
+    expect(sha256File(join(root, "probe.bin"))).toBe(
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
+  });
+
+  // The one export with no other test in the suite: only generate-runner-manifest.ts calls
+  // it. Pins the exact RME-06.1 serialisation form by identity, on a hand-built manifest.
+  it('REQ-RCD-00 / REQ-RME-06.1: serialiseManifest(m) is JSON.stringify(m, null, 2) + "\\n"', () => {
+    const manifest = {
+      manifestVersion: 1 as const,
+      algorithm: "sha256" as const,
+      entry: "dist/bin/pbuilder-runner.js",
+      packageVersion: "0.0.0",
+      files: [{ path: "package.json", sha256: "0".repeat(64) }],
+    };
+    expect(serialiseManifest(manifest)).toBe(`${JSON.stringify(manifest, null, 2)}\n`);
+  });
+});
 
 describe("FIT-42N S-000 — comparePaths sorts by bytes, never by locale (RP-10)", () => {
   it("REQ-RME-05.2: orders dist/Z.js before dist/a.js (0x5A < 0x61), the inverse of ICU order", () => {
