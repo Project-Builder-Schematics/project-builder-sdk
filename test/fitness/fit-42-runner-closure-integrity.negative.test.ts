@@ -340,6 +340,24 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
     expect(violations.every((v) => v.rule === "constraint-4-execution-primitive")).toBe(true);
   });
 
+  // judgment-day Round 2: the alias check searched for THE binding and stopped at the first
+  // one, so a decoy unaliased import made `anchorAliased` false — the decoy consumed the
+  // single exemption and every execution through the alias was skipped as an unknown name.
+  // Both judges reproduced this end-to-end against the real tree: build green, zero violations.
+  it("REQ-CST-04.3: an unaliased decoy alongside an aliased import does not buy the alias an exemption", () => {
+    const root = plantTree({
+      [CREATE_REQUIRE_ANCHOR_FILE]: [
+        'import { createRequire } from "node:module";',
+        'import { createRequire as cr } from "node:module";',
+        'cr(u)("./evil.cjs");',
+        "",
+      ].join("\n"),
+    });
+    const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
+    expect(violations.length).toBeGreaterThanOrEqual(1);
+    expect(violations.every((v) => v.rule === "constraint-4-execution-primitive")).toBe(true);
+  });
+
   it("REQ-CST-06.1: a rendered violation names the src file to edit, the rule, and the no-manifest outcome", () => {
     const root = plantTree({ "transport/entry.js": 'import { Project } from "ts-morph";\n' });
     const rendered = renderViolations(

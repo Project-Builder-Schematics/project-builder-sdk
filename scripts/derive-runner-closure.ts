@@ -196,22 +196,24 @@ function denyScan(sourceFile: SourceFile, file: ClosurePath): Violation[] {
   });
 
   const atCreateRequireAnchor = file === CREATE_REQUIRE_ANCHOR_FILE;
-  // Resolved ONLY for the anchor file: an aliased import (`createRequire as cr`) leaves no
-  // "createRequire"-text identifier at its use sites, so the ordinary text ban below would
-  // never see it there. Elsewhere the ban stays text-based on purpose — REQ-CST-04.4's
-  // synthetic fixtures use the bare identifier with no import at all and must still be caught.
-  const anchorLocalName = atCreateRequireAnchor ? createRequireLocalNameIn(sourceFile) : undefined;
-  const anchorAliased = anchorLocalName !== undefined && anchorLocalName !== "createRequire";
+  // The exemption is granted to a SHAPE the anchor must PROVE, never searched for among
+  // whatever the file happens to import: exactly one createRequire binding, unaliased. Any
+  // other arrangement forfeits it, and every binding name found becomes denied text — so no
+  // spelling of the primitive can be reached through a name the text ban below cannot see.
+  // Elsewhere the ban stays purely text-based on purpose: REQ-CST-04.4's synthetic fixtures
+  // use the bare identifier with no import at all and must still be caught.
+  const anchorBindings = atCreateRequireAnchor ? createRequireBindingsIn(sourceFile) : [];
+  const anchorExempt = anchorBindings.length === 1 && anchorBindings[0] === "createRequire";
+  const deniedHere = anchorExempt
+    ? DENIED_IDENTIFIERS
+    : new Set([...DENIED_IDENTIFIERS, ...anchorBindings]);
   let anchorExemptionConsumed = false;
 
   for (const identifier of sourceFile.getDescendantsOfKind(SyntaxKind.Identifier)) {
     const name = identifier.getText();
-    const isAnchorAliasUse = atCreateRequireAnchor && anchorAliased && name === anchorLocalName;
-    if (!DENIED_IDENTIFIERS.has(name) && !isAnchorAliasUse) continue;
+    if (!deniedHere.has(name)) continue;
 
-    // An aliased anchor import forfeits the exemption outright (judgment-day finding 1,
-    // Judge A) — every occurrence, including the import binding itself, is a violation.
-    if (name === "createRequire" && atCreateRequireAnchor && !anchorAliased) {
+    if (anchorExempt && name === "createRequire") {
       if (identifier.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) !== undefined) continue;
       // The ONE exempt use must be resolution, never execution (judgment-day finding 1): the
       // callee of a call whose result is immediately `.resolve(...)`d.
@@ -232,17 +234,18 @@ function denyScan(sourceFile: SourceFile, file: ClosurePath): Violation[] {
   return found;
 }
 
-/** The anchor file's createRequire local binding — `undefined` if it never imports it. */
-function createRequireLocalNameIn(sourceFile: SourceFile): string | undefined {
+/** EVERY local name the file binds createRequire to — the count is itself the invariant. */
+function createRequireBindingsIn(sourceFile: SourceFile): string[] {
+  const bindings: string[] = [];
   for (const declaration of sourceFile.getImportDeclarations()) {
     if (declaration.getModuleSpecifierValue() !== "node:module") continue;
     for (const specifier of declaration.getNamedImports()) {
       if (specifier.getName() === "createRequire") {
-        return specifier.getAliasNode()?.getText() ?? specifier.getName();
+        bindings.push(specifier.getAliasNode()?.getText() ?? specifier.getName());
       }
     }
   }
-  return undefined;
+  return bindings;
 }
 
 // ADR-04: resolution, never execution. True only for `X(...).resolve(...)` — the identifier
