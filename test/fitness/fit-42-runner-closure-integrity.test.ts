@@ -179,9 +179,22 @@ describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
     expect(paths).toContain("dist/core/context.js");
   });
 
-  it("REQ-RCD-03.3: the JSDoc-quoted relative specifier adds no phantom node", () => {
+  // judgment-day finding 3: none of the three original assertions here proved the @example
+  // JSDoc was still present — deleting it left all three green. Pin the fixture by content.
+  it("REQ-RCD-03.3: the two @example blocks — a bare specifier and a relative one — are still emitted", () => {
+    const authoringError = readFileSync(join(distDir, "core/authoring-error.js"), "utf-8");
+    const context = readFileSync(join(distDir, "core/context.js"), "utf-8");
+    expect(authoringError).toContain('import { AuthoringError } from "@pbuilder/sdk/commons";');
+    expect(context).toContain('import type { Input } from "./schema.generated.ts";');
+  });
+
+  // judgment-day finding 3 (Judge A): the OLD assertion checked "core/schema.generated.js" —
+  // an id resolveRelative can never produce from a ".ts"-suffixed specifier (it never
+  // extension-swaps), so it named a path the walker cannot emit regardless of correctness.
+  // "core/schema.generated.ts" is what a regressed walker actually WOULD add.
+  it("REQ-RCD-03.3: the JSDoc-quoted relative specifier adds no phantom node — by the id it would actually resolve to", () => {
     const derivation = derivedFromDistDir();
-    expect(derivation.nodes).not.toContain("core/schema.generated.js");
+    expect(derivation.nodes).not.toContain("core/schema.generated.ts");
   });
 
   // engine-client.ts is reachable only via `import type`, so tsc erases the edge: a SOURCE

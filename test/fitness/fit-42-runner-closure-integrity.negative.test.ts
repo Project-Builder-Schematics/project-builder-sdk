@@ -224,6 +224,31 @@ describe("FIT-42N S-000 — every static specifier classifies, none is silently 
   );
 });
 
+describe("FIT-42N S-000 — RP-12: a JSDoc @example never enters the walk, even when its target exists", () => {
+  // judgment-day finding 3: the real-tree version of this proof (fit-42.test.ts) can only
+  // show "no violation, no node" against specifiers whose target happens not to exist — that
+  // proves nothing about whether comments are structurally excluded. Here the relative
+  // target genuinely EXISTS on disk, so a regressed walker that started reading JSDoc text
+  // would add a real node/edge, not silently no-op because the file is missing.
+  it("REQ-RCD-03.3: a bare specifier and a resolvable relative specifier, both JSDoc-quoted, add nothing", () => {
+    const root = plantTree({
+      "entry.js": [
+        "/**",
+        " * @example",
+        ' * import { Thing } from "some-package";',
+        ' * import type { Other } from "./real-target.ts";',
+        " */",
+        "export const noop = 1;",
+      ].join("\n"),
+      "real-target.ts": "export const other = 1;\n",
+    });
+    const derivation = deriveRunnerClosure(root, "entry.js");
+    expect(derivation.violations).toEqual([]);
+    expect(derivation.nodes).toEqual(["entry.js"]);
+    expect(derivation.nodes).not.toContain("real-target.ts");
+  });
+});
+
 describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface", () => {
   it("REQ-CST-03.1: a dynamic import() outside the sanctioned file is a Constraint-2 violation", () => {
     const root = plantTree({ "entry.js": 'const later = import("./a.js");\n' });
