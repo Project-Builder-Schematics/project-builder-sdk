@@ -93,13 +93,24 @@ export function sha256Bytes(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+// One ts-morph Project for the whole module: each `createSourceFile` call below and in
+// `readSpecifiers` passes `overwrite: true`, so re-parsing a path replaces its prior entry
+// instead of colliding — a fresh Project per call bought no isolation, only setup cost.
+let sharedProject: Project | undefined;
+function getSharedProject(): Project {
+  if (sharedProject === undefined) {
+    sharedProject = new Project({
+      compilerOptions: { allowJs: true },
+      skipAddingFilesFromTsConfig: true,
+    });
+  }
+  return sharedProject;
+}
+
 /** REQ-RCD-00. `entryRelPath` is distRoot-relative (e.g. "bin/pbuilder-runner.js"). */
 export function deriveRunnerClosure(distRoot: string, entryRelPath: string): ClosureDerivation {
   const root = realpathSync(distRoot);
-  const project = new Project({
-    compilerOptions: { allowJs: true },
-    skipAddingFilesFromTsConfig: true,
-  });
+  const project = getSharedProject();
   const nodes = new Set<ClosurePath>();
   const edges: ClosureEdge[] = [];
   const builtins = new Set<string>();
@@ -424,10 +435,7 @@ export function readSpecifiers(absolutePath: string): {
   readonly typeOnlyStatic: readonly string[];
   readonly dynamicImportCount: number;
 } {
-  const project = new Project({
-    compilerOptions: { allowJs: true },
-    skipAddingFilesFromTsConfig: true,
-  });
+  const project = getSharedProject();
   const sourceFile = project.createSourceFile(
     absolutePath,
     readFileSync(absolutePath, "utf-8"),
