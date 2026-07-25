@@ -131,6 +131,60 @@ function dryRunPresent(commandLine: string): boolean {
   return /(^|\s)--dry-run(\s|$)/.test(commandLine);
 }
 
+// runner-integrity-manifest S-002, REQ-BPI-03.1. The manifest hashes package.json, so a
+// version stamped BETWEEN the build and the pack ships a manifest whose entry #24 no longer
+// matches the file being published. The property that keeps this safe is: the stamp precedes
+// the build, OR something rebuilds between the stamp and the publish.
+type PublishStepKind = "build" | "stamp" | "publish" | "other";
+
+function classifyPublishStep(run: string): PublishStepKind {
+  if (/(^|\s)npm version(\s|$)/m.test(run)) return "stamp";
+  if (/(^|\s)(npm|bun|yarn|pnpm)\s+(publish|pm pack|pack)(\s|$)/m.test(run)) return "publish";
+  if (/(^|\s)(npm|bun|yarn|pnpm)\s+run\s+build(\s|$)/m.test(run)) return "build";
+  return "other";
+}
+
+function publishRunSteps(doc: WorkflowDoc): Array<{ kind: PublishStepKind; run: string }> {
+  const steps: Array<{ kind: PublishStepKind; run: string }> = [];
+  for (const job of Object.values(doc.jobs ?? {})) {
+    for (const step of job.steps ?? []) {
+      if (step.run) steps.push({ kind: classifyPublishStep(step.run), run: step.run });
+    }
+  }
+  return steps;
+}
+
+// The `prepublishOnly` leg counts ONLY while the publish command is `npm publish` without
+// `--ignore-scripts`: `bun publish` and `bun pm pack` never run npm's lifecycle at all.
+function prepublishRebuilds(publishRun: string, scripts: Record<string, string>): boolean {
+  if (!/(^|\s)npm publish(\s|$)/m.test(publishRun)) return false;
+  if (/(^|\s)--ignore-scripts(\s|$)/.test(publishRun)) return false;
+  return classifyPublishStep(scripts.prepublishOnly ?? "") === "build";
+}
+
+function checkPublishOrdering(
+  doc: WorkflowDoc,
+  scripts: Record<string, string>
+): { ok: boolean; reason?: string } {
+  const steps = publishRunSteps(doc);
+  const stampIndex = steps.findIndex((s) => s.kind === "stamp");
+  const publishIndex = steps.findIndex((s) => s.kind === "publish");
+  if (publishIndex === -1) return { ok: false, reason: "no publish step found" };
+  if (stampIndex === -1) return { ok: true };
+  if (stampIndex < steps.findIndex((s) => s.kind === "build")) return { ok: true };
+
+  const rebuildBetween = steps
+    .slice(stampIndex + 1, publishIndex)
+    .some((s) => s.kind === "build");
+  if (rebuildBetween) return { ok: true };
+  if (prepublishRebuilds(steps[publishIndex]?.run ?? "", scripts)) return { ok: true };
+
+  return {
+    ok: false,
+    reason: "the version is stamped after the build with no rebuild before publish",
+  };
+}
+
 describe("FIT-23 — publish workflow guard (REQ-PPH-01/02/03, ADR-0042)", () => {
   let publishDoc: WorkflowDoc;
   let ciDoc: WorkflowDoc;
@@ -266,5 +320,80 @@ jobs:
 `) as WorkflowDoc;
     expect(hasForkReachableTrigger(simulated)).toBe(true);
     expect(declaresIdTokenWriteAnywhere(simulated)).toBe(true);
+  });
+});
+
+// runner-integrity-manifest S-002 — the manifest's publish-ordering precondition.
+describe("FIT-23 S-002 — publish ordering keeps the manifest true of what ships (REQ-BPI-03.1)", () => {
+  const scripts = (
+    JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
+      scripts: Record<string, string>;
+    }
+  ).scripts;
+
+  it("REQ-BPI-03.1: the committed publish.yml satisfies the ordering property today", () => {
+    const doc = YAML.parse(readFileSync(PUBLISH_YML_PATH, "utf-8")) as WorkflowDoc;
+    expect(checkPublishOrdering(doc, scripts)).toEqual({ ok: true });
+  });
+
+  it("REQ-BPI-03.1: today it holds via prepublishOnly, not via step order", () => {
+    const doc = YAML.parse(readFileSync(PUBLISH_YML_PATH, "utf-8")) as WorkflowDoc;
+    const steps = publishRunSteps(doc);
+    expect(steps.findIndex((s) => s.kind === "stamp")).toBeGreaterThan(
+      steps.findIndex((s) => s.kind === "build")
+    );
+    expect(scripts.prepublishOnly).toBe("bun run build");
+  });
+
+  const stampAfterBuild = `
+jobs:
+  publish:
+    steps:
+      - run: bun run build
+      - run: npm version "0.0.0-dev.abc" --no-git-tag-version
+      - run: PUBLISH_COMMAND
+`;
+
+  it("[red-proof] REQ-BPI-03.1: --ignore-scripts entering the workflow breaks the property", () => {
+    const doc = YAML.parse(
+      stampAfterBuild.replace("PUBLISH_COMMAND", "npm publish --tag dev --ignore-scripts")
+    ) as WorkflowDoc;
+    const result = checkPublishOrdering(doc, scripts);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("stamped after the build");
+  });
+
+  it("[red-proof] REQ-BPI-03.1: switching to `bun publish` breaks the property", () => {
+    const doc = YAML.parse(
+      stampAfterBuild.replace("PUBLISH_COMMAND", "bun publish --tag dev")
+    ) as WorkflowDoc;
+    expect(checkPublishOrdering(doc, scripts).ok).toBe(false);
+  });
+
+  it("[red-proof] REQ-BPI-03.1: switching to `bun pm pack` breaks the property", () => {
+    const doc = YAML.parse(
+      stampAfterBuild.replace("PUBLISH_COMMAND", "bun pm pack --destination .")
+    ) as WorkflowDoc;
+    expect(checkPublishOrdering(doc, scripts).ok).toBe(false);
+  });
+
+  it("[red-proof] REQ-BPI-03.1: dropping prepublishOnly's build breaks the property", () => {
+    const doc = YAML.parse(
+      stampAfterBuild.replace("PUBLISH_COMMAND", "npm publish --tag dev")
+    ) as WorkflowDoc;
+    expect(checkPublishOrdering(doc, { prepublishOnly: "echo nothing" }).ok).toBe(false);
+  });
+
+  it("REQ-BPI-03.1: an explicit rebuild between stamp and publish also satisfies it", () => {
+    const doc = YAML.parse(`
+jobs:
+  publish:
+    steps:
+      - run: bun run build
+      - run: npm version "0.0.0-dev.abc" --no-git-tag-version
+      - run: bun run build
+      - run: npm publish --tag dev --ignore-scripts
+`) as WorkflowDoc;
+    expect(checkPublishOrdering(doc, scripts)).toEqual({ ok: true });
   });
 });

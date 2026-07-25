@@ -80,6 +80,45 @@ describe("runner manifest — build wiring and emitted line endings", () => {
   });
 });
 
+// runner-integrity-manifest S-002. `newLine: "lf"` governs only tsc-EMITTED terminators;
+// newlines inside template literals pass through verbatim from source, so `.gitattributes`
+// is the real cross-machine guard and its `-text` opt-outs must not reach the closure.
+function parseGitAttributes(content: string): Array<{ pattern: string; attrs: string[] }> {
+  return content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"))
+    .map((line) => {
+      const [pattern, ...attrs] = line.split(/\s+/);
+      return { pattern: pattern as string, attrs };
+    });
+}
+
+function outOfScopeTextOptOuts(entries: ReturnType<typeof parseGitAttributes>): string[] {
+  return entries
+    .filter((entry) => entry.attrs.includes("-text"))
+    .map((entry) => entry.pattern)
+    .filter((pattern) => !pattern.startsWith("test/dialects/"));
+}
+
+describe("runner closure — .gitattributes normalises source line endings", () => {
+  const committed = parseGitAttributes(readFileSync(join(PROJECT_ROOT, ".gitattributes"), "utf-8"));
+
+  it("REQ-RMD-03.3: a repo-wide `* eol=lf` rule is committed", () => {
+    expect(committed.some((e) => e.pattern === "*" && e.attrs.includes("eol=lf"))).toBe(true);
+  });
+
+  it("REQ-RMD-03.3: every `-text` opt-out is scoped to test/dialects/**, never to src/**", () => {
+    expect(outOfScopeTextOptOuts(committed)).toEqual([]);
+  });
+
+  // RED-PROOF: without this, the scope check passes against a file that opted src/** out.
+  it("[red-proof] REQ-RMD-03.3: a `-text` opt-out reaching src/** is caught", () => {
+    const simulated = parseGitAttributes("* eol=lf\nsrc/transport/*.ts -text\n");
+    expect(outOfScopeTextOptOuts(simulated)).toEqual(["src/transport/*.ts"]);
+  });
+});
+
 // runner-integrity-manifest S-001.
 describe("runner closure baseline — maintainer-only regeneration", () => {
   it("REQ-BDI-03.1: `regen:closure-baseline` invokes the baseline writer", () => {
