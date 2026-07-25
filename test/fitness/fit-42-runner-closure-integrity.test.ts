@@ -32,6 +32,7 @@ import {
   comparePaths,
   deriveRunnerClosure,
   readSpecifiers,
+  type ClosureDerivation,
   type ClosureEdge,
   type ClosurePath,
   type RunnerManifest,
@@ -87,6 +88,29 @@ afterAll(() => {
   if (pristineRoot !== "") rmSync(pristineRoot, { recursive: true, force: true });
 });
 
+// Freezes the derivation and its edge/violation records so an accidental in-place mutation
+// by a future test fails loudly instead of silently contaminating a sibling test that shares
+// the same memoized result.
+function freezeDerivation(derivation: ClosureDerivation): ClosureDerivation {
+  for (const edge of derivation.edges) Object.freeze(edge);
+  for (const violation of derivation.violations) Object.freeze(violation);
+  Object.freeze(derivation.nodes);
+  Object.freeze(derivation.edges);
+  Object.freeze(derivation.builtins);
+  Object.freeze(derivation.violations);
+  return Object.freeze(derivation);
+}
+
+// distDir is one tree for the whole file (set once in beforeAll) and every consumer below
+// only reads the result, so one derivation replaces what used to be a separate walk per `it`.
+let distDirDerivation: ClosureDerivation | undefined;
+function derivedFromDistDir(): ClosureDerivation {
+  if (distDirDerivation === undefined) {
+    distDirDerivation = freezeDerivation(deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH));
+  }
+  return distDirDerivation;
+}
+
 describe("FIT-42 S-000 — the build emits a runner manifest", () => {
   it("REQ-BPI-01.1: `bun run build` leaves dist/runner-manifest.json on disk", () => {
     expect(existsSync(manifestPath)).toBe(true);
@@ -139,14 +163,14 @@ describe("FIT-42 S-000 — the build emits a runner manifest", () => {
 
 describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
   it("REQ-RCD-02.2: the closure derived from the real dist/ is exactly 23 files", () => {
-    expect(deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).nodes.length).toBe(23);
+    expect(derivedFromDistDir().nodes.length).toBe(23);
   });
 
   // RP-12 — the inverse red-proof. `removeComments` is unset, so both files' JSDoc
   // `@example` blocks (one quoting a bare specifier, one a relative one) survive into
   // dist/. Named files, so deleting the examples can never "fix" a regression here.
   it("REQ-RCD-03.3: the two JSDoc-quoting closure files report no violation", () => {
-    expect([...deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).violations]).toEqual([]);
+    expect([...derivedFromDistDir().violations]).toEqual([]);
   });
 
   it("REQ-RCD-03.3: dist/core/authoring-error.js and dist/core/context.js are ordinary file records", () => {
@@ -156,7 +180,7 @@ describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
   });
 
   it("REQ-RCD-03.3: the JSDoc-quoted relative specifier adds no phantom node", () => {
-    const derivation = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH);
+    const derivation = derivedFromDistDir();
     expect(derivation.nodes).not.toContain("core/schema.generated.js");
   });
 
@@ -164,7 +188,7 @@ describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
   // walk yields 24 nodes, the emitted walk 23. This is the 23-vs-24 proof, by name.
   it("REQ-RCD-02.1: dist/core/engine-client.js exists on disk but is absent from the closure", () => {
     expect(existsSync(join(distDir, "core/engine-client.js"))).toBe(true);
-    expect(deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).nodes).not.toContain(
+    expect(derivedFromDistDir().nodes).not.toContain(
       "core/engine-client.js"
     );
   });
@@ -179,7 +203,7 @@ describe("FIT-42 S-001 — the committed closure-graph baseline", () => {
   // build so a drifted closure cannot re-baseline itself (design §1.1); a TEST that ran the
   // regenerator against the real tree would reopen that hole one level up.
   it("REQ-BDI-03.1: the committed baseline is byte-identical to a fresh derivation of the real tree", () => {
-    const { nodes, edges, builtins } = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH);
+    const { nodes, edges, builtins } = derivedFromDistDir();
     expect(readFileSync(BASELINE_PATH, "utf-8")).toBe(
       `${JSON.stringify({ nodes, edges, builtins }, null, 2)}\n`
     );
@@ -232,7 +256,7 @@ const EXCLUDED_FROM_MANIFEST = [
 describe("FIT-42 S-002 — the manifest agrees with the committed baseline", () => {
   it("REQ-RCD-01.1: the derived closure equals the baseline's node set", () => {
     const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as ClosureBaseline;
-    const derived = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).nodes;
+    const derived = derivedFromDistDir().nodes;
     expect([...derived].sort(comparePaths)).toEqual([...baseline.nodes].sort(comparePaths));
   });
 
@@ -240,7 +264,7 @@ describe("FIT-42 S-002 — the manifest agrees with the committed baseline", () 
   // legitimate future `node:buffer` into a red build, against the design's permissive bias.
   it("REQ-RCD-04.1: the observed builtin set equals the baseline's builtins row", () => {
     const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as ClosureBaseline;
-    const derived = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).builtins;
+    const derived = derivedFromDistDir().builtins;
     expect([...derived]).toEqual([...baseline.builtins]);
   });
 });
@@ -297,7 +321,7 @@ describe("FIT-42 S-002 — the manifest's shape, exclusions, hygiene and orderin
 describe("FIT-42 S-002 — the closure's own bytes are line-ending and BOM clean", () => {
   function closureFileBytes(): Array<{ path: string; bytes: Uint8Array }> {
     const files: Array<{ path: string; bytes: Uint8Array }> = [];
-    for (const node of deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).nodes) {
+    for (const node of derivedFromDistDir().nodes) {
       files.push({ path: `dist/${node}`, bytes: readFileSync(join(distDir, node)) });
       const source = join(PROJECT_ROOT, "src", node.replace(/\.js$/, ".ts"));
       if (existsSync(source)) files.push({ path: `src/${node}`, bytes: readFileSync(source) });
@@ -433,9 +457,19 @@ describe("FIT-42 S-002 — the generator fails closed and leaves nothing behind"
 // build deletes and rebuilds the real tree mid-suite.
 const snapshotDist = (): string => join(pristineRoot, "dist");
 
+// Same memoization as derivedFromDistDir: snapshotDist() is one static, never-mutated tree
+// for the whole file, and every consumer below only reads the result.
+let snapshotDerivation: ClosureDerivation | undefined;
+function derivedFromSnapshot(): ClosureDerivation {
+  if (snapshotDerivation === undefined) {
+    snapshotDerivation = freezeDerivation(deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH));
+  }
+  return snapshotDerivation;
+}
+
 describe("FIT-42 S-003 — the real tree honours Constraints 2, 4 and 5", () => {
   it("REQ-CST-03.3: exactly one dynamic import() in the closure, and it is in transport/runner.js", () => {
-    const counts = deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH)
+    const counts = derivedFromSnapshot()
       .nodes.map((node) => ({
         node,
         count: readSpecifiers(join(snapshotDist(), node)).dynamicImportCount,
@@ -450,7 +484,7 @@ describe("FIT-42 S-003 — the real tree honours Constraints 2, 4 and 5", () => 
   });
 
   it("REQ-CST-04.3: the deny-scan reports zero violations against the real closure", () => {
-    expect([...deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH).violations]).toEqual([]);
+    expect([...derivedFromSnapshot().violations]).toEqual([]);
   });
 
   // Non-vacuity: the anchored file really does hold createRequire references, so "no
@@ -458,7 +492,7 @@ describe("FIT-42 S-003 — the real tree honours Constraints 2, 4 and 5", () => 
   it("REQ-CST-04.3: the anchored probe genuinely references createRequire and is not flagged", () => {
     const probe = readFileSync(join(snapshotDist(), CREATE_REQUIRE_ANCHOR_FILE), "utf-8");
     expect(probe.split("createRequire").length - 1).toBeGreaterThanOrEqual(2);
-    const flagged = deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH).violations.filter(
+    const flagged = derivedFromSnapshot().violations.filter(
       (violation) => violation.file === CREATE_REQUIRE_ANCHOR_FILE
     );
     expect(flagged).toEqual([]);
@@ -476,7 +510,7 @@ describe("FIT-42 S-003 — the closure graph is the one the sources describe", (
     specifiers.filter((specifier) => specifier.startsWith("./") || specifier.startsWith("../"));
 
   function emitComparison(): EmitComparisonEntry[] {
-    return deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH).nodes.map((node) => {
+    return derivedFromSnapshot().nodes.map((node) => {
       const source = readSpecifiers(join(PROJECT_ROOT, "src", node.replace(/\.js$/, ".ts")));
       return {
         path: node,
@@ -514,7 +548,7 @@ describe("FIT-42 S-003 — the closure graph is the one the sources describe", (
       }
     ).scripts;
     const targets = findBundlerTargets(scripts);
-    const closurePaths = deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH).nodes.map(
+    const closurePaths = derivedFromSnapshot().nodes.map(
       (node) => `dist/${node}`
     );
 
@@ -525,7 +559,7 @@ describe("FIT-42 S-003 — the closure graph is the one the sources describe", (
   });
 
   it("REQ-BDI-03.1: the derived graph shows no drift against the committed baseline", () => {
-    const observed = deriveRunnerClosure(snapshotDist(), ENTRY_RELATIVE_PATH);
+    const observed = derivedFromSnapshot();
     const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as ClosureBaseline;
     const drift = diffClosureBaseline(observed, baseline);
     expect(baseline.edges.length).toBeGreaterThan(0);
