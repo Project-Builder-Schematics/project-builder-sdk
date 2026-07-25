@@ -31,3 +31,7 @@ Design records for SDK contributors — not part of the author reading path abov
 - **[Engine ↔ SDK wire design](./engine-sdk-wire-design.md)** — the historical decision
   record: runner contract, the Go↔TS cross-language contracts, and (in its `## Superseded`
   section) the pre-implementation proposal the wire spec above replaced.
+- **[Runner integrity invariants](./runner-integrity-invariants.md)** — what
+  `dist/runner-manifest.json` covers and what it does not, the five Constraints the engine's
+  closure-sealing lemma rests on and how each is enforced, why `package.json` is entry #24,
+  and the gaps we know about.
