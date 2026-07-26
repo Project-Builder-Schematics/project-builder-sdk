@@ -2,33 +2,41 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./commons": {
       "types": "./dist/commons/index.d.ts",
-      "import": "./dist/commons/index.js"
+      "import": "./dist/commons/index.js",
+      "default": "./dist/commons/index.js"
     },
     "./conformance": {
       "types": "./dist/conformance/index.d.ts",
-      "import": "./dist/conformance/index.js"
+      "import": "./dist/conformance/index.js",
+      "default": "./dist/conformance/index.js"
     },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
-      "import": "./dist/testing/index.js"
+      "import": "./dist/testing/index.js",
+      "default": "./dist/testing/index.js"
     },
     "./typescript": {
       "types": "./dist/dialects/typescript/index.d.ts",
-      "import": "./dist/dialects/typescript/index.js"
+      "import": "./dist/dialects/typescript/index.js",
+      "default": "./dist/dialects/typescript/index.js"
     },
     "./react": {
       "types": "./dist/dialects/react/index.d.ts",
-      "import": "./dist/dialects/react/index.js"
+      "import": "./dist/dialects/react/index.js",
+      "default": "./dist/dialects/react/index.js"
     }
   },
   "dependencies": {
     "ts-morph": "28.0.0"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "bin": {
     "pbuilder-codegen": "dist/bin/pbuilder-codegen.js"
   },
