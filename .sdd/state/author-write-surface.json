@@ -1,11 +1,13 @@
 {
   "change": "author-write-surface",
   "triage": "L",
-  "phase": "verify-plan",
+  "phase": "archived",
+  "phase_status": "ARCHIVED 2026-07-14 — openspec/changes/archive/2026-07-14-author-write-surface/ (7 specs synced, ADR-0050 promoted, ADR-0039/0012 amended, 3 lessons persisted, 4 pre-existing followups registered). Sealed at commits 0c5f273 + 5b4f9d6. Mirror was stale at verify-plan until reconciled 2026-07-22.",
   "spec_status": "signed",
   "slices": true,
   "plan_verify": "ready",
-  "verify_final": "none",
-  "arch_audit": "none",
-  "updated_at": "2026-07-14"
+  "verify_final": "pass-with-followups",
+  "arch_audit": "clean (impact: modifying — Handle unfreeze + conformance chain-step contract)",
+  "judgment_day": "APPROVED round 1 (suggestion applied 4544eb5)",
+  "updated_at": "2026-07-22"
 }

@@ -1,0 +1,23 @@
+{
+  "change": "copy-copyin-conformance-fixtures",
+  "triage": "L",
+  "phase": "archived",
+  "archive": "complete 2026-07-22 — commits 83d1e2c (archive+git mv+ADRs 0073/0074/0075+CCF-1..4) + 8cff0de (conformance-fixtures spec sync completion) + ee926f2 (CCF-5 row), all LOCAL on main awaiting owner push. Archive folder: openspec/changes/archive/2026-07-22-copy-copyin-conformance-fixtures/",
+  "steward_reckoning": "DELIVERED, 3 CQs owner-ruled (banking yes / oracle deferred / no horizon explicit)",
+  "judgment_day": "APPROVED Round 1 (0 confirmed; 1 suggestion fixed post-approval owner-approved; 4 improvements folded into fit-40 hardening followup)",
+  "verify_final_verdict": "pass-with-followups (31/32 REQ compliant, audit clean, atomicity satisfied — merge diff empty vs 52952a9); adversarial_review: required (L)",
+  "simplify": "ok: 1 applied (11dfffc), 1 skipped w/followup, 2 lenses clean",
+  "apply_progress": "ALL SIX slices delivered. Main: 7ea80d1 + 6b68aaa (6/18). Held: 7a03b62 + d4f1ce2 on m2-copyin-banked-arm, draft PR #45 (7/23 isolated). In-loop verify 3/3 PASS. Awaiting /evaluate.",
+  "plan_complete": true,
+  "spec_status": "signed",
+  "slices": true,
+  "slice_ids": ["S-000", "S-001", "S-002", "S-003", "S-004", "S-005"],
+  "plan_verify": "READY (owner-ruled 2026-07-22 at iteration ceiling, conditioned on slices rev 4 — condition met). Trajectory: Judge B 12→7→4, Judge A clean 3x. All Judge B questions across 3 iterations answered in the executor surface (rev 2 pinned values, rev 3 mechanics+owner answers, rev 4 environment facts). verify-plan-{1,2,3}.md persisted.",
+  "verify_final": "pass-with-followups",
+  "arch_audit": "violations-overridden (pre-existing debt, zero diff overlap; owner override persisted sdd/copy-copyin-conformance-fixtures/architecture-override; change's own diff clean)",
+  "viz_url": "https://claude.ai/code/artifact/2a99ccea-0c86-4d75-b352-07ca44924d47",
+  "store": "hybrid (engram back online 2026-07-22 build session)",
+  "execution_mode": "interactive",
+  "origin": "GitHub issue #42 + owner decision to bundle m2-copyin (2026-07-22)",
+  "notes": "L driven by risk (cross-repo pin ratchet, REQ-CCR-04 atomicity, README public contract), not size. Landing sequence: m2-copy first, m2-copyin second. Council: architect, pm, business-analyst, qa-engineer + tech-writer (README contract). Next: sdd-explore (deep, A1 entry per abstraction ladder)."
+}

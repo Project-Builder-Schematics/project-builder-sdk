@@ -2,7 +2,7 @@
   "change": "context-singleton-fix",
   "triage": "M",
   "phase": "build-complete",
-  "phase_status": "BUILD COMPLETE + PR #40 OPEN 2026-07-19: S-000 @ 326668b (fix + dual-realm e2e, RED proof in red-evidence.md), S-001 @ 3892c44 (13 guardrail tests, mutation-checked), typecheck-fix @ d69431e; verify-in-loop-1 NEEDS_FIX (2 TS2769, fixed inline by orchestrator) -> verify-in-loop-2 PASS (obs #1306); suite 1983/0, typecheck+build clean; NEXT: /evaluate (verify final + steward reckoning — CQ-3 needs owner) then archive; engine unblock = merge #40 + pin advance",
+  "phase_status": "BUILD COMPLETE + PR #40 MERGED 2026-07-18T22:26Z @ f685578 (fix/context-singleton -> main): S-000 @ 326668b (fix + dual-realm e2e, RED proof in red-evidence.md), S-001 @ 3892c44 (13 guardrail tests, mutation-checked), typecheck-fix @ d69431e; verify-in-loop-1 NEEDS_FIX (2 TS2769, fixed inline by orchestrator) -> verify-in-loop-2 PASS (obs #1306); suite 1983/0, typecheck+build clean; NEXT: /evaluate (verify final + steward reckoning — CQ-3 needs owner) then archive; engine unblock delivered by merge, pin advance status unverified (mirror reconciled 2026-07-22)",
   "in_loop_iterations": 2,
   "plan_detail": "design rev 3 (obs #1296; resolveRunAls/getRunAls purity split; ADR-01 unqualified-key+collision addendum, ADR-02 Symbol.for boundary; impact modifying); steward foresight ALIGNED (obs #1297; CQ-1/CQ-2 closed with code evidence, CQ-3 pending owner at reckoning); plan-verify READY iter 3/3 (trajectory 14→2→1-wording)",
   "slices": true,
