@@ -1,0 +1,14 @@
+{
+  "change": "mutation-schematic-docs",
+  "triage": "S",
+  "phase": "inline-execution-complete",
+  "phase_status": "Inline path executed 2026-07-28 (S — no slices/spec/verify-final per council-matrix). Owner ruled: INCLUDE scaffold (8 verbs total). docs/authoring-verbs.md 143→331 lines (per-verb sections w/ signatures, examples, edge+error semantics; new scaffold section incl. previously-undocumented to-is-token-translated finding); docs/quickstart.md 187→204 (8-bullet anchor index replacing collective link). Orchestrator re-verified: replaceContent path-not-found chain (conformance/m2-modify/manifest.json:26 + authoring-error.ts:134), remove/scaffold/copyIn void signatures (src/commons/index.ts:258,286,309). Doc tests 54 pass / 0 fail. Diff quality pass: no junk found. Uncommitted — awaiting user.",
+  "spec_status": "n/a (S inline path)",
+  "slices": false,
+  "plan_verify": "n/a",
+  "verify_final": "n/a",
+  "arch_audit": "n/a",
+  "outcome": "n/a",
+  "execution_mode": "interactive",
+  "next": "sdd-explore (light, read-only) → inline edit of docs/authoring-verbs.md + docs/quickstart.md"
+}

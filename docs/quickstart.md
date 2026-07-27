@@ -176,9 +176,27 @@ no hand-written input shape anywhere.
 
 ## Next steps
 
-- [Authoring verbs](./authoring-verbs.md) — the seven authoring verbs (`create`,
-  `replaceContent`, `remove`, `rename`, `move`, `copy`, `copyIn`) and the `find().read()`
-  read-trichotomy rule.
+Every mutation lives on `@pbuilder/sdk/commons`, detailed in
+[Authoring verbs](./authoring-verbs.md):
+
+- [`create`](./authoring-verbs.md#create) — schedules a file-creation directive, rendering
+  `path` and `template` as template strings against one `options` object.
+- [`replaceContent`](./authoring-verbs.md#replacecontent) — wholesale-replaces an existing
+  file's content in place.
+- [`remove`](./authoring-verbs.md#remove) — schedules a file deletion; idempotent on an
+  absent path.
+- [`rename`](./authoring-verbs.md#rename) — schedules a basename-only rename.
+- [`move`](./authoring-verbs.md#move) — schedules a move to a different directory.
+- [`copy`](./authoring-verbs.md#copy) — schedules a tree-to-tree copy, chainable via the
+  returned handle.
+- [`copyIn`](./authoring-verbs.md#copyin) — copies one package-local file into the tree,
+  always by-reference.
+- [`scaffold`](./authoring-verbs.md#scaffold) — walks a package-local folder and mirrors it
+  into the tree, with per-entry rename/token/`.template` handling and include/exclude
+  filtering.
+
+`authoring-verbs.md` also covers the `find().read()` read-trichotomy rule. Related pages:
+
 - [Error contract](./authoring-errors.md) — what `AuthoringError` looks like and how to
   assert against it.
 - [Dry-run](./dry-run.md) — preview a factory's planned changes before anything commits.

@@ -1,0 +1,13 @@
+change: mutation-schematic-docs
+triage: S
+completed_phases: [triage, explore, inline-execution]
+current_phase: inline-execution
+current_phase_status: complete (scaffold INCLUDED per owner ruling; 8 verbs documented; doc tests 54/54; diff uncommitted)
+in_loop_iteration: 0
+next_phase: none — S inline path ends here (no verify-final/archive per council-matrix); commit pending user
+execution_mode: interactive
+notes: >-
+  Triage 2026-07-28 (engram obs #2592). Docs-only change: per-mutation
+  authoring detail + quickstart mutation index. Escalation trigger to M if
+  per-verb detail reaches create-templates.md scale or new dedicated files
+  per verb are needed.
