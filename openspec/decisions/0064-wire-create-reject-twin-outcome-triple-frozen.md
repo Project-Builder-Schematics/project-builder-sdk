@@ -52,6 +52,20 @@ above is UNCHANGED** — `(2, "unrepresentable", null)`, same transcript — onl
 reclassifies from "unconditional engine-side create rejection" to "force-bearing create is
 explicitly rejected." See ADR-0078 for full reasoning.
 
+Engine-confirmed specifics (2026-07-29, `sdk-wire-create` review of this probe):
+
+- **The rejection trigger is `force`, NOT the template.** The `"unrepresentable"` template
+  literal renders fine as an ordinary string; before `force` was added, the NEW engine
+  accepted this probe and wrote the file — the engine's adversarial review flagged the
+  manifest's pinned rejection as falsified. Any future edit that drops `force` from
+  `createRejectProbe` silently re-falsifies the case (fit-40's REQ-CFX-09.5 force-in-source
+  check is the guard).
+- **Engine v1 has no `force` mechanism for create, permanently** (engine ADR-0028, third
+  amendment) — neither envelope-level nor per-op. A wire create carrying `force` is rejected
+  at decode step 2, before any render, as batch-level `unrepresentable` with
+  `failedIndex: null` — explicitly, never silently ignored. This matches the probe's pinned
+  triple exactly (`exitCode: 2`, `"unrepresentable"`, `writtenPaths: []`).
+
 ## Related ADRs
 
 - **ADR-0065**: Per-case `factory` override — the mechanism that isolates this probe's raw
