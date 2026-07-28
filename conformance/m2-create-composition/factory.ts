@@ -16,12 +16,13 @@ export default function m2CreateCompositionFactory(_input: Record<string, never>
 //     one-create-corpus-wide invariant (REQ-CFX-02) and fails fit-40.
 // (b) this is a REJECT PROBE, not a demonstration of a working `create` flow.
 // (c) do NOT imitate this pattern when authoring a new fixture.
-// (d) the engine refuses this batch at emit — `unrepresentable`, exit 2 (ADR-0064, frozen).
+// (d) the engine refuses this batch at emit BECAUSE it carries `force: true` — `unrepresentable`,
+//     exit 2 (ADR-0064, frozen; ADR-0078, force-triggered cause).
 // (e) to author a new fixture, copy the default export's modify/delete/rename/move/copy/copyIn
 //     pattern above instead — or, if the new fixture genuinely needs a wire create, copy
 //     this file's createComposite export's pattern, never this probe's.
 export function createRejectProbe(_input: Record<string, never>): void {
-  create("wire-create-reject-probe.txt", { template: "unrepresentable", options: {} });
+  create("wire-create-reject-probe.txt", { template: "unrepresentable", options: {}, force: true });
 }
 
 // create-composite (REQ-CFX-09.4): the corpus's first POSITIVE wire create, quarantined

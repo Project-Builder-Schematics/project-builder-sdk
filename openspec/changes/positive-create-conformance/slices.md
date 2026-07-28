@@ -61,10 +61,10 @@ holds — no regex change, code name unchanged).
 Targeted fit-40 run only — full suite not green yet.
 
 ### Tasks
-- [ ] S-001.1 RED `it("REQ-CFX-09.5 ...")` in fit-40's REQ-CFX-09 block
-- [ ] S-001.2 Verify ADR-0078 + ADR-0064 amendment already match design — no rewrite
-- [ ] S-001.3 Add `force: true` to `createRejectProbe`'s call; reword clause (d)
-- [ ] S-001.4 fit-40 targeted GREEN; `tsc --noEmit`
+- [x] S-001.1 RED `it("REQ-CFX-09.5 ...")` in fit-40's REQ-CFX-09 block
+- [x] S-001.2 Verify ADR-0078 + ADR-0064 amendment already match design — no rewrite
+- [x] S-001.3 Add `force: true` to `createRejectProbe`'s call; reword clause (d)
+- [x] S-001.4 fit-40 targeted GREEN; `tsc --noEmit`
 
 ---
 

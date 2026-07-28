@@ -595,6 +595,21 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(c.expected).toBe("expected-composite");
       expect(readFileSync(join(f.dir, "expected-composite", "create-composite.txt"), "utf8")).toBe("composite: [x][y]");
     });
+
+    it("REQ-CFX-09.5: wire-create-reject-twin's factory call carries force: true, staying a valid rejection under the engine's new create semantics (ADR-0078)", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "wire-create-reject-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.factory).toEqual({ module: "factory.ts", export: "createRejectProbe" });
+      const factoryPath = join(f.dir, (c.factory as { module: string }).module);
+      const source = stripComments(readFileSync(factoryPath, "utf8"));
+      const probeBlockStart = source.indexOf("function createRejectProbe");
+      expect(probeBlockStart).toBeGreaterThan(-1);
+      const probeBlock = source.slice(probeBlockStart);
+      expect(/force\s*:\s*true/.test(probeBlock)).toBe(true);
+    });
   });
 
   describe("REQ-CFX-15 — m2-copy behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
