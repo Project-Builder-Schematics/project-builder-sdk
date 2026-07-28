@@ -1,11 +1,12 @@
 change: inline-collection-marker
 triage: L
 completed_phases: [triage, explore, propose, spec, design, steward-foresight, slice, verify-plan]
-current_phase: build (S-000 verified+committed 6694754; S-001 verified+committed 811887c; S-002 applied 7/7 — union 12→11, bump 0.2.0, FIT-04 baselines, tsc clean, 12-residual baseline held, zero new failures)
-current_status: awaiting verify-in-loop-3 (batch: S-002)
-in_loop_iteration: 1
-next_phase: verify in-loop (S-002) → then apply S-003 (requires S-001+S-002)
-build_order_position: 2 of 5 (S-001 verified; S-002 pending verify)
+current_phase: build (S-000 verified+committed 6694754; S-001 verified+committed 811887c; S-002 verified PASS [verify-in-loop-3.md] + committed b66900e — union 12→11, bump 0.2.0, FIT-04 baselines)
+current_status: PAUSED by user (session handoff to another machine, 2026-07-28) — clean tree, 3/7 slices done+verified+committed
+in_loop_iteration: 0
+next_phase: apply S-003 (full-suite realign; requires S-001+S-002, both done) → verify in-loop 4 → S-004 ∥ S-005 → S-006
+build_order_position: 3 of 5 next (S-000, S-001, S-002 complete)
+resume_notes: expected S-003 outcome — closes most of the 12-failure residual baseline except 4 S-004-owned corpus/matrix failures + 2 pre-existing fit-42 (main); S-002 left 5 mechanical `as AuthoringError["reason"]` casts in S-003/S-004-owned files that S-003 must remove when flipping those assertions; corpus transcripts are regen-only (S-004.3), never hand-edited; execution mode was Automatic (re-ask on new session)
 apply_deviations: S-000 walk.ts pre-RED (verify-1 acceptable); S-001 first-run-green over S-000.5 guard (verify-2 acceptable, trend flagged for final); S-002 deviation #7 — 5 mechanical `as AuthoringError["reason"]` casts in S-003/S-004-owned files to keep tsc green post-shrink, assertions untouched — surfaced to verify-3
 direction: remove SDK-side containment — SDK only generates IR, engine owns the path-directive boundary (owner-decided)
 owner_rulings_count: 15
