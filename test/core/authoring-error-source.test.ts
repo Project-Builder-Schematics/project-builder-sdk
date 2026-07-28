@@ -15,7 +15,7 @@
  * container umasks). The union arithmetic proof at the bottom now counts twelve.
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
 import { ContractFake } from "../support/contract-fake.ts";
@@ -101,14 +101,13 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
 });
 
 describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly and follow the V3 neutral message templates", () => {
-  it("REQ-AEC-10.1/REQ-AEC-11.1: source-not-found — an in-ceiling missing source", () => {
+  it("REQ-AEC-10.1/REQ-AEC-11.1: source-not-found — a missing source", () => {
     const dir = scratchDir();
 
     const err = expectReason(
       () =>
         classifyTransport({
           packageDir: dir,
-          packageRoot: dir,
           relPath: "missing.ts",
           isTemplateMarked: false,
           destPath: "missing.ts",
@@ -120,25 +119,11 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
     expect(err.message).not.toContain(dir);
   });
 
-  it("REQ-AEC-10.1/REQ-AEC-11.1: source-outside-package — a source resolving outside the containment ceiling", () => {
-    const dir = scratchDir();
-
-    const err = expectReason(
-      () =>
-        classifyTransport({
-          packageDir: dir,
-          packageRoot: dir,
-          relPath: "../outside.txt",
-          isTemplateMarked: false,
-          destPath: "outside.txt",
-          options: {},
-        }),
-      "source-outside-package"
-    );
-    expect(err.message).toEqual(
-      "source file outside package: ../outside.txt resolves outside the package boundary"
-    );
-  });
+  // ADR-0077: `source-outside-package` retires with `package-root-containment` — its
+  // fixture is removed here (S-002.6 will drop the reason from the union itself). A
+  // lexically-escaping relPath is now `path-guards.ts#validateSourceLexical`'s job, called
+  // by classifyTransport's CALLERS before classifyTransport ever runs — not something
+  // classifyTransport itself classifies anymore.
 
   it("REQ-AEC-10.1/REQ-AEC-11.1: source-not-regular-file — a directory presented as a source", () => {
     const dir = scratchDir();
@@ -148,7 +133,6 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
       () =>
         classifyTransport({
           packageDir: dir,
-          packageRoot: dir,
           relPath: "adir",
           isTemplateMarked: false,
           destPath: "adir",
@@ -156,7 +140,9 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
         }),
       "source-not-regular-file"
     );
-    expect(err.message).toEqual("source file invalid: adir is not a regular file");
+    expect(err.message).toEqual(
+      "source file invalid: adir is a directory, not a regular file — use scaffold() to copy a folder"
+    );
   });
 
   it("REQ-AEC-10.1/REQ-AEC-11.1: source-unreadable — an injected read-failure (EACCES) seam, never chmod (S18)", async () => {
@@ -164,12 +150,15 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
     mkdirSync(join(dir, "files"));
     const target = join(dir, "files", "readable.ts");
     writeFileSync(target, "export const a = 1;", "utf-8");
-    const realTarget = realpathSync(target); // classify-transport reads the REALPATH'd form
+    // ADR-0077 (design V2 amendment): path-guards.ts resolves the LEXICAL absolute path
+    // (`resolve(join(packageDir, relPath))`), never a realpath'd one — `target` above IS
+    // already that lexical form, so it (not `realpathSync(target)`) is what
+    // classify-transport.ts's own post-stat `readFileSync` is actually called with.
     const fake = new ContractFake({ seed: {} });
 
     const originalReadFileSync = fs.readFileSync;
     const readSpy = spyOn(fs, "readFileSync").mockImplementation(((...args: Parameters<typeof fs.readFileSync>) => {
-      if (args[0] === realTarget) {
+      if (args[0] === target) {
         throw Object.assign(new Error("EACCES: permission denied, open"), { code: "EACCES" });
       }
       return originalReadFileSync(...(args as Parameters<typeof readFileSync>));

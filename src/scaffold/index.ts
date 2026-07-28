@@ -8,7 +8,7 @@ import { currentContext, requirePackageAnchors } from "../core/context.ts";
 import { invalidInput } from "../core/authoring-error.ts";
 import { forceEntry } from "../core/directive-factory.ts";
 import type { JsonValue } from "../core/wire.ts";
-import { validateSourceContainment, validateDestinationLexical } from "./containment.ts";
+import { validateSourceLexical, statSourceForRead, validateDestinationLexical } from "./path-guards.ts";
 import { classifyTransport } from "./classify-transport.ts";
 
 // S-001: the folder-scaffold orchestrator lives in expander.ts (the single owner of the
@@ -41,13 +41,13 @@ export { isSniffableText } from "./classify-transport.ts";
  * Reads a package-local file (relative to the active run's `packageDir`) and returns its
  * content as the string to use for a `create({ templateFile })` render request.
  *
- * Containment (S-005, verify-in-loop-4 Deviation #1 ruling): the path is validated through
- * the SAME `validateSourceContainment` machinery `scaffold`/`copyIn` already use
- * (`package-root-containment` REQ-PRC-01..08) BEFORE any content read — a missing/
- * outside-package/non-regular/unreadable source surfaces the matching neutral `source-*`
- * `AuthoringReason` (REQ-AEC-10/11), never a parallel templateFile-only check. The whole
- * containment → stat-size (REQ-CCL-06 posture) → read → sniff (REQ-CCL-01/03) → budget
- * (REQ-CCL-02) chain is `classifyTransport`'s — ONE gate engine for both callers. A
+ * ADR-0077: the path is screened lexically (`validateSourceLexical`, `ir-path-well-formedness`
+ * REQ-IPF-01) then hygiene-checked through the SAME `statSourceForRead` machinery
+ * `scaffold`/`copyIn` already use (`package-source-io-hygiene` REQ-PSH-01..03) BEFORE any
+ * content read — a missing/non-regular/unreadable source surfaces the matching neutral
+ * `source-*` `AuthoringReason` (REQ-AEC-10/11), never a parallel templateFile-only check.
+ * The whole hygiene → stat-size (REQ-CCL-06 posture) → read → sniff (REQ-CCL-01/03) →
+ * budget (REQ-CCL-02) chain is `classifyTransport`'s — ONE gate engine for both callers. A
  * `templateFile` REQUESTS a render — unlike `scaffold`'s by-value/by-reference
  * classification of unmarked files, there is no silent by-reference fallback here
  * (REQ-FEH-02): invalid UTF-8, a null byte, or an over-budget file all fail loud with
@@ -61,10 +61,10 @@ export { isSniffableText } from "./classify-transport.ts";
  * never the template content alone.
  */
 export function readTemplateFile(relPath: string, destPath: string, options: JsonValue, force?: boolean): string {
-  const { packageDir, packageRoot } = requirePackageAnchors(noResolutionAnchorMessage(relPath));
+  const { packageDir } = requirePackageAnchors(noResolutionAnchorMessage(relPath));
+  validateSourceLexical(relPath);
   return classifyTransport({
     packageDir,
-    packageRoot,
     relPath,
     isTemplateMarked: false,
     destPath,
@@ -94,11 +94,12 @@ function noResolutionAnchorForCopyInMessage(): string {
  * rendered: a text asset containing `{= =}`-like sequences travels verbatim, the documented
  * escape from `scaffold`'s by-value classification (`content-classification` REQ-CCL-04).
  * `from`/`to` are mandatory; a missing one rejects fail-loud before any emission
- * (REQ-FEH-04.1/.2). Source containment (existence, in-ceiling, regular-file) is validated
- * SDK-side against real disk BEFORE any directive is emitted — a missing/outside-package/
- * non-regular source surfaces the matching `source-*` reason
- * (`package-root-containment` REQ-PRC-04, `by-reference-copy-wire` REQ-BRC-06); content is
- * never read (`copyIn` never classifies, REQ-FEH-03).
+ * (REQ-FEH-04.1/.2). The destination is screened lexically FIRST (design §4 Q2 — a
+ * both-escape fixture must yield the destination template), then the source is screened
+ * lexically and hygiene-checked against real disk BEFORE any directive is emitted — a
+ * missing/non-regular source surfaces the matching `source-*` reason
+ * (`package-source-io-hygiene` REQ-PSH-01/02, `by-reference-copy-wire` REQ-BRC-06);
+ * content is never read (`copyIn` never classifies, REQ-FEH-03).
  */
 export function runCopyIn(args: { from: string | undefined; to: string | undefined; force?: boolean }): void {
   if (args.from === undefined) {
@@ -109,10 +110,13 @@ export function runCopyIn(args: { from: string | undefined; to: string | undefin
   }
 
   const { session, factory } = currentContext();
-  const { packageDir, packageRoot } = requirePackageAnchors(noResolutionAnchorForCopyInMessage());
+  const { packageDir } = requirePackageAnchors(noResolutionAnchorForCopyInMessage());
 
-  validateSourceContainment({ packageDir, packageRoot, relPath: args.from });
+  // design §4 Q2 — pinned statement order: destination BEFORE source. A both-escape
+  // fixture must yield the DESTINATION template, never the source one (REQ-AEC-11.2).
   validateDestinationLexical(args.to);
+  validateSourceLexical(args.from);
+  statSourceForRead({ packageDir, relPath: args.from });
 
   session.buffer(factory.copyIn({ from: args.from, to: args.to, ...forceEntry(args.force) }));
 }

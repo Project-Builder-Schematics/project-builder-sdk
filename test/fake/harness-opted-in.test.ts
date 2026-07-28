@@ -11,44 +11,32 @@
  * input-shape variety below as plain regression coverage of the SAME REQ-ATH-17 guarantee,
  * not a second, independent REQ.
  *
- * **Executor note — ATH-11.2/ATH-17.3 predicate widened beyond the design §4.6b literal
- * text**: §4.6b's event-allowlist predicate names only "the `node:fs` read events whose
- * resolved target path equals `<packageDir>/schema.json`" as observed-not-flagged.
- * Investigating the ACTUAL merged discovery surface shows `defineFactory`'s opted-in
- * branch (`src/core/context.ts`) makes THREE unconditional `node:fs`-family reads, in
- * order, all BEFORE `als.run`: the `collection.json` ancestor-walk probe
- * (`existsSync`), the reserved-lifecycle-name scan (`readdirSync`), then the schema read
- * (`readFileSync`). All three are the factory's own declared opted-in behaviour (REQ-ATH-11's
- * carve-out) — neither is harness machinery, neither is optional, and an author cannot opt
- * out of one without the others (`options.packageDir !== undefined` gates all three
- * identically). The predicate below therefore allows all three resolved paths rather than
- * the single path §4.6b's prose names. Every OTHER surface (net, Bun I/O, fetch, env/argv
- * gets, and any OTHER fs call) still fails closed, per the design's fail-closed guarantee.
+ * **`inline-collection-marker` S-000.2 (REQ-MFB-01, REQ-RBV-06.2)**: the pre-`als.run`
+ * `collection.json` ancestor-walk probe (`existsSync`) is DELETED — `packageDir` is now the
+ * SOLE run anchor. The bootstrap read-set shrinks from THREE reads to exactly TWO, in a
+ * PINNED ORDER: the reserved-lifecycle-name scan (`readdirSync`) FIRST, then the schema read
+ * (`readFileSync`). Both are the factory's own declared opted-in behaviour (REQ-ATH-11's
+ * carve-out) — neither is harness machinery, neither is optional. Every OTHER surface (net,
+ * Bun I/O, fetch, env/argv gets, and any OTHER fs call) still fails closed, per the design's
+ * fail-closed guarantee.
  */
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, spyOn } from "bun:test";
 import { join } from "node:path";
+import * as fs from "node:fs";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { create, AuthoringError } from "../../src/commons/index.ts";
 import { instrumentHarnessIO, type IoEvent } from "../support/harness-io-instrumentation.ts";
 
 const FIXTURE_DIR = join(import.meta.dir, "../fixtures/harness-opted-in");
 const SCHEMA_PATH = join(FIXTURE_DIR, "schema.json");
-// ADR-0046 (schematic-local-files): the pre-`als.run` packageRoot ceiling walk
-// (`resolvePackageRoot`, `src/core/context.ts`) adds a THIRD unconditional, factory-own
-// declared read — `existsSync(<packageDir>/collection.json)` — alongside the reserved-name
-// scan and the schema read below. The fixture's own `collection.json` marker means the walk
-// resolves on its FIRST probe, at `packageDir` itself.
-const COLLECTION_JSON_PATH = join(FIXTURE_DIR, "collection.json");
 
 // The ONLY node:fs events an opted-in factory's OWN declared behaviour is allowed to
-// produce — the reserved-lifecycle-name directory scan of `<packageDir>` itself, the
-// containment-ceiling probe of `<packageDir>/collection.json`, and the schema read of
-// `<packageDir>/schema.json`.
+// produce — the reserved-lifecycle-name directory scan of `<packageDir>` itself, and the
+// schema read of `<packageDir>/schema.json`. No THIRD (containment-ceiling) probe exists.
 function isDeclaredOptedInRead(event: IoEvent): boolean {
   if (event.surface !== "node:fs") return false;
   if (event.key === "readdirSync") return event.arg === FIXTURE_DIR;
   if (event.key === "readFileSync") return event.arg === SCHEMA_PATH;
-  if (event.key === "existsSync") return event.arg === COLLECTION_JSON_PATH;
   return false;
 }
 
@@ -69,12 +57,11 @@ describe("REQ-ATH-17.3 — positive fs-read oracle proves packageDir was actuall
       );
       expect(undeclaredFsEvents).toEqual([]);
 
-      // Mutation-resistant: proves existsSync/readFileSync/readdirSync ALL actually fired
-      // against the package directory — a mutant that silently drops the forwarded
-      // `packageDir` (passing `undefined` through) would leave this list empty.
+      // Mutation-resistant: proves readFileSync/readdirSync BOTH actually fired against
+      // the package directory — a mutant that silently drops the forwarded `packageDir`
+      // (passing `undefined` through) would leave this list empty.
       const declaredFsEvents = instrumentation.events().filter(isDeclaredOptedInRead);
       expect(declaredFsEvents.map((event) => event.key).sort()).toEqual([
-        "existsSync",
         "readFileSync",
         "readdirSync",
       ]);
@@ -85,6 +72,44 @@ describe("REQ-ATH-17.3 — positive fs-read oracle proves packageDir was actuall
       expect(instrumentation.argvGets).toEqual(0);
     } finally {
       instrumentation.restore();
+    }
+  });
+});
+
+describe("REQ-RBV-06.2 — the two-read bootstrap set fires in a pinned order: reserved-name scan, then schema read", () => {
+  it("readdirSync (reserved-name scan) is called before readFileSync (schema read), never the reverse", async () => {
+    // Records call ORDER across two different fs functions — `instrumentHarnessIO`'s
+    // `events()` groups by spy (function identity), which cannot reconstruct
+    // cross-function chronology; a direct pass-through wrapper with a shared `order`
+    // array can.
+    const order: string[] = [];
+    const originalReaddirSync = fs.readdirSync;
+    const originalReadFileSync = fs.readFileSync;
+    const readdirSpy = spyOn(fs, "readdirSync").mockImplementation(((...args: Parameters<typeof fs.readdirSync>) => {
+      order.push("readdirSync");
+      return (originalReaddirSync as (...a: Parameters<typeof fs.readdirSync>) => ReturnType<typeof fs.readdirSync>)(...args);
+    }) as typeof fs.readdirSync);
+    const readFileSpy = spyOn(fs, "readFileSync").mockImplementation(((...args: Parameters<typeof fs.readFileSync>) => {
+      order.push("readFileSync");
+      return (originalReadFileSync as (...a: Parameters<typeof fs.readFileSync>) => ReturnType<typeof fs.readFileSync>)(...args);
+    }) as typeof fs.readFileSync);
+
+    try {
+      const run = (): void => {
+        create("server.config.ts", { template: "static content", options: {} });
+      };
+
+      const result = await runFactoryForTest(run, { port: 8080 }, { packageDir: FIXTURE_DIR });
+
+      expect(result.error).toBeUndefined();
+      const firstReaddirIndex = order.indexOf("readdirSync");
+      const firstReadFileIndex = order.indexOf("readFileSync");
+      expect(firstReaddirIndex).toBeGreaterThanOrEqual(0);
+      expect(firstReadFileIndex).toBeGreaterThanOrEqual(0);
+      expect(firstReaddirIndex).toBeLessThan(firstReadFileIndex);
+    } finally {
+      readdirSpy.mockRestore();
+      readFileSpy.mockRestore();
     }
   });
 });

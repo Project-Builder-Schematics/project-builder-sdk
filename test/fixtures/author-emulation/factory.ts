@@ -150,11 +150,9 @@ export const runM06 = (input: Input): void => {
  * to that primitive would need to build its OWN independent client/fake, and its
  * directives would land THERE, never in the OUTER `runFactoryForTest` wrap's
  * `result.tree`/`emitted` the corpus actually captures. Instead, this reuses the SAME
- * ambient run `runFactoryForTest`/`captureRun` already established: it resolves the
- * scratch dir's own containment root itself (the scratch dir writes `collection.json`
- * directly at its own root, so `packageRoot === packageDir` here — the exact value the
- * production resolver would also compute for this case, since the walk finds a ceiling
- * marker at the very first directory it checks), replicates the SAME wrap primitive's own
+ * ambient run `runFactoryForTest`/`captureRun` already established: it installs the
+ * scratch dir itself as `packageAnchors.packageDir` (ADR-0077: `packageDir` is the sole
+ * run anchor — no separate ceiling to resolve), replicates the SAME wrap primitive's own
  * reserved-name check via the SAME exported utilities it calls (`findReservedSibling` +
  * `rejectionForReservedName` — never a private reimplementation), then temporarily installs
  * those anchors on the CURRENT `RunContext` for the duration of `body`'s execution,
@@ -181,7 +179,7 @@ function scratchFactoryRunner(
       }
       const ctx = currentContext();
       const previousAnchors = ctx.packageAnchors;
-      ctx.packageAnchors = { packageDir: dir, packageRoot: dir };
+      ctx.packageAnchors = { packageDir: dir };
       try {
         await body(input);
       } finally {

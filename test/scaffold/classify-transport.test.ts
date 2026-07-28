@@ -7,7 +7,7 @@
  * REQUIRED params (judgment-day iteration 1 fix, REQ-CCL-02): the budget gate measures the
  * PROSPECTIVE `create` directive, not the content string alone, so every call site below
  * threads a `destPath`/`options` pair even where the fixture's own budget math is
- * irrelevant to what's being pinned (containment/sniff/stat-gate) — arbitrary but present.
+ * irrelevant to what's being pinned (hygiene/sniff/stat-gate) — arbitrary but present.
  *
  * The REQ-CCL-02.3 boundary describe block below is the ONE deliberate exception to the
  * "call classifyTransport directly" convention: the judgment-day-iteration-1 defect (a
@@ -40,7 +40,6 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
 
     const result = classifyTransport({
       packageDir: dir,
-      packageRoot: dir,
       relPath: "a.ts",
       isTemplateMarked: false,
       destPath: "a.ts",
@@ -56,7 +55,6 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
 
     const result = classifyTransport({
       packageDir: dir,
-      packageRoot: dir,
       relPath: "bad.bin",
       isTemplateMarked: false,
       destPath: "bad.bin",
@@ -78,7 +76,6 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
       expect(bytes.includes(0x00)).toBe(false);
       const result = classifyTransport({
         packageDir: dir,
-        packageRoot: dir,
         relPath: name,
         isTemplateMarked: false,
         destPath: name,
@@ -95,7 +92,6 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
 
     const result = classifyTransport({
       packageDir: dir,
-      packageRoot: dir,
       relPath: "multibyte.ts",
       isTemplateMarked: false,
       destPath: "multibyte.ts",
@@ -112,7 +108,6 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
 
     const result = classifyTransport({
       packageDir: dir,
-      packageRoot: dir,
       relPath: "bom.ts",
       isTemplateMarked: false,
       destPath: "bom.ts",
@@ -129,7 +124,6 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
 
     const result = classifyTransport({
       packageDir: dir,
-      packageRoot: dir,
       relPath: "empty.ts",
       isTemplateMarked: false,
       destPath: "empty.ts",
@@ -166,7 +160,6 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
     expect(
       classifyTransport({
         packageDir: dir,
-        packageRoot: dir,
         relPath: "under.ts",
         isTemplateMarked: false,
         destPath: "under.ts",
@@ -176,7 +169,6 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
     expect(
       classifyTransport({
         packageDir: dir,
-        packageRoot: dir,
         relPath: "over.ts",
         isTemplateMarked: false,
         destPath: "over.ts",
@@ -201,7 +193,6 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
 
     const result = classifyTransport({
       packageDir: dir,
-      packageRoot: dir,
       relPath: "escapes.ts",
       isTemplateMarked: false,
       destPath,
@@ -308,7 +299,6 @@ describe("REQ-CCL-02.4 — composite-valued option measured post-encode at the b
 
     const result = classifyTransport({
       packageDir: dir,
-      packageRoot: dir,
       relPath: "small.ts",
       isTemplateMarked: false,
       destPath,
@@ -351,7 +341,6 @@ describe("REQ-CCL-03 — whole-file null-byte/UTF-8 scan (tail detection)", () =
 
     const result = classifyTransport({
       packageDir: dir,
-      packageRoot: dir,
       relPath: "tail-null.bin",
       isTemplateMarked: false,
       destPath: "tail-null.bin",
@@ -368,7 +357,6 @@ describe("REQ-CCL-03 — whole-file null-byte/UTF-8 scan (tail detection)", () =
 
     const result = classifyTransport({
       packageDir: dir,
-      packageRoot: dir,
       relPath: "big-tail-null.bin",
       isTemplateMarked: false,
       destPath: "big-tail-null.bin",
@@ -391,13 +379,12 @@ describe("REQ-CCL-06 — stat-size gate before any content read", () => {
     // `content` field lets a mutant that DELETES the stat gate survive — it would slurp the
     // whole file via readFileSync and still land on "by-reference" via the post-read
     // serialized-budget check (REQ-CCL-02), producing an identical `{ verdict }` shape.
-    // Spying on readFileSync (mirrors containment.test.ts's REQ-PRC-08.1 pattern) proves the
+    // Spying on readFileSync (mirrors path-guards.ts's own IO-hygiene testing pattern) proves the
     // stat gate itself — not a downstream check — is what stopped the read.
     const readSpy = spyOn(fs, "readFileSync");
     try {
       const result = classifyTransport({
         packageDir: dir,
-        packageRoot: dir,
         relPath: "huge.bin",
         isTemplateMarked: false,
         destPath: "huge.bin",
@@ -422,7 +409,6 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
       () =>
         classifyTransport({
           packageDir: dir,
-          packageRoot: dir,
           relPath: "logo.svg",
           isTemplateMarked: true,
           destPath: "logo.svg",
@@ -441,7 +427,6 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
       () =>
         classifyTransport({
           packageDir: dir,
-          packageRoot: dir,
           relPath: "huge.template",
           isTemplateMarked: true,
           destPath: "huge.template",
@@ -457,7 +442,6 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
 
     const result = classifyTransport({
       packageDir: dir,
-      packageRoot: dir,
       relPath: "ok.ts.template",
       isTemplateMarked: true,
       destPath: "ok.ts.template",
@@ -468,38 +452,10 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
   });
 });
 
-describe("REQ-PRC-04 — source containment, delegated to containment.ts (S-002 hardened the S-001 placeholder)", () => {
-  it("REQ-PRC-04.1: a source-relative path containing a '..' segment rejects source-outside-package", () => {
-    const dir = scratchDir();
-
-    expectReason(
-      () =>
-        classifyTransport({
-          packageDir: dir,
-          packageRoot: dir,
-          relPath: "../outside.txt",
-          isTemplateMarked: false,
-          destPath: "outside.txt",
-          options: {},
-        }),
-      "source-outside-package"
-    );
-  });
-
-  it("REQ-PRC-04.6: an absolute source-relative path rejects source-outside-package (no '..' present)", () => {
-    const dir = scratchDir();
-
-    expectReason(
-      () =>
-        classifyTransport({
-          packageDir: dir,
-          packageRoot: dir,
-          relPath: "/etc/passwd",
-          isTemplateMarked: false,
-          destPath: "passwd",
-          options: {},
-        }),
-      "source-outside-package"
-    );
-  });
-});
+// ADR-0077: the REQ-PRC-04 lexical-escape describe block that used to live here is
+// removed — `classifyTransport` never owned that screen (it always delegated to
+// `containment.ts`, now deleted); the lexical `../`/absolute screen is
+// `path-guards.ts#validateSourceLexical`, called by classifyTransport's CALLERS
+// (`index.ts`/`expander.ts`) BEFORE classifyTransport ever runs, never folded into it.
+// That screen's own coverage lives at the call sites (`test/scaffold/expander.test.ts`,
+// e2e), not here.

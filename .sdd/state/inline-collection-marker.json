@@ -1,7 +1,7 @@
 {
   "change": "inline-collection-marker",
   "triage": "L",
-  "phase": "plan-complete",
+  "phase": "build:apply:S-000",
   "spec_status": "signed",
   "slices": true,
   "plan_verify": "ready",

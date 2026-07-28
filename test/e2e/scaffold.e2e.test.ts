@@ -77,17 +77,17 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
     expect(fake.committedTree().size).toEqual(0);
   });
 
-  it("a package with NO collection.json ancestor fails loud pre-body, before create() ever runs (RBV-06.1 sentinel ordering)", async () => {
+  it("REQ-MFB-01.1: a package with NO collection.json ancestor runs the body anyway — the sentinel throw propagates unchanged (inverts the retired RBV-06.1 ordering pin)", async () => {
     const dir = scratchDir();
-    rmSync(join(dir, "collection.json")); // remove the factory-seeded marker for this negative case
+    rmSync(join(dir, "collection.json")); // remove the factory-seeded marker for this case
     const fake = new ContractFake({ seed: {} });
 
     const caught = await rejectedRun(fake, () => {
       throw new Error("body-ran");
     }, { packageDir: dir });
 
-    const err = expectAuthoringReason(caught, "invalid-input");
-    expect(err.message).not.toEqual("body-ran");
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toEqual("body-ran");
   });
 
   it("REQ-FEH-01.1 (judgment-day iteration 2 fix): a BOM-prefixed templateFile preserves the BOM in the emitted create directive's template — exact content, never stripped", async () => {
@@ -139,7 +139,7 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
 
     const err = expectAuthoringReason(caught, "source-unreadable");
     expect(err.message).toEqual(
-      "source file unreadable: blocker.txt/nested.template could not be read"
+      "source file unreadable: blocker.txt/nested.template could not be read (permission or I/O error)"
     );
     expect(fake.committedTree().size).toEqual(0);
   });

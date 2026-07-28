@@ -1,11 +1,10 @@
 // src/scaffold/walk.ts (ADR-0044): folder enumeration for `scaffold` — lstat-based
 // symlinked-directory non-descent (REQ-FSC-09.1) and a 10 000-entry bound (REQ-FSC-09.2).
-// Pure enumeration only: source/destination eligibility, containment, and the by-value/
-// by-reference verdict are NOT this module's concern (classify-transport.ts + containment.ts,
-// the latter landing in S-002).
+// Pure enumeration only: source/destination eligibility and the by-value/by-reference
+// verdict are NOT this module's concern (classify-transport.ts + path-guards.ts).
 
 import { lstatSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { invalidInput } from "../core/authoring-error.ts";
 import { isErrnoException } from "../core/fs-errors.ts";
 
@@ -22,17 +21,18 @@ function boundExceededMessage(bound: number): string {
   return `invalid input: scaffold walk exceeded the ${bound}-entry bound`;
 }
 
-// judgment-day iteration 2 fix: the ROOT `readdirSync` (below) has no per-entry containment
-// guard ahead of it the way every recursive sub-directory read does (those enumerate
-// directories `validateSourceRootContainment` + this function's own walk already proved
-// in-ceiling) — `runScaffold` only proves the root is IN-CEILING, never that it exists or is
-// a directory (`validateSourceRootContainment`'s own contract: a legitimately absent root is
-// deliberately left for `walkFolder` to answer, package-root-containment REQ-PRC-10.3). A
-// `from` that resolves to a regular FILE or does not exist at all therefore used to reach
-// `readdirSync` unguarded and throw a raw Node `Error` — never an `AuthoringError` — whose
-// message echoes the ABSOLUTE filesystem path (no-echo violation). `rootRelPath` is the
-// author-facing, package-relative `from` the caller already has in hand (never re-derived
-// from `fromAbs`); a caller that omits it (only the direct-unit-test callers in walk.test.ts
+// judgment-day iteration 2 fix: the ROOT `readdirSync` (below) has no guard the caller
+// already provides — `runScaffold` only lexically screens the root (`validateSourceLexical`,
+// ADR-0077), never that it exists or is a directory (that check is deliberately left for
+// `walkFolder` to answer). A `from` that resolves to a regular FILE or does not exist at
+// all therefore used to reach `readdirSync` unguarded and throw a raw Node `Error` — never
+// an `AuthoringError` — whose message echoes the ABSOLUTE filesystem path (no-echo
+// violation). Ruling 8 (REQ-FSC-10.4) extends the SAME guard shape to every RECURSIVE
+// sub-directory `readdirSync` and per-entry `lstatSync` below — a mid-walk failure (an
+// entry vanishes, or an EACCES mid-tree) is no more entitled to leak a raw Node error than
+// the root is. `rootRelPath` is the author-facing, package-relative `from` the caller
+// already has in hand (never re-derived from `fromAbs`); a caller that omits it (only the
+// direct-unit-test callers in walk.test.ts
 // do) falls back to a locator-free phrasing rather than ever risking an absolute-path leak.
 function rootNotDirectoryMessage(rootRelPath: string | undefined): string {
   return rootRelPath === undefined
@@ -68,6 +68,35 @@ function rootReadFailure(err: unknown, rootRelPath: string | undefined): Error {
   return invalidInput(rootUnreadableMessage(rootRelPath));
 }
 
+// REQ-FSC-10.4 (ruling 8, design §4 Q3): the recursive `readdirSync` (a nested directory
+// this walk itself discovered) and the per-entry `lstatSync` had NO guard ahead of them —
+// unlike the ROOT read above — so a mid-walk failure (the entry vanishes, or an EACCES
+// mid-tree) used to reach the caller as a raw Node `Error`, echoing an ABSOLUTE path
+// (no-echo violation). `rootReadFailure`'s SHAPE is reused (AuthoringError, invalid-input,
+// package-relative, no-echo) but its three texts are ROOT-specific and would misname a
+// per-entry failure — these two templates are ENTRY-specific instead. `X` is
+// `posix.join(rootRelPath, entryRelPath)`; when `rootRelPath` is undefined (only the
+// direct unit-test callers in walk.test.ts), both fall back to a locator-free phrasing,
+// exactly as the three root texts already do — never an absolute path.
+function entryUnreadableMessage(entryRelPath: string | undefined): string {
+  return entryRelPath === undefined
+    ? "invalid input: scaffold entry could not be read"
+    : `invalid input: scaffold entry (${entryRelPath}) could not be read`;
+}
+
+function entryDisappearedMessage(entryRelPath: string | undefined): string {
+  return entryRelPath === undefined
+    ? "invalid input: scaffold entry disappeared during the walk"
+    : `invalid input: scaffold entry (${entryRelPath}) disappeared during the walk`;
+}
+
+function entryReadFailure(err: unknown, entryRelPath: string | undefined): Error {
+  if (isErrnoException(err) && err.code === "ENOENT") {
+    return invalidInput(entryDisappearedMessage(entryRelPath));
+  }
+  return invalidInput(entryUnreadableMessage(entryRelPath));
+}
+
 // A symlink's OWN type (lstat) is always "symbolic link" — this asks what the link's
 // TARGET is, via `statSync` (follows the link), ONLY to decide non-descent (REQ-FSC-09.1).
 // NOT a containment check: a broken symlink (target absent) is treated as a
@@ -83,19 +112,18 @@ function symlinkTargetIsDirectory(absPath: string): boolean {
 /**
  * Enumerates every file under `fromAbs`, mirroring nested directory structure into
  * posix-separated `relPath`s (sorted for deterministic output). Symlinked directories are
- * NEVER descended — even when their target resolves inside the containment ceiling
- * (REQ-FSC-09.1) — skipped silently, no error. Fails loud, naming the bound, once the
- * enumerated entry count exceeds `bound` (REQ-FSC-09.2); `bound` is injectable so a test
- * can drive the branch without materializing 10,001 real files.
+ * NEVER descended — even when their target resolves inside the package (REQ-FSC-09.1) —
+ * skipped silently, no error. Fails loud, naming the bound, once the enumerated entry count
+ * exceeds `bound` (REQ-FSC-09.2); `bound` is injectable so a test can drive the branch
+ * without materializing 10,001 real files.
  *
- * `rootRelPath` (judgment-day iteration 2 fix, package-root-containment REQ-PRC-10.3
- * amendment): the author-facing, package-relative `from` — threaded through SOLELY to name
- * the ROOT in an `AuthoringError` message if the root itself is not a readable directory (a
- * regular file, or missing — `runScaffold`'s `validateSourceRootContainment` proves the root
- * is in-ceiling but deliberately leaves existence/type to this function, see its own
- * doc-comment). Recursive sub-directory reads below are NOT re-guarded — every one of them
- * enumerates a directory this walk already lstat'd as a directory, so their behavior for a
- * valid tree is unchanged.
+ * `rootRelPath` (judgment-day iteration 2 fix, extended by ruling 8 / REQ-FSC-10.4): the
+ * author-facing, package-relative `from` — threaded through to name BOTH the ROOT and any
+ * RECURSIVE entry in an `AuthoringError` message: the root if it itself is not a readable
+ * directory (a regular file, or missing — `runScaffold`'s `validateSourceLexical` only
+ * screens the root lexically, deliberately leaving existence/type to this function, see its
+ * own doc-comment); a nested entry if a recursive `readdirSync`/`lstatSync` fails mid-walk
+ * (the entry vanished, or an EACCES mid-tree, REQ-FSC-10.4).
  */
 export function walkFolder(
   fromAbs: string,
@@ -116,13 +144,24 @@ export function walkFolder(
         throw rootReadFailure(err, rootRelPath);
       }
     } else {
-      names = readdirSync(absDir).sort();
+      try {
+        names = readdirSync(absDir).sort();
+      } catch (err) {
+        const entryX = rootRelPath === undefined ? undefined : posix.join(rootRelPath, relDir);
+        throw entryReadFailure(err, entryX);
+      }
     }
 
     for (const name of names) {
       const relPath = relDir === "" ? name : `${relDir}/${name}`;
       const absPath = join(absDir, name);
-      const lst = lstatSync(absPath);
+      let lst: ReturnType<typeof lstatSync>;
+      try {
+        lst = lstatSync(absPath);
+      } catch (err) {
+        const entryX = rootRelPath === undefined ? undefined : posix.join(rootRelPath, relPath);
+        throw entryReadFailure(err, entryX);
+      }
 
       if (lst.isSymbolicLink()) {
         if (symlinkTargetIsDirectory(absPath)) {

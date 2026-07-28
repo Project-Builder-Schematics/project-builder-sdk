@@ -23,6 +23,8 @@ import { ContractFake } from "../support/contract-fake.ts";
 import { canaryToken, seedSchema, spawnCapture } from "../support/canary.ts";
 import * as react from "../../src/dialects/react/index.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
+import { scaffold, copyIn } from "../../src/commons/index.ts";
+import { rejectedRun } from "../support/rejection-capture.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DIST_BIN = join(PROJECT_ROOT, "dist/bin/pbuilder-codegen.js");
@@ -39,13 +41,19 @@ beforeAll(() => {
 
 let dirs: string[] = [];
 
-// ADR-0046 migration (schematic-local-files, S-000): every scratch dir seeds a
-// `collection.json` marker directly inside it — `defineFactory({ packageDir })`'s new
-// pre-`als.run` ancestor walk (REQ-PRC-03) fails loud on any packageDir with no
-// collection.json ancestor, and every `runAgainst` call below opts into `packageDir`.
 function scratchDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "canary-"));
-  writeFileSync(join(dir, "collection.json"), "{}", "utf-8");
+  dirs.push(dir);
+  return dir;
+}
+
+// REQ-RBV-04.1 canary seeding rule (design §7): a `source-*`/lexical-screen message's
+// `{path}` slot is always PACKAGE-RELATIVE — seeding the canary into the relative literal
+// would make the no-echo assertion self-contradictory (the relative path is SUPPOSED to
+// appear). The canary is therefore seeded into the ABSOLUTE PREFIX — the `mkdtemp`
+// directory name itself — and the assertion is "no absolute path component leaked".
+function scratchDirWithCanaryPrefix(canary: string): string {
+  const dir = mkdtempSync(join(tmpdir(), `canary-${canary}-`));
   dirs.push(dir);
   return dir;
 }
@@ -205,6 +213,94 @@ describe("REQ-RBV-04.1 — canary scan across every rejection branch", () => {
       "reserved lifecycle name: pre-execute is reserved and cannot be declared by a factory module"
     );
     expect(surfaceContains(err, canary)).toBe(false);
+  });
+});
+
+// S-000.7 — the MINIMUM canary-no-echo subset for the new `path-guards.ts` baseline
+// branches (missing / non-regular / lexical-reject), driven via `scaffold` + `copyIn`,
+// landing GREEN before `test/scaffold/containment.test.ts`'s own (now-obsolete) coverage
+// of this obligation is deleted — so the no-echo guarantee is never uncovered even
+// momentarily (design §9 step 3 / slices.md Sequencing Note). S-001 extends this to the
+// FULL hardened branch set (ELOOP, NUL, degenerate strings, the recursive-walk canary).
+describe("REQ-RBV-04.1 — path-guards baseline branches never leak the absolute temp-dir prefix (S-000 minimum subset)", () => {
+  it("scaffold: a missing 'from' root never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("scaffold-missing");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "does-not-exist", to: "out" });
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("scaffold: a 'from' root that resolves to a regular file (non-regular) never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("scaffold-nonregular");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    writeFileSync(join(dir, "not-a-dir"), "content", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "not-a-dir", to: "out" });
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("scaffold: a lexically-escaping 'from' ('..') never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("scaffold-lexical");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "../escape", to: "out" });
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("copyIn: a missing 'from' source never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("copyin-missing");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      copyIn("does-not-exist.txt", "out/copied.txt");
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("copyIn: a 'from' source that is a directory (non-regular) never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("copyin-nonregular");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    mkdirSync(join(dir, "a-directory"));
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      copyIn("a-directory", "out/copied.txt");
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("copyIn: a lexically-escaping 'from' ('..') never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("copyin-lexical");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      copyIn("../escape.txt", "out/copied.txt");
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
   });
 });
 

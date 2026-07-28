@@ -8,7 +8,7 @@
 import { describe, it, expect, spyOn } from "bun:test";
 import { chmodSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory, currentContext } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError } from "../../src/core/authoring-error.ts";
 import { seedSchema } from "../support/canary.ts";
@@ -151,6 +151,22 @@ describe("REQ-RBV-03 — no-schema opt-out signal", () => {
     } finally {
       warnSpy.mockRestore();
     }
+  });
+});
+
+describe("REQ-MFB-01.3 — packageAnchors carries only packageDir (runtime positive-shape pin)", () => {
+  it("Object.keys(packageAnchors) deep-equals exactly [\"packageDir\"] — never asserted via packageRoot === undefined", async () => {
+    const dir = scratchDir();
+    const fake = new ContractFake({ seed: {} });
+    let observedAnchors: unknown;
+
+    const run = defineFactory<void>(() => {
+      observedAnchors = currentContext().packageAnchors;
+    }, { packageDir: dir });
+
+    await run(undefined, { client: fake });
+
+    expect(Object.keys(observedAnchors as object)).toEqual(["packageDir"]);
   });
 });
 

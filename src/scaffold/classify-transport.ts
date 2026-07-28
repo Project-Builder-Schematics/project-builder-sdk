@@ -3,26 +3,23 @@
 // REQ-CCL-01/02/03/06), plus the `.template`/`templateFile` render-request fail-loud
 // carve-out (REQ-CCL-05). PURE per-file decision (Executor Context §18) — it never throws
 // for an ORDINARY by-reference verdict; the caller (`expander.ts`) decides what a
-// by-reference verdict means for THIS slice (S-001: fail-loud placeholder; S-003: real
-// `copyIn` emission).
+// by-reference verdict means for THIS slice (S-003: real `copyIn` emission).
 //
-// Containment (S-002): delegates to `containment.ts`'s `validateSourceContainment` —
-// realpath-based, segment-aware, case-fold ceiling check + regular-file allow-list
-// (REQ-PRC-01..08) — REPLACING S-001's MINIMAL lexical-only placeholder guard. Containment
-// runs BEFORE any of this module's own stat/sniff/budget checks (REQ-PRC-08); the `Stats`
-// containment already obtained via `lstat` is reused here for the CCL-06 size gate rather
-// than stat'ing the path a second time. A `readFileSync` failure AFTER containment has
-// already proven an in-ceiling regular file (e.g. a permission/I/O error between lstat and
-// read) classifies `source-unreadable` (REQ-AEC-10) — distinct from a CONTENT-level
-// classify failure (binary/oversized), which stays `invalid-input` for `.template`-marked
-// entries only (REQ-CCL-05/AEC-12) and by-reference for everything else.
+// ADR-0077: delegates to `path-guards.ts`'s `statSourceForRead` — IO hygiene (regular-file
+// allow-list), no containment ceiling. Runs BEFORE any of this module's own stat/sniff/
+// budget checks; the `Stats` it already obtained is reused here for the CCL-06 size gate
+// rather than stat'ing the path a second time. A `readFileSync` failure AFTER hygiene has
+// already proven a regular file (e.g. a permission/I/O error between stat and read)
+// classifies `source-unreadable` (REQ-AEC-10) — distinct from a CONTENT-level classify
+// failure (binary/oversized), which stays `invalid-input` for `.template`-marked entries
+// only (REQ-CCL-05/AEC-12) and by-reference for everything else.
 
 import { readFileSync } from "node:fs";
 import { AuthoringError, invalidInput } from "../core/authoring-error.ts";
 import type { Directive, JsonValue } from "../core/wire.ts";
 import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../core/wire.ts";
 import { encodeOptions, forceEntry } from "../core/directive-factory.ts";
-import { validateSourceContainment } from "./containment.ts";
+import { statSourceForRead } from "./path-guards.ts";
 
 export type ClassificationVerdict = "by-value" | "by-reference";
 
@@ -63,7 +60,6 @@ function templateSniffFailMessage(relPath: string, problem: string): string {
 
 interface ClassifyParams {
   packageDir: string;
-  packageRoot: string;
   relPath: string;
   isTemplateMarked: boolean;
   /**
@@ -83,8 +79,6 @@ interface ClassifyParams {
    * with the caller's own message family.
    */
   failMessages?: { binary: string; oversized: string };
-  /** Precomputed `resolveRealCeiling(packageRoot)` — threaded by loop callers (`runScaffold`). */
-  realCeiling?: string;
 }
 
 /**
@@ -98,7 +92,7 @@ interface ClassifyParams {
 export function classifyTransport(params: ClassifyParams & { failMessages: { binary: string; oversized: string } }): { verdict: "by-value"; content: string };
 export function classifyTransport(params: ClassifyParams): ClassifyResult;
 export function classifyTransport(params: ClassifyParams): ClassifyResult {
-  const { packageDir, packageRoot, relPath, isTemplateMarked, destPath, options, force, failMessages, realCeiling } = params;
+  const { packageDir, relPath, isTemplateMarked, destPath, options, force, failMessages } = params;
 
   // The fail-loud message pair for a render REQUEST (either kind); undefined ⇒ a failed
   // gate is an ordinary by-reference verdict.
@@ -111,15 +105,14 @@ export function classifyTransport(params: ClassifyParams): ClassifyResult {
         }
       : undefined);
 
-  // REQ-PRC-08: containment + regular-file eligibility complete BEFORE any content read.
-  // Throws one of the four `source-*` reasons on failure — regardless of `isTemplateMarked`
-  // (a missing/outside-package/non-regular SOURCE is a source-read failure, not a
-  // classify-level CCL-05 content failure; only steps AFTER containment get the
-  // `.template` invalid-input carve-out below).
-  const { absPath, stat } = validateSourceContainment({ packageDir, packageRoot, relPath, realCeiling });
+  // IO hygiene completes BEFORE any content read. Throws one of the three surviving
+  // `source-*` reasons on failure — regardless of `isTemplateMarked` (a missing/
+  // non-regular SOURCE is a source-read failure, not a classify-level CCL-05 content
+  // failure; only steps AFTER hygiene get the `.template` invalid-input carve-out below).
+  const { absPath, stat } = statSourceForRead({ packageDir, relPath });
 
   // Stat-size gate BEFORE any content read (REQ-CCL-06): zero content-read calls for an
-  // over-budget-by-stat file. Reuses containment's own `lstat` — no second stat call.
+  // over-budget-by-stat file. Reuses the hygiene guard's own `stat` — no second stat call.
   if (stat.size > EMIT_BATCH_BUDGET_BYTES) {
     if (renderFail) {
       throw invalidInput(renderFail.oversized);

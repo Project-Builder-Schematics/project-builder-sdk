@@ -35,7 +35,7 @@ import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../core/wire.ts";
 import { walkFolder } from "./walk.ts";
 import { runFilenamePipeline, isIncluded, detectDestinationCollisions, translateTokens } from "./filename-pipeline.ts";
 import { classifyTransport } from "./classify-transport.ts";
-import { validateDestinationLexical, validateSourceRootContainment, resolveRealCeiling } from "./containment.ts";
+import { validateDestinationLexical, validateSourceLexical } from "./path-guards.ts";
 
 /**
  * Argument shape for the `scaffold` author verb (REQ-FSC-01). `from`/`to` are mandatory;
@@ -100,21 +100,14 @@ export function runScaffold(args: ScaffoldArgs): void {
 
   const ctx = currentContext();
   const { session, factory } = ctx;
-  const { packageDir, packageRoot } = requirePackageAnchors(noResolutionAnchorMessage());
+  const { packageDir } = requirePackageAnchors(noResolutionAnchorMessage());
 
-  // The ceiling's realpath is a RUN invariant (not one of the pinned per-candidate
-  // validation steps) — resolve it once for both the root check below and the whole
-  // entry loop.
-  const realCeiling = resolveRealCeiling(packageRoot);
-
-  // SEC (owner-ratified final-verify remediation): the walk ROOT itself must be
-  // containment-checked BEFORE `walkFolder` ever enumerates it — otherwise an escaping
-  // `from` (e.g. `../secrets`) would readdirSync/lstatSync the whole out-of-ceiling
-  // subtree (bounded by `walk.ts`'s 10k-entry cap) before any per-entry containment
-  // check had a chance to fire. Reuses the SAME lexical + realpath ceiling machinery the
-  // per-entry loop below already uses via `classifyTransport` → `validateSourceContainment`
-  // — no parallel check forked for this directory case.
-  validateSourceRootContainment({ packageDir, packageRoot, relPath: args.from, realCeiling });
+  // Screen call site 2 (REQ-IPF-01): the walk ROOT itself must be lexically screened
+  // BEFORE `walkFolder` ever enumerates it — otherwise an escaping `from` (e.g.
+  // `../secrets`) would readdirSync/lstatSync the whole tree (bounded by `walk.ts`'s
+  // 10k-entry cap) before any check had a chance to fire. Check-before-walk ordering
+  // preserved verbatim (design §4).
+  validateSourceLexical(args.from);
 
   const fromAbs = join(packageDir, args.from);
   const walked = walkFolder(fromAbs, undefined, args.from);
@@ -150,10 +143,8 @@ export function runScaffold(args: ScaffoldArgs): void {
     const destPath = posix.join(toPrefix, result.destRelPath);
     const verdict = classifyTransport({
       packageDir,
-      packageRoot,
       relPath: sourceRelPath,
       isTemplateMarked: result.isTemplateMarked,
-      realCeiling,
       destPath,
       options: args.options ?? {},
       force: args.force,
@@ -163,9 +154,10 @@ export function runScaffold(args: ScaffoldArgs): void {
 
     // S-003: a by-reference verdict emits a real `copyIn` directive — `from` is the
     // package-relative source path (REQ-BRC-07), never the resolved absolute path;
-    // containment already validated this source inside `classifyTransport`
-    // (`validateSourceContainment` runs BEFORE the stat/sniff/budget gates, REQ-PRC-08),
-    // so no second containment check is needed here.
+    // hygiene already validated this source inside `classifyTransport`
+    // (`statSourceForRead` runs BEFORE the stat/sniff/budget gates), so no second
+    // hygiene check is needed here. Per-entry sources are SDK-computed from an
+    // already-screened root and are NOT re-lexically-screened (design §4 carve-out).
     const directive =
       verdict.verdict === "by-value"
         ? factory.create({

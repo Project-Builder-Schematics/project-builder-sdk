@@ -34,10 +34,9 @@
 import { describe, it, expect } from "bun:test";
 import * as fs from "node:fs";
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { create, replaceContent, find, remove, rename, move, copy, scaffold } from "../../src/commons/index.ts";
-import { isWithinCeiling } from "../../src/scaffold/containment.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { instrumentHarnessIO, type IoEvent } from "../support/harness-io-instrumentation.ts";
 
@@ -104,15 +103,16 @@ describe("REQ-ATH-11.1 — in-memory-only invariant (harness machinery)", () => 
 // so only a resolved-path PREFIX check scales.
 //
 // TWO root representations are accepted (same macOS `/var` vs `/private/var` symlink
-// distinction `containment.ts` itself has to handle) — some calls (e.g. `existsSync` on the
-// `collection.json` ancestor probe) use the LEXICAL `packageDir` join, while others (e.g.
-// containment's own `lstatSync`/`realpathSync`) resolve into REAL space. Never mixing a
-// lexical arg against only a real root (or vice versa) would false-flag legitimate reads.
-// The membership comparison itself is the production `isWithinCeiling` (segment-aware,
-// platform case-fold) — the dual-root LIST stays this test's own concern.
+// distinction the old containment ceiling used to handle) — some calls use the LEXICAL
+// `packageDir` join, while others (e.g. `path-guards.ts`'s own `statSync`) resolve into
+// REAL space via symlink following. Never mixing a lexical arg against only a real root
+// (or vice versa) would false-flag legitimate reads. This is a plain prefix/equality
+// membership check (test-local only, ADR-0077: the SDK itself no longer has a containment
+// predicate to delegate to) — the dual-root LIST is this test's own concern.
 function isWithinCollectionRoot(event: IoEvent, roots: readonly string[]): boolean {
   if (typeof event.arg !== "string") return false;
-  return roots.some((root) => isWithinCeiling(event.arg as string, root));
+  const candidate = event.arg;
+  return roots.some((root) => candidate === root || candidate.startsWith(root.endsWith(sep) ? root : root + sep));
 }
 
 describe("REQ-ATH-14 — in-memory-only invariant carve-out widened: package-root reads", () => {

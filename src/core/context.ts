@@ -3,9 +3,9 @@
 // The EngineClient is injected by the caller (test passes the fake) — no module global.
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { relative, dirname, join } from "node:path";
+import { relative } from "node:path";
 import type { EngineClient } from "./engine-client.ts";
 import { DirectiveFactory } from "./directive-factory.ts";
 import { Session } from "./session.ts";
@@ -61,14 +61,14 @@ export interface RunContext {
   // dialect-handle.ts (F2 fitness-guarded) — dialect-handle.ts reaches this via
   // currentContext().
   runFailure?: { reason: unknown };
-  // ADR-0046: seeded ONCE, eagerly, at the pre-`als.run` chokepoint below — never
-  // re-derived per scaffold/copyIn call within the same run (REQ-PRC-02). Absent for the
-  // bare `defineFactory(fn)` untyped opt-out (byte-for-byte unchanged behavior); when
-  // present, BOTH anchors are set (the chokepoint resolves them together or throws before
-  // either exists). `packageDir` (RESOLUTION anchor) and `packageRoot` (CONTAINMENT
-  // ceiling, the nearest `collection.json` ancestor of `packageDir`) are DISTINCT anchors
-  // (REQ-PRC-01) — never conflate them when `src/scaffold/` consumes this context.
-  packageAnchors?: { packageDir: string; packageRoot: string };
+  // ADR-0077 §C: `packageDir` is the SOLE run anchor — seeded ONCE, eagerly, at the
+  // pre-`als.run` chokepoint below, never re-derived per scaffold/copyIn call within the
+  // same run. Absent for the bare `defineFactory(fn)` untyped opt-out (byte-for-byte
+  // unchanged behavior). There is no containment ceiling anchor anymore (the
+  // `collection.json` ancestor walk and `package-root-containment` are retired) — a
+  // single-field shape, never a differently-shaped regrowth (REQ-FTG-06 guards this
+  // statically and at runtime, REQ-MFB-01.3).
+  packageAnchors?: { packageDir: string };
 }
 
 // context-singleton-fix (REQ-MIS-01/02, design §4.3): a module-scope `als` is realm-local —
@@ -158,9 +158,9 @@ export function currentContext(): RunContext {
 }
 
 // The one gate every package-local read verb (`scaffold`/`copyIn`/`create({templateFile})`)
-// passes through: returns the run's two-anchor pair or throws the verb's own
+// passes through: returns the run's sole anchor or throws the verb's own
 // no-resolution-anchor `invalid-input` when the run opted out of `packageDir`.
-export function requirePackageAnchors(missingAnchorMessage: string): { packageDir: string; packageRoot: string } {
+export function requirePackageAnchors(missingAnchorMessage: string): { packageDir: string } {
   const { packageAnchors } = currentContext();
   if (packageAnchors === undefined) {
     throw invalidInput(missingAnchorMessage);
@@ -179,41 +179,6 @@ function resolvePackageDir(packageDir: string | URL): string {
 // leaks no absolute path.
 function relativeDir(packageDir: string): string {
   return relative(process.cwd(), packageDir);
-}
-
-function missingPackageRootMessage(packageDir: string): string {
-  return (
-    `invalid input: no collection.json found at or above ${relativeDir(packageDir)} — ` +
-    "cannot resolve the containment root for this factory's package"
-  );
-}
-
-// REQ-PRC-02/REQ-PRC-03 (ADR-0046): the CONTAINMENT ceiling — the nearest `collection.json`
-// ANCESTOR of `packageDir` (itself included), walked upward from `packageDir` to the
-// filesystem root. `collection.json` is a PRESENCE-ONLY marker (never parsed, never read as
-// JSON — charter L2 keeps the manifest out of scope). No ancestor found → fail loud
-// `invalid-input` (REQ-PRC-03.1) BEFORE any source file is read; the ONLY caller is the
-// pre-`als.run` chokepoint below, so this resolves exactly once per run (REQ-PRC-02.1) —
-// scaffold/copyIn never re-walk it themselves, they read the already-resolved
-// `RunContext.packageRoot`.
-function resolvePackageRoot(packageDir: string): string {
-  let dir = packageDir;
-  for (;;) {
-    if (existsSync(join(dir, "collection.json"))) {
-      return dir;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) {
-      throw new AuthoringError({
-        verb: undefined,
-        path: undefined,
-        reason: "invalid-input",
-        appliedCount: 0,
-        message: missingPackageRootMessage(packageDir),
-      });
-    }
-    dir = parent;
-  }
 }
 
 // Author-vocabulary description of a non-ENOENT read failure — never the raw errno
@@ -370,12 +335,11 @@ export function defineFactory<O>(
     let packageAnchors: RunContext["packageAnchors"];
     if (options?.packageDir !== undefined) {
       const resolvedDir = resolvePackageDir(options.packageDir);
+      // REQ-RBV-06: exactly TWO reads, in this order — reserved-name check, then schema
+      // validation. No third (containment-ceiling) read exists (ADR-0077 §C).
       checkReservedNames(resolvedDir);
       validateAtRunBoundary(resolvedDir, o);
-      // ADR-0046 / REQ-RBV-06: the containment-ceiling walk shares the SAME pre-`als.run`
-      // chokepoint as schema/reserved-name validation, not a separate, uncoordinated read
-      // site — a missing ancestor fails closed here, before `fn` ever runs (REQ-RBV-06.1).
-      packageAnchors = { packageDir: resolvedDir, packageRoot: resolvePackageRoot(resolvedDir) };
+      packageAnchors = { packageDir: resolvedDir };
     }
     const ctx: RunContext = {
       session: new Session(client),
