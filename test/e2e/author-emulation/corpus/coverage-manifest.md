@@ -2,17 +2,19 @@
 
 Completeness is the literal checklist in `golden-corpus-contract` REQ-GCC-08 — this
 manifest's four points (EXERCISED, NOT-EXERCISED, engine-gated entries, FRICTION), all
-present. The EXERCISED ledger below is PRE-MAPPED from the signed 21-row
+present. The EXERCISED ledger below is PRE-MAPPED from the signed 20-row
 `specs/scenario-matrix/spec.md` table (design.md §4.4) — it documents which REQ-ID each
 row is answerable for, independent of build state. `s-00` (this change's own walking
 skeleton, S-000) is not a scenario-matrix row and cites no `schematic-local-files` REQ-ID
 (REQ-GCC-12).
 
-**Build status (2026-07-14, S-004 landed)**: corpus FILES now exist for ALL 21 matrix rows
-plus `s-00` — `m-01, m-02, m-03, m-04, m-05, m-06, m-07, m-09, m-14, m-19, m-20` (S-003 —
-Generation & Classification Happy Paths) and `m-08, m-10, m-11, m-12, m-13, m-15, m-16,
-m-17, m-18, m-21` (S-004 — Batch-Cap, Containment & Rejection Boundaries). The scaffold
-matrix is COMPLETE at this spec version (REQ-SCM-01, 21 rows).
+**Build status (2026-07-28, `inline-collection-marker` S-004 renumber)**: corpus FILES
+exist for ALL 20 matrix rows plus `s-00` — `m-01, m-02, m-03, m-04, m-05, m-06, m-07,
+m-09, m-14, m-18, m-19` (S-003 — Generation & Classification Happy Paths) and `m-08,
+m-10, m-11, m-12, m-13, m-15, m-16, m-17, m-20` (S-004 — Batch-Cap, Containment &
+Rejection Boundaries). The scaffold matrix is COMPLETE at this spec version (REQ-SCM-01,
+20 rows) — the former M-17 "no-existence-oracle" row was deleted outright and the
+following rows shifted up (M-18→M-17, M-19→M-18, M-20→M-19, M-21→M-20).
 
 ## EXERCISED
 
@@ -45,18 +47,21 @@ row's `Citation(s)` column.
 | REQ-FSC-04.2 | M-13 |
 | REQ-FSC-04.1 | M-14 |
 | REQ-FSC-08.1 | M-15 |
-| REQ-PRC-04.1 | M-16 |
-| REQ-PRC-04.6 | M-16 |
-| REQ-PRC-07.1 | M-17 |
-| REQ-BRC-06.1 | M-18 |
-| REQ-FSC-09.1 | M-19 |
-| REQ-ATH-16.1 | M-20 |
-| batch-cap REQ-05.1 | M-21 |
+| REQ-IPF-01.1 | M-16 |
+| REQ-IPF-01.2 | M-16 |
+| REQ-BRC-06.1 | M-17 |
+| REQ-PSH-02.1 | M-17 |
+| REQ-FSC-09.1 | M-18 |
+| REQ-ATH-16.1 | M-19 |
+| batch-cap REQ-05.1 | M-20 |
 | _(none — infra-spine skeleton, REQ-GCC-12)_ | s-00 |
 
-All 21 matrix rows (REQ-SCM-01) are represented above, and every row now has a committed
-corpus file — the last 10 (`m-08, m-10, m-11, m-12, m-13, m-15, m-16, m-17, m-18, m-21`)
-landed in S-004.
+All 20 matrix rows (REQ-SCM-01) are represented above, and every row now has a committed
+corpus file — the last 9 (`m-08, m-10, m-11, m-12, m-13, m-15, m-16, m-17, m-20`) landed
+in S-004. M-17's GWT genuinely exercises BOTH `REQ-BRC-06.1` (kept from the pre-renumber
+row, re-keyed M-18 → M-17) AND the new `package-source-io-hygiene` REQ-PSH-02.1 — both
+citations coexist for that row (B8): dropping either would satisfy REQ-GCC-08 item 1 only
+by losing real corpus coverage of a preservation-pin REQ.
 
 ## NOT-EXERCISED
 
@@ -64,21 +69,22 @@ landed in S-004.
 - `tsconfig-AST`
 - `template rendering`
 - `REQ-BRC-08`
-- `REQ-PRC-06`
 
 `module-wiring` and `tsconfig-AST` trace to `author-emulation-generator` REQ-AEG-02 (the
 fixture's `.template` text is illustrative "wiring" prose, never AST-verified).
 `template rendering` traces to `ir-transcript-capture` REQ-ITC-03's evidence boundary —
-this suite never asserts rendered `{{}}`/`{= =}` output. `REQ-BRC-08`/`REQ-PRC-06` are
-engine-gated entries from `scenario-matrix` REQ-SCM-02.
+this suite never asserts rendered `{{}}`/`{= =}` output. `REQ-BRC-08` is an engine-gated
+entry from `scenario-matrix` REQ-SCM-02 (`package-root-containment` REQ-PRC-06 is
+retired wholesale with no successor — it no longer belongs in this ledger at all, per
+the `scenario-matrix` REQ-SCM-02 delta).
 
 ## FRICTION
 
 - **Missing `collection.json` marker (S-002 authoring gap)**: `test/fixtures/author-emulation/`
   shipped without its own `collection.json` containment-ceiling marker (unlike
   `test/fixtures/typed-factory/`), so every S-003 `defineFactory({packageDir})` call
-  against this fixture would have failed loud ("no collection.json found at or above
-  ...") before running at all. Disposition: `accepted-as-is` — fixed directly in S-003
+  against this fixture would have failed loud (missing containment-ceiling marker)
+  before running at all. Disposition: `accepted-as-is` — fixed directly in S-003
   (a one-line, zero-risk addition; the marker is presence-only, never parsed).
 - **FIT-24's absolute-path scan false-positived on legitimate template prose**: the
   scanner's naive `[^"]*` match doesn't recognize JSON-escaped quotes, so a `create.template`
@@ -98,11 +104,13 @@ engine-gated entries from `scenario-matrix` REQ-SCM-02.
   but `invalidInput(message)` (`src/core/authoring-error.ts:276`) mints `verb: undefined,
   path: undefined` unconditionally — every producer site that calls it (missing
   `from`/`to`, filters-eliminated-everything M-13, intra-scaffold collision M-15, binary
-  `.template` in a walk M-08, `templateFile` binary/oversized M-12) commits `verb: null,
+  `.template` in a walk M-08, `templateFile` binary/oversized M-12, and — since
+  `inline-collection-marker` re-pointed the traversal/absolute-path screen onto this same
+  producer, ADR-0077 — traversal/absolute source path rejected M-16) commits `verb: null,
   path: null`. Disposition: `accepted-as-is` — this is the R-F carried-note reconciliation
-  design.md anticipated, generalized from M-13 alone to all four `invalidInput()`-sourced
-  rows; the attribution triple is still asserted EXPLICITLY (SCM-05) at each row, `null`
-  values included, never skipped.
+  design.md anticipated, generalized from M-13 alone to all `invalidInput()`-sourced rows;
+  the attribution triple is still asserted EXPLICITLY (SCM-05) at each row, `null` values
+  included, never skipped.
 - **Batch-cap ("cap") rejections never attribute a `verb`/`path`, even to a batch's SOLE
   directive (S-004, M-10/M-11)**: `EmitRejection("cap", ...)` (`test/support/
   contract-fake.ts`) is thrown WITHOUT a `pos` argument — `emit-rejection.ts`'s own

@@ -72,7 +72,7 @@ export interface CapturedRecord {
 
 export interface TranscriptRecord extends CapturedRecord {
   formatVersion: number;
-  scenarioId: string; // "s-00" | "m-01".."m-21"
+  scenarioId: string; // "s-00" | "m-01".."m-20"
   slug: string; // kebab-case
 }
 

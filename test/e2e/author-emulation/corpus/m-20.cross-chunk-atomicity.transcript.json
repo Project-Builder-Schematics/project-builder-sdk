@@ -1,6 +1,6 @@
 {
   "formatVersion": 0,
-  "scenarioId": "m-21",
+  "scenarioId": "m-20",
   "slug": "cross-chunk-atomicity",
   "normative": {
     "outcome": "rejected",

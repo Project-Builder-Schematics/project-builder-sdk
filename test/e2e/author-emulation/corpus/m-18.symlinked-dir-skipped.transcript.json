@@ -1,6 +1,6 @@
 {
   "formatVersion": 0,
-  "scenarioId": "m-19",
+  "scenarioId": "m-18",
   "slug": "symlinked-dir-skipped",
   "normative": {
     "outcome": "committed",

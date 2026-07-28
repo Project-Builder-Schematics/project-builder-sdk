@@ -1,7 +1,7 @@
 {
   "formatVersion": 0,
-  "scenarioId": "m-18",
-  "slug": "missing-in-ceiling-source",
+  "scenarioId": "m-17",
+  "slug": "missing-package-local-source",
   "normative": {
     "outcome": "rejected",
     "directives": [],

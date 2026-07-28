@@ -6,9 +6,9 @@
     "outcome": "rejected",
     "directives": [],
     "rejection": {
-      "reason": "source-outside-package",
+      "reason": "invalid-input",
       "verb": null,
-      "path": "../m16-traversal-outside.txt"
+      "path": null
     }
   },
   "informative": {

@@ -2,7 +2,8 @@
 
 **Scope so far**: `slice:S-000` (walking skeleton, run 1), `slice:S-001` (path-guards TOTAL
 hardening, run 2), `slice:S-002` (public contract narrows — `AuthoringReason` 12 → 11, run 3),
-`slice:S-003` (full suite realigned — no stale ceiling/marker assertion survives, run 4)
+`slice:S-003` (full suite realigned — no stale ceiling/marker assertion survives, run 4),
+`slice:S-004` (scenario-matrix corpus renumbered and regenerated, run 5)
 **Mode**: Strict TDD — double-loop where practical (S-000.2/.3 RED → S-000.4/.5/.6 GREEN
 drives the fix); S-000.6's `walk.ts` recursive-read guard was implemented before its
 `walk.test.ts` pins landed (a process deviation, documented below) — all four resulting
@@ -25,6 +26,7 @@ implementation already existed (same disclosed discipline as S-001's Deviation #
 | S-001 | edge-case | complete | 7/7 |
 | S-002 | edge-case | complete | 7/7 |
 | S-003 | edge-case | complete | 8/8 |
+| S-004 | edge-case | complete | 7/7 |
 
 ## Files Changed
 
@@ -73,6 +75,14 @@ implementation already existed (same disclosed discipline as S-001's Deviation #
 | `test/fitness/fit-40-conformance-corpus-integrity.test.ts` | Modified | S-003.5 | Removed the `checkCollectionJsonMarker` import + its "REQ-CCR-08 / REQ-CSC-02.3" describe block; dropped the `collection.json` filter arm from the REQ-CFX-14.1 dist-leak check (keeps the `corpus.json`/fixture-id arms). |
 | `test/fitness/fit-40-conformance-corpus-integrity.negative.test.ts` | Modified | S-003.5 | Removed the `checkCollectionJsonMarker` import + its "REQ-CSC-02.3 — missing collection.json marker" negative-path describe block. |
 | `test/scaffold/filename-pipeline.test.ts` | Modified | S-003.6 | New dedicated pin: `runFilenamePipeline` never alters `sourceRelPath` even when rename/token-translation/`.template`-strip heavily transform `destRelPath` — the fact `expander.ts`'s per-entry-source carve-out (design §4) rests on. |
+| `test/e2e/author-emulation/scenarios.ts` | Modified | S-004.1 | Deleted the `m-17`/`no-existence-oracle-nonexisting` row + its now-unused `runM17NonExisting` import; renumbered `m-18→m-17` (slug `missing-package-local-source`), `m-19→m-18`, `m-20→m-19`, `m-21→m-20` (function bindings unchanged — only the scenario id/slug wrapper moves); updated the scratch-backed row-list doc-comment and the `m-01..m-20` range comment; dropped the stale "M-17 existing-target" mention from the S-004 section header comment. |
+| `test/e2e/author-emulation/corpus/{m-17.no-existence-oracle-nonexisting,m-18.missing-in-ceiling-source,m-19.symlinked-dir-skipped,m-20.conformance-parity-copyin,m-21.cross-chunk-atomicity}.transcript.json` | Deleted | S-004.2 | The five OLD-filename transcripts every renumbered row orphans (each filename embeds its old id+slug). `m-16`'s file keeps its name (id/slug unchanged) and is overwritten in place by the regen instead. |
+| `test/e2e/author-emulation/corpus/{m-16.traversal-source-rejected,m-17.missing-package-local-source,m-18.symlinked-dir-skipped,m-19.conformance-parity-copyin,m-20.cross-chunk-atomicity}.transcript.json` | Regenerated | S-004.3 | `bun scripts/regen-corpus.ts` — 21 files written (`s-00` + 20 matrix rows). `m-16` now records `invalid-input`/`null`/`null` (was the stale `source-outside-package`/path); `m-17` records `source-not-found`/`null`/`"missing.txt"` (byte-identical to the old `m-18` file's normative region, new identity fields only). |
+| `test/fitness/fit-28-corpus-determinism.test.ts` | Modified | S-004.4 | Updated the `m-01..m-21`→`m-01..m-20` comment; added a NEW `describe("FIT-28b ...")` one-shot stray/duplicate directory check (`readdirSync(CORPUS_DIR)` vs. the expected id/slug set derived from `scenarios.ts`, modeled on `fit-40`'s `checkOrphanDirectories` posture) — empirically verified discriminating (see Verification Evidence). |
+| `test/support/corpus-format.ts` | Modified | S-004.5 | `TranscriptRecord.scenarioId` doc-comment `"m-21"` → `"m-20"`. |
+| `test/e2e/author-emulation/corpus/coverage-manifest.md` | Modified | S-004.6 | Full renumber per (a)-(d): EXERCISED ledger re-keyed (M-16 → `REQ-IPF-01.1`/`.2`; M-17 keeps `REQ-BRC-06.1` AND gains `REQ-PSH-02.1`, both keyed to M-17 per B8; M-18/M-19/M-20 plain re-keys); NOT-EXERCISED ledger drops the `REQ-PRC-06` bullet entirely (no successor, per the `scenario-matrix` REQ-SCM-02 delta — not a move); Build-status paragraph's prose row-lists and row count (21→20) corrected; the retired `"no collection.json found at or above"` literal removed from the FRICTION section (B1); the `invalidInput()`-producer FRICTION note extended to name M-16 (its citation move onto the shared lexical screen makes it a `null`/`null` producer too, confirmed via the regenerated corpus). |
+| `test/e2e/author-emulation-scaffold.e2e.test.ts` | Modified | S-004 (residual fix) | The two describe blocks the baseline flagged as S-004-owned: M-16's reason flipped `source-outside-package`→`invalid-input` (path corrected to `null` — `invalidInput()` never attributes a path, confirmed against the regenerated corpus, not the literal traversal path as first drafted) and its stale compile-shim comment/cast removed; the OLD M-17 describe block (containment's "no-existence-oracle", `runM17Existing` companion) deleted outright — no successor per spec; the old standalone M-18 test became the new M-17 test (`source-not-found`/`"missing.txt"`, PSH-02.1+BRC-06.1 citation); the old M-21 test became the new M-20 test (id only, assertions unchanged). Removed the now-unused `runM17Existing` import. |
+| `test/fixtures/author-emulation/factory.ts` | Modified (Boy Scout, beyond design's §6 file list — see Deviations) | S-004 (orphan cleanup) | Deleted `runM17NonExisting`/`runM17Existing`/`m17SiblingPath` — the retired "no-existence-oracle" concept's entire implementation, orphaned by the scenarios.ts/e2e-test deletions above (verified zero remaining consumers repo-wide); dropped the now-unused `dirname` import; reworded the `scratchFactoryRunner` `teardown`-param JSDoc's now-deleted example and the S-004 section-header comment's row list (dropped "M-17"); one stale "in-ceiling" phrase corrected in `runM18`'s inline comment. |
 
 ## TDD Cycle Evidence — S-000
 
@@ -149,6 +159,23 @@ both-escape winner) are RED-first / mutation-checked in the normal sense.
 | S-003.7 | `index.test.ts::REQ-AEC-11.2 both-escape winner is the DESTINATION template` | integration | new test; passed first run (RED-first not possible — `runCopyIn`'s destination-before-source order already existed from S-000.5); mutation-checked: swapped the two `validate*Lexical` calls in `runCopyIn`, re-ran, confirmed the test fails with the SOURCE message instead (`Expected: "...destination..." / Received: "source path invalid: ..."`), then restored the original order (`diff` against the pre-edit file confirmed byte-identical) | yes | n/a — one statement-order proof | none needed |
 | S-003.7 | `scaffold.e2e.test.ts` REQ-PRC-04/07 block (2 tests) | e2e | pre-edit run: `../../../` escape — `Expected: "source-outside-package" / Received: "invalid-input"`; broken-symlink-outside — `Expected: "source-outside-package" / Received: "source-not-found"` — both confirmed against baseline | yes | n/a | none needed |
 | S-003.7 | `copyin-parity.test.ts::missing-source copyIn rejects with reason source-not-found (REQ-BRC-06.1)` | e2e | strengthened from a verdict-only check to an exact `{verdict, reason}` equality; passed first run (the underlying rejection already carried `source-not-found` from S-000/S-001) — non-vacuousness: `toEqual` on the full object would fail on ANY reason drift, confirmed by temporarily changing the expected literal to a wrong reason and observing the failure, then reverting | yes | n/a | none needed |
+
+## TDD Cycle Evidence — S-004
+
+S-004 is corpus-regen/renumber work (design's own procedure discipline, not a normal
+RED-first behaviour cycle — the underlying production code is unchanged from
+S-000/S-001/S-002): the "RED" for each residual assertion is the STABLE pre-existing
+failure S-003 disclosed (Deviation #8); the "GREEN" is the corrected id/reason/path
+following the mechanical renumber-then-regen procedure. The one genuinely NEW check
+(FIT-28b) is RED-first / empirically verified discriminating.
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Non-vacuousness | Refactored |
+|---|---|---|---|---|---|---|
+| S-004.1–.3 | `author-emulation-scaffold.e2e.test.ts` — the 2 corpus byte-compares (`m-16`/`m-17`) | e2e | pre-edit: `m-16`/`m-17` committed corpus still carried the stale `source-outside-package` reason against the live `invalid-input`/`source-not-found` capture — confirmed against the S-003-close baseline | yes | the byte-compare is the SAME generic loop every other scenario in `SCENARIOS` already exercises — no new assertion logic, just corrected committed bytes via `scripts/regen-corpus.ts` (never hand-edited) | none needed |
+| S-004 residual | `author-emulation-scaffold.e2e.test.ts::M-16 traversal source rejects` | e2e | pre-edit: `Expected: "source-outside-package" / Received: "invalid-input"` — confirmed against baseline | yes | first draft asserted `path: "../m16-traversal-outside.txt"` and FAILED against the freshly regenerated corpus (`Received: null`) — caught by actually running the suite, not assumed; corrected to `path: null` (matches `invalidInput()`'s unconditional `undefined` attribution, same shape as M-08/M-10/M-12/M-13/M-15) | none needed |
+| S-004 residual | `author-emulation-scaffold.e2e.test.ts::M-17 missing package-local source` | e2e | pre-edit (as the old M-18 test): already green at S-003 close (unaffected content); re-pointed to scenario id `"m-17"` | yes | unchanged assertion values (`source-not-found`/`null`/`"missing.txt"`) against the SAME underlying `runM18` factory — only the id changed | none needed |
+| S-004 residual | `author-emulation-scaffold.e2e.test.ts::M-20 cross-chunk atomicity` | e2e | pre-edit (as the old M-21 test): already green at S-003 close; re-pointed to scenario id `"m-20"` | yes | unchanged assertion values against the SAME underlying `runM21` factory | none needed |
+| S-004.4 | `fit-28-corpus-determinism.test.ts::FIT-28b — corpus directory matches scenarios.ts exactly` | architectural | new test; empirically verified discriminating by temporarily copying `m-01`'s transcript to a stray `m-99.stray-test.transcript.json` and re-running — failed with the exact expected violation message (`stray transcript file "m-99.stray-test.transcript.json"...`); stray file removed, re-confirmed green | yes | see above — a real injected stray was caught, not assumed | none needed |
 
 ## Deviations from Design
 
@@ -271,6 +298,26 @@ both-escape winner) are RED-first / mutation-checked in the normal sense.
    `bun test` runs (S-003 close) both show exactly 2358 pass / 6 fail, same 6 test names —
    zero regressions, zero new failures from S-003's diff.
 
+9. **`test/fixtures/author-emulation/factory.ts` orphan cleanup — beyond design §6's file
+   list for S-004 (Boy Scout rule, disclosed rather than silently expanding scope)**:
+   design's File Changes table lists `scenarios.ts`, `corpus-format.ts`, `fit-28`, and
+   `coverage-manifest.md` for S-004's renumber, not `factory.ts`. Deleting the old `m-17`
+   scenario row (S-004.1) and the e2e test's old M-17 describe block (the residual fix)
+   orphaned `runM17NonExisting`/`runM17Existing`/`m17SiblingPath` — verified via `rg`
+   across `test/`/`scripts/`/`src/` that these three had ZERO remaining consumers. This is
+   the entire implementation of the retired "no-existence-oracle for out-of-ceiling paths"
+   concept (ADR-0077's own subject), so leaving ~37 lines of dead code describing a
+   containment model this change exists to remove would be a direct, self-contained
+   degradation in the exact file my own edit touched. Deleted the block, the now-unused
+   `dirname` import, corrected the `scratchFactoryRunner` `teardown`-param JSDoc's
+   now-deleted example, and dropped "M-17" from the S-004 section-header comment's row
+   list. Did NOT touch `scratchFactoryRunner`'s `teardown` parameter itself (now unused by
+   any caller but still generic, documented, non-broken infrastructure) or rename any
+   OTHER surviving function (`runM18`/`runM19`/`runM20Valid`/`runM21` keep their historical
+   names permanently, matching the existing pattern of `M21_COLLISION_SEED_PATH` — the
+   scenario id is a separate, current-mapping concern from the factory function's own
+   identity). `bunx tsc --noEmit` and the full suite confirmed clean before and after.
+
 ## Reorder-Safety Check (S-000.8, design §4 apply-time check)
 
 `rg`'d `test/**` and `test/e2e/author-emulation/scenarios.ts` for a `copyIn` case combining
@@ -362,3 +409,23 @@ existing test drives a both-escape `copyIn` case today. No re-pin needed.
     `fit-42-runner-closure-integrity` `REQ-RCD-03.5` failures from the S-000/S-001/S-002
     baseline did NOT recur on either S-003 run (environment-dependent, per Deviation #4 —
     not this change's concern either way).
+
+### S-004 (run 5)
+
+- `bunx tsc --noEmit` — clean, zero errors (checked after the scenarios.ts renumber, after
+  the factory.ts orphan cleanup, and after the final e2e-test fix).
+- Corpus regen (S-004.2/.3): deleted the 5 stale OLD-filename transcripts, ran
+  `bun scripts/regen-corpus.ts` — wrote 21 files (`s-00` + 20 matrix rows); `git status`
+  confirmed exactly 5 deletions + 4 new files + 1 in-place content change (`m-16`), no
+  stray leftovers.
+- `bun test test/fitness/fit-28-corpus-determinism.test.ts` — 3 pass / 0 fail (double-run
+  determinism, red-proof, FIT-28b) before the stray-injection check below.
+- FIT-28b non-vacuousness (see TDD Cycle Evidence): copied `m-01`'s transcript to a stray
+  `m-99.stray-test.transcript.json`, re-ran — 1 fail with the exact expected violation
+  message; removed the stray, re-ran — 3 pass / 0 fail again.
+- `bun test` (full suite, run twice, uncontended per Deviation #5's disclosed posture):
+  - Run 1: 2363 pass / 0 fail across 197 files (2363 tests).
+  - Run 2: 2363 pass / 0 fail — byte-identical test count and result, zero flakes observed.
+  All 6 of S-003's disclosed residuals are closed; the 2 pre-existing
+  `fit-42-runner-closure-integrity` `REQ-RCD-03.5` failures did not recur on either run
+  (environment-dependent, unrelated to this change, per Deviation #4).

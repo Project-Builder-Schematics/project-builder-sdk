@@ -36,7 +36,6 @@ import {
   runM11OverCap,
   runM12Oversized,
   runM16Absolute,
-  runM17Existing,
   runWalkOrderDiscriminator,
   M07_HUGE_FILE_NAME,
   M09_FILE_COUNT,
@@ -349,59 +348,27 @@ describe("S-004 — matrix-row assertions beyond the generic corpus-compare (bat
     await assertRejectionTriple("m-15", { reason: "invalid-input", verb: null, path: null });
   });
 
-  describe("M-16 / REQ-PRC-04.1/.6 — traversal / absolute source path rejected, containment cited", () => {
+  describe("M-16 / ir-path-well-formedness REQ-IPF-01.1/.2 — traversal / absolute source path rejected, invalid-input cited (containment retired, ADR-0077)", () => {
     it("traversal source rejects (corpus-canonical), full triple asserted", async () => {
-      await assertRejectionTriple("m-16", {
-        reason: "source-outside-package",
-        verb: null,
-        path: "../m16-traversal-outside.txt",
-      });
+      // `validateSourceLexical` throws via the shared `invalidInput()` producer, which
+      // mints `verb`/`path` as `undefined` unconditionally (same shape as M-08/M-10/M-12/
+      // M-13/M-15 — see coverage-manifest.md's FRICTION note) — never the literal path.
+      await assertRejectionTriple("m-16", { reason: "invalid-input", verb: null, path: null });
     });
 
     it("absolute source rejects with the SAME reason (e2e-inline-only — a literal absolute path embedded verbatim would trip FIT-24's purity guard, so this variant is never corpus-captured)", async () => {
       const capture = await captureRun(runM16Absolute, { name: "Widgets" }, { packageDir: PACKAGE_DIR });
       expect(capture.error).toBeInstanceOf(AuthoringError);
-      // Compile-only shim (S-002.1's union shrink retired this reason from
-      // AuthoringReason; S-004's scenario-matrix renumber/regen re-points M-16/M-17) — the
-      // cast keeps `tsc --noEmit` green without pre-empting that later slice's fix.
-      expect((capture.error as AuthoringError).reason).toEqual("source-outside-package" as AuthoringError["reason"]);
+      expect((capture.error as AuthoringError).reason).toEqual("invalid-input");
     });
   });
 
-  describe("M-17 / REQ-PRC-07.1 — no-existence-oracle for out-of-ceiling paths", () => {
-    it("non-existing target rejects (corpus-canonical), full triple asserted", async () => {
-      await assertRejectionTriple("m-17", {
-        reason: "source-outside-package",
-        verb: null,
-        path: "../m17-nonexistent-outside.txt",
-      });
-    });
-
-    it("an EXISTING out-of-ceiling target rejects with the IDENTICAL reason and message shape (modulo path text) — proving the verdict never consults existence", async () => {
-      const nonExisting = await assertRejectionTriple("m-17", {
-        reason: "source-outside-package",
-        verb: null,
-        path: "../m17-nonexistent-outside.txt",
-      });
-      const existingCapture = await captureRun(runM17Existing, { name: "Widgets" });
-      expect(existingCapture.error).toBeInstanceOf(AuthoringError);
-      const existingErr = existingCapture.error as AuthoringError;
-      const nonExistingErr = nonExisting.error as AuthoringError;
-      expect(existingErr.reason).toEqual(nonExistingErr.reason);
-      // "Identical message shape, modulo path text": strip each error's OWN attributed
-      // path substring, then compare the remaining template text.
-      expect(existingErr.message.replace(existingErr.path ?? "", "<path>")).toEqual(
-        nonExistingErr.message.replace(nonExistingErr.path ?? "", "<path>")
-      );
-    });
+  it("M-17 / package-source-io-hygiene REQ-PSH-02.1 (+ by-reference-copy-wire REQ-BRC-06.1) — missing package-local source surfaces source-not-found, full triple asserted", async () => {
+    await assertRejectionTriple("m-17", { reason: "source-not-found", verb: null, path: "missing.txt" });
   });
 
-  it("M-18 / REQ-BRC-06.1 — missing in-ceiling source surfaces source-not-found, full triple asserted", async () => {
-    await assertRejectionTriple("m-18", { reason: "source-not-found", verb: null, path: "missing.txt" });
-  });
-
-  it("M-21 / batch-cap REQ-05.1 — cross-chunk atomicity: a later-flush rejection commits nothing from earlier chunks", async () => {
-    const capture = await assertRejectionTriple("m-21", {
+  it("M-20 / batch-cap REQ-05.1 — cross-chunk atomicity: a later-flush rejection commits nothing from earlier chunks", async () => {
+    const capture = await assertRejectionTriple("m-20", {
       reason: "path-collision",
       verb: "create",
       path: M21_COLLISION_SEED_PATH,

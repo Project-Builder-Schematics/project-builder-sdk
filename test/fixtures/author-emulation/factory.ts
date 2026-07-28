@@ -12,7 +12,7 @@
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { currentContext } from "../../../src/core/context.ts";
 import { findReservedSibling } from "../../../src/core/schema/schema-discovery.ts";
 import { rejectionForReservedName } from "../../../src/core/schema/input-rejection.ts";
@@ -140,8 +140,9 @@ export const runM06 = (input: Input): void => {
  * (REQ-AEG-07: never committed to the repo). `setup` receives the scratch dir's absolute
  * path to place whatever git-hostile/oversized content the scenario needs; `body` is the
  * factory logic. An optional `teardown` runs BEFORE the scratch dir's own `rmSync` — for
- * scenarios (M-17's existing out-of-ceiling sibling) that also plant fixture content
- * OUTSIDE the scratch dir itself.
+ * a scenario that also plants fixture content OUTSIDE the scratch dir itself (unused by
+ * any scenario landed today; the containment-boundary example that motivated it, M-17's
+ * old "existing out-of-ceiling sibling" row, retired with ADR-0077).
  *
  * Bare-factory-migration (S-004) recorded decision: this does NOT nest a second call to
  * the core wrap primitive (`src/core/context.ts`'s exported factory-defining function; see
@@ -293,7 +294,7 @@ export const runM20Valid = (): void => {
 
 // =====================================================================================
 // S-004 — Batch-Cap, Containment & Rejection Boundaries (M-08, M-10, M-11, M-12, M-13,
-// M-15, M-16, M-17, M-18, M-21). Every rejection here passes through `AuthoringError`'s
+// M-15, M-16, M-18, M-21). Every rejection here passes through `AuthoringError`'s
 // `verb`/`path` VERBATIM (design.md R-F) — several producer sites (`invalidInput`, S-004
 // discovery) mint BOTH as `undefined`, serializing `null`/`null` in the corpus; SCM-05
 // still requires the full triple to be asserted EXPLICITLY at each of those `null`s, never
@@ -417,49 +418,16 @@ export const runM16Absolute = (): void => {
   copyIn("/etc/passwd", "m16-abs-out/file.txt");
 };
 
-// --- M-17: no-existence-oracle for out-of-ceiling paths (PRC-07.1). Containment's lexical
-// `../`-screen (`resolveContainedRealpath` step 1, `isLexicallyEscaping`) rejects a
-// traversal candidate on STRING ARITHMETIC ALONE — no `existsSync`/`realpathSync` call for
-// that candidate happens before the verdict — so an existing and a non-existing
-// out-of-ceiling target are provably indistinguishable (the same property REQ-PRC-07.2's
-// realpath-ENOENT ordering pins one layer deeper, for a candidate that only escapes AFTER
-// symlink resolution — out of this row's scope, M-16 already covers the lexical form).
-// The NON-EXISTING variant (nothing ever materializes at the referenced sibling path) is
-// this row's corpus-committed scenario; the EXISTING variant (a real sibling file one
-// level above the scratch package root) is e2e-inline-only, asserted to carry the
-// IDENTICAL `reason`.
-export const runM17NonExisting = scratchFactoryRunner(
-  () => {
-    // Deliberately empty: `m17-nonexistent-outside.txt` is never created anywhere.
-  },
-  () => {
-    copyIn("../m17-nonexistent-outside.txt", "m17-out/file.txt");
-  }
-);
-
-// The sibling path lives one level ABOVE the scratch dir (out-of-ceiling by construction)
-// — recomputed identically in `setup` and `teardown` since it is a pure function of `dir`.
-function m17SiblingPath(dir: string): string {
-  return join(dirname(dir), "m17-existing-outside.txt");
-}
-
-export const runM17Existing = scratchFactoryRunner(
-  (dir) => {
-    writeFileSync(m17SiblingPath(dir), "outside content, out-of-ceiling regardless of existence.\n", "utf-8");
-  },
-  () => {
-    copyIn("../m17-existing-outside.txt", "m17-out/file.txt");
-  },
-  (dir) => {
-    rmSync(m17SiblingPath(dir), { force: true });
-  }
-);
-
-// --- M-18: missing in-ceiling source surfaces `source-not-found` (BRC-06.1). `missing.txt`
-// is lexically in-ceiling (no traversal) but never materialized.
+// --- M-18 (retitled "missing package-local source", inline-collection-marker S-004):
+// surfaces `source-not-found` (`package-source-io-hygiene` REQ-PSH-02.1). `missing.txt`
+// is a well-formed relative path but never materialized. The former M-17 "no-existence-
+// oracle for out-of-ceiling paths" row (containment's lexical `../`-screen made an
+// existing and a non-existing out-of-ceiling target indistinguishable) is retired outright
+// with no successor — the in-ceiling/out-of-ceiling distinction it exercised no longer
+// exists (ADR-0077); M-16 already covers the lexical `../`/absolute screen that remains.
 export const runM18 = scratchFactoryRunner(
   () => {
-    // Deliberately empty: `missing.txt` is never created — genuinely absent, in-ceiling.
+    // Deliberately empty: `missing.txt` is never created — genuinely absent.
   },
   () => {
     copyIn("missing.txt", "m18-out/file.txt");

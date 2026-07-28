@@ -24,7 +24,6 @@ import {
   runM14,
   runM15,
   runM16Traversal,
-  runM17NonExisting,
   runM18,
   runM19,
   runM20Valid,
@@ -50,11 +49,11 @@ export interface ScenarioEntry {
   seed?: Record<string, string>;
   /** Threaded to `runFactoryForTest`/`captureRun`'s options bag (bare-factory-migration
    * design §4.3) — `packageDir` now lives at the SCENARIO level, never inside the fixture's
-   * own export. Absent for the scratch-backed rows (m-07/m-09/m-14/m-17/m-18/m-19/m-21),
+   * own export. Absent for the scratch-backed rows (m-07/m-09/m-14/m-17/m-18/m-20),
    * whose factories resolve their OWN dynamically-created scratch directory internally. */
   packageDir?: string;
   expected: "committed" | "rejected";
-  /** Matrix rows (m-01..m-21) needing the landed scaffold/copyIn/create(templateFile)
+  /** Matrix rows (m-01..m-20) needing the landed scaffold/copyIn/create(templateFile)
    * surface — gated true until S-003/S-004 land them. The infra-spine skeleton (s-00)
    * is never gated (GCC-12). */
   gated: boolean;
@@ -162,7 +161,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     gated: false,
   },
   {
-    id: "m-19",
+    id: "m-18",
     slug: "symlinked-dir-skipped",
     run: runM19,
     input: DEFAULT_INPUT,
@@ -170,7 +169,7 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
     gated: false,
   },
   {
-    id: "m-20",
+    id: "m-19",
     slug: "conformance-parity-copyin",
     run: runM20Valid,
     input: DEFAULT_INPUT,
@@ -180,8 +179,8 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
   },
   // --- S-004 (Batch-Cap, Containment & Rejection Boundaries) — one canonical
   // corpus-committed scenario per row; companion input variants of the SAME row's reason
-  // (M-11 one-byte-over, M-12 oversized, M-16 absolute-path, M-17 existing-target) are
-  // e2e-inline-only, never corpus-captured (see factory.ts's per-row comments).
+  // (M-11 one-byte-over, M-12 oversized, M-16 absolute-path) are e2e-inline-only, never
+  // corpus-captured (see factory.ts's per-row comments).
   {
     id: "m-08",
     slug: "binary-template-walk-fails-loud",
@@ -247,22 +246,14 @@ export const SCENARIOS: readonly ScenarioEntry[] = [
   },
   {
     id: "m-17",
-    slug: "no-existence-oracle-nonexisting",
-    run: runM17NonExisting,
-    input: DEFAULT_INPUT,
-    expected: "rejected",
-    gated: false,
-  },
-  {
-    id: "m-18",
-    slug: "missing-in-ceiling-source",
+    slug: "missing-package-local-source",
     run: runM18,
     input: DEFAULT_INPUT,
     expected: "rejected",
     gated: false,
   },
   {
-    id: "m-21",
+    id: "m-20",
     slug: "cross-chunk-atomicity",
     run: runM21,
     input: DEFAULT_INPUT,
