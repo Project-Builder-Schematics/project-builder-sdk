@@ -41,6 +41,9 @@ function sourceLexicalRejectionMessage(relPath: string): string {
  * ROOT `from`), `runCopyIn` (`from`).
  */
 export function validateSourceLexical(relPath: string): void {
+  if (typeof relPath !== "string") {
+    throw invalidInput("invalid input: source path must be a string");
+  }
   if (isLexicallyEscaping(relPath)) {
     throw invalidInput(sourceLexicalRejectionMessage(relPath));
   }
@@ -76,8 +79,12 @@ function sourceRejectionMessage(
 // REQ-PSH-02.3: when `relPath` is unrepresentable (embedded NUL), the fixed placeholder
 // substitutes for the WHOLE `{path}` slot in the message — never the literal (possibly
 // unprintable) bytes. The `.path` field on the error still carries the real `relPath`
-// (programmatic access, not the human-readable surface).
-function sourceRejection(
+// (programmatic access, not the human-readable surface). Exported (judgment-day G4(i)):
+// `classify-transport.ts`'s own post-hygiene read failure mints through this SAME helper
+// rather than constructing a bare, category-less `AuthoringError` — the ONE place a
+// `source-unreadable` message is built, so the failure category (REQ-AEC-11.1) can never
+// be silently dropped at a second call site.
+export function sourceRejection(
   reason: "source-not-found" | "source-not-regular-file" | "source-unreadable",
   relPath: string,
   detail?: RejectionDetail
@@ -102,10 +109,6 @@ function sourceRejection(
 export function statSourceForRead(params: { packageDir: string; relPath: string }): { absPath: string; stat: Stats } {
   const { packageDir, relPath } = params;
 
-  if (typeof relPath !== "string") {
-    throw invalidInput("invalid input: source path must be a string");
-  }
-
   let absPath: string;
   let stat: Stats;
   try {
@@ -113,7 +116,12 @@ export function statSourceForRead(params: { packageDir: string; relPath: string 
     stat = statSync(absPath);
   } catch (err) {
     if (isErrnoException(err)) {
-      if (err.code === "ENOENT") {
+      // ENOTDIR/ENAMETOOLONG (judgment-day G4(ii)): both mean the path, AS GIVEN, does not
+      // exist — a segment along the way turned out to be a regular file, or the resolved
+      // string exceeded the filesystem's name-length limit. Neither is a permission/IO
+      // failure on an existing path; `source-not-found` is the honest category (the spec's
+      // own table scopes it to "does not exist"), same as a plain ENOENT.
+      if (err.code === "ENOENT" || err.code === "ENOTDIR" || err.code === "ENAMETOOLONG") {
         throw sourceRejection("source-not-found", relPath);
       }
       if (err.code === "ELOOP") {
@@ -155,6 +163,9 @@ function destinationEscapeMessage(relPath: string): string {
  * author misuse) — never a `source-*` reason, which is reserved for source READS.
  */
 export function validateDestinationLexical(relPath: string): void {
+  if (typeof relPath !== "string") {
+    throw invalidInput("invalid input: destination path must be a string");
+  }
   if (isLexicallyEscaping(relPath)) {
     throw invalidInput(destinationEscapeMessage(relPath));
   }

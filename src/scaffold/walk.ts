@@ -65,6 +65,22 @@ function rootUnreadableMessage(rootRelPath: string | undefined): string {
   );
 }
 
+// Owner ruling 16 (2026-07-29): REQ-FSC-09 mandates the walk never descend into ANY
+// symlinked directory, but only the NESTED case was implemented — the walk ROOT itself
+// went straight to `readdirSync` with no `lstatSync` ahead of it, so a symlinked `from`
+// was FOLLOWED rather than rejected (probe-proven: enumerates content outside the
+// package). A symlinked root is now an explicit, named rejection — never a silent skip
+// (skipping would make `scaffold` a silent no-op for a root that resolves to a real,
+// populated directory, which is a worse surprise than a nested skip) — reusing the SAME
+// `invalid-input` reason and locator shape every other root-failure message already uses.
+function rootIsSymlinkMessage(rootRelPath: string | undefined): string {
+  return withOptionalLocator(
+    rootRelPath,
+    "invalid input: scaffold \"from\" must not be a symlinked directory",
+    (relPath) => `invalid input: scaffold "from" (${relPath}) must not be a symlinked directory`
+  );
+}
+
 // Never re-throws the raw Node error (no-echo, REQ-AEC-05/FIT-11 posture already held by
 // every other scaffold-family rejection): ENOTDIR (the root resolves to a non-directory —
 // most commonly a regular file) and ENOENT (the root doesn't exist) each mint their own
@@ -128,11 +144,14 @@ function symlinkTargetIsDirectory(absPath: string): boolean {
 
 /**
  * Enumerates every file under `fromAbs`, mirroring nested directory structure into
- * posix-separated `relPath`s (sorted for deterministic output). Symlinked directories are
- * NEVER descended — even when their target resolves inside the package (REQ-FSC-09.1) —
- * skipped silently, no error. Fails loud, naming the bound, once the enumerated entry count
- * exceeds `bound` (REQ-FSC-09.2); `bound` is injectable so a test can drive the branch
- * without materializing 10,001 real files.
+ * posix-separated `relPath`s (sorted for deterministic output). A NESTED symlinked
+ * directory is NEVER descended — even when its target resolves inside the package
+ * (REQ-FSC-09.1) — skipped silently, no error. The ROOT is held to a stricter standard
+ * (owner ruling 16): a symlinked `from` itself is REJECTED (`AuthoringError`,
+ * `invalid-input`) rather than followed or silently skipped — a bare no-op would hide a
+ * root that resolves to a real, populated directory. Fails loud, naming the bound, once
+ * the enumerated entry count exceeds `bound` (REQ-FSC-09.2); `bound` is injectable so a
+ * test can drive the branch without materializing 10,001 real files.
  *
  * `rootRelPath` (judgment-day iteration 2 fix, extended by ruling 8 / REQ-FSC-10.4): the
  * author-facing, package-relative `from` — threaded through to name BOTH the ROOT and any
@@ -155,6 +174,21 @@ export function walkFolder(
     const absDir = relDir === "" ? fromAbs : join(fromAbs, relDir);
     let names: string[];
     if (relDir === "") {
+      // REQ-FSC-09.1 (owner ruling 16): the root gets the SAME non-descent guarantee a
+      // nested symlinked directory already has — `lstatSync` first (never `readdirSync`
+      // straight off `fromAbs`, which would silently FOLLOW a symlinked root) so a
+      // missing/non-directory root still reaches `rootReadFailure` unchanged (lstat fails
+      // with the identical errno readdir would have), and a symlinked root rejects
+      // explicitly instead of either being followed or silently skipped.
+      let rootLst: ReturnType<typeof lstatSync>;
+      try {
+        rootLst = lstatSync(absDir);
+      } catch (err) {
+        throw rootReadFailure(err, rootRelPath);
+      }
+      if (rootLst.isSymbolicLink()) {
+        throw invalidInput(rootIsSymlinkMessage(rootRelPath));
+      }
       try {
         names = readdirSync(absDir).sort();
       } catch (err) {

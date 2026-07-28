@@ -248,7 +248,13 @@ describe("SEC (ADR-0077) — scaffold's walk ROOT: lexical escape still rejects,
     }
   });
 
-  it("a `from` that is lexically in-ceiling but whose symlink target escapes (a symlinked directory pointing out) succeeds — the target's content flows through unverified (ADR-0077 residual)", async () => {
+  it("a `from` that is itself a symlinked directory rejects invalid-input — owner ruling 16 (2026-07-29) supersedes the prior ADR-0077 walk-root residual", async () => {
+    // Prior to ruling 16, this scenario asserted the walk ROOT was FOLLOWED transparently
+    // (a residual, alongside the per-entry symlink residual REQ-PSH-04.1 still documents).
+    // The owner ruled the walk ROOT specifically gets a stricter, explicit rejection
+    // instead — a symlinked root is too easy to construct and too silent a way to read
+    // content the author never named; the per-entry residual (a symlink DISCOVERED by an
+    // otherwise-real walk) is unaffected and still documented in SECURITY.md point 4.
     const dir = scratchDir();
     const external = mkdtempSync(join(tmpdir(), "expander-external-"));
     try {
@@ -256,27 +262,14 @@ describe("SEC (ADR-0077) — scaffold's walk ROOT: lexical escape still rejects,
       symlinkSync(external, join(dir, "link-out"));
       const fake = new ContractFake({ seed: {} });
 
-      const readdirSpy = spyOn(fs, "readdirSync");
-      try {
-        const run = defineFactory<void>(() => {
-          scaffold({ from: "link-out", to: "out" });
-        }, { packageDir: dir });
+      const caught = await rejectedRun(fake, () => {
+        scaffold({ from: "link-out", to: "out" });
+      }, { packageDir: dir });
 
-        await run(undefined, { client: fake });
-
-        // ADR-0077: the SDK never realpath-verifies a walk root — `readdirSync` on a
-        // symlinked directory transparently follows the OS-level link, so the target's
-        // content is read through untouched. The residual is documented (SECURITY.md
-        // point 4), not a bug.
-        expect(fake.committedTree()).toEqual(new Map([["out/top-secret.txt", "nope"]]));
-        // Every readdirSync call target is still the LEXICAL path under `packageDir`
-        // (`link-out`) — the SDK never resolves/echoes the symlink's absolute target.
-        for (const call of readdirSpy.mock.calls) {
-          expect(String(call[0])).not.toContain(external);
-        }
-      } finally {
-        readdirSpy.mockRestore();
-      }
+      const err = expectAuthoringReason(caught, "invalid-input");
+      expect(err.message).toContain("link-out");
+      expect(err.message).not.toContain(external);
+      expect(fake.committedTree().size).toEqual(0);
     } finally {
       rmSync(external, { recursive: true, force: true });
     }

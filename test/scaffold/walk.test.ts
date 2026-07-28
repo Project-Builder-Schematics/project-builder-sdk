@@ -50,6 +50,31 @@ describe("REQ-FSC-09.1 — a symlinked directory is skipped, not descended (enum
   });
 });
 
+describe("REQ-FSC-09.1 — owner ruling 16 (2026-07-29): a symlinked WALK ROOT rejects, never followed or silently skipped [red-today]", () => {
+  it("a `from` that is itself a symlinked directory rejects invalid-input, naming the package-relative from, never an absolute path", () => {
+    const dir = scratchDir();
+    const target = scratchDir();
+    writeFileSync(join(target, "secret.ts"), "secret", "utf-8");
+    const linkPath = join(dir, "link-root");
+    symlinkSync(target, linkPath, "dir");
+
+    const err = expectReason(() => walkFolder(linkPath, undefined, "link-root"), "invalid-input");
+    expect(err.message).toContain("link-root");
+    expect(err.message).not.toContain(target);
+    expect(err.message).not.toContain(dir);
+  });
+
+  it("no rootRelPath threaded (direct unit-test callers) falls back to locator-free phrasing for a symlinked root", () => {
+    const dir = scratchDir();
+    const target = scratchDir();
+    const linkPath = join(dir, "link-root");
+    symlinkSync(target, linkPath, "dir");
+
+    const err = expectReason(() => walkFolder(linkPath), "invalid-input");
+    expect(err.message).toEqual('invalid input: scaffold "from" must not be a symlinked directory');
+  });
+});
+
 describe("REQ-FSC-09.2 — entry-count bound exceeded fails loud, naming the bound", () => {
   it("an injected, test-scoped bound of 2 rejects a 3-entry tree", () => {
     const dir = scratchDir();

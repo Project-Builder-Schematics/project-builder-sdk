@@ -123,11 +123,14 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
     expect(fake.committedTree().size).toEqual(0);
   });
 
-  it("S-005 (containment-routed): a non-ENOENT realpath failure (ENOTDIR — path routed through a regular file) rejects source-unreadable, never source-not-found", async () => {
+  it("S-005 (containment-routed): a non-ENOENT realpath failure (ENOTDIR — path routed through a regular file) rejects source-not-found, matching a path that does not exist as claimed (judgment-day G4(ii))", async () => {
     const dir = scratchDir();
     // `blocker.txt` is a regular FILE; resolving a path that treats it as a directory
     // throws ENOTDIR — a deterministic, chmod-free non-ENOENT errno (S18: chmod
-    // fixtures are unreliable under root-running CI).
+    // fixtures are unreliable under root-running CI). ENOTDIR means the path, AS GIVEN,
+    // does not exist (a segment along the way is a file, not a directory) — never a
+    // permission/IO failure on an existing path, so it maps to `source-not-found`, the
+    // same category a plain ENOENT gets, not `source-unreadable`.
     writeFileSync(join(dir, "blocker.txt"), "content", "utf-8");
     const fake = new ContractFake({ seed: {} });
 
@@ -135,9 +138,9 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
       create("dest.ts", { templateFile: "blocker.txt/nested.template", options: {} });
     }, { packageDir: dir });
 
-    const err = expectAuthoringReason(caught, "source-unreadable");
+    const err = expectAuthoringReason(caught, "source-not-found");
     expect(err.message).toEqual(
-      "source file unreadable: blocker.txt/nested.template could not be read (permission or I/O error)"
+      "source file not found: blocker.txt/nested.template does not exist in the package"
     );
     expect(fake.committedTree().size).toEqual(0);
   });

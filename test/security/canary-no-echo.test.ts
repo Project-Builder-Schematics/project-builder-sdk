@@ -18,7 +18,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, symlinkSync } from "node
 import * as fs from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync, execFileSync } from "node:child_process";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { canaryToken, seedSchema, spawnCapture } from "../support/canary.ts";
@@ -397,6 +397,135 @@ describe("REQ-RBV-04.1 — path-guards baseline branches never leak the absolute
     const originalReaddirSync = fs.readdirSync;
     const readdirSpy = spyOn(fs, "readdirSync").mockImplementation(((...args: Parameters<typeof fs.readdirSync>) => {
       if (args[0] === nested) {
+        throw Object.assign(new Error("EACCES: simulated"), { code: "EACCES" });
+      }
+      return originalReaddirSync(...(args as Parameters<typeof originalReaddirSync>));
+    }) as typeof fs.readdirSync);
+
+    try {
+      const caught = await rejectedRun(fake, () => {
+        scaffold({ from: "files", to: "out" });
+      }, { packageDir: dir });
+
+      expect(caught).toBeInstanceOf(Error);
+      expect(surfaceContains(caught as Error, canary)).toBe(false);
+    } finally {
+      readdirSpy.mockRestore();
+    }
+  });
+});
+
+// judgment-day round 1, G6: seven signed enumerated branches (REQ-RBV-04.1) had no
+// canary-no-echo test — the reason/message was proven elsewhere, but never that the FULL
+// error surface (message, .stack, own enumerable properties) stays canary-free when driven
+// through the real commons verb. Plus the G1 root-symlink rejection (owner ruling 16),
+// delivered alongside its own RED-first walk.test.ts coverage.
+describe("REQ-RBV-04.1 — judgment-day round 1: the seven previously-uncovered enumerated branches, plus the G1 root-symlink rejection", () => {
+  it("scaffold: a symlinked WALK ROOT (owner ruling 16) never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("scaffold-root-symlink");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const target = scratchDir();
+    writeFileSync(join(target, "secret.ts"), "secret", "utf-8");
+    symlinkSync(target, join(dir, "link-root"), "dir");
+
+    await expectRejectsCanaryFree(dir, canary, () => {
+      scaffold({ from: "link-root", to: "out" });
+    });
+  });
+
+  it("REQ-PSH-01.1: copyIn — a FIFO source (non-regular, non-directory) never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("copyin-fifo");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    execFileSync("mkfifo", [join(dir, "pipe")]);
+
+    await expectRejectsCanaryFree(dir, canary, () => {
+      copyIn("pipe", "out/copied.txt");
+    });
+  });
+
+  it("REQ-PSH-02.2: templateFile — an injected EACCES read failure never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("templatefile-eacces");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const target = join(dir, "tpl.ts.template");
+    writeFileSync(target, "content", "utf-8");
+
+    const originalStatSync = fs.statSync;
+    const statSpy = spyOn(fs, "statSync").mockImplementation(((...args: Parameters<typeof fs.statSync>) => {
+      if (args[0] === target) {
+        throw Object.assign(new Error("EACCES: simulated"), { code: "EACCES" });
+      }
+      return originalStatSync(...(args as Parameters<typeof originalStatSync>));
+    }) as typeof fs.statSync);
+
+    try {
+      await expectRejectsCanaryFree(dir, canary, () => {
+        create("out/x.ts", { templateFile: "tpl.ts.template", options: {} });
+      });
+    } finally {
+      statSpy.mockRestore();
+    }
+  });
+
+  it("REQ-PSH-02.4: templateFile — a broken symlink source never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("templatefile-broken-symlink");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    symlinkSync(join(dir, "never-created.txt"), join(dir, "broken.txt"));
+
+    await expectRejectsCanaryFree(dir, canary, () => {
+      create("out/x.ts", { templateFile: "broken.txt", options: {} });
+    });
+  });
+
+  it("REQ-IPF-01.2: an absolute source path never leaks the canary-seeded absolute prefix (driven once per verb, three cases)", async () => {
+    const templateFileCanary = canaryToken("templatefile-absolute");
+    const templateFileDir = scratchDirWithCanaryPrefix(templateFileCanary);
+    await expectRejectsCanaryFree(templateFileDir, templateFileCanary, () => {
+      create("out/x.ts", { templateFile: "/abs/secret.ts", options: {} });
+    });
+
+    const copyInCanary = canaryToken("copyin-absolute");
+    const copyInDir = scratchDirWithCanaryPrefix(copyInCanary);
+    await expectRejectsCanaryFree(copyInDir, copyInCanary, () => {
+      copyIn("/abs/secret.ts", "out/copied.txt");
+    });
+
+    const scaffoldCanary = canaryToken("scaffold-absolute");
+    const scaffoldDir = scratchDirWithCanaryPrefix(scaffoldCanary);
+    await expectRejectsCanaryFree(scaffoldDir, scaffoldCanary, () => {
+      scaffold({ from: "/abs/secret", to: "out" });
+    });
+  });
+
+  it("REQ-IPF-01.6: copyIn — a segment-aware '..' variant ('sub/..') never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("copyin-dotdot-variant");
+    const dir = scratchDirWithCanaryPrefix(canary);
+
+    await expectRejectsCanaryFree(dir, canary, () => {
+      copyIn("sub/..", "out/copied.txt");
+    });
+  });
+
+  it("REQ-IPF-02.1: scaffold — an escaping destination ('to') never leaks the canary-seeded absolute prefix (the template echoes the RELATIVE literal only, `validateDestinationLexical` never sees packageDir's absolute prefix)", async () => {
+    const canary = canaryToken("scaffold-dest-escape");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "a.ts"), "A", "utf-8");
+
+    await expectRejectsCanaryFree(dir, canary, () => {
+      scaffold({ from: "files", to: "../escape" });
+    });
+  });
+
+  it("REQ-FSC-10.3: scaffold — a walk-ROOT EACCES (injected, non-ENOENT/ENOTDIR) never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("scaffold-root-eacces");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const filesDir = join(dir, "files");
+    mkdirSync(filesDir);
+    const fake = new ContractFake({ seed: {} });
+
+    const originalReaddirSync = fs.readdirSync;
+    const readdirSpy = spyOn(fs, "readdirSync").mockImplementation(((...args: Parameters<typeof fs.readdirSync>) => {
+      if (args[0] === filesDir) {
         throw Object.assign(new Error("EACCES: simulated"), { code: "EACCES" });
       }
       return originalReaddirSync(...(args as Parameters<typeof originalReaddirSync>));

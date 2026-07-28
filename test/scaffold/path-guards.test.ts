@@ -34,12 +34,28 @@ const originalStatSync = fs.statSync;
 
 const scratchDir = scratchDirFactory("path-guards-");
 
-describe("statSourceForRead — TOTAL guard, design §4 mapping row 0", () => {
-  it("row 0: a non-string relPath rejects invalid-input before any fs call", () => {
-    const dir = scratchDir();
+// judgment-day G2: row 0 (a non-string relPath) is unreachable through `statSourceForRead`
+// itself — all three call sites run `validateSourceLexical` (or, for a destination,
+// `validateDestinationLexical`) first, and `isLexicallyEscaping`'s `relPath.startsWith`
+// throws a raw TypeError on a non-string before `statSourceForRead` is ever reached. The
+// guard is retargeted to the REACHABLE entry points — both lexical screens — where the
+// non-string check now actually lives, and the redundant, dead check inside
+// `statSourceForRead` itself is removed (less code, one guard instead of two).
+describe("validateSourceLexical / validateDestinationLexical — TOTAL guard, design §4 mapping row 0 (retargeted, judgment-day G2)", () => {
+  it("row 0 (source): a non-string relPath rejects invalid-input before any fs call", () => {
     const statSpy = spyOn(fs, "statSync");
     try {
-      expectReason(() => statSourceForRead({ packageDir: dir, relPath: 42 as unknown as string }), "invalid-input");
+      expectReason(() => validateSourceLexical(42 as unknown as string), "invalid-input");
+      expect(statSpy).not.toHaveBeenCalled();
+    } finally {
+      statSpy.mockRestore();
+    }
+  });
+
+  it("row 0 (destination): a non-string relPath rejects invalid-input before any fs call", () => {
+    const statSpy = spyOn(fs, "statSync");
+    try {
+      expectReason(() => validateDestinationLexical(42 as unknown as string), "invalid-input");
       expect(statSpy).not.toHaveBeenCalled();
     } finally {
       statSpy.mockRestore();

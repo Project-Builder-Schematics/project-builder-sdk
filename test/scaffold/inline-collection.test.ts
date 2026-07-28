@@ -1,12 +1,11 @@
 /**
  * REQ-MFB-01.1 / REQ-MFB-01.2 (S-000, design §Data Model/§9 step 2): the AUTHORITATIVE
  * inline-collection regression test — the reported bug this whole change closes. Uses its
- * OWN `mkdtemp`, never `scratchDirFactory` (which still seeds a `collection.json` marker
- * for other suites' convenience), and asserts the FULL-ANCESTOR-CHAIN precondition
- * explicitly: no `collection.json` exists at `packageDir` or any directory above it, all
- * the way to the filesystem root — the same layout a real CLI inline-collection project has
- * (the collection lives inside `project-builder.json`; no `collection.json` ever exists on
- * disk).
+ * OWN `mkdtemp`, never `scratchDirFactory`, for full control over the ancestor chain: the
+ * FULL-ANCESTOR-CHAIN precondition below asserts no `collection.json` exists at
+ * `packageDir` or any directory above it, all the way to the filesystem root — the same
+ * layout a real CLI inline-collection project has (the collection lives inside
+ * `project-builder.json`; no `collection.json` ever exists on disk).
  */
 import { describe, it, expect } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -28,7 +27,8 @@ function assertNoAncestorMarkerAnywhere(dir: string): void {
 }
 
 function freshPackageDir(): string {
-  // Own mkdtemp, deliberately never `scratchDirFactory` — that helper seeds a marker.
+  // Own mkdtemp, never `scratchDirFactory` — this suite needs the full ancestor chain
+  // under its own control for `assertNoAncestorMarkerAnywhere`'s walk-to-root assertion.
   return mkdtempSync(join(tmpdir(), "inline-collection-"));
 }
 

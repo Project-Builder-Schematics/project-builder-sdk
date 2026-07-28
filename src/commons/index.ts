@@ -239,11 +239,15 @@ export type ScaffoldOptions = ScaffoldArgs;
  * source path — distinct from the `rename()` verb, which renames one already-targeted
  * file's basename at emit time, not a folder-walk's per-entry destination.
  *
- * The walk never descends into a symlinked directory, even when its target resolves
- * INSIDE the package boundary (skipped silently, no error — uniform with
- * `package-root-containment`'s no-descent rule) and is capped at 10,000 enumerated
- * entries per call, failing loud and naming the bound past that (REQ-FSC-09) — a
- * resource guard no real schematic collection should approach.
+ * A NESTED symlinked directory is never descended, regardless of where its target
+ * resolves — skipped silently, no error; enumeration determinism and cycle-safety are the
+ * rationale (a symlinked directory could point anywhere, including into a cycle — never
+ * descending is the simplest invariant that is safe under all targets, REQ-FSC-09). The
+ * walk ROOT (`from` itself) is held to a stricter standard: a symlinked root REJECTS
+ * (`invalid-input`) rather than being followed or silently skipped (owner ruling 16). The
+ * walk is capped at 10,000 enumerated entries per call, failing loud and naming the bound
+ * past that (REQ-FSC-09) — a loop-safety/DoS resource guard no real schematic collection
+ * should approach.
  *
  * **Packaging caveat**: the empty-folder no-op (above) depends on `from` existing ON
  * DISK at run time — npm tarball packaging commonly DROPS empty directories, so an

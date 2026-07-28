@@ -725,3 +725,57 @@ suffices as the tie-break check):
 S-006 is now complete (5/5 tasks `[x]` in `slices.md`). The whole `inline-collection-marker`
 change (S-000 through S-006, 7/7 slices) is implementation-complete and ready for
 `/evaluate` (verify --mode=final) before archive.
+
+## Judgment-Day Round 1 Fixes
+
+Two blind judges reviewed `git diff 1e44ae8..8c3828a`; the owner ratified a 7-group fix
+list (G1-G7) and issued **ruling 16**. All seven groups are now applied.
+
+**Ruling 16 (2026-07-29, the load-bearing fix)**: REQ-FSC-09 says the walk MUST NOT
+descend into ANY symlinked directory, but `walkFolder`'s ROOT branch called
+`readdirSync(fromAbs)` with no `lstatSync` ahead of it — only the NESTED case was
+implemented/tested. A symlinked `from` was FOLLOWED (probe-proven: enumerates content
+outside the package). Owner ruling: a symlinked walk ROOT REJECTS with `AuthoringError`
+(reason `invalid-input`, package-relative locator, no absolute-path echo) — explicit
+error, never a silent skip, never a documented residual carve-out.
+
+| Group | Root cause | Fix | Files |
+|---|---|---|---|
+| G1 | Walk-root symlink followed, never rejected | `walkFolder`'s root branch now `lstatSync`s `fromAbs` before `readdirSync`; a symlinked root throws a new pinned, no-echo `invalid-input` message (`rootIsSymlinkMessage`) | `src/scaffold/walk.ts`; tests: `test/scaffold/walk.test.ts` (root-symlink reject + locator-free fallback), `test/scaffold/expander.test.ts` (retired the old "symlinked root followed" residual test, now asserts rejection), `test/security/canary-no-echo.test.ts` (new canary case); spec: `openspec/changes/inline-collection-marker/specs/folder-scaffold/spec.md` (V3.3→V3.4, new REQ-FSC-09.3); doc: `docs/authoring-verbs.md`, `src/commons/index.ts` JSDoc |
+| G2 | `statSourceForRead`'s non-string guard was unreachable (all 3 call sites lexically screen first, and the lexical screen itself crashed with a raw TypeError on a non-string) | Moved the `typeof relPath !== "string"` check to the TOP of `validateSourceLexical` AND `validateDestinationLexical`; deleted the now-dead check inside `statSourceForRead` | `src/scaffold/path-guards.ts`; test: `test/scaffold/path-guards.test.ts` (row-0 retargeted to both lexical entry points) |
+| G3 | fit-43 clause (c) only diffed the committed baseline against itself — vacuous against a regrown additive field (Judge B fault-injected `packageRoot?: string` and every static guard stayed green) | Added a second assertion reading the FRESHLY BUILT `dist/core/context.d.ts` (via the shared, memoized `ensureTscBuild()`) and pinning the same equality; proved non-vacuous by repeating the injection (fails) then reverting (`git status` clean) | `test/fitness/fit-43-no-ceiling-regrowth.test.ts` |
+| G4(i) | `classify-transport.ts`'s post-hygiene read-failure minted a bare `AuthoringError` with no `message`, silently dropping the failure category REQ-AEC-11.1 mandates | Routed through `path-guards.ts`'s own `sourceRejection("source-unreadable", relPath, "permission or I/O error")` (exported); one mechanism for every `source-unreadable` message | `src/scaffold/classify-transport.ts`, `src/scaffold/path-guards.ts` (export); tests: `test/core/authoring-error-source.test.ts` (message now includes the category) |
+| G4(ii) | `statSourceForRead`'s catch-all mapped `ENOTDIR`/`ENAMETOOLONG` to `source-unreadable` — factually wrong for a path routed through a regular file (a normal author typo, not a permission/IO failure) | Branched both errnos to `source-not-found` alongside `ENOENT` (the spec's own table scopes that reason to "does not exist") | `src/scaffold/path-guards.ts`; test: `test/e2e/scaffold.e2e.test.ts` (ENOTDIR case now expects `source-not-found`) |
+| G4(iii) | `authoring-error.ts`'s comment claimed "every producer site passes an explicit message" | Verified TRUE after G4(i) (`rg 'reason: "source-' src/` → only `path-guards.ts#sourceRejection`, always with an explicit message) — no comment change needed for accuracy; the adjacent stale `REQ-PRC-05` citation was fixed as part of G5 | `src/core/authoring-error.ts` |
+| G5 | Public doc surface drift: stale `package-root-containment` citation in `src/commons/index.ts`'s `scaffold` JSDoc; stale `REQ-PRC-09`/`REQ-PRC-05` citations in `expander.ts`/`authoring-error.ts` | Rewrote the JSDoc to REQ-FSC-09's V3 enumeration-determinism/cycle-safety rationale + ruling-16 root behavior; re-pointed `REQ-PRC-09` → `ir-path-well-formedness` REQ-IPF-02, `REQ-PRC-05` → `package-source-io-hygiene` REQ-PSH-01 (successors confirmed against the signed deltas); regenerated `test/fitness/dts-baseline/commons.index.d.ts` via the FIT-04 procedure (`bun run build` + copy — never hand-edited). That regen also incidentally absorbed pre-existing, UNRELATED baseline staleness already latent in HEAD (`defineFactory({ packageDir })` → "factory run started with packageDir" wording drift) — noted here for transparency, not a scope expansion introduced by this round | `src/commons/index.ts`, `src/scaffold/expander.ts`, `src/core/authoring-error.ts`, `test/fitness/dts-baseline/commons.index.d.ts` |
+| G6 | REQ-RBV-04.1's enumerated set had 7 signed branches with no canary-no-echo test (FIFO, injected-EACCES read, broken symlink, absolute source ×3 verbs, `..`-variant set, destination lexical guard, walk-root EACCES) | Added one canary-no-echo test per branch (plus the G1 root-symlink canary), following the file's existing seeded-canary + `expectRejectsCanaryFree` pattern; no helper changes needed — every branch fit the existing idiom | `test/security/canary-no-echo.test.ts` |
+| G7 | Stale comments in `test/scaffold/inline-collection.test.ts` still claimed `scratchDirFactory` seeds a `collection.json` marker (removed in S-003) | Corrected both comments to the real remaining rationale: the suite's own `mkdtemp` gives it full control over the ancestor chain for `assertNoAncestorMarkerAnywhere`'s walk-to-root assertion | `test/scaffold/inline-collection.test.ts` |
+
+**RED-evidence summary**:
+- G1: RED confirmed by stashing `walk.ts`'s fix and re-running `walk.test.ts` (2 failures:
+  `expectAuthoringReason` received `undefined` — no rejection at all); GREEN after restoring.
+- G2: RED confirmed by temporarily removing both new `typeof` checks and re-running
+  `path-guards.test.ts` (2 failures — a raw `TypeError` from `isLexicallyEscaping`'s
+  `.startsWith` call, proving the check was load-bearing, not decorative).
+- G3: non-vacuousness proved by repeating Judge B's `packageRoot?: string` fault injection
+  into `src/core/context.ts` — the new dist-based assertion failed (`+ "packageRoot?:
+  string"` in the diff); reverted immediately, `git status` confirmed clean.
+- G4(i)/(ii): mutation-check — the fix pre-existed the updated pinning tests by
+  construction (the message/reason text was directly asserted against the new behaviour);
+  confirmed by reasoning over the errno branch table and cross-checked against the full
+  suite run (both affected tests pass with the NEW expected strings, and would not with the
+  old ones — verified by inspecting the prior committed assertions before editing them).
+- G6: coverage-addition, not a behavioural fix — all 7 branches already rejected correctly
+  before this round; the canary-no-echo PROOF was what was missing, not the rejection
+  itself. Exception: the G1 root-symlink canary is genuinely RED-then-GREEN (follows G1's
+  own fix).
+- G7: comment-only, no test implication.
+
+**Suite**: two consecutive uncontended full `bun test` runs — **2410 pass / 0 fail** across
+201 files (5349 expect() calls) both times, byte-identical (baseline 2398 + 12 new tests:
+2 in `walk.test.ts`, net +1 in `path-guards.test.ts`, 1 in `fit-43-no-ceiling-regrowth.test.ts`,
+8 in `canary-no-echo.test.ts`). `bunx tsc --noEmit` clean. One full-suite run mid-session
+showed a transient, unrelated flake in `test/dialects/react`'s `REQ-RXD-08.1` corpus
+round-trip test (a pre-existing, timing-sensitive test under full-suite CPU contention,
+untouched by this diff) — confirmed non-reproducing in isolation and absent from both
+final confirmation runs.

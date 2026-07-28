@@ -85,7 +85,8 @@ const EMPTY_BATCH_SIZE = serializedBatchSize([]);
  * (`content-classification`); by-value sources emit a `create` directive through the
  * existing IR. A truly-empty `from` folder no-ops (REQ-FSC-04.1); filters eliminating
  * every entry fail loud, naming them (REQ-FSC-04.2). `force` passes through unchanged to
- * every emitted directive (REQ-FSC-06). The destination lexical guard (REQ-PRC-09) applies
+ * every emitted directive (REQ-FSC-06). The destination lexical guard (`ir-path-well-formedness`
+ * REQ-IPF-02, re-homed from the retired `package-root-containment` REQ-PRC-09) applies
  * to the FINAL computed destination, immediately pre-emit. Aggregate size never blocks the
  * scaffold outright (REQ-04) — the expander chunks via mid-run `session.flush()` calls
  * (see the module header for the sync/async bridge); run-level atomicity (REQ-05) is free.

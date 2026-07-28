@@ -8,8 +8,11 @@
  * (`test/support/src-invariant-scans.ts`); negatives run against fixture trees under
  * `test/fixtures/red/src-invariant-scans/**`, never a live mutation of the real tree.
  */
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, beforeAll } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { collectFiles } from "../support/import-scan.ts";
+import { ensureTscBuild } from "../support/shared-build.ts";
 import {
   readScanFiles,
   realSrcFileSnapshot,
@@ -27,6 +30,22 @@ const RED_ROOT = `${PROJECT_ROOT}test/fixtures/red/src-invariant-scans`;
 const SINGLE_INSTANCE_PROBE_PATH = `${SRC_DIR}/transport/single-instance-probe.ts`;
 const CONTEXT_TS_PATH = `${SRC_DIR}/core/context.ts`;
 const CORE_CONTEXT_DTS_PATH = `${PROJECT_ROOT}test/fitness/dts-baseline/core.context.d.ts`;
+
+beforeAll(() => {
+  // judgment-day G3: clause (c) below now ALSO reads the freshly-built dist output —
+  // ensureTscBuild() is the shared, memoized `bun run build` FIT-04/FIT-17/the
+  // installed-consumer e2e already trigger, never a second, redundant build.
+  ensureTscBuild();
+});
+
+function packageAnchorsFields(dtsContent: string): string[] {
+  const match = /packageAnchors\?:\s*\{([^}]*)\};/.exec(dtsContent);
+  expect(match).not.toBeNull();
+  return match![1]!
+    .split(";")
+    .map((s) => s.replace(/\s+/g, " ").trim())
+    .filter((s) => s.length > 0);
+}
 
 const PACKAGE_ROOT_FOR_ALLOWLIST = new Set([`${SINGLE_INSTANCE_PROBE_PATH}#packageRootFor`]);
 const EMPTY_ALLOWLIST = new Set<string>();
@@ -79,14 +98,24 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
   describe("clause (c) — RunContext.packageAnchors's type literal EQUALS { packageDir: string } (Q8, positive shape)", () => {
     it("the kit-internal core.context.d.ts baseline pins exactly one field", async () => {
       const content = await Bun.file(CORE_CONTEXT_DTS_PATH).text();
-      const match = /packageAnchors\?:\s*\{([^}]*)\};/.exec(content);
-      expect(match).not.toBeNull();
-      const fields = match![1]!
-        .split(";")
-        .map((s) => s.replace(/\s+/g, " ").trim())
-        .filter((s) => s.length > 0);
+      const fields = packageAnchorsFields(content);
       // Equality, never containment (Q8) — a superset (a regrown `packageRoot`-shaped
       // additive field) must fail this, not merely "contains packageDir".
+      expect(fields).toEqual(["packageDir: string"]);
+    });
+
+    // judgment-day G3: the check above is VACUOUS against a regrown additive field — it
+    // only diffs the COMMITTED baseline against ITSELF, never against real, freshly-built
+    // output. Judge B fault-injected `packageRoot?: string` into `src/core/context.ts` and
+    // every static guard, including the assertion above, stayed green because none of them
+    // ever look at `dist/`. This second assertion closes that gap: it reads the SAME
+    // freshly-built `dist/core/context.d.ts` FIT-04's kit-internal pair already builds
+    // (`ensureTscBuild()`, shared/memoized — no second build), so an additive regrown field
+    // that survives a real `tsc` emit fails HERE even though the baseline-vs-itself check
+    // above cannot see it.
+    it("the FRESHLY BUILT dist/core/context.d.ts also pins exactly one field — non-vacuous against a regrown additive field", () => {
+      const distContent = readFileSync(join(ensureTscBuild(), "core/context.d.ts"), "utf-8");
+      const fields = packageAnchorsFields(distContent);
       expect(fields).toEqual(["packageDir: string"]);
     });
   });

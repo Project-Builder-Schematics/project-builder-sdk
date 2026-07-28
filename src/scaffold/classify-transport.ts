@@ -15,11 +15,11 @@
 // only (REQ-CCL-05/AEC-12) and by-reference for everything else.
 
 import { readFileSync } from "node:fs";
-import { AuthoringError, invalidInput } from "../core/authoring-error.ts";
+import { invalidInput } from "../core/authoring-error.ts";
 import type { Directive, JsonValue } from "../core/wire.ts";
 import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../core/wire.ts";
 import { encodeOptions, forceEntry } from "../core/directive-factory.ts";
-import { statSourceForRead } from "./path-guards.ts";
+import { sourceRejection, statSourceForRead } from "./path-guards.ts";
 
 export type ClassificationVerdict = "by-value" | "by-reference";
 
@@ -124,9 +124,13 @@ export function classifyTransport(params: ClassifyParams): ClassifyResult {
   try {
     buf = readFileSync(absPath);
   } catch {
-    // Containment already proved an in-ceiling regular file; a read failure THIS LATE is a
-    // genuine read-path failure (permission/I/O), never a missing/outside-package source.
-    throw new AuthoringError({ verb: undefined, path: relPath, reason: "source-unreadable", appliedCount: 0 });
+    // Hygiene already proved a readable regular file; a read failure THIS LATE is a
+    // genuine read-path failure (permission/I/O), never a missing source. Routed through
+    // `path-guards.ts`'s own `sourceRejection` (judgment-day G4(i)) — a bare
+    // `new AuthoringError(...)` with no `message` falls to `messageFor`'s generic
+    // "could not be read" template, silently dropping the failure CATEGORY REQ-AEC-11.1
+    // mandates; `sourceRejection` is the one place that template is built.
+    throw sourceRejection("source-unreadable", relPath, "permission or I/O error");
   }
   const content = decodeSniffableText(buf);
   if (content === null) {

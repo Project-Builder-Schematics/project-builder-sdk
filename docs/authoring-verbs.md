@@ -286,7 +286,9 @@ scaffold({
 - Two or more sources collapsing to the same destination (after the pipeline) reject
   fail-loud (`reason: "invalid-input"`), naming every offending source.
 - The walk never descends into a symlinked directory — skipped silently, no error,
-  regardless of where its target resolves.
+  regardless of where its target resolves. A symlinked walk root itself (`from`) is held to
+  a stricter standard: it rejects (`reason: "invalid-input"`) rather than being followed or
+  silently skipped.
 - The walk is capped at 10,000 enumerated entries per call; exceeding it rejects fail-loud,
   naming the bound.
 - Only usable inside a run started with `packageDir` — otherwise `reason: "invalid-input"`,
