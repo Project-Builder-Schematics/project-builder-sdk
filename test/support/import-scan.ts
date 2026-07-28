@@ -98,3 +98,35 @@ export function collectFiles(dir: string, ext: string): string[] {
 export function collectTsFiles(dir: string): string[] {
   return collectFiles(dir, ".ts");
 }
+
+/** Matches a call to any of the file-writing primitives the FIT scans treat as a write
+ * site — shared by FIT-27's corpus-write scan and the FIT-43/44/45 marker-fabrication scan. */
+export const WRITE_CALL_RE = /\bwriteFileSync\s*\(|\.writeFile\s*\(|\bappendFileSync\s*\(|\bBun\.write\s*\(/g;
+
+/**
+ * Depth-counts `open`/`close` delimiters starting at `openIndex` (which must point at the
+ * `open` character itself) and returns the index of the delimiter that closes it — balanced
+ * matching, not lexically aware of strings/comments/template literals. Returns -1 if depth
+ * never returns to zero before the end of `source`. Shared paren/brace-matching idiom
+ * behind `extractCallArgs` and `extractFunctions`'s body-brace match.
+ */
+export function findMatchingClose(source: string, openIndex: number, open: string, close: string): number {
+  let depth = 0;
+  for (let i = openIndex; i < source.length; i++) {
+    if (source[i] === open) depth++;
+    else if (source[i] === close) {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/** Paren-depth-aware extraction of a call's full argument-list text, starting at the
+ * `(` immediately following the matched call name. */
+export function extractCallArgs(source: string, callMatchIndex: number): string {
+  const openParenIndex = source.indexOf("(", callMatchIndex);
+  if (openParenIndex === -1) return "";
+  const closeIndex = findMatchingClose(source, openParenIndex, "(", ")");
+  return closeIndex === -1 ? source.slice(openParenIndex + 1) : source.slice(openParenIndex + 1, closeIndex);
+}

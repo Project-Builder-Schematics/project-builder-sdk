@@ -20,7 +20,7 @@
  * ELOOP, embedded NUL, the resource-exhaustion errno collapse, FIFO, the degenerate
  * source strings, both symlink-accept scenarios, and the lexical screens themselves.
  */
-import { describe, it, expect, spyOn, afterEach } from "bun:test";
+import { describe, it, expect, spyOn } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import * as fs from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -28,21 +28,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { statSourceForRead, validateSourceLexical, validateDestinationLexical } from "../../src/scaffold/path-guards.ts";
 import { expectReason } from "../support/expect-reason.ts";
+import { scratchDirFactory } from "../support/scratch-dir.ts";
 
 const originalStatSync = fs.statSync;
 
-let dirs: string[] = [];
-function scratchDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), "path-guards-"));
-  dirs.push(dir);
-  return dir;
-}
-afterEach(() => {
-  for (const dir of dirs) {
-    rmSync(dir, { recursive: true, force: true });
-  }
-  dirs = [];
-});
+const scratchDir = scratchDirFactory("path-guards-");
 
 describe("statSourceForRead — TOTAL guard, design §4 mapping row 0", () => {
   it("row 0: a non-string relPath rejects invalid-input before any fs call", () => {

@@ -1,7 +1,7 @@
 {
   "change": "inline-collection-marker",
   "triage": "L",
-  "phase": "build:complete-7of7-verified-awaiting-evaluate",
+  "phase": "evaluate:simplify-gate-4-lens-fanout-running",
   "spec_status": "signed",
   "slices": true,
   "plan_verify": "ready",

@@ -12,6 +12,7 @@ import { describe, it, expect } from "bun:test";
 import { collectFiles } from "../support/import-scan.ts";
 import {
   readScanFiles,
+  realSrcFileSnapshot,
   findLiteralOccurrences,
   findAncestorWalkIdiom,
   findRealpathReferences,
@@ -30,10 +31,6 @@ const CORE_CONTEXT_DTS_PATH = `${PROJECT_ROOT}test/fitness/dts-baseline/core.con
 const PACKAGE_ROOT_FOR_ALLOWLIST = new Set([`${SINGLE_INSTANCE_PROBE_PATH}#packageRootFor`]);
 const EMPTY_ALLOWLIST = new Set<string>();
 
-function realSrcFiles() {
-  return readScanFiles(collectFiles(SRC_DIR, ".ts"));
-}
-
 function realTestHelperFiles() {
   // Clause (d) scopes to shared fixture/helper modules (scratch-dir.ts's own kind), never
   // one-off *.test.ts assertions (e.g. run-boundary.test.ts's deliberate, single-case
@@ -48,7 +45,7 @@ function realTestHelperFiles() {
 describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
   describe("clause (a) — zero `collection.json` literal in src/**", () => {
     it("the real src/** tree has zero occurrences", () => {
-      expect(findLiteralOccurrences(realSrcFiles(), "collection.json")).toEqual([]);
+      expect(findLiteralOccurrences(realSrcFileSnapshot(), "collection.json")).toEqual([]);
     });
 
     it("[red-proof] REQ-FTG-06.1 — a fixture reintroducing the literal is caught", () => {
@@ -61,7 +58,7 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
 
   describe("clause (b) — no ancestor-walk idiom in src/**, symbol-scoped allowlist", () => {
     it("the real src/** tree has zero non-allowlisted offenders", () => {
-      expect(findAncestorWalkIdiom(realSrcFiles(), PACKAGE_ROOT_FOR_ALLOWLIST)).toEqual([]);
+      expect(findAncestorWalkIdiom(realSrcFileSnapshot(), PACKAGE_ROOT_FOR_ALLOWLIST)).toEqual([]);
     });
 
     it("[red-proof] REQ-FTG-06.1 — a fixture reintroducing the idiom is caught", () => {

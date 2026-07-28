@@ -34,22 +34,35 @@ function boundExceededMessage(bound: number): string {
 // already has in hand (never re-derived from `fromAbs`); a caller that omits it (only the
 // direct-unit-test callers in walk.test.ts
 // do) falls back to a locator-free phrasing rather than ever risking an absolute-path leak.
+/** Every message helper below (root and per-entry alike) shares this shape: a locator-free
+ * phrasing when `relPath` is undefined (only the direct unit-test callers in walk.test.ts
+ * omit it), the locator-bearing phrasing otherwise — never an absolute path either way. */
+function withOptionalLocator(relPath: string | undefined, plain: string, withLocator: (relPath: string) => string): string {
+  return relPath === undefined ? plain : withLocator(relPath);
+}
+
 function rootNotDirectoryMessage(rootRelPath: string | undefined): string {
-  return rootRelPath === undefined
-    ? "invalid input: scaffold \"from\" must be a folder — it resolves to a regular file"
-    : `invalid input: scaffold "from" (${rootRelPath}) must be a folder — it resolves to a regular file`;
+  return withOptionalLocator(
+    rootRelPath,
+    "invalid input: scaffold \"from\" must be a folder — it resolves to a regular file",
+    (relPath) => `invalid input: scaffold "from" (${relPath}) must be a folder — it resolves to a regular file`
+  );
 }
 
 function rootNotFoundMessage(rootRelPath: string | undefined): string {
-  return rootRelPath === undefined
-    ? "invalid input: scaffold \"from\" folder does not exist"
-    : `invalid input: scaffold "from" folder (${rootRelPath}) does not exist`;
+  return withOptionalLocator(
+    rootRelPath,
+    "invalid input: scaffold \"from\" folder does not exist",
+    (relPath) => `invalid input: scaffold "from" folder (${relPath}) does not exist`
+  );
 }
 
 function rootUnreadableMessage(rootRelPath: string | undefined): string {
-  return rootRelPath === undefined
-    ? "invalid input: scaffold \"from\" folder could not be read"
-    : `invalid input: scaffold "from" folder (${rootRelPath}) could not be read`;
+  return withOptionalLocator(
+    rootRelPath,
+    "invalid input: scaffold \"from\" folder could not be read",
+    (relPath) => `invalid input: scaffold "from" folder (${relPath}) could not be read`
+  );
 }
 
 // Never re-throws the raw Node error (no-echo, REQ-AEC-05/FIT-11 posture already held by
@@ -79,15 +92,19 @@ function rootReadFailure(err: unknown, rootRelPath: string | undefined): Error {
 // direct unit-test callers in walk.test.ts), both fall back to a locator-free phrasing,
 // exactly as the three root texts already do — never an absolute path.
 function entryUnreadableMessage(entryRelPath: string | undefined): string {
-  return entryRelPath === undefined
-    ? "invalid input: scaffold entry could not be read"
-    : `invalid input: scaffold entry (${entryRelPath}) could not be read`;
+  return withOptionalLocator(
+    entryRelPath,
+    "invalid input: scaffold entry could not be read",
+    (relPath) => `invalid input: scaffold entry (${relPath}) could not be read`
+  );
 }
 
 function entryDisappearedMessage(entryRelPath: string | undefined): string {
-  return entryRelPath === undefined
-    ? "invalid input: scaffold entry disappeared during the walk"
-    : `invalid input: scaffold entry (${entryRelPath}) disappeared during the walk`;
+  return withOptionalLocator(
+    entryRelPath,
+    "invalid input: scaffold entry disappeared during the walk",
+    (relPath) => `invalid input: scaffold entry (${relPath}) disappeared during the walk`
+  );
 }
 
 function entryReadFailure(err: unknown, entryRelPath: string | undefined): Error {

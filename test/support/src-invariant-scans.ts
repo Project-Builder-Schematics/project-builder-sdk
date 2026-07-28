@@ -1,8 +1,8 @@
 // Pure scanners shared by fit-43/fit-44/fit-45 (ADR-0077, `fitness-guards` REQ-FTG-06/07/08).
-// Every function here takes an INJECTABLE file list (`ScanFile[]`) — never walks the real
-// `src/**` tree itself (the test files own that I/O, via `collectFiles` from
-// `./import-scan.ts`) — so red-proofs run against fixture trees under
-// `test/fixtures/red/src-invariant-scans/**`, never a live mutation of `src/**`.
+// Every function here takes an INJECTABLE file list (`ScanFile[]`) — negatives run against
+// fixture trees under `test/fixtures/red/src-invariant-scans/**`, never a live mutation of
+// `src/**`. The one exception is `realSrcFileSnapshot` below, which owns reading the real
+// `src/**` tree ONCE (memoized) — the pure scanners themselves never walk it directly.
 //
 // Shape-keyed clone detectors throughout (mirrors design §8's own disclosed limit for
 // FIT-NEW-C): these raise the cost of an accidental regrowth, they do not make it
@@ -10,6 +10,7 @@
 // evade detection — stated here rather than implied.
 
 import { readFileSync } from "node:fs";
+import { collectFiles, extractCallArgs, findMatchingClose, WRITE_CALL_RE } from "./import-scan.ts";
 
 export interface ScanFile {
   path: string;
@@ -19,6 +20,23 @@ export interface ScanFile {
 /** Reads every path into a `ScanFile[]` — the one I/O step callers own before scanning. */
 export function readScanFiles(paths: readonly string[]): ScanFile[] {
   return paths.map((path) => ({ path, content: readFileSync(path, "utf-8") }));
+}
+
+const SRC_DIR = new URL("../../src", import.meta.url).pathname;
+
+let cachedSrcSnapshot: ScanFile[] | undefined;
+
+/**
+ * Lazily-memoized snapshot of the real `src/**` tree, computed once per process on first
+ * call — never eagerly at module load, so importing this module stays side-effect-free.
+ * Shared by fit-43/44/45's 7 call sites, each of which previously defined its own
+ * `realSrcFiles()` re-walking and re-reading the whole tree on every invocation.
+ */
+export function realSrcFileSnapshot(): ScanFile[] {
+  if (cachedSrcSnapshot === undefined) {
+    cachedSrcSnapshot = readScanFiles(collectFiles(SRC_DIR, ".ts"));
+  }
+  return cachedSrcSnapshot;
 }
 
 export interface ExtractedFunction {
@@ -55,18 +73,7 @@ export function extractFunctions(source: string): ExtractedFunction[] {
     const openBraceOffset = source.slice(start).search(/\{[ \t]*\r?\n/);
     if (openBraceOffset === -1) continue;
     const bodyOpen = start + openBraceOffset;
-    let depth = 0;
-    let bodyEnd = -1;
-    for (let i = bodyOpen; i < source.length; i++) {
-      if (source[i] === "{") depth++;
-      else if (source[i] === "}") {
-        depth--;
-        if (depth === 0) {
-          bodyEnd = i;
-          break;
-        }
-      }
-    }
+    const bodyEnd = findMatchingClose(source, bodyOpen, "{", "}");
     if (bodyEnd === -1) continue;
     functions.push({ name, nameOffset, start, end: bodyEnd + 1, body: source.slice(bodyOpen, bodyEnd + 1) });
   }
@@ -91,39 +98,17 @@ export function findLiteralOccurrences(files: readonly ScanFile[], literal: stri
 const LOOP_HEADER_RE = /\b(?:for|while)\s*\(/g;
 
 /** Every block-bodied loop's own body text within `fnBody` (paren-then-brace depth
- * matching — same pragmatic style as `extractCallArgs` elsewhere in this suite). */
+ * matching, via the shared `findMatchingClose` idiom). */
 function loopBodies(fnBody: string): string[] {
   const bodies: string[] = [];
   for (const match of fnBody.matchAll(LOOP_HEADER_RE)) {
-    let i = match.index! + match[0].length - 1; // positioned at the loop header's '('
-    let depth = 0;
-    let parenClose = -1;
-    for (; i < fnBody.length; i++) {
-      if (fnBody[i] === "(") depth++;
-      else if (fnBody[i] === ")") {
-        depth--;
-        if (depth === 0) {
-          parenClose = i;
-          break;
-        }
-      }
-    }
+    const headerOpen = match.index! + match[0].length - 1; // positioned at the loop header's '('
+    const parenClose = findMatchingClose(fnBody, headerOpen, "(", ")");
     if (parenClose === -1) continue;
     let j = parenClose + 1;
     while (j < fnBody.length && /\s/.test(fnBody[j]!)) j++;
     if (fnBody[j] !== "{") continue; // non-block loop body — not this idiom's shape
-    let depth2 = 0;
-    let bodyEnd = -1;
-    for (let k = j; k < fnBody.length; k++) {
-      if (fnBody[k] === "{") depth2++;
-      else if (fnBody[k] === "}") {
-        depth2--;
-        if (depth2 === 0) {
-          bodyEnd = k;
-          break;
-        }
-      }
-    }
+    const bodyEnd = findMatchingClose(fnBody, j, "{", "}");
     if (bodyEnd === -1) continue;
     bodies.push(fnBody.slice(j, bodyEnd + 1));
   }
@@ -241,22 +226,7 @@ export function findOrphanedRetiredCitations(files: readonly ScanFile[]): Orphan
 // module-level call), initially EMPTY.
 // ---------------------------------------------------------------------------------------
 
-const WRITE_CALL_RE = /\bwriteFileSync\s*\(|\.writeFile\s*\(|\bappendFileSync\s*\(|\bBun\.write\s*\(/g;
 const COLLECTION_JSON_LITERAL_RE = /["'`][^"'`]*collection\.json["'`]/;
-
-function extractCallArgs(source: string, callMatchIndex: number): string {
-  const openParenIndex = source.indexOf("(", callMatchIndex);
-  if (openParenIndex === -1) return "";
-  let depth = 0;
-  for (let i = openParenIndex; i < source.length; i++) {
-    if (source[i] === "(") depth++;
-    else if (source[i] === ")") {
-      depth--;
-      if (depth === 0) return source.slice(openParenIndex + 1, i);
-    }
-  }
-  return source.slice(openParenIndex + 1);
-}
 
 export interface MarkerFabricationOffense {
   file: string;
