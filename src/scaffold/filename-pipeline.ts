@@ -51,7 +51,15 @@ export function runFilenamePipeline(
   relPath: string,
   rename: Record<string, string> | undefined
 ): PipelineResult {
-  const renamed = rename?.[relPath] ?? relPath;
+  // judgment-day round 2 fix (F2): a non-string rename value used to reach `translateTokens`
+  // as a raw, unbranded TypeError (`.replace is not a function`) — type-checked at the
+  // FIRST point of consumption, same posture as every other scaffold-family author-misuse
+  // rejection (`invalid-input`, never a raw Node/JS error).
+  const renameValue = rename?.[relPath];
+  if (renameValue !== undefined && typeof renameValue !== "string") {
+    throw invalidInput(`invalid input: scaffold rename value for "${relPath}" must be a string`);
+  }
+  const renamed = renameValue ?? relPath;
   const translated = translateTokens(renamed);
   const { stripped, wasTemplate } = stripTemplateSuffix(translated);
   return { sourceRelPath: relPath, destRelPath: stripped, isTemplateMarked: wasTemplate };

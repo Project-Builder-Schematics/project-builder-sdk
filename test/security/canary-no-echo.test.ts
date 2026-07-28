@@ -433,6 +433,18 @@ describe("REQ-RBV-04.1 — judgment-day round 1: the seven previously-uncovered 
     });
   });
 
+  it("judgment-day round 2 (F1): scaffold — a symlinked WALK ROOT with a trailing slash ('link-root/') never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("scaffold-root-symlink-trailing-slash");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const target = scratchDir();
+    writeFileSync(join(target, "secret.ts"), "secret", "utf-8");
+    symlinkSync(target, join(dir, "link-root"), "dir");
+
+    await expectRejectsCanaryFree(dir, canary, () => {
+      scaffold({ from: "link-root/", to: "out" });
+    });
+  });
+
   it("REQ-PSH-01.1: copyIn — a FIFO source (non-regular, non-directory) never leaks the canary-seeded absolute prefix", async () => {
     const canary = canaryToken("copyin-fifo");
     const dir = scratchDirWithCanaryPrefix(canary);

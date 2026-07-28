@@ -779,3 +779,47 @@ showed a transient, unrelated flake in `test/dialects/react`'s `REQ-RXD-08.1` co
 round-trip test (a pre-existing, timing-sensitive test under full-suite CPU contention,
 untouched by this diff) — confirmed non-reproducing in isolation and absent from both
 final confirmation runs.
+
+## Judgment-Day Round 2 Fixes
+
+Two blind judges (baseline **2413 pass / 0 fail**, `tsc --noEmit` clean, HEAD `590d42f`)
+found 1 CRITICAL + 3 real WARNINGs, all probe-evidenced. Surgical fixes only, RED-first
+per fix.
+
+| Fix | Root cause | Fix | Files |
+|---|---|---|---|
+| F1 (CRITICAL) | `path.join` PRESERVES a trailing separator, and POSIX `lstat` on a path ending in `/` FOLLOWS the final symlink — a `from` root reaching `walkFolder` as `"link/"`/`"link//"`/`"./link/"` bypassed ruling 16's root-symlink rejection entirely (`isSymbolicLink()` reported `false` for the FOLLOWED target), enumerating and committing content outside the package | `walkFolder` (`walk.ts:164`) now computes `const root = resolve(fromAbs);` at its own top and uses `root` for every subsequent `absDir`/`join` — ONE canonical normalization point covering both the root `lstatSync` and every recursive descent, regardless of caller (`expander.ts` or a direct unit-test call) | `src/scaffold/walk.ts` (import `resolve`, normalize `fromAbs` → `root`) |
+| F2(a) | Non-string `to` reached `translateTokens(args.to)` before `validateDestinationLexical` ever ran → raw `TypeError` (`path.replace is not a function`), reason `undefined`; same shape for a non-string `rename` value via the filename pipeline | `runScaffold` now calls `validateDestinationLexical(args.to)` at the TOP, before context resolution, the walk, and the empty-folder early return (existing post-rename/post-translate validation of the final `destPath` is unchanged); `runFilenamePipeline` type-checks a resolved rename value BEFORE `translateTokens` consumes it, minting `invalid-input` | `src/scaffold/expander.ts` (`runScaffold`), `src/scaffold/filename-pipeline.ts` (`runFilenamePipeline`) |
+| F2(b) | The `walked.length === 0` early return (REQ-FSC-04.1) exited BEFORE destination validation, so `scaffold({from: emptyDir, to: "/abs"})` (or an escaping `../to`) silently succeeded — violating REQ-IPF-02's pre-emit mandate | Same `validateDestinationLexical(args.to)` top-of-function call as F2(a) fixes this too — it now runs unconditionally before the empty-folder no-op path | `src/scaffold/expander.ts` (same call site as F2(a)) |
+| F3 | The `## 0.2.0` CHANGELOG section carried exactly three entries; ruling 16's root-symlink rejection (breaking, author-visible: a `from` symlinked to a shared templates dir used to be followed transparently, now hard-rejects) was undocumented | (a) Added a fourth `Changed (breaking)` entry to CHANGELOG.md's `## 0.2.0` section (existing three entries byte-identical); (b) extended `changelog-release-vehicle-guard.test.ts`'s frozen-phrase list with `ROOT_SYMLINK_REJECTION_PHRASE`, renamed the "all three" assertions to "all four"; (c) amended `package-dir-run-anchor`'s REQ-MFB-02 (three→four entries, new clause (d)) and its REQ-MFB-02.1 scenario, V3.3→V3.4, dated "Ruling 16 follow-through (2026-07-29)" note | `CHANGELOG.md`, `test/docs/changelog-release-vehicle-guard.test.ts`, `openspec/changes/inline-collection-marker/specs/package-dir-run-anchor/spec.md` |
+
+**fit-45 / REQ-MFB-02 pin check (F2 scope note)**: `test/fitness/fit-45-single-lexical-predicate.test.ts`
+clause (b) pins call sites of `validateSourceLexical` ONLY (exactly 3, unaffected — F2's new
+call is to `validateDestinationLexical`, which fit-45 does not pin at all); confirmed no
+update needed there. `REQ-MFB-02`'s "exactly THREE entries" language (part (c) of F3) DID
+need the three→four amendment described above.
+
+**RED-evidence summary**:
+- F1: added trailing-slash rows (`link/`, `link//`, `./link/`, the last constructed by
+  literal string concatenation — never `path.join`, to prove the fix normalizes whatever
+  raw string reaches it) to `test/scaffold/walk.test.ts`'s root-symlink describe block (3
+  new cases, all failed pre-fix with `expectAuthoringReason` receiving `undefined` — the
+  symlink was silently followed), plus one e2e case in `test/scaffold/expander.test.ts`
+  (`from: "link-out/"`) and one canary case in `test/security/canary-no-echo.test.ts`
+  (`from: "link-root/"`) — all 5 failed before the fix, passed after. A no-regression pin
+  (`walkFolder(\`${dir}/\`)` against a real, non-symlinked tree) confirmed the fix does not
+  change normal-path behaviour.
+- F2: 4 new cases in `test/scaffold/expander.test.ts` — non-string `to` (42), non-string
+  `rename` value (5), empty-`from` + absolute `to` (`/abs`), empty-`from` + escaping `to`
+  (`../escape`) — all 4 raised either a raw `TypeError`/`path.replace is not a function` or
+  silently succeeded (no rejection) before the fix; all 4 now reject `AuthoringError`
+  `invalid-input`.
+- F3: manual mutation-check on the new CHANGELOG phrase — temporarily mutated
+  `"now rejects `invalid-input`"` to `"now REJECTS invalid-input-MUTATED"` in CHANGELOG.md,
+  re-ran `changelog-release-vehicle-guard.test.ts` (failed, as expected), restored the file
+  (`git diff --stat` confirmed only the intended 6-line addition survived), re-ran (passed).
+
+**Suite**: two consecutive uncontended full `bun test` runs — **2423 pass / 0 fail** across
+201 files (5406 expect() calls) both times, byte-identical (baseline 2413 + 10 new tests: 4
+in `walk.test.ts`, 5 in `expander.test.ts`, 1 in `canary-no-echo.test.ts`). `bunx tsc --noEmit`
+clean both times. No flakes observed in either uncontended run.

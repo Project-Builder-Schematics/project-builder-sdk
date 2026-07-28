@@ -4,7 +4,7 @@
 // verdict are NOT this module's concern (classify-transport.ts + path-guards.ts).
 
 import { lstatSync, readdirSync, statSync } from "node:fs";
-import { join, posix } from "node:path";
+import { join, posix, resolve } from "node:path";
 import { invalidInput } from "../core/authoring-error.ts";
 import { isErrnoException } from "../core/fs-errors.ts";
 
@@ -166,12 +166,20 @@ export function walkFolder(
   bound: number = DEFAULT_WALK_ENTRY_BOUND,
   rootRelPath?: string
 ): WalkEntry[] {
+  // judgment-day round 2 fix (F1): POSIX `lstat` FOLLOWS the final symlink when the path
+  // ends with a separator — an un-normalized `fromAbs` (trailing slash, doubled trailing
+  // slash, or a literal "./" segment) would resolve THROUGH a symlinked root before the
+  // `isSymbolicLink()` check below ever ran, bypassing the ruling-16 rejection entirely
+  // (probe-proven leak). `resolve` strips any trailing separator and collapses "./"/".."
+  // segments — the SAME normalization every recursive `join(root, relDir)` below now
+  // builds on, so a caller passing an un-normalized root is corrected in exactly ONE place.
+  const root = resolve(fromAbs);
   const entries: WalkEntry[] = [];
   const dirStack: string[] = [""];
 
   while (dirStack.length > 0) {
     const relDir = dirStack.pop()!;
-    const absDir = relDir === "" ? fromAbs : join(fromAbs, relDir);
+    const absDir = relDir === "" ? root : join(root, relDir);
     let names: string[];
     if (relDir === "") {
       // REQ-FSC-09.1 (owner ruling 16): the root gets the SAME non-descent guarantee a

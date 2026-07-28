@@ -29,6 +29,12 @@ longer rejected by the SDK. Whether such a source is rejected at all now depends
 engine's own apply-time ceiling re-derivation — the SDK makes no claim either way. See
 [SECURITY.md](./SECURITY.md) for the v1 trust model.
 
+**Changed (breaking, ruling 16 follow-through, 2026-07-29)**: A `from` root that is itself a symlinked directory now rejects `invalid-input` — previously it was
+followed transparently, the walk enumerating whatever the link happened to point at.
+**Migration**: replace the symlinked `from` with a real directory, or point `from` directly
+at the symlink's target path (relative to `packageDir`) — a `scaffold({ from })` call whose
+root resolves through a symlink no longer walks the target's content.
+
 ### Behaviour Changes — `@pbuilder/sdk/typescript` `addImport`
 
 `addImport`'s naive first-match, unconditional-merge implementation is replaced by the same

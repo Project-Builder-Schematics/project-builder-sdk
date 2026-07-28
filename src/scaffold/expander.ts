@@ -99,6 +99,17 @@ export function runScaffold(args: ScaffoldArgs): void {
     throw invalidInput(missingArgMessage("to"));
   }
 
+  // judgment-day round 2 fix (F2): destination validated at the TOP, before the walk and
+  // before the REQ-FSC-04.1 empty-folder early return below — a non-string `to` used to
+  // reach `translateTokens` as a raw, unbranded TypeError, and an empty `from` used to let
+  // ANY `to` (including an escaping one) through silently, since the empty-folder no-op
+  // returned before destination validation ever ran. REQ-IPF-02 is a pre-emit mandate, not
+  // conditional on the source folder having contents. The existing post-rename/
+  // post-token-translation validation of the FINAL `destPath` inside the loop below is
+  // unchanged — rename/token substitution can still alter the string after this raw-input
+  // screen passes.
+  validateDestinationLexical(args.to);
+
   const ctx = currentContext();
   const { session, factory } = ctx;
   const { packageDir } = requirePackageAnchors(noResolutionAnchorMessage());

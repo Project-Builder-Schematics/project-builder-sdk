@@ -73,6 +73,63 @@ describe("REQ-FSC-09.1 — owner ruling 16 (2026-07-29): a symlinked WALK ROOT r
     const err = expectReason(() => walkFolder(linkPath), "invalid-input");
     expect(err.message).toEqual('invalid input: scaffold "from" must not be a symlinked directory');
   });
+
+  // judgment-day round 2, F1: POSIX `lstat` FOLLOWS the final symlink when the path ends
+  // with a separator — so an un-normalized `fromAbs` (a single trailing slash, a doubled
+  // trailing slash, or a literal "./" segment none of which `walkFolder` itself collapsed)
+  // silently bypassed the rejection above, `isSymbolicLink()` reporting `false` for the
+  // FOLLOWED target. Each variant must independently still reject.
+  it("a single trailing slash on a symlinked root still rejects (trailing-slash bypass)", () => {
+    const dir = scratchDir();
+    const target = scratchDir();
+    writeFileSync(join(target, "secret.ts"), "secret", "utf-8");
+    const linkPath = join(dir, "link-root");
+    symlinkSync(target, linkPath, "dir");
+
+    const err = expectReason(() => walkFolder(`${linkPath}/`, undefined, "link-root/"), "invalid-input");
+    expect(err.message).toContain("link-root");
+    expect(err.message).not.toContain(target);
+    expect(err.message).not.toContain(dir);
+  });
+
+  it("a doubled trailing slash on a symlinked root still rejects (trailing-slash bypass)", () => {
+    const dir = scratchDir();
+    const target = scratchDir();
+    writeFileSync(join(target, "secret.ts"), "secret", "utf-8");
+    const linkPath = join(dir, "link-root");
+    symlinkSync(target, linkPath, "dir");
+
+    const err = expectReason(() => walkFolder(`${linkPath}//`, undefined, "link-root//"), "invalid-input");
+    expect(err.message).toContain("link-root");
+    expect(err.message).not.toContain(target);
+    expect(err.message).not.toContain(dir);
+  });
+
+  it("a literal './' segment plus trailing slash on a symlinked root still rejects (trailing-slash bypass)", () => {
+    const dir = scratchDir();
+    const target = scratchDir();
+    writeFileSync(join(target, "secret.ts"), "secret", "utf-8");
+    symlinkSync(target, join(dir, "link-root"), "dir");
+    // Constructed by literal string concatenation (never `path.join`, which would collapse
+    // the "./" segment before `walkFolder` ever saw it) — proves the fix normalizes
+    // whatever raw string reaches it, not merely what `expander.ts`'s own `join` produces.
+    const unnormalized = `${dir}/./link-root/`;
+
+    const err = expectReason(() => walkFolder(unnormalized, undefined, "./link-root/"), "invalid-input");
+    expect(err.message).not.toContain(target);
+    expect(err.message).not.toContain(dir);
+  });
+
+  it("[no regression] a trailing slash on a NON-symlink root still walks normally", () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "nested"), { recursive: true });
+    writeFileSync(join(dir, "a.ts"), "A", "utf-8");
+    writeFileSync(join(dir, "nested", "b.ts"), "B", "utf-8");
+
+    const entries = walkFolder(`${dir}/`).map((e) => e.relPath).sort();
+
+    expect(entries).toEqual(["a.ts", "nested/b.ts"]);
+  });
 });
 
 describe("REQ-FSC-09.2 — entry-count bound exceeded fails loud, naming the bound", () => {

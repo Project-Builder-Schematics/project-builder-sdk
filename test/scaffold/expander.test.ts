@@ -84,6 +84,62 @@ describe("REQ-FSC-04 — zero-files-after-filter vs empty-source-folder are dist
   });
 });
 
+describe("judgment-day round 2 (F2) — scaffold `to`/`rename` validated at entry, never a raw TypeError", () => {
+  it("F2(a): a non-string `to` rejects AuthoringError invalid-input, never a raw TypeError", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "a.ts"), "A", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "files", to: 42 as unknown as string });
+    }, { packageDir: dir });
+
+    expectAuthoringReason(caught, "invalid-input");
+    expect(fake.committedTree().size).toEqual(0);
+  });
+
+  it("F2(a): a non-string `rename` value rejects AuthoringError invalid-input, never a raw TypeError", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "a.ts"), "A", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "files", to: "out", rename: { "a.ts": 5 as unknown as string } });
+    }, { packageDir: dir });
+
+    expectAuthoringReason(caught, "invalid-input");
+    expect(fake.committedTree().size).toEqual(0);
+  });
+
+  it("F2(b): an empty `from` folder with an ABSOLUTE `to` still rejects — REQ-IPF-02 is a pre-emit mandate, not conditional on the source folder having contents", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "empty"));
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "empty", to: "/abs" });
+    }, { packageDir: dir });
+
+    expectAuthoringReason(caught, "invalid-input");
+    expect(fake.committedTree().size).toEqual(0);
+  });
+
+  it("F2(b): an empty `from` folder with an escaping (`../`) `to` still rejects", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "empty"));
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "empty", to: "../escape" });
+    }, { packageDir: dir });
+
+    expectAuthoringReason(caught, "invalid-input");
+    expect(fake.committedTree().size).toEqual(0);
+  });
+});
+
 describe("REQ-FSC-06.1 — force: true passes to every emitted directive", () => {
   it("a 3-file scaffold with force: true overwrites every pre-existing destination", async () => {
     const dir = scratchDir();
@@ -268,6 +324,29 @@ describe("SEC (ADR-0077) — scaffold's walk ROOT: lexical escape still rejects,
 
       const err = expectAuthoringReason(caught, "invalid-input");
       expect(err.message).toContain("link-out");
+      expect(err.message).not.toContain(external);
+      expect(fake.committedTree().size).toEqual(0);
+    } finally {
+      rmSync(external, { recursive: true, force: true });
+    }
+  });
+
+  it("judgment-day round 2 (F1): a trailing slash on a symlinked `from` ('link-out/') still rejects invalid-input, never followed", async () => {
+    // `path.join` PRESERVES a trailing separator, and POSIX `lstat` on a path ending in "/"
+    // FOLLOWS the final symlink — without normalization this bypassed ruling 16's rejection
+    // entirely and enumerated `external`'s content.
+    const dir = scratchDir();
+    const external = mkdtempSync(join(tmpdir(), "expander-external-"));
+    try {
+      writeFileSync(join(external, "top-secret.txt"), "nope", "utf-8");
+      symlinkSync(external, join(dir, "link-out"));
+      const fake = new ContractFake({ seed: {} });
+
+      const caught = await rejectedRun(fake, () => {
+        scaffold({ from: "link-out/", to: "out" });
+      }, { packageDir: dir });
+
+      const err = expectAuthoringReason(caught, "invalid-input");
       expect(err.message).not.toContain(external);
       expect(fake.committedTree().size).toEqual(0);
     } finally {
