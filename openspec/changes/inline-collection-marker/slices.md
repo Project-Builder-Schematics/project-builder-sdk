@@ -140,11 +140,11 @@
 **Acceptance**: GIVEN the whole change landed WHEN the sweep in S-006.3 runs THEN it returns zero unpermitted hits.
 
 ### Tasks
-- [ ] S-006.1 Delete any remaining retired run-boundary assertions `[RBV]`
-- [ ] S-006.2 Delete `conformance/collection.json` `[CCR REQ-CCR-08]`
+- [x] S-006.1 Delete any remaining retired run-boundary assertions `[RBV]`
+- [x] S-006.2 Delete `conformance/collection.json` `[CCR REQ-CCR-08]`
 - [ ] S-006.3 `rg` sweep — scope REPO-WIDE minus the allowlist (Q9). Exactly TWO literals swept: (i) the exact string `no collection.json found at or above` (zero hits required, no allowlist needed — S-004.6(d) already removes the one known prose hit); (ii) the token `source-outside-package`. The BARE token `collection.json` is deliberately NOT swept — it survives in inert on-disk fixtures and historical docs per S-003.3's survival rule. Allowlist for `source-outside-package` (unchanged base + B1 addition): superseded/amended ADRs (0045, 0046, 0067, and ADR-0077's own history sections — all three now carry their dated supersession headers per S-005.5), `CHANGELOG.md`, `SDK-EXIT-CODE-CONFIRMATION.md` (dated historical note), `CONFORMANCE-CORPUS-HANDOFF.md` (Addendum 3), `openspec/changes/**` (this change + archive — the change's own retirement deltas legitimately quote the retired term), **and `openspec/specs/** ` (B1, NEW — the main signed specs legitimately carry ~16 live historical/version-note mentions pre-archive-sync; this pre-archive sweep is NOT the check that zeroes them out — that is fit-43 clause (e)/(f)'s ARCHIVE-SYNC-time job, S-005.2)** `[Q9 resolution; B1 correction]`
-- [ ] S-006.4 REQ-RBV-06.1 pointer closure — three checkable boxes: (a) `rg` confirms the delta's "→ superseded by REQ-MFB-01.1" pointer resolves to an existing REQ; (b) the dead test asserting the old missing-ancestor behaviour is deleted; (c) the `run-boundary-input-validation` delta lists the retirement `[RBV REQ-RBV-06.1]`
-- [ ] S-006.5 Final full `bun test` + `tsc --noEmit` clean
+- [x] S-006.4 REQ-RBV-06.1 pointer closure — three checkable boxes: (a) `rg` confirms the delta's "→ superseded by REQ-MFB-01.1" pointer resolves to an existing REQ; (b) the dead test asserting the old missing-ancestor behaviour is deleted; (c) the `run-boundary-input-validation` delta lists the retirement `[RBV REQ-RBV-06.1]`
+- [x] S-006.5 Final full `bun test` + `tsc --noEmit` clean
 
 ---
 

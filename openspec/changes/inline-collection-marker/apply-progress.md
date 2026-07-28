@@ -29,6 +29,7 @@ implementation already existed (same disclosed discipline as S-001's Deviation #
 | S-003 | edge-case | complete | 8/8 |
 | S-004 | edge-case | complete | 7/7 |
 | S-005 | edge-case | complete | 10/10 |
+| S-006 | edge-case | **HALTED — 4/5** | S-006.1/.2/.4/.5 done; S-006.3 halted, see below |
 
 ## Files Changed
 
@@ -108,6 +109,7 @@ implementation already existed (same disclosed discipline as S-001's Deviation #
 | `test/docs/security-authoring-guard.test.ts` | Modified | S-005.8 | New `describe("REQ-PSH-05.1 ...")` block: the FIVE frozen posture phrases (copied verbatim from `SECURITY.md`), each asserted present + one mutation-check (remove phrase 4, confirm phrase 1 still survives — proving per-phrase not whole-file matching). |
 | `test/docs/changelog-release-vehicle-guard.test.ts` | Created | S-005.9 | Ties the whole release-vehicle bundle together: `## 0.2.0` heading present / `## Unreleased` absent; all three CHANGELOG entries present by distinguishing phrase; preamble audience phrase present / stale phrase absent; `package.json#version === "0.2.0"`; ADR-0046/0067 carry dated "Superseded by ADR-0077" headers, ADR-0045 carries a dated "Amended by ADR-0077" header; one red-proof (string-removal mutation-check) confirming a missing header fails the regex. |
 | `test/scaffold/walk.test.ts` | Modified | Carry-forward (verify-in-loop-4 WARNING #1) | Rewrote the header comment (`:1-4`) and the REQ-FSC-09.1 describe title (`:30`) from the retired "in-ceiling" containment framing to the enumeration-determinism/cycle-safety framing the signed MODIFIED `folder-scaffold` REQ-FSC-09 now uses. Text-only — zero assertion changes; confirmed via the file's own isolated re-run (11 pass / 0 fail, unchanged count) and the full-suite run below. |
+| `conformance/collection.json` | Deleted | S-006.2 | REQ-CCR-08 retired (`conformance-corpus` delta) — no test referenced this file (`rg` confirmed zero consumers in `test/`), so deletion required no companion test edits. |
 
 ## TDD Cycle Evidence — S-000
 
@@ -529,3 +531,144 @@ existing test drives a both-escape `copyIn` case today. No re-pin needed.
   comment rewrites and the `docs/authoring-errors.md` "delete"→"drop" wording fix) were each
   caught by an ACTUAL red run (fit-43 clause (a)/(f) failing against the real tree; the full
   suite's pre-existing `doc-set-content.test.ts` failing) — not asserted from memory.
+
+## S-006 — Dead-Test Deletion and Final Sweep (run 7, HALTED)
+
+S-006.1, S-006.2, S-006.4, and S-006.5 are complete and verified. **S-006.3 (the `rg`
+sweep) is HALTED** — running it exactly as specified surfaces real hits the slice's own
+allowlist (Q9 resolution, ratified through 3 plan-verify iterations) does not enumerate.
+Per this run's own halt discipline ("fix ONLY if unambiguously this change's own residue;
+anything structural or ambiguous → HALT with the hit list rather than improvising allowlist
+extensions"), these hits are reported, not silently fixed or silently waved through.
+
+### S-006.1 — remaining retired run-boundary assertions
+
+Read `test/scaffold/run-boundary.test.ts` in full and `rg`'d `test/` for
+`missing-ancestor|ancestor.{0,20}reject|pre-empt` (excluding self-describing "no longer
+pre-empts"/"inverts"/"retired" hits). **None found.** S-000 already fully inverted this
+file's assertions (Deviation-free — this task closes as a verification, not new work).
+
+### S-006.2 — delete `conformance/collection.json`
+
+`rg`'d `test/` for any reference to this file or a `CONFORMANCE...collection` pattern —
+zero hits, confirming no test depends on its presence. Deleted via `git rm
+conformance/collection.json`. Full suite re-run (below) confirms zero regressions.
+
+### S-006.3 — the sweep (HALTED, see Findings)
+
+Two literals swept, exactly as `slices.md` specifies:
+
+**Literal (i)** — exact string `no collection.json found at or above`, repo-wide:
+```
+rg -Fn "no collection.json found at or above" --hidden -g '!.git' -g '!node_modules' -g '!dist' .
+```
+10 raw hits, ALL inside `openspec/changes/inline-collection-marker/**` (this change's own
+triage/proposal/slices/north-star/verify-in-loop-5/apply-progress — all quoting the retired
+message as historical narration) or `openspec/changes/archive/2026-07-13-schematic-local-files/outcome-verdict.md`
+(a different, already-archived change's own historical record). **Zero hits in `src/**`,
+`test/**`, `docs/**`, `conformance/**`, or any root-level file** — confirmed by re-running
+the same sweep with `-g '!openspec/changes/**' -g '!openspec/specs/**'` added: zero output.
+This matches the task's own "zero hits required, no allowlist needed" framing under the
+reading that `openspec/changes/**` is the shared BASE exclusion the "scope REPO-WIDE minus
+the allowlist (Q9)" sentence refers to for both literals (the same base literal (ii)'s own
+allowlist explicitly reuses, worded "unchanged base + B1 addition"). **Literal (i): CLEAN.**
+
+**Literal (ii)** — token `source-outside-package`, repo-wide minus the slice's explicit
+allowlist (superseded/amended ADRs 0045/0046/0067/0077, `CHANGELOG.md`,
+`SDK-EXIT-CODE-CONFIRMATION.md`, `CONFORMANCE-CORPUS-HANDOFF.md`, `openspec/changes/**`,
+`openspec/specs/**`):
+```
+rg -Fn "source-outside-package" --hidden -g '!.git' -g '!node_modules' -g '!dist' \
+  -g '!openspec/changes/**' -g '!openspec/specs/**' -g '!CHANGELOG.md' \
+  -g '!SDK-EXIT-CODE-CONFIRMATION.md' -g '!CONFORMANCE-CORPUS-HANDOFF.md' \
+  -g '!openspec/decisions/0045-package-read-containment-boundary.md' \
+  -g '!openspec/decisions/0046-runcontext-package-root-ceiling.md' \
+  -g '!openspec/decisions/0067-collection-json-package-anchor-marker.md' \
+  -g '!openspec/decisions/0077-relocate-containment-boundary-out-of-sdk.md' .
+```
+**19 unpermitted hit lines across 10 files** — none deletable as "unambiguous residue"
+(each is a deliberate historical/rationale comment or the fitness-guard mechanism's own
+necessary literal, not leftover cruft), none covered by the ratified allowlist either.
+Classified below rather than fixed:
+
+**Group A — the fitness-guard mechanism itself** (self-referential; the retirement-guard
+tests literally have to name the retired reason to check for its absence):
+- `test/support/src-invariant-scans.ts:210` — `RETIRED_TERMS` array, the scanner's own
+  search target for `openspec/specs/**` archive-sync sweep (fit-43 clause (e))
+- `test/fitness/fit-44-authoring-reason-reachability.test.ts:20,48,50` — comment +
+  negative-assertion proving the reason is NOT reachable (`expect(...).toBe(false)`)
+- `test/fixtures/red/src-invariant-scans/openspec-sweep/allowlist-only.md:5` — S-005.1's
+  own red-fixture data, proving `findOrphanedRetiredCitations` credits a version-history
+  marker correctly
+
+**Group B — historical rationale comments (production + test code, S-002/S-005 vintage)**:
+- `src/core/authoring-error.ts:47,50,105,185` — 4 comments explaining the 12→11
+  narrowing (PRODUCTION file — the one that most needs a decision, since it is not a test
+  or doc artifact)
+- `test/fitness/dts-baseline/core.authoring-error.d.ts:33,36` — mirrors the above verbatim
+  (generated via `bun run build` from the same source docblock)
+- `test/core/authoring-error-source.test.ts:19,126`
+- `test/types/authoring-reason.test.ts:13,15`
+- `test/scaffold/expander.test.ts:228`
+- `test/e2e/scaffold.e2e.test.ts:158`
+
+**Group C — author-facing docs file, not on the allowlist**:
+- `docs/authoring-errors.md:63,66` — the S-005.6-authored migration note ("`source-outside-package`
+  was removed in `@pbuilder/sdk` `0.2.0`... Migration: drop the `case
+  "source-outside-package":` arm")
+
+**Why this halts rather than resolves in-loop**: deleting any of these would either break
+a fitness guard this change built (Group A), or strip deliberate, TDD-documented historical
+rationale that earlier slices' own verify-in-loop reports (2, 3, 6) explicitly praised as
+correct and complete (Group B), or remove the one piece of author-facing migration guidance
+for the exact public API break this change ships (Group C) — none of that is "this change's
+own residue" in the sense the halt clause means. But the allowlist Q9 closed after 3
+plan-verify iterations does not name any of these 10 files, and silently adding
+`src/**`/`test/**`/`docs/authoring-errors.md` carve-outs on my own authority is exactly the
+"improvising allowlist extensions" the task explicitly forbids. This reads as a genuine gap
+in the ratified allowlist (never actually `rg`-executed until this run — S-006.3 is its
+first real execution), not a coding defect — routing back to the Planner to either amend
+the S-006.3 allowlist (most likely: add `src/core/authoring-error.ts` + its generated
+baseline + the 5 test files + `docs/authoring-errors.md` to the allowlist, mirroring the
+same "legitimate historical mention" reasoning already used for ADRs/CHANGELOG/openspec/specs)
+or explicitly rule these need rewording, is the correct next step, not a unilateral call
+made mid-apply.
+
+### S-006.4 — REQ-RBV-06.1 pointer closure
+
+- **(a)** `rg`'d `openspec/changes/inline-collection-marker/specs/run-boundary-input-validation/spec.md`:
+  the delta's pointer text ("Pointer: `package-dir-run-anchor` REQ-MFB-01.1 proves the
+  INVERSE") resolves to `openspec/changes/inline-collection-marker/specs/package-dir-run-anchor/spec.md:77`
+  — `#### Scenario REQ-MFB-01.1: Missing-ancestor rejection no longer pre-empts the factory
+  body [red-today]` — an existing REQ. ✅
+- **(b)** confirmed via S-006.1's read: `test/scaffold/run-boundary.test.ts` carries no
+  dead assertion of the old missing-ancestor-rejects behaviour — S-000 already replaced it
+  with the inverse (body-runs) assertion. ✅
+- **(c)** the `run-boundary-input-validation` delta (read in full) explicitly lists the
+  retirement: `#### Scenario REQ-RBV-06.1: [RETIRED, id kept as a pointer — not carried
+  forward]`. ✅
+
+All three boxes check out — S-006.4 complete independent of S-006.3's halt.
+
+### S-006.5 — final full suite + `tsc --noEmit`
+
+- `bunx tsc --noEmit` — clean, zero errors.
+- `bun test` (full suite, run twice, uncontended, back-to-back):
+  - Run 1: 2398 pass / 0 fail across 201 files (5310 expect() calls).
+  - Run 2: 2398 pass / 0 fail — byte-identical.
+  - Zero regressions from `conformance/collection.json`'s deletion (S-006.2) — matches the
+    S-005 baseline exactly (no test count change, since no test referenced the deleted file).
+
+### Halt Summary
+
+**Category**: `plan-gaps` (allowlist/scope gap in the ratified S-006.3 task text, discovered
+only by actually running the sweep for the first time). **Not** a code defect, **not** a
+regression — the full suite is green and `tsc` is clean. Blocks only: marking S-006.3 `[x]`,
+closing S-006 as complete, and therefore the change's overall "zero unpermitted hits"
+acceptance criterion. Recommended resolution for the Planner: amend `slices.md`'s S-006.3
+allowlist to add `src/core/authoring-error.ts` (+ its generated `.d.ts` baseline mirror),
+the 5 test files in Group B, and `docs/authoring-errors.md` from Group C — OR rule that one
+or more of these needs rewording instead, then re-run this exact sweep to confirm zero
+hits under the amended allowlist. Group A (the fitness-guard mechanism's own self-reference)
+almost certainly needs a standing carve-out regardless of how B/C are resolved, since a
+scanner that check for a term's absence cannot itself avoid naming that term.
