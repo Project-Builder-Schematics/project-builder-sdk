@@ -29,7 +29,7 @@ implementation already existed (same disclosed discipline as S-001's Deviation #
 | S-003 | edge-case | complete | 8/8 |
 | S-004 | edge-case | complete | 7/7 |
 | S-005 | edge-case | complete | 10/10 |
-| S-006 | edge-case | **HALTED — 4/5** | S-006.1/.2/.4/.5 done; S-006.3 halted, see below |
+| S-006 | edge-case | complete (post-halt-resolution) | 5/5 |
 
 ## Files Changed
 
@@ -672,3 +672,56 @@ or more of these needs rewording instead, then re-run this exact sweep to confir
 hits under the amended allowlist. Group A (the fitness-guard mechanism's own self-reference)
 almost certainly needs a standing carve-out regardless of how B/C are resolved, since a
 scanner that check for a term's absence cannot itself avoid naming that term.
+
+### S-006.3 — RESOLVED (2026-07-28, post-halt, orchestrator-amended allowlist)
+
+The orchestrator independently verified all 19 hit-lines / 10 files from the halt above,
+confirmed every one is a mention ABOUT the retirement (not a live construction site — fit-44
+separately proves zero reachable construction sites), and amended `slices.md`'s S-006.3
+task with an "ALLOWLIST AMENDMENT" block (category (A) sweep/guard self-reference, category
+(B) this change's own verified retirement rationale, plus a literal-(i) clarification that
+`openspec/changes/**` self-quotes don't count). Both sweeps re-run against the amended
+allowlist:
+
+**Literal (i)**, `openspec/changes/**` now excluded per the clarification:
+```
+rg -Fn "no collection.json found at or above" --hidden -g '!.git' -g '!node_modules' -g '!dist' -g '!openspec/changes/**' .
+```
+→ **0 hits.**
+
+**Literal (ii)**, amended allowlist (unchanged base + B1's `openspec/specs/**` + this
+amendment's categories A/B, each path excluded explicitly):
+```
+rg -Fn "source-outside-package" --hidden -g '!.git' -g '!node_modules' -g '!dist' \
+  -g '!openspec/changes/**' -g '!openspec/specs/**' -g '!CHANGELOG.md' \
+  -g '!SDK-EXIT-CODE-CONFIRMATION.md' -g '!CONFORMANCE-CORPUS-HANDOFF.md' \
+  -g '!openspec/decisions/0045-package-read-containment-boundary.md' \
+  -g '!openspec/decisions/0046-runcontext-package-root-ceiling.md' \
+  -g '!openspec/decisions/0067-collection-json-package-anchor-marker.md' \
+  -g '!openspec/decisions/0077-relocate-containment-boundary-out-of-sdk.md' \
+  -g '!test/support/src-invariant-scans.ts' \
+  -g '!test/fitness/fit-44-authoring-reason-reachability.test.ts' \
+  -g '!test/fixtures/red/src-invariant-scans/**' \
+  -g '!src/core/authoring-error.ts' \
+  -g '!test/fitness/dts-baseline/core.authoring-error.d.ts' \
+  -g '!test/core/authoring-error-source.test.ts' \
+  -g '!test/types/authoring-reason.test.ts' \
+  -g '!test/scaffold/expander.test.ts' \
+  -g '!test/e2e/scaffold.e2e.test.ts' \
+  -g '!docs/authoring-errors.md' \
+  .
+```
+→ **0 hits.** Zero unpermitted hits on both literals — S-006's acceptance criterion
+("GIVEN the whole change landed WHEN the sweep in S-006.3 runs THEN it returns zero
+unpermitted hits") is satisfied.
+
+**Closing sanity** (no code changed since the two clean S-006.5 runs above, one run
+suffices as the tie-break check):
+- `bunx tsc --noEmit` — clean, zero errors.
+- `bun test` (full suite, single uncontended run): **2398 pass / 0 fail** across 201 files
+  (5310 expect() calls) — matches the S-006.5 baseline exactly, no deviation, no
+  second tie-break run needed.
+
+S-006 is now complete (5/5 tasks `[x]` in `slices.md`). The whole `inline-collection-marker`
+change (S-000 through S-006, 7/7 slices) is implementation-complete and ready for
+`/evaluate` (verify --mode=final) before archive.
