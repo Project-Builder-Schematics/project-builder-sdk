@@ -580,6 +580,21 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(c.expected).toBe("zero-effect");
       expect(c.factory).toEqual({ module: "factory.ts", export: "createRejectProbe" });
     });
+
+    it("REQ-CFX-09.4/REQ-CFX-12.3/REQ-CFX-13.6: create-composite authors a quarantined create with composite options, exit 0, byte-exact output, a genuinely new writtenPaths entry, single-emit-single-commit", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const composite = f.manifest.cases.find((c) => c.name === "create-composite");
+      expect(composite).not.toBeUndefined();
+      const c = composite as Case;
+      expect(c.factory).toEqual({ module: "factory.ts", export: "createComposite" });
+      expect(c.factory?.export).not.toBeNull();
+      expect(c.factory?.export).not.toBe("createRejectProbe");
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["create-composite.txt"] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(c.expected).toBe("expected-composite");
+      expect(readFileSync(join(f.dir, "expected-composite", "create-composite.txt"), "utf8")).toBe("composite: [x][y]");
+    });
   });
 
   describe("REQ-CFX-15 — m2-copy behavioral contract (declared artefacts, REQ-CFX-11 honesty boundary applies)", () => {
