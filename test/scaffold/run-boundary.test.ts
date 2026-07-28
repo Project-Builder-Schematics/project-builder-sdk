@@ -5,12 +5,12 @@
  * chain. Integration level (design §Test Derivation): drives `defineFactory` end-to-end
  * against scratch package dirs — distinct from `test/scaffold/inline-collection.test.ts`,
  * which owns the AUTHORITATIVE full-ancestor-chain REQ-MFB-01.1/.2 scenario with its own
- * `mkdtemp` (never `scratchDirFactory`, which still seeds a marker for OTHER suites'
- * convenience — irrelevant now, but left alone here since removing it is this file's own
- * per-test concern, not a shared-helper edit).
+ * `mkdtemp`. `scratchDirFactory` (S-003) never fabricates a marker at all — a
+ * `collection.json` is a plain file this file plants EXPLICITLY where a scenario needs one
+ * present.
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { rmSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
@@ -22,8 +22,7 @@ const scratchDir = scratchDirFactory("run-boundary-");
 
 describe("REQ-MFB-01.1 — a missing collection.json ancestor no longer pre-empts the factory body", () => {
   it("the factory body's sentinel throw propagates unchanged — no ancestor-marker rejection precedes it", async () => {
-    const dir = scratchDir();
-    rmSync(join(dir, "collection.json")); // scratchDirFactory seeds a marker by default — remove it for this case
+    const dir = scratchDir(); // no collection.json anywhere — scratchDirFactory never seeds one
     const fake = new ContractFake({ seed: {} });
 
     const run = defineFactory<void>(() => {
@@ -36,7 +35,8 @@ describe("REQ-MFB-01.1 — a missing collection.json ancestor no longer pre-empt
 
 describe("REQ-MFB-01 — positive control: a run proceeds identically whether or not collection.json exists anywhere", () => {
   it("a collection.json directly at packageDir does not block (and is never required for) the run", async () => {
-    const dir = scratchDir(); // scratchDirFactory seeds the marker directly in the dir
+    const dir = scratchDir();
+    writeFileSync(join(dir, "collection.json"), "{}", "utf-8"); // explicitly planted for THIS case only
     const fake = new ContractFake({ seed: {} });
 
     const run = defineFactory<void>(() => {
@@ -50,7 +50,6 @@ describe("REQ-MFB-01 — positive control: a run proceeds identically whether or
 
   it("no collection.json anywhere on the ancestor chain — the run still commits identically", async () => {
     const dir = scratchDir();
-    rmSync(join(dir, "collection.json"));
     const fake = new ContractFake({ seed: {} });
 
     const run = defineFactory<void>(() => {
@@ -66,7 +65,6 @@ describe("REQ-MFB-01 — positive control: a run proceeds identically whether or
 describe("REQ-RBV-06.2 — no ancestor-marker read exists anywhere in the bootstrap read-set", () => {
   it("existsSync is never called against a collection.json path, regardless of how many read verbs the run performs", async () => {
     const dir = scratchDir();
-    rmSync(join(dir, "collection.json"));
     const existsSpy = spyOn(fs, "existsSync");
 
     try {

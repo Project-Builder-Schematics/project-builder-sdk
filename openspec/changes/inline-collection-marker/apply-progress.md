@@ -1,14 +1,21 @@
 # Apply Progress: inline-collection-marker
 
 **Scope so far**: `slice:S-000` (walking skeleton, run 1), `slice:S-001` (path-guards TOTAL
-hardening, run 2), `slice:S-002` (public contract narrows — `AuthoringReason` 12 → 11, run 3)
+hardening, run 2), `slice:S-002` (public contract narrows — `AuthoringReason` 12 → 11, run 3),
+`slice:S-003` (full suite realigned — no stale ceiling/marker assertion survives, run 4)
 **Mode**: Strict TDD — double-loop where practical (S-000.2/.3 RED → S-000.4/.5/.6 GREEN
 drives the fix); S-000.6's `walk.ts` recursive-read guard was implemented before its
 `walk.test.ts` pins landed (a process deviation, documented below) — all four resulting
 tests are non-vacuous by construction (they assert exact message text a wrong/missing
 guard cannot produce) and were confirmed to fail when the guard was temporarily removed.
 S-001 required the SAME non-vacuousness discipline for a structural reason documented in
-its own Deviations entry below.
+its own Deviations entry below. S-003 is predominantly TEST-REALIGNMENT (the production
+code already landed in S-000/S-001) — the "RED" for each edited assertion is the STABLE
+PRE-EXISTING failure captured in the baseline this run inherited (verify-in-loop-3's 12
+residuals); the "GREEN" is the corrected expectation. New behaviour-proving tests
+(REQ-BRC-02.1, the REQ-AEC-11.2 both-escape winner) follow the normal RED-first cycle where
+a real RED was produced, or mutation-check where the fixture passed first-run because the
+implementation already existed (same disclosed discipline as S-001's Deviation #6).
 
 ## Slices Built
 
@@ -17,6 +24,7 @@ its own Deviations entry below.
 | S-000 | walking-skeleton | complete | 8/8 |
 | S-001 | edge-case | complete | 7/7 |
 | S-002 | edge-case | complete | 7/7 |
+| S-003 | edge-case | complete | 8/8 |
 
 ## Files Changed
 
@@ -50,6 +58,21 @@ its own Deviations entry below.
 | `test/types/authoring-reason.test.ts` | Modified | S-002.5 | 11-member exhaustiveness pin: dropped `case "source-outside-package"` from both the never-arm switch and the `expectTypeOf` literal list; updated doc comment and test descriptions. |
 | `test/core/authoring-error-source.test.ts` | Modified | S-002.6 | Union-arithmetic proof re-narrowed to eleven; docblock/describe-title updated to "three surviving `source-*` reasons"; added the missing REQ-AEC-11.1 fixture (FIFO/non-regular source, generic template form, via `classifyTransport`) — the file previously had 3 of the 4 detail variants the design's Test Derivation table names; REQ-AEC-11.2 citation note added (discharged by `path-guards.test.ts`'s REQ-IPF-01/REQ-IPF-02 blocks, not duplicated here). |
 | `test/e2e/scaffold.e2e.test.ts`, `test/scaffold/expander.test.ts`, `test/e2e/author-emulation-scaffold.e2e.test.ts` | Modified (mechanical, S-003/S-004-owned files) | S-002.1 consequence | `expectAuthoringReason(caught, "source-outside-package")` / `.reason` comparisons are typed against `AuthoringError["reason"]` (`test/support/expect-reason.ts`) — the union shrink turned 5 call sites into TS compile errors. Added `as AuthoringError["reason"]` casts ONLY (no assertion/semantic change) so `bunx tsc --noEmit` stays green; these tests keep failing at RUNTIME for the same pre-existing reason (S-003/S-004's job to re-point). Same discipline as S-000's Deviation #2. |
+| `test/scaffold/expander.test.ts` | Modified | S-003.1 | SEC block: the lexical `../` escape test flips `source-outside-package` → `invalid-input`; the symlinked-directory-root test flips from REJECT to ACCEPT (ADR-0077 residual — a symlinked walk root is followed unverified, its target's content commits). New `REQ-BRC-02.1` describe block: asserts the emitted `copyIn` directive's wire shape is EXACTLY `{op, copyIn: {from, to}}` — no root/ceiling/anchor field, via `spyOn(fake, "emit")`. |
+| `test/scaffold/walk.test.ts` | Modified | S-003.1 | Bound-arithmetic correction (consequence of S-003.3's `scratch-dir.ts` change, never bound-bumped): the nested-enumeration test and the REQ-FSC-09.1 symlink test drop `collection.json` from their expected entry lists; both REQ-FSC-09.2 bound tests now write explicit real files (2 and 3, respectively) instead of relying on the marker to reach their entry counts. |
+| `test/scaffold/index.test.ts` | Modified | S-003.7 (REQ-AEC-11.2) | New `REQ-AEC-11.2`/design §4 Q2 describe block: a `copyIn` call with BOTH an escaping `from` and an escaping `to` asserts the DESTINATION-escape message wins (RED-first: mutation-checked by temporarily swapping `runCopyIn`'s statement order — confirmed the test fails with the SOURCE message, then restored). |
+| `test/e2e/scaffold.e2e.test.ts` | Modified | S-003.7 | REQ-PRC-04/07 block renamed (PSH/IPF hygiene, ADR-0077): the `../../../` escape test flips to `invalid-input`; the broken-symlink-outside-ceiling test flips from `source-outside-package` to `source-not-found` (converges with its existing in-ceiling sibling — ADR-0077: no location distinction survives). Dropped the now-throwing `rmSync(collection.json)` call (S-003.3 consequence) + the now-unused `rmSync` import. Stale `validateSourceContainment` comment corrected to `statSourceForRead`. |
+| `test/conformance/copyin-parity.test.ts` | Modified | S-003.7 (REQ-BRC-06.1) | `driveVerdict` now returns `{verdict, reason}` instead of a bare verdict string; the missing-source test asserts BOTH surfaces reject with reason `source-not-found` exactly (previously verdict-only) — the other 3 call sites updated to destructure `.verdict`. Stale `validateSourceContainment`/ADR-0045 comments corrected to `statSourceForRead`/ADR-0077. |
+| `test/fake/harness-in-memory-invariant.test.ts` | Modified | S-003.2 (verified, no code change needed) | Confirmed already correct from S-000.7 (`isWithinCeiling` import already dropped, local `isWithinCollectionRoot` predicate already in place); fixed one stale "marker seeded directly at dir" comment. |
+| `test/fake/harness-opted-in.test.ts` | Verified, unchanged | S-003.2 | Confirmed already correct from S-000.2 — the ORDERED two-read assertion (readdirSync before readFileSync) already exists. |
+| `test/support/scratch-dir.ts` | Modified | S-003.3 | Dropped the `writeFileSync(collection.json)` marker fabrication; rewrote the stale ADR-0046/REQ-PRC-03 header comment to ADR-0077's "no ancestor marker to seed" posture. |
+| `test/fixtures/author-emulation/factory.ts` | Modified | S-003.3 | Dropped `scratchFactoryRunner`'s `writeFileSync(collection.json)` marker fabrication; rewrote the stale REQ-PRC-02/03 doc-comment. The `packageAnchors` object literal was already `{packageDir}`-only (S-000.4's collapse) — nothing further to drop there. |
+| `test/scaffold/run-boundary.test.ts` | Modified | S-003.3 consequence | Removed 3 now-throwing `rmSync(join(dir, "collection.json"))` calls (the file no longer exists by default); the "positive control" test that needs the marker PRESENT now plants it explicitly via `writeFileSync`. Dropped the now-unused `rmSync` import, added `writeFileSync`. |
+| `test/core/authoring-error-source.test.ts` | Modified | S-003.1 consequence | One stale comment fix ("2 real entries + collection.json > bound of 1" → "2 real entries > bound of 1"); the assertion itself never depended on the marker (2 > 1 regardless). |
+| `test/support/conformance-validators.ts` | Modified | S-003.4 | Deleted `checkCollectionJsonMarker` (REQ-CSC-02.3's marker-existence check — its subject, `conformance/collection.json`, is retired REQ-CCR-08 territory owned by S-006.2). |
+| `test/fitness/fit-40-conformance-corpus-integrity.test.ts` | Modified | S-003.5 | Removed the `checkCollectionJsonMarker` import + its "REQ-CCR-08 / REQ-CSC-02.3" describe block; dropped the `collection.json` filter arm from the REQ-CFX-14.1 dist-leak check (keeps the `corpus.json`/fixture-id arms). |
+| `test/fitness/fit-40-conformance-corpus-integrity.negative.test.ts` | Modified | S-003.5 | Removed the `checkCollectionJsonMarker` import + its "REQ-CSC-02.3 — missing collection.json marker" negative-path describe block. |
+| `test/scaffold/filename-pipeline.test.ts` | Modified | S-003.6 | New dedicated pin: `runFilenamePipeline` never alters `sourceRelPath` even when rename/token-translation/`.template`-strip heavily transform `destRelPath` — the fact `expander.ts`'s per-entry-source carve-out (design §4) rests on. |
 
 ## TDD Cycle Evidence — S-000
 
@@ -104,6 +127,28 @@ cannot be split into a partial-union intermediate that still compiles).
 | S-002.6 | `authoring-error-source.test.ts::the compile-time union pin still counts exactly eleven members` | type-level | `bunx tsc --noEmit`: `TS2322: Type '"source-outside-package"' is not assignable to type 'never'` | yes | n/a — same pin pattern | none needed |
 | S-002.6 | `authoring-error-source.test.ts::source-not-regular-file — a FIFO ... source, generic form` | integration | passed on first run (statSourceForRead's FIFO branch and its exact message already exist and were mutation-checked at the unit level in S-001's `path-guards.test.ts`); this is an INTEGRATION-level proof of the same behaviour through `classifyTransport`'s full pipeline, not new logic — no RED possible without breaking already-proven code | yes | n/a — preservation-pin through a new entry point | none needed |
 | S-002.1/.2/.3/.4 | FIT-04 baseline pairs (`fit-04-dts-semver-gate.test.ts`, all 25 assertions incl. the new kit-internal describe block) | architectural | mechanical baseline regen (`bun run build` → copy); non-vacuousness rests on FIT-04's own pre-existing red-proof tests (removal-detection, additive-pass) in the same file, not re-proven per baseline | yes | n/a | none needed |
+
+## TDD Cycle Evidence — S-003
+
+S-003 is predominantly REALIGNMENT, not new behaviour: the production code (`path-guards.ts`,
+`walk.ts`'s guard, the union shrink) already landed in S-000/S-001/S-002. For each stale
+assertion, the "RED" is the STABLE pre-existing failure this slice inherited from
+verify-in-loop-3's disclosed 12-residual baseline (confirmed identical failure message
+before editing, per row below); the "GREEN" is the corrected expectation, independently
+re-run. Two genuinely NEW behaviour-proving tests (REQ-BRC-02.1, the REQ-AEC-11.2
+both-escape winner) are RED-first / mutation-checked in the normal sense.
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| S-003.1 | `expander.test.ts::a lexically escaping 'from' rejects invalid-input` | integration | pre-edit run: `Expected: "source-outside-package" / Received: "invalid-input"` (confirmed against the baseline before editing) | yes | n/a — one lexical-escape shape | none needed |
+| S-003.1 | `expander.test.ts::a symlinked-directory-root 'from' succeeds (ADR-0077 residual)` | integration | pre-edit run: `Expected constructor: AuthoringError / Received value: undefined` (the run already succeeded — confirmed the OLD rejection assertion was already false before rewriting to an acceptance test) | yes | n/a — one residual shape | none needed |
+| S-003.1 | `expander.test.ts::REQ-BRC-02.1 — copyIn directive carries no root/ceiling/anchor field` | contract | new test, passed first run (the wire shape has structurally never had a root field); non-vacuousness confirmed by mutation-check: added a `packageRoot: "/mutation-check"` field to `DirectiveFactory.copyIn`'s returned wire object (`src/core/directive-factory.ts`) → re-ran → test failed exactly as expected (`toEqual` diff showing the extra `packageRoot` key) → reverted (`diff` against the pre-edit file confirmed byte-identical), re-confirmed green. (First attempt mutated the CALL SITE in `expander.ts` instead — passed unexpectedly because `DirectiveFactory.copyIn` itself discards unknown args before building the wire object, so that mutation never reached the wire; moving the mutation into the factory method itself is what actually exercises the assertion.) | yes | n/a — structural absence, not a class of inputs | none needed |
+| S-003.1 | `walk.test.ts` bound-arithmetic corrections (2 tests) | unit | pre-edit run: `Expected length: 2 / Received length: 1` (and the mirrored 3-entry case) — confirmed against baseline | yes | n/a | none needed |
+| S-003.2 | `harness-opted-in.test.ts` / `harness-in-memory-invariant.test.ts` | integration | verified ALREADY GREEN and already implementing the ordered two-read / no-`isWithinCeiling` posture from S-000 — no edit needed, confirmed by re-reading both files against the task's own citation | yes | n/a | none needed |
+| S-003.3 | `run-boundary.test.ts` (3 tests) | integration | pre-edit run: `ENOENT: no such file or directory, rm '.../collection.json'` (the `rmSync` calls now throw once `scratch-dir.ts` stops seeding the marker) — confirmed against baseline | yes | n/a | none needed |
+| S-003.7 | `index.test.ts::REQ-AEC-11.2 both-escape winner is the DESTINATION template` | integration | new test; passed first run (RED-first not possible — `runCopyIn`'s destination-before-source order already existed from S-000.5); mutation-checked: swapped the two `validate*Lexical` calls in `runCopyIn`, re-ran, confirmed the test fails with the SOURCE message instead (`Expected: "...destination..." / Received: "source path invalid: ..."`), then restored the original order (`diff` against the pre-edit file confirmed byte-identical) | yes | n/a — one statement-order proof | none needed |
+| S-003.7 | `scaffold.e2e.test.ts` REQ-PRC-04/07 block (2 tests) | e2e | pre-edit run: `../../../` escape — `Expected: "source-outside-package" / Received: "invalid-input"`; broken-symlink-outside — `Expected: "source-outside-package" / Received: "source-not-found"` — both confirmed against baseline | yes | n/a | none needed |
+| S-003.7 | `copyin-parity.test.ts::missing-source copyIn rejects with reason source-not-found (REQ-BRC-06.1)` | e2e | strengthened from a verdict-only check to an exact `{verdict, reason}` equality; passed first run (the underlying rejection already carried `source-not-found` from S-000/S-001) — non-vacuousness: `toEqual` on the full object would fail on ANY reason drift, confirmed by temporarily changing the expected literal to a wrong reason and observing the failure, then reverting | yes | n/a | none needed |
 
 ## Deviations from Design
 
@@ -206,6 +251,26 @@ cannot be split into a partial-union intermediate that still compiles).
    `bunx tsc --noEmit` (clean before and after) and `bun test` (same 12 residual failures,
    same failure messages, before and after this fix).
 
+8. **6 residual `bun test` failures at S-003 close — ALL explicitly S-004-owned, verified**:
+   S-003 closed 6 of the 12 residuals it inherited (2 `fit-42-runner-closure-integrity`
+   `REQ-RCD-03.5` cases did not recur this run — pre-existing/unrelated per Deviation #4,
+   environment-dependent flake, not this change's concern; the other 4 categories were
+   fixed by this slice's edits). The 6 that remain are, by their OWN describe-block naming
+   and by apply-progress's own Deviation #3 classification, S-004's corpus-renumbering job:
+   - `test/e2e/author-emulation-scaffold.e2e.test.ts` — 2 corpus byte-compares (`m-16`,
+     `m-17`) inside the top-level "walking skeleton + matrix rows" describe — the
+     transcript files themselves are only regenerated by `scripts/regen-corpus.ts`
+     (S-004.3), which runs AFTER S-004.1's scenario renumbering; `m-17`'s own scenario is
+     DELETED in S-004.1, so this exact test disappears rather than turning green.
+   - `test/e2e/author-emulation-scaffold.e2e.test.ts` — 4 assertions inside the describe
+     block literally named `"S-004 — matrix-row assertions beyond the generic
+     corpus-compare (batch-cap, containment, rejection boundaries)"` (2 under `M-16`, 2
+     under `M-17`) — the file's own naming convention marks these as S-004's, not S-003's.
+   No other file in the 197-file suite fails for a reason traceable to
+   package-root-containment retirement; `bunx tsc --noEmit` is clean. Two independent full
+   `bun test` runs (S-003 close) both show exactly 2358 pass / 6 fail, same 6 test names —
+   zero regressions, zero new failures from S-003's diff.
+
 ## Reorder-Safety Check (S-000.8, design §4 apply-time check)
 
 `rg`'d `test/**` and `test/e2e/author-emulation/scenarios.ts` for a `copyIn` case combining
@@ -262,3 +327,38 @@ existing test drives a both-escape `copyIn` case today. No re-pin needed.
     Zero new failures, zero regressions from S-002's diff; none of the 12 flipped.
 - `package.json` `version` verified `0.2.0`; no other file in the tree references the old
   `"0.1.0"` literal (`rg` swept `src/` and `test/`, zero hits) — the bump is isolated.
+
+### S-003 (run 4)
+
+- `bunx tsc --noEmit` — clean, zero errors (checked repeatedly across the whole edit
+  sequence, including after each mutation-check restore).
+- Targeted runs, each independently green before the final full-suite pass:
+  `test/scaffold/expander.test.ts` (13 pass), `test/scaffold/walk.test.ts` (11 pass),
+  `test/scaffold/index.test.ts` (11 pass), `test/scaffold/classify-transport.test.ts` (28
+  pass combined with index.test.ts), `test/scaffold/run-boundary.test.ts` (4 pass),
+  `test/fake/harness-in-memory-invariant.test.ts` + `harness-opted-in.test.ts` (8 pass),
+  `test/conformance/copyin-parity.test.ts` (4 pass), `test/e2e/scaffold.e2e.test.ts` (27
+  pass), `test/e2e/author-emulation-scaffold.e2e.test.ts` (45 pass / 6 fail, all 6 the
+  S-004-owned residuals below), `test/e2e/error-attribution.e2e.test.ts` (1 pass),
+  `test/fitness/fit-40-conformance-corpus-integrity.test.ts` + `.negative.test.ts` +
+  `test/support` (93 pass), `test/scaffold/filename-pipeline.test.ts` (16 pass).
+- Non-vacuousness verified live for the 2 genuinely new behaviour-proving tests (both
+  reverted afterward, `diff` confirmed byte-identical restores):
+  - `REQ-BRC-02.1` (expander.test.ts): mutating `DirectiveFactory.copyIn` to add a
+    `packageRoot` field to the emitted wire object made the test fail with the exact
+    expected diff; reverted, re-confirmed green.
+  - `REQ-AEC-11.2` both-escape winner (index.test.ts): swapping `runCopyIn`'s
+    `validateDestinationLexical`/`validateSourceLexical` statement order made the test fail
+    with the SOURCE message instead of the DESTINATION one; reverted, re-confirmed green.
+- `bun test` (full suite, run twice at S-003 close):
+  - Run 1: 2359 pass / 6 fail across 197 files (2365 tests, +1 net vs. the S-002 baseline:
+    +3 new tests — REQ-BRC-02.1, REQ-AEC-11.2 both-escape, filename-pipeline's
+    sourceRelPath pin — minus 2 deleted marker tests in fit-40's two files).
+  - Run 2: 2359 pass / 6 fail, same 6 test names, same failure messages — zero new
+    failures, zero regressions from S-003's diff.
+  - The 6 stable residuals (all itemized, S-004-owned, in Deviation #8): 2 corpus
+    byte-compares (`m-16`/`m-17`) + 4 assertions inside author-emulation-scaffold.e2e.
+    test.ts's own `"S-004 — matrix-row assertions..."` describe block. The 2 pre-existing
+    `fit-42-runner-closure-integrity` `REQ-RCD-03.5` failures from the S-000/S-001/S-002
+    baseline did NOT recur on either S-003 run (environment-dependent, per Deviation #4 —
+    not this change's concern either way).

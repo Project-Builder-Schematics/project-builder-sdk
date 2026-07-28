@@ -34,7 +34,6 @@ import {
   checkManifestIdMatchesDir,
   checkOrphanDirectories,
   checkWireSpecVersionAgreement,
-  checkCollectionJsonMarker,
   checkSeedExpectedResolution,
   checkFactoryModuleResolution,
   checkFactoryExportResolution,
@@ -140,12 +139,6 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
 
     it("REQ-CCR-07.2: the agreed value equals WIRE_PROTOCOL_VERSION (src/transport/wire-protocol.ts)", () => {
       expect(corpus.wireSpecVersion).toBe(WIRE_PROTOCOL_VERSION);
-    });
-  });
-
-  describe("REQ-CCR-08 / REQ-CSC-02.3 — collection.json package-anchor marker", () => {
-    it("REQ-CCR-08.1/REQ-CSC-02.3: conformance/collection.json exists (checked once, shared ancestor of every fixture)", () => {
-      expect(checkCollectionJsonMarker(CORPUS_ROOT)).toEqual([]);
     });
   });
 
@@ -324,12 +317,12 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
     // root corpus's own marker filenames and fixture-id directories specifically, never a
     // bare "conformance" substring — tsconfig.build.json's `rootDir:"./src"` already keeps
     // the repo-root `conformance/` (outside `src/`) structurally unreachable by the build.
-    it("REQ-CFX-14.1: no root-corpus marker (collection.json/corpus.json) or fixture-id directory appears under dist/, if dist/ exists", () => {
+    it("REQ-CFX-14.1: no root-corpus marker (corpus.json) or fixture-id directory appears under dist/, if dist/ exists", () => {
       if (!existsSync(DIST_ROOT)) return; // build not run in this environment — nothing to check
       const files = collectFilesRecursive(DIST_ROOT);
       const offenders = files.filter((p) => {
         const base = p.split("/").pop();
-        return base === "collection.json" || base === "corpus.json" || corpus.fixtures.some((id) => p.split("/").includes(id));
+        return base === "corpus.json" || corpus.fixtures.some((id) => p.split("/").includes(id));
       });
       expect(offenders).toEqual([]);
     });

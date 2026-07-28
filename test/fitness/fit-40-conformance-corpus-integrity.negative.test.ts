@@ -25,7 +25,6 @@ import {
   checkManifestIdMatchesDir,
   checkOrphanDirectories,
   checkWireSpecVersionAgreement,
-  checkCollectionJsonMarker,
   checkSeedExpectedResolution,
   checkFactoryModuleResolution,
   checkFactoryExportResolution,
@@ -172,17 +171,6 @@ describe("FIT-40 negative paths — fail-closed branches proven against syntheti
       expect(violations).toEqual([
         ruleFail("broken-schematic", null, "REQ-CSC-02.1", 'lowering.mode is "schematic" but schematic/schema.json is missing'),
         ruleFail("broken-schematic", null, "REQ-CSC-02.1", 'lowering.mode is "schematic" but schematic/files/ has no entries'),
-      ]);
-    });
-  });
-
-  describe("REQ-CSC-02.3 — missing collection.json marker", () => {
-    it("fails, naming the missing marker, when conformance/collection.json does not exist", () => {
-      const root = tempCorpusRoot();
-
-      const violations = checkCollectionJsonMarker(root);
-      expect(violations).toEqual([
-        ruleFail("collection.json", null, "REQ-CSC-02.3", `missing package-anchor marker at ${root}/collection.json`),
       ]);
     });
   });

@@ -15,11 +15,11 @@
  * this suite asserts exactly that binary contract, never reason equality.
  *
  * The missing-source fixture is NOT a fake/vehicle-distinguishing case in practice:
- * `copyIn`'s SDK-side containment (`validateSourceContainment`) rejects BEFORE any
- * directive reaches either transport's `emit()` (ADR-0045 division of labor) — both
- * surfaces therefore agree by construction, never by their own collision logic. Included
- * anyway because REQ-ATH-16.1 names it as one of the three fixtures the SAME set must run
- * through both surfaces.
+ * `copyIn`'s SDK-side IO hygiene (`statSourceForRead`, ADR-0077 — no containment ceiling,
+ * a `source-not-found` rejection on a nonexistent package-local path) rejects BEFORE any
+ * directive reaches either transport's `emit()` — both surfaces therefore agree by
+ * construction, never by their own collision logic. Included anyway because REQ-ATH-16.1
+ * names it as one of the three fixtures the SAME set must run through both surfaces.
  */
 import { describe, it, expect } from "bun:test";
 import { writeFileSync } from "node:fs";
@@ -34,21 +34,27 @@ const scratchDir = scratchDirFactory("copyin-parity-");
 
 type Verdict = "accepted" | "rejected";
 
+interface DriveResult {
+  verdict: Verdict;
+  /** The rejection's reason — `undefined` when `verdict === "accepted"`. */
+  reason?: AuthoringError["reason"];
+}
+
 async function driveVerdict(
   client: EngineClient,
   packageDir: string,
   factoryBody: () => void
-): Promise<Verdict> {
+): Promise<DriveResult> {
   const run = defineFactory<void>(factoryBody, { packageDir });
   try {
     await run(undefined, { client });
-    return "accepted";
+    return { verdict: "accepted" };
   } catch (err) {
-    // Every rejection this suite's fixtures produce (SDK-side containment, fake collision,
+    // Every rejection this suite's fixtures produce (SDK-side hygiene, fake collision,
     // vehicle collision) surfaces as an AuthoringError — a different shape would be a real
     // bug this test should fail loudly on, not swallow.
     expect(err).toBeInstanceOf(AuthoringError);
-    return "rejected";
+    return { verdict: "rejected", reason: (err as AuthoringError).reason };
   }
 }
 
@@ -58,36 +64,39 @@ describe("REQ-ATH-16.1 — fake/vehicle parity across the SAME copyIn fixture se
     writeFileSync(`${dir}/asset.svg`, "<svg/>", "utf-8");
 
     const fake = new ContractFake({ seed: {} });
-    const fakeVerdict = await driveVerdict(fake, dir, () => {
+    const fakeResult = await driveVerdict(fake, dir, () => {
       copyIn("asset.svg", "dest/asset.svg");
     });
 
     const { client: vehicle } = createRunVehicle({});
-    const vehicleVerdict = await driveVerdict(vehicle, dir, () => {
+    const vehicleResult = await driveVerdict(vehicle, dir, () => {
       copyIn("asset.svg", "dest/asset.svg");
     });
 
-    expect(fakeVerdict).toEqual("accepted");
-    expect(vehicleVerdict).toEqual("accepted");
+    expect(fakeResult.verdict).toEqual("accepted");
+    expect(vehicleResult.verdict).toEqual("accepted");
   });
 
-  it("missing-source copyIn (in-ceiling path that does not exist): both surfaces reject", async () => {
+  it("missing-source copyIn (package-local path that does not exist): both surfaces reject with reason source-not-found (REQ-BRC-06.1)", async () => {
     const dir = scratchDir();
-    // No file written at "missing.svg" — SDK-side containment rejects before either
-    // transport's emit() is ever reached (ADR-0045).
+    // No file written at "missing.svg" — SDK-side IO hygiene (source-not-found) rejects
+    // before either transport's emit() is ever reached, so BOTH surfaces agree on the
+    // REASON here too, not merely the accept/reject verdict (unlike the collision cases
+    // below, where `run-vehicle.ts`'s structural port guard forces a `reason: "unknown"`
+    // divergence from the fake).
 
     const fake = new ContractFake({ seed: {} });
-    const fakeVerdict = await driveVerdict(fake, dir, () => {
+    const fakeResult = await driveVerdict(fake, dir, () => {
       copyIn("missing.svg", "dest/missing.svg");
     });
 
     const { client: vehicle } = createRunVehicle({});
-    const vehicleVerdict = await driveVerdict(vehicle, dir, () => {
+    const vehicleResult = await driveVerdict(vehicle, dir, () => {
       copyIn("missing.svg", "dest/missing.svg");
     });
 
-    expect(fakeVerdict).toEqual("rejected");
-    expect(vehicleVerdict).toEqual("rejected");
+    expect(fakeResult).toEqual({ verdict: "rejected", reason: "source-not-found" });
+    expect(vehicleResult).toEqual({ verdict: "rejected", reason: "source-not-found" });
   });
 
   it("collision without force (destination already exists): both surfaces reject", async () => {
@@ -95,17 +104,17 @@ describe("REQ-ATH-16.1 — fake/vehicle parity across the SAME copyIn fixture se
     writeFileSync(`${dir}/asset.svg`, "<svg/>", "utf-8");
 
     const fake = new ContractFake({ seed: { "dest/asset.svg": "already here" } });
-    const fakeVerdict = await driveVerdict(fake, dir, () => {
+    const fakeResult = await driveVerdict(fake, dir, () => {
       copyIn("asset.svg", "dest/asset.svg");
     });
 
     const { client: vehicle } = createRunVehicle({ "dest/asset.svg": "already here" });
-    const vehicleVerdict = await driveVerdict(vehicle, dir, () => {
+    const vehicleResult = await driveVerdict(vehicle, dir, () => {
       copyIn("asset.svg", "dest/asset.svg");
     });
 
-    expect(fakeVerdict).toEqual("rejected");
-    expect(vehicleVerdict).toEqual("rejected");
+    expect(fakeResult.verdict).toEqual("rejected");
+    expect(vehicleResult.verdict).toEqual("rejected");
   });
 
   it("collision with force: true (destination already exists): both surfaces accept (overwrite)", async () => {
@@ -113,16 +122,16 @@ describe("REQ-ATH-16.1 — fake/vehicle parity across the SAME copyIn fixture se
     writeFileSync(`${dir}/asset.svg`, "<svg/>", "utf-8");
 
     const fake = new ContractFake({ seed: { "dest/asset.svg": "already here" } });
-    const fakeVerdict = await driveVerdict(fake, dir, () => {
+    const fakeResult = await driveVerdict(fake, dir, () => {
       copyIn("asset.svg", "dest/asset.svg", { force: true });
     });
 
     const { client: vehicle } = createRunVehicle({ "dest/asset.svg": "already here" });
-    const vehicleVerdict = await driveVerdict(vehicle, dir, () => {
+    const vehicleResult = await driveVerdict(vehicle, dir, () => {
       copyIn("asset.svg", "dest/asset.svg", { force: true });
     });
 
-    expect(fakeVerdict).toEqual("accepted");
-    expect(vehicleVerdict).toEqual("accepted");
+    expect(fakeResult.verdict).toEqual("accepted");
+    expect(vehicleResult.verdict).toEqual("accepted");
   });
 });

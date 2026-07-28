@@ -75,7 +75,7 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
     writeFileSync(join(dir, "a.ts"), "A", "utf-8");
     writeFileSync(join(dir, "b.ts"), "B", "utf-8");
 
-    // 2 real entries + collection.json > bound of 1
+    // 2 real entries > bound of 1
     expectReason(() => walkFolder(dir, 1), "invalid-input");
   });
 

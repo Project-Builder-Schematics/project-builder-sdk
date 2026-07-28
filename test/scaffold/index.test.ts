@@ -148,6 +148,23 @@ describe("REQ-FEH-04 — copyIn's mandatory args and void return", () => {
   });
 });
 
+describe("REQ-AEC-11.2 / design §4 Q2 — copyIn's both-escape winner is the DESTINATION template, never the source one", () => {
+  it("a copyIn call with BOTH an escaping 'from' and an escaping 'to' rejects with the destination-escape message — `runCopyIn`'s pinned statement order screens the destination FIRST", async () => {
+    const dir = scratchDir();
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      copyIn("../outside-source.txt", "../outside-dest.txt");
+    }, { packageDir: dir });
+
+    const err = expectAuthoringReason(caught, "invalid-input");
+    expect(err.message).toEqual(
+      'invalid input: destination "../outside-dest.txt" escapes the workspace tree (literal ".." segment or absolute path)'
+    );
+    expect(fake.committedTree().size).toEqual(0);
+  });
+});
+
 describe("REQ-TES-09.1 — templateFile missing-packageDir rejection is rewritten (bare-shape contract)", () => {
   it("names the caller-supplied-packageDir remedy, zero defineFactory tokens", async () => {
     const fake = new ContractFake({ seed: {} });

@@ -79,14 +79,14 @@
 **REQ-BRC-08 note (A4 Covers-completeness)**: `[SEAM] [ENGINE-GATED]`, no SDK-runnable test exists or is expected — "documented seam contract, exercised in the engine's own suite" per its own spec. V3.2's MODIFIED is a citation-fix only (its scenario stops citing the retired REQ-PRC-06, becomes self-referential) — no code/test task follows from it. Already satisfied by: SECURITY.md citing it (S-005.6) and the pre-existing, unchanged `golden-corpus-contract`/`scenario-matrix` NOT-exercised-ledger entry (REQ-GCC-08 item 3 / REQ-SCM-02.1). Listed in Covers here, not as a new task, to close the A4 staleness gap.
 
 ### Tasks
-- [ ] S-003.1 `test/scaffold/{walk,expander,classify-transport,index}.test.ts`: flip ceiling/marker expectations; correct `walk.test.ts` bound arithmetic; land REQ-BRC-02.1 (`[SEAM]`, `expander.test.ts`) and re-verify REQ-FSC-09.1/.2 (`walk.test.ts`, rationale-only — behaviour unchanged, comment rewritten) `[BRC REQ-BRC-02/.1; FSC REQ-FSC-09/.1/.2]`
-- [ ] S-003.2 `test/fake/{harness-opted-in,harness-in-memory-invariant}.test.ts`: ORDERED two-read assertion `[RBV REQ-RBV-06.2]`
-- [ ] S-003.3 `test/support/scratch-dir.ts` + `test/fixtures/author-emulation/factory.ts`: drop the two RUNTIME marker-fabrication producers + `packageAnchors` replica; drop `canary-no-echo.test.ts`'s own local marker seed (`:43-48`). Marker-fixture survival rule: this removes FABRICATION CODE only — static ON-DISK fixture `collection.json` files elsewhere (e.g. under other test fixture trees) are NOT fabrication per fit-43 clause (d)'s scope and MUST survive, inert; only `conformance/collection.json` is deleted (S-006.2, REQ-CCR-08) `[FTG REQ-FTG-06.2 allowlist scope]`
-- [ ] S-003.4 `test/support/conformance-validators.ts`: delete `checkCollectionJsonMarker` `[CSC REQ-CSC-02]`
-- [ ] S-003.5 `test/fitness/fit-40-conformance-corpus-integrity.test.ts` + `.negative.test.ts`: delete marker describe/negative + REQ-CFX-14.1 filter arm `[CCR REQ-CCR-08 retirement]`
-- [ ] S-003.6 `test/scaffold/filename-pipeline.test.ts`: pin `sourceRelPath`-never-altered fact `[design §4 carve-out]`
-- [ ] S-003.7 `test/e2e/{scaffold,author-emulation-scaffold,error-attribution}.e2e.test.ts` + **`test/conformance/copyin-parity.test.ts`** (corrected path — existing file under `test/conformance/`, not a new e2e file): M-16 reason flip, per-verb rows `[SCM M-16; AEC REQ-AEC-11.2; BRC REQ-BRC-06.1/.07.1]`
-- [ ] S-003.8 Verify `bun test` green
+- [x] S-003.1 `test/scaffold/{walk,expander,classify-transport,index}.test.ts`: flip ceiling/marker expectations; correct `walk.test.ts` bound arithmetic; land REQ-BRC-02.1 (`[SEAM]`, `expander.test.ts`) and re-verify REQ-FSC-09.1/.2 (`walk.test.ts`, rationale-only — behaviour unchanged, comment rewritten) `[BRC REQ-BRC-02/.1; FSC REQ-FSC-09/.1/.2]`
+- [x] S-003.2 `test/fake/{harness-opted-in,harness-in-memory-invariant}.test.ts`: ORDERED two-read assertion `[RBV REQ-RBV-06.2]`
+- [x] S-003.3 `test/support/scratch-dir.ts` + `test/fixtures/author-emulation/factory.ts`: drop the two RUNTIME marker-fabrication producers + `packageAnchors` replica; drop `canary-no-echo.test.ts`'s own local marker seed (`:43-48`). Marker-fixture survival rule: this removes FABRICATION CODE only — static ON-DISK fixture `collection.json` files elsewhere (e.g. under other test fixture trees) are NOT fabrication per fit-43 clause (d)'s scope and MUST survive, inert; only `conformance/collection.json` is deleted (S-006.2, REQ-CCR-08) `[FTG REQ-FTG-06.2 allowlist scope]`
+- [x] S-003.4 `test/support/conformance-validators.ts`: delete `checkCollectionJsonMarker` `[CSC REQ-CSC-02]`
+- [x] S-003.5 `test/fitness/fit-40-conformance-corpus-integrity.test.ts` + `.negative.test.ts`: delete marker describe/negative + REQ-CFX-14.1 filter arm `[CCR REQ-CCR-08 retirement]`
+- [x] S-003.6 `test/scaffold/filename-pipeline.test.ts`: pin `sourceRelPath`-never-altered fact `[design §4 carve-out]`
+- [x] S-003.7 `test/e2e/{scaffold,author-emulation-scaffold,error-attribution}.e2e.test.ts` + **`test/conformance/copyin-parity.test.ts`** (corrected path — existing file under `test/conformance/`, not a new e2e file): M-16 reason flip, per-verb rows `[SCM M-16; AEC REQ-AEC-11.2; BRC REQ-BRC-06.1/.07.1]`
+- [x] S-003.8 Verify `bun test` green
 
 ---
 

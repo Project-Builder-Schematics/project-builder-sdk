@@ -21,7 +21,7 @@
  * copies verbatim, never renders (FEH-03/04/05, BRC-*, PRC-*).
  */
 import { describe, it, expect } from "bun:test";
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
@@ -78,8 +78,7 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
   });
 
   it("REQ-MFB-01.1: a package with NO collection.json ancestor runs the body anyway — the sentinel throw propagates unchanged (inverts the retired RBV-06.1 ordering pin)", async () => {
-    const dir = scratchDir();
-    rmSync(join(dir, "collection.json")); // remove the factory-seeded marker for this case
+    const dir = scratchDir(); // no collection.json anywhere — scratchDirFactory never seeds one
     const fake = new ContractFake({ seed: {} });
 
     const caught = await rejectedRun(fake, () => {
@@ -113,10 +112,9 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
       create("dest.ts", { templateFile: "missing.ts.template", options: {} });
     }, { packageDir: dir });
 
-    // Routed through `validateSourceContainment` (S-005, verify-in-loop-4 Deviation #1
-    // ruling): a missing-but-in-ceiling source now mints the neutral AEC-11 `source-*`
-    // reason/template, same machinery `copyIn`/`scaffold` already use — not a
-    // parallel, templateFile-only `invalid-input` message.
+    // Routed through `statSourceForRead` (ADR-0077): a missing package-local source mints
+    // the neutral AEC-11 `source-*` reason/template, same machinery `copyIn`/`scaffold`
+    // already use — not a parallel, templateFile-only `invalid-input` message.
     const err = expectAuthoringReason(caught, "source-not-found");
     expect(err.message).toEqual(
       "source file not found: missing.ts.template does not exist in the package"
@@ -144,8 +142,8 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
     expect(fake.committedTree().size).toEqual(0);
   });
 
-  describe("REQ-PRC-04/07 — create({templateFile}) source containment (S-005 routed fix, verify-in-loop-4 Deviation #1)", () => {
-    it("the verify-in-loop-4 exploit fixture: a relPath escaping via '../../../' to a file entirely outside packageRoot rejects source-outside-package, content is NEVER returned", async () => {
+  describe("REQ-PSH-01/IPF-01 — create({templateFile}) source hygiene (ADR-0077: no containment ceiling, lexical + IO-hygiene guards only)", () => {
+    it("a relPath escaping via '../../../' to a file entirely outside packageDir rejects invalid-input (lexical screen) before any stat/read, content is NEVER returned", async () => {
       const dir = scratchDir();
       const secretDir = scratchDir();
       writeFileSync(join(secretDir, "secret.txt"), "TOP SECRET OUTSIDE THE CEILING", "utf-8");
@@ -156,10 +154,9 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
         create("dest.ts", { templateFile: escapingRelPath, options: {} });
       }, { packageDir: dir });
 
-      // Compile-only shim (S-002.1's union shrink retired this reason from
-      // AuthoringReason; S-003.1 re-points this describe block's ceiling expectations) —
-      // the cast keeps `tsc --noEmit` green without pre-empting S-003's actual fix.
-      const err = expectAuthoringReason(caught, "source-outside-package" as AuthoringError["reason"]);
+      // ADR-0077: `validateSourceLexical` rejects the literal `..` segment lexically —
+      // `invalid-input`, never the retired `source-outside-package` reason.
+      const err = expectAuthoringReason(caught, "invalid-input");
       expect(err.message).not.toContain("TOP SECRET");
       expect(fake.committedTree().size).toEqual(0);
       expect(fake.stagingTree().size).toEqual(0);
@@ -179,11 +176,13 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
       expect(fake.committedTree()).toEqual(new Map([["dest.ts", "export const x = {= x =};"]]));
     });
 
-    it("PRC-07.2 broken-symlink oracle, out-of-ceiling target: rejects source-outside-package, never source-not-found", async () => {
+    it("a broken symlink whose (never-created) target lies outside packageDir still rejects source-not-found — the SDK draws no location distinction (ADR-0077 residual)", async () => {
       const dir = scratchDir();
       const external = scratchDir();
       // Target never created — the symlink is broken by construction, and its target
-      // lives entirely outside packageRoot.
+      // lives entirely outside packageDir. Once containment is retired, statSourceForRead
+      // never distinguishes "outside" from "inside": both resolve LEXICALLY and both fail
+      // the SAME way on a nonexistent target.
       symlinkSync(join(external, "never-created.txt"), join(dir, "broken-outside.template"));
       const fake = new ContractFake({ seed: {} });
 
@@ -191,16 +190,16 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
         create("dest.ts", { templateFile: "broken-outside.template", options: {} });
       }, { packageDir: dir });
 
-      // Compile-only shim, see the note above (S-002.1 union shrink / S-003.1 re-point).
-      expectAuthoringReason(caught, "source-outside-package" as AuthoringError["reason"]);
+      expectAuthoringReason(caught, "source-not-found");
       expect(fake.committedTree().size).toEqual(0);
     });
 
-    it("PRC-07.2 broken-symlink oracle, in-ceiling target: rejects source-not-found, never source-outside-package", async () => {
+    it("a broken symlink whose (never-created) target lies inside packageDir rejects source-not-found — same outcome as an outside target", async () => {
       const dir = scratchDir();
-      // Target never created, but its lexical location is INSIDE packageRoot — the S1
-      // ENOENT-ordering fix (verify-in-loop-4 CRITICAL regression) must classify this
-      // as source-not-found, not a false source-outside-package.
+      // Target never created, and its lexical location is INSIDE packageDir — the S1
+      // ENOENT-ordering fix (verify-in-loop-4 CRITICAL regression) classifies this
+      // source-not-found, same as the outside-target case above (ADR-0077: no location
+      // distinction survives).
       symlinkSync(join(dir, "sub", "never-created.txt"), join(dir, "broken-inside.template"));
       const fake = new ContractFake({ seed: {} });
 

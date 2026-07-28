@@ -117,7 +117,7 @@ function isWithinCollectionRoot(event: IoEvent, roots: readonly string[]): boole
 
 describe("REQ-ATH-14 — in-memory-only invariant carve-out widened: package-root reads", () => {
   it("REQ-ATH-14.1: a factory's own scaffold reads within the collection root are observed, not flagged", async () => {
-    const dir = scratchDir(); // marker seeded directly at dir — dir IS the collection root
+    const dir = scratchDir(); // dir IS the collection root — packageDir, the sole run anchor
     mkdirSync(join(dir, "files"), { recursive: true });
     writeFileSync(join(dir, "files", "a.ts"), "export const a = 1;", "utf-8");
     const roots = [dir, realpathSync(dir)];

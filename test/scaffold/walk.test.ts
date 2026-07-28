@@ -21,11 +21,9 @@ describe("walkFolder — nested enumeration", () => {
     writeFileSync(join(dir, "b.ts"), "B", "utf-8");
     writeFileSync(join(dir, "a.ts"), "A", "utf-8");
     writeFileSync(join(dir, "nested", "c.ts"), "C", "utf-8");
-    // scratchDirFactory also seeds collection.json directly in `dir` — walkFolder has no
-    // opinion on that marker, but it IS an ordinary file the walk enumerates.
     const entries = walkFolder(dir).map((e) => e.relPath).sort();
 
-    expect(entries).toEqual(["a.ts", "b.ts", "collection.json", "nested/c.ts"]);
+    expect(entries).toEqual(["a.ts", "b.ts", "nested/c.ts"]);
   });
 });
 
@@ -43,7 +41,7 @@ describe("REQ-FSC-09.1 — in-ceiling symlinked directory is skipped, not descen
 
     const entries = walkFolder(dir).map((e) => e.relPath).sort();
 
-    expect(entries).toEqual(["a.ts", "collection.json"]);
+    expect(entries).toEqual(["a.ts"]);
     expect(entries.some((p) => p.includes("hidden.ts"))).toBe(false);
     expect(entries).not.toContain("link-to-dir");
   });
@@ -54,7 +52,8 @@ describe("REQ-FSC-09.2 — entry-count bound exceeded fails loud, naming the bou
     const dir = scratchDir();
     writeFileSync(join(dir, "a.ts"), "A", "utf-8");
     writeFileSync(join(dir, "b.ts"), "B", "utf-8");
-    // collection.json (seeded by scratchDirFactory) makes 3 entries total — over a bound of 2.
+    writeFileSync(join(dir, "c.ts"), "C", "utf-8");
+    // 3 real entries — over a bound of 2.
 
     const err = expectReason(() => walkFolder(dir, 2), "invalid-input");
     expect(err.message).toContain("2");
@@ -63,7 +62,8 @@ describe("REQ-FSC-09.2 — entry-count bound exceeded fails loud, naming the bou
   it("a tree with exactly `bound` entries does not reject", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "a.ts"), "A", "utf-8");
-    // + collection.json = 2 entries, bound = 2 (inclusive — `>` not `>=`).
+    writeFileSync(join(dir, "b.ts"), "B", "utf-8");
+    // 2 real entries, bound = 2 (inclusive — `>` not `>=`).
     const entries = walkFolder(dir, 2);
 
     expect(entries).toHaveLength(2);

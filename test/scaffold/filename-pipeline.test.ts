@@ -57,6 +57,21 @@ describe("REQ-FSC-05.1 — compound: rename + token translation + .template stri
     const result = runFilenamePipeline("plain.ts", undefined);
     expect(result).toEqual({ sourceRelPath: "plain.ts", destRelPath: "plain.ts", isTemplateMarked: false });
   });
+
+  // ADR-0077 / design §4 carve-out: `expander.ts` builds its per-entry read path as
+  // `posix.join(args.from, result.sourceRelPath)` and does NOT re-run the lexical screen
+  // on it — safe only because `sourceRelPath` is guaranteed to be the ORIGINAL, unaltered
+  // literal (rename/token-translation/`.template`-strip touch `destRelPath` exclusively).
+  // A rename rule mutating `sourceRelPath` would silently reopen the walk-root screen's
+  // per-entry hole this pin exists to close.
+  it("REQ-FSC-05.1 carve-out: sourceRelPath is never altered, even when rename/tokens/.template heavily transform destRelPath", () => {
+    const source = "__name@dasherize__.service.ts.template";
+    const rename = { [source]: "__name@dasherize__.svc.ts.template" };
+
+    const result = runFilenamePipeline(source, rename);
+
+    expect(result.sourceRelPath).toEqual(source);
+  });
 });
 
 describe("REQ-FSC-03 — include/exclude glob dialect (the spec's own table)", () => {

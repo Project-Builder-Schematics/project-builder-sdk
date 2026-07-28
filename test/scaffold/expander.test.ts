@@ -7,12 +7,12 @@
  * (design): drives `runScaffold` through a real `defineFactory` run against a
  * `ContractFake`.
  *
- * REQ-PRC-09 (S-002): the destination lexical guard is unit-tested directly against
- * `validateDestinationLexical` in `test/scaffold/containment.test.ts` (design's Test
- * Derivation assignment) — the block below additionally proves the WIRING into
- * `expander.ts`'s computed-destination emit path, via a `rename` map value that smuggles
- * a `../` segment into the FINAL destination (design §Data Model S3: the guard applies
- * post-rename, post-token-translation).
+ * REQ-IPF-02 (ADR-0077, retiring REQ-PRC-09): the destination lexical guard is
+ * unit-tested directly against `validateDestinationLexical` in
+ * `test/scaffold/path-guards.test.ts` (design's Test Derivation assignment) — the block
+ * below additionally proves the WIRING into `expander.ts`'s computed-destination emit
+ * path, via a `rename` map value that smuggles a `../` segment into the FINAL destination
+ * (design §Data Model S3: the guard applies post-rename, post-token-translation).
  */
 import { describe, it, expect, spyOn } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -178,8 +178,35 @@ describe("REQ-PRC-09.1 — destination lexical guard wiring: a rename map value 
   });
 });
 
-describe("SEC (owner-ratified final-verify remediation) — scaffold's walk ROOT is containment-checked before any enumeration", () => {
-  it("a lexically escaping `from` ('../<out-of-ceiling>') rejects source-outside-package and never enumerates the escaping tree", async () => {
+describe("REQ-BRC-02.1 — no SDK-resolved root value appears on the wire as authoritative [SEAM]", () => {
+  it("a copyIn directive's wire shape carries only the package-relative from/to — no root, ceiling, or anchor field", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "binary.png"), Buffer.from([0x89, 0x00, 0x50, 0x4e]));
+    const fake = new ContractFake({ seed: {} });
+    const emitSpy = spyOn(fake, "emit");
+
+    const run = defineFactory<void>(() => {
+      scaffold({ from: "files", to: "out" });
+    }, { packageDir: dir });
+
+    await run(undefined, { client: fake });
+
+    // The engine independently re-derives its own ceiling (REQ-BRC-02) — the SDK places
+    // no resolved anchor on the wire. `toEqual` is exact: any extra field (a root/
+    // ceiling/anchor the SDK might regrow) would fail this alongside a real `from`/`to`.
+    const copyInDirectives = emitSpy.mock.calls
+      .flatMap(([batch]) => batch.instructions)
+      .filter((instruction) => instruction.op === "copyIn");
+    expect(copyInDirectives).toEqual([
+      { op: "copyIn", copyIn: { from: "files/binary.png", to: "out/binary.png" } },
+    ]);
+    emitSpy.mockRestore();
+  });
+});
+
+describe("SEC (ADR-0077) — scaffold's walk ROOT: lexical escape still rejects, a symlink-target escape is an accepted residual", () => {
+  it("a lexically escaping `from` ('../<out-of-ceiling>') rejects invalid-input and never enumerates the escaping tree", async () => {
     const dir = scratchDir();
     const external = mkdtempSync(join(tmpdir(), "expander-external-"));
     try {
@@ -196,16 +223,15 @@ describe("SEC (owner-ratified final-verify remediation) — scaffold's walk ROOT
           scaffold({ from: relFrom, to: "out" });
         }, { packageDir: dir });
 
-        // Compile-only shim (S-002.1's union shrink retired this reason from
-        // AuthoringReason; S-003.1 re-points this describe block's ceiling
-        // expectations) — the cast keeps `tsc --noEmit` green without pre-empting
-        // S-003's actual fix.
-        const err = expectAuthoringReason(caught, "source-outside-package" as AuthoringError["reason"]);
+        // ADR-0077: `validateSourceLexical` (the walk ROOT's ONLY screen) rejects a
+        // literal `..` segment lexically — `invalid-input`, not the retired
+        // `source-outside-package` reason.
+        const err = expectAuthoringReason(caught, "invalid-input");
         expect(err.message).toContain(relFrom);
-        // The whole point: containment rejects the walk ROOT before `walkFolder` ever
-        // enumerates it — no readdirSync/lstatSync call may ever target the escaping
-        // subtree (an unrelated readdirSync against `packageDir` itself, from the run's
-        // own pre-existing reserved-lifecycle-name scan, is expected and fine).
+        // The lexical screen still runs BEFORE `walkFolder` ever enumerates the root —
+        // no readdirSync/lstatSync call may ever target the escaping subtree (an
+        // unrelated readdirSync against `packageDir` itself, from the run's own
+        // pre-existing reserved-lifecycle-name scan, is expected and fine).
         for (const call of readdirSpy.mock.calls) {
           expect(String(call[0])).not.toContain(external);
         }
@@ -222,7 +248,7 @@ describe("SEC (owner-ratified final-verify remediation) — scaffold's walk ROOT
     }
   });
 
-  it("a `from` that is lexically in-ceiling but whose realpath escapes (a symlinked directory pointing out) rejects source-outside-package before any enumeration", async () => {
+  it("a `from` that is lexically in-ceiling but whose symlink target escapes (a symlinked directory pointing out) succeeds — the target's content flows through unverified (ADR-0077 residual)", async () => {
     const dir = scratchDir();
     const external = mkdtempSync(join(tmpdir(), "expander-external-"));
     try {
@@ -232,19 +258,22 @@ describe("SEC (owner-ratified final-verify remediation) — scaffold's walk ROOT
 
       const readdirSpy = spyOn(fs, "readdirSync");
       try {
-        const caught = await rejectedRun(fake, () => {
+        const run = defineFactory<void>(() => {
           scaffold({ from: "link-out", to: "out" });
         }, { packageDir: dir });
 
-        // Compile-only shim, see the note above (S-002.1 union shrink / S-003.1 re-point).
-        expectAuthoringReason(caught, "source-outside-package" as AuthoringError["reason"]);
-        // The symlinked ROOT's TARGET is never enumerated — containment rejects it via
-        // realpath before `walkFolder` (and its readdirSync) ever runs. (The unrelated
-        // readdirSync(packageDir) from the run's reserved-lifecycle-name scan is fine.)
+        await run(undefined, { client: fake });
+
+        // ADR-0077: the SDK never realpath-verifies a walk root — `readdirSync` on a
+        // symlinked directory transparently follows the OS-level link, so the target's
+        // content is read through untouched. The residual is documented (SECURITY.md
+        // point 4), not a bug.
+        expect(fake.committedTree()).toEqual(new Map([["out/top-secret.txt", "nope"]]));
+        // Every readdirSync call target is still the LEXICAL path under `packageDir`
+        // (`link-out`) — the SDK never resolves/echoes the symlink's absolute target.
         for (const call of readdirSpy.mock.calls) {
           expect(String(call[0])).not.toContain(external);
         }
-        expect(fake.committedTree().size).toEqual(0);
       } finally {
         readdirSpy.mockRestore();
       }

@@ -266,12 +266,6 @@ export function checkSchematicLoweringFiles(fixtures: LoadedFixture[]): string[]
   return violations;
 }
 
-/** REQ-CSC-02.3: conformance/collection.json exists (checked once, shared ancestor of every fixture). */
-export function checkCollectionJsonMarker(root: string): string[] {
-  if (existsSync(join(root, "collection.json"))) return [];
-  return [ruleFail("collection.json", null, "REQ-CSC-02.3", `missing package-anchor marker at ${root}/collection.json`)];
-}
-
 /** REQ-CSC-03.1: every manifest has a non-empty cases array. */
 export function checkNonEmptyCases(fixtures: LoadedFixture[]): string[] {
   return fixtures

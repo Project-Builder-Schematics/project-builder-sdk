@@ -134,9 +134,9 @@ export const runM06 = (input: Input): void => {
 };
 
 /**
- * Wraps a scenario body in a FRESH scratch package directory — materialized (with the
- * mandatory `collection.json` containment-ceiling marker, REQ-PRC-02/03) immediately
- * before the run and torn down in a `finally` immediately after, regardless of outcome
+ * Wraps a scenario body in a FRESH scratch package directory — materialized immediately
+ * before the run (ADR-0077: `packageDir` is the sole run anchor, no ancestor marker to
+ * seed) and torn down in a `finally` immediately after, regardless of outcome
  * (REQ-AEG-07: never committed to the repo). `setup` receives the scratch dir's absolute
  * path to place whatever git-hostile/oversized content the scenario needs; `body` is the
  * factory logic. An optional `teardown` runs BEFORE the scratch dir's own `rmSync` — for
@@ -170,7 +170,6 @@ function scratchFactoryRunner(
 ): (input: Input) => Promise<void> {
   return async (input) => {
     const dir = mkdtempSync(join(tmpdir(), "author-emulation-scratch-"));
-    writeFileSync(join(dir, "collection.json"), "{}", "utf-8");
     try {
       setup(dir);
       const reserved = findReservedSibling(dir);
