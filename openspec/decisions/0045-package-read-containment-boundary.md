@@ -62,3 +62,16 @@ the fake," not "hand-fed to `fake.emit()`."
 - **Fake owns an in-memory source-existence check** — REJECTED: it would need disk access
   (breaks REQ-ATH-11) or a parallel seed that diverges from the SDK's real-disk read, and
   it structurally cannot emit an `authoring-rejected` reason.
+
+## Amended by ADR-0077 (2026-07-28)
+
+The `source-*` reason family's ORIGIN/ATTRIBUTION rules above (SDK-side, pre-emit,
+`authoring-rejected`, never the fake) survive unchanged. What retires is the CONTAINMENT
+half of this ADR's division of labor: `containment.ts`'s ceiling check (segment-aware
+lexical screen → `path.resolve` + case-folding ceiling comparison → ordered
+`source-outside-package`/`source-not-found` classification via nearest-existing-ancestor
+resolution) is DELETED wholesale along with `source-outside-package` itself
+(`package-root-containment` retired). The SDK's remaining `source-*` obligation is IO
+hygiene and IR well-formedness only, never a boundary — see ADR-0077 §B/§C for the
+successor per-path-class boundary table and `src/scaffold/path-guards.ts` for the
+successor module.

@@ -1,11 +1,33 @@
 # Changelog
 
 All notable changes to `@pbuilder/sdk` are documented here. The package is pre-release
-(`0.0.0`, unpublished, zero live consumers) — entries below record behaviour changes for
-awareness, not for a public release process. No migration guide is included: nothing here
-requires one.
+(unpublished; only `0.0.0-dev.<sha>` prereleases publish from `main`) — but it is NOT
+zero-consumer: the engine repo and the conformance corpus consume this contract today even
+though no npm consumer does, so the breaking/behaviour entries below carry migration text
+for them, not a summary claiming no migration is needed.
 
-## Unreleased
+## 0.2.0
+
+### Behaviour Changes — package-local read containment removed (ADR-0077)
+
+**Fixed**: A schematic package no longer needs a `collection.json` ancestor to run.
+Previously `defineFactory({ packageDir })` walked upward for a `collection.json` marker
+and failed the run before the factory body executed when none was found — which is every
+inline-collection project, where the collection lives inside `project-builder.json` and
+no `collection.json` ever exists on disk. `packageDir` is now the sole run anchor.
+
+**Changed (breaking)**: `AuthoringReason` narrows from twelve members to eleven:
+`source-outside-package` is removed. **Migration**: delete the `case
+"source-outside-package":` arm from any exhaustive `switch (err.reason)` — TypeScript will
+point at it. A source path with a literal `..` segment or an absolute path now rejects
+`invalid-input` (it rejected `source-outside-package` before, but was always rejected —
+this is a reason change, not a new rejection). A source that resolves outside the package
+through an in-package symlink is **no longer rejected by the SDK at all**.
+
+**Changed**: The SDK no longer resolves package-local source paths through a disk-canonicalization pass, so an in-package symlink pointing outside `packageDir` is no
+longer rejected by the SDK. Whether such a source is rejected at all now depends on the
+engine's own apply-time ceiling re-derivation — the SDK makes no claim either way. See
+[SECURITY.md](./SECURITY.md) for the v1 trust model.
 
 ### Behaviour Changes — `@pbuilder/sdk/typescript` `addImport`
 

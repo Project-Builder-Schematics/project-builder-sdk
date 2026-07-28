@@ -64,10 +64,10 @@ export interface RunContext {
   // ADR-0077 §C: `packageDir` is the SOLE run anchor — seeded ONCE, eagerly, at the
   // pre-`als.run` chokepoint below, never re-derived per scaffold/copyIn call within the
   // same run. Absent for the bare `defineFactory(fn)` untyped opt-out (byte-for-byte
-  // unchanged behavior). There is no containment ceiling anchor anymore (the
-  // `collection.json` ancestor walk and `package-root-containment` are retired) — a
-  // single-field shape, never a differently-shaped regrowth (REQ-FTG-06 guards this
-  // statically and at runtime, REQ-MFB-01.3).
+  // unchanged behavior). There is no containment ceiling anchor anymore (the ancestor-
+  // marker walk and `package-root-containment` are retired) — a single-field shape,
+  // never a differently-shaped regrowth (REQ-FTG-06 guards this statically and at
+  // runtime, REQ-MFB-01.3).
   packageAnchors?: { packageDir: string };
 }
 

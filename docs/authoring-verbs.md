@@ -12,6 +12,26 @@ last a by-reference sibling of `copy` that copies straight from the package rath
 rendering a template. `scaffold` (below) is an eighth, separately shipped mutation: it fans
 out into `create`/`copyIn` directives per entry rather than carrying its own label.
 
+## Package-local reads: the boundary
+
+`create({ templateFile })`, `copyIn`, and `scaffold` each read a source that lives on the
+package's own disk, resolved against the run's `packageDir`. The author rule:
+
+> the SDK rejects lexical `../` or absolute source paths, always; everything a schematic
+> reads lives inside its package — symlinks are followed without target verification (see
+> SECURITY.md).
+
+What the boundary is now: the SDK screens the *literal* path shape (no `..` segment, no
+absolute form) before touching disk — it does **not** re-derive a containment ceiling
+against the resolved filesystem target. A source path with no literal `..` segment that
+resolves, through an in-package symlink, to a file outside the package is read
+successfully, not rejected — this is a deliberate, documented residual (see
+[SECURITY.md](../SECURITY.md)), not an oversight. For a path that crosses the wire
+by-reference (`copyIn`, a by-reference `scaffold` entry), the engine independently
+re-derives its own containment ceiling at apply time (`by-reference-copy-wire`
+REQ-BRC-02) — that check, not this SDK-side screen, is what a by-reference consumer
+should rely on for containment.
+
 ### `create`
 
 ```ts
@@ -67,10 +87,12 @@ create("src/index.ts", {
 - A `templateFile` that is binary (a null byte or invalid UTF-8 anywhere in the file) or
   larger than the 4 MiB inline-render limit fails loud with `reason: "invalid-input"` — it
   never silently falls back to a by-reference copy.
-- A `templateFile` that is missing, resolves outside the package boundary, is not a regular
-  file, or can't be read surfaces `reason: "source-not-found" | "source-outside-package" |
-  "source-not-regular-file" | "source-unreadable"` — the same four reasons `copyIn` and
-  `scaffold` share for their own package-local reads (see [Error contract](./authoring-errors.md)).
+- A `templateFile` that is missing, is not a regular file, or can't be read surfaces
+  `reason: "source-not-found" | "source-not-regular-file" | "source-unreadable"` — the
+  same three reasons `copyIn` and `scaffold` share for their own package-local reads (see
+  [Error contract](./authoring-errors.md)). A literal `../` segment or an absolute
+  `templateFile` path rejects `reason: "invalid-input"` instead, before any read — see the
+  author rule below.
 
 ### `replaceContent`
 
@@ -187,10 +209,14 @@ copyIn("assets/logo.svg", "src/generated/logo.svg");
   emission.
 - Only usable inside a run started with `packageDir` — otherwise `reason: "invalid-input"`,
   never a cwd fallback.
-- The source is validated for existence, package containment, and regular-file-ness before
-  emission, surfacing `reason: "source-not-found" | "source-outside-package" |
-  "source-not-regular-file" | "source-unreadable"` — the same four reasons `create({
-  templateFile })` and `scaffold` share.
+- The source is screened lexically (`../`/absolute rejects `reason: "invalid-input"`
+  pre-read, see the author rule below), then validated for existence and
+  regular-file-ness, surfacing `reason: "source-not-found" | "source-not-regular-file" |
+  "source-unreadable"` — the same three reasons `create({ templateFile })` and `scaffold`
+  share. The SDK does **not** re-check that the resolved source stays inside the package
+  (see [SECURITY.md](../SECURITY.md)) — a source path with no literal `..` segment that
+  resolves through an in-package symlink to a file outside the package is read
+  successfully, not rejected.
 - A destination collision without `{ force: true }` rejects `reason: "path-collision"`,
   `verb: "copyIn"` — the author never called `copy`, but the label still names the actual
   offending call.
@@ -259,15 +285,16 @@ scaffold({
   into it.
 - Two or more sources collapsing to the same destination (after the pipeline) reject
   fail-loud (`reason: "invalid-input"`), naming every offending source.
-- The walk never descends into a symlinked directory, even when its target resolves inside
-  the package boundary — skipped silently, no error.
+- The walk never descends into a symlinked directory — skipped silently, no error,
+  regardless of where its target resolves.
 - The walk is capped at 10,000 enumerated entries per call; exceeding it rejects fail-loud,
   naming the bound.
 - Only usable inside a run started with `packageDir` — otherwise `reason: "invalid-input"`,
   never a cwd fallback.
 - A per-entry package-local read failure surfaces `reason: "source-not-found" |
-  "source-outside-package" | "source-not-regular-file" | "source-unreadable"` — the same four
-  reasons `copyIn` and `create({ templateFile })` share.
+  "source-not-regular-file" | "source-unreadable"` — the same three reasons `copyIn` and
+  `create({ templateFile })` share. A per-entry source path with a literal `../` segment or
+  an absolute form rejects `reason: "invalid-input"` instead, before any read.
 - Once past the filters, a downstream `create`/`copyIn` collision without `force` still
   rejects `reason: "path-collision"` like any other write; `force` (default `false`) passes
   through unchanged to every emitted directive, with no per-file override.

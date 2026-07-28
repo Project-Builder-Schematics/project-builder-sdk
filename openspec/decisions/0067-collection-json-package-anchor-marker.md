@@ -1,5 +1,10 @@
 # ADR-0067: `collection.json` Package-Anchor Marker — Single Shared Ancestor
 
+> **Superseded by ADR-0077 (2026-07-28)**: the SDK no longer walks for a `collection.json`
+> ancestor at all (`resolvePackageRoot` is deleted, `packageDir` is the sole run anchor) —
+> `conformance/collection.json` is deleted (`conformance-corpus` REQ-CCR-08, retired). Kept
+> for history only — do not implement against this ADR.
+
 **Status**: Accepted · **Date**: 2026-07-19 · **Change**: conformance-corpus
 
 ## Context

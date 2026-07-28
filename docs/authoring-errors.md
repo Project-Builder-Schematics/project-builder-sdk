@@ -57,9 +57,14 @@ error if a value is missed:
 | `invalid-input` | The SDK rejected a call's arguments before any engine round-trip. |
 | `reserved-name` | The call used a name reserved by the SDK or engine. |
 | `source-not-found` | A package-local source (`scaffold`/`copyIn`/`create({ templateFile })`) does not exist. |
-| `source-outside-package` | A package-local source resolves outside the package boundary. |
 | `source-not-regular-file` | A package-local source is not a regular file. |
 | `source-unreadable` | A package-local source exists but could not be read. |
+
+`source-outside-package` was removed in `@pbuilder/sdk` `0.2.0` — the SDK no longer
+re-derives a containment ceiling for package-local sources (see [Authoring
+verbs](./authoring-verbs.md#package-local-reads-the-boundary) and
+[SECURITY.md](../SECURITY.md)). Migration: drop the `case "source-outside-package":`
+arm from any exhaustive `switch (err.reason)` — TypeScript will point at it.
 
 ## Catching and recovering
 
@@ -78,7 +83,6 @@ switch (err.reason) {
   case "invalid-input":
   case "reserved-name":
   case "source-not-found":
-  case "source-outside-package":
   case "source-not-regular-file":
   case "source-unreadable":
     console.error(err.message);

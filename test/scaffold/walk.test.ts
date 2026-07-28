@@ -1,7 +1,10 @@
 /**
  * REQ-FSC-09 (S-001, design §Test Derivation): `walk.ts`'s enumeration — symlinked
- * directories are never descended (even in-ceiling, REQ-FSC-09.1), and the walk fails
- * loud, naming the bound, once the enumerated entry count exceeds it (REQ-FSC-09.2).
+ * directories are never descended, regardless of where their target resolves
+ * (enumeration determinism and cycle-safety are the rationale — a symlinked directory
+ * could point anywhere, including into a cycle; never descending is the simplest
+ * invariant that is safe under all targets, REQ-FSC-09.1), and the walk fails loud,
+ * naming the bound, once the enumerated entry count exceeds it (REQ-FSC-09.2).
  * Unit level — `walkFolder` is called directly against a real scratch tree.
  */
 import { describe, it, expect, spyOn } from "bun:test";
@@ -27,7 +30,7 @@ describe("walkFolder — nested enumeration", () => {
   });
 });
 
-describe("REQ-FSC-09.1 — in-ceiling symlinked directory is skipped, not descended", () => {
+describe("REQ-FSC-09.1 — a symlinked directory is skipped, not descended (enumeration determinism/cycle-safety)", () => {
   it("a symlinked directory (target inside the walked tree) contributes zero entries and raises no error", () => {
     const dir = scratchDir();
     // The real target lives OUTSIDE `dir` — the ONLY path back to `hidden.ts` from the walk

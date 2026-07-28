@@ -6,6 +6,10 @@
 **Status**: CONFIRMED with one correction and one honest caveat. Zero code changes either side, unless
 you decide the caveat warrants one.
 
+**Historical as of 2026-07-28**: the `authoring-rejected` list below lost
+`source-outside-package` (`AuthoringReason` narrows from twelve members to eleven,
+ADR-0077); see [CHANGELOG 0.2.0](./CHANGELOG.md#020).
+
 ---
 
 ## The correction: your published table is missing a code
@@ -52,7 +56,7 @@ exhaustive switch with a `never` default arm (`src/core/authoring-error.ts:107-1
 new reason breaks our build rather than defaulting silently:
 
 - **`origin: "authoring-rejected"` → exit 1** — `outside-run`, `invalid-input`, `reserved-name`,
-  `source-not-found`, `source-outside-package`, `source-not-regular-file`, `source-unreadable`.
+  `source-not-found`, `source-not-regular-file`, `source-unreadable`.
   Every one is an SDK-side misuse detection from our own pre-emit read/stat. **Never an engine
   round-trip refusal** — these never reach you.
 - **`origin: "write-rejected"` → exit 2** — `path-collision`, `path-not-found`,

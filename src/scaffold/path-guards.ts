@@ -7,7 +7,8 @@
 //  1. `validateSourceLexical` — segment-aware `../`/absolute screen for a SOURCE path
 //     (`ir-path-well-formedness` REQ-IPF-01). Zero fs calls. Called at EXACTLY three sites.
 //  2. `statSourceForRead` — IO hygiene, TOTAL guard (`package-source-io-hygiene`
-//     REQ-PSH-01/02/03). LEXICAL resolution only — no realpath, no ceiling.
+//     REQ-PSH-01/02/03). LEXICAL resolution only — no disk-canonicalization pass, no
+//     ceiling.
 //  3. `validateDestinationLexical` — lexical-only guard for a `to` destination
 //     (`ir-path-well-formedness` REQ-IPF-02). Reuses the EXISTING `invalid-input` reason.
 
@@ -93,7 +94,7 @@ function sourceRejection(
 
 /**
  * IO hygiene, TOTAL guard (`package-source-io-hygiene` REQ-PSH-01/02/03). `absPath =
- * resolve(join(packageDir, relPath))` — LEXICAL, no realpath. `statSync` (follows
+ * resolve(join(packageDir, relPath))` — LEXICAL, never disk-canonicalized. `statSync` (follows
  * symlinks) → allow-list `isFile()`. The returned `stat` is reused by
  * `classify-transport.ts` for the CCL-06 size gate. The `try` wraps BOTH the path
  * computation AND the `statSync` call — no raw Node error ever escapes.
@@ -148,7 +149,7 @@ function destinationEscapeMessage(relPath: string): string {
 
 /**
  * Validates a FINAL, SDK-computed DESTINATION path (`scaffold`'s computed `to`, or
- * `copyIn`'s `to`) — LEXICAL ONLY, no realpath (the destination may not exist yet,
+ * `copyIn`'s `to`) — LEXICAL ONLY, never disk-canonicalized (the destination may not exist yet,
  * `ir-path-well-formedness` REQ-IPF-02). Applied post-rename, post-token-translation,
  * immediately pre-emit. Rejects with the EXISTING `invalid-input` reason (scaffold-family
  * author misuse) — never a `source-*` reason, which is reserved for source READS.

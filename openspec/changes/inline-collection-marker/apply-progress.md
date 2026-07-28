@@ -3,7 +3,8 @@
 **Scope so far**: `slice:S-000` (walking skeleton, run 1), `slice:S-001` (path-guards TOTAL
 hardening, run 2), `slice:S-002` (public contract narrows — `AuthoringReason` 12 → 11, run 3),
 `slice:S-003` (full suite realigned — no stale ceiling/marker assertion survives, run 4),
-`slice:S-004` (scenario-matrix corpus renumbered and regenerated, run 5)
+`slice:S-004` (scenario-matrix corpus renumbered and regenerated, run 5), `slice:S-005`
+(regrowth/reachability guards, ADR-0077, and the cross-repo handoff, run 6)
 **Mode**: Strict TDD — double-loop where practical (S-000.2/.3 RED → S-000.4/.5/.6 GREEN
 drives the fix); S-000.6's `walk.ts` recursive-read guard was implemented before its
 `walk.test.ts` pins landed (a process deviation, documented below) — all four resulting
@@ -27,6 +28,7 @@ implementation already existed (same disclosed discipline as S-001's Deviation #
 | S-002 | edge-case | complete | 7/7 |
 | S-003 | edge-case | complete | 8/8 |
 | S-004 | edge-case | complete | 7/7 |
+| S-005 | edge-case | complete | 10/10 |
 
 ## Files Changed
 
@@ -83,6 +85,29 @@ implementation already existed (same disclosed discipline as S-001's Deviation #
 | `test/e2e/author-emulation/corpus/coverage-manifest.md` | Modified | S-004.6 | Full renumber per (a)-(d): EXERCISED ledger re-keyed (M-16 → `REQ-IPF-01.1`/`.2`; M-17 keeps `REQ-BRC-06.1` AND gains `REQ-PSH-02.1`, both keyed to M-17 per B8; M-18/M-19/M-20 plain re-keys); NOT-EXERCISED ledger drops the `REQ-PRC-06` bullet entirely (no successor, per the `scenario-matrix` REQ-SCM-02 delta — not a move); Build-status paragraph's prose row-lists and row count (21→20) corrected; the retired `"no collection.json found at or above"` literal removed from the FRICTION section (B1); the `invalidInput()`-producer FRICTION note extended to name M-16 (its citation move onto the shared lexical screen makes it a `null`/`null` producer too, confirmed via the regenerated corpus). |
 | `test/e2e/author-emulation-scaffold.e2e.test.ts` | Modified | S-004 (residual fix) | The two describe blocks the baseline flagged as S-004-owned: M-16's reason flipped `source-outside-package`→`invalid-input` (path corrected to `null` — `invalidInput()` never attributes a path, confirmed against the regenerated corpus, not the literal traversal path as first drafted) and its stale compile-shim comment/cast removed; the OLD M-17 describe block (containment's "no-existence-oracle", `runM17Existing` companion) deleted outright — no successor per spec; the old standalone M-18 test became the new M-17 test (`source-not-found`/`"missing.txt"`, PSH-02.1+BRC-06.1 citation); the old M-21 test became the new M-20 test (id only, assertions unchanged). Removed the now-unused `runM17Existing` import. |
 | `test/fixtures/author-emulation/factory.ts` | Modified (Boy Scout, beyond design's §6 file list — see Deviations) | S-004 (orphan cleanup) | Deleted `runM17NonExisting`/`runM17Existing`/`m17SiblingPath` — the retired "no-existence-oracle" concept's entire implementation, orphaned by the scenarios.ts/e2e-test deletions above (verified zero remaining consumers repo-wide); dropped the now-unused `dirname` import; reworded the `scratchFactoryRunner` `teardown`-param JSDoc's now-deleted example and the S-004 section-header comment's row list (dropped "M-17"); one stale "in-ceiling" phrase corrected in `runM18`'s inline comment. |
+
+| `test/support/src-invariant-scans.ts` | Created | S-005.1 | Pure scanners over an injectable `ScanFile[]` list, shared by fit-43/44/45: `extractFunctions` (Prettier-formatted-TS heuristic — body-open-brace-then-newline), `findLiteralOccurrences`, `findAncestorWalkIdiom` (loop-body + `dirname(` detection, symbol-scoped allowlist), `findRealpathReferences` (substring `"realpath"` covers both `realpath`/`realpathSync`, symbol-scoped allowlist), `findMarkerFabricationWrites` (mirrors fit-27's call-arg-scoped write detector), `findOrphanedRetiredCitations` (per-line version-history-marker credit for the archive-sync sweep's LOGIC), `parseCodeToReasonValues`/`scanMintedReasons` (CODE_TO_REASON parse + `reason:`/mint-helper-call patterns — naturally blind to the union declaration's `\| "value"` and `originFor`'s `case "value":` syntax), `findLexicalEscapePredicates`, `findCallSites`. |
+| `test/fixtures/red/src-invariant-scans/*.ts`, `openspec-sweep/*.md` | Created | S-005.1 | 7 fixtures: `collection-json-literal.ts`, `ancestor-walk.ts`, `ancestor-walk-allowlist-shadow.ts` (mirrors `single-instance-probe.ts`'s shape + a second offender), `realpath-reference.ts`, `marker-fabrication.ts`, `second-lexical-predicate.ts`, `reason-unreachable.ts` (mirrors `authoring-error.ts`'s union/`originFor`/`CODE_TO_REASON` shape with one reason deliberately unreachable), `openspec-sweep/{live-hit,allowlist-only}.md` (REQ-FTG-06.4 pair). |
+| `test/fitness/fit-43-no-ceiling-regrowth.test.ts` | Created | S-005.2 | FIT-NEW-A: clauses (a)-(d)/(f) run LIVE against the real `src/**`/`test/**` trees (each with a red-proof against the fixtures above); clause (e) is FIXTURE-PAIR ONLY (REQ-FTG-06.4) — the real `openspec/specs/` tree sweep is never invoked here (archive-sync, `sdd-archive`'s job). Clause (c) reads the kit-internal `core.context.d.ts` baseline directly and asserts field-list EQUALITY (`["packageDir: string"]`), never containment. |
+| `src/core/context.ts` | Modified | S-005.2 (fit-43 clause (a) prerequisite) | Rewrote the `packageAnchors` JSDoc comment to drop the literal substring `"collection.json"` (`"the ancestor-marker walk"` replaces it) — the comment legitimately explained the retired concept, but fit-43 clause (a) scans `src/**` for that EXACT literal with no self-referential-comment carve-out; the comment's MEANING is unchanged. |
+| `src/scaffold/path-guards.ts` | Modified | S-005.2 (fit-43 clause (f) prerequisite) | Rewrote three comments (`:10`, `:96`, `:151`) replacing the literal substring `"realpath"`/`"no realpath"` with `"disk-canonicalization pass"`/`"never disk-canonicalized"` — same reason as the `context.ts` fix above: the comments correctly explain there is NO realpath call left, but clause (f)'s scan bans the literal string itself, comment or code, with no exception for a comment asserting its absence. Meaning unchanged; zero logic touched. |
+| `test/fitness/fit-44-authoring-reason-reachability.test.ts` | Created | S-005.3 | FIT-NEW-B: asserts all 11 surviving `AuthoringReason` members are reachable via `CODE_TO_REASON` or a direct construction site (`reason: "value"` property, or a literal first-arg to `sourceRejection`/`rejection`); asserts `source-outside-package` is NOT reachable; REQ-FTG-07.2's own concrete `CODE_TO_REASON`-has-zero-`source-*`-values assertion. Red-proof against `reason-unreachable.ts` proves the union-declaration/`originFor`-switch exclusion holds by construction (neither excluded shape matches the credit patterns). |
+| `test/fitness/fit-45-single-lexical-predicate.test.ts` | Created | S-005.4 | FIT-NEW-C: clause (a) asserts exactly one `(file, function)` pair matches the segment-split+`..`-membership+absolute-test shape (`path-guards.ts#isLexicallyEscaping`), red-proofed against a fixture carrying a SECOND parallel implementation; clause (b) asserts exactly 3 call sites of `validateSourceLexical` (`index.ts#readTemplateFile`, `expander.ts#runScaffold`, `index.ts#runCopyIn`), red-proofed against a synthetic 4-call-site fixture. |
+| `openspec/decisions/0077-relocate-containment-boundary-out-of-sdk.md` | Created | S-005.5 | Full ADR skeleton (§A Context – §J kit-internal-baseline decision), transcribed from design §5 with "realpath"/"case-fold" wording rewritten to "disk-canonicalization" per the same clause-(f)-safety discipline as the `context.ts`/`path-guards.ts` fixes above (this ADR's own text lives under `openspec/`, outside fit-43's `src/**` scan scope, but keeping the vocabulary consistent avoids a future false trip if the scan scope ever widens). Supersedes ADR-0046/0067, amends ADR-0045. |
+| `openspec/decisions/0045-package-read-containment-boundary.md` | Modified | S-005.5 | Appended a dated `## Amended by ADR-0077 (2026-07-28)` section: the `source-*` origin/attribution rules survive; only the containment half of the division of labor retires. |
+| `openspec/decisions/0046-runcontext-package-root-ceiling.md`, `openspec/decisions/0067-collection-json-package-anchor-marker.md` | Modified | S-005.5 | Each gained a dated `> **Superseded by ADR-0077 (2026-07-28)**: ...` blockquote immediately under the title — the qualifying condition `package-dir-run-anchor` REQ-MFB-02.3/S-006.3's sweep allowlist requires. |
+| `docs/authoring-verbs.md` | Modified | S-005.6 | New "## Package-local reads: the boundary" section carrying the QUALIFIED verbatim author rule pulled from the SIGNED `ir-path-well-formedness` spec V3.3 text (not design's older unqualified wording) + the "what the boundary is now" paragraph; rewrote the `templateFile`/`copyIn`/`scaffold` edge-semantics bullets to drop `source-outside-package` from their reason lists (now 3 reasons, not 4) and to state the symlink-residual fact positively instead of via a retired "package boundary" framing. |
+| `docs/authoring-errors.md` | Modified | S-005.6 | Dropped `source-outside-package` from the `reason` table and the exhaustive-switch code sample; added a migration note (worded "drop the case ... arm", not "delete" — `doc-set-content.test.ts`'s wire-internal-terms ban treats "delete" as a banned wire-op word in author-facing docs, caught by the full-suite run below and fixed). |
+| `docs/engine-sdk-wire-design.md` | Modified | S-005.6 | `:151` — dropped the false "containment-ceiling anchor (ADR-0046)" mention from `defineFactory`'s responsibilities list; the gate is now stated as exactly two reads in order (ADR-0077 §C). |
+| `conformance/README.md` | Modified | S-005.6 | Removed the `conformance/collection.json` marker-requirement checklist item; added a "No marker requirement (ADR-0077)" note explaining the file's deletion (S-006.2's job) and that no successor marker exists. |
+| `SECURITY.md` | Modified | S-005.6 | New "## Package-local read trust posture (v1)" section, the FIVE ruling-9 phrases each on its OWN unwrapped line (a real `rg`/`toContain` substring match requires this — a wrapped sentence's `\n` breaks a single-line greppable match, confirmed by the first test run below), cross-linking ADR-0077 and `docs/authoring-verbs.md`. |
+| `CHANGELOG.md` | Modified | S-005.7 | Renamed `## Unreleased` → `## 0.2.0`; added the three drafted entries (headline `Fixed`, breaking `Changed` union-narrowing + migration text, honest-timing `Changed`) ABOVE the pre-existing (unrelated, already-landed) `addImport` Unreleased content — both now ship under the SAME `0.2.0` heading since `package.json` is already bumped and no actual npm release has happened yet; rewrote the preamble to name the engine repo + conformance corpus as the real audience and drop the "nothing here requires one" claim. |
+| `CONFORMANCE-CORPUS-HANDOFF.md` | Modified | S-005.7 | Deleted the `:117-122` SDK-side marker note and its `:114` cross-reference from the `assets/` note (the `:107` corpus-root-ambiguity stray-file example, a separate concern, untouched); added "## Addendum 3 — package-local read containment removed (ADR-0077), NOTIFICATION only", mirroring Addendum 2's (`SDK-EXIT-CODE-CONFIRMATION.md`) format, including the verbatim Windows-forms warning with "realpath"/"case-fold" reworded to "disk-canonicalization"/"canonicalized" (same clause-(f)-adjacent vocabulary discipline). |
+| `SDK-EXIT-CODE-CONFIRMATION.md` | Modified | S-005.7 | `:55` reason list drops `source-outside-package`; added a dated "Historical as of 2026-07-28" note linking `CHANGELOG.md#020`. |
+| `openspec/pending-changes.md` | Modified | S-005.7 | Rows 268-270 (BRC-02, BRC-08, PRC-06) re-cited: BRC-02's `packageRoot`/`packageDir` anchor-distinction language marked stale (packageDir is now sole anchor); BRC-08's SDK-side-case-fold premise marked stale (no ceiling comparison exists to case-fold); PRC-06's citation re-pointed from the retired `package-root-containment` REQ-PRC-09 to `ir-path-well-formedness` REQ-IPF-02. Gating unchanged on all three rows. |
+| `test/docs/security-authoring-guard.test.ts` | Modified | S-005.8 | New `describe("REQ-PSH-05.1 ...")` block: the FIVE frozen posture phrases (copied verbatim from `SECURITY.md`), each asserted present + one mutation-check (remove phrase 4, confirm phrase 1 still survives — proving per-phrase not whole-file matching). |
+| `test/docs/changelog-release-vehicle-guard.test.ts` | Created | S-005.9 | Ties the whole release-vehicle bundle together: `## 0.2.0` heading present / `## Unreleased` absent; all three CHANGELOG entries present by distinguishing phrase; preamble audience phrase present / stale phrase absent; `package.json#version === "0.2.0"`; ADR-0046/0067 carry dated "Superseded by ADR-0077" headers, ADR-0045 carries a dated "Amended by ADR-0077" header; one red-proof (string-removal mutation-check) confirming a missing header fails the regex. |
+| `test/scaffold/walk.test.ts` | Modified | Carry-forward (verify-in-loop-4 WARNING #1) | Rewrote the header comment (`:1-4`) and the REQ-FSC-09.1 describe title (`:30`) from the retired "in-ceiling" containment framing to the enumeration-determinism/cycle-safety framing the signed MODIFIED `folder-scaffold` REQ-FSC-09 now uses. Text-only — zero assertion changes; confirmed via the file's own isolated re-run (11 pass / 0 fail, unchanged count) and the full-suite run below. |
 
 ## TDD Cycle Evidence — S-000
 
@@ -176,6 +201,26 @@ following the mechanical renumber-then-regen procedure. The one genuinely NEW ch
 | S-004 residual | `author-emulation-scaffold.e2e.test.ts::M-17 missing package-local source` | e2e | pre-edit (as the old M-18 test): already green at S-003 close (unaffected content); re-pointed to scenario id `"m-17"` | yes | unchanged assertion values (`source-not-found`/`null`/`"missing.txt"`) against the SAME underlying `runM18` factory — only the id changed | none needed |
 | S-004 residual | `author-emulation-scaffold.e2e.test.ts::M-20 cross-chunk atomicity` | e2e | pre-edit (as the old M-21 test): already green at S-003 close; re-pointed to scenario id `"m-20"` | yes | unchanged assertion values against the SAME underlying `runM21` factory | none needed |
 | S-004.4 | `fit-28-corpus-determinism.test.ts::FIT-28b — corpus directory matches scenarios.ts exactly` | architectural | new test; empirically verified discriminating by temporarily copying `m-01`'s transcript to a stray `m-99.stray-test.transcript.json` and re-running — failed with the exact expected violation message (`stray transcript file "m-99.stray-test.transcript.json"...`); stray file removed, re-confirmed green | yes | see above — a real injected stray was caught, not assumed | none needed |
+
+## TDD Cycle Evidence — S-005
+
+S-005 is architectural-guard + docs work: the three new fitness tests (fit-43/44/45) are
+genuinely NEW checks with no pre-existing production code to realign, so each is RED-first
+against its own fixture (the fixture IS the red-proof, not a temporarily-broken real file —
+mutating the REAL `src/**` tree to prove red would violate the "never a live mutation of
+src/**" rule every other fitness test in this family already follows). The docs/CHANGELOG/
+ADR guard tests (S-005.8/.9) are RED-first in the literal sense: written BEFORE the doc
+edits landed, confirmed failing against the pre-edit docs, then turned GREEN by the S-005.6/
+.7 doc edits.
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Non-vacuousness | Refactored |
+|---|---|---|---|---|---|---|
+| S-005.1/.2 | `fit-43-no-ceiling-regrowth.test.ts` — clause (a)/(b)/(d)/(f) red-proofs | architectural | each red-proof fixture, run BEFORE its scanner existed, has no meaning; the correct RED evidence is: first scanner-against-fixture run confirmed the offense IS detected (fixture never green-by-default) | yes | clause (b)'s allowlist red-proof additionally proves symbol-scoping (allowlisting `packageRootFor` in a fixture carrying a SECOND offender in the SAME file still flags the second); clause (f)'s red-proof was corrected mid-slice — an earlier draft reused the REAL `single-instance-probe.ts` file as the "allowlisted mirror," which failed because that file ALSO carries an unrelated top-level `realpathSync` import and comment OUTSIDE `packageRootFor`'s body; replaced with a FOCUSED synthetic mirror containing only the allowlisted function, isolating the property under test | clause (f) required TWO production-comment edits (`context.ts`, `path-guards.ts`) to make the REAL-tree assertion pass non-vacuously — see Deviations |
+| S-005.2 | `fit-43-no-ceiling-regrowth.test.ts` — clause (e) / REQ-FTG-06.4 | architectural | fixture A (`openspec-sweep/live-hit.md`) confirmed failing on first run against `findOrphanedRetiredCitations` — one early draft of fixture A also failed BECAUSE its own explanatory prose literally quoted `"(Previously: ...)"` as an example of what ISN'T present, which the line-based marker check credited as an allowlist hit; rewritten to keep the explanatory prose on a SEPARATE line from the offending citation | yes | fixture B confirmed passing (all three retired-term mentions carry a marker on their OWN line) | none needed |
+| S-005.3 | `fit-44-authoring-reason-reachability.test.ts::[red-proof] a reason present ONLY in the union declaration and originFor's switch is flagged unreachable` | architectural | `reason-unreachable.ts` mirrors `authoring-error.ts`'s exact three shapes (union, `originFor` switch, `CODE_TO_REASON`); confirmed `"unreachable-reason"` is NOT credited while the fixture's OTHER two reasons (present via `CODE_TO_REASON`/`rejection(...)` respectively) ARE credited — proving the exclusion is real, not "the scanner credits nothing in this file" | yes | n/a | none needed |
+| S-005.4 | `fit-45-single-lexical-predicate.test.ts` — both clauses | architectural | clause (a): `second-lexical-predicate.ts` confirmed both functions flagged; clause (b): synthetic 4-call-site fixture confirmed `length === 4`, never `3` | yes | n/a | none needed |
+| S-005.8 | `security-authoring-guard.test.ts::REQ-PSH-05.1` (5 phrase-presence tests) | docs | run BEFORE `SECURITY.md`'s new section existed — confirmed failing (`toContain` against the pre-edit file, missing section entirely); turned green by the S-005.6 edit. First attempt at the phrase constants used the SAME wrapped-paragraph prose the design draft showed — failed because `SECURITY.md`'s wrapped `\n` line breaks don't match a single-line `toContain` string; fixed by unwrapping each of the five sentences onto its OWN line in `SECURITY.md` (matching the file's own PRE-EXISTING convention for its other frozen guard sentences, e.g. `GENERAL_TRUST_SENTENCE`) | yes | mutation-check: removing phrase 4 via string-replace still leaves phrase 1 present — proves per-phrase matching, not a single whole-block match | none needed |
+| S-005.9 | `changelog-release-vehicle-guard.test.ts` (8 tests) | docs | run BEFORE the CHANGELOG/ADR edits landed — confirmed failing (no `## 0.2.0` heading, no ADR headers); the honest-timing entry's distinguishing phrase ALSO tripped the same wrap-vs-single-line issue as S-005.8 (fixed by joining that CHANGELOG paragraph onto one line) | yes | the ADR-header red-proof (string-removal mutation-check) confirms a missing header genuinely fails the date-regex, not merely "the string exists somewhere" | none needed |
 
 ## Deviations from Design
 
@@ -318,6 +363,36 @@ following the mechanical renumber-then-regen procedure. The one genuinely NEW ch
    scenario id is a separate, current-mapping concern from the factory function's own
    identity). `bunx tsc --noEmit` and the full suite confirmed clean before and after.
 
+10. **Two production-comment rewrites required for fit-43 to pass non-vacuously against the
+    REAL tree, beyond S-005's own file list — same "necessary consequence" discipline as
+    Deviations #2/#7**: fit-43 clause (a) bans the literal `"collection.json"` substring and
+    clause (f) bans the literal `"realpath"` substring across `src/**`(a)/`src/scaffold/**`+
+    `src/core/context.ts`(f) — INCLUDING comments, by design (REQ-FTG-06 says "code or
+    comment lines" for clause (f); clause (a) has no comment carve-out either). Two
+    PRE-EXISTING comments (both landed in earlier slices, S-000.4 and S-000.5 respectively)
+    legitimately EXPLAIN the retired concepts by name and tripped the literal scan the moment
+    it was written against the real tree:
+    - `src/core/context.ts:68` (S-000.4's `packageAnchors` JSDoc) said "the `collection.json`
+      ancestor walk" — reworded to "the ancestor-marker walk", meaning unchanged.
+    - `src/scaffold/path-guards.ts:10,96,151` (S-000.5's own module header/JSDoc) said "no
+      realpath" three times — reworded to "no disk-canonicalization pass"/"never
+      disk-canonicalized", meaning unchanged. `openspec/decisions/0077-...md`'s own §F/§H
+      text uses the SAME "disk-canonicalization" vocabulary rather than "realpath", for
+      consistency (the ADR lives under `openspec/`, outside clause (f)'s scan scope, so this
+      is a style choice, not a requirement).
+    Verified via `bunx tsc --noEmit` (clean before/after) and the full suite (byte-identical
+    pass count before/after these two comment-only edits, confirmed by running fit-43 alone
+    before and after).
+
+11. **`docs/authoring-errors.md`'s migration text used "delete" in its first draft, caught by
+    the FULL SUITE run (not by any S-005-scoped test)**: `doc-set-content.test.ts`'s
+    pre-existing `wire-internal-terms` ban treats the bare word `delete` (word-boundary) as a
+    banned wire-op term across the whole author-facing doc set — my first draft of the
+    `source-outside-package` removal note read "delete the `case ...` arm"; the full-suite
+    run (not fit-43/44/45, which never touch this file) caught it. Reworded to "drop the
+    `case ...` arm" — meaning unchanged, `CHANGELOG.md`'s equivalent sentence (not in the
+    banned-terms doc list) keeps "delete" since it is not author-facing product doc.
+
 ## Reorder-Safety Check (S-000.8, design §4 apply-time check)
 
 `rg`'d `test/**` and `test/e2e/author-emulation/scenarios.ts` for a `copyIn` case combining
@@ -429,3 +504,28 @@ existing test drives a both-escape `copyIn` case today. No re-pin needed.
   All 6 of S-003's disclosed residuals are closed; the 2 pre-existing
   `fit-42-runner-closure-integrity` `REQ-RCD-03.5` failures did not recur on either run
   (environment-dependent, unrelated to this change, per Deviation #4).
+
+### S-005 (run 6)
+
+- `bunx tsc --noEmit` — clean, zero errors (re-checked after every doc/comment edit and
+  after the final full-suite pass).
+- Targeted runs, each independently green before the final full-suite pass:
+  `test/fitness/fit-43-no-ceiling-regrowth.test.ts` + `fit-44-authoring-reason-reachability.
+  test.ts` + `fit-45-single-lexical-predicate.test.ts` (21 pass / 39 expect() calls, all
+  three files together); `test/docs/security-authoring-guard.test.ts` (23 pass, incl. the
+  new REQ-PSH-05.1 block); `test/docs/changelog-release-vehicle-guard.test.ts` (8 pass, new
+  file); `test/scaffold/walk.test.ts` (11 pass, unchanged count after the carry-forward
+  comment rewrite).
+- `bun test` (full suite, run twice, uncontended, immediately back-to-back in one shell
+  invocation):
+  - Run 1: 2398 pass / 0 fail across 201 files (2398 tests) — +35 vs. the S-004 baseline
+    (21 fit-43/44/45 + 8 `changelog-release-vehicle-guard.test.ts` + 6 REQ-PSH-05.1 tests
+    [5 presence + 1 mutation-check] = 35 exactly; the `walk.test.ts` carry-forward rewrite
+    is text-only, zero net test-count change).
+  - Run 2: 2398 pass / 0 fail — byte-identical test count and result, zero flakes observed.
+  Zero regressions from S-005's diff; the whole suite is green with no residuals carried
+  forward (S-004 closed the last of S-003's 6; S-005 introduces none).
+- The two mid-slice fixes disclosed in Deviations #10/#11 (the `context.ts`/`path-guards.ts`
+  comment rewrites and the `docs/authoring-errors.md` "delete"→"drop" wording fix) were each
+  caught by an ACTUAL red run (fit-43 clause (a)/(f) failing against the real tree; the full
+  suite's pre-existing `doc-set-content.test.ts` failing) — not asserted from memory.

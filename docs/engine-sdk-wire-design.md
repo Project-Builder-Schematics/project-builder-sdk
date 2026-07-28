@@ -148,8 +148,8 @@ The bridge between author logic and the wire — invoked by the runner (never by
 receives the transport, never chooses it:
 
 1. **Run-boundary gate** (when `packageDir` given): resolve dir, reserved-name check,
-   schema validation of input, containment-ceiling anchor (ADR-0046). All before `fn` runs;
-   fails closed.
+   schema validation of input — exactly two reads, in that order (ADR-0077 §C; `packageDir`
+   is the sole run anchor, no ancestor-marker walk). All before `fn` runs; fails closed.
 2. **Run-context construction**: `Session(client)`, `DirectiveFactory`, dialect registry.
 3. **Ambient context**: `als.run` scoping so author verbs resolve the session implicitly.
 4. **Run-end pipeline**: `dialects.drain()` → `session.flush()` (buffered directives emit as

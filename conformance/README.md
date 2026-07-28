@@ -52,11 +52,13 @@ declaration is internally consistent and well-formed — it never proves engine 
 4. Every case needs a full `outcome` object and a full `transcript` object (REQ-CFX-04/13).
 5. List `<id>` in `corpus.json#fixtures` **in the same commit** as its full artefact set
    (REQ-CCR-04 commit atomicity) — an id landed ahead of its artefacts is a hard failure.
-6. `conformance/collection.json` must exist at the corpus root — it is the shared
-   package-anchor marker every fixture's runner invocation resolves against (REQ-CCR-08);
-   without it, every fixture fails at exit 1 before its factory runs.
-7. Run `bun test test/fitness/fit-40-conformance-corpus-integrity.test.ts` — it must be
+6. Run `bun test test/fitness/fit-40-conformance-corpus-integrity.test.ts` — it must be
    green before the commit lands.
+
+**No marker requirement (ADR-0077)**: `conformance/collection.json` was a shared
+package-anchor marker every fixture's runner invocation resolved against (REQ-CCR-08); the
+SDK no longer walks for one at all (`packageDir` is the sole run anchor) — the file is
+deleted and no successor marker exists.
 
 ## Expected stderr note
 

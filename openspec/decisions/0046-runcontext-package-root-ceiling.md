@@ -1,5 +1,10 @@
 # ADR-0046: `RunContext.packageRoot` — eager ceiling seeding at the run boundary
 
+> **Superseded by ADR-0077 (2026-07-28)**: `packageDir` is now the SOLE run anchor;
+> `packageRoot` and the `collection.json` ancestor walk this ADR specified are DELETED.
+> `RunContext.packageAnchors` collapses to `{ packageDir: string }`. Kept for history only
+> — do not implement against this ADR.
+
 - Status: Accepted (2026-07-13, promoted at schematic-local-files archive)
 - Date: 2026-07-12
 - Deciders: Daniel (Hyperxq)

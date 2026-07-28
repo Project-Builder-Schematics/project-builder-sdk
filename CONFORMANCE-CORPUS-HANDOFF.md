@@ -110,16 +110,8 @@ are inert. The same inertness holds one level down, INSIDE a registered fixture'
 that its factory's `copyIn(from, …)` call reads by path, resolved against the fixture's own
 `packageDir` — a NEW fixture-subdir kind alongside `seed/`/`expected/`/`schematic/`. The Go loader
 treats unknown files/dirs inside a fixture directory as inert too (owner-confirmed fact 3(c)), so
-`assets/` needs ZERO schema changes and is safe for the loader to encounter — same posture as the
-`collection.json` marker note below. Flagged here explicitly for engine-team awareness. (Origin:
-design ADR-0073.)
-
-**Also flagged, SDK-side only (engine-loader-invisible)**: the corpus ships a presence-only
-`conformance/collection.json` marker at its root. The SDK runner's `defineFactory({packageDir})`
-package-anchor resolution (`resolvePackageRoot`, ADR-0046) walks upward for a `collection.json`
-ancestor and exits 1 before any factory runs if none exists; the marker satisfies it. The Go
-loader neither reads nor parses this file — it changes nothing engine-side, noted for awareness
-only. (Origin: design ADR-0067 / REQ-CCR-08.)
+`assets/` needs ZERO schema changes and is safe for the loader to encounter. Flagged here
+explicitly for engine-team awareness. (Origin: design ADR-0073.)
 
 ---
 
@@ -191,3 +183,34 @@ only. (Origin: design ADR-0067 / REQ-CCR-08.)
    bun run build` must stay green — the engine's CI builds the runner from this tree.
 3. Land on SDK `main` (normal PR flow). Then tell the engine side: it advances the submodule pin
    (gitlink) to the new SHA and the conformance suite starts exercising the fixtures live.
+
+---
+
+## Addendum 3 — package-local read containment removed (ADR-0077), NOTIFICATION only
+
+**From**: `project-builder-sdk` (2026-07-28). **To**: the engine.
+**Re**: `AuthoringReason`/`source-*` reason family, package-local read resolution.
+**Status**: NOTIFICATION, non-blocking (owner ruling 10) — the corpus is consumed via a
+pinned git submodule; the existing pin stays valid until the engine side chooses to bump
+it. No lockstep coordination gate.
+
+The SDK stops deriving and enforcing a package-local containment ceiling
+(`package-root-containment`, retired — see
+[ADR-0077](./openspec/decisions/0077-relocate-containment-boundary-out-of-sdk.md)).
+`AuthoringReason` narrows from twelve members to eleven: `source-outside-package` is
+removed. Every corpus fixture already declares its outcomes without depending on that
+reason (verified: `rg -n "source-outside-package" conformance/` returns zero hits), so no
+fixture artefact changes as a result of this addendum.
+
+> The SDK no longer disk-canonicalizes or case-folds package-local sources at all — if your
+> ceiling re-derivation assumes a case-folded or canonicalized SDK-side value to compare
+> against, that assumption no longer holds; and if your re-derivation is itself lexical
+> rather than canonicalization-based, in-package symlinks now reach you completely
+> unfiltered.
+> **Windows forms**: root-relative (`\foo`), UNC (`\\server\share`) and drive-relative
+> (`C:foo`) source paths are **not** screened SDK-side — the ruling-5 predicate covers a
+> leading `/` and a `C:\`/`C:/` drive-letter form only — and reach you unfiltered.
+> `by-reference-copy-wire` REQ-BRC-08's canonical-form hardening must handle them.
+
+No engine-side action is required by this addendum; it is a heads-up ahead of the next
+submodule pin bump.

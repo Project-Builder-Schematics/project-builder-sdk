@@ -161,6 +161,44 @@ describe("REQ-TSD-06.2 — publish workflow retains --provenance", () => {
   });
 });
 
+// REQ-PSH-05.1 (`package-source-io-hygiene` spec V3.3, ADR-0077 §B): the FIVE frozen trust
+// posture phrases — copied VERBATIM from `SECURITY.md`'s own "Package-local read trust
+// posture (v1)" section. MUST match S-005.9's CHANGELOG/release-vehicle guard's own
+// citation of these same phrases exactly — same wording, never a paraphrase, or one guard
+// silently drifts from the other.
+const PSH_05_POSTURE_PHRASE_1 = "The SDK provides no containment guarantee for package-local reads.";
+const PSH_05_POSTURE_PHRASE_2 =
+  "Path-carrying directives are re-checked by the engine at apply time (`by-reference-copy-wire` REQ-BRC-02, verified live).";
+const PSH_05_POSTURE_PHRASE_3 =
+  "By-value and inline content crossing the wire have no boundary control on either side — this is the v1 trusted-author model.";
+const PSH_05_POSTURE_PHRASE_4 =
+  "Symlink escape from `packageDir` is an accepted, documented residual (`package-source-io-hygiene` REQ-PSH-04).";
+const PSH_05_POSTURE_PHRASE_5 =
+  "Windows UNC and drive-relative source forms are not screened SDK-side — that is the engine's obligation (`by-reference-copy-wire` REQ-BRC-08).";
+
+export const PSH_05_POSTURE_PHRASES = [
+  PSH_05_POSTURE_PHRASE_1,
+  PSH_05_POSTURE_PHRASE_2,
+  PSH_05_POSTURE_PHRASE_3,
+  PSH_05_POSTURE_PHRASE_4,
+  PSH_05_POSTURE_PHRASE_5,
+] as const;
+
+describe("REQ-PSH-05.1 — SECURITY.md carries all five package-local read trust-posture phrases", () => {
+  for (const [i, phrase] of PSH_05_POSTURE_PHRASES.entries()) {
+    it(`posture point ${i + 1} is present, distinguishable, and greppable`, () => {
+      expect(security()).toContain(phrase);
+    });
+  }
+
+  it("removing any one phrase would fail this check (each is a distinct, distinguishable sentence)", () => {
+    const content = security();
+    const withoutPhrase4 = content.replace(PSH_05_POSTURE_PHRASE_4, "");
+    expect(withoutPhrase4).not.toContain(PSH_05_POSTURE_PHRASE_4);
+    expect(withoutPhrase4).toContain(PSH_05_POSTURE_PHRASE_1); // the other four survive
+  });
+});
+
 describe("S-002 registry deliverable — sensitive-areas.md promotion (constraint 9)", () => {
   it('the "security (code execution)" row reads `high`, not `medium`', () => {
     const row = sensitiveAreas()

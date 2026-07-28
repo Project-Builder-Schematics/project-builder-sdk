@@ -37,6 +37,26 @@ The `.modify(ast => …)` escape hatch executes dialect and schematic code with 
 
 Passing the conformance kit (`@pbuilder/sdk/conformance`) is not a security attestation: it proves a dialect keeps the seam serializable and its ops faithful, not that the dialect's `.modify()` code is safe to execute.
 
+## Package-local read trust posture (v1)
+
+`create({ templateFile })`, `copyIn`, and `scaffold` each read a source that lives on the
+factory package's own disk. The full trust posture (ADR-0077, `package-source-io-hygiene`
+REQ-PSH-05), stated plainly rather than summarized:
+
+The SDK provides no containment guarantee for package-local reads.
+
+Path-carrying directives are re-checked by the engine at apply time (`by-reference-copy-wire` REQ-BRC-02, verified live).
+
+By-value and inline content crossing the wire have no boundary control on either side — this is the v1 trusted-author model.
+
+Symlink escape from `packageDir` is an accepted, documented residual (`package-source-io-hygiene` REQ-PSH-04).
+
+Windows UNC and drive-relative source forms are not screened SDK-side — that is the engine's obligation (`by-reference-copy-wire` REQ-BRC-08).
+
+See [ADR-0077](./openspec/decisions/0077-relocate-containment-boundary-out-of-sdk.md) and
+[Authoring verbs](./docs/authoring-verbs.md#package-local-reads-the-boundary) for the full
+context and the per-path-class boundary table.
+
 ## Runner integrity manifest
 
 Published releases carry `dist/runner-manifest.json`, which lets the engine check that the runner's pre-factory bootstrap — 23 files plus `package.json` — is the code we published. It is not a sandbox, not a signature, and not a check on the dialect, op-pack, or `node_modules` code that loads afterwards; those remain governed by the trust model above. See [docs/runner-integrity-invariants.md](./docs/runner-integrity-invariants.md).
