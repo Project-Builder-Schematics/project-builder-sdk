@@ -1,0 +1,27 @@
+{
+  "change": "positive-create-conformance",
+  "triage": "M",
+  "phase": "apply",
+  "spec_status": "signed",
+  "slices": true,
+  "plan_verify": null,
+  "verify_final": null,
+  "arch_audit": null,
+  "outcome": null,
+  "viz_url": null,
+  "updated_at": "2026-07-28T10:40:00Z",
+  "completed_phases": ["triage", "explore", "propose+spec(merged)", "design", "slice"],
+  "architecture_impact": "additive",
+  "slice_status": {
+    "S-000": "done (3cda457, fit-40 60/60, tsc clean)",
+    "S-001": "in-progress",
+    "S-002": "in-progress"
+  },
+  "in_loop_iteration": 0,
+  "execution_mode": "automatic",
+  "product_rulings": {
+    "pending-row-500": "deferred — change stays scoped to the 3 handoff deliverables; design must not regress the open row"
+  },
+  "notes": "ADR renumbered 0077→0078 (inline-collection-marker claims 0077). BASE IS RED: origin/main tip d0c58d1 = paused inline-collection-marker build, 10 pre-existing test failures (+1 error) fixed only by unpushed local commit a51dd2f. S-002 bar redefined: zero NEW failures vs d0c58d1 baseline; true full-green deferred to landing gate after inline-collection-marker merges.",
+  "next": "apply S-001+S-002 → verify in-loop (delta vs red baseline) → /evaluate"
+}
