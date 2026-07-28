@@ -790,3 +790,19 @@ Source: change `ts-addimport-collision` (2026-07-21)
 **Learned**: When a slices artefact names a handover point mid-plan, that point is a **shipping boundary**, not a note. Cut the PR there and let the remainder continue on its own branch. A downstream repo blocked on the first half of a change is the loudest possible signal that the unit of delivery was chosen wrong.
 
 Source: change `runner-integrity-manifest` (2026-07-25)
+
+## From `positive-create-conformance` (2026-07-29)
+
+### Zero-new-failures against a red base is a workable mid-flight bar — landing green is a separate gate
+**What**: The change had to build while origin/main itself was red (the paused `inline-collection-marker` build shipped 10 pre-existing failures to main; the realigning commit sat unpushed on the owner's local main). The full-suite bar was redefined mid-flight to "failing-set byte-identical to the base's" (proven twice: capture set before, prove identical after), and true full-green was deferred to an explicit landing gate (rebase after the sibling change merged → 2401/0).
+**Why**: Blocking on someone else's paused build wastes the pipeline; silently accepting red risks smuggling new failures inside the noise. The byte-identical set proof separates the two cleanly.
+**Where**: `/build` orchestration; verify prompts carried the exact 10-test baseline set verbatim.
+**Learned**: When the base is red from a sibling in-flight change, pin the exact failing set as the bar, prove set-identity (names, not counts) at every gate, and register landing-green as its own explicit gate — never merge or hand a pin SHA downstream while the deferred gate is open.
+
+### The archive agent is the single most error-prone phase for an externally-consumed tree — audit it against the shipped corpus, not its envelope
+**What**: The haiku archive agent's spec sync wrote a case name that does not exist (`positive-create-composite` ×7 vs the shipped `create-composite`), told the engine to pin the wrong SHA in 3 of 4 places, and skipped every mandated engram write — the fourth consecutive archive-agent integrity failure in this repo, and the first where the defect would have shipped a live spec contradicting its own corpus to an external consumer whose pin-advance predicate reads that exact file.
+**Why**: Archive is the phase where deltas become the canonical record; a wrong name in a synced spec is not cosmetic when a second repo's merge gate parses the tree for consistency.
+**Where**: `openspec/specs/conformance-fixtures/spec.md` (repaired), `archive-report.md` (repaired), engram writes (re-done by orchestrator).
+**Learned**: After ANY archive envelope: cross-grep every identifier the synced spec introduces against the shipped fixtures/manifests it describes; verify every claimed engram obs id actually resolves; and treat pin/SHA instructions to external consumers as safety-critical text to re-read literally. The envelope is a claim, the tree is the truth.
+
+Source: change `positive-create-conformance` (2026-07-29)

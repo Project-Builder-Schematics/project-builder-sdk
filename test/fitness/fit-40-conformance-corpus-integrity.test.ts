@@ -598,8 +598,6 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(composite).not.toBeUndefined();
       const c = composite as Case;
       expect(c.factory).toEqual({ module: "factory.ts", export: "createComposite" });
-      expect(c.factory?.export).not.toBeNull();
-      expect(c.factory?.export).not.toBe("createRejectProbe");
       expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["create-composite.txt"] });
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
       expect(c.expected).toBe("expected-composite");
