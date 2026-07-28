@@ -1,6 +1,6 @@
 # ADR-0078: `wire-create-reject-twin` Gains Explicit `force: true` To Stay Valid Under `sdk-wire-create`
 
-**Status**: Proposed (becomes Accepted when the change is signed by the team) · **Date**: 2026-07-28 · **Change**: positive-create-conformance
+**Status**: Accepted · **Date**: 2026-07-28 · **Change**: positive-create-conformance · **Archived**: 2026-07-29
 
 ## Context
 
