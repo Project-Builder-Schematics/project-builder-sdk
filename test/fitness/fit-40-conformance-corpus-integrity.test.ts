@@ -223,9 +223,11 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
   });
 
   describe("REQ-CFX-02 / REQ-CFX-03 — representable-ops-only, single quarantined create (two-checkpoint cadence)", () => {
-    // REQ-CFX-02.1's literal "exactly one" is scoped over "all 12 cases" (post-PR#2); the
-    // corpus-wide invariant that stays green at BOTH checkpoints is "at most one, and if
-    // present it is m2-create-composition/wire-create-reject-twin's createRejectProbe".
+    // The corpus-wide invariant that stays green at BOTH checkpoints (PR#1 and post-PR#2) is
+    // no longer a cardinality ceiling: any number of create()-authoring cases MAY exist, but
+    // ALL of them must be quarantined inside m2-create-composition/factory.ts's named-export
+    // blocks (createRejectProbe's reject probe, createComposite's positive case, and any
+    // future addition) — never anywhere else in the corpus.
     it("REQ-CFX-02: create() appears in exactly the corpus's sole sanctioned factory file", () => {
       // Structural invariant, not a case-scoped scan: collects the SET of factory files
       // (corpus-wide, across every fixture AND every case-level factory override) whose
@@ -274,6 +276,14 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(checkCreateQuarantine(fixtures)).toEqual([]);
     });
 
+    it("REQ-CFX-02.2: README's create-cardinality sentence describes the quarantine invariant, not a stale corpus-wide cardinality ceiling", () => {
+      const readmePath = join(CORPUS_ROOT, "README.md");
+      const text = readFileSync(readmePath, "utf8");
+      expect(/exactly once|exactly one/i.test(text)).toBe(false);
+      expect(/quarantine/i.test(text)).toBe(true);
+      expect(/sanctioned/i.test(text)).toBe(true);
+    });
+
     it("REQ-CFX-03.1: the reject-probe's create call is preceded by a DO-NOT-COPY 5-clause comment", () => {
       const probeFixture = fixtures.find((f) => f.id === "m2-create-composition");
       if (probeFixture === undefined) return; // not landed yet (PR#2) — vacuous
@@ -291,7 +301,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       for (const m of normalized.matchAll(markerRe)) markers.push({ letter: m[0], index: m.index });
 
       const CLAUSE_KEYWORDS: Record<string, RegExp> = {
-        "(a)": /one-create-corpus-wide/,
+        "(a)": /sanctioned-file quarantine invariant/,
         "(b)": /REJECT PROBE/,
         "(c)": /do NOT imitate/i,
         "(d)": /unrepresentable/,
@@ -579,6 +589,34 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.discard"], singleCommit: true, forbidDiscard: false, emitBeforeCommit: true });
       expect(c.expected).toBe("zero-effect");
       expect(c.factory).toEqual({ module: "factory.ts", export: "createRejectProbe" });
+    });
+
+    it("REQ-CFX-09.4/REQ-CFX-12.3/REQ-CFX-13.6: create-composite authors a quarantined create with composite options, exit 0, byte-exact output, a genuinely new writtenPaths entry, single-emit-single-commit", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const composite = f.manifest.cases.find((c) => c.name === "create-composite");
+      expect(composite).not.toBeUndefined();
+      const c = composite as Case;
+      expect(c.factory).toEqual({ module: "factory.ts", export: "createComposite" });
+      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["create-composite.txt"] });
+      expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
+      expect(c.expected).toBe("expected-composite");
+      expect(readFileSync(join(f.dir, "expected-composite", "create-composite.txt"), "utf8")).toBe("composite: [x][y]");
+    });
+
+    it("REQ-CFX-09.5: wire-create-reject-twin's factory call carries force: true, staying a valid rejection under the engine's new create semantics (ADR-0078)", () => {
+      expect(fixture).not.toBeUndefined();
+      const f = fixture as LoadedFixture;
+      const twin = f.manifest.cases.find((c) => c.name === "wire-create-reject-twin");
+      expect(twin).not.toBeUndefined();
+      const c = twin as Case;
+      expect(c.factory).toEqual({ module: "factory.ts", export: "createRejectProbe" });
+      const factoryPath = join(f.dir, (c.factory as { module: string }).module);
+      const source = stripComments(readFileSync(factoryPath, "utf8"));
+      const probeBlockStart = source.indexOf("function createRejectProbe");
+      expect(probeBlockStart).toBeGreaterThan(-1);
+      const probeBlock = source.slice(probeBlockStart);
+      expect(/force\s*:\s*true/.test(probeBlock)).toBe(true);
     });
   });
 

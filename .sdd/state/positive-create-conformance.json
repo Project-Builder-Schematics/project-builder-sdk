@@ -1,0 +1,18 @@
+{
+  "change": "positive-create-conformance",
+  "triage": "M",
+  "phase": "archived",
+  "spec_status": "signed",
+  "slices": true,
+  "plan_verify": null,
+  "verify_final": "pass-with-followups",
+  "arch_audit": null,
+  "outcome": "delivered-pending-activation",
+  "viz_url": null,
+  "updated_at": "2026-07-29T10:30:00Z",
+  "completed_phases": ["triage", "explore", "propose+spec(merged)", "design", "slice", "apply", "verify-in-loop-1", "simplify", "verify-final", "steward-reckoning", "archive"],
+  "architecture_impact": "additive",
+  "execution_mode": "automatic",
+  "notes": "Archived to openspec/changes/archive/2026-07-29-positive-create-conformance. Haiku archive repaired by orchestrator (case-name defect in synced spec, pin-SHA wording, skipped engram writes — lessons 17-18). Engine pins the archive PR's landing commit on main; outcome flips to delivered when engine un-skips its two gated tests green (outcome-check pending row).",
+  "next": "push + archive PR; engine pin-advance out-of-band"
+}
