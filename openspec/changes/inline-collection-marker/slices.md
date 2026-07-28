@@ -39,13 +39,13 @@
 **Acceptance**: GIVEN each source-form variant (FIFO, dir, missing, EACCES, NUL, broken symlink, ELOOP, in/out-of-package symlink) driven once per verb WHEN read THEN it maps to its pinned reason, no-echo, and zero raw Node errors escape.
 
 ### Tasks
-- [ ] S-001.1 `statSourceForRead` TOTAL guard: EACCES/ELOOP/EMFILE/ENFILE/EINTR/NUL-byte/broken-symlink mapping (design §4 rows 0–4) `[PSH REQ-PSH-02/.2/.3/.4]`
-- [ ] S-001.2 Symlink accept: in-package→in-package (PSH-03.1), in-package→outside residual positive (PSH-04.1) `[PSH REQ-PSH-03/.1/.2, REQ-PSH-04/.1]`
-- [ ] S-001.3 `validateSourceLexical` segment-aware edge cases (backslash, multi-segment, leading `./`, absolute) `[IPF REQ-IPF-01.1/.2/.4/.5/.6]`
-- [ ] S-001.4 Destination guard + no-absolute-on-wire `[IPF REQ-IPF-02.1, REQ-IPF-03.1]`
-- [ ] S-001.5 Extend `test/security/canary-no-echo.test.ts` to the FULL hardened branch set — ELOOP, NUL, degenerate strings, REQ-FSC-10.4's recursive-walk canary — atop S-000.7's minimum subset; canary seeded in the absolute prefix `[RBV REQ-RBV-04.1 full set]`
-- [ ] S-001.6 Create `test/scaffold/path-guards.test.ts` (module-level, additive to per-verb rows) `[PSH, IPF]`
-- [ ] S-001.7 Verify `bun test` green
+- [x] S-001.1 `statSourceForRead` TOTAL guard: EACCES/ELOOP/EMFILE/ENFILE/EINTR/NUL-byte/broken-symlink mapping (design §4 rows 0–4) `[PSH REQ-PSH-02/.2/.3/.4]`
+- [x] S-001.2 Symlink accept: in-package→in-package (PSH-03.1), in-package→outside residual positive (PSH-04.1) `[PSH REQ-PSH-03/.1/.2, REQ-PSH-04/.1]`
+- [x] S-001.3 `validateSourceLexical` segment-aware edge cases (backslash, multi-segment, leading `./`, absolute) `[IPF REQ-IPF-01.1/.2/.4/.5/.6]`
+- [x] S-001.4 Destination guard + no-absolute-on-wire `[IPF REQ-IPF-02.1, REQ-IPF-03.1]`
+- [x] S-001.5 Extend `test/security/canary-no-echo.test.ts` to the FULL hardened branch set — ELOOP, NUL, degenerate strings, REQ-FSC-10.4's recursive-walk canary — atop S-000.7's minimum subset; canary seeded in the absolute prefix `[RBV REQ-RBV-04.1 full set]`
+- [x] S-001.6 Create `test/scaffold/path-guards.test.ts` (module-level, additive to per-verb rows) `[PSH, IPF]`
+- [x] S-001.7 Verify `bun test` green
 
 ---
 

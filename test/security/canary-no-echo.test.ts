@@ -13,8 +13,9 @@
  * the DIST bin artifact for the TFO-04.1 branch, so a bare `bun test` on a fresh checkout
  * must not depend on file-execution order producing `dist/bin` first.
  */
-import { describe, it, expect, beforeAll, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { describe, it, expect, beforeAll, afterEach, spyOn } from "bun:test";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs";
+import * as fs from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -23,7 +24,8 @@ import { ContractFake } from "../support/contract-fake.ts";
 import { canaryToken, seedSchema, spawnCapture } from "../support/canary.ts";
 import * as react from "../../src/dialects/react/index.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
-import { scaffold, copyIn } from "../../src/commons/index.ts";
+import { scaffold, copyIn, create } from "../../src/commons/index.ts";
+import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
@@ -301,6 +303,153 @@ describe("REQ-RBV-04.1 — path-guards baseline branches never leak the absolute
 
     expect(caught).toBeInstanceOf(Error);
     expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+});
+
+// S-001 — extends the S-000.7 minimum subset to the FULL hardened branch set: ELOOP
+// (symlink cycle), embedded NUL, degenerate source strings, and REQ-FSC-10.4's recursive
+// mid-walk failure. Driven through the real `create({templateFile})`/`scaffold`/`copyIn`
+// verbs wherever directly constructible; the scaffold per-entry NUL case is sanctioned at
+// the `classifyTransport` boundary via a direct unit call (same pattern REQ-PSH-01.3
+// already uses, `package-source-io-hygiene` spec V3.3) because a walk-discovered entry
+// name structurally cannot contain a NUL byte.
+describe("REQ-RBV-04.1 — path-guards baseline branches never leak the absolute temp-dir prefix (S-001 full hardened set)", () => {
+  it("templateFile: an ELOOP (symlink cycle) source never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("templatefile-eloop");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    symlinkSync("loop", join(dir, "loop"));
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      create("out/x.ts", { templateFile: "loop", options: {} });
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("copyIn: an ELOOP (symlink cycle) source never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("copyin-eloop");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    symlinkSync("loop", join(dir, "loop"));
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      copyIn("loop", "out/copied.txt");
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("scaffold: a per-entry ELOOP (symlink cycle discovered by the walk) never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("scaffold-eloop");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    mkdirSync(join(dir, "files"));
+    symlinkSync("loop", join(dir, "files", "loop"));
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "files", to: "out" });
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("templateFile: an embedded NUL byte source never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("templatefile-nul");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      create("out/x.ts", { templateFile: "a\0b", options: {} });
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("copyIn: an embedded NUL byte source never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("copyin-nul");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      copyIn("a\0b", "out/copied.txt");
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("scaffold (classifyTransport boundary, REQ-PSH-02.3's sanctioned direct-unit-call route): an embedded NUL byte per-entry relPath never leaks the canary-seeded absolute prefix", () => {
+    const canary = canaryToken("scaffold-nul");
+    const dir = scratchDirWithCanaryPrefix(canary);
+
+    let caught: unknown;
+    try {
+      classifyTransport({ packageDir: dir, relPath: "a\0b", isTemplateMarked: false, destPath: "out/x", options: {} });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("templateFile: a degenerate '.' source (resolves to packageDir itself) never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("templatefile-degenerate");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      create("out/x.ts", { templateFile: ".", options: {} });
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("copyIn: a degenerate '.' source (resolves to packageDir itself) never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("copyin-degenerate");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      copyIn(".", "out/copied.txt");
+    }, { packageDir: dir });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(surfaceContains(caught as Error, canary)).toBe(false);
+  });
+
+  it("REQ-FSC-10.4: a recursive mid-walk readdirSync failure (nested sub-directory EACCES) never leaks the canary-seeded absolute prefix", async () => {
+    const canary = canaryToken("scaffold-recursive-walk");
+    const dir = scratchDirWithCanaryPrefix(canary);
+    const nested = join(dir, "files", "nested");
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(join(nested, "leaf.ts"), "leaf", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const originalReaddirSync = fs.readdirSync;
+    const readdirSpy = spyOn(fs, "readdirSync").mockImplementation(((...args: Parameters<typeof fs.readdirSync>) => {
+      if (args[0] === nested) {
+        throw Object.assign(new Error("EACCES: simulated"), { code: "EACCES" });
+      }
+      return originalReaddirSync(...(args as Parameters<typeof originalReaddirSync>));
+    }) as typeof fs.readdirSync);
+
+    try {
+      const caught = await rejectedRun(fake, () => {
+        scaffold({ from: "files", to: "out" });
+      }, { packageDir: dir });
+
+      expect(caught).toBeInstanceOf(Error);
+      expect(surfaceContains(caught as Error, canary)).toBe(false);
+    } finally {
+      readdirSpy.mockRestore();
+    }
   });
 });
 
