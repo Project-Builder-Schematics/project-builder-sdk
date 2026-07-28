@@ -88,13 +88,13 @@ text matches. Land README + clause (a) + regex + prose comment together to resto
 (regex matches reworded clause). **Full `bun test` + `tsc --noEmit` green — final slice.**
 
 ### Tasks
-- [ ] S-002.1 RED `it("REQ-CFX-02.2 ...")` in fit-40's REQ-CFX-02/03 block
-- [ ] S-002.2 Update `CLAUSE_KEYWORDS["(a)"]` regex (turns REQ-CFX-03.1 RED until clause (a) text
+- [x] S-002.1 RED `it("REQ-CFX-02.2 ...")` in fit-40's REQ-CFX-02/03 block
+- [x] S-002.2 Update `CLAUSE_KEYWORDS["(a)"]` regex (turns REQ-CFX-03.1 RED until clause (a) text
       matches)
-- [ ] S-002.3 Reword README's cardinality sentence
-- [ ] S-002.4 Reword `factory.ts` DO-NOT-COPY clause (a)
-- [ ] S-002.5 Update stale "at most one" prose comment above REQ-CFX-02/03 describe block
-- [ ] S-002.6 Full `bun test` + `tsc --noEmit` GREEN
+- [x] S-002.3 Reword README's cardinality sentence
+- [x] S-002.4 Reword `factory.ts` DO-NOT-COPY clause (a)
+- [x] S-002.5 Update stale "at most one" prose comment above REQ-CFX-02/03 describe block
+- [x] S-002.6 Full `bun test` + `tsc --noEmit` GREEN
 
 ---
 

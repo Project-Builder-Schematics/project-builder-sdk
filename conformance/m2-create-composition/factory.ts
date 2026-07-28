@@ -12,8 +12,8 @@ export default function m2CreateCompositionFactory(_input: Record<string, never>
 
 // DO-NOT-COPY: this is the corpus's ONE sanctioned wire `create` authoring site
 // (REQ-CFX-02's sole exception), not a template for future fixtures.
-// (a) authoring a second `create()` anywhere else in this corpus violates the
-//     one-create-corpus-wide invariant (REQ-CFX-02) and fails fit-40.
+// (a) authoring a `create()` call anywhere OUTSIDE this file's quarantined named-export
+//     blocks violates the sanctioned-file quarantine invariant (REQ-CFX-02) and fails fit-40.
 // (b) this is a REJECT PROBE, not a demonstration of a working `create` flow.
 // (c) do NOT imitate this pattern when authoring a new fixture.
 // (d) the engine refuses this batch at emit BECAUSE it carries `force: true` — `unrepresentable`,

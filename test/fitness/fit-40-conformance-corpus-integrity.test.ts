@@ -223,9 +223,11 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
   });
 
   describe("REQ-CFX-02 / REQ-CFX-03 — representable-ops-only, single quarantined create (two-checkpoint cadence)", () => {
-    // REQ-CFX-02.1's literal "exactly one" is scoped over "all 12 cases" (post-PR#2); the
-    // corpus-wide invariant that stays green at BOTH checkpoints is "at most one, and if
-    // present it is m2-create-composition/wire-create-reject-twin's createRejectProbe".
+    // The corpus-wide invariant that stays green at BOTH checkpoints (PR#1 and post-PR#2) is
+    // no longer a cardinality ceiling: any number of create()-authoring cases MAY exist, but
+    // ALL of them must be quarantined inside m2-create-composition/factory.ts's named-export
+    // blocks (createRejectProbe's reject probe, createComposite's positive case, and any
+    // future addition) — never anywhere else in the corpus.
     it("REQ-CFX-02: create() appears in exactly the corpus's sole sanctioned factory file", () => {
       // Structural invariant, not a case-scoped scan: collects the SET of factory files
       // (corpus-wide, across every fixture AND every case-level factory override) whose
@@ -274,6 +276,14 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(checkCreateQuarantine(fixtures)).toEqual([]);
     });
 
+    it("REQ-CFX-02.2: README's create-cardinality sentence describes the quarantine invariant, not a stale corpus-wide cardinality ceiling", () => {
+      const readmePath = join(CORPUS_ROOT, "README.md");
+      const text = readFileSync(readmePath, "utf8");
+      expect(/exactly once|exactly one/i.test(text)).toBe(false);
+      expect(/quarantine/i.test(text)).toBe(true);
+      expect(/sanctioned/i.test(text)).toBe(true);
+    });
+
     it("REQ-CFX-03.1: the reject-probe's create call is preceded by a DO-NOT-COPY 5-clause comment", () => {
       const probeFixture = fixtures.find((f) => f.id === "m2-create-composition");
       if (probeFixture === undefined) return; // not landed yet (PR#2) — vacuous
@@ -291,7 +301,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       for (const m of normalized.matchAll(markerRe)) markers.push({ letter: m[0], index: m.index });
 
       const CLAUSE_KEYWORDS: Record<string, RegExp> = {
-        "(a)": /one-create-corpus-wide/,
+        "(a)": /sanctioned-file quarantine invariant/,
         "(b)": /REJECT PROBE/,
         "(c)": /do NOT imitate/i,
         "(d)": /unrepresentable/,
