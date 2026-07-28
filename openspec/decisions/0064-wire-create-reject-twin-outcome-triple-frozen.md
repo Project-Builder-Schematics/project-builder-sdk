@@ -42,9 +42,21 @@ emit-branch of REQ-CFX-13.4).
    pre-emit; the exit-1 path belongs to a MISSING `collection.json` marker (REQ-CCR-08), a
    different failure mode entirely.
 
+## Amendment (2026-07-28, `positive-create-conformance`, ADR-0078)
+
+The engine's `sdk-wire-create` change makes plain (no-`force`) creates generally representable,
+removing the OLD engine's blanket "reject every create" policy this ADR's triple depended on.
+ADR-0078 adds `force: true` to `createRejectProbe`'s call so the probe stays rejected under the
+NEW engine's explicit force-rejection rule (engine ADR-0028 amendment). **The outcome triple
+above is UNCHANGED** — `(2, "unrepresentable", null)`, same transcript — only the CAUSE
+reclassifies from "unconditional engine-side create rejection" to "force-bearing create is
+explicitly rejected." See ADR-0078 for full reasoning.
+
 ## Related ADRs
 
 - **ADR-0065**: Per-case `factory` override — the mechanism that isolates this probe's raw
   `create` authoring from the fixture's positive default export.
 - **ADR-0067**: `collection.json` package-anchor marker — its presence is the precondition this
   decision's exit-2 resolution depends on.
+- **ADR-0078**: Amends this ADR — adds `force: true` to the probe's call to stay valid once
+  `sdk-wire-create` lands; outcome triple unchanged, cause reclassified.

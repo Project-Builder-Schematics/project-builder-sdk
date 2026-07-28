@@ -30,6 +30,19 @@
         "forbidDiscard": false,
         "emitBeforeCommit": true
       }
+    },
+    {
+      "name": "create-composite",
+      "seed": "seed",
+      "expected": "expected-composite",
+      "factory": { "module": "factory.ts", "export": "createComposite" },
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["create-composite.txt"] },
+      "transcript": {
+        "callbacks": ["ir.emit", "ir.commit"],
+        "singleCommit": true,
+        "forbidDiscard": true,
+        "emitBeforeCommit": true
+      }
     }
   ]
 }

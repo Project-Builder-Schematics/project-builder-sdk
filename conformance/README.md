@@ -27,9 +27,12 @@ declaration is internally consistent and well-formed — it never proves engine 
   `../../src/index.ts` (REQ-CFX-01) — no `src/core/**`, `src/transport/**`,
   `src/testing/**`, I/O-capable Node builtins, `fetch`, or `process.env`.
 - Factories author **representable ops only**: `modify` (`replaceContent`), `delete`
-  (`remove`), `rename`, `move`, `copy`, `copyIn`. A wire `create` appears exactly once in the whole corpus —
-  `m2-create-composition`'s deliberate `wire-create-reject-twin` reject probe (REQ-CFX-02),
-  marked with a `DO-NOT-COPY` comment (REQ-CFX-03). Do not add a second `create` site.
+  (`remove`), `rename`, `move`, `copy`, `copyIn`, plus wire `create` — but `create` MUST be
+  quarantined to `m2-create-composition/factory.ts`'s named-export blocks, the corpus's ONE
+  sanctioned site (REQ-CFX-02). Any number of `create`-authoring cases MAY live there —
+  `wire-create-reject-twin`'s deliberate reject probe (`createRejectProbe`), plus any positive
+  create cases (e.g. `createComposite`) — each marked with a `DO-NOT-COPY` comment where it is
+  a reject probe (REQ-CFX-03). No `create` site may exist outside that one quarantine.
 - Every text file under `conformance/` is UTF-8, LF-only, no BOM, no trailing newline under
   `expected/**`/`schematic/files/**` (`corpus-determinism` REQ-CDT-03..07).
 - The engine's manifest/`corpus.json` decoder is **strict** (`DisallowUnknownFields`): any key
