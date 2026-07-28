@@ -196,7 +196,11 @@ describe("SEC (owner-ratified final-verify remediation) — scaffold's walk ROOT
           scaffold({ from: relFrom, to: "out" });
         }, { packageDir: dir });
 
-        const err = expectAuthoringReason(caught, "source-outside-package");
+        // Compile-only shim (S-002.1's union shrink retired this reason from
+        // AuthoringReason; S-003.1 re-points this describe block's ceiling
+        // expectations) — the cast keeps `tsc --noEmit` green without pre-empting
+        // S-003's actual fix.
+        const err = expectAuthoringReason(caught, "source-outside-package" as AuthoringError["reason"]);
         expect(err.message).toContain(relFrom);
         // The whole point: containment rejects the walk ROOT before `walkFolder` ever
         // enumerates it — no readdirSync/lstatSync call may ever target the escaping
@@ -232,7 +236,8 @@ describe("SEC (owner-ratified final-verify remediation) — scaffold's walk ROOT
           scaffold({ from: "link-out", to: "out" });
         }, { packageDir: dir });
 
-        expectAuthoringReason(caught, "source-outside-package");
+        // Compile-only shim, see the note above (S-002.1 union shrink / S-003.1 re-point).
+        expectAuthoringReason(caught, "source-outside-package" as AuthoringError["reason"]);
         // The symlinked ROOT's TARGET is never enumerated — containment rejects it via
         // realpath before `walkFolder` (and its readdirSync) ever runs. (The unrelated
         // readdirSync(packageDir) from the run's reserved-lifecycle-name scan is fine.)

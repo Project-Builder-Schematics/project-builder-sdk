@@ -361,7 +361,10 @@ describe("S-004 — matrix-row assertions beyond the generic corpus-compare (bat
     it("absolute source rejects with the SAME reason (e2e-inline-only — a literal absolute path embedded verbatim would trip FIT-24's purity guard, so this variant is never corpus-captured)", async () => {
       const capture = await captureRun(runM16Absolute, { name: "Widgets" }, { packageDir: PACKAGE_DIR });
       expect(capture.error).toBeInstanceOf(AuthoringError);
-      expect((capture.error as AuthoringError).reason).toEqual("source-outside-package");
+      // Compile-only shim (S-002.1's union shrink retired this reason from
+      // AuthoringReason; S-004's scenario-matrix renumber/regen re-points M-16/M-17) — the
+      // cast keeps `tsc --noEmit` green without pre-empting that later slice's fix.
+      expect((capture.error as AuthoringError).reason).toEqual("source-outside-package" as AuthoringError["reason"]);
     });
   });
 

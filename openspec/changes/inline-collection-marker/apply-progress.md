@@ -1,7 +1,7 @@
 # Apply Progress: inline-collection-marker
 
 **Scope so far**: `slice:S-000` (walking skeleton, run 1), `slice:S-001` (path-guards TOTAL
-hardening, run 2)
+hardening, run 2), `slice:S-002` (public contract narrows — `AuthoringReason` 12 → 11, run 3)
 **Mode**: Strict TDD — double-loop where practical (S-000.2/.3 RED → S-000.4/.5/.6 GREEN
 drives the fix); S-000.6's `walk.ts` recursive-read guard was implemented before its
 `walk.test.ts` pins landed (a process deviation, documented below) — all four resulting
@@ -16,6 +16,7 @@ its own Deviations entry below.
 |---|---|---|---|
 | S-000 | walking-skeleton | complete | 8/8 |
 | S-001 | edge-case | complete | 7/7 |
+| S-002 | edge-case | complete | 7/7 |
 
 ## Files Changed
 
@@ -41,6 +42,14 @@ its own Deviations entry below.
 | **Mechanical compile/consequence fixes** (see Deviations) | Modified | S-000.5–.8 | `test/scaffold/classify-transport.test.ts`, `test/core/authoring-error-source.test.ts`, `test/fixtures/author-emulation/factory.ts`, `test/fitness/pkg-surface-baseline.json` |
 | `test/scaffold/path-guards.test.ts` | Created | S-001.1–.4/.6 | Module-level unit coverage for `statSourceForRead`'s TOTAL guard (design §4 rows 0–3: non-string relPath, broken symlink, ELOOP, embedded NUL, EACCES/EPERM/EMFILE/ENFILE/EINTR collapse, FIFO via real `mkfifo`, degenerate `""`/`"."`/`"./"` strings), the two symlink-accept scenarios (REQ-PSH-03.1 in-package, REQ-PSH-04.1 outside-residual), and `validateSourceLexical`/`validateDestinationLexical`'s segment-aware lexical screens (backslash, multi-segment, leading `./`, absolute POSIX/Windows-drive forms, substring-vs-segment discrimination). 25 tests, additive to the per-verb integration rows S-003 re-verifies. |
 | `test/security/canary-no-echo.test.ts` | Modified | S-001.5 | Extended the S-000.7 minimum subset to the full hardened branch set: ELOOP (templateFile/copyIn/scaffold-per-entry), embedded NUL (templateFile/copyIn/scaffold-via-`classifyTransport`-direct-call per REQ-PSH-02.3's own sanctioned pattern), degenerate `"."` source (templateFile/copyIn), and REQ-FSC-10.4's recursive mid-walk EACCES canary (scaffold) — 12 new cases, all seeded into the absolute mkdtemp prefix. |
+| `src/core/authoring-error.ts` | Modified | S-002.1 | Dropped `source-outside-package` from `AuthoringReason`, `originFor`, and `messageFor`; rewrote the `:40-49` TSDoc ("twelve" → "eleven" + narrowing note) and the JSDoc `@example` switch sample. |
+| `package.json` | Modified | S-002.2 | `version` `0.1.0` → `0.2.0` (owner ruling 12), same commit as the union shrink. |
+| `test/fitness/dts-baseline/core.authoring-error.d.ts` | Modified | S-002.2 | Regenerated via `bun run build` → copy `dist/core/authoring-error.d.ts` (11-member union). The copy also picked up pre-existing, unrelated additive drift (the `AuthoringVerb` S-004 docblock paragraph, the `invalidInput` export) that FIT-04's removal-only diff had never flagged — expected consequence of the project's own documented full-file regen procedure, not scope creep. |
+| `test/fitness/dts-baseline/core.context.d.ts` | Created | S-002.3 | Kit-internal `RunContext`/`packageAnchors` `{packageDir}`-only pin, via the same `bun run build` → copy `dist/core/context.d.ts` procedure. |
+| `test/fitness/fit-04-dts-semver-gate.test.ts` | Modified | S-002.4 | Added `KIT_INTERNAL_DTS_PAIRS` (one entry: `core.context.d.ts`) and a separate `describe` block running the SAME removal-only diff against it — explicitly OUTSIDE the public `DTS_PAIRS` list (ADR-0077 §J), checked but not semver-gated as public. |
+| `test/types/authoring-reason.test.ts` | Modified | S-002.5 | 11-member exhaustiveness pin: dropped `case "source-outside-package"` from both the never-arm switch and the `expectTypeOf` literal list; updated doc comment and test descriptions. |
+| `test/core/authoring-error-source.test.ts` | Modified | S-002.6 | Union-arithmetic proof re-narrowed to eleven; docblock/describe-title updated to "three surviving `source-*` reasons"; added the missing REQ-AEC-11.1 fixture (FIFO/non-regular source, generic template form, via `classifyTransport`) — the file previously had 3 of the 4 detail variants the design's Test Derivation table names; REQ-AEC-11.2 citation note added (discharged by `path-guards.test.ts`'s REQ-IPF-01/REQ-IPF-02 blocks, not duplicated here). |
+| `test/e2e/scaffold.e2e.test.ts`, `test/scaffold/expander.test.ts`, `test/e2e/author-emulation-scaffold.e2e.test.ts` | Modified (mechanical, S-003/S-004-owned files) | S-002.1 consequence | `expectAuthoringReason(caught, "source-outside-package")` / `.reason` comparisons are typed against `AuthoringError["reason"]` (`test/support/expect-reason.ts`) — the union shrink turned 5 call sites into TS compile errors. Added `as AuthoringError["reason"]` casts ONLY (no assertion/semantic change) so `bunx tsc --noEmit` stays green; these tests keep failing at RUNTIME for the same pre-existing reason (S-003/S-004's job to re-point). Same discipline as S-000's Deviation #2. |
 
 ## TDD Cycle Evidence — S-000
 
@@ -79,6 +88,22 @@ now used slice-wide because it applies to every task, not one.
 | S-001.2 | `path-guards.test.ts::REQ-PSH-03.1/REQ-PSH-04.1 (symlink accept, in-package and outside)` | unit | positive-acceptance scenarios (`ADR-0077`'s own regression tripwire: a regrown realpath check would fail these, not a mutation I introduce to prove failure) — real symlinks, real content read back and compared | yes | 2 cases (in-package target, outside-package target) | none needed |
 | S-001.3/.4 | `path-guards.test.ts::REQ-IPF-01 escaping variants + REQ-IPF-02` | unit | mutation-check: the `..`-segment membership check removed from `isLexicallyEscaping` (absolute check left intact) → exactly the 6 `..`-segment-only cases failed (`../x`/`/abs/x` still correctly rejected via the untouched absolute check, proving the mutation was scoped) → guard restored, re-confirmed green | yes | 7 escaping forms + 1 Windows-drive form + 1 non-escaping preservation-pin + 2 substring-non-match cases | none needed |
 | S-001.5 | `canary-no-echo.test.ts::REQ-FSC-10.4 recursive-walk canary` | security | independently probed outside the assertion (see apply run transcript): confirmed the caught message is literally `"invalid input: scaffold entry (files/nested) could not be read"` — the entry-specific REQ-FSC-10.4 template, not a coincidental unrelated error — before trusting the no-echo assertion | yes | 1 case (nested EACCES); the ELOOP/NUL/degenerate cases each drive a distinct verb, not a repeated shape | none needed |
+
+## TDD Cycle Evidence — S-002
+
+Double-loop / RED-first ordering: S-002.5 and S-002.6's test edits (both compile-time
+exhaustiveness pins) were flipped to the 11-member shape FIRST, against the still-12-member
+union, confirmed RED via `bunx tsc --noEmit` (these two checks are type-only — `bun test`
+never invokes them at runtime, per the files' own documented `expect-type`/never-arm
+strategy) — then S-002.1's shrink turned both GREEN in one step (a closed-union narrowing
+cannot be split into a partial-union intermediate that still compiles).
+
+| Task | Test (file::name) | Layer | RED evidence | GREEN | Triangulated | Refactored |
+|---|---|---|---|---|---|---|
+| S-002.5 | `authoring-reason.test.ts::AuthoringReason is exactly the eleven closed values (type-level pin)` | type-level | `bunx tsc --noEmit`: `TS2322: Type '"source-outside-package"' is not assignable to type 'never'` (never-arm switch) + `TS2344` (expectTypeOf mismatch) | yes | n/a — one closed-union pin, not a class of inputs | none needed |
+| S-002.6 | `authoring-error-source.test.ts::the compile-time union pin still counts exactly eleven members` | type-level | `bunx tsc --noEmit`: `TS2322: Type '"source-outside-package"' is not assignable to type 'never'` | yes | n/a — same pin pattern | none needed |
+| S-002.6 | `authoring-error-source.test.ts::source-not-regular-file — a FIFO ... source, generic form` | integration | passed on first run (statSourceForRead's FIFO branch and its exact message already exist and were mutation-checked at the unit level in S-001's `path-guards.test.ts`); this is an INTEGRATION-level proof of the same behaviour through `classifyTransport`'s full pipeline, not new logic — no RED possible without breaking already-proven code | yes | n/a — preservation-pin through a new entry point | none needed |
+| S-002.1/.2/.3/.4 | FIT-04 baseline pairs (`fit-04-dts-semver-gate.test.ts`, all 25 assertions incl. the new kit-internal describe block) | architectural | mechanical baseline regen (`bun run build` → copy); non-vacuousness rests on FIT-04's own pre-existing red-proof tests (removal-detection, additive-pass) in the same file, not re-proven per baseline | yes | n/a | none needed |
 
 ## Deviations from Design
 
@@ -162,6 +187,25 @@ now used slice-wide because it applies to every task, not one.
    right reason → guard restored), not taken on faith. Flagging this here per the same
    discipline as Deviation #1, rather than letting a second instance go unremarked.
 
+7. **Mechanical compile-fix collateral from S-002.1's union shrink, beyond S-002's own file
+   list — same discipline as Deviation #2**: `AuthoringReason` narrowing 12 → 11 is a TYPE
+   change, and `tsc --noEmit` type-checks the WHOLE project, not per-slice. Five call sites
+   in three S-003/S-004-owned files passed the now-retired `"source-outside-package"`
+   literal into `expectAuthoringReason`/`expectReason` or compared it against a
+   `.reason: AuthoringReason` property — both paths are typed against `AuthoringError
+   ["reason"]` (`test/support/expect-reason.ts`), so the narrowing turned these from
+   RUNTIME-failing assertions (already counted in the 12 disclosed residual failures) into
+   COMPILE errors, which would have broken `bunx tsc --noEmit` for the whole repo. Fixed
+   with `as AuthoringError["reason"]` casts ONLY — the assertions themselves are
+   byte-for-byte unchanged and continue to fail at runtime for the identical reason as
+   before (S-003/S-004's job to re-point to the new reason): `test/e2e/scaffold.e2e.test.ts`
+   (2 sites, `REQ-PRC-04/07` describe block), `test/scaffold/expander.test.ts` (2 sites,
+   `SEC` describe block), `test/e2e/author-emulation-scaffold.e2e.test.ts` (1 site, M-16
+   direct `.reason` comparison — its two `assertRejectionTriple` call sites were unaffected,
+   that helper's `reason` param is plain `string`, not `AuthoringReason`). Verified via
+   `bunx tsc --noEmit` (clean before and after) and `bun test` (same 12 residual failures,
+   same failure messages, before and after this fix).
+
 ## Reorder-Safety Check (S-000.8, design §4 apply-time check)
 
 `rg`'d `test/**` and `test/e2e/author-emulation/scenarios.ts` for a `copyIn` case combining
@@ -194,3 +238,27 @@ existing test drives a both-escape `copyIn` case today. No re-pin needed.
   removed; `..`-segment check removed), each followed by a scoped `bun test -t <pattern>`
   run confirming the affected tests fail for the right reason, then a byte-identical
   restore (`diff` against a pre-edit copy confirmed clean) and a full green re-run.
+
+### S-002 (run 3)
+
+- RED confirmed (pre-shrink): `bunx tsc --noEmit` — 3 errors, all `TS2322`/`TS2344` on the
+  two union-arithmetic pins (`test/types/authoring-reason.test.ts`,
+  `test/core/authoring-error-source.test.ts`), exactly the expected "still-12-member union
+  vs. 11-arm switch" break.
+- GREEN (post-shrink + mechanical fixes): `bunx tsc --noEmit` — clean, zero errors.
+- `bun test test/types/authoring-reason.test.ts test/core/authoring-error-source.test.ts
+  test/scaffold/path-guards.test.ts` — 38 pass / 0 fail, 157 `expect()` calls.
+- `bun test test/fitness/fit-04-dts-semver-gate.test.ts` — 24 pass / 0 fail (23 pre-existing
+  + 1 new kit-internal describe block), 26 `expect()` calls.
+- `bun test` (full suite, run twice — the project's own documented flakiness-under-load
+  posture, Deviation #5):
+  - Run 1: 2351 pass / 13 fail (one extra transient failure not reproduced on run 2 — not
+    in a file this slice touched, consistent with the project's disclosed flake pool).
+  - Run 2: 2352 pass / 12 fail across 197 files (2364 tests) — the SAME 12 stable-residual
+    failures as the S-000/S-001 baseline (2 `fit-42-runner-closure-integrity`
+    `REQ-RCD-03.5`, 2 `expander.test.ts` SEC block, 2
+    `author-emulation-scaffold.e2e.test.ts` byte-compares, 4 `S-004` matrix-row assertions,
+    2 `scaffold.e2e.test.ts` `REQ-PRC-04/07`) — same test names, same failure messages.
+    Zero new failures, zero regressions from S-002's diff; none of the 12 flipped.
+- `package.json` `version` verified `0.2.0`; no other file in the tree references the old
+  `"0.1.0"` literal (`rg` swept `src/` and `test/`, zero hits) — the bump is isolated.

@@ -58,13 +58,13 @@
 **Acceptance**: GIVEN the union shrinks to 11 members WHEN `originFor` and the FIT-04 baseline are inspected THEN both drop `source-outside-package` in the SAME commit, and no other member is affected.
 
 ### Tasks
-- [ ] S-002.1 `authoring-error.ts`: drop `source-outside-package` from `originFor`/`messageFor`; fix `:40-49` TSDoc + JSDoc switch sample `[AEC REQ-AEC-10/.1/.2]`
-- [ ] S-002.2 Update FIT-04 PUBLIC baseline (`core.authoring-error.d.ts`, 11 members) + bump `package.json` `0.1.0` → `0.2.0` — BOTH SAME commit as the union shrink (owner ruling 12: the version bump for this MAJOR narrowing ships in this change, not deferred; design §6 is the cited vehicle) `[AEC REQ-AEC-10.2; ruling 12]`
-- [ ] S-002.3 Create `core.context.d.ts` — the kit-internal `RunContext`/`packageAnchors` single-field pin. Regen procedure: `tsc` declaration emit → copy `dist/core/context.d.ts` into the baseline location, SAME commit as the union shrink. Corrected per design §J: this is **NOT** added to FIT-04's public `DTS_PAIRS` list. This task produces ONLY the `.d.ts` baseline artifact; the RUNTIME positive-shape assertion is owned by fit-43 clause (c) + S-000.4's `test/skeleton/run-boundary-validation.test.ts` task (Q8 — the two must not be conflated) `[MFB REQ-MFB-01.3; FTG REQ-FTG-06(c)]`
-- [ ] S-002.4 Register the kit-internal `{core.context.d.ts, RunContext}` pair in `fit-04-dts-semver-gate.test.ts`'s own kit-internal baseline-set list (B7, design V2.2) — a distinct registration step from S-002.3's artifact creation: the FIT-04 mechanism must be told the pair exists and where, checked but NOT semver-gated as public. SAME commit as the union shrink `[FTG REQ-FTG-06(c); design V2.2]`
-- [ ] S-002.5 `test/types/authoring-reason.test.ts`: 11-member exhaustiveness pin `[AEC REQ-AEC-10.2]`
-- [ ] S-002.6 `test/core/authoring-error-source.test.ts`: drop the retired fixture; land REQ-AEC-10.1, REQ-AEC-11.1, REQ-AEC-11.2, REQ-AEC-12.1 (corrected — REQ-AEC-11.3 does not exist post-V3-split) `[AEC]`
-- [ ] S-002.7 Verify `bun test` + `tsc` green
+- [x] S-002.1 `authoring-error.ts`: drop `source-outside-package` from `originFor`/`messageFor`; fix `:40-49` TSDoc + JSDoc switch sample `[AEC REQ-AEC-10/.1/.2]`
+- [x] S-002.2 Update FIT-04 PUBLIC baseline (`core.authoring-error.d.ts`, 11 members) + bump `package.json` `0.1.0` → `0.2.0` — BOTH SAME commit as the union shrink (owner ruling 12: the version bump for this MAJOR narrowing ships in this change, not deferred; design §6 is the cited vehicle) `[AEC REQ-AEC-10.2; ruling 12]`
+- [x] S-002.3 Create `core.context.d.ts` — the kit-internal `RunContext`/`packageAnchors` single-field pin. Regen procedure: `tsc` declaration emit → copy `dist/core/context.d.ts` into the baseline location, SAME commit as the union shrink. Corrected per design §J: this is **NOT** added to FIT-04's public `DTS_PAIRS` list. This task produces ONLY the `.d.ts` baseline artifact; the RUNTIME positive-shape assertion is owned by fit-43 clause (c) + S-000.4's `test/skeleton/run-boundary-validation.test.ts` task (Q8 — the two must not be conflated) `[MFB REQ-MFB-01.3; FTG REQ-FTG-06(c)]`
+- [x] S-002.4 Register the kit-internal `{core.context.d.ts, RunContext}` pair in `fit-04-dts-semver-gate.test.ts`'s own kit-internal baseline-set list (B7, design V2.2) — a distinct registration step from S-002.3's artifact creation: the FIT-04 mechanism must be told the pair exists and where, checked but NOT semver-gated as public. SAME commit as the union shrink `[FTG REQ-FTG-06(c); design V2.2]`
+- [x] S-002.5 `test/types/authoring-reason.test.ts`: 11-member exhaustiveness pin `[AEC REQ-AEC-10.2]`
+- [x] S-002.6 `test/core/authoring-error-source.test.ts`: drop the retired fixture; land REQ-AEC-10.1, REQ-AEC-11.1, REQ-AEC-11.2, REQ-AEC-12.1 (corrected — REQ-AEC-11.3 does not exist post-V3-split) `[AEC]`
+- [x] S-002.7 Verify `bun test` + `tsc` green
 
 ---
 

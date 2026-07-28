@@ -38,7 +38,7 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
 
 /**
  * The closed, author-vocabulary cause of an `AuthoringError` (★D2, ADR-0020). Exactly
- * twelve values — adding a thirteenth is a MAJOR change: authors are expected to write
+ * eleven values — adding a twelfth is a MAJOR change: authors are expected to write
  * exhaustive `switch(reason)` blocks, and TypeScript's exhaustiveness check breaks such
  * a switch on a new member even though nothing breaks at runtime. (V2 → V3 amendment,
  * 2026-07-10, coordinated with `stage-4-typed-options`: extended from six to eight —
@@ -46,7 +46,10 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  * S-002, REQ-AEC-10: extended from eight to twelve — `source-not-found`,
  * `source-outside-package`, `source-not-regular-file`, `source-unreadable` added, all
  * four covering the SDK's own pre-emit read/stat of a package-local source for
- * `scaffold`/`copyIn`/`create({templateFile})`.)
+ * `scaffold`/`copyIn`/`create({templateFile})`. `inline-collection-marker` S-002,
+ * REQ-AEC-10 (ADR-0077): narrowed from twelve to eleven — `source-outside-package`
+ * retired along with `package-root-containment`; the SDK no longer enforces a
+ * containment ceiling, so there is no longer an "outside" for a source to resolve to.)
  *
  * @example
  * switch (err.reason) {
@@ -61,7 +64,6 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *   case "invalid-input":
  *   case "reserved-name":
  *   case "source-not-found":
- *   case "source-outside-package":
  *   case "source-not-regular-file":
  *   case "source-unreadable":
  *     console.error(err.message);
@@ -78,7 +80,6 @@ export type AuthoringReason =
   | "invalid-input"
   | "reserved-name"
   | "source-not-found"
-  | "source-outside-package"
   | "source-not-regular-file"
   | "source-unreadable";
 
@@ -93,15 +94,16 @@ export type AuthoringReason =
 export type AuthoringOrigin = "write-rejected" | "authoring-rejected";
 
 // ADR-0021: origin is DERIVED from reason via an exhaustive switch with a `never`
-// default arm — adding a 13th reason breaks the BUILD here, forcing a deliberate origin
+// default arm — adding a 12th reason breaks the BUILD here, forcing a deliberate origin
 // assignment instead of an accidental default (mirrored by the compile-time pin in
 // test/types/authoring-reason.test.ts). `unknown` maps to "write-rejected" deliberately:
 // an unclassifiable rejection necessarily arrived through the emit/write seam (the only
 // place toAuthoringError runs), so the write side is the honest attribution (spec
 // cross-cutting note 7). `invalid-input`/`reserved-name` (V2 → V3 amendment, REQ-AEC-07/08)
 // are ALWAYS "authoring-rejected" — same rationale as outside-run: an SDK-side misuse
-// detection, not an engine round-trip refusal. The four `source-*` reasons
-// (`schematic-local-files` S-002, REQ-AEC-10) are likewise ALWAYS "authoring-rejected" —
+// detection, not an engine round-trip refusal. The three surviving `source-*` reasons
+// (`schematic-local-files` S-002, REQ-AEC-10; `source-outside-package` retired by
+// `inline-collection-marker` S-002, ADR-0077) are likewise ALWAYS "authoring-rejected" —
 // every one is detected by the SDK's OWN pre-emit read/stat of a package-local source,
 // never an engine round-trip refusal.
 function originFor(reason: AuthoringReason): AuthoringOrigin {
@@ -116,7 +118,6 @@ function originFor(reason: AuthoringReason): AuthoringOrigin {
     case "invalid-input":
     case "reserved-name":
     case "source-not-found":
-    case "source-outside-package":
     case "source-not-regular-file":
     case "source-unreadable":
       return "authoring-rejected";
@@ -180,8 +181,11 @@ function primaryPath(directive: Directive): string {
 //
 // REQ-AEC-11 (`schematic-local-files` S-002, V3 neutral wording — no `"copy failed:"`
 // prefix, dropped because these reasons also fire for `scaffold`/`create({templateFile})`,
-// not only the copy-family verbs) adds four MORE families, one per new `source-*` reason.
-// Unlike invalid-input/reserved-name, these ARE derivable from `path` alone (always
+// not only the copy-family verbs) adds three MORE families, one per surviving `source-*`
+// reason (`source-outside-package` retired by `inline-collection-marker` S-002, ADR-0077 —
+// `path-guards.ts#sourceRejection` now owns that reason's former template, and every
+// producer site passes an explicit `message`, so `messageFor` never needs it back). Unlike
+// invalid-input/reserved-name, these ARE derivable from `path` alone (always
 // package-relative, REQ-PRC-05) — no caller-supplied `message` needed.
 function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, path: string | undefined): string {
   switch (reason) {
@@ -200,8 +204,6 @@ function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, pa
       return `changes could not be applied: ${reason} — the SDK could not classify this failure`;
     case "source-not-found":
       return `source file not found: ${path} does not exist in the package`;
-    case "source-outside-package":
-      return `source file outside package: ${path} resolves outside the package boundary`;
     case "source-not-regular-file":
       return `source file invalid: ${path} is not a regular file`;
     case "source-unreadable":

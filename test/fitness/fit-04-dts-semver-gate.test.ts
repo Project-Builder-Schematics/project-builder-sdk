@@ -146,6 +146,39 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
   },
 ];
 
+// Kit-internal baseline set (ADR-0077 §J, REQ-MFB-01.3 / REQ-FTG-06(c)): `RunContext` is
+// UNMAPPED — no subpath export, no public symbol (baseline §Public API) — so its `.d.ts`
+// is pinned by the SAME FIT-04 removal-only mechanism, in a SEPARATE, separately-labelled
+// set, never folded into the public `DTS_PAIRS` list above. Folding it in would promote a
+// kit-internal type into the public semver contract as a side effect of a drift guard — an
+// unintended widening this split exists to prevent. Regen procedure (manual, no script
+// exists): `bun run build` (`tsc -p tsconfig.build.json`), then copy
+// `dist/core/context.d.ts` over `test/fitness/dts-baseline/core.context.d.ts`. This diff is
+// removal-only, same as the public pairs — it does NOT prove `packageAnchors`'s shape is
+// exactly `{packageDir}` (an ADDITIVE regrowth would pass silently, Q8); that positive,
+// static proof is `fit-43` clause (c)'s job, and the RUNTIME positive-shape pin lives in
+// `test/skeleton/run-boundary-validation.test.ts` (REQ-MFB-01.3).
+const KIT_INTERNAL_DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }> = [
+  {
+    baselineFile: join(BASELINE_DIR, "core.context.d.ts"),
+    distFile: join(DIST_DIR, "core/context.d.ts"),
+    label: "core/context (kit-internal, not semver-gated as public)",
+  },
+];
+
+describe("FIT-04 kit-internal baseline set — checked, NOT semver-gated as public (ADR-0077 §J)", () => {
+  for (const { baselineFile, distFile, label } of KIT_INTERNAL_DTS_PAIRS) {
+    it(`${label}: no breaking removals vs committed baseline`, () => {
+      const baseline = normalizeDeclarations(readFileSync(baselineFile, "utf-8"));
+      const current = normalizeDeclarations(readFileSync(distFile, "utf-8"));
+
+      const removals = findBreakingRemovals(baseline, current);
+
+      expect(removals).toEqual([]);
+    });
+  }
+});
+
 // Companion negative declaration-scan (SEC-M2, ADR-0034 guard 6): FIT-10 scans SOURCES only
 // and FIT-04 above is removal-only, so declaration emit could resurface a port-internal name
 // undetected by either. Housed here because this file already reads dist/testing/index.d.ts

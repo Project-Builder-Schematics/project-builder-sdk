@@ -8,13 +8,18 @@
  * entry-count bound (folder-scaffold REQ-FSC-09) — all classify `invalid-input`,
  * `authoring-rejected`.
  *
- * REQ-AEC-10/11 (S-002, design §Test Derivation): the four `source-*` reasons — one
- * fixture per reason, each asserting the EXACT AEC-11 V3 neutral message template (no
- * `"copy failed:"` prefix). `source-unreadable` is exercised via an INJECTED read-failure
- * seam (never chmod — S18: chmod fixtures are unreliable under root-running CI and
- * container umasks). The union arithmetic proof at the bottom now counts twelve.
+ * REQ-AEC-10/11 (S-002, design §Test Derivation): the THREE surviving `source-*` reasons
+ * — one fixture per reason (plus the `source-not-regular-file` FIFO variant), each
+ * asserting the EXACT AEC-11 V3.3 neutral message template (no `"copy failed:"` prefix).
+ * `source-unreadable` is exercised via an INJECTED read-failure seam (never chmod — S18:
+ * chmod fixtures are unreliable under root-running CI and container umasks). REQ-AEC-11.2
+ * (source vs. destination templates driven from their own REQ, never interchangeable) is
+ * discharged by `test/scaffold/path-guards.test.ts`'s REQ-IPF-01/REQ-IPF-02 describe
+ * blocks — this file does not repeat it. The union arithmetic proof at the bottom now
+ * counts eleven (ADR-0077 — `source-outside-package` retired).
  */
 import { describe, it, expect, spyOn } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
@@ -74,7 +79,7 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
     expectReason(() => walkFolder(dir, 1), "invalid-input");
   });
 
-  it("the compile-time union pin still counts exactly twelve members — none of these modes minted a new reason", () => {
+  it("the compile-time union pin still counts exactly eleven members — none of these modes minted a new reason", () => {
     const _proof = (reason: AuthoringError["reason"]): string => {
       switch (reason) {
         case "path-collision":
@@ -86,7 +91,6 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
         case "invalid-input":
         case "reserved-name":
         case "source-not-found":
-        case "source-outside-package":
         case "source-not-regular-file":
         case "source-unreadable":
           return reason;
@@ -100,7 +104,7 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
   });
 });
 
-describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly and follow the V3 neutral message templates", () => {
+describe("REQ-AEC-10 / REQ-AEC-11 — the three surviving source-* reasons classify exactly and follow the V3.3 neutral message templates", () => {
   it("REQ-AEC-10.1/REQ-AEC-11.1: source-not-found — a missing source", () => {
     const dir = scratchDir();
 
@@ -119,11 +123,30 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the four source-* reasons classify exactly
     expect(err.message).not.toContain(dir);
   });
 
-  // ADR-0077: `source-outside-package` retires with `package-root-containment` — its
-  // fixture is removed here (S-002.6 will drop the reason from the union itself). A
-  // lexically-escaping relPath is now `path-guards.ts#validateSourceLexical`'s job, called
-  // by classifyTransport's CALLERS before classifyTransport ever runs — not something
+  // ADR-0077: `source-outside-package` retired along with `package-root-containment`
+  // (S-002.1's union shrink) — its fixture is gone from this file. A lexically-escaping
+  // relPath is now `path-guards.ts#validateSourceLexical`'s job, called by
+  // classifyTransport's CALLERS before classifyTransport ever runs — not something
   // classifyTransport itself classifies anymore.
+
+  it("REQ-AEC-10.1/REQ-AEC-11.1: source-not-regular-file — a FIFO (non-directory, non-regular) presented as a source, generic form", () => {
+    const dir = scratchDir();
+    const fifoPath = join(dir, "pipe");
+    execFileSync("mkfifo", [fifoPath]);
+
+    const err = expectReason(
+      () =>
+        classifyTransport({
+          packageDir: dir,
+          relPath: "pipe",
+          isTemplateMarked: false,
+          destPath: "pipe",
+          options: {},
+        }),
+      "source-not-regular-file"
+    );
+    expect(err.message).toEqual("source file invalid: pipe is not a regular file");
+  });
 
   it("REQ-AEC-10.1/REQ-AEC-11.1: source-not-regular-file — a directory presented as a source", () => {
     const dir = scratchDir();

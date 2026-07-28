@@ -11,13 +11,16 @@
 // extended from six to eight values (`invalid-input`, `reserved-name` added).
 // `schematic-local-files` S-002 (REQ-AEC-10.2): extended from eight to twelve values
 // (`source-not-found`, `source-outside-package`, `source-not-regular-file`,
-// `source-unreadable` added).
+// `source-unreadable` added). `inline-collection-marker` S-002 (REQ-AEC-10.2, ADR-0077):
+// narrowed from twelve to eleven — `source-outside-package` retired along with
+// `package-root-containment`; there is no longer a containment ceiling for a source to
+// resolve "outside" of.
 import { describe, test } from "bun:test";
 import { expectTypeOf } from "expect-type";
 import type { AuthoringReason, AuthoringOrigin } from "../../src/core/authoring-error.ts";
 
 describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin (ADR-0021)", () => {
-  test("switch(reason) over all twelve AuthoringReason values reaches an arm; a 13th value fails this compile", () => {
+  test("switch(reason) over all eleven AuthoringReason values reaches an arm; a 12th value fails this compile", () => {
     const _proof = (reason: AuthoringReason): string => {
       switch (reason) {
         case "path-collision":
@@ -29,7 +32,6 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
         case "invalid-input":
         case "reserved-name":
         case "source-not-found":
-        case "source-outside-package":
         case "source-not-regular-file":
         case "source-unreadable":
           return reason;
@@ -57,7 +59,7 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
     void _proof;
   });
 
-  test("AuthoringReason is exactly the twelve closed values (type-level pin)", () => {
+  test("AuthoringReason is exactly the eleven closed values (type-level pin)", () => {
     expectTypeOf<AuthoringReason>().toEqualTypeOf<
       | "path-collision"
       | "path-not-found"
@@ -68,7 +70,6 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
       | "invalid-input"
       | "reserved-name"
       | "source-not-found"
-      | "source-outside-package"
       | "source-not-regular-file"
       | "source-unreadable"
     >();

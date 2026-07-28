@@ -1,12 +1,12 @@
 change: inline-collection-marker
 triage: L
 completed_phases: [triage, explore, propose, spec, design, steward-foresight, slice, verify-plan]
-current_phase: build (S-000 verified PASS + committed 6694754; S-001 applied 7/7 — tsc clean, same 12-residual baseline, zero new failures)
-current_status: awaiting verify-in-loop-2 (batch: S-001)
+current_phase: build (S-000 verified+committed 6694754; S-001 verified+committed 811887c; S-002 applied 7/7 — union 12→11, bump 0.2.0, FIT-04 baselines, tsc clean, 12-residual baseline held, zero new failures)
+current_status: awaiting verify-in-loop-3 (batch: S-002)
 in_loop_iteration: 1
-next_phase: verify in-loop (S-001) → then apply S-002 (sequential, same tree)
-build_order_position: 2 of 5 (S-001 done pending verify; S-002 next)
-apply_deviations: S-000 walk.ts guard pre-RED (mutation-proven, verify-1 ruled acceptable); S-001 guard tests first-run-green (guard totality landed in S-000.5 by design — Data-dimension slice over complete guard, mutation-checked ×3) — surfaced to verify-2
+next_phase: verify in-loop (S-002) → then apply S-003 (requires S-001+S-002)
+build_order_position: 2 of 5 (S-001 verified; S-002 pending verify)
+apply_deviations: S-000 walk.ts pre-RED (verify-1 acceptable); S-001 first-run-green over S-000.5 guard (verify-2 acceptable, trend flagged for final); S-002 deviation #7 — 5 mechanical `as AuthoringError["reason"]` casts in S-003/S-004-owned files to keep tsc green post-shrink, assertions untouched — surfaced to verify-3
 direction: remove SDK-side containment — SDK only generates IR, engine owns the path-directive boundary (owner-decided)
 owner_rulings_count: 15
 plan_verify: ready — OWNER OVERRIDE (ruling 14, 2026-07-28) after 3 iterations exhausted with problem-fit clean since iteration 2 and residue = mechanical accounting only; override reason persisted in verify-plan-3.md + engram; final batch amendment applies the 11 items without a fourth judge round; /evaluate's verify final remains the safety net

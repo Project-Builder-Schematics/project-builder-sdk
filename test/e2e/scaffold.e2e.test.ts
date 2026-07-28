@@ -156,7 +156,10 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
         create("dest.ts", { templateFile: escapingRelPath, options: {} });
       }, { packageDir: dir });
 
-      const err = expectAuthoringReason(caught, "source-outside-package");
+      // Compile-only shim (S-002.1's union shrink retired this reason from
+      // AuthoringReason; S-003.1 re-points this describe block's ceiling expectations) —
+      // the cast keeps `tsc --noEmit` green without pre-empting S-003's actual fix.
+      const err = expectAuthoringReason(caught, "source-outside-package" as AuthoringError["reason"]);
       expect(err.message).not.toContain("TOP SECRET");
       expect(fake.committedTree().size).toEqual(0);
       expect(fake.stagingTree().size).toEqual(0);
@@ -188,7 +191,8 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
         create("dest.ts", { templateFile: "broken-outside.template", options: {} });
       }, { packageDir: dir });
 
-      expectAuthoringReason(caught, "source-outside-package");
+      // Compile-only shim, see the note above (S-002.1 union shrink / S-003.1 re-point).
+      expectAuthoringReason(caught, "source-outside-package" as AuthoringError["reason"]);
       expect(fake.committedTree().size).toEqual(0);
     });
 

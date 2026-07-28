@@ -9,6 +9,13 @@ import type { Batch } from "./wire.ts";
  * forced by the `Directive["op"]` union gaining the `copyIn` wire op (ADR-0043); a
  * `copyIn` collision attributes `verb: "copyIn"` (the author never called `copy`).
  *
+ * `author-write-surface` S-004 (REQ-AEC-13): `"modify"` is the WIRE-altitude label for
+ * the `{op:"modify"}` directive — it is shared by BOTH `.replaceContent()` (the
+ * commons/dialect wholesale-replace call) and a dialect handle's `.modify(fn)` AST escape
+ * hatch, because both lower to the same wire directive. This member is DELIBERATELY never
+ * renamed to `"replaceContent"` — it labels the wire mutation, not either author-facing
+ * call name.
+ *
  * @example
  * if (err instanceof AuthoringError && err.verb !== undefined) {
  *   console.error(`${err.verb} was rejected at ${err.path}`);
@@ -17,7 +24,7 @@ import type { Batch } from "./wire.ts";
 export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" | "copy" | "copyIn";
 /**
  * The closed, author-vocabulary cause of an `AuthoringError` (★D2, ADR-0020). Exactly
- * twelve values — adding a thirteenth is a MAJOR change: authors are expected to write
+ * eleven values — adding a twelfth is a MAJOR change: authors are expected to write
  * exhaustive `switch(reason)` blocks, and TypeScript's exhaustiveness check breaks such
  * a switch on a new member even though nothing breaks at runtime. (V2 → V3 amendment,
  * 2026-07-10, coordinated with `stage-4-typed-options`: extended from six to eight —
@@ -25,7 +32,10 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  * S-002, REQ-AEC-10: extended from eight to twelve — `source-not-found`,
  * `source-outside-package`, `source-not-regular-file`, `source-unreadable` added, all
  * four covering the SDK's own pre-emit read/stat of a package-local source for
- * `scaffold`/`copyIn`/`create({templateFile})`.)
+ * `scaffold`/`copyIn`/`create({templateFile})`. `inline-collection-marker` S-002,
+ * REQ-AEC-10 (ADR-0077): narrowed from twelve to eleven — `source-outside-package`
+ * retired along with `package-root-containment`; the SDK no longer enforces a
+ * containment ceiling, so there is no longer an "outside" for a source to resolve to.)
  *
  * @example
  * switch (err.reason) {
@@ -40,14 +50,13 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *   case "invalid-input":
  *   case "reserved-name":
  *   case "source-not-found":
- *   case "source-outside-package":
  *   case "source-not-regular-file":
  *   case "source-unreadable":
  *     console.error(err.message);
  *     break;
  * }
  */
-export type AuthoringReason = "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-outside-package" | "source-not-regular-file" | "source-unreadable";
+export type AuthoringReason = "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable";
 /**
  * Distinguishes an engine-refused write from an SDK-side misuse (2.4, ADR-0021) —
  * DERIVED from `reason`, never producer-set.
@@ -105,5 +114,5 @@ export declare class AuthoringError extends Error {
         message?: string;
     });
 }
+export declare function invalidInput(message: string): AuthoringError;
 export declare function toAuthoringError(raw: unknown, batch: Batch): AuthoringError;
-//# sourceMappingURL=authoring-error.d.ts.map
