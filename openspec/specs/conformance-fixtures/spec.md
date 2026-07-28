@@ -249,7 +249,7 @@ elsewhere in the corpus.)
 MUST NOT author it). Factory: `modify` of `existing.txt` → `"composed"`. `writtenPaths` pin:
 REQ-CFX-12.
 
-A second, DISTINCT positive case (provisional name `positive-create-composite` / named export
+A second, DISTINCT positive case (provisional name `create-composite` / named export
 `createComposite` — `sdd-design` MAY rename either without invalidating this requirement)
 authors a wire `create` via the SAME public `create()` verb, inside its own quarantined
 named-export block in `m2-create-composition/factory.ts` (ADR-0065 mechanism), passing at least
@@ -261,7 +261,7 @@ REQ-CFX-12.
 |---|---|---|---|---|
 | positive | 0 | null | null | `{generated.txt: "generated", existing.txt: "composed"}`, `writtenPaths: ["existing.txt", "generated.txt"]` exactly |
 | wire-create-reject-twin | 2 (ADR-0064, resolved) | `unrepresentable` | null | `"zero-effect"` — disposition re-confirmed per REQ-CFX-09.5 below |
-| positive-create-composite (provisional) | 0 | null | null | byte-exact declared path + content (REQ-CFX-11 honesty boundary); options composite, `encodeOptions`-exercising |
+| create-composite (provisional) | 0 | null | null | byte-exact declared path + content (REQ-CFX-11 honesty boundary); options composite, `encodeOptions`-exercising |
 
 **PRECONDITION for freezing `wire-create-reject-twin`'s outcome triple (design-blocking, not a
 spec defect)**: the entire outcome triple `(exitCode, emitRejectionCode, failedIndex)` for this
@@ -304,7 +304,7 @@ via ADR (amending ADR-0064 if it adds `force: true`) BEFORE the corpus lands —
 scope-affecting discovery, not a pre-existing open question this change merely inherits.
 
 (Previously: this REQ described only the composition-positive case and the reject twin; the
-`positive-create-composite` row, its own paragraph, and the `sdk-wire-create` staleness note are
+`create-composite` row, its own paragraph, and the `sdk-wire-create` staleness note are
 all new. The composition-positive case's own contract, the design-blocking exit-path
 precondition, the fail-closed clause, and the transcript note are otherwise unchanged from V4.)
 
@@ -430,7 +430,7 @@ Pinned values, every positive case: `m1-vehicle` = `["out.txt"]` (schematic-lowe
 `["target.txt"]`; `m2-delete` = `["target.txt"]`; `m2-rename-move` = `["dst.txt"]`;
 `m2-create-composition` = `["existing.txt", "generated.txt"]` (schematic-lowered `create` of
 `generated.txt` + factory `modify` of `existing.txt`, sorted); `m2-create-composition`'s new
-`positive-create-composite` case (provisional name) = its own declared create path only — a
+`create-composite` case (provisional name) = its own declared create path only — a
 genuinely new path no other case touches, so no dedup collision (design/slice pins the exact
 literal when the case's path is chosen). Each committed case of `m2-copy` and `m2-copyin` lists
 its `copy`/`copyIn` **destination** (the by-reference `assets/` source is read, never written, so
@@ -438,7 +438,7 @@ it is absent): `m2-copy` positive = `["dst.txt"]`, collision-with-force = `["occ
 copy-then-modify = `["dst2.txt"]`; `m2-copyin` positive = `["dst.txt"]`, verbatim-content =
 `["dst2.txt"]`, collision-with-force = `["occupied.txt"]`. Every negative twin = `[]`.
 
-(Previously: the pinned-values list did not include the new `positive-create-composite` case.
+(Previously: the pinned-values list did not include the new `create-composite` case.
 All other pinned values and the per-op-class semantics are unchanged from V4.)
 
 #### Scenario: Same-path create+modify deduplicates to one entry
@@ -503,7 +503,7 @@ rejects mid-flight. `callbacks[]` and `forbidDiscard` both vary per case:
 | m2-rename-move / dir-source-twin | `[ir.emit, ir.discard]` | `false` |
 | m2-create-composition / positive | `[ir.emit, ir.commit]` | `true` |
 | m2-create-composition / wire-create-reject-twin | `[ir.emit, ir.discard]` IF resolved to the exit-2 emit-time path; `[ir.discard]` IF resolved to the exit-1 authoring-time path (see REQ-CFX-09) | `false` (either resolution) |
-| m2-create-composition / positive-create-composite (provisional, NEW) | `[ir.emit, ir.commit]` | `true` |
+| m2-create-composition / create-composite (provisional, NEW) | `[ir.emit, ir.commit]` | `true` |
 | m2-copy / positive | `[ir.emit, ir.commit]` | `true` |
 | m2-copy / collision-with-force | `[ir.emit, ir.commit]` | `true` |
 | m2-copy / collision-no-force-twin | `[ir.emit, ir.discard]` | `false` |
@@ -519,7 +519,7 @@ rejects mid-flight. `callbacks[]` and `forbidDiscard` both vary per case:
 `tree.read` appears ONLY in `m1-vehicle`'s positive case — no other factory in the corpus,
 including `m2-copy`/`m2-copyin`, reads before authoring the directive.
 
-(Previously: table did not include the `positive-create-composite` row. All other rows and the
+(Previously: table did not include the `create-composite` row. All other rows and the
 prose are unchanged from V4.)
 
 #### Scenario: A wire-mutation positive case's transcript is single-emit-single-commit

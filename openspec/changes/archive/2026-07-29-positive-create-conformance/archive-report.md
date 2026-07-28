@@ -3,7 +3,7 @@
 **Archived at**: 2026-07-29  
 **Verify verdict**: pass-with-followups  
 **Spec version archived**: V1 (merged, signed)  
-**Archive commit**: `0bd88e4` (PR #55 merged to main 2026-07-29)
+**Archive commit**: the commit on main that lands this spec-synced archive (confirm post-merge) — PR #55 merge `0bd88e4` is NOT the pin target
 
 ## Summary
 
@@ -53,7 +53,7 @@ Origin: this change (design §4.5), resolves engine handoff staleness question (
 
 ## PIN-ADVANCE: Engine Handoff Package
 
-**Archive commit SHA**: `0bd88e4` (PR #55 merged to main 2026-07-29)  
+**Archive commit SHA**: minted when this archive lands on main — confirm on merge; NOT `0bd88e4`  
 **Post-archive cleanup**: `e76bd8f` (simplify-gate + ADR-0064 amendment expansion)  
 **The engine pins the archive commit on main after THIS change lands, NOT merge `0bd88e4`.**
 
@@ -82,7 +82,7 @@ Origin: this change (design §4.5), resolves engine handoff staleness question (
 - ✅ Engine team has all data to advance pin
 
 **Externally falsifiable proof** (per outcome-verdict): Engine lands PC-CREATE-02 pin-advance PR with:
-1. third_party submodule pin advanced to commit `0bd88e4`
+1. third_party submodule pin advanced to the archive commit on main (post spec-sync)
 2. Two gated tests un-skipped: `TestConformance_M2CreateForceRejected`, `TestConformance_M2WireAuthoredCreateCardinality`
 3. Both tests passing green
 

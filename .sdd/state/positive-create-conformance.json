@@ -1,7 +1,7 @@
 {
   "change": "positive-create-conformance",
   "triage": "M",
-  "phase": "archive",
+  "phase": "archived",
   "spec_status": "signed",
   "slices": true,
   "plan_verify": null,
@@ -9,20 +9,10 @@
   "arch_audit": null,
   "outcome": "delivered-pending-activation",
   "viz_url": null,
-  "updated_at": "2026-07-29T09:00:00Z",
-  "completed_phases": ["triage", "explore", "propose+spec(merged)", "design", "slice", "apply", "verify-in-loop-1", "simplify", "verify-final", "steward-reckoning"],
+  "updated_at": "2026-07-29T10:30:00Z",
+  "completed_phases": ["triage", "explore", "propose+spec(merged)", "design", "slice", "apply", "verify-in-loop-1", "simplify", "verify-final", "steward-reckoning", "archive"],
   "architecture_impact": "additive",
-  "slice_status": {
-    "S-000": "done+verified",
-    "S-001": "done+verified",
-    "S-002": "done+verified"
-  },
-  "in_loop_iteration": 1,
-  "in_loop_verdict": "pass",
   "execution_mode": "automatic",
-  "product_rulings": {
-    "pending-row-500": "deferred — stays open; change scoped to the 3 handoff deliverables"
-  },
-  "notes": "PR #55 merged @ 0bd88e4; simplify 1-applied @ e76bd8f; verify final pass-with-followups @ 4d9d684; steward delivered-pending-activation (obs #1745, zero conscience questions — externally falsifiable outcome, owner ratified automatic run). Engine pins the ARCHIVE commit SHA post spec-sync, NOT 0bd88e4.",
-  "next": "sdd-archive → evidence runs at archive commit → push + PR"
+  "notes": "Archived to openspec/changes/archive/2026-07-29-positive-create-conformance. Haiku archive repaired by orchestrator (case-name defect in synced spec, pin-SHA wording, skipped engram writes — lessons 17-18). Engine pins the archive PR's landing commit on main; outcome flips to delivered when engine un-skips its two gated tests green (outcome-check pending row).",
+  "next": "push + archive PR; engine pin-advance out-of-band"
 }

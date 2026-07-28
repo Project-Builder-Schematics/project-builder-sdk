@@ -14,7 +14,7 @@ Followups registered from archived changes. Visible to future `/plan` grooming.
 | **outcome-check followup (steward deferred-activation duty)**: Engine PC-CREATE-02 pin-advance lands green (un-skips TestConformance_M2CreateForceRejected + TestConformance_M2WireAuthoredCreateCardinality against the archive SHA) — close outcome as delivered when confirmed | outcome-check | S | — | — | **✓ engine repo flag** |
 | **Note**: The "widen exactly-one-create invariant / next fit-40 touch" row (~line 500, prev cycle) STAYS OPEN — this change explicitly did not close it. Do NOT delete or reword other rows. | note | — | — | — | — |
 
-> **Outcome registration**: outcome-verdict recorded as `delivered-pending-activation`; deferred until engine pin-advance PR (PC-CREATE-02) lands green. Archive commit SHA: `0bd88e4`.
+> **Outcome registration**: outcome-verdict recorded as `delivered-pending-activation`; deferred until engine pin-advance PR (PC-CREATE-02) lands green. Archive commit SHA: minted when the archive lands on main (post spec-sync); NOT merge `0bd88e4`.
 
 ## From `typed-options-and-read` (2026-06-24) — accepted as non-blocking at archive
 
