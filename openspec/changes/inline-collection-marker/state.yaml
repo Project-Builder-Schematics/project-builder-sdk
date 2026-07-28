@@ -1,0 +1,18 @@
+change: inline-collection-marker
+triage: L
+completed_phases: [triage, explore, propose, spec, design, steward-foresight, slice, verify-plan]
+current_phase: plan-complete (final mechanical batch amendment in flight — items list = verify-plan-3.md)
+current_status: ready-for-build
+in_loop_iteration: 0
+next_phase: /build (Executor — S-000 walking skeleton first)
+direction: remove SDK-side containment — SDK only generates IR, engine owns the path-directive boundary (owner-decided)
+owner_rulings_count: 15
+plan_verify: ready — OWNER OVERRIDE (ruling 14, 2026-07-28) after 3 iterations exhausted with problem-fit clean since iteration 2 and residue = mechanical accounting only; override reason persisted in verify-plan-3.md + engram; final batch amendment applies the 11 items without a fourth judge round; /evaluate's verify final remains the safety net
+ruling_15: author-facing rule published QUALIFIED in docs/authoring-verbs.md ("symlinks are followed without target verification — see SECURITY.md"); spec verbatim adjusted to match
+spec_status: signed (V3.2 → V3.3 batch in flight)
+design_status: V2.1 (V2.2 batch in flight)
+slices_status: V3 (V4 batch in flight)
+architecture_impact: breaking
+pre_archive_step: restore REQ-AEC-10/11/12 (S-000.1) + archive-sync ledger (fit-43(e), fit-26, folder-scaffold Purpose, BRC Seam rows, scenario-matrix + conformance-fixtures cross-refs)
+viz_url: https://claude.ai/code/artifact/39b44724-7b52-4bd6-97ad-380400e8f5cc
+updated_at: "2026-07-28"

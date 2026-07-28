@@ -1,0 +1,13 @@
+{
+  "change": "inline-collection-marker",
+  "triage": "L",
+  "phase": "plan-complete",
+  "spec_status": "signed",
+  "slices": true,
+  "plan_verify": "ready",
+  "verify_final": "none",
+  "arch_audit": "none",
+  "outcome": "none",
+  "viz_url": "https://claude.ai/code/artifact/39b44724-7b52-4bd6-97ad-380400e8f5cc",
+  "updated_at": "2026-07-28T00:00:00Z"
+}
