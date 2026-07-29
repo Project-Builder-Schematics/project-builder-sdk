@@ -1,0 +1,14 @@
+{
+  "change": "runner-tripwire-invariants",
+  "triage": "L",
+  "sensitivity": "fired — tripwire mechanism is core subject",
+  "phase": "plan-complete — owner-ruled READY (verify-plan-3 addendum 2026-07-29); final mechanical batch APPLIED (8/8, A2 orchestrator-resolved); artefacts uncommitted, commit on a BRANCH (main protected); /build awaits owner",
+  "spec_status": "signed",
+  "slices": true,
+  "plan_verify": "ready-owner-ruled",
+  "verify_final": "none",
+  "arch_audit": "none",
+  "outcome": "none",
+  "viz_url": "https://claude.ai/code/artifact/1e3a1f6e-0925-475d-9dbc-55b168cc23cd",
+  "updated_at": "2026-07-29T19:30:00Z"
+}
