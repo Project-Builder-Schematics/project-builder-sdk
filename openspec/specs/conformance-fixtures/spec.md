@@ -1,8 +1,10 @@
 # Conformance Fixtures Specification
 
-**Spec version**: V4
-**Status**: SIGNED (V4 — `conformance-writtenpaths-reconcile`: REQ-CFX-12 rewritten to the engine's committed-mutation-set `WrittenPaths` contract, REQ-CFX-09 pin updated; V3 re-signed by owner 2026-07-18 — see spec-summary.md log)
+**Spec version**: V5
+**Status**: SIGNED (V5 — `inline-collection-marker`: REQ-CFX-16's cross-reference to the retired package-anchor marker note re-pointed; V4 — `conformance-writtenpaths-reconcile`: REQ-CFX-12 rewritten to the engine's committed-mutation-set `WrittenPaths` contract, REQ-CFX-09 pin updated; V3 re-signed by owner 2026-07-18 — see spec-summary.md log)
 **Change**: `conformance-writtenpaths-reconcile`
+
+V4 → V5 (archive-sync, `inline-collection-marker`, 2026-07-29): REQ-CFX-16's cross-reference sentence pointed at the now-retired package-anchor marker note; re-pointed to the retirement pointer. No behavioural scenario changes.
 
 ## Purpose
 
@@ -646,7 +648,8 @@ in-fixture source directory (`assets/`) — the bytes `copyIn` references live I
 package itself, resolved against `packageDir` = the fixture's own directory. [SEAM] The engine's
 Go fixture loader treats unknown files/dirs inside a fixture dir as INERT (engine-confirmed,
 ruling 3(c)) — an in-fixture `assets/` source needs ZERO schema changes; flagged for engine-team
-awareness, same posture as `conformance-corpus` REQ-CCR-08's `collection.json` note. 5
+awareness (`conformance-corpus`'s prior package-anchor marker note this posture once echoed is
+retired, no successor concept applies here). 5
 engine-plane cases are in scope (extended from 4 by the 2026-07-22 owner-ruling addition of
 `dest-dir-twin`) — SDK-plane twins remain explicitly DESCOPED (see Followups; a deliberate,
 recorded exclusion, never a silent gap). The fixture id `m2-copyin` is DELIBERATELY a single

@@ -1,8 +1,10 @@
 # Scenario Matrix Specification
 
-**Spec version**: V2
-**Status**: signed (owner, 2026-07-13)
-**Change**: `author-emulation-e2e-scaffold`
+**Spec version**: V3
+**Status**: signed (owner, 2026-07-28 — micro-unfreeze V3.2→V3.3, ruling 15, deltas pre-authorized; plan-verify closed by owner override per ruling 14, see proposal.md)
+**Change**: `inline-collection-marker`
+
+V2 → V3 (archive-sync, `inline-collection-marker`, 2026-07-29): matrix REFROZEN 21 → 20 — row M-17 (the no-existence-oracle-for-out-of-ceiling-paths row) is DELETED outright, its citation retired with no successor; the former M-18/M-19/M-20/M-21 shift up to M-17/M-18/M-19/M-20. This is not a pure position renumbering: the renumbered M-17 (formerly M-18) also gets a new citation (`package-source-io-hygiene` REQ-PSH-02.1, replacing `by-reference-copy-wire` REQ-BRC-06.1) and reworded GWT text dropping the "in-ceiling" framing. M-16 is retained and re-cited onto `ir-path-well-formedness` REQ-IPF-01. REQ-SCM-02 drops its second engine-gated citation (its SDK-side half re-homed to an SDK-testable REQ, no longer belonging in the engine-gated exclusion list). REQ-SCM-04's exclusion-count note updates from 21 to 20. The Sensitive Areas Coverage section's family citation re-points to the two successor families. REQ-IDs otherwise stable.
 
 V1 → V2 (council fixes applied): matrix UNFROZEN 20 → 21 — row M-21 added
 (cross-chunk atomicity, batch-cap REQ-05.1; QA-M-a) and M-09's stretched REQ-05
@@ -27,21 +29,18 @@ owner boundary (D1-D4, obs #941); a row without a citation is rejected.
 
 ## Requirements
 
-### REQ-SCM-01: Fixed Enumerated Matrix, Count Pinned at 21
+### REQ-SCM-01: Fixed Enumerated Matrix, Count Pinned at 20
 
-The scenario matrix MUST be exactly the 21 rows enumerated below — no more, no fewer —
-at this spec version. Adding a row REQUIRES a spec unfreeze (V3+). Count history: the
-owner's pre-propose estimate was ~17 (obs #941, D4); V1 pinned 20 (batch-cap family
-decomposed into its three independently meaningful outcomes, batch-cap
-REQ-04.1/04.2/04.3); V2 pins 21 (council-mandated M-21 restores the dropped batch-cap
-REQ-05.1 coverage). Every row cites a signed REQ-ID or an owner boundary — the count
-moves only through reviewed unfreezes like this one, never silently.
+The scenario matrix MUST be exactly the 20 rows enumerated below — no more, no fewer —
+at this spec version. Adding OR REMOVING a row REQUIRES a spec unfreeze (V3+). Every row
+cites a signed REQ-ID or an owner boundary — the count moves only through reviewed
+unfreezes, never silently.
 
-#### Scenario REQ-SCM-01.1: Matrix row count is exactly 21 [SDK]
+#### Scenario REQ-SCM-01.1: Matrix row count is exactly 20 [preservation-pin]
 
 - GIVEN the table below
 - WHEN counted
-- THEN it contains exactly 21 rows
+- THEN it contains exactly 20 rows
 
 | # | Scenario | Citation(s) | GWT (brief) |
 |---|---|---|---|
@@ -60,27 +59,35 @@ moves only through reviewed unfreezes like this one, never silently.
 | M-13 | Filters eliminate every entry — fail loud naming filters | REQ-FSC-04.2 | GIVEN filters leaving zero survivors WHEN scaffolded THEN fails loud naming include/exclude |
 | M-14 | Empty source folder no-ops | REQ-FSC-04.1 | GIVEN a truly empty `from` (setup-materialized, REQ-AEG-07) WHEN scaffolded THEN zero directives, no error; corpus = empty-sequence success record |
 | M-15 | Intra-scaffold destination collision — fail loud naming both sources | REQ-FSC-08.1 | GIVEN two sources collapsing to one destination WHEN scaffolded THEN fails loud, names both |
-| M-16 | Traversal / absolute source path rejected | REQ-PRC-04.1; REQ-PRC-04.6 | GIVEN `../` and absolute source paths WHEN called THEN both reject, containment cited |
-| M-17 | No-existence-oracle for out-of-ceiling paths | REQ-PRC-07.1 | GIVEN existing and non-existing out-of-ceiling targets WHEN rejected THEN identical `source-outside-package` shape |
-| M-18 | Missing in-ceiling source surfaces `source-not-found` | REQ-BRC-06.1 | GIVEN an in-ceiling, non-existent source WHEN run via the harness THEN `AuthoringError` reason `source-not-found` |
-| M-19 | Symlinked directory is skipped, not traversed | REQ-FSC-09.1 | GIVEN a symlinked directory (setup-materialized, REQ-AEG-07; skipped on platforms where symlink creation is unavailable, with the skip recorded) WHEN scaffolded THEN its contents are absent, no error |
-| M-20 | `ContractFake` ↔ conformance-vehicle parity on THIS change's fixtures | REQ-ATH-16.1 | GIVEN this change's OWN by-reference fixture set (valid, missing-source, collision — richer than upstream ATH-16.1's minimal set; the delta is re-asserting parity on author-emulation-scale fixtures) WHEN run through both simulators THEN identical verdicts |
-| M-21 | Cross-chunk atomicity — later flush rejects, nothing commits | batch-cap REQ-05.1 | GIVEN a scaffold spanning ≥2 flushes whose SECOND flush rejects WHEN run via `runFactoryForTest` THEN `result.tree` is empty (first chunk discarded) and `result.error` carries the attributed rejection |
+| M-16 | Traversal / absolute source path rejected | `ir-path-well-formedness` REQ-IPF-01.1; REQ-IPF-01.2 | GIVEN `../` and absolute source paths WHEN called THEN both reject with reason `invalid-input`, the ruling-5 lexical screen cited (not containment — the containment family is retired) |
+| M-17 | Missing package-local source surfaces `source-not-found` | `package-source-io-hygiene` REQ-PSH-02.1 | GIVEN a package-local, non-existent source (at `create({templateFile})` or `copyIn` — not scaffold, per REQ-PSH-02's carve-out) WHEN run via the harness THEN `AuthoringError` reason `source-not-found` |
+| M-18 | Symlinked directory is skipped, not traversed | REQ-FSC-09.1 | GIVEN a symlinked directory (setup-materialized, REQ-AEG-07; skipped on platforms where symlink creation is unavailable, with the skip recorded) WHEN scaffolded THEN its contents are absent, no error |
+| M-19 | `ContractFake` ↔ conformance-vehicle parity on THIS change's fixtures | REQ-ATH-16.1 | GIVEN this change's OWN by-reference fixture set (valid, missing-source, collision — richer than upstream ATH-16.1's minimal set; the delta is re-asserting parity on author-emulation-scale fixtures) WHEN run through both simulators THEN identical verdicts |
+| M-20 | Cross-chunk atomicity — later flush rejects, nothing commits | batch-cap REQ-05.1 | GIVEN a scaffold spanning ≥2 flushes whose SECOND flush rejects WHEN run via `runFactoryForTest` THEN `result.tree` is empty (first chunk discarded) and `result.error` carries the attributed rejection |
+
+(Renumbering note: the retired "no-existence-oracle" row is deleted outright — the
+former M-18/M-19/M-20/M-21 shift up to M-17/M-18/M-19/M-20 respectively. This is NOT a
+pure position renumbering: the renumbered M-17 (formerly M-18, "Missing in-ceiling
+source surfaces `source-not-found`") also has its CITATION changed from
+`by-reference-copy-wire` REQ-BRC-06.1 to `package-source-io-hygiene` REQ-PSH-02.1 (the
+new owning REQ for the primary, non-TOCTOU missing-source scenario) and its GWT text
+REWORDED to drop "in-ceiling" and to name the carve-out (create/copyIn only, not
+scaffold) — matching the M-17 title fix above. M-18/M-19/M-20 (formerly M-19/M-20/M-21)
+carry their ORIGINAL content and citations unchanged.)
 
 ### REQ-SCM-02: Engine-Gated Rows Are Non-Executing Corpus Notes, Never Matrix Rows
 
-`REQ-BRC-08` (engine path-form/render hardening) and `REQ-PRC-06` (destination
-containment post-render) MUST NOT appear as executing scenario-matrix rows — both are
-`[SEAM] [ENGINE-GATED]` in their signed spec (no SDK-runnable assertion is possible).
-They MUST instead be captured as literal entries in the `golden-corpus-contract`
-coverage manifest's NOT-exercised ledger (REQ-GCC-08 checklist item 3) — documented,
-never silently dropped.
+`REQ-BRC-08` (engine path-form/render hardening) MUST NOT appear as an executing
+scenario-matrix row — it is `[SEAM] [ENGINE-GATED]` in its signed spec (no
+SDK-runnable assertion is possible). It MUST instead be captured as a literal entry in
+the `golden-corpus-contract` coverage manifest's NOT-exercised ledger (REQ-GCC-08
+checklist item 3) — documented, never silently dropped.
 
-#### Scenario REQ-SCM-02.1: Engine-gated REQs appear only as manifest notes [SDK]
+#### Scenario REQ-SCM-02.1: The engine-gated REQ appears only as a manifest note [preservation-pin]
 
 - GIVEN the scenario matrix table and the coverage manifest
-- WHEN searched for `REQ-BRC-08` and `REQ-PRC-06`
-- THEN neither appears as a matrix row citation; both appear in the manifest's
+- WHEN searched for `REQ-BRC-08`
+- THEN it does not appear as a matrix row citation; it appears in the manifest's
   NOT-exercised ledger, named as engine-gated
 
 ### REQ-SCM-03: Chained Filename Tokens Exercised + D3 Upstream Gap Flagged
@@ -118,13 +125,13 @@ mutant-killers, tail-null detection); (b) rows for other mutation families
 (`rename`/`move`/`delete`/`modify`/plain `copy`) or cross-family combinations;
 (c) force-propagation rows — REQ-FSC-06.1/06.2 are unit-covered upstream and no
 collision-with-force row is added here (deliberate exclusion, keeping the count at
-21); (d) the walk entry-count bound — REQ-FSC-09.2 is excluded because its fixture is
+20); (d) the walk entry-count bound — REQ-FSC-09.2 is excluded because its fixture is
 CI-hostile at e2e scale (10,001 real files) and upstream already pins the bound branch
 at unit level with an injected limit.
 
 #### Scenario REQ-SCM-04.1: No row duplicates an upstream unit-level classification edge [SDK]
 
-- GIVEN the 21-row matrix
+- GIVEN the 20-row matrix
 - WHEN cross-checked against `content-classification`'s own unit-test REQ-IDs
   (REQ-CCL-01.3/.4/.5, REQ-CCL-02.2/.3, REQ-CCL-03.1/.2)
 - THEN none of those byte-level mutant-killer REQ-IDs are cited as a matrix row's
@@ -171,6 +178,6 @@ assertion checking `reason` alone is incomplete.
 ## Sensitive Areas Coverage
 
 No sensitive areas newly introduced — this domain exercises (read-only, as a test
-consumer) already-signed security REQs from `package-root-containment` and
-`content-classification` (both flagged sensitive in their own specs); this change adds
-no new sensitivity surface of its own.
+consumer) already-signed security REQs from `package-source-io-hygiene`,
+`ir-path-well-formedness`, and `content-classification` (all flagged sensitive in
+their own specs); this change adds no new sensitivity surface of its own.

@@ -7,12 +7,16 @@
  *      path literal for the reports dir exists anywhere else in the change's tree.
  *  (c) every row of the signed `specs/scenario-matrix/spec.md` table cites at least one
  *      `schematic-local-files` REQ-ID or an explicit owner boundary (D1-D4) — a row
- *      without a citation fails this check (REQ-SCM-01's 21-row table).
+ *      without a citation fails this check (REQ-SCM-01's 20-row table, archive-synced
+ *      `inline-collection-marker`). REQ-SCM-02.1 additionally pins that the
+ *      engine-gated `REQ-BRC-08` never appears as a matrix row citation — only as a
+ *      `golden-corpus-contract` coverage-manifest NOT-EXERCISED entry.
  *  (d) no report artifact is ever git-tracked (`run-report` REQ-RPT-04): nothing under
  *      the reports dir and no `.report.md`-named file anywhere in the tracked tree —
  *      the aggregate/rolled-up report REQ-RPT-04 bans would surface as either.
  * Plus the GCC-01 count check (design §4.4): committed corpus files map one-to-one with
- * `SCENARIOS` entries.
+ * `SCENARIOS` entries, and REQ-GCC-08.1's four-point coverage-manifest completeness
+ * checklist (EXERCISED, NOT-EXERCISED, engine-gated entries, FRICTION).
  *
  * Failure-message taxonomy (design §4.4): guard id + broken invariant + named offender +
  * rule cite.
@@ -39,10 +43,23 @@ const UNCITED_ROW_FIXTURE = new URL(
   import.meta.url
 ).pathname;
 const CORPUS_DIR = new URL("../e2e/author-emulation/corpus", import.meta.url).pathname;
+const COVERAGE_MANIFEST = new URL(
+  "../e2e/author-emulation/corpus/coverage-manifest.md",
+  import.meta.url
+).pathname;
 const RUN_REPORT_RENDER = new URL("../support/run-report-render.ts", import.meta.url).pathname;
 const TEST_SUPPORT_DIR = new URL("../support", import.meta.url).pathname;
 const TEST_E2E_DIR = new URL("../e2e", import.meta.url).pathname;
 const SCRIPTS_DIR = new URL("../../scripts", import.meta.url).pathname;
+
+/** Pulls every REQ-ID/owner-boundary token out of a matrix row's Citation(s) text —
+ * ignores family-name backtick prefixes, matching how the coverage manifest's own
+ * EXERCISED ledger lists bare tokens (e.g. "`ir-path-well-formedness` REQ-IPF-01.1"
+ * yields just "REQ-IPF-01.1"). */
+function citedTokens(citations: string): string[] {
+  const re = /(?:batch-cap REQ-\d+\.\d+)|(?:D\d)|(?:REQ-[A-Z]+-\d+(?:\.\d+)?)/g;
+  return citations.match(re) ?? [];
+}
 
 interface MatrixRow {
   id: string;
@@ -87,9 +104,9 @@ describe("FIT-26 (b) — report filename derives ONLY from REPORTS_DIR/reportPat
 });
 
 describe("FIT-26 (c) — every scenario-matrix row cites a REQ-ID or owner boundary (REQ-SCM-01)", () => {
-  it("the signed 21-row matrix table has no uncited row", () => {
+  it("the signed 20-row matrix table has no uncited row", () => {
     const rows = extractMatrixRows(readFileSync(MATRIX_SPEC, "utf-8"));
-    expect(rows.length).toEqual(21);
+    expect(rows.length).toEqual(20);
     expect(uncitedRows(rows)).toEqual([]);
   });
 
@@ -97,6 +114,49 @@ describe("FIT-26 (c) — every scenario-matrix row cites a REQ-ID or owner bound
   it("[red-proof] a matrix row missing its citation is detected", () => {
     const rows = extractMatrixRows(readFileSync(UNCITED_ROW_FIXTURE, "utf-8"));
     expect(uncitedRows(rows)).toEqual(["M-02"]);
+  });
+
+  // REQ-SCM-02.1: the engine-gated REQ appears only as a coverage-manifest note, never
+  // as an executing matrix row citation.
+  it("REQ-BRC-08 never appears as a matrix row citation, only in the coverage manifest's NOT-EXERCISED ledger", () => {
+    const rows = extractMatrixRows(readFileSync(MATRIX_SPEC, "utf-8"));
+    expect(rows.some((r) => r.citations.includes("REQ-BRC-08"))).toBe(false);
+
+    const manifest = readFileSync(COVERAGE_MANIFEST, "utf-8");
+    const notExercised = manifest.split("## NOT-EXERCISED")[1]?.split(/\n## /)[0] ?? "";
+    expect(notExercised.includes("REQ-BRC-08")).toBe(true);
+  });
+});
+
+describe("FIT-26 — REQ-GCC-08.1: coverage manifest passes the four-point completeness checklist", () => {
+  const manifest = readFileSync(COVERAGE_MANIFEST, "utf-8");
+  const exercised = manifest.split("## EXERCISED")[1]?.split(/\n## /)[0] ?? "";
+  const notExercised = manifest.split("## NOT-EXERCISED")[1]?.split(/\n## /)[0] ?? "";
+  const friction = manifest.split("## FRICTION")[1] ?? "";
+
+  it("item 1: EXERCISED lists every REQ-ID/boundary cited anywhere in the scenario-matrix table", () => {
+    const rows = extractMatrixRows(readFileSync(MATRIX_SPEC, "utf-8"));
+    const citedElsewhere: string[] = [];
+    for (const row of rows) {
+      for (const token of citedTokens(row.citations)) {
+        if (!exercised.includes(token)) citedElsewhere.push(`${row.id}:${token}`);
+      }
+    }
+    expect(citedElsewhere).toEqual([]);
+  });
+
+  it("item 2: NOT-EXERCISED contains the three non-engine-gated literal entries", () => {
+    expect(notExercised.includes("module-wiring")).toBe(true);
+    expect(notExercised.includes("tsconfig-AST")).toBe(true);
+    expect(notExercised.includes("template rendering")).toBe(true);
+  });
+
+  it("item 3: NOT-EXERCISED contains exactly the one engine-gated literal, REQ-BRC-08 (the retired containment family's citation is dropped, no successor)", () => {
+    expect(notExercised.includes("REQ-BRC-08")).toBe(true);
+  });
+
+  it("item 4: the FRICTION section exists with at least one entry", () => {
+    expect(friction.trim().length).toBeGreaterThan(0);
   });
 });
 

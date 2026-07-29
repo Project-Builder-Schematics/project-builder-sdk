@@ -1,10 +1,11 @@
 /**
  * FIT-NEW-A (`fitness-guards` REQ-FTG-06, ADR-0077): the containment ceiling this change
  * deletes must never regrow. Six lettered clauses, (a)-(d)/(f) run LIVE against the real
- * `src/**`/`test/**` trees; clause (e) — the `openspec/specs/` sweep — is FIXTURE-PAIR
- * ONLY here (REQ-FTG-06.4): its real-tree invocation is archive-sync work, owned by
- * `sdd-archive` and `package-root-containment`'s own post-archive-sync criterion (design
- * §8, spec V3.3 amendment). All scanners are pure functions over an injectable file list
+ * `src/**`/`test/**` trees; clause (e) — the `openspec/specs/` sweep — runs BOTH the
+ * FIXTURE-PAIR logic proof (REQ-FTG-06.4, always ran here) AND, since the
+ * `inline-collection-marker` archive-sync (REQ-FTG-06.5), a LIVE invocation against the
+ * real `openspec/specs/**` tree — a permanent regression from this point forward. All
+ * scanners are pure functions over an injectable file list
  * (`test/support/src-invariant-scans.ts`); negatives run against fixture trees under
  * `test/fixtures/red/src-invariant-scans/**`, never a live mutation of the real tree.
  */
@@ -26,6 +27,7 @@ import {
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = `${PROJECT_ROOT}src`;
 const TEST_DIR = `${PROJECT_ROOT}test`;
+const SPECS_DIR = `${PROJECT_ROOT}openspec/specs`;
 const RED_ROOT = `${PROJECT_ROOT}test/fixtures/red/src-invariant-scans`;
 const SINGLE_INSTANCE_PROBE_PATH = `${SRC_DIR}/transport/single-instance-probe.ts`;
 const CONTEXT_TS_PATH = `${SRC_DIR}/core/context.ts`;
@@ -151,6 +153,15 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
       const path = `${RED_ROOT}/openspec-sweep/allowlist-only.md`;
       const fixture = readScanFiles([path]);
       expect(findOrphanedRetiredCitations(fixture)).toEqual([]);
+    });
+
+    // REQ-FTG-06.5: the real-tree invocation, deferred until archive-sync (design §8,
+    // spec V3.3), ran ONCE at the inline-collection-marker archive's spec-sync commit
+    // and is now a PERMANENT regression — every subsequent change touching
+    // `openspec/specs/**` must keep this green.
+    it("the real openspec/specs/ tree is swept and stays clean (REQ-FTG-06.5, archive-sync)", () => {
+      const files = readScanFiles(collectFiles(SPECS_DIR, ".md"));
+      expect(findOrphanedRetiredCitations(files)).toEqual([]);
     });
   });
 
