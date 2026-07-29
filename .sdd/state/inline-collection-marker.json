@@ -1,13 +1,13 @@
 {
   "change": "inline-collection-marker",
   "triage": "L",
-  "phase": "evaluate:simplify-gate-4-lens-fanout-running",
+  "phase": "evaluate:reckoning-ratified-closing-batch-then-archive",
   "spec_status": "signed",
   "slices": true,
   "plan_verify": "ready",
-  "verify_final": "none",
-  "arch_audit": "none",
-  "outcome": "none",
+  "verify_final": "pass-with-followups",
+  "arch_audit": "clean",
+  "outcome": "delivered-pending-activation",
   "viz_url": "https://claude.ai/code/artifact/a4b2dd19-94de-4f73-9527-349751e23639",
   "updated_at": "2026-07-28T00:00:00Z"
 }
