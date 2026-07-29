@@ -1,8 +1,10 @@
 # Delta for authoring-error-contract
 
-**Spec version**: V3
-**Status**: signed (owner, 2026-07-14 — V4 scope-reduction per foresight obs #2128)
-**Change**: `author-write-surface`
+**Spec version**: V4
+**Status**: signed (owner, 2026-07-28 — micro-unfreeze V3.2→V3.3, ruling 15, deltas pre-authorized; plan-verify closed by owner override per ruling 14, see proposal.md)
+**Change**: `inline-collection-marker`
+
+V3 → V4 (archive-sync, `inline-collection-marker`, 2026-07-29): `AuthoringError.reason` narrows from twelve to ELEVEN closed-union values — the reason value covering an out-of-ceiling source is retired along with the family that defined the ceiling it named (a MAJOR, breaking narrowing consumers must handle in their exhaustive `switch(reason)` blocks; `originFor`'s exhaustiveness pin and the FIT-04 `.d.ts` baseline both re-narrow in the same commit as this sync per the change's own signed requirement). REQ-AEC-11's message-template table drops the retired reason's row and splits the single ruling-5 lexical-screen row into two independent rows (source and destination, each driven from its own REQ — the prior single row conflated two different message shapes). REQ-AEC-12 drops its "missing ancestor" row (the ancestor walk it referenced no longer exists) and gains two rows for the new lexical-screen failure modes, reusing the same `invalid-input` reason. REQ-IDs stable; REQ-AEC-13 unaffected.
 
 (V3: owner-directed scope reduction at the post-design foresight gate (obs #2128) — the
 importable `modify(handle, fn)` calling convention is DEFERRED (`typescript-dialect` REQ-TSD-12
@@ -10,114 +12,119 @@ tombstoned). REQ-AEC-13's SUBSTANCE is UNCHANGED — the label `"modify"` is sti
 of author call form; the only edit below is factual: the parenthetical enumerating call forms
 drops "importable" since it no longer exists in this change's shipped surface.)
 
-**Restoration note (`inline-collection-marker` S-000.1, pre-archive step)**: REQ-AEC-10/11/12
-below were missing from this main family file — an archive-sync gap unrelated to
-`author-write-surface` — and are restored here verbatim from the archived
-`schematic-local-files` change's signed delta
-(`openspec/changes/archive/2026-07-13-schematic-local-files/specs/authoring-error-contract/spec.md`),
-which is the only archived change that ever wrote them. This restores the PRE-`inline-collection-marker`
-state (union still twelve, `source-outside-package` included); `inline-collection-marker`'s own
-MODIFIED blocks (its `specs/authoring-error-contract/spec.md` delta) narrow the union to eleven
-at archive-sync, on top of this restored text — never applied here.
+## Requirements
 
-## ADDED Requirements
+### REQ-AEC-10: Closed Reason Enum — 3 By-Reference Reasons (Eleven Total)
 
-### REQ-AEC-10: Closed Reason Enum Extended — 4 By-Reference Reasons
-
-`AuthoringError.reason` MUST extend from eight to TWELVE closed-union values, adding
-exactly: `"source-not-found"`, `"source-outside-package"`, `"source-not-regular-file"`,
-`"source-unreadable"` (obs #915 open items; MAJOR coordinated extension, precedented
-by the Stage-2/4 `invalid-input`/`reserved-name` addition). All four cover failures
-detected by the SDK's OWN pre-emit read/stat of a package-local source (`scaffold` /
-`copyIn` / `create({templateFile})`) — never an engine round-trip refusal — so, per
-REQ-AEC-02's origin-derivation rule (ADR-0021), `origin` for all four is ALWAYS
-`"authoring-rejected"`, the same rationale as `invalid-input`/`reserved-name`.
+`AuthoringError.reason` MUST hold ELEVEN closed-union values, including exactly:
+`"source-not-found"`, `"source-not-regular-file"`, `"source-unreadable"`. All three
+cover failures detected by the SDK's OWN pre-emit read/stat of a package-local source
+(`scaffold` / `copyIn` / `create({templateFile})`) — never an engine round-trip refusal
+— so, per REQ-AEC-02's origin-derivation rule (ADR-0021), `origin` for all three is
+ALWAYS `"authoring-rejected"`.
 
 | Value | Covers |
 |---|---|
-| `source-not-found` | an IN-CEILING package-local source path that does not exist (`by-reference-copy-wire` REQ-BRC-06) — NEVER reachable for out-of-ceiling paths (REQ-PRC-07) |
-| `source-outside-package` | source resolves outside the containment ceiling (`package-root-containment` REQ-PRC-04/07) — fires BEFORE any existence probe, whether or not the target exists |
-| `source-not-regular-file` | source is not a regular file per the allow-list lstat (directory, FIFO, socket, device; symlinked-dir descent) (REQ-PRC-04.3/.4) |
-| `source-unreadable` | an in-ceiling, regular-file source that could not be read (permission, I/O error) |
+| `source-not-found` | a package-local source path that does not exist (`by-reference-copy-wire` REQ-BRC-06, `package-source-io-hygiene` REQ-PSH-02) |
+| `source-not-regular-file` | source is not a regular file per the allow-list stat (directory, FIFO, socket, device) (`package-source-io-hygiene` REQ-PSH-01) |
+| `source-unreadable` | a source that could not be read (permission, I/O error, embedded NUL byte, or a symlink cycle/`ELOOP`) (`package-source-io-hygiene` REQ-PSH-02/03) |
 
-`originFor`'s exhaustive switch (`src/core/authoring-error.ts`) MUST add all four
-under the `authoring-rejected` arm; the existing compile-time exhaustiveness pin test
-MUST be extended to the twelve-member union.
+`originFor`'s exhaustive switch (`src/core/authoring-error.ts`) MUST drop the
+prior out-of-ceiling arm under the `authoring-rejected` case; the compile-time
+exhaustiveness pin test MUST be re-narrowed to the eleven-member union. The `.d.ts`
+fitness baseline (FIT-04) MUST be updated in the SAME commit as this union shrink — a
+FIT-04 mismatch (baseline still showing twelve members) is itself a hard failure of this
+REQ, never a follow-up.
 
-#### Scenario REQ-AEC-10.1: Each of the four new reasons classifies exactly and maps to authoring-rejected [SDK]
+#### Scenario REQ-AEC-10.1: Each of the three surviving reasons classifies exactly and maps to authoring-rejected [preservation-pin]
 
-- GIVEN one fixture per new reason: missing in-ceiling source, out-of-ceiling source,
-  directory-as-source, and an unreadable source exercised via the fake/conformance
-  simulation or an injected read-failure (EACCES) seam — never a chmod-based CI
-  fixture (S18: chmod fixtures are unreliable under root-running CI and container
-  umasks)
+- GIVEN one fixture per surviving reason: missing source, directory-as-source, and an
+  unreadable source exercised via the fake/conformance simulation or an injected
+  read-failure (EACCES) seam — never a chmod-based CI fixture
 - WHEN each is translated to an `AuthoringError`
-- THEN `reason` is exactly the corresponding new value and `origin` is
-  `"authoring-rejected"` for all four
+- THEN `reason` is exactly the corresponding value and `origin` is
+  `"authoring-rejected"` for all three
 
-#### Scenario REQ-AEC-10.2: originFor exhaustiveness pin extends to 12 members [SDK]
+#### Scenario REQ-AEC-10.2: `originFor` exhaustiveness pin re-narrows to 11 members, FIT-04 updated same commit [preservation-pin]
 
-- GIVEN the compile-time exhaustiveness test (`test/types/authoring-reason.test.ts`)
-- WHEN the `reason` union is extended to twelve members
-- THEN `originFor`'s switch statement compiles only when all twelve arms are handled
-  — a missing arm fails the build
+- GIVEN the compile-time exhaustiveness test (`test/types/authoring-reason.test.ts`) and
+  the FIT-04 `.d.ts` baseline
+- WHEN the `reason` union shrinks to eleven members
+- THEN `originFor`'s switch statement compiles only when all eleven arms are handled —
+  a stale twelfth arm fails the build — AND the FIT-04 baseline is updated to eleven
+  members in the SAME commit, never a follow-up
 
-### REQ-AEC-11: Message Template Rows for the 4 New Reasons
+### REQ-AEC-11: Message Template Rows for the 3 Surviving Reasons and the Ruling-5 Screen (Source and Destination, Split)
 
-REQ-AEC-06/09's message-template table gains four rows, one per new reason, all
-package-relative and no-echo (never the raw source content, never an absolute path,
-never a raw OS errno string beyond a described category):
+REQ-AEC-06/09's message-template table carries FIVE rows — three for the surviving
+`source-*` reasons (one, `source-not-regular-file`, with two variant forms), one for the
+ruling-5 SOURCE screen (`ir-path-well-formedness` REQ-IPF-01), and one for the
+destination guard (`ir-path-well-formedness` REQ-IPF-02) — all package-relative and
+no-echo (never the raw source content, never an absolute path, never a raw OS errno
+string beyond a described category):
 
 | Family | Reason | Template |
 |---|---|---|
-| Source missing (in-ceiling only) | `source-not-found` | `"source file not found: {path} does not exist in the package"` |
-| Source outside package | `source-outside-package` | `"source file outside package: {path} resolves outside the package boundary"` |
-| Source not a regular file | `source-not-regular-file` | `"source file invalid: {path} is not a regular file"` |
-| Source unreadable | `source-unreadable` | `"source file unreadable: {path} could not be read"` |
+| Source missing | `source-not-found` | `"source file not found: {path} does not exist in the package"` |
+| Source not a regular file — directory | `source-not-regular-file` | `"source file invalid: {path} is a directory, not a regular file — use scaffold() to copy a folder"` |
+| Source not a regular file — other (FIFO/socket/device) | `source-not-regular-file` | `"source file invalid: {path} is not a regular file"` |
+| Source unreadable | `source-unreadable` | `"source file unreadable: {path} could not be read (permission or I/O error \| symlink cycle \| path contains an invalid character)"` — exactly ONE of the three pipe-delimited categories is substituted per instance, matching the actual failure class |
+| Ruling-5 lexical screen, SOURCE (`ir-path-well-formedness` REQ-IPF-01) | `invalid-input` | `"source path invalid: {path} must not contain a '..' segment or be absolute — everything a schematic reads lives inside its package (packageDir)"` |
+| Ruling-5 lexical screen, DESTINATION (`ir-path-well-formedness` REQ-IPF-02) | `invalid-input` | `"invalid input: destination \"{path}\" escapes the workspace tree (literal '..' segment or absolute path)"` — the EXISTING `destinationEscapeMessage` function's output, carried verbatim, never re-derived |
 
-`{path}` is always package-relative (never absolute), per `package-root-containment`
-REQ-PRC-05.
+`{path}` is always package-relative (never absolute).
 
-**No-existence-oracle clause (B5)**: for a path resolving OUTSIDE the containment
-ceiling, the ONLY reachable reason/template is `source-outside-package`, regardless of
-whether the target exists — the `source-not-found` row is reachable EXCLUSIVELY for
-in-ceiling paths. The not-found vs outside-package pair MUST NEVER differentiate
-existing from non-existing out-of-ceiling targets (`package-root-containment`
-REQ-PRC-07).
+#### Scenario REQ-AEC-11.1: Each surviving-reason message follows its exact template, path relative, including both `source-not-regular-file` variants [preservation-pin]
 
-#### Scenario REQ-AEC-11.1: Each new-reason message follows its exact template, path relative [SDK]
-
-- GIVEN one rejection per new reason, each with a known package-relative source path
+- GIVEN one rejection per surviving `source-*` reason — `source-not-found`,
+  `source-not-regular-file` via a DIRECTORY-as-source fixture, `source-not-regular-file`
+  via a non-directory-non-regular (FIFO) fixture, and `source-unreadable` — each with a
+  known package-relative source path
 - WHEN each message is inspected
-- THEN it matches its exact template with the path substituted, and contains no
-  absolute filesystem path
+- THEN each matches its exact template (the directory case naming `scaffold()`
+  actionably; the FIFO case using the generic form; `source-unreadable` naming its
+  actual failure category — permission/IO, symlink cycle, or invalid character —
+  matching the real cause) with the path substituted, and contains no absolute
+  filesystem path
 
-### REQ-AEC-12: Scaffold-Family Failures Reuse the EXISTING `invalid-input` Reason [OWNER]
+#### Scenario REQ-AEC-11.2: Each ruling-5 message is driven from its OWN REQ, source and destination never conflated [preservation-pin]
+
+- GIVEN a rejection from `ir-path-well-formedness` REQ-IPF-01 (a package-local SOURCE
+  containing `..` or absolute) in ONE fixture, and a rejection from REQ-IPF-02 (a
+  computed DESTINATION containing `..` or absolute) in a SEPARATE fixture — each with a
+  known package-relative path
+- WHEN each message is inspected
+- THEN the REQ-IPF-01 fixture's message matches the SOURCE template row exactly; the
+  REQ-IPF-02 fixture's message matches the DESTINATION template row exactly (the
+  existing `destinationEscapeMessage` text, verbatim) — the two are NEVER
+  interchangeable, and neither message contains an absolute filesystem path
+
+### REQ-AEC-12: Scaffold-Family Failures Reuse the EXISTING `invalid-input` Reason
 
 The following scaffold-family failure modes MUST map to the EXISTING `invalid-input`
-reason (`origin: "authoring-rejected"` per REQ-AEC-07's established derivation) —
-owner-ruled 2026-07-12; they are author-misuse-of-the-authoring-surface failures, not
-new source-access families, so the MAJOR union extension stays EXACTLY the four
-`source-*` members of REQ-AEC-10 and the union arithmetic stays exactly TWELVE:
+reason (`origin: "authoring-rejected"`) — they are author-misuse-of-the-authoring-surface
+failures, not source-access families:
 
 | Failure mode | Ruled by | REQ |
 |---|---|---|
 | `templateFile` binary/oversized fail-loud | [OWNER] | `file-escape-hatches` REQ-FEH-02 |
 | Zero files after include/exclude filter | [OWNER] | `folder-scaffold` REQ-FSC-04 |
-| Missing `collection.json` ancestor | [OWNER] | `package-root-containment` REQ-PRC-03 |
-| `.template` sniff-fail inside a scaffold walk | same family (spec-derived — owner eyeball) | `content-classification` REQ-CCL-05 |
-| Intra-scaffold destination collision | same family (spec-derived — owner eyeball) | `folder-scaffold` REQ-FSC-08 |
-| Walk entry-count bound exceeded | same family (spec-derived — owner eyeball) | `folder-scaffold` REQ-FSC-09 |
+| `.template` sniff-fail inside a scaffold walk | same family | `content-classification` REQ-CCL-05 |
+| Intra-scaffold destination collision | same family | `folder-scaffold` REQ-FSC-08 |
+| Walk entry-count bound exceeded | same family | `folder-scaffold` REQ-FSC-09 |
+| Walk root missing / non-directory / unreadable (no-echo) | same family | `folder-scaffold` REQ-FSC-10 |
+| Ruling-5 lexical `../`/absolute source screen | [OWNER, ruling 5] | `ir-path-well-formedness` REQ-IPF-01 |
+| Lexical destination guard | [OWNER, ruling 2] | `ir-path-well-formedness` REQ-IPF-02 |
 
-#### Scenario REQ-AEC-12.1: The three owner-ruled modes classify as invalid-input, authoring-rejected [SDK]
+#### Scenario REQ-AEC-12.1: The owner-ruled scaffold-family modes classify as invalid-input, authoring-rejected [preservation-pin]
 
 - GIVEN one rejection per owner-ruled mode: a binary `templateFile`, a filter set
-  eliminating every entry, and a package with no `collection.json` ancestor
+  eliminating every entry, and a lexically-escaping source path
 - WHEN each is translated to an `AuthoringError`
-- THEN `reason` is exactly `"invalid-input"` and `origin` is
-  `"authoring-rejected"` for all three
-- AND the compile-time union pin still counts exactly twelve members — none of these
-  modes minted a new reason
+- THEN `reason` is exactly `"invalid-input"` and `origin` is `"authoring-rejected"` for
+  all three
+- AND the compile-time union pin still counts exactly eleven members — none of these
+  modes mints a new reason
 
 ### REQ-AEC-13: `AuthoringVerb`/`DryRunVerb` KEEP the label `"modify"` — wire-mutation vocabulary, deliberately unrenamed
 
@@ -186,5 +193,5 @@ entry shape.)
 
 | Area | REQ IDs | Flagged at triage? |
 |---|---|---|
-| public-api (contract) — closed `AuthoringReason` union, MAJOR coordinated extension | REQ-AEC-10, REQ-AEC-11, REQ-AEC-12 | Yes |
+| public-api (contract) — closed `AuthoringReason` union, MAJOR narrowing | REQ-AEC-10, REQ-AEC-11, REQ-AEC-12 | Yes — closed-union MAJOR narrowing |
 | public-api (contract) — `AuthoringVerb`/`DryRunVerb` closed-set membership unchanged, deliberate label pin | REQ-AEC-13 | Yes |

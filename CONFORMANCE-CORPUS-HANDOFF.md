@@ -212,5 +212,11 @@ fixture artefact changes as a result of this addendum.
 > leading `/` and a `C:\`/`C:/` drive-letter form only — and reach you unfiltered.
 > `by-reference-copy-wire` REQ-BRC-08's canonical-form hardening must handle them.
 
+**Correction (2026-07-29, owner-attested at reckoning)**: the blockquote above left open
+whether an in-package symlink reaching the engine unfiltered is rejected there. It is:
+the owner attested first-hand that the engine errors when an apply-time modification is
+attempted through a symlink — this is no longer an open question for corpus fixtures
+touching the symlink-adjacent path.
+
 No engine-side action is required by this addendum; it is a heads-up ahead of the next
 submodule pin bump.

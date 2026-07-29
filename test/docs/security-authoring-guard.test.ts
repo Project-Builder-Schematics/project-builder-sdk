@@ -184,6 +184,14 @@ export const PSH_05_POSTURE_PHRASES = [
   PSH_05_POSTURE_PHRASE_5,
 ] as const;
 
+// Reckoning closing batch (2026-07-29): the steward flagged that phrase 2 above (engine
+// re-checks path-carrying directives at apply time) could be misread as covering the
+// symlink case, which was unestablished. The owner attested first-hand, at reckoning,
+// that the engine errors on an apply-time modification routed through a symlink — pinned
+// here as its own sentence, adjacent to phrase 2, never folded INTO it.
+const SYMLINK_APPLY_TIME_ATTESTATION_PHRASE =
+  "Owner-verified 2026-07-29: the engine rejects apply-time modifications that route through a symlink.";
+
 describe("REQ-PSH-05.1 — SECURITY.md carries all five package-local read trust-posture phrases", () => {
   for (const [i, phrase] of PSH_05_POSTURE_PHRASES.entries()) {
     it(`posture point ${i + 1} is present, distinguishable, and greppable`, () => {
@@ -196,6 +204,19 @@ describe("REQ-PSH-05.1 — SECURITY.md carries all five package-local read trust
     const withoutPhrase4 = content.replace(PSH_05_POSTURE_PHRASE_4, "");
     expect(withoutPhrase4).not.toContain(PSH_05_POSTURE_PHRASE_4);
     expect(withoutPhrase4).toContain(PSH_05_POSTURE_PHRASE_1); // the other four survive
+  });
+});
+
+describe("REQ-PSH-05.1 — SECURITY.md carries the owner-verified engine symlink apply-time attestation", () => {
+  it("the attestation sentence is present, adjacent to posture phrase 2", () => {
+    expect(security()).toContain(SYMLINK_APPLY_TIME_ATTESTATION_PHRASE);
+  });
+
+  it("removing the attestation would fail this check while posture phrase 2 survives untouched", () => {
+    const content = security();
+    const withoutAttestation = content.replace(SYMLINK_APPLY_TIME_ATTESTATION_PHRASE, "");
+    expect(withoutAttestation).not.toContain(SYMLINK_APPLY_TIME_ATTESTATION_PHRASE);
+    expect(withoutAttestation).toContain(PSH_05_POSTURE_PHRASE_2);
   });
 });
 

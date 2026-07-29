@@ -725,3 +725,222 @@ suffices as the tie-break check):
 S-006 is now complete (5/5 tasks `[x]` in `slices.md`). The whole `inline-collection-marker`
 change (S-000 through S-006, 7/7 slices) is implementation-complete and ready for
 `/evaluate` (verify --mode=final) before archive.
+
+## Judgment-Day Round 1 Fixes
+
+Two blind judges reviewed `git diff 1e44ae8..8c3828a`; the owner ratified a 7-group fix
+list (G1-G7) and issued **ruling 16**. All seven groups are now applied.
+
+**Ruling 16 (2026-07-29, the load-bearing fix)**: REQ-FSC-09 says the walk MUST NOT
+descend into ANY symlinked directory, but `walkFolder`'s ROOT branch called
+`readdirSync(fromAbs)` with no `lstatSync` ahead of it — only the NESTED case was
+implemented/tested. A symlinked `from` was FOLLOWED (probe-proven: enumerates content
+outside the package). Owner ruling: a symlinked walk ROOT REJECTS with `AuthoringError`
+(reason `invalid-input`, package-relative locator, no absolute-path echo) — explicit
+error, never a silent skip, never a documented residual carve-out.
+
+| Group | Root cause | Fix | Files |
+|---|---|---|---|
+| G1 | Walk-root symlink followed, never rejected | `walkFolder`'s root branch now `lstatSync`s `fromAbs` before `readdirSync`; a symlinked root throws a new pinned, no-echo `invalid-input` message (`rootIsSymlinkMessage`) | `src/scaffold/walk.ts`; tests: `test/scaffold/walk.test.ts` (root-symlink reject + locator-free fallback), `test/scaffold/expander.test.ts` (retired the old "symlinked root followed" residual test, now asserts rejection), `test/security/canary-no-echo.test.ts` (new canary case); spec: `openspec/changes/inline-collection-marker/specs/folder-scaffold/spec.md` (V3.3→V3.4, new REQ-FSC-09.3); doc: `docs/authoring-verbs.md`, `src/commons/index.ts` JSDoc |
+| G2 | `statSourceForRead`'s non-string guard was unreachable (all 3 call sites lexically screen first, and the lexical screen itself crashed with a raw TypeError on a non-string) | Moved the `typeof relPath !== "string"` check to the TOP of `validateSourceLexical` AND `validateDestinationLexical`; deleted the now-dead check inside `statSourceForRead` | `src/scaffold/path-guards.ts`; test: `test/scaffold/path-guards.test.ts` (row-0 retargeted to both lexical entry points) |
+| G3 | fit-43 clause (c) only diffed the committed baseline against itself — vacuous against a regrown additive field (Judge B fault-injected `packageRoot?: string` and every static guard stayed green) | Added a second assertion reading the FRESHLY BUILT `dist/core/context.d.ts` (via the shared, memoized `ensureTscBuild()`) and pinning the same equality; proved non-vacuous by repeating the injection (fails) then reverting (`git status` clean) | `test/fitness/fit-43-no-ceiling-regrowth.test.ts` |
+| G4(i) | `classify-transport.ts`'s post-hygiene read-failure minted a bare `AuthoringError` with no `message`, silently dropping the failure category REQ-AEC-11.1 mandates | Routed through `path-guards.ts`'s own `sourceRejection("source-unreadable", relPath, "permission or I/O error")` (exported); one mechanism for every `source-unreadable` message | `src/scaffold/classify-transport.ts`, `src/scaffold/path-guards.ts` (export); tests: `test/core/authoring-error-source.test.ts` (message now includes the category) |
+| G4(ii) | `statSourceForRead`'s catch-all mapped `ENOTDIR`/`ENAMETOOLONG` to `source-unreadable` — factually wrong for a path routed through a regular file (a normal author typo, not a permission/IO failure) | Branched both errnos to `source-not-found` alongside `ENOENT` (the spec's own table scopes that reason to "does not exist") | `src/scaffold/path-guards.ts`; test: `test/e2e/scaffold.e2e.test.ts` (ENOTDIR case now expects `source-not-found`) |
+| G4(iii) | `authoring-error.ts`'s comment claimed "every producer site passes an explicit message" | Verified TRUE after G4(i) (`rg 'reason: "source-' src/` → only `path-guards.ts#sourceRejection`, always with an explicit message) — no comment change needed for accuracy; the adjacent stale `REQ-PRC-05` citation was fixed as part of G5 | `src/core/authoring-error.ts` |
+| G5 | Public doc surface drift: stale `package-root-containment` citation in `src/commons/index.ts`'s `scaffold` JSDoc; stale `REQ-PRC-09`/`REQ-PRC-05` citations in `expander.ts`/`authoring-error.ts` | Rewrote the JSDoc to REQ-FSC-09's V3 enumeration-determinism/cycle-safety rationale + ruling-16 root behavior; re-pointed `REQ-PRC-09` → `ir-path-well-formedness` REQ-IPF-02, `REQ-PRC-05` → `package-source-io-hygiene` REQ-PSH-01 (successors confirmed against the signed deltas); regenerated `test/fitness/dts-baseline/commons.index.d.ts` via the FIT-04 procedure (`bun run build` + copy — never hand-edited). That regen also incidentally absorbed pre-existing, UNRELATED baseline staleness already latent in HEAD (`defineFactory({ packageDir })` → "factory run started with packageDir" wording drift) — noted here for transparency, not a scope expansion introduced by this round | `src/commons/index.ts`, `src/scaffold/expander.ts`, `src/core/authoring-error.ts`, `test/fitness/dts-baseline/commons.index.d.ts` |
+| G6 | REQ-RBV-04.1's enumerated set had 7 signed branches with no canary-no-echo test (FIFO, injected-EACCES read, broken symlink, absolute source ×3 verbs, `..`-variant set, destination lexical guard, walk-root EACCES) | Added one canary-no-echo test per branch (plus the G1 root-symlink canary), following the file's existing seeded-canary + `expectRejectsCanaryFree` pattern; no helper changes needed — every branch fit the existing idiom | `test/security/canary-no-echo.test.ts` |
+| G7 | Stale comments in `test/scaffold/inline-collection.test.ts` still claimed `scratchDirFactory` seeds a `collection.json` marker (removed in S-003) | Corrected both comments to the real remaining rationale: the suite's own `mkdtemp` gives it full control over the ancestor chain for `assertNoAncestorMarkerAnywhere`'s walk-to-root assertion | `test/scaffold/inline-collection.test.ts` |
+
+**RED-evidence summary**:
+- G1: RED confirmed by stashing `walk.ts`'s fix and re-running `walk.test.ts` (2 failures:
+  `expectAuthoringReason` received `undefined` — no rejection at all); GREEN after restoring.
+- G2: RED confirmed by temporarily removing both new `typeof` checks and re-running
+  `path-guards.test.ts` (2 failures — a raw `TypeError` from `isLexicallyEscaping`'s
+  `.startsWith` call, proving the check was load-bearing, not decorative).
+- G3: non-vacuousness proved by repeating Judge B's `packageRoot?: string` fault injection
+  into `src/core/context.ts` — the new dist-based assertion failed (`+ "packageRoot?:
+  string"` in the diff); reverted immediately, `git status` confirmed clean.
+- G4(i)/(ii): mutation-check — the fix pre-existed the updated pinning tests by
+  construction (the message/reason text was directly asserted against the new behaviour);
+  confirmed by reasoning over the errno branch table and cross-checked against the full
+  suite run (both affected tests pass with the NEW expected strings, and would not with the
+  old ones — verified by inspecting the prior committed assertions before editing them).
+- G6: coverage-addition, not a behavioural fix — all 7 branches already rejected correctly
+  before this round; the canary-no-echo PROOF was what was missing, not the rejection
+  itself. Exception: the G1 root-symlink canary is genuinely RED-then-GREEN (follows G1's
+  own fix).
+- G7: comment-only, no test implication.
+
+**Suite**: two consecutive uncontended full `bun test` runs — **2410 pass / 0 fail** across
+201 files (5349 expect() calls) both times, byte-identical (baseline 2398 + 12 new tests:
+2 in `walk.test.ts`, net +1 in `path-guards.test.ts`, 1 in `fit-43-no-ceiling-regrowth.test.ts`,
+8 in `canary-no-echo.test.ts`). `bunx tsc --noEmit` clean. One full-suite run mid-session
+showed a transient, unrelated flake in `test/dialects/react`'s `REQ-RXD-08.1` corpus
+round-trip test (a pre-existing, timing-sensitive test under full-suite CPU contention,
+untouched by this diff) — confirmed non-reproducing in isolation and absent from both
+final confirmation runs.
+
+## Judgment-Day Round 2 Fixes
+
+Two blind judges (baseline **2413 pass / 0 fail**, `tsc --noEmit` clean, HEAD `590d42f`)
+found 1 CRITICAL + 3 real WARNINGs, all probe-evidenced. Surgical fixes only, RED-first
+per fix.
+
+| Fix | Root cause | Fix | Files |
+|---|---|---|---|
+| F1 (CRITICAL) | `path.join` PRESERVES a trailing separator, and POSIX `lstat` on a path ending in `/` FOLLOWS the final symlink — a `from` root reaching `walkFolder` as `"link/"`/`"link//"`/`"./link/"` bypassed ruling 16's root-symlink rejection entirely (`isSymbolicLink()` reported `false` for the FOLLOWED target), enumerating and committing content outside the package | `walkFolder` (`walk.ts:164`) now computes `const root = resolve(fromAbs);` at its own top and uses `root` for every subsequent `absDir`/`join` — ONE canonical normalization point covering both the root `lstatSync` and every recursive descent, regardless of caller (`expander.ts` or a direct unit-test call) | `src/scaffold/walk.ts` (import `resolve`, normalize `fromAbs` → `root`) |
+| F2(a) | Non-string `to` reached `translateTokens(args.to)` before `validateDestinationLexical` ever ran → raw `TypeError` (`path.replace is not a function`), reason `undefined`; same shape for a non-string `rename` value via the filename pipeline | `runScaffold` now calls `validateDestinationLexical(args.to)` at the TOP, before context resolution, the walk, and the empty-folder early return (existing post-rename/post-translate validation of the final `destPath` is unchanged); `runFilenamePipeline` type-checks a resolved rename value BEFORE `translateTokens` consumes it, minting `invalid-input` | `src/scaffold/expander.ts` (`runScaffold`), `src/scaffold/filename-pipeline.ts` (`runFilenamePipeline`) |
+| F2(b) | The `walked.length === 0` early return (REQ-FSC-04.1) exited BEFORE destination validation, so `scaffold({from: emptyDir, to: "/abs"})` (or an escaping `../to`) silently succeeded — violating REQ-IPF-02's pre-emit mandate | Same `validateDestinationLexical(args.to)` top-of-function call as F2(a) fixes this too — it now runs unconditionally before the empty-folder no-op path | `src/scaffold/expander.ts` (same call site as F2(a)) |
+| F3 | The `## 0.2.0` CHANGELOG section carried exactly three entries; ruling 16's root-symlink rejection (breaking, author-visible: a `from` symlinked to a shared templates dir used to be followed transparently, now hard-rejects) was undocumented | (a) Added a fourth `Changed (breaking)` entry to CHANGELOG.md's `## 0.2.0` section (existing three entries byte-identical); (b) extended `changelog-release-vehicle-guard.test.ts`'s frozen-phrase list with `ROOT_SYMLINK_REJECTION_PHRASE`, renamed the "all three" assertions to "all four"; (c) amended `package-dir-run-anchor`'s REQ-MFB-02 (three→four entries, new clause (d)) and its REQ-MFB-02.1 scenario, V3.3→V3.4, dated "Ruling 16 follow-through (2026-07-29)" note | `CHANGELOG.md`, `test/docs/changelog-release-vehicle-guard.test.ts`, `openspec/changes/inline-collection-marker/specs/package-dir-run-anchor/spec.md` |
+
+**fit-45 / REQ-MFB-02 pin check (F2 scope note)**: `test/fitness/fit-45-single-lexical-predicate.test.ts`
+clause (b) pins call sites of `validateSourceLexical` ONLY (exactly 3, unaffected — F2's new
+call is to `validateDestinationLexical`, which fit-45 does not pin at all); confirmed no
+update needed there. `REQ-MFB-02`'s "exactly THREE entries" language (part (c) of F3) DID
+need the three→four amendment described above.
+
+**RED-evidence summary**:
+- F1: added trailing-slash rows (`link/`, `link//`, `./link/`, the last constructed by
+  literal string concatenation — never `path.join`, to prove the fix normalizes whatever
+  raw string reaches it) to `test/scaffold/walk.test.ts`'s root-symlink describe block (3
+  new cases, all failed pre-fix with `expectAuthoringReason` receiving `undefined` — the
+  symlink was silently followed), plus one e2e case in `test/scaffold/expander.test.ts`
+  (`from: "link-out/"`) and one canary case in `test/security/canary-no-echo.test.ts`
+  (`from: "link-root/"`) — all 5 failed before the fix, passed after. A no-regression pin
+  (`walkFolder(\`${dir}/\`)` against a real, non-symlinked tree) confirmed the fix does not
+  change normal-path behaviour.
+- F2: 4 new cases in `test/scaffold/expander.test.ts` — non-string `to` (42), non-string
+  `rename` value (5), empty-`from` + absolute `to` (`/abs`), empty-`from` + escaping `to`
+  (`../escape`) — all 4 raised either a raw `TypeError`/`path.replace is not a function` or
+  silently succeeded (no rejection) before the fix; all 4 now reject `AuthoringError`
+  `invalid-input`.
+- F3: manual mutation-check on the new CHANGELOG phrase — temporarily mutated
+  `"now rejects `invalid-input`"` to `"now REJECTS invalid-input-MUTATED"` in CHANGELOG.md,
+  re-ran `changelog-release-vehicle-guard.test.ts` (failed, as expected), restored the file
+  (`git diff --stat` confirmed only the intended 6-line addition survived), re-ran (passed).
+
+**Suite**: two consecutive uncontended full `bun test` runs — **2423 pass / 0 fail** across
+201 files (5406 expect() calls) both times, byte-identical (baseline 2413 + 10 new tests: 4
+in `walk.test.ts`, 5 in `expander.test.ts`, 1 in `canary-no-echo.test.ts`). `bunx tsc --noEmit`
+clean both times. No flakes observed in either uncontended run.
+
+## Judgment-Day Round 3 Fixes (fixed without re-judge, convergence threshold)
+
+Two blind judges (baseline **2423 pass / 0 fail**, `tsc --noEmit` clean, HEAD `419fff2`)
+found zero CRITICALs and 7 evidenced real WARNINGs, all in `scaffold`'s options surface.
+Owner authorized a surgical fix-without-re-judge batch (convergence threshold reached
+after 3 rounds) plus one NEW ruling (17) surfaced during this batch. RED-first per fix.
+
+| Fix | Root cause | Fix | Files |
+|---|---|---|---|
+| F1 | A non-array `include`/`exclude` (or an array with a non-string element) reached `isIncluded`'s `.some((p) => globToRegex(p).test(relPath))` — a non-array threw a raw, unbranded `TypeError`; a non-string element silently compiled into an always-empty-matching `/^$/` regex (never rejects, never matches) rather than raising an error | `runScaffold` now shape-validates `include`/`exclude` at entry (`validateFilterOptionShape`, new): each, when present, must be an array whose every element is a string, else `invalid-input` naming the option (no-echo — never echoes the malformed value) | `src/scaffold/expander.ts` |
+| F2 | `posix.join(toPrefix, result.destRelPath)` NORMALIZES away a literal `..` segment in `result.destRelPath` BEFORE the existing post-join `validateDestinationLexical(destPath)` ever ran — a `rename` value like `"../evil.ts"` joined against a one-segment `to` (`"out"`) collapsed to `"evil.ts"` (no `..`, sails through), landing OUTSIDE `to`'s subtree with zero rejection; a deep `to` (e.g. `"a/b/c"`) let three `..` levels cancel fully, landing the file at the workspace root | Added `validateDestinationLexical(result.destRelPath)` on the PRE-join pipeline output, inside the per-entry loop, immediately before computing `destPath` — catches every literal `..` in a rename-produced `destRelPath` regardless of whether `to`'s own depth would later "cancel" it out; the existing post-join guard is kept as a second, independent check | `src/scaffold/expander.ts` |
+| F3 | `rename?.[relPath]` on a PLAIN object walks the prototype chain — an entry literally named `__proto__`/`toString`/`constructor` (no OWN rename rule) resolved to an inherited `Object.prototype` value (a non-string, non-undefined value), minting a nonsense "must be a string" rejection for ANY rename table passed, on ANY entry sharing that name | `runFilenamePipeline` now gates the lookup on `Object.hasOwn(rename, relPath)` — an entry with no OWN rename rule pipelines through unchanged (exactly as if `rename` were absent for it); an ACTUAL own rename rule named `__proto__` (e.g. from `JSON.parse`, which creates a real own property, not the exotic setter) still applies | `src/scaffold/filename-pipeline.ts` |
+| F4 | Round 2 placed `validateDestinationLexical(args.to)` ABOVE `currentContext()` in `runScaffold` — an escaping `to` called OUTSIDE any run reported `invalid-input`, where `copyIn`'s equivalent guard (which already runs AFTER its own `currentContext()`/`requirePackageAnchors`) reports `outside-run` for the identical scenario — the two package-local verbs disagreed on which failure wins when both apply | Moved `validateDestinationLexical(args.to)` to run AFTER `ctx = currentContext()` and `requirePackageAnchors(...)`, mirroring `runCopyIn`'s exact ordering (ctx → packageDir → destination guard → source guard); the new F1/F7 screens also sit in this post-ctx region for the same reason | `src/scaffold/expander.ts` |
+| F5 | `detectDestinationCollisions`'s `byDest` map keyed on the RAW `destRelPath` string — a `rename` value like `"./b.ts"` and a sibling literal `"b.ts"` are the SAME destination once the expander's own `posix.join` runs, but formed two distinct map keys here, so the collision went undetected at this deterministic gate and surfaced later as whatever error family the second write happened to hit | `byDest` now keys on `posix.normalize(r.destRelPath)` instead of the raw string | `src/scaffold/filename-pipeline.ts` |
+| F6 | The 10,000-entry bound incremented ONLY on `entries.push` (files) — a directory-only tree was entirely unbounded regardless of depth/breadth, since a directory is pushed onto `dirStack` and `continue`s before ever reaching that push | `walkFolder` now increments a single `enumeratedCount` for EVERY name a `readdirSync` call returns (files, directories, and skipped symlinked directories alike), checked immediately, before classification — REQ-FSC-09.2's "enumerated entries" wording is read as EVERY dirent a `readdirSync` returns, not merely emitted files (the honest reading per the REQ's own loop-safety/DoS framing); no existing bound test used a directory-only tree, so no pinned test needed adjustment | `src/scaffold/walk.ts` |
+| F7 (owner ruling 17, 2026-07-29) | A degenerate `from` (`""`, `"."`, `"./"`) resolves to `packageDir` itself; none of these three literals contain a `..` segment or an absolute form, so `validateSourceLexical` let them straight through to `walkFolder`, silently enumerating the ENTIRE package | `runScaffold` now rejects these three literal forms at entry (`validateNonDegenerateFrom`, new; placed after context resolution alongside F4/F1) with a pinned, no-echo (only the literal `from` value, never `packageDir`'s absolute path) `invalid-input` message; also closes the related theoretical (`resolve("")`/`resolve(".")`/`resolve("./")` all equal `packageDir`, so the unresolved "is `packageDir` itself a symlink" question never reaches the walk for these forms) | `src/scaffold/expander.ts`, spec delta `openspec/changes/inline-collection-marker/specs/folder-scaffold/spec.md` (V3.4→V3.5, new REQ-FSC-11 + dated ruling-17 note), `docs/authoring-verbs.md` (one doc line), `test/security/canary-no-echo.test.ts` (canary case) |
+| F8 (scope-honest docs) | Both judges: the walk-ROOT symlink rejection (ruling 16) is FINAL-COMPONENT-ONLY — `from: "link/sub"` (a symlink at a MID-path segment) still walks through to content outside the package, within the documented SECURITY.md residual — but `docs/authoring-verbs.md`'s "never descends into a symlinked directory" phrasing, its unconditional "symlinks are followed without target verification" author rule, the CHANGELOG's 4th-entry migration hint, and the `scaffold` JSDoc all overstated the control as unqualified | Added a one-clause qualifier to all four surfaces: `docs/authoring-verbs.md` (both the top-of-file author rule and the `scaffold` edge-semantics bullet), `CHANGELOG.md`'s 4th `## 0.2.0` entry (frozen `ROOT_SYMLINK_REJECTION_PHRASE` kept byte-identical, text extended around it), and `src/commons/index.ts`'s `scaffold` JSDoc — each now states the root check inspects only `from`'s FINAL path component, with a mid-path symlink remaining the documented residual | `docs/authoring-verbs.md`, `CHANGELOG.md`, `src/commons/index.ts`, `test/fitness/dts-baseline/commons.index.d.ts` (regenerated — comment-only diff, FIT-04 unaffected since it strips comment lines) |
+
+**Ruling 17 record**: the owner's degenerate-`from` ruling was surfaced by the round-3
+judges as a related theoretical alongside F2/F7's rename-traversal findings, then ratified
+same-session (2026-07-29) as part of this fix batch — not a separate plan/design cycle.
+Recorded in the folder-scaffold spec delta (V3.4→V3.5, new REQ-FSC-11) with a dated ruling
+note in the same style as ruling 16's, and in `docs/authoring-verbs.md`.
+
+**F6 interpretation note**: REQ-FSC-09.2 says the walk "MUST also enforce a documented
+upper bound of 10,000 enumerated entries per `scaffold` call" without defining "entries"
+narrower than "files." Read literally against the walk's own mechanics, EVERY name a
+`readdirSync` call returns — file, directory, or symlinked directory skipped without
+descent — is one enumerated entry; only files were being counted, which is the narrower,
+non-conforming reading. The fix counts every dirent; no existing pinned test in
+`walk.test.ts` exercised a directory-only bound scenario, so this is a pure fix with zero
+adjustment to prior pins.
+
+**RED-evidence summary** (all confirmed by a stash-based RED/GREEN cycle: the three
+touched `src/` files were stashed, the new tests run RED against the PRE-fix code, then
+unstashed and re-run GREEN):
+- F1: 3 new cases in `test/scaffold/expander.test.ts` (non-array `include`, non-array
+  `exclude`, `include` with a non-string element) — the non-string-element case initially
+  false-passed against old code too (both the shape rejection AND the pre-existing
+  `filtersEliminatedEverything` rejection mention "include" in their message), tightened to
+  assert the shape-specific wording (`"include" must be an array of strings`) once
+  confirmed via a targeted re-run against the stashed pre-fix code.
+- F2: 2 new cases in `test/scaffold/expander.test.ts` — a shallow (`"../evil.ts"` under
+  `to: "out"`) and a deep (`"../../../pwned.ts"` under `to: "a/b/c"`) rename escape — both
+  raised no rejection at all pre-fix (the file silently committed outside `to`'s subtree),
+  both reject `invalid-input` post-fix.
+- F3: 4 new cases in `test/scaffold/filename-pipeline.test.ts` — `__proto__`/`toString`/
+  `constructor` entries against an unrelated rename table (all 3 minted a bogus
+  "must be a string" rejection pre-fix; the `__proto__` case's expected `destRelPath` had
+  to account for `translateTokens` legitimately rewriting the token-shaped `"__proto__"`
+  name to `"{= proto =}"` — unrelated to this fix), plus one positive control (an ACTUAL
+  own rename rule named `__proto__`, via `Object.defineProperty`, still applies).
+- F4: 1 new case in `test/scaffold/expander.test.ts` — `scaffold` called with NO active
+  run and an escaping `to` — reported `invalid-input` pre-fix, `outside-run` post-fix.
+- F5: 1 new case in `test/scaffold/filename-pipeline.test.ts` — a rename value
+  normalizing to an existing destination (`"./b.ts"` vs sibling `"b.ts"`) — no collision
+  detected pre-fix, detected (naming both sources) post-fix.
+- F6: 2 new cases in `test/scaffold/walk.test.ts` — a directory-only tree (2 nested dirs,
+  zero files) against a bound of 1 rejects post-fix (unbounded pre-fix, since neither
+  directory ever reached `entries.push`); an at-exactly-the-bound directory-only tree
+  (1 dir, bound 1) does not reject either side (regression pin).
+- F7: 3 new cases in `test/scaffold/expander.test.ts` (`from: ""`/`"."`/`"./"`, each
+  against a packageDir seeded with a real file) — all 3 silently enumerated the whole
+  package pre-fix (no rejection), all 3 reject `invalid-input` post-fix; plus 1 canary
+  case in `test/security/canary-no-echo.test.ts` confirming the rejection message never
+  leaks the canary-seeded absolute `packageDir` prefix.
+- F8: doc/JSDoc-only — no test-observable behavior change; verified by re-reading the
+  edited passages and confirming no pinned string in `test/docs/security-authoring-guard.test.ts`
+  or `test/docs/changelog-release-vehicle-guard.test.ts` was touched (the CHANGELOG's
+  `ROOT_SYMLINK_REJECTION_PHRASE` substring survives byte-identical inside the extended
+  paragraph); `commons.index.d.ts` baseline regenerated via `bun run build` (diff is
+  comment-only, confirmed via `diff` against the prior baseline).
+
+**Suite**: two consecutive uncontended full `bun test` runs — **2440 pass / 0 fail** across
+201 files (5465 expect() calls) both times, byte-identical (baseline 2423 + 17 new tests: 5
+in `filename-pipeline.test.ts`, 9 in `expander.test.ts`, 2 in `walk.test.ts`, 1 in
+`canary-no-echo.test.ts`). `bunx tsc --noEmit` clean both times. One transient, unrelated
+flake observed in one intermediate full-suite run (non-reproducing on immediate re-run,
+consistent with the pre-existing CPU-contention flake documented in Judgment-Day Round 1)
+— absent from both final back-to-back confirmation runs recorded above.
+
+## Reckoning Closing Batch (2026-07-29)
+
+Two owner rulings from the 2026-07-29 reckoning, closed in one surgical doc/test batch —
+no source (`src/`) changes, docs and guard tests only.
+
+**Fix 1 — CHANGELOG ruling-17 entry + round-3 hardening coverage**: `CHANGELOG.md`'s
+`## 0.2.0` section gains a FIFTH entry (`Changed (breaking, ruling 17, 2026-07-29)`) —
+the degenerate `from` (`""`/`"."`/`"./"`) rejection, `folder-scaffold` REQ-FSC-11, with a
+migration hint (name the intended subfolder explicitly) — and a SIXTH, grouped entry
+(`Fixed (round-3 error-handling hardening, 2026-07-29)`) covering the five round-3
+gaps: rename `..` pre-join rejection (REQ-FSC-02), `include`/`exclude` shape validation,
+`outside-run` reporting parity with `copyIn`, normalized-path destination-collision
+detection, and the walk bound counting every enumerated dirent. The four existing
+entries stay byte-identical. `test/docs/changelog-release-vehicle-guard.test.ts` gains
+two new frozen phrases (`DEGENERATE_FROM_REJECTION_PHRASE`, `ROUND3_HARDENING_PHRASE`),
+each mutation-checked (break → fail → restore → pass) before landing. The
+`package-dir-run-anchor` delta spec (`specs/package-dir-run-anchor/spec.md`) REQ-MFB-02
+is amended in lockstep — four entries → six, V3.4 → V3.5, with a new "Ruling 17
+follow-through + round-3 hardening coverage (2026-07-29, owner-ratified at reckoning)"
+note matching the existing ruling-16 note's style.
+
+**Fix 2 — SECURITY.md engine symlink behavior clause (owner-attested)**: the steward
+flagged that SECURITY.md's point 2 ("path-carrying directives are re-checked by the
+engine apply-time, REQ-BRC-02, verified LIVE") could be misread as covering the symlink
+case, which was unestablished. The owner attested first-hand at reckoning (2026-07-29):
+the engine errors when an apply-time modification is attempted through a symlink. Added
+as its own sentence adjacent to point 2 in `SECURITY.md` (never folded into the frozen
+phrase itself) — "Owner-verified 2026-07-29: the engine rejects apply-time modifications
+that route through a symlink." `test/docs/security-authoring-guard.test.ts` pins the new
+sentence in its own describe block, mutation-checked (break → fail → restore → pass).
+`CONFORMANCE-CORPUS-HANDOFF.md` Addendum 3 gets a matching one-sentence correction, dated,
+replacing its prior open-question framing on the symlink-adjacent path.
+
+**Verification**: both doc guards mutation-checked on all three new phrases
+independently (each: break → fail → restore → pass, verified individually). Full
+`bun test` — **2442 pass / 0 fail** across 201 files (5470 expect() calls; +2 over the
+2440 baseline, both new mutation-guard assertions). `bunx tsc --noEmit` clean. Doc/test
+guard changes only — no source-behavior delta, so the +2 test count is fully accounted
+for and expected.

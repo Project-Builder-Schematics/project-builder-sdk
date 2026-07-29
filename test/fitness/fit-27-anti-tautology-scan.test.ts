@@ -22,7 +22,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
-import { collectTsFiles, stripComments, walkReachable } from "../support/import-scan.ts";
+import { collectTsFiles, extractCallArgs, stripComments, walkReachable, WRITE_CALL_RE } from "../support/import-scan.ts";
 
 const TEST_E2E_DIR = new URL("../e2e", import.meta.url).pathname;
 const TEST_SUPPORT_DIR = new URL("../support", import.meta.url).pathname;
@@ -45,28 +45,11 @@ const RED_FIXTURE_VAR_INDIRECT = new URL(
 // shape of a corpus self-heal (the regen script's own shape), and a literal-only arg
 // check missed it. Scoped to "corpus" ONLY — the gitignored reports dir is deliberately
 // excluded (FIT-27 must not over-reach onto it).
-const WRITE_CALL_RE = /\bwriteFileSync\s*\(|\.writeFile\s*\(|\bappendFileSync\s*\(|\bBun\.write\s*\(/g;
 const CORPUS_PATH_RE = /author-emulation\/corpus/;
 const DECLARATION_RE = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([\s\S]*?);/g;
 
 interface WriteViolation {
   file: string;
-}
-
-/** Paren-depth-aware extraction of a call's full argument-list text, starting at the
- * `(` immediately following the matched call name. */
-function extractCallArgs(source: string, callMatchIndex: number): string {
-  const openParenIndex = source.indexOf("(", callMatchIndex);
-  if (openParenIndex === -1) return "";
-  let depth = 0;
-  for (let i = openParenIndex; i < source.length; i++) {
-    if (source[i] === "(") depth++;
-    else if (source[i] === ")") {
-      depth--;
-      if (depth === 0) return source.slice(openParenIndex + 1, i);
-    }
-  }
-  return source.slice(openParenIndex + 1); // unterminated (shouldn't happen in valid TS)
 }
 
 function identifierRe(name: string): RegExp {

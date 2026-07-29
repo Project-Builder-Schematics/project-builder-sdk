@@ -1,17 +1,22 @@
 /**
  * FIT-NEW-A (`fitness-guards` REQ-FTG-06, ADR-0077): the containment ceiling this change
  * deletes must never regrow. Six lettered clauses, (a)-(d)/(f) run LIVE against the real
- * `src/**`/`test/**` trees; clause (e) — the `openspec/specs/` sweep — is FIXTURE-PAIR
- * ONLY here (REQ-FTG-06.4): its real-tree invocation is archive-sync work, owned by
- * `sdd-archive` and `package-root-containment`'s own post-archive-sync criterion (design
- * §8, spec V3.3 amendment). All scanners are pure functions over an injectable file list
+ * `src/**`/`test/**` trees; clause (e) — the `openspec/specs/` sweep — runs BOTH the
+ * FIXTURE-PAIR logic proof (REQ-FTG-06.4, always ran here) AND, since the
+ * `inline-collection-marker` archive-sync (REQ-FTG-06.5), a LIVE invocation against the
+ * real `openspec/specs/**` tree — a permanent regression from this point forward. All
+ * scanners are pure functions over an injectable file list
  * (`test/support/src-invariant-scans.ts`); negatives run against fixture trees under
  * `test/fixtures/red/src-invariant-scans/**`, never a live mutation of the real tree.
  */
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, beforeAll } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { collectFiles } from "../support/import-scan.ts";
+import { ensureTscBuild } from "../support/shared-build.ts";
 import {
   readScanFiles,
+  realSrcFileSnapshot,
   findLiteralOccurrences,
   findAncestorWalkIdiom,
   findRealpathReferences,
@@ -22,17 +27,30 @@ import {
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = `${PROJECT_ROOT}src`;
 const TEST_DIR = `${PROJECT_ROOT}test`;
+const SPECS_DIR = `${PROJECT_ROOT}openspec/specs`;
 const RED_ROOT = `${PROJECT_ROOT}test/fixtures/red/src-invariant-scans`;
 const SINGLE_INSTANCE_PROBE_PATH = `${SRC_DIR}/transport/single-instance-probe.ts`;
 const CONTEXT_TS_PATH = `${SRC_DIR}/core/context.ts`;
 const CORE_CONTEXT_DTS_PATH = `${PROJECT_ROOT}test/fitness/dts-baseline/core.context.d.ts`;
 
+beforeAll(() => {
+  // judgment-day G3: clause (c) below now ALSO reads the freshly-built dist output —
+  // ensureTscBuild() is the shared, memoized `bun run build` FIT-04/FIT-17/the
+  // installed-consumer e2e already trigger, never a second, redundant build.
+  ensureTscBuild();
+});
+
+function packageAnchorsFields(dtsContent: string): string[] {
+  const match = /packageAnchors\?:\s*\{([^}]*)\};/.exec(dtsContent);
+  expect(match).not.toBeNull();
+  return match![1]!
+    .split(";")
+    .map((s) => s.replace(/\s+/g, " ").trim())
+    .filter((s) => s.length > 0);
+}
+
 const PACKAGE_ROOT_FOR_ALLOWLIST = new Set([`${SINGLE_INSTANCE_PROBE_PATH}#packageRootFor`]);
 const EMPTY_ALLOWLIST = new Set<string>();
-
-function realSrcFiles() {
-  return readScanFiles(collectFiles(SRC_DIR, ".ts"));
-}
 
 function realTestHelperFiles() {
   // Clause (d) scopes to shared fixture/helper modules (scratch-dir.ts's own kind), never
@@ -48,7 +66,7 @@ function realTestHelperFiles() {
 describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
   describe("clause (a) — zero `collection.json` literal in src/**", () => {
     it("the real src/** tree has zero occurrences", () => {
-      expect(findLiteralOccurrences(realSrcFiles(), "collection.json")).toEqual([]);
+      expect(findLiteralOccurrences(realSrcFileSnapshot(), "collection.json")).toEqual([]);
     });
 
     it("[red-proof] REQ-FTG-06.1 — a fixture reintroducing the literal is caught", () => {
@@ -61,7 +79,7 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
 
   describe("clause (b) — no ancestor-walk idiom in src/**, symbol-scoped allowlist", () => {
     it("the real src/** tree has zero non-allowlisted offenders", () => {
-      expect(findAncestorWalkIdiom(realSrcFiles(), PACKAGE_ROOT_FOR_ALLOWLIST)).toEqual([]);
+      expect(findAncestorWalkIdiom(realSrcFileSnapshot(), PACKAGE_ROOT_FOR_ALLOWLIST)).toEqual([]);
     });
 
     it("[red-proof] REQ-FTG-06.1 — a fixture reintroducing the idiom is caught", () => {
@@ -82,14 +100,24 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
   describe("clause (c) — RunContext.packageAnchors's type literal EQUALS { packageDir: string } (Q8, positive shape)", () => {
     it("the kit-internal core.context.d.ts baseline pins exactly one field", async () => {
       const content = await Bun.file(CORE_CONTEXT_DTS_PATH).text();
-      const match = /packageAnchors\?:\s*\{([^}]*)\};/.exec(content);
-      expect(match).not.toBeNull();
-      const fields = match![1]!
-        .split(";")
-        .map((s) => s.replace(/\s+/g, " ").trim())
-        .filter((s) => s.length > 0);
+      const fields = packageAnchorsFields(content);
       // Equality, never containment (Q8) — a superset (a regrown `packageRoot`-shaped
       // additive field) must fail this, not merely "contains packageDir".
+      expect(fields).toEqual(["packageDir: string"]);
+    });
+
+    // judgment-day G3: the check above is VACUOUS against a regrown additive field — it
+    // only diffs the COMMITTED baseline against ITSELF, never against real, freshly-built
+    // output. Judge B fault-injected `packageRoot?: string` into `src/core/context.ts` and
+    // every static guard, including the assertion above, stayed green because none of them
+    // ever look at `dist/`. This second assertion closes that gap: it reads the SAME
+    // freshly-built `dist/core/context.d.ts` FIT-04's kit-internal pair already builds
+    // (`ensureTscBuild()`, shared/memoized — no second build), so an additive regrown field
+    // that survives a real `tsc` emit fails HERE even though the baseline-vs-itself check
+    // above cannot see it.
+    it("the FRESHLY BUILT dist/core/context.d.ts also pins exactly one field — non-vacuous against a regrown additive field", () => {
+      const distContent = readFileSync(join(ensureTscBuild(), "core/context.d.ts"), "utf-8");
+      const fields = packageAnchorsFields(distContent);
       expect(fields).toEqual(["packageDir: string"]);
     });
   });
@@ -125,6 +153,15 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
       const path = `${RED_ROOT}/openspec-sweep/allowlist-only.md`;
       const fixture = readScanFiles([path]);
       expect(findOrphanedRetiredCitations(fixture)).toEqual([]);
+    });
+
+    // REQ-FTG-06.5: the real-tree invocation, deferred until archive-sync (design §8,
+    // spec V3.3), ran ONCE at the inline-collection-marker archive's spec-sync commit
+    // and is now a PERMANENT regression — every subsequent change touching
+    // `openspec/specs/**` must keep this green.
+    it("the real openspec/specs/ tree is swept and stays clean (REQ-FTG-06.5, archive-sync)", () => {
+      const files = readScanFiles(collectFiles(SPECS_DIR, ".md"));
+      expect(findOrphanedRetiredCitations(files)).toEqual([]);
     });
   });
 

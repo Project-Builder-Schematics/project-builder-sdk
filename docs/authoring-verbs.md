@@ -19,7 +19,9 @@ package's own disk, resolved against the run's `packageDir`. The author rule:
 
 > the SDK rejects lexical `../` or absolute source paths, always; everything a schematic
 > reads lives inside its package — symlinks are followed without target verification (see
-> SECURITY.md).
+> SECURITY.md), except `scaffold`'s own walk ROOT (`from`'s final path component), which
+> rejects a symlinked directory outright rather than following it (ruling 16 — see the
+> `scaffold` section below).
 
 What the boundary is now: the SDK screens the *literal* path shape (no `..` segment, no
 absolute form) before touching disk — it does **not** re-derive a containment ceiling
@@ -285,8 +287,17 @@ scaffold({
   into it.
 - Two or more sources collapsing to the same destination (after the pipeline) reject
   fail-loud (`reason: "invalid-input"`), naming every offending source.
-- The walk never descends into a symlinked directory — skipped silently, no error,
-  regardless of where its target resolves.
+- The walk never descends into a NESTED symlinked directory discovered during the walk —
+  skipped silently, no error, regardless of where its target resolves. A symlinked walk
+  root itself (`from`) is held to a stricter standard: it rejects (`reason: "invalid-input"`)
+  rather than being followed or silently skipped — but this root check inspects only
+  `from`'s FINAL path component; a symlink at a MID-path segment (e.g. `from: "link/sub"`,
+  where `link` is a symlink and `sub` is a real directory reached through it) is not
+  detected, and the walk proceeds through it — the same documented residual SECURITY.md
+  already covers for `create`/`copyIn` reads.
+- `from` resolving to the package root itself (`""`, `"."`, or `"./"`) rejects fail-loud
+  (`reason: "invalid-input"`) — ruling 17 (2026-07-29); `scaffold` never implicitly mirrors
+  the whole package.
 - The walk is capped at 10,000 enumerated entries per call; exceeding it rejects fail-loud,
   naming the bound.
 - Only usable inside a run started with `packageDir` — otherwise `reason: "invalid-input"`,

@@ -1,8 +1,26 @@
 # Package-Dir Run Anchor Specification
 
-**Spec version**: V3.3
-**Status**: signed (owner, 2026-07-28 — micro-unfreeze V3.2→V3.3, ruling 15, deltas pre-authorized; plan-verify closed by owner override per ruling 14, see proposal.md)
+**Spec version**: V3.5
+**Status**: signed (owner, 2026-07-29 — micro-unfreeze V3.4→V3.5, ruling-17 follow-through + round-3 hardening coverage, owner-ratified at reckoning; V3.4 signed 2026-07-29, ruling 16 follow-through, judgment-day round 2; V3.3 signed 2026-07-28, ruling 15, deltas pre-authorized; plan-verify closed by owner override per ruling 14, see proposal.md)
 **Change**: `inline-collection-marker`
+
+**Ruling 17 follow-through + round-3 hardening coverage (2026-07-29, owner-ratified at
+reckoning)**: two further behaviour changes landed after V3.4 signed — the degenerate
+`from` rejection (`folder-scaffold` REQ-FSC-11, owner ruling 17) and the round-3
+error-handling hardening batch (rename `..` pre-join rejection, include/exclude shape
+validation, outside-run reporting parity with `copyIn`, normalized-path collision
+detection, and the walk bound counting every enumerated dirent) — neither had a
+CHANGELOG entry: the `## 0.2.0` section carried only the FOUR entries V3.4 pinned.
+REQ-MFB-02 below now requires SIX entries: a FIFTH (ruling 17) and a SIXTH (round-3
+hardening, grouped) are appended; the four V3.4 entries stay byte-identical.
+
+**Ruling 16 follow-through (2026-07-29)**: judgment-day round 2 found the walk-ROOT
+symlink rejection (F1, `folder-scaffold` REQ-FSC-09.3, owner ruling 16) — breaking,
+author-visible behaviour — had no CHANGELOG entry: the `## 0.2.0` section carried only
+the THREE entries this REQ originally pinned. REQ-MFB-02 below now requires a FOURTH
+entry documenting the rejection plus a one-line migration hint (replace the symlink with
+a real directory, or point `from` at the target inside the package); the three original
+entries stay byte-identical, only a fourth is appended.
 
 V3.2 → V3.3 (owner micro-unfreeze, 2026-07-28, ruling 15 — pre-authorized,
 signed-on-write; plan-verify-3 findings B9/A3/B5): REQ-MFB-02 gains a
@@ -68,7 +86,7 @@ that no longer has a legitimate reason to exist.
 
 `RunContext.packageAnchors` MUST collapse to `{ packageDir: string }` — the
 `packageRoot` field and the `resolvePackageRoot()` ancestor walk for `collection.json`
-(`package-root-containment` REQ-PRC-01/02/03, retired) are DELETED. No read verb
+(the retired containment family's own anchor/ceiling requirements) are DELETED. No read verb
 (`scaffold`, `copyIn`, `create({templateFile})`) may resolve or require a containment
 ceiling above `packageDir`; the pre-`als.run` bootstrap chokepoint performs exactly TWO
 reads, in a PINNED ORDER — reserved-name checking, THEN schema validation
@@ -119,19 +137,33 @@ reads, in a PINNED ORDER — reserved-name checking, THEN schema validation
 - AND the FIT-04 `.d.ts` baseline for `RunContext` reflects the same single-field shape
   in the SAME commit
 
-### REQ-MFB-02: CHANGELOG Documents the Three Behaviour-Change Entries Against v0.2.0 (owner rulings 9/12)
+### REQ-MFB-02: CHANGELOG Documents the Six Behaviour-Change Entries Against v0.2.0 (owner rulings 9/12; ruling 16 follow-through, 2026-07-29; ruling-17 follow-through + round-3 hardening coverage, 2026-07-29, owner-ratified at reckoning)
 
 `CHANGELOG.md` MUST carry, under a **`## 0.2.0`** heading (never `## Unreleased` — owner
 ruling 12 ships the version bump `package.json` 0.1.0 → 0.2.0 IN this change), exactly
-THREE entries: (a) the HEADLINE `Fixed` entry — the inline-collection regression this
+SIX entries: (a) the HEADLINE `Fixed` entry — the inline-collection regression this
 capability closes; (b) a `Changed` (breaking) entry — the `AuthoringReason` union
 narrowing 12 → 11, with migration text; (c) a `Changed` entry — the honest realpath/
 symlink timing statement, cross-linking `SECURITY.md` (`package-source-io-hygiene`
-REQ-PSH-05). The existing preamble's premise ("pre-release, `0.0.0`, zero live
-consumers … nothing here requires a migration guide") MUST be amended to name the REAL
-audience — the engine repo and the conformance corpus consume this contract today even
-though no npm consumer does — so the three breaking/behaviour entries above carry
-migration text for THEM, not a summary claiming no migration is needed.
+REQ-PSH-05); (d) **[ruling 16 follow-through, 2026-07-29]** a `Changed` (breaking) entry —
+the walk-ROOT symlink rejection (`folder-scaffold` REQ-FSC-09.3, owner ruling 16): a
+`from` symlinked to a shared templates directory used to be FOLLOWED transparently and now
+hard-rejects `invalid-input`, with a one-line migration hint (replace the symlink with a
+real directory, or point `from` at the target inside the package); (e) **[ruling 17,
+2026-07-29]** a `Changed` (breaking) entry — a degenerate `from` (`""`, `"."`, or `"./"`)
+used to walk the ENTIRE package silently and now rejects `invalid-input`
+(`folder-scaffold` REQ-FSC-11), with a one-line migration hint (name the intended
+subfolder explicitly); (f) **[round-3 hardening, 2026-07-29]** ONE grouped `Fixed` entry
+covering the round-3 error-handling hardenings — rename values containing `..` now
+reject pre-join instead of silently relocating outside `to` (`folder-scaffold`
+REQ-FSC-02), `include`/`exclude` must be arrays of strings, a `scaffold` call outside a
+run now reports `outside-run`, destination collisions are detected on normalized paths,
+and the 10,000-entry walk bound counts every enumerated dirent. The existing preamble's
+premise ("pre-release, `0.0.0`, zero live consumers … nothing here requires a migration
+guide") MUST be amended to name the REAL audience — the engine repo and the conformance
+corpus consume this contract today even though no npm consumer does — so the
+breaking/behaviour entries above carry migration text for THEM, not a summary claiming no
+migration is needed.
 
 `docs/authoring-verbs.md` MUST ALSO carry the SAME qualified verbatim author rule
 `ir-path-well-formedness` REQ-IPF-01 states: *"the SDK rejects lexical `../` or absolute
@@ -144,21 +176,21 @@ pins that the author-facing doc actually carries it, verbatim, with the qualifie
 a DATED supersession/amendment header on the superseded/amended file itself
 (`ADR-0046`/`ADR-0067`: "Superseded by ADR-0077, {date}"; `ADR-0045`: "Amended by
 ADR-0077, {date}") — this is part of THIS REQ's greppable checklist because those three
-headers are the qualifying condition for `package-root-containment`'s falsifiable
+headers are the qualifying condition for the retired containment family's own falsifiable
 acceptance criterion allowlist ("superseded ADRs... are... legitimate places this
 vocabulary survives"): an ADR that still mentions the retired vocabulary but was NEVER
 given its dated header is not legitimately allowlisted — a silent skip would otherwise
 be undetectable. Checking for the headers' PRESENCE closes that hole.
 
-#### Scenario REQ-MFB-02.1: CHANGELOG carries all three entries under `## 0.2.0`, preamble amended [red-today]
+#### Scenario REQ-MFB-02.1: CHANGELOG carries all six entries under `## 0.2.0`, preamble amended [red-today]
 
 - GIVEN `CHANGELOG.md`
 - WHEN inspected
-- THEN a `## 0.2.0` heading exists (not `## Unreleased`) containing all three entries
-  (a)/(b)/(c) above, each present and mechanically `rg`-greppable by its distinguishing
-  phrase; AND the preamble no longer claims "nothing here requires a migration guide"
-  without qualification — it names the engine repo and the conformance corpus as the
-  real audience the breaking entries' migration text serves
+- THEN a `## 0.2.0` heading exists (not `## Unreleased`) containing all six entries
+  (a)/(b)/(c)/(d)/(e)/(f) above, each present and mechanically `rg`-greppable by its
+  distinguishing phrase; AND the preamble no longer claims "nothing here requires a
+  migration guide" without qualification — it names the engine repo and the conformance
+  corpus as the real audience the breaking entries' migration text serves
 - AND `package.json#version` reads `"0.2.0"`, bumped in the SAME commit as the
   CHANGELOG update
 

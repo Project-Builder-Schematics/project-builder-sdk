@@ -1,8 +1,10 @@
 # Conformance Corpus Registry Specification
 
-**Spec version**: V3
-**Status**: SIGNED (V3 re-signed by owner 2026-07-18; evidence-driven V2→V3 corrections — see spec-summary.md log)
+**Spec version**: V4
+**Status**: SIGNED (V4 — `inline-collection-marker`: REQ-CCR-08 retired wholesale; V3 re-signed by owner 2026-07-18; evidence-driven V2→V3 corrections — see spec-summary.md log)
 **Change**: `conformance-corpus`
+
+V3 → V4 (archive-sync, `inline-collection-marker`, 2026-07-29): REQ-CCR-08 (the package-anchor marker file requirement) is RETIRED wholesale — the run-anchor mechanism it supported no longer performs any ancestor walk, so the marker file it required is deleted and no requirement in this family replaces it. `conformance/collection.json` is deleted from the corpus; REQ-CCR-03's PR#1 scope note is updated to drop its now-stale dependency on that file. No successor REQ; the corresponding self-check obligation is dropped in the same way (`conformance-self-check` REQ-CSC-02's amendment). REQ-IDs otherwise stable.
 
 ## Purpose
 
@@ -58,10 +60,8 @@ hard failure, never silently skipped.
 At the commit that closes PR#1, `conformance/corpus.json#fixtures` MUST list EXACTLY
 `["m1-vehicle"]` — no `m2-*` id may appear until PR#2. PR#1 MUST also carry ALL cross-cutting
 scaffolding: the self-check (`conformance-self-check`), `.gitattributes`
-(`corpus-determinism`), `conformance/collection.json` (REQ-CCR-08 — without it every
-runner-driven fixture invocation, including `m1-vehicle`'s, fails before its factory ever
-executes), and `conformance/README.md`. PR#2 MUST add the four `m2-*` fixtures to the same
-`corpus.json#fixtures` array, in the same commit as their artefact sets.
+(`corpus-determinism`), and `conformance/README.md`. PR#2 MUST add the four `m2-*` fixtures to
+the same `corpus.json#fixtures` array, in the same commit as their artefact sets.
 
 #### Scenario REQ-CCR-03.1: PR#1 HEAD lists only m1-vehicle
 
@@ -218,37 +218,6 @@ fitness-function import with no risk of pulling in transport machinery.)
 - WHEN compared against `WIRE_PROTOCOL_VERSION` (`src/transport/wire-protocol.ts`)
 - THEN they are equal (currently `1`) — NOT compared against `Batch.protocolVersion`
   (`src/core/wire.ts`), a different constant
-
-### REQ-CCR-08: `collection.json` Package-Anchor Marker (SDK-Runner Requirement)
-
-The corpus MUST contain `conformance/collection.json` — a PRESENCE-ONLY marker file (content
-ignored, never parsed) — as the shared ancestor the SDK's `defineFactory({packageDir})`
-package-anchor resolution (`resolvePackageRoot`, `src/core/context.ts`, ADR-0046) walks upward to
-find, starting from each fixture's own directory. `src/transport/runner.ts` UNCONDITIONALLY
-passes `packageDir = dirname(<factory module URL>)` to `defineFactory` for every fixture it
-invokes; without `conformance/collection.json` (or any other ancestor `collection.json`),
-`resolvePackageRoot` throws `AuthoringError{reason: "invalid-input"}` (origin
-`authoring-rejected` → exit 1, `src/transport/exit-codes.ts`) BEFORE the fixture's factory
-function ever runs — this is an SDK-RUNNER requirement layered onto the handoff's documented
-layout (`CONFORMANCE-CORPUS-HANDOFF.md` does not mention this file), NOT something the engine's Go
-loader reads or is even aware of (presence-only, engine-loader-invisible). Flagged as an addition
-to the handoff for the engine team's awareness — it changes nothing engine-side, but its absence
-would silently break every SDK-side runner-driven fixture invocation.
-
-#### Scenario REQ-CCR-08.1: The marker lets package-anchor resolution succeed for every fixture
-
-- GIVEN `conformance/collection.json` exists at the corpus root
-- WHEN the runner loads any fixture's factory (`packageDir = conformance/<id>/`)
-- THEN `resolvePackageRoot` resolves `conformance/` as the `packageRoot` without throwing
-
-#### Scenario REQ-CCR-08.2: A missing marker fails every fixture at exit 1, before the factory runs
-
-- GIVEN `conformance/collection.json` is ABSENT and no other ancestor `collection.json` exists
-- WHEN the runner invokes any fixture's factory
-- THEN `resolvePackageRoot` throws `AuthoringError{invalid-input}`, the run exits 1, and the
-  factory function itself never executes (this failure occurs before `defineFactory` constructs
-  its `RunContext`/`Session`, so it is NOT a rejection this fixture's `transcript` can describe —
-  it never reaches `REQ-CFX-13`'s callback machinery at all)
 
 ### REQ-CCR-09: `m2-copy`/`m2-copyin` Landing Sequence — Branch-Hold Boundary, Two Done-Definitions (owner ruling 4, extended 2026-07-22)
 

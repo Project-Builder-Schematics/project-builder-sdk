@@ -1,13 +1,15 @@
 {
   "change": "inline-collection-marker",
   "triage": "L",
-  "phase": "build:complete-7of7-verified-awaiting-evaluate",
+  "phase": "archived",
   "spec_status": "signed",
   "slices": true,
   "plan_verify": "ready",
-  "verify_final": "none",
-  "arch_audit": "none",
-  "outcome": "none",
+  "verify_final": "pass-with-followups",
+  "arch_audit": "clean",
+  "outcome": "delivered-pending-activation",
+  "archive_commit": "ba1bd84",
+  "archive_path": "openspec/changes/archive/2026-07-29-inline-collection-marker",
   "viz_url": "https://claude.ai/code/artifact/a4b2dd19-94de-4f73-9527-349751e23639",
-  "updated_at": "2026-07-28T00:00:00Z"
+  "updated_at": "2026-07-29T00:00:00Z"
 }

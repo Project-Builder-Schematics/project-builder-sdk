@@ -74,7 +74,7 @@ export declare function find(path: string): FoundHandle;
  * `templateFile` is a THIRD overload (REQ-FEH-01): pass a package-local path instead of an
  * inline `template` string — its content is read at emission time and becomes the
  * directive's `template` field. `template` and `templateFile` are mutually exclusive forms;
- * only usable inside a `defineFactory({ packageDir })` run (there is no resolution anchor
+ * only usable inside a factory run started with packageDir (there is no resolution anchor
  * to read a package-local file against otherwise — `invalid-input`, never a cwd fallback).
  * `templateFile`'s VALUE is a literal package-relative path, read verbatim by CONTENT —
  * it is NOT run through `scaffold`'s filename pipeline (no rename remap, no `__x__` token
@@ -132,7 +132,7 @@ export type ScaffoldOptions = ScaffoldArgs;
  * `false`) passes through unchanged to every emitted directive, no per-file override
  * (REQ-FSC-06). Two or more sources collapsing to the same destination reject fail-loud,
  * naming every offending source (REQ-FSC-08). Only usable inside a
- * `defineFactory({ packageDir })` run — there is no resolution anchor to walk a
+ * factory run started with packageDir — there is no resolution anchor to walk a
  * package-local folder against otherwise (`invalid-input`, never a cwd fallback).
  *
  * `rename` is a static REMAP TABLE (`Record<originalSourceRelativePath,
@@ -140,11 +140,18 @@ export type ScaffoldOptions = ScaffoldArgs;
  * source path — distinct from the `rename()` verb, which renames one already-targeted
  * file's basename at emit time, not a folder-walk's per-entry destination.
  *
- * The walk never descends into a symlinked directory, even when its target resolves
- * INSIDE the package boundary (skipped silently, no error — uniform with
- * `package-root-containment`'s no-descent rule) and is capped at 10,000 enumerated
- * entries per call, failing loud and naming the bound past that (REQ-FSC-09) — a
- * resource guard no real schematic collection should approach.
+ * A NESTED symlinked directory is never descended, regardless of where its target
+ * resolves — skipped silently, no error; enumeration determinism and cycle-safety are the
+ * rationale (a symlinked directory could point anywhere, including into a cycle — never
+ * descending is the simplest invariant that is safe under all targets, REQ-FSC-09). The
+ * walk ROOT (`from` itself) is held to a stricter standard: a symlinked root REJECTS
+ * (`invalid-input`) rather than being followed or silently skipped (owner ruling 16) — but
+ * this check inspects only `from`'s FINAL path component; a symlink at a MID-path segment
+ * (e.g. `from: "link/sub"`) is not detected and the walk proceeds through it, the same
+ * documented residual SECURITY.md covers for `create`/`copyIn` reads. The walk is capped
+ * at 10,000 enumerated entries per call, failing loud and naming the bound past that
+ * (REQ-FSC-09) — a loop-safety/DoS resource guard no real schematic collection should
+ * approach.
  *
  * **Packaging caveat**: the empty-folder no-op (above) depends on `from` existing ON
  * DISK at run time — npm tarball packaging commonly DROPS empty directories, so an
@@ -169,7 +176,7 @@ export declare function scaffold(args: ScaffoldOptions): void;
  * `from`/`to` are mandatory; `force` defaults `false`. A missing `from`/`to` rejects
  * fail-loud before any emission (REQ-FEH-04.1/.2). Collision without `force` rejects;
  * `force: true` overwrites (`by-reference-copy-wire` REQ-BRC-05). Only usable inside a
- * `defineFactory({ packageDir })` run — there is no resolution anchor to read a
+ * factory run started with packageDir — there is no resolution anchor to read a
  * package-local file against otherwise (`invalid-input`, never a cwd fallback).
  *
  * Returns `void` (REQ-FEH-04.3) — NOT a `WritableHandle`, unlike `copy`: a by-reference
@@ -253,18 +260,18 @@ export type { DryRunEntry, DryRunVerb };
  * (`kind: "copied"`). The tree→tree `copy` verb also materializes content but predates
  * this axis and is never package-local-read/classified, so it carries no `kind`.
  *
- * Call it inside an active `defineFactory` run, like every other `./commons` verb.
+ * Call it inside an active factory run, like every other `./commons` verb.
  *
  * @example
- * defineFactory(() => {
+ * const run = () => {
  *   create("src/index.ts", { template: "export const version = '1.0.0';", options: {} });
  *   find("src/legacy.ts").remove();
  *   for (const entry of dryRun()) {
  *     console.log(entry.verb, entry.path); // "create src/index.ts", then "remove src/legacy.ts"
  *   }
- * });
+ * };
  *
- * @throws When called outside an active `defineFactory` run, propagates the standard
+ * @throws When called outside an active factory run, propagates the standard
  * error — authoring verbs "can only be used while a schematic is running" (ADR-0026: the
  * message no longer enumerates individual verbs, so it covers `dryRun` too).
  */

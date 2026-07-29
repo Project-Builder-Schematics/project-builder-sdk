@@ -6,22 +6,17 @@
  * impossible. Negatives run against a fixture tree, never a live mutation of `src/**`.
  */
 import { describe, it, expect } from "bun:test";
-import { collectFiles } from "../support/import-scan.ts";
-import { readScanFiles, findLexicalEscapePredicates, findCallSites } from "../support/src-invariant-scans.ts";
+import { readScanFiles, realSrcFileSnapshot, findLexicalEscapePredicates, findCallSites } from "../support/src-invariant-scans.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = `${PROJECT_ROOT}src`;
 const RED_ROOT = `${PROJECT_ROOT}test/fixtures/red/src-invariant-scans`;
 const PATH_GUARDS_PATH = `${SRC_DIR}/scaffold/path-guards.ts`;
 
-function realSrcFiles() {
-  return readScanFiles(collectFiles(SRC_DIR, ".ts"));
-}
-
 describe("FIT-NEW-C (fit-45) — exactly one lexical predicate implementation", () => {
   describe("clause (a) — exactly one (file, function) pair implements the idiom", () => {
     it("the real src/** tree has exactly one implementation: path-guards.ts#isLexicallyEscaping", () => {
-      const hits = findLexicalEscapePredicates(realSrcFiles());
+      const hits = findLexicalEscapePredicates(realSrcFileSnapshot());
       expect(hits).toEqual([{ file: PATH_GUARDS_PATH, function: "isLexicallyEscaping" }]);
     });
 
@@ -37,7 +32,7 @@ describe("FIT-NEW-C (fit-45) — exactly one lexical predicate implementation", 
 
   describe("clause (b) — exactly three call sites of validateSourceLexical", () => {
     it("the real src/** tree calls validateSourceLexical from exactly the three named sites", () => {
-      const sites = findCallSites(realSrcFiles(), "validateSourceLexical");
+      const sites = findCallSites(realSrcFileSnapshot(), "validateSourceLexical");
       const normalized = sites
         .map((s) => ({ file: s.file.replace(SRC_DIR, "src"), function: s.function }))
         .sort((a, b) => a.file.localeCompare(b.file) || (a.function ?? "").localeCompare(b.function ?? ""));

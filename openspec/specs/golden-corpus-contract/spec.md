@@ -1,8 +1,10 @@
 # Golden Corpus Contract Specification
 
-**Spec version**: V2
-**Status**: signed (owner, 2026-07-13)
-**Change**: `author-emulation-e2e-scaffold`
+**Spec version**: V3
+**Status**: signed (owner, 2026-07-28 — micro-unfreeze V3.2→V3.3, ruling 15, deltas pre-authorized; plan-verify closed by owner override per ruling 14, see proposal.md)
+**Change**: `inline-collection-marker`
+
+V2 → V3 (archive-sync, `inline-collection-marker`, 2026-07-29): REQ-GCC-08's NOT-EXERCISED checklist item 3 drops its second literal — the retired containment family's SDK-side successor is SDK-testable and no longer belongs in an engine-gated ledger; its engine-side half was always `by-reference-copy-wire` REQ-BRC-08's obligation, unchanged. The checklist total drops from five literals to four (item 2's three plus item 3's one, `REQ-BRC-08` alone). REQ-IDs stable.
 
 V1 → V2 (council fixes applied): REQ-GCC-09 added (rejection record shape, QA-B1);
 REQ-GCC-10 added (corpus placement + naming — names are the external API, TW-B2);
@@ -161,16 +163,16 @@ this literal checklist — `sdd-verify --mode=final` MUST fail if any item is mi
 2. NOT-EXERCISED contains the literal entries `module-wiring`, `tsconfig-AST`
    (gap source: `author-emulation-generator` REQ-AEG-02), and `template rendering`
    (gap source: `ir-transcript-capture` REQ-ITC-03's evidence boundary).
-3. NOT-EXERCISED contains the literal engine-gated entries `REQ-BRC-08` and
-   `REQ-PRC-06` (`scenario-matrix` REQ-SCM-02).
+3. NOT-EXERCISED contains the literal engine-gated entry `REQ-BRC-08`.
 4. The `FRICTION` section exists (≥1 entry or the literal `none observed`).
 
-#### Scenario REQ-GCC-08.1: Manifest passes the four-point completeness checklist [SDK]
+#### Scenario REQ-GCC-08.1: Manifest passes the four-point completeness checklist [preservation-pin]
 
 - GIVEN the coverage manifest
 - WHEN checked against the four checklist items above
 - THEN all four hold; removing any single matrix-cited REQ-ID from EXERCISED, or any
-  of the five literals from NOT-EXERCISED, or the FRICTION section, fails the check
+  of the FOUR literals from NOT-EXERCISED (`module-wiring`, `tsconfig-AST`, `template
+  rendering`, `REQ-BRC-08`), or the FRICTION section, fails the check
 
 ### REQ-GCC-09: Rejection Record — the Corpus Shape for Fail-Loud Rows
 

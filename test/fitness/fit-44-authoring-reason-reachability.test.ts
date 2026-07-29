@@ -10,11 +10,9 @@
  * excluded shapes for an otherwise-unreachable reason and confirms the scan still flags it.
  */
 import { describe, it, expect } from "bun:test";
-import { collectFiles } from "../support/import-scan.ts";
-import { readScanFiles, scanMintedReasons, parseCodeToReasonValues } from "../support/src-invariant-scans.ts";
+import { readScanFiles, realSrcFileSnapshot, scanMintedReasons, parseCodeToReasonValues } from "../support/src-invariant-scans.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
-const SRC_DIR = `${PROJECT_ROOT}src`;
 const RED_ROOT = `${PROJECT_ROOT}test/fixtures/red/src-invariant-scans`;
 
 // The 11 surviving members (authoring-error.ts, ADR-0077 §E) — `source-outside-package`
@@ -33,20 +31,16 @@ const SURVIVING_REASONS = [
   "source-unreadable",
 ];
 
-function realSrcFiles() {
-  return readScanFiles(collectFiles(SRC_DIR, ".ts"));
-}
-
 describe("FIT-NEW-B (fit-44) — every surviving AuthoringReason is mintable", () => {
   it("all 11 surviving reasons are reachable through CODE_TO_REASON or a direct construction site", () => {
-    const reachable = scanMintedReasons(realSrcFiles());
+    const reachable = scanMintedReasons(realSrcFileSnapshot());
     for (const reason of SURVIVING_REASONS) {
       expect(reachable.has(reason)).toBe(true);
     }
   });
 
   it("the retired source-outside-package reason is NOT reachable (it should no longer exist anywhere as a construction site)", () => {
-    const reachable = scanMintedReasons(realSrcFiles());
+    const reachable = scanMintedReasons(realSrcFileSnapshot());
     expect(reachable.has("source-outside-package")).toBe(false);
   });
 
@@ -64,7 +58,7 @@ describe("FIT-NEW-B (fit-44) — every surviving AuthoringReason is mintable", (
 
   describe("REQ-FTG-07.2 — CODE_TO_REASON's value set contains zero source-* reasons", () => {
     it("the real CODE_TO_REASON mints no source-* value", () => {
-      const values = parseCodeToReasonValues(realSrcFiles());
+      const values = parseCodeToReasonValues(realSrcFileSnapshot());
       expect(values.length).toBeGreaterThan(0);
       expect(values.some((v) => v.startsWith("source-"))).toBe(false);
     });

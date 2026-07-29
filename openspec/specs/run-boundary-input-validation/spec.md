@@ -1,8 +1,10 @@
 # Run-Boundary Input Validation Specification
 
-**Spec version**: V3
-**Status**: signed (2026-07-13 — owner micro-unfreeze, `schematic-local-files` archive sync)
-**Change**: `stage-4-typed-options` (amended by `schematic-local-files`, 2026-07-13)
+**Spec version**: V4
+**Status**: signed (owner, 2026-07-28 — micro-unfreeze V3.2→V3.3, ruling 15, deltas pre-authorized; plan-verify closed by owner override per ruling 14, see proposal.md)
+**Change**: `inline-collection-marker`
+
+V3 → V4 (archive-sync, `inline-collection-marker`, 2026-07-29): REQ-RBV-06 rewritten — the pre-`als.run` bootstrap read-set SHRINKS from three reads to exactly two (reserved-name check, then schema validation); the third read this REQ previously coordinated (a package-root/containment-ceiling ancestor walk) is deleted along with the family that defined it — `packageDir` is now the sole run anchor, so there is no containment read left to opt out of. Scenario REQ-RBV-06.1 is RETIRED (id kept as a pointer, not carried forward — its replacement inverse-proof lives at REQ-RBV-06.2). REQ-RBV-04's driven-branch set is extended to every new rejection branch this change introduces (source hygiene, lexical screens, walk-root/recursive-walk failures). REQ-IDs otherwise stable.
 
 **V2 → V3 delta (owner micro-unfreeze, 2026-07-13, via `schematic-local-files`)**: adds
 REQ-RBV-06 (package-root/containment-ceiling discovery is a legitimate pre-`als.run`
@@ -166,25 +168,32 @@ validation ran).
 ### REQ-RBV-04: Canary-Seeded No-Echo Verification (Cross-Domain, SEC-B1/QA-m2)
 
 The no-echo guarantee (REQ-RBV-02, and by the same mechanism REQ-TFO-04's
-no-raw-content-echo and `reserved-lifecycle-names` REQ-RLN-02's rejection message) MUST be
-verified by a DICTIONARY-SEEDED CANARY SCAN, not by checking for the absence of one or two
-known literal strings. Test fixtures MUST seed a unique canary token into every schema
-field name/value AND into the resolved-input value under test, then drive EVERY rejection
-branch this change introduces (all REQ-RBV-01 sub-scenarios, REQ-TFO-04's bin error path,
-REQ-RLN-02's rejection) and assert the canary token appears on NO error surface: not the
-message, not `.stack`, not any structured field, not captured stdout, not captured stderr.
-Key NAMES may legitimately appear in a rejection surface (e.g. naming the offending field);
-VALUES must never appear — this asymmetry is deliberate (SEC-m3), not an oversight.
+no-raw-content-echo and `reserved-lifecycle-names` REQ-RLN-02's rejection message) MUST
+be verified by a DICTIONARY-SEEDED CANARY SCAN, not by checking for the absence of one
+or two known literal strings. Test fixtures MUST seed a unique canary token into every
+schema field name/value AND into the resolved-input value under test, then drive EVERY
+rejection branch this change introduces (all REQ-RBV-01 sub-scenarios, REQ-TFO-04's bin
+error path, REQ-RLN-02's rejection, AND — added by `inline-collection-marker` —
+`package-source-io-hygiene` REQ-PSH-01/02/03's source-rejection branches,
+`ir-path-well-formedness` REQ-IPF-01's lexical-rejection branches (including the
+segment-aware edge cases), `folder-scaffold` REQ-FSC-10's walk-root AND recursive
+mid-walk rejection branches, and the REQ-PSH-02.3/02.4/03.2 NUL-byte/broken-symlink/ELOOP
+branches) and assert the canary token appears on NO error surface: not the message, not
+`.stack`, not any structured field, not captured stdout, not captured stderr. Key NAMES
+may legitimately appear in a rejection surface; VALUES must never appear.
 
-#### Scenario REQ-RBV-04.1: Canary scan across every rejection branch
+#### Scenario REQ-RBV-04.1: Canary scan across every rejection branch, including the new source/lexical/walk-root/recursive branches
 
-- GIVEN a unique canary token seeded as a resolved-input VALUE and driven through every
-  rejection branch (REQ-RBV-01.1 through .7, REQ-TFO-04.1, REQ-RLN-02.1)
-- WHEN each rejection's full error surface (message, `.stack`, structured fields, captured
-  stdout/stderr) is scanned for the canary token
+- GIVEN a unique canary token seeded as a resolved-input VALUE and, separately, as a
+  package-relative source/destination path fragment, driven through every rejection
+  branch (REQ-RBV-01.1 through .7, REQ-TFO-04.1, REQ-RLN-02.1, `package-source-io-hygiene`
+  REQ-PSH-01.1/.2/.3, REQ-PSH-02.1/.2/.3/.4, REQ-PSH-03.2, `ir-path-well-formedness`
+  REQ-IPF-01.1/.2/.3/.4/.6, REQ-IPF-02.1, `folder-scaffold` REQ-FSC-10.1/.2/.3/.4)
+- WHEN each rejection's full error surface (message, `.stack`, structured fields,
+  captured stdout/stderr) is scanned for the canary token
 - THEN it is found in none of them
 
-#### Scenario REQ-RBV-04.2: Key names may appear, values never (asymmetry pin)
+#### Scenario REQ-RBV-04.2: Key names may appear, values never (asymmetry pin) [preservation-pin]
 
 - GIVEN a resolved input with an excess key literally named after the canary token
 - WHEN the rejection is inspected
@@ -225,28 +234,34 @@ author should notice), not a full close.
   distinguishes "schema declares zero properties" from REQ-RBV-03's "no schema.json
   present" warning
 
-### REQ-RBV-06: Package-Root Discovery Is a Legitimate Pre-`als.run` Read
+### REQ-RBV-06: Pre-`als.run` Bootstrap Read-Set Is Exactly Two, in a Pinned Order — No Containment-Ceiling Read
 
-Resolving the containment ceiling (`package-root-containment` REQ-PRC-02 — walking
-ancestors for the nearest `collection.json`) MUST happen at the SAME pre-`als.run`
-chokepoint `defineFactory` already uses for schema/reserved-name validation
-(`context.ts`'s `validateAtRunBoundary`/`checkReservedNames`), not a separate,
-uncoordinated read site. A missing `collection.json` ancestor fails closed at this
-same site (`package-root-containment` REQ-PRC-03, reason `invalid-input` per
-REQ-AEC-12) — it does not silently degrade to "no containment" the way REQ-RBV-03's
-no-schema opt-out legitimately degrades for schema validation; there is no analogous
-opt-out for containment.
+The pre-`als.run` chokepoint `defineFactory` uses performs EXACTLY TWO reads, in this
+ORDER: (1) reserved-name checking, THEN (2) schema validation (REQ-RBV-01) — matching
+`context.ts`'s existing call order (`checkReservedNames` before `validateAtRunBoundary`).
+NO third read resolving a package-root/containment-ceiling exists at this site or
+anywhere else in the run — the family that previously coordinated a containment-ceiling
+read here is retired; `packageDir` is the sole run anchor (`package-dir-run-anchor`
+REQ-MFB-01). There is no analogous "opt-out" question for a containment read because no
+containment read exists to opt out of.
 
-#### Scenario REQ-RBV-06.1: Missing-ancestor rejection pre-empts the factory body — killable ordering observable [SDK]
+#### Scenario REQ-RBV-06.1: [RETIRED, id kept as a pointer — not carried forward]
 
-- GIVEN a factory defined via `defineFactory(fn, { packageDir })` in a package with
-  NO `collection.json` ancestor, whose body's FIRST statement throws a sentinel
-  `Error("body-ran")`
+(Previously: this scenario proved a missing-ancestor rejection pre-empted the factory
+body via a sentinel `throw`. That mechanism no longer exists. Its id is preserved here,
+unused, per id-stability — it is NOT reassigned to new content. The new content lives at
+REQ-RBV-06.2 below. Pointer: `package-dir-run-anchor` REQ-MFB-01.1 proves the INVERSE —
+the same sentinel-ordering technique, opposite conclusion.)
+
+#### Scenario REQ-RBV-06.2: Bootstrap read-set is exactly two, in order, verified by fs-io instrumentation
+
+- GIVEN a factory run with fs-read instrumentation active at the pre-`als.run`
+  chokepoint, in a package with NO `collection.json` anywhere on its ancestor chain
 - WHEN the factory runs
-- THEN the thrown value is the missing-ancestor fail-loud rejection — NOT the
-  sentinel — proving the ceiling walk resolved (and rejected) BEFORE
-  `als.run`/`fn(o)` executed; a mutant that defers the walk into the run would
-  surface `"body-ran"` instead
+- THEN exactly two reads occur before `fn(o)` executes, in order: the reserved-name
+  check FIRST, then schema validation — no ancestor-directory read for any marker file
+  occurs at any level, and the run does not fail merely because no `collection.json`
+  exists
 
 ## Sensitive Areas Coverage
 

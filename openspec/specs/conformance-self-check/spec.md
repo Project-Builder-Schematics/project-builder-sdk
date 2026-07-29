@@ -1,8 +1,10 @@
 # Conformance Self-Check Specification
 
-**Spec version**: V3
-**Status**: SIGNED (V3 re-signed by owner 2026-07-18; evidence-driven V2→V3 corrections — see spec-summary.md log)
+**Spec version**: V4
+**Status**: SIGNED (V4 — `inline-collection-marker`: REQ-CSC-02's collection-marker clause and its scenario dropped, retired with no successor; V3 re-signed by owner 2026-07-18; evidence-driven V2→V3 corrections — see spec-summary.md log)
 **Change**: `conformance-corpus`
+
+V3 → V4 (archive-sync, `inline-collection-marker`, 2026-07-29): REQ-CSC-02 drops its collection-marker existence check — the run-anchor mechanism it guarded no longer performs any ancestor walk, so there is nothing left for the check to fail on; scenario REQ-CSC-02.3 is retired with no successor. The seed/expected/schematic/factory reference-resolution checks are unchanged.
 
 ## Purpose
 
@@ -32,7 +34,7 @@ id with no `manifest.json`; a fixture directory with `factory.ts` but no `manife
 - WHEN the self-check runs
 - THEN it passes
 
-### REQ-CSC-02: Seed/Expected/Schematic/Factory Reference Resolution, and the Collection Marker
+### REQ-CSC-02: Seed/Expected/Schematic/Factory Reference Resolution
 
 For every case in every `manifest.json`, when `seed`/`expected` names a directory string (not
 the literal `"zero-effect"`/`"empty"`/`null`), the self-check MUST assert that directory exists
@@ -41,13 +43,7 @@ under the fixture. When `lowering.mode === "schematic"`, the self-check MUST ass
 MUST ADDITIONALLY assert that `manifest.json#factory.module` resolves to an existing file
 relative to the fixture directory (default `factory.ts`) — a listed factory pointer that does
 not resolve on disk is a hard failure of the same class as a dangling `seed`/`expected`
-reference. The self-check MUST ADDITIONALLY assert that `conformance/collection.json`
-(REQ-CCR-08) EXISTS and resolves as an ancestor for EVERY fixture listed in
-`corpus.json#fixtures` — a corpus lacking this marker makes every runner-driven fixture
-invocation fail at exit 1 before its factory ever executes (`resolvePackageRoot`,
-`src/core/context.ts`), which defeats the corpus's purpose; this is a hard failure of the same
-class as the other reference-resolution checks in this REQ, checked ONCE per self-check run
-(not per-fixture, since the marker is shared).
+reference.
 
 (Previously: this REQ covered only `seed`/`expected`/`schematic`/factory-module reference
 resolution (V2, QA-M2). V3 adds the `collection.json` marker check per the same evidence class —
@@ -66,14 +62,6 @@ silently fail 100% of runner-driven fixture invocations without the self-check e
   in the fixture directory
 - WHEN the self-check runs
 - THEN it fails, naming the fixture and the unresolved factory path
-
-#### Scenario REQ-CSC-02.3: Missing collection.json marker fails the whole corpus
-
-- GIVEN `conformance/collection.json` does not exist (and no other ancestor `collection.json` is
-  present above any fixture directory)
-- WHEN the self-check runs
-- THEN it fails, naming the missing marker — every fixture would otherwise fail at exit 1 before
-  its factory runs (REQ-CCR-08)
 
 ### REQ-CSC-03: Manifest Schema Validity, Including `transcript` and `outcome`
 

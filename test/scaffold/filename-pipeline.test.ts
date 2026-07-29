@@ -126,4 +126,57 @@ describe("REQ-FSC-08.1 — intra-scaffold destination collision names both offen
 
     expect(() => detectDestinationCollisions(results)).not.toThrow();
   });
+
+  // judgment-day round 3 fix (F5): `byDest` used to key on the RAW `destRelPath` — a
+  // `rename` value like `"./b.ts"` and a sibling literal `"b.ts"` are the SAME destination
+  // once the expander's own `posix.join(toPrefix, destRelPath)` runs, but formed two
+  // distinct map keys here, so the collision went undetected at this deterministic,
+  // both-offenders-naming gate and surfaced later as whatever error family the second
+  // write happened to hit instead.
+  it("F5: a rename value normalizing to an existing destination ('./b.ts' vs 'b.ts') is detected as a collision", () => {
+    const results: PipelineResult[] = [
+      { sourceRelPath: "a.ts", destRelPath: "./b.ts", isTemplateMarked: false },
+      { sourceRelPath: "b.ts", destRelPath: "b.ts", isTemplateMarked: false },
+    ];
+
+    const err = expectReason(() => detectDestinationCollisions(results), "invalid-input");
+    expect(err.message).toContain("a.ts");
+    expect(err.message).toContain("b.ts");
+  });
+});
+
+describe("judgment-day round 3 (F3) — runFilenamePipeline: rename lookup never walks the prototype chain", () => {
+  const unrelatedRename = { "a.ts": "renamed-a.ts" };
+
+  it('an entry literally named "__proto__" pipelines through NORMALLY (no OWN rename rule, so only token translation touches it) instead of minting a nonsense rejection', () => {
+    // "__proto__" is itself token-shaped (`__x__`) — `translateTokens` legitimately
+    // rewrites it to `{= proto =}` regardless of this fix; the F3 assertion is that NO
+    // rejection is thrown (the bug: `rename["__proto__"]` resolved to the inherited
+    // `Object.prototype`, a non-string, non-undefined value that used to mint a bogus
+    // "must be a string" rejection here).
+    const result = runFilenamePipeline("__proto__", unrelatedRename);
+    expect(result).toEqual({ sourceRelPath: "__proto__", destRelPath: "{= proto =}", isTemplateMarked: false });
+  });
+
+  it('an entry literally named "toString" pipelines through unchanged', () => {
+    const result = runFilenamePipeline("toString", unrelatedRename);
+    expect(result).toEqual({ sourceRelPath: "toString", destRelPath: "toString", isTemplateMarked: false });
+  });
+
+  it('an entry literally named "constructor" pipelines through unchanged', () => {
+    const result = runFilenamePipeline("constructor", unrelatedRename);
+    expect(result).toEqual({ sourceRelPath: "constructor", destRelPath: "constructor", isTemplateMarked: false });
+  });
+
+  it("an ACTUAL own rename rule named __proto__ still applies (the gate only excludes INHERITED, never OWN, keys)", () => {
+    const rename = Object.defineProperty({}, "__proto__", {
+      value: "renamed-proto.ts",
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    }) as Record<string, string>;
+
+    const result = runFilenamePipeline("__proto__", rename);
+    expect(result.destRelPath).toEqual("renamed-proto.ts");
+  });
 });

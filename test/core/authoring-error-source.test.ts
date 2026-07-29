@@ -193,7 +193,10 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the three surviving source-* reasons class
       }, { packageDir: dir });
 
       const err = expectAuthoringReason(caught, "source-unreadable");
-      expect(err.message).toEqual("source file unreadable: files/readable.ts could not be read");
+      // judgment-day G4(i): routed through `path-guards.ts`'s `sourceRejection`, so the
+      // failure CATEGORY REQ-AEC-11.1 mandates is no longer dropped — a bare `AuthoringError`
+      // with no `message` used to fall to the category-less generic template.
+      expect(err.message).toEqual("source file unreadable: files/readable.ts could not be read (permission or I/O error)");
       expect(fake.committedTree().size).toEqual(0);
     } finally {
       readSpy.mockRestore();

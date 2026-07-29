@@ -1,8 +1,10 @@
 # By-Reference Copy Wire Specification
 
-**Spec version**: V3
-**Status**: signed (owner, 2026-07-12 — micro-unfreeze V2→V3, deltas pre-authorized)
-**Change**: `schematic-local-files`
+**Spec version**: V4
+**Status**: signed (owner, 2026-07-28 — micro-unfreeze V3.2→V3.3, ruling 15, deltas pre-authorized; plan-verify closed by owner override per ruling 14, see proposal.md)
+**Change**: `inline-collection-marker`
+
+V3 → V4 (archive-sync, `inline-collection-marker`, 2026-07-29): REQ-BRC-02 rationale rewritten (the retired containment family's ceiling REQ it cited no longer exists; the substantive engine-independence promise is unchanged); REQ-BRC-06 re-anchors its legitimate-origin citation onto `package-source-io-hygiene` REQ-PSH-02 and drops the retired out-of-ceiling/no-existence-oracle clause; REQ-BRC-07 re-anchors its enforcing-mechanism citation onto `ir-path-well-formedness` REQ-IPF-01/03; REQ-BRC-08.2 drops its retired post-render-check citation and becomes self-referential (a citation fix only, plan-verify finding F1, no behavioural change); the Seam Obligations Status section's REQ-BRC-02 row flips from ENGINE-GATED to LIVE on a first-hand owner verification (2026-07-28) that the engine's apply process implements ceiling validation, and its opening sentence drops the retired family's REQ-ID mention — REQ-BRC-08 remains ENGINE-GATED on its own citation alone. REQ-IDs stable; no scenario content changes beyond citation/rationale text.
 
 V2 → V3 (owner micro-unfreeze, 2026-07-12): REQ-BRC-06 reworded — the in-fake
 implementation leak (`#requireExists` mirroring FAKE-06) removed; restated as an
@@ -58,12 +60,12 @@ three semantic fields are present and machine-distinguishable from a by-value
 
 ### REQ-BRC-02: Engine Re-Derives Containment Ceiling — SDK Value Never Wire-Authoritative
 
-The SDK MUST NOT place its own resolved containment ceiling (`package-root-containment`
-REQ-PRC-02) on the wire as an authoritative value the engine trusts. The engine
-independently re-derives its own ceiling from its own invocation context and re-checks
-containment at apply time — the ONLY real security control.
+The SDK MUST NOT place any resolved anchor value on the wire as an authoritative
+containment root the engine trusts. The engine independently re-derives its own ceiling
+from its own invocation context and re-checks containment at apply time — the ONLY real
+security control.
 
-#### Scenario REQ-BRC-02.1: No SDK-resolved root value appears on the wire as authoritative [SEAM]
+#### Scenario REQ-BRC-02.1: No SDK-resolved root value appears on the wire as authoritative [SEAM] [preservation-pin]
 
 - GIVEN a by-reference directive emitted by the SDK
 - WHEN its wire shape is inspected
@@ -117,17 +119,15 @@ fail-closed with a `path-collision`-family reason; with `force: true` it overwri
 
 A by-reference directive whose package-local source does not exist MUST surface an
 `AuthoringError` with reason `source-not-found` through the harness run
-(`author-test-harness` REQ-ATH-15.2). The SDK-side containment/stat validation
-(`package-root-containment` REQ-PRC-04/08) is the legitimate origin of this rejection
-— the fake is NOT required to re-check package disk; this REQ pins the author-visible
-outcome, not the enforcement site. (`source-not-found` is reachable only for
-in-ceiling paths — out-of-ceiling paths are rejected as `source-outside-package`
-BEFORE any existence probe, `package-root-containment` REQ-PRC-07.)
+(`author-test-harness` REQ-ATH-15.2). The SDK-side guarded existence check
+(`package-source-io-hygiene` REQ-PSH-02) is the legitimate origin of this rejection —
+the fake is NOT required to re-check package disk; this REQ pins the author-visible
+outcome, not the enforcement site.
 
-#### Scenario REQ-BRC-06.1: Missing package-local source surfaces source-not-found through the harness [SDK]
+#### Scenario REQ-BRC-06.1: Missing package-local source surfaces source-not-found through the harness [preservation-pin]
 
-- GIVEN a factory emitting a by-reference copy for an (in-ceiling) source path that
-  does not exist in the package
+- GIVEN a factory emitting a by-reference copy for a source path that does not exist in
+  the package
 - WHEN run via the harness
 - THEN the run rejects with an `AuthoringError` whose reason is `source-not-found`
   (`authoring-error-contract` REQ-AEC-10)
@@ -136,13 +136,16 @@ BEFORE any existence probe, `package-root-containment` REQ-PRC-07.)
 
 The by-reference directive's source path MUST be emitted PACKAGE-RELATIVE — never an
 absolute filesystem path. An absolute path on the wire would leak the author's
-filesystem layout to the engine AND invite the engine to trust an SDK-resolved
-location (violating REQ-BRC-02's re-derivation posture).
+filesystem layout to the engine AND invite the engine to trust an SDK-resolved location
+(violating REQ-BRC-02's re-derivation posture). The enforcing mechanism is
+`ir-path-well-formedness` REQ-IPF-01/03's lexical screen: an absolute source is rejected
+before any directive is built, so a package-relative path is the only form that can ever
+reach emission.
 
-#### Scenario REQ-BRC-07.1: No absolute filesystem path appears in the emitted directive [SDK]
+#### Scenario REQ-BRC-07.1: No absolute filesystem path appears in the emitted directive [preservation-pin]
 
-- GIVEN by-reference directives emitted via `copyIn` and via a by-reference
-  `scaffold` entry
+- GIVEN by-reference directives emitted via `copyIn` and via a by-reference `scaffold`
+  entry
 - WHEN each directive's full serialized form is scanned
 - THEN no absolute filesystem path appears anywhere in it — the source field is
   package-relative
@@ -150,14 +153,14 @@ location (violating REQ-BRC-02's re-derivation posture).
 ### REQ-BRC-08: Engine Path-Form and Render Hardening — Seam Contract
 
 The engine MUST reject, fail-closed, source AND rendered-destination paths in
-non-canonical filesystem forms: UNC (`\\host\share`), device namespace (`\\.\`,
-`\\?\`), reserved DOS device names (`CON`, `NUL`, `COM1`, …), and drive-relative
-(`C:foo`) forms. The engine's `pathTemplate` render MUST be SINGLE-PASS: substituted
-token values are treated as LITERAL path segments — never re-scanned for tokens,
-traversal sequences, or path-form reinterpretation after substitution. These are
-contract obligations on the engine seam, not SDK-runnable tests.
+non-canonical filesystem forms: UNC (`\\host\share`), device namespace (`\\.\`, `\\?\`),
+reserved DOS device names (`CON`, `NUL`, `COM1`, …), and drive-relative (`C:foo`) forms.
+The engine's `pathTemplate` render MUST be SINGLE-PASS: substituted token values are
+treated as LITERAL path segments — never re-scanned for tokens, traversal sequences, or
+path-form reinterpretation after substitution. These are contract obligations on the
+engine seam, not SDK-runnable tests.
 
-#### Scenario REQ-BRC-08.1: Non-canonical path forms rejected at apply time [SEAM] [ENGINE-GATED]
+#### Scenario REQ-BRC-08.1: Non-canonical path forms rejected at apply time [SEAM] [ENGINE-GATED] [preservation-pin]
 
 - GIVEN a by-reference directive whose source or rendered destination is a UNC,
   device-namespace, reserved-DOS-name, or drive-relative path
@@ -165,26 +168,30 @@ contract obligations on the engine seam, not SDK-runnable tests.
 - THEN the engine MUST reject it fail-closed — documented seam contract, exercised
   in the engine's own suite
 
-#### Scenario REQ-BRC-08.2: Substituted token values are literal — no second render pass [SEAM] [ENGINE-GATED]
+#### Scenario REQ-BRC-08.2: Substituted token values are literal — no second render pass [SEAM] [ENGINE-GATED] [preservation-pin]
 
 - GIVEN a `pathTemplate` whose token value substitutes to a string containing `../`
   or `{= =}`-shaped text
 - WHEN the engine renders it
-- THEN the substituted value is treated as a literal segment (subject to the
-  post-render containment check, REQ-PRC-06) and is NEVER re-scanned as template or
-  traversal syntax — single-pass render, documented seam contract
+- THEN the substituted value is treated as a literal segment (subject to the engine's
+  own post-render containment check, REQ-BRC-08 itself) and is NEVER re-scanned as
+  template or traversal syntax — single-pass render, documented seam contract
 
-## Seam Obligations Status (as of archive, 2026-07-13)
+## Seam Obligations Status (as of archive-sync, 2026-07-29)
 
-REQ-BRC-02, REQ-BRC-08, and `package-root-containment` REQ-PRC-06 are ENGINE-GATED —
-registered in `openspec/pending-changes.md` § "From schematic-local-files", owner =
-engine repo, cross-repo, tied to PC-PROTO-01, **committed-next scheduled** (owner
-affirmation, 2026-07-13). Until the engine lands these, by-reference bytes never land
-on real disk for any verb — the SDK proves emission only (REQ-BRC-04).
+REQ-BRC-02 [LIVE, first-hand owner verification 2026-07-28: the engine's apply process
+implements ceiling validation — it validates the resolved path and rejects with an error
+on escape] and REQ-BRC-08 are ENGINE-GATED — the latter registered in
+`openspec/pending-changes.md` § "From schematic-local-files", owner = engine repo,
+cross-repo, tied to PC-PROTO-01, **committed-next scheduled** (owner affirmation,
+2026-07-13, not yet superseded for REQ-BRC-08). Until the engine lands REQ-BRC-08, engine
+path-form/render hardening is contract-only for that obligation; REQ-BRC-02's ceiling
+re-derivation is confirmed shipped (see above) — by-reference bytes still never land on
+real disk for any verb in THIS SDK's own test suite (REQ-BRC-04).
 
 ## Sensitive Areas Coverage
 
 | Area | REQ IDs | Flagged at triage? |
 |---|---|---|
-| security (containment, new disk-read surface) | REQ-BRC-02, REQ-BRC-06, REQ-BRC-07, REQ-BRC-08 | Yes |
-| public-api (wire contract) | REQ-BRC-01, REQ-BRC-03 | Yes |
+| security (containment, new disk-read surface) | REQ-BRC-02 (rationale rewrite), REQ-BRC-06, REQ-BRC-07, REQ-BRC-08 (citation fix) | Yes |
+| public-api (wire contract) | REQ-BRC-01, REQ-BRC-03 (unchanged) | Yes |

@@ -806,3 +806,37 @@ Source: change `runner-integrity-manifest` (2026-07-25)
 **Learned**: After ANY archive envelope: cross-grep every identifier the synced spec introduces against the shipped fixtures/manifests it describes; verify every claimed engram obs id actually resolves; and treat pin/SHA instructions to external consumers as safety-critical text to re-read literally. The envelope is a claim, the tree is the truth.
 
 Source: change `positive-create-conformance` (2026-07-29)
+
+## From `inline-collection-marker` (2026-07-29)
+
+### A ratified sweep must be dry-run EXECUTED at plan time, not merely specified
+**What**: S-006.3's retired-vocabulary sweep task halted mid-apply on 19 under-enumerated hit-lines across 10 files — categories of legitimate self-reference (the guard's own code, this change's own retirement rationale) that the signed task text never anticipated, forcing an orchestrator-verified allowlist amendment mid-slice instead of at plan time.
+**Why**: A sweep command is trivial to write and easy to believe complete from reading it; only running it against the real tree reveals the allowlist gaps a spec author cannot enumerate from memory.
+**Where**: Any slice or archive step that ratifies an `rg`-style repo-wide sweep with a fixed allowlist.
+**Learned**: Dry-run every ratified sweep against the real tree AT PLAN TIME (or as the first apply step), before committing to its exact allowlist in a signed spec — a halt discovered at apply is cheaper than one discovered at archive, and both are cheaper than an unenumerated allowlist shipped silently wrong.
+
+### POSIX `lstat` follows a trailing-slash final symlink — resolve() before any lstat-based guard
+**What**: `walkFolder`'s new root-symlink rejection (ruling 16) was itself bypassable: `path.join` preserves a trailing separator, and POSIX `lstat` on a path ending in `/` follows the final symlink instead of reporting it as one — a `from` root reaching the walk as `"link/"`, `"link//"`, or `"./link/"` sailed straight past the guard it was designed to trip.
+**Why**: A symlink-detection guard that lstats a raw, un-normalized path is only as strong as its weakest path-string shape; trailing-slash forms are an easy, easily-missed gap.
+**Where**: `src/scaffold/walk.ts` — any `lstatSync`-based symlink guard anywhere in this codebase.
+**Learned**: Always `resolve()` (or equivalent canonicalize) a path ONCE, at the top of the function, before any `lstatSync` guard runs against it — normalize before you inspect, never inspect the caller's raw string.
+
+### `posix.join` normalizes away a literal `..` before validation ever sees it — validate pre-join, not just post-join
+**What**: `posix.join(toPrefix, result.destRelPath)` silently collapsed a `rename`-produced `"../evil.ts"` segment BEFORE the existing post-join lexical guard ran, letting a deep enough `to` prefix cancel every `..` level and land the file outside its intended subtree with zero rejection.
+**Why**: A lexical `..`-rejection guard placed only after a path-joining call is checking output that has already been normalized — the traversal signal the guard exists to catch can be consumed by the join itself before the guard ever runs.
+**Where**: `src/scaffold/expander.ts` and any pipeline stage that joins a computed or rename-produced path segment before lexically validating it.
+**Learned**: When a pipeline both computes a relative path segment AND joins it against a prefix, validate the pre-join segment explicitly — never rely solely on a post-join check, since the join operation itself can be the thing erasing the very signal being screened for.
+
+### `Object.hasOwn` for any author-supplied table lookup keyed by an author-controlled string
+**What**: `rename?.[relPath]` on a plain object walked the prototype chain — an entry literally named `__proto__`/`toString`/`constructor` with no OWN rename rule resolved to an inherited `Object.prototype` value, minting a nonsense rejection for any rename table sharing that entry name.
+**Why**: A plain-object lookup keyed by an untrusted, author-controlled string is a prototype-pollution-adjacent hazard even when nothing is ever WRITTEN to the object — reading an absent key can still silently resolve to inherited, non-data content.
+**Where**: `src/scaffold/filename-pipeline.ts`; any lookup table indexed by an author-supplied relative path or filename.
+**Learned**: Gate every such lookup on `Object.hasOwn(table, key)` before trusting the result — an absent OWN key must behave exactly as if the table were absent for that entry, never fall through to `Object.prototype`.
+
+### Adversarial review pays for itself on security-relevant changes — two genuine bypass regressions survived seven passing in-loop verifies
+**What**: This change's blind judgment-day fan-out found two genuine, probe-evidenced security-bypass regressions (the walk-root symlink follow, ruling 16; the trailing-slash lstat bypass of that same fix, round 2) that seven prior in-loop verify passes (S-000 through S-006, all PASS) had not caught. Round 3 then found zero CRITICALs, letting the owner authorize a surgical fix-without-re-judge batch (convergence threshold) instead of a mandatory fourth round.
+**Why**: In-loop verify re-checks the builder's own coverage claims from inside the same reasoning trail across incremental slices; a blind judge pair reviewing the FULL diff with no exposure to that narrative catches classes of regression — especially ones a fix for an EARLIER round itself introduces — that incremental in-loop review structurally cannot.
+**Where**: Any L-triage change that deletes or narrows a security boundary; `adversarial_review: required` changes generally.
+**Learned**: Never treat a clean multi-iteration in-loop streak as a substitute for the blind adversarial pass on a security-relevant change — and once a round returns zero CRITICALs, a surgical fix-without-re-judge batch is a legitimate, owner-authorized convergence point, not a corner cut.
+
+Source: change `inline-collection-marker` (2026-07-29)

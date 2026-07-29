@@ -186,7 +186,8 @@ function primaryPath(directive: Directive): string {
 // `path-guards.ts#sourceRejection` now owns that reason's former template, and every
 // producer site passes an explicit `message`, so `messageFor` never needs it back). Unlike
 // invalid-input/reserved-name, these ARE derivable from `path` alone (always
-// package-relative, REQ-PRC-05) — no caller-supplied `message` needed.
+// package-relative, `package-source-io-hygiene` REQ-PSH-01 — successor to the retired
+// `package-root-containment` REQ-PRC-05) — no caller-supplied `message` needed.
 function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, path: string | undefined): string {
   switch (reason) {
     case "path-collision":

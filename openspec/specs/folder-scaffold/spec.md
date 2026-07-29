@@ -1,8 +1,10 @@
 # Folder Scaffold Specification
 
-**Spec version**: V3
-**Status**: signed (owner, 2026-07-12 — micro-unfreeze V2→V3, deltas pre-authorized)
-**Change**: `schematic-local-files`
+**Spec version**: V3.5
+**Status**: signed (owner, 2026-07-29 — micro-unfreeze V3.4→V3.5, ruling 17, judgment-day round 3)
+**Change**: `inline-collection-marker`
+
+V3 → V3.5 (archive-sync, `inline-collection-marker`, 2026-07-29): the Purpose section's cross-reference to the retired containment family is rewritten to name its actual re-homed successors. REQ-FSC-09's symlinked-directory non-descent rationale is rewritten from a containment-ceiling framing to enumeration-determinism/cycle-safety (the RULE — never descend, 10,000-entry cap — is unchanged); a walk ROOT that is itself a symlinked directory now REJECTS instead of being silently skipped or transparently followed (judgment-day round 1, ruling 16 — a real regression the blind judges caught: `walkFolder`'s root branch had no `lstatSync` guard). New REQ-FSC-10 (re-homed from the retired family's own walk-root/recursive-read-failure clause): a missing, non-directory, or otherwise-unreadable walk root — or a recursive read failure mid-walk — rejects `AuthoringError` naming only the package-relative path, never a raw Node error or an absolute path. New REQ-FSC-11 (judgment-day round 3, ruling 17): a degenerate `from` (`""`, `"."`, `"./"`) that resolves to the package directory itself now rejects instead of silently walking the entire package. REQ-IDs stable; REQ-FSC-01 through REQ-FSC-08 unaffected.
 
 V2 → V3: no V3 deltas targeted this domain — content unchanged; version/status bump
 only.
@@ -19,8 +21,9 @@ Gives schematic authors a declarative way to walk a package-local folder and mir
 into the target tree — the `scaffold` verb. It owns folder-walk mechanics (mirrored
 structure, filename pipeline, include/exclude filtering, force pass-through); the
 by-value/by-reference decision per file is `content-classification`'s contract
-(including the `.template` sniff-fail fail-loud, REQ-CCL-05), and source/destination
-safety is `package-root-containment`'s contract.
+(including the `.template` sniff-fail fail-loud, REQ-CCL-05), and source hygiene is
+`package-source-io-hygiene`'s contract; source/destination lexical well-formedness is
+`ir-path-well-formedness`'s contract.
 
 ## Requirements
 
@@ -186,31 +189,116 @@ never last-writer-wins, never dependent on walk order.
 
 ### REQ-FSC-09: Walk Enumeration — Symlinked Directories Never Traversed; Entry-Count Bound
 
-The walk MUST NOT descend into ANY symlinked directory — including one whose target
-resolves INSIDE the containment ceiling (uniform with `package-root-containment`
-REQ-PRC-04's no-descent rule; the docs MUST state symlinked directories are never
-traversed). The walk MUST also enforce a documented upper bound of 10,000 enumerated
-entries per `scaffold` call, failing loud (naming the bound) when exceeded — a
-resource guard, generous enough that no real schematic collection approaches it.
+The walk MUST NOT descend into ANY NESTED symlinked directory, regardless of where its
+target resolves — enumeration determinism and cycle-safety are the rationale (a symlinked
+directory could point anywhere, including into a cycle; never descending is the simplest
+invariant that is safe under all targets). The walk MUST also enforce a documented upper
+bound of 10,000 enumerated entries per `scaffold` call, failing loud (naming the bound)
+when exceeded — a loop-safety/DoS resource guard, generous enough that no real
+schematic collection approaches it.
 
-#### Scenario REQ-FSC-09.1: In-ceiling symlinked directory is skipped, not an error [SDK]
+> **Ruling 16 (2026-07-29)**: the walk ROOT (`from` itself) is held to a STRICTER standard
+> than a nested symlinked directory. A nested symlink is silently skipped (no author
+> intent points at it directly); the root is what the author EXPLICITLY named as `from` —
+> silently skipping it would make `scaffold` a no-op indistinguishable from a genuinely
+> empty folder (REQ-FSC-04.1), and transparently following it (the walk's prior,
+> unimplemented behaviour) reads content the author never lexically named at all. A
+> symlinked root therefore REJECTS with `AuthoringError` (reason `invalid-input`,
+> package-relative locator, no absolute-path echo) — see REQ-FSC-09.3.
 
-- GIVEN `from` containing a regular `a.ts` and a symlinked directory (target inside
-  the containment ceiling) containing `b.ts`
+#### Scenario REQ-FSC-09.1: A symlinked directory is skipped, not an error [preservation-pin]
+
+- GIVEN `from` containing a regular `a.ts` and a symlinked directory containing `b.ts`
 - WHEN scaffolded
-- THEN only `a.ts` is emitted; `b.ts` is absent; no error is raised for the skip
+- THEN only `a.ts` is emitted; `b.ts` is absent; no error is raised for the skip — this
+  holds regardless of where the symlink's target resolves
 
-#### Scenario REQ-FSC-09.2: Entry-count bound exceeded fails loud [SDK]
+#### Scenario REQ-FSC-09.2: Entry-count bound exceeded fails loud [preservation-pin]
 
-- GIVEN a `from` tree whose enumerated entry count exceeds the documented 10,000
-  bound (fixture MAY drive the bound via an injected/test-scoped limit if
-  materializing 10,001 files is CI-hostile — the assertion targets the bound branch)
+- GIVEN a `from` tree whose enumerated entry count exceeds the documented 10,000 bound
+  (fixture MAY drive the bound via an injected/test-scoped limit if materializing 10,001
+  files is CI-hostile — the assertion targets the bound branch)
 - WHEN scaffolded
 - THEN it rejects fail-loud, naming the bound
+
+#### Scenario REQ-FSC-09.3: A symlinked walk ROOT rejects, never followed or silently skipped (ruling 16, 2026-07-29) [preservation-pin]
+
+- GIVEN `from` itself is a symlinked directory (whether its target resolves inside or
+  outside the package)
+- WHEN scaffolded
+- THEN it rejects `AuthoringError` (reason `invalid-input`) naming only the
+  package-relative `from` — never the absolute filesystem path, never a silent skip, and
+  never a transparently-followed read of the target's content
+
+### REQ-FSC-10: Walk ROOT and Recursive Read Failures Reject `AuthoringError`, Package-Relative Path Only
+
+A `scaffold` walk ROOT (`from`) that is legitimately ABSENT, resolves to a regular FILE
+rather than a directory, or is otherwise UNREADABLE for a reason other than
+missing/non-directory (e.g. a permission error), MUST reject `AuthoringError` (reason
+`invalid-input`) naming ONLY the package-relative `from` path — never a raw Node `Error`
+that echoes the absolute filesystem path. The SAME mapping applies to a RECURSIVE read
+failure encountered mid-walk (a subdirectory whose `readdirSync` raises EACCES, or an
+entry that vanishes between `readdir` and `lstat`) — `walk.ts` reuses its existing
+`rootReadFailure` treatment for this case rather than introducing a parallel one, so a
+nested read failure is no-echo and package-relative exactly like a root failure.
+
+#### Scenario REQ-FSC-10.1: Missing walk root rejects AuthoringError, package-relative path only [preservation-pin]
+
+- GIVEN a `from` that does not exist on disk
+- WHEN scaffolded
+- THEN it rejects `AuthoringError` (reason `invalid-input`) naming only the
+  package-relative `from` — never a raw ENOENT `Error`, never the absolute filesystem
+  path
+
+#### Scenario REQ-FSC-10.2: Walk root that resolves to a regular file rejects AuthoringError, package-relative path only [preservation-pin]
+
+- GIVEN a `from` that resolves to a regular FILE, not a directory
+- WHEN scaffolded
+- THEN it rejects `AuthoringError` (reason `invalid-input`) naming only the
+  package-relative `from` — never a raw ENOTDIR `Error`, never the absolute filesystem
+  path
+
+#### Scenario REQ-FSC-10.3: Walk root unreadable for a non-ENOENT/ENOTDIR reason rejects AuthoringError, package-relative path only [preservation-pin]
+
+- GIVEN a `from` that exists and is a directory but cannot be read for another reason
+  (e.g. an injected EACCES permission-denied seam)
+- WHEN scaffolded
+- THEN it rejects `AuthoringError` (reason `invalid-input`) naming only the
+  package-relative `from` — never a raw `EACCES` `Error`, never the absolute filesystem
+  path
+
+#### Scenario REQ-FSC-10.4: Recursive walk read failure below the root rejects AuthoringError, package-relative path only [preservation-pin]
+
+- GIVEN a walk subtree containing a subdirectory that raises `EACCES` on `readdirSync`
+  during recursive enumeration — and, as a second case, an entry that is deleted between
+  `readdir` and `lstat` (a TOCTOU race surfacing an ENOENT mid-walk)
+- WHEN `scaffold` walks the tree
+- THEN each failure surfaces as `AuthoringError` (reason `invalid-input`) naming ONLY the
+  package-relative path of the offending subdirectory/entry — never a raw Node error,
+  never an absolute filesystem path — reusing the SAME `rootReadFailure` mapping the walk
+  ROOT already uses, not a second, parallel implementation
+
+### REQ-FSC-11: Degenerate `from` Rejects — the Package Root Is Never an Implicit Walk Target
+
+A `from` that resolves to `packageDir` itself — the literal forms `""`, `"."`, or `"./"` —
+MUST reject `AuthoringError` (reason `invalid-input`) naming the literal `from` value,
+rather than walking the entire package. None of these three forms contain a `..` segment
+or an absolute path, so `ir-path-well-formedness` REQ-IPF-01's lexical screen does not
+catch them; this is a DISTINCT, `scaffold`-specific check, same posture as the
+walk-ROOT symlink rejection (REQ-FSC-09.3) — an author who legitimately wants a
+whole-package mirror must still name a real subfolder, never rely on an implicit
+degenerate form.
+
+#### Scenario REQ-FSC-11.1: A degenerate `from` rejects instead of enumerating the whole package [preservation-pin]
+
+- GIVEN `from` is `""`, `"."`, or `"./"` — each resolving to `packageDir` itself
+- WHEN scaffolded
+- THEN it rejects `AuthoringError` (reason `invalid-input`) naming the literal `from`
+  value — never a silent walk of the entire package
 
 ## Sensitive Areas Coverage
 
 | Area | REQ IDs | Flagged at triage? |
 |---|---|---|
-| security (input validation / containment) | REQ-FSC-04, REQ-FSC-08, REQ-FSC-09 | Yes |
+| security (input validation) | REQ-FSC-04, REQ-FSC-08, REQ-FSC-09, REQ-FSC-10, REQ-FSC-11 | Yes — label drops "containment": this family's guards are loop-safety, collision-safety, and no-echo hygiene, never a containment boundary |
 | public-api (contract) | REQ-FSC-01, REQ-FSC-06, REQ-FSC-07 | Yes |

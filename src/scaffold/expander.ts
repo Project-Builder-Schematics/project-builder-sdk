@@ -70,6 +70,51 @@ function filtersEliminatedEverythingMessage(include: string[] | undefined, exclu
   );
 }
 
+// judgment-day round 3 fix (F1): a non-array (or an array with a non-string element)
+// used to reach `isIncluded`'s `.some((p) => globToRegex(p).test(relPath))` and either
+// throw a raw TypeError (non-array) or silently compile a non-string element into an
+// always-empty-matching `/^$/` regex (an element that never rejects, never matches) —
+// screened here, at entry, before either filter ever reaches `isIncluded`. No-echo: names
+// the OPTION, never echoes the (possibly huge or malformed) value itself.
+function filterOptionShapeMessage(option: "include" | "exclude"): string {
+  return `invalid input: scaffold "${option}" must be an array of strings`;
+}
+
+function validateFilterOptionShape(option: "include" | "exclude", value: string[] | undefined): void {
+  if (value === undefined) {
+    return;
+  }
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+    throw invalidInput(filterOptionShapeMessage(option));
+  }
+}
+
+// Owner ruling 17 (2026-07-29, judgment-day round 3): `from` resolving to the package root
+// itself — `""`, `"."`, or `"./"` — used to enumerate the ENTIRE `packageDir`, never
+// rejected: none of these three literals contain a `..` segment or an absolute form, so
+// `validateSourceLexical` let them straight through to `walkFolder`. `scaffold` mirrors A
+// FOLDER into `to`; the package root is not a folder an author names on purpose to mirror
+// wholesale, and doing so silently is a strictly worse surprise than the analogous
+// symlinked-root rejection (ruling 16) — same posture, same reason. Also closes a related
+// theoretical: `resolve("")`/`resolve(".")`/`resolve("./")` all equal `packageDir` itself,
+// so the (unresolved) question of whether `packageDir` being a symlink should exempt the
+// walk-root symlink check never arises for these three forms — they never reach the walk
+// at all.
+const DEGENERATE_FROM_VALUES: ReadonlySet<string> = new Set(["", ".", "./"]);
+
+function degenerateFromMessage(from: string): string {
+  return (
+    `invalid input: scaffold "from" (${JSON.stringify(from)}) refers to the package directory ` +
+    `itself — scaffold never implicitly mirrors the whole package; point "from" at a real subfolder`
+  );
+}
+
+function validateNonDegenerateFrom(from: string): void {
+  if (DEGENERATE_FROM_VALUES.has(from)) {
+    throw invalidInput(degenerateFromMessage(from));
+  }
+}
+
 // REQ-04's serialized-size heuristic (S-004): tracks what the PENDING batch would
 // serialize to via `serializedBatchSize`'s envelope shape — the EXACT same measurement the
 // fake applies at emit time — a lowering heuristic, not a second size authority (ADR-0018
@@ -85,7 +130,8 @@ const EMPTY_BATCH_SIZE = serializedBatchSize([]);
  * (`content-classification`); by-value sources emit a `create` directive through the
  * existing IR. A truly-empty `from` folder no-ops (REQ-FSC-04.1); filters eliminating
  * every entry fail loud, naming them (REQ-FSC-04.2). `force` passes through unchanged to
- * every emitted directive (REQ-FSC-06). The destination lexical guard (REQ-PRC-09) applies
+ * every emitted directive (REQ-FSC-06). The destination lexical guard (`ir-path-well-formedness`
+ * REQ-IPF-02, re-homed from the retired `package-root-containment` REQ-PRC-09) applies
  * to the FINAL computed destination, immediately pre-emit. Aggregate size never blocks the
  * scaffold outright (REQ-04) — the expander chunks via mid-run `session.flush()` calls
  * (see the module header for the sync/async bridge); run-level atomicity (REQ-05) is free.
@@ -101,6 +147,28 @@ export function runScaffold(args: ScaffoldArgs): void {
   const ctx = currentContext();
   const { session, factory } = ctx;
   const { packageDir } = requirePackageAnchors(noResolutionAnchorMessage());
+
+  // judgment-day round 3 fix (F4): destination validated AFTER context resolution (`ctx`/
+  // `packageDir` above), not before it — round 2 placed this call at the very top of the
+  // function, ABOVE `currentContext()`, so an escaping `to` called OUTSIDE any run reported
+  // `invalid-input` where `copyIn` (whose own version of this same guard already runs
+  // AFTER its `currentContext()`/`requirePackageAnchors` calls, see `index.ts`'s
+  // `runCopyIn`) reports `outside-run` — the two package-local verbs disagreed on which
+  // failure wins when BOTH apply. `runScaffold` now mirrors `runCopyIn`'s exact ordering:
+  // ctx → packageDir → destination guard → (new F7/F1 screens below) → source guard. The
+  // existing post-rename/post-token-translation validation of the FINAL `destPath` inside
+  // the loop below is unchanged — rename/token substitution can still alter the string
+  // after this raw-input screen passes.
+  validateDestinationLexical(args.to);
+
+  // Owner ruling 17 (F7): a degenerate `from` (`""`, `"."`, `"./"`) rejects before it ever
+  // reaches the walk — see `validateNonDegenerateFrom`'s own comment above.
+  validateNonDegenerateFrom(args.from);
+
+  // judgment-day round 3 fix (F1): include/exclude shape-screened before either ever
+  // reaches `isIncluded` (see `validateFilterOptionShape`'s own comment above).
+  validateFilterOptionShape("include", args.include);
+  validateFilterOptionShape("exclude", args.exclude);
 
   // Screen call site 2 (REQ-IPF-01): the walk ROOT itself must be lexically screened
   // BEFORE `walkFolder` ever enumerates it — otherwise an escaping `from` (e.g.
@@ -136,6 +204,20 @@ export function runScaffold(args: ScaffoldArgs): void {
 
   for (const result of pipelineResults) {
     const sourceRelPath = posix.join(args.from, result.sourceRelPath);
+
+    // judgment-day round 3 fix (F2): `posix.join(toPrefix, result.destRelPath)` NORMALIZES
+    // away any `..` segment in `result.destRelPath` BEFORE the post-join
+    // `validateDestinationLexical(destPath)` below ever runs — a `rename` value like
+    // `"../evil.ts"` joined against a one-segment `to` (e.g. `"out"`) collapses to
+    // `"evil.ts"`, which contains no literal `..` and sails through the post-join guard
+    // even though it never lands under `to` at all (REQ-FSC-02's mirror-under-`to`
+    // invariant, violated silently). Validating the PRE-join `result.destRelPath` catches
+    // every literal `..` segment a rename rule can introduce, regardless of whether `to`'s
+    // own depth happens to "cancel" it out after joining — the post-join guard below stays
+    // as a second, independent check (e.g. for a `to` prefix itself carrying a stray
+    // segment after token translation).
+    validateDestinationLexical(result.destRelPath);
+
     // destPath computed BEFORE classify (reordered from the source-only call this
     // replaces): REQ-CCL-02's budget is evaluated against the PROSPECTIVE `create`
     // directive this source would emit, so classifyTransport needs the same
