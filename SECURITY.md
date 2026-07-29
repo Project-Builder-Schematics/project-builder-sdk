@@ -47,6 +47,8 @@ The SDK provides no containment guarantee for package-local reads.
 
 Path-carrying directives are re-checked by the engine at apply time (`by-reference-copy-wire` REQ-BRC-02, verified live).
 
+Owner-verified 2026-07-29: the engine rejects apply-time modifications that route through a symlink.
+
 By-value and inline content crossing the wire have no boundary control on either side — this is the v1 trusted-author model.
 
 Symlink escape from `packageDir` is an accepted, documented residual (`package-source-io-hygiene` REQ-PSH-04).

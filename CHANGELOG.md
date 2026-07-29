@@ -38,6 +38,31 @@ at the symlink's target path (relative to `packageDir`) — a `scaffold({ from }
 root's FINAL component resolves through a symlink no longer walks the target's content;
 a symlink earlier in the path is unaffected by this change.
 
+**Changed (breaking, ruling 17, 2026-07-29)**: A `from` value that refers to the
+package directory itself — the literal `""`, `"."`, or `"./"` forms — previously
+resolved to `packageDir` and walked the ENTIRE package silently; all three now reject
+`invalid-input` (`folder-scaffold` REQ-FSC-11). **Migration**: name the intended
+subfolder explicitly — there is no shorthand for "mirror the whole package."
+
+**Fixed (round-3 error-handling hardening, 2026-07-29)**: five `scaffold` gaps closed
+in one batch:
+
+1. A `rename` value containing a literal `..` segment now rejects BEFORE the join
+   against `to` — previously, when `to`'s own depth happened to normalize the `..`
+   away, the file silently relocated OUTSIDE `to` instead of rejecting
+   (`folder-scaffold` REQ-FSC-02).
+2. `include`/`exclude` must now be arrays of strings — a non-array value used to throw
+   a raw, unbranded `TypeError`, and a non-string element silently compiled into an
+   always-empty-matching pattern; both now reject `invalid-input` at entry.
+3. A `scaffold` call made outside any run now reports `outside-run` (previously
+   `invalid-input`), matching `copyIn`'s existing behaviour on the same failure.
+4. Intra-scaffold destination-collision detection now keys on the NORMALIZED
+   destination path, catching renames that collide only after `.`/`..` normalization —
+   previously undetected here.
+5. The walk's documented 10,000-entry bound now counts every enumerated directory
+   entry, not only files — a directory-only tree was previously unbounded regardless of
+   depth or breadth.
+
 ### Behaviour Changes — `@pbuilder/sdk/typescript` `addImport`
 
 `addImport`'s naive first-match, unconditional-merge implementation is replaced by the same

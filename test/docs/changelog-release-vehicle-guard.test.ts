@@ -33,6 +33,15 @@ const HONEST_TIMING_PHRASE = "The SDK no longer resolves package-local source pa
 // judgment-day round 2 (F3): fourth 0.2.0 entry, ruling-16 follow-through — the walk-ROOT
 // symlink rejection (F1) was author-visible breaking behaviour with no CHANGELOG entry.
 const ROOT_SYMLINK_REJECTION_PHRASE = "A `from` root that is itself a symlinked directory now rejects `invalid-input`";
+// Reckoning closing batch (2026-07-29): fifth 0.2.0 entry — the degenerate `from`
+// rejection (ruling 17, REQ-FSC-11) was author-visible breaking behaviour with no
+// CHANGELOG entry.
+const DEGENERATE_FROM_REJECTION_PHRASE = "walked the ENTIRE package silently";
+// Reckoning closing batch (2026-07-29): sixth 0.2.0 entry (grouped) — the round-3
+// error-handling hardenings (rename `..` pre-join rejection, include/exclude shape
+// validation, outside-run reporting parity, normalized-path collision detection, walk
+// bound counting every dirent) had no CHANGELOG entry.
+const ROUND3_HARDENING_PHRASE = "round-3 error-handling hardening";
 const AUDIENCE_PHRASE = "the engine repo and the conformance corpus consume this contract today";
 const STALE_PREAMBLE_PHRASE = "nothing here requires one";
 
@@ -42,13 +51,15 @@ describe("REQ-MFB-02.1 — CHANGELOG.md carries all four 0.2.0 entries under the
     expect(changelog()).not.toContain("## Unreleased");
   });
 
-  it("the 0.2.0 section contains all four entries by distinguishing phrase", () => {
+  it("the 0.2.0 section contains all six entries by distinguishing phrase", () => {
     const content = changelog();
     const section = content.slice(content.indexOf("## 0.2.0"), content.indexOf("### Behaviour Changes — `@pbuilder/sdk/typescript` `addImport`"));
     expect(section).toContain(HEADLINE_FIXED_PHRASE);
     expect(section).toContain(BREAKING_UNION_NARROWING_PHRASE);
     expect(section).toContain(HONEST_TIMING_PHRASE);
     expect(section).toContain(ROOT_SYMLINK_REJECTION_PHRASE);
+    expect(section).toContain(DEGENERATE_FROM_REJECTION_PHRASE);
+    expect(section).toContain(ROUND3_HARDENING_PHRASE);
   });
 
   it("the preamble names the real audience and no longer claims no migration is needed", () => {

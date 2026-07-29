@@ -904,3 +904,43 @@ in `filename-pipeline.test.ts`, 9 in `expander.test.ts`, 2 in `walk.test.ts`, 1 
 flake observed in one intermediate full-suite run (non-reproducing on immediate re-run,
 consistent with the pre-existing CPU-contention flake documented in Judgment-Day Round 1)
 — absent from both final back-to-back confirmation runs recorded above.
+
+## Reckoning Closing Batch (2026-07-29)
+
+Two owner rulings from the 2026-07-29 reckoning, closed in one surgical doc/test batch —
+no source (`src/`) changes, docs and guard tests only.
+
+**Fix 1 — CHANGELOG ruling-17 entry + round-3 hardening coverage**: `CHANGELOG.md`'s
+`## 0.2.0` section gains a FIFTH entry (`Changed (breaking, ruling 17, 2026-07-29)`) —
+the degenerate `from` (`""`/`"."`/`"./"`) rejection, `folder-scaffold` REQ-FSC-11, with a
+migration hint (name the intended subfolder explicitly) — and a SIXTH, grouped entry
+(`Fixed (round-3 error-handling hardening, 2026-07-29)`) covering the five round-3
+gaps: rename `..` pre-join rejection (REQ-FSC-02), `include`/`exclude` shape validation,
+`outside-run` reporting parity with `copyIn`, normalized-path destination-collision
+detection, and the walk bound counting every enumerated dirent. The four existing
+entries stay byte-identical. `test/docs/changelog-release-vehicle-guard.test.ts` gains
+two new frozen phrases (`DEGENERATE_FROM_REJECTION_PHRASE`, `ROUND3_HARDENING_PHRASE`),
+each mutation-checked (break → fail → restore → pass) before landing. The
+`package-dir-run-anchor` delta spec (`specs/package-dir-run-anchor/spec.md`) REQ-MFB-02
+is amended in lockstep — four entries → six, V3.4 → V3.5, with a new "Ruling 17
+follow-through + round-3 hardening coverage (2026-07-29, owner-ratified at reckoning)"
+note matching the existing ruling-16 note's style.
+
+**Fix 2 — SECURITY.md engine symlink behavior clause (owner-attested)**: the steward
+flagged that SECURITY.md's point 2 ("path-carrying directives are re-checked by the
+engine apply-time, REQ-BRC-02, verified LIVE") could be misread as covering the symlink
+case, which was unestablished. The owner attested first-hand at reckoning (2026-07-29):
+the engine errors when an apply-time modification is attempted through a symlink. Added
+as its own sentence adjacent to point 2 in `SECURITY.md` (never folded into the frozen
+phrase itself) — "Owner-verified 2026-07-29: the engine rejects apply-time modifications
+that route through a symlink." `test/docs/security-authoring-guard.test.ts` pins the new
+sentence in its own describe block, mutation-checked (break → fail → restore → pass).
+`CONFORMANCE-CORPUS-HANDOFF.md` Addendum 3 gets a matching one-sentence correction, dated,
+replacing its prior open-question framing on the symlink-adjacent path.
+
+**Verification**: both doc guards mutation-checked on all three new phrases
+independently (each: break → fail → restore → pass, verified individually). Full
+`bun test` — **2442 pass / 0 fail** across 201 files (5470 expect() calls; +2 over the
+2440 baseline, both new mutation-guard assertions). `bunx tsc --noEmit` clean. Doc/test
+guard changes only — no source-behavior delta, so the +2 test count is fully accounted
+for and expected.
