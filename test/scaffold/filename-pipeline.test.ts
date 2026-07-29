@@ -16,12 +16,12 @@ import {
 import { expectReason } from "../support/expect-reason.ts";
 
 describe("translateTokens — REQ-FSC-05 step 2", () => {
-  it("__name@dasherize__ translates to {= name | dasherize =} (the spec-pinned example)", () => {
-    expect(translateTokens("__name@dasherize__.svc.ts")).toEqual("{= name | dasherize =}.svc.ts");
+  it("__name@dasherize__ translates to {= .name | dasherize =} (the spec-pinned example)", () => {
+    expect(translateTokens("__name@dasherize__.svc.ts")).toEqual("{= .name | dasherize =}.svc.ts");
   });
 
-  it("a bare __name__ (no pipe) translates to {= name =}", () => {
-    expect(translateTokens("__name__.ts")).toEqual("{= name =}.ts");
+  it("a bare __name__ (no pipe) translates to {= .name =}", () => {
+    expect(translateTokens("__name__.ts")).toEqual("{= .name =}.ts");
   });
 
   it("a path with no token markers is returned unchanged", () => {
@@ -48,7 +48,7 @@ describe("REQ-FSC-05.1 — compound: rename + token translation + .template stri
 
     expect(result).toEqual({
       sourceRelPath: source,
-      destRelPath: "{= name | dasherize =}.svc.ts",
+      destRelPath: "{= .name | dasherize =}.svc.ts",
       isTemplateMarked: true,
     });
   });
@@ -150,12 +150,12 @@ describe("judgment-day round 3 (F3) — runFilenamePipeline: rename lookup never
 
   it('an entry literally named "__proto__" pipelines through NORMALLY (no OWN rename rule, so only token translation touches it) instead of minting a nonsense rejection', () => {
     // "__proto__" is itself token-shaped (`__x__`) — `translateTokens` legitimately
-    // rewrites it to `{= proto =}` regardless of this fix; the F3 assertion is that NO
+    // rewrites it to `{= .proto =}` regardless of this fix; the F3 assertion is that NO
     // rejection is thrown (the bug: `rename["__proto__"]` resolved to the inherited
     // `Object.prototype`, a non-string, non-undefined value that used to mint a bogus
     // "must be a string" rejection here).
     const result = runFilenamePipeline("__proto__", unrelatedRename);
-    expect(result).toEqual({ sourceRelPath: "__proto__", destRelPath: "{= proto =}", isTemplateMarked: false });
+    expect(result).toEqual({ sourceRelPath: "__proto__", destRelPath: "{= .proto =}", isTemplateMarked: false });
   });
 
   it('an entry literally named "toString" pipelines through unchanged', () => {

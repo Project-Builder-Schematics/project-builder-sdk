@@ -228,7 +228,7 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
       // REQ-FSC-05 pipeline does not chain multi-filter tokens, this assertion goes RED
       // and STAYS RED; the gap escalates via the `PC-SPEC-FSC-TOKENS` row (registered in
       // S-001's `openspec/pending-changes.md`), never a weakened assertion.
-      expect(paths).toContain("m04-out/{= name | singular | dasherize =}.entity.ts");
+      expect(paths).toContain("m04-out/{= .name | singular | dasherize =}.entity.ts");
     });
 
     it("renamed fixture proves the PINNED order — rename (original name) -> token translation -> `.template` strip", async () => {
@@ -239,7 +239,7 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
       // Mirrors the spec's own worked example (`.service.` -> `.svc.`): had rename NOT
       // run first, the ORIGINAL "controller" segment (not "svc") would still be present
       // post-translation — this pins the ORDER, not merely the end result.
-      expect(paths).toContain("m04-out/{= name | dasherize =}.svc.ts");
+      expect(paths).toContain("m04-out/{= .name | dasherize =}.svc.ts");
     });
   });
 

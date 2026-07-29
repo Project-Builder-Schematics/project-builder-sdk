@@ -254,8 +254,8 @@ destination:
    newDestinationRelativePath>`) matched against the *original*, pre-translation source path.
    This is distinct from the `rename()` verb above, which renames one already-targeted file's
    basename at emit time rather than remapping a folder-walk's per-entry destination.
-2. **Filename token translation** — `__name__` becomes `{= name =}`; `__name@pipe__` becomes
-   `{= name | pipe =}`. These are rendered later by the same engine described in
+2. **Filename token translation** — `__name__` becomes `{= .name =}`; `__name@pipe__` becomes
+   `{= .name | pipe =}`. These are rendered later by the same engine described in
    [Authoring `create` templates](./create-templates.md) — `scaffold` only rewrites the
    marker syntax, it never renders anything itself. `to` is translated the same way, so one
    `scaffold` call can fan out into a per-option destination directory (e.g.

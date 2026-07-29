@@ -15,13 +15,16 @@ const TOKEN_PATTERN = /__([A-Za-z_][A-Za-z0-9_]*(?:@[A-Za-z_][A-Za-z0-9_]*)*)__/
 /**
  * Translates on-disk filename tokens to the wire `pathTemplate` syntax the ENGINE
  * substitutes (obs #915 ruling 4) — the SDK never renders these itself, only rewrites the
- * marker syntax. `__name@dasherize__` → `{= name | dasherize =}`; a bare `__name__`
- * (no `@pipe`) → `{= name =}`.
+ * marker syntax. `__name@dasherize__` → `{= .name | dasherize =}`; a bare `__name__`
+ * (no `@pipe`) → `{= .name =}`. The dotted field reference is REQUIRED by the engine's
+ * templating (bare `{= name =}` was migrated away — docs/templating/migration-note.md in
+ * the engine repo); emitting the bare form makes every tokenized filename fail
+ * path-render at ingest (`path-render-failed`, exit 2).
  */
 export function translateTokens(path: string): string {
   return path.replace(TOKEN_PATTERN, (_match, inner: string) => {
     const [field, ...pipes] = inner.split("@");
-    return pipes.length > 0 ? `{= ${field} | ${pipes.join(" | ")} =}` : `{= ${field} =}`;
+    return pipes.length > 0 ? `{= .${field} | ${pipes.join(" | ")} =}` : `{= .${field} =}`;
   });
 }
 
