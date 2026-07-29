@@ -556,6 +556,21 @@ describe("REQ-RBV-04.1 — judgment-day round 1: the seven previously-uncovered 
   });
 });
 
+// judgment-day round 3, F7 (owner ruling 17, 2026-07-29): a degenerate `from` (`""`,
+// `"."`, `"./"`) rejects before the walk ever runs — the canary lives in the ABSOLUTE
+// `packageDir` prefix (`scratchDirWithCanaryPrefix`), and the rejection message echoes
+// only the literal `from` value (via `JSON.stringify`), never the resolved absolute path.
+describe("REQ-RBV-04.1 — judgment-day round 3: ruling 17 degenerate `from` never leaks the canary-seeded absolute prefix", () => {
+  it('scaffold: from: "" never leaks the canary-seeded absolute prefix', async () => {
+    const canary = canaryToken("scaffold-degenerate-from-empty");
+    const dir = scratchDirWithCanaryPrefix(canary);
+
+    await expectRejectsCanaryFree(dir, canary, () => {
+      scaffold({ from: "", to: "out" });
+    });
+  });
+});
+
 describe("REQ-RBV-04.2 — key names may appear, values never (asymmetry pin)", () => {
   it("an excess key literally NAMED the canary token legitimately appears in the message", async () => {
     const canary = canaryToken("keyname");

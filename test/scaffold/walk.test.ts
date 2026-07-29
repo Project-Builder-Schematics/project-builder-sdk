@@ -153,6 +153,27 @@ describe("REQ-FSC-09.2 — entry-count bound exceeded fails loud, naming the bou
 
     expect(entries).toHaveLength(2);
   });
+
+  // judgment-day round 3 fix (F6): the bound used to increment ONLY on `entries.push`
+  // (files) — a directory-only tree was entirely unbounded regardless of depth, since a
+  // directory is pushed to `dirStack` and `continue`s before ever reaching that push.
+  it("F6: a directory-only tree (zero files) exceeding the bound still rejects, naming the bound", () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "d1"), { recursive: true });
+    mkdirSync(join(dir, "d1", "d2"), { recursive: true });
+    // 2 enumerated dirents (d1, then nested d2), zero files — bound of 1 must still reject.
+
+    const err = expectReason(() => walkFolder(dir, 1), "invalid-input");
+    expect(err.message).toContain("1");
+  });
+
+  it("F6: a directory-only tree at exactly the bound does not reject", () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "d1"), { recursive: true });
+    // 1 enumerated dirent (d1), bound = 1 (inclusive — `>` not `>=`).
+
+    expect(() => walkFolder(dir, 1)).not.toThrow();
+  });
 });
 
 describe("REQ-FSC-10.1 — missing walk root rejects invalid-input, relative only [preservation-pin]", () => {

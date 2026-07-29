@@ -30,10 +30,13 @@ engine's own apply-time ceiling re-derivation — the SDK makes no claim either 
 [SECURITY.md](./SECURITY.md) for the v1 trust model.
 
 **Changed (breaking, ruling 16 follow-through, 2026-07-29)**: A `from` root that is itself a symlinked directory now rejects `invalid-input` — previously it was
-followed transparently, the walk enumerating whatever the link happened to point at.
+followed transparently, the walk enumerating whatever the link happened to point at. This
+check inspects only `from`'s FINAL path component — a symlink at a MID-path segment (e.g.
+`from: "link/sub"`) is not detected and remains the documented SECURITY.md residual.
 **Migration**: replace the symlinked `from` with a real directory, or point `from` directly
 at the symlink's target path (relative to `packageDir`) — a `scaffold({ from })` call whose
-root resolves through a symlink no longer walks the target's content.
+root's FINAL component resolves through a symlink no longer walks the target's content;
+a symlink earlier in the path is unaffected by this change.
 
 ### Behaviour Changes — `@pbuilder/sdk/typescript` `addImport`
 

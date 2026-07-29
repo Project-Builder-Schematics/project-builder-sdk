@@ -244,10 +244,13 @@ export type ScaffoldOptions = ScaffoldArgs;
  * rationale (a symlinked directory could point anywhere, including into a cycle — never
  * descending is the simplest invariant that is safe under all targets, REQ-FSC-09). The
  * walk ROOT (`from` itself) is held to a stricter standard: a symlinked root REJECTS
- * (`invalid-input`) rather than being followed or silently skipped (owner ruling 16). The
- * walk is capped at 10,000 enumerated entries per call, failing loud and naming the bound
- * past that (REQ-FSC-09) — a loop-safety/DoS resource guard no real schematic collection
- * should approach.
+ * (`invalid-input`) rather than being followed or silently skipped (owner ruling 16) — but
+ * this check inspects only `from`'s FINAL path component; a symlink at a MID-path segment
+ * (e.g. `from: "link/sub"`) is not detected and the walk proceeds through it, the same
+ * documented residual SECURITY.md covers for `create`/`copyIn` reads. The walk is capped
+ * at 10,000 enumerated entries per call, failing loud and naming the bound past that
+ * (REQ-FSC-09) — a loop-safety/DoS resource guard no real schematic collection should
+ * approach.
  *
  * **Packaging caveat**: the empty-folder no-op (above) depends on `from` existing ON
  * DISK at run time — npm tarball packaging commonly DROPS empty directories, so an

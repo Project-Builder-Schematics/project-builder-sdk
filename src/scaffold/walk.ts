@@ -176,6 +176,13 @@ export function walkFolder(
   const root = resolve(fromAbs);
   const entries: WalkEntry[] = [];
   const dirStack: string[] = [""];
+  // judgment-day round 3 fix (F6): counts EVERY enumerated dirent (files, directories, and
+  // skipped symlinked directories alike) — the prior bound only incremented on
+  // `entries.push` (files), so a directory-only tree was entirely unbounded regardless of
+  // depth or breadth. REQ-FSC-09.2 frames the bound as a loop-safety/DoS guard over
+  // "enumerated entries," not "emitted files" — every name a `readdirSync` call returns is
+  // one enumerated entry, whatever it turns out to be.
+  let enumeratedCount = 0;
 
   while (dirStack.length > 0) {
     const relDir = dirStack.pop()!;
@@ -212,6 +219,14 @@ export function walkFolder(
     }
 
     for (const name of names) {
+      // F6: incremented for EVERY name `readdirSync` returned, before this entry is
+      // classified — a directory that will be pushed onto `dirStack` (never reaching
+      // `entries.push` below) still counts against the bound.
+      enumeratedCount += 1;
+      if (enumeratedCount > bound) {
+        throw invalidInput(boundExceededMessage(bound));
+      }
+
       const relPath = relDir === "" ? name : `${relDir}/${name}`;
       const absPath = join(absDir, name);
       let lst: ReturnType<typeof lstatSync>;
@@ -233,9 +248,6 @@ export function walkFolder(
       }
 
       entries.push({ relPath, absPath });
-      if (entries.length > bound) {
-        throw invalidInput(boundExceededMessage(bound));
-      }
     }
   }
 

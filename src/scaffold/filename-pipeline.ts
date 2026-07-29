@@ -6,6 +6,7 @@
 // destination-collision detection (REQ-FSC-08). Zero I/O — pure string transforms over
 // already-enumerated `walk.ts` entries.
 
+import { posix } from "node:path";
 import { invalidInput } from "../core/authoring-error.ts";
 
 const TEMPLATE_SUFFIX = ".template";
@@ -55,7 +56,15 @@ export function runFilenamePipeline(
   // as a raw, unbranded TypeError (`.replace is not a function`) — type-checked at the
   // FIRST point of consumption, same posture as every other scaffold-family author-misuse
   // rejection (`invalid-input`, never a raw Node/JS error).
-  const renameValue = rename?.[relPath];
+  //
+  // judgment-day round 3 fix (F3): `rename?.[relPath]` on a PLAIN object walks the
+  // prototype chain — a walked entry literally named `__proto__`/`toString`/`constructor`
+  // (no author rename rule at all) resolved to an inherited `Object.prototype` value,
+  // minting a nonsense "must be a string" rejection for ANY rename table, on ANY entry
+  // sharing that name. `Object.hasOwn` gates the lookup to the table's OWN keys only —
+  // an entry with no OWN rename rule pipelines through unchanged, exactly as if `rename`
+  // were absent for it.
+  const renameValue = rename !== undefined && Object.hasOwn(rename, relPath) ? rename[relPath] : undefined;
   if (renameValue !== undefined && typeof renameValue !== "string") {
     throw invalidInput(`invalid input: scaffold rename value for "${relPath}" must be a string`);
   }
@@ -134,15 +143,23 @@ function collisionMessage(collisions: ReadonlyArray<readonly [string, string[]]>
  * destination (after the filename pipeline collapses their names), reject fail-loud,
  * deterministically, naming ALL offending source paths — never last-writer-wins, never
  * dependent on walk order.
+ *
+ * judgment-day round 3 fix (F5): keyed on `posix.normalize(destRelPath)`, not the raw
+ * string — a `rename` value like `"./b.ts"` and a sibling literal `"b.ts"` are the SAME
+ * destination post-normalization (the expander's own `posix.join` would collapse them
+ * identically) but previously formed two distinct map keys, so the collision went
+ * undetected here and surfaced later as whatever error family the SECOND write happened
+ * to hit, instead of this REQ's deterministic, both-offenders-named rejection.
  */
 export function detectDestinationCollisions(results: readonly PipelineResult[]): void {
   const byDest = new Map<string, string[]>();
   for (const r of results) {
-    const existing = byDest.get(r.destRelPath);
+    const key = posix.normalize(r.destRelPath);
+    const existing = byDest.get(key);
     if (existing) {
       existing.push(r.sourceRelPath);
     } else {
-      byDest.set(r.destRelPath, [r.sourceRelPath]);
+      byDest.set(key, [r.sourceRelPath]);
     }
   }
 

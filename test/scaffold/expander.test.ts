@@ -24,7 +24,7 @@ import { ContractFake } from "../support/contract-fake.ts";
 import { scaffold, dryRun, AuthoringError } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
-import { expectAuthoringReason } from "../support/expect-reason.ts";
+import { expectAuthoringReason, expectReason } from "../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("expander-");
 
@@ -232,6 +232,120 @@ describe("REQ-PRC-09.1 — destination lexical guard wiring: a rename map value 
     expectAuthoringReason(caught, "invalid-input");
     expect(fake.committedTree().size).toEqual(0);
   });
+});
+
+describe("judgment-day round 3 (F2) — rename '../' collapse: a per-entry destRelPath carrying a literal '..' rejects BEFORE the join that would otherwise normalize it away", () => {
+  it("F2: a shallow rename escape ('../evil.ts' under a one-segment `to`) rejects invalid-input — previously `posix.join(\"out\", \"../evil.ts\")` collapsed to workspace-root-relative 'evil.ts' with NO rejection", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "a.ts"), "A", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "files", to: "out", rename: { "a.ts": "../evil.ts" } });
+    }, { packageDir: dir });
+
+    expectAuthoringReason(caught, "invalid-input");
+    expect(fake.committedTree().size).toEqual(0);
+    expect(fake.committedTree().has("evil.ts")).toBe(false);
+  });
+
+  it("F2: a deep rename escape ('../../../pwned.ts' under a three-segment `to`) rejects invalid-input — previously the join collapsed all three '..' levels against `to`'s own depth, landing the file at the workspace root with no rejection", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "x.ts"), "X", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "files", to: "a/b/c", rename: { "x.ts": "../../../pwned.ts" } });
+    }, { packageDir: dir });
+
+    expectAuthoringReason(caught, "invalid-input");
+    expect(fake.committedTree().size).toEqual(0);
+    expect(fake.committedTree().has("pwned.ts")).toBe(false);
+  });
+});
+
+describe("judgment-day round 3 (F1) — scaffold include/exclude are shape-validated at entry, never reach isIncluded raw", () => {
+  it("F1: a non-array `include` (a bare glob string) rejects invalid-input naming the option, never a raw TypeError", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "a.ts"), "A", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "files", to: "out", include: "**" as unknown as string[] });
+    }, { packageDir: dir });
+
+    const err = expectAuthoringReason(caught, "invalid-input");
+    expect(err.message).toContain("include");
+    expect(fake.committedTree().size).toEqual(0);
+  });
+
+  it("F1: a non-array `exclude` (a bare glob string) rejects invalid-input naming the option, never a raw TypeError", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "a.ts"), "A", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "files", to: "out", exclude: "*.md" as unknown as string[] });
+    }, { packageDir: dir });
+
+    const err = expectAuthoringReason(caught, "invalid-input");
+    expect(err.message).toContain("exclude");
+    expect(fake.committedTree().size).toEqual(0);
+  });
+
+  it("F1: an `include` array carrying a non-string element rejects invalid-input naming the option, instead of silently compiling it into an always-empty-matching pattern", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "files"));
+    writeFileSync(join(dir, "files", "a.ts"), "A", "utf-8");
+    const fake = new ContractFake({ seed: {} });
+
+    const caught = await rejectedRun(fake, () => {
+      scaffold({ from: "files", to: "out", include: [42] as unknown as string[] });
+    }, { packageDir: dir });
+
+    // Distinguished from REQ-FSC-04.2's "filters eliminated every entry" rejection (which
+    // ALSO mentions "include" in its message, and which the OLD unguarded `isIncluded`
+    // would reach instead — a non-string element silently compiles to an always-empty
+    // `/^$/` pattern that matches nothing, filtering every entry out rather than raising
+    // the shape error this fix introduces): assert the SHAPE-specific wording.
+    const err = expectAuthoringReason(caught, "invalid-input");
+    expect(err.message).toContain('"include" must be an array of strings');
+    expect(fake.committedTree().size).toEqual(0);
+  });
+});
+
+describe("judgment-day round 3 (F4) — scaffold's destination guard runs AFTER context resolution: outside-run wins over invalid-input", () => {
+  it("F4: scaffold called with NO active run and an escaping `to` rejects outside-run, never invalid-input", () => {
+    expectReason(() => scaffold({ from: "files", to: "../escape" }), "outside-run");
+  });
+});
+
+describe("judgment-day round 3 (F7) — owner ruling 17 (2026-07-29): a degenerate `from` (the package root itself) rejects instead of enumerating the whole packageDir", () => {
+  const degenerateForms: Array<[label: string, from: string]> = [
+    ["empty string", ""],
+    ["a bare dot", "."],
+    ["dot-slash", "./"],
+  ];
+
+  for (const [label, from] of degenerateForms) {
+    it(`F7: from: ${JSON.stringify(from)} (${label}) rejects invalid-input naming "from", never a silent whole-package enumeration`, async () => {
+      const dir = scratchDir();
+      writeFileSync(join(dir, "secret.ts"), "top secret", "utf-8");
+      const fake = new ContractFake({ seed: {} });
+
+      const caught = await rejectedRun(fake, () => {
+        scaffold({ from, to: "out" });
+      }, { packageDir: dir });
+
+      const err = expectAuthoringReason(caught, "invalid-input");
+      expect(err.message).toContain("from");
+      expect(fake.committedTree().size).toEqual(0);
+    });
+  }
 });
 
 describe("REQ-BRC-02.1 — no SDK-resolved root value appears on the wire as authoritative [SEAM]", () => {
