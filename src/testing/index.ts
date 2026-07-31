@@ -31,7 +31,7 @@ export interface RunResult {
   /**
    * The committed tree (`ContractFake.committedTree()`), path → content. Committed writes
    * ONLY — an unmodified seed path is never present here, even if the factory read it.
-   * Content is stored verbatim — `{{...}}` template placeholders are never rendered here;
+   * Content is stored verbatim — `{= ... =}` template placeholders are never rendered here;
    * interpolation is the engine's job, not the harness's.
    */
   tree: ReadonlyMap<string, string>;
@@ -81,7 +81,7 @@ export type { Batch, Directive };
  * test("factory writes a greeting file", async () => {
  *   const run = (input: { name: string }) => {
  *     create("src/greeting.ts", {
- *       template: "export const greeting = '{{name}}';",
+ *       template: "export const greeting = '{= .name =}';",
  *       options: { name: input.name },
  *     });
  *   };
@@ -95,7 +95,7 @@ export type { Batch, Directive };
  *     throw result.error;
  *   }
  *
- *   expect(result.tree.get("src/greeting.ts")).toEqual("export const greeting = '{{name}}';");
+ *   expect(result.tree.get("src/greeting.ts")).toEqual("export const greeting = '{= .name =}';");
  * });
  */
 export async function runFactoryForTest<O>(

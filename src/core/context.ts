@@ -319,7 +319,7 @@ function checkReservedNames(packageDir: string): void {
  * // 2. Internal: wrap a bare author fn into a client-driven runner:
  * const bareFactory = (input: Input) => {
  *   create("server.config.ts", {
- *     template: "export const port = {{port}};",
+ *     template: "export const port = {= .port =};",
  *     options: { port: input.port },
  *   });
  * };

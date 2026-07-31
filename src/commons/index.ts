@@ -30,7 +30,7 @@ export type { ContentState } from "./classify-content.ts";
  *
  * @example
  * const opts: CreateOptions = {
- *   template: "export const {{name}} = '{{value}}';",
+ *   template: "export const {= .name =} = '{= .value =}';",
  *   options: { name: "greeting", value: "hello" },
  * };
  */
@@ -175,7 +175,7 @@ export function find(path: string): FoundHandle {
  *
  * @example
  * create("src/index.ts", {
- *   template: "export const version = '{{version}}';",
+ *   template: "export const version = '{= .version =}';",
  *   options: { version: "1.0.0" },
  * });
  * @example

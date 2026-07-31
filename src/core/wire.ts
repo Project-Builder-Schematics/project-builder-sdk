@@ -20,7 +20,7 @@ export type JsonValue =
  *   op: "create",
  *   create: {
  *     pathTemplate: "src/greeting.ts",
- *     template: "export const greeting = '{{name}}';",
+ *     template: "export const greeting = '{= .name =}';",
  *     options: { name: "world" },
  *   },
  * };
