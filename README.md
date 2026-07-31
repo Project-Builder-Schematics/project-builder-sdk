@@ -415,7 +415,15 @@ passes this automatically; in tests you pass `packageDir` yourself (below).
 ```ts
 import { test, expect } from "bun:test";
 import { runFactoryForTest } from "@pbuilder/sdk/testing";
-import run from "./factory.ts";
+import { create } from "@pbuilder/sdk/commons";
+
+// in your schematic this is `import run from "./factory.ts";`
+const run = (input: { name: string }) => {
+  create(`src/services/${input.name}.ts`, {
+    template: `export const serviceName = "${input.name}";`,
+    options: {},
+  });
+};
 
 test("factory creates the service file", async () => {
   const result = await runFactoryForTest(run, { name: "payments" });
@@ -440,9 +448,22 @@ Two things to know:
   you assert idempotence (an untouched seed is absent from the tree):
 
   ```ts
-  const seed = { "services.txt": "payments" };
-  const result = await runFactoryForTest(run, { name: "orders" }, { seed });
-  expect(result.tree.get("services.txt")).toEqual("payments\norders");
+  import { test, expect } from "bun:test";
+  import { runFactoryForTest } from "@pbuilder/sdk/testing";
+  import { find, replaceContent } from "@pbuilder/sdk/commons";
+
+  test("a seeded file is readable; only the write is committed", async () => {
+    const run = async (input: { name: string }) => {
+      const existing = await find("services.txt").read();
+      replaceContent("services.txt", `${existing}\n${input.name}`);
+    };
+
+    const seed = { "services.txt": "payments" };
+    const result = await runFactoryForTest(run, { name: "orders" }, { seed });
+
+    expect(result.error).toBeUndefined();
+    expect(result.tree.get("services.txt")).toEqual("payments\norders");
+  });
   ```
 
 - The options bag's other field, `packageDir` (pass `import.meta.dir`), anchors the
@@ -451,14 +472,16 @@ Two things to know:
   verbs have nothing to resolve against.
 
 Templates are stored **verbatim** in the test tree — rendering is the engine's job, and the
-harness doesn't fake it. (`./testing` tests *your factory*; the separate `./conformance`
-surface conformance-tests a *dialect or op-pack* implementation — not the same audience.)
+harness doesn't fake it. `./testing` ships `0.x`, semver-exempt, until real use validates
+the result shape. (It tests *your factory*; the separate `./conformance` surface
+conformance-tests a *dialect or op-pack* implementation — not the same audience.)
 
 ## Beyond the verbs: dialects
 
 When string-level mutation isn't enough — "add an import to this module", "set a prop on
 this JSX element" — **dialects** provide structured, AST-aware operations for one file
-type. Two ship today: `@pbuilder/sdk/typescript` and `@pbuilder/sdk/react`.
+type: see [authoring a dialect](./docs/authoring-a-dialect.md) for the full story. Two
+ship today: `@pbuilder/sdk/typescript` and `@pbuilder/sdk/react`.
 
 A dialect's entry point is its own `find(path)`: it opens a **coalescing, awaitable
 handle**. Every op you chain mutates the same live AST, and the handle serializes to

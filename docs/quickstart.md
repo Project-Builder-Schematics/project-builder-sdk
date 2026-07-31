@@ -118,8 +118,11 @@ Run the codegen bin against your package directory (the one positional argument 
 no flags):
 
 ```sh
-bunx pbuilder-codegen .
+pbuilder-codegen .
 ```
+
+(If your shell doesn't resolve the bin, `bunx pbuilder-codegen .` works from anywhere in
+the package.)
 
 This writes `schema.generated.ts` next to `schema.json`, exporting `type Input`:
 
