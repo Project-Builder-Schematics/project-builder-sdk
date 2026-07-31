@@ -69,10 +69,11 @@ describe("REQ-MFB-02.1 — CHANGELOG.md carries all four 0.2.0 entries under the
   });
 });
 
-describe("REQ-MFB-02.1 — package.json#version is 0.2.0, bumped alongside the CHANGELOG", () => {
-  it('package.json version reads "0.2.0"', () => {
+describe("REQ-MFB-02.1 — package.json#version is bumped alongside the CHANGELOG", () => {
+  it("package.json version matches the CHANGELOG's topmost version heading", () => {
     const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8")) as { version: string };
-    expect(pkg.version).toBe("0.2.0");
+    const topHeading = /^## (\d+\.\d+\.\d+)$/m.exec(changelog())?.[1];
+    expect(pkg.version).toBe(topHeading ?? "(no version heading in CHANGELOG.md)");
   });
 });
 

@@ -16,7 +16,16 @@ This folder is "your own package" for the rest of this guide: `schema.json`,
 `tsconfig.json`, `factory.ts`, and `factory.test.ts` all end up here later, next to
 each other.
 
-### `bun link` (recommended)
+### From npm (recommended)
+
+```sh
+bun add -d @pbuilder/sdk
+```
+
+That's it — skip to step 2. The two paths below exist for working against an unpublished
+checkout of the SDK itself (e.g. while contributing to it).
+
+### `bun link` (from a local checkout)
 
 Inside the SDK's own checkout:
 
@@ -38,17 +47,15 @@ No separate `bun init` is needed first — `bun link` creates a minimal `package
 Re-run `bun run link:sdk` after any `src/` change — the link points at `dist/`, not `src/`,
 so it does not pick up edits automatically.
 
-### Tarball (alternative)
+### Tarball (from a local checkout, alternative)
 
 If you would rather not use `bun link`, pack a tarball and install it directly (still inside
 your consumer folder):
 
 ```sh
 bun pm pack
-bun add ./pbuilder-sdk-0.0.0.tgz
+bun add ./pbuilder-sdk-<version>.tgz   # bun pm pack prints the exact filename
 ```
-
-Neither path installs from a live registry — `@pbuilder/sdk` is not published there yet.
 
 ## 2. Configure your consumer
 
@@ -114,6 +121,9 @@ no flags):
 pbuilder-codegen .
 ```
 
+(If your shell doesn't resolve the bin, `bunx pbuilder-codegen .` works from anywhere in
+the package.)
+
 This writes `schema.generated.ts` next to `schema.json`, exporting `type Input`:
 
 ```ts
@@ -149,6 +159,10 @@ generic. `create` is imported from `@pbuilder/sdk/commons`, the same entry every
 author-facing directive comes from. The next step runs `run` through `runFactoryForTest`,
 which drives it against an in-memory fake — the factory itself never imports anything from
 `./testing`.
+
+A named export works here because this page only ever runs the factory through the test
+harness. A schematic executed by the `builder` CLI must expose its factory as the module's
+**default** export — that is what the engine invokes.
 
 ## 6. Test it
 

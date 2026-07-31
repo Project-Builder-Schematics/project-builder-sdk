@@ -1,10 +1,27 @@
 # Changelog
 
-All notable changes to `@pbuilder/sdk` are documented here. The package is pre-release
-(unpublished; only `0.0.0-dev.<sha>` prereleases publish from `main`) — but it is NOT
+All notable changes to `@pbuilder/sdk` are documented here. The package publishes to npm
+(plus `0.0.0-dev.<sha>` prereleases from `main`) — and it is NOT
 zero-consumer: the engine repo and the conformance corpus consume this contract today even
-though no npm consumer does, so the breaking/behaviour entries below carry migration text
+beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
+
+## 0.2.3
+
+### Documentation
+
+- **Fixed**: JSDoc examples on `CreateOptions`, `create`, the `Directive` wire type,
+  `defineFactory`, and the testing harness showed `{{name}}`-style template placeholders,
+  but the engine's template language uses `{= .name =}` delimiters. These examples ship in
+  the published type declarations, so editor hover docs taught a syntax that never renders.
+- README rewritten as a zero-to-schematic onboarding guide: deterministic-codegen
+  positioning, CLI/SDK/engine execution-flow diagram (commit and apply phases), verified
+  install paths (Homebrew tap, Linux tarball fallback, Windows not-yet-supported note), a
+  live-tested walkthrough, the seven mutation verbs, the template language, scaffold with
+  dynamic filename tokens, testing, and both shipped dialects including `.modify()`.
+- `docs/quickstart.md` aligned with the published package: npm-first install, the
+  default-export rule for CLI-executed factories.
+- Package description named a verb that no longer exists (`modify` → `replaceContent`).
 
 ## 0.2.0
 
