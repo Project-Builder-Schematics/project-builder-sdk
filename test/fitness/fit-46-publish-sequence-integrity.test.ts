@@ -213,4 +213,38 @@ describe("FIT-46 (S-000) — REQ-PPI-03.2/.3: the gate mechanism blocks/allows p
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  // S-001.10 (plan-verify iteration-2 amendment, finding G's S-001 leg): re-runs the SAME
+  // gate-mechanism proof above, but the planted suite failure is now a REAL
+  // capability-admission denial (REQ-CST-04.2's `eval` primitive) rather than an arbitrary
+  // `expect(1).toBe(2)` — the S-000 leg above proved the MECHANISM (any suite failure blocks
+  // publish); this proves the mechanism actually engages for a genuine Constraint-4 fixture,
+  // now that CAP-01..06 exist.
+  it("REQ-PPI-03.2 [red-proof]: a real Constraint-4 admission failure blocks the publish step", () => {
+    const root = mkdtempSync(join(tmpdir(), "fit-46-gate-cap-"));
+    try {
+      writeFileSync(
+        join(root, "constraint-4.test.ts"),
+        [
+          'import { test, expect } from "bun:test";',
+          'import { mkdtempSync, writeFileSync } from "node:fs";',
+          'import { tmpdir } from "node:os";',
+          'import { join } from "node:path";',
+          `import { deriveRunnerClosure } from ${JSON.stringify(join(PROJECT_ROOT, "scripts/derive-runner-closure.ts"))};`,
+          'test("REQ-CST-04.2: eval is denied by the real capability-admission mechanism", () => {',
+          '  const fixtureRoot = mkdtempSync(join(tmpdir(), "fit-46-cap-fixture-"));',
+          '  writeFileSync(join(fixtureRoot, "entry.js"), "eval(payload);\\n");',
+          '  const derivation = deriveRunnerClosure(fixtureRoot, "entry.js");',
+          "  expect(derivation.violations).toEqual([]);", // deliberately wrong: eval IS denied
+          "});",
+          "",
+        ].join("\n")
+      );
+      const { publishReached, log } = runSequenceAgainstSuiteResult(root);
+      expect(publishReached).toBe(false);
+      expect(log).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
