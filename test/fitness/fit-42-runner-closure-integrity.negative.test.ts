@@ -30,6 +30,7 @@ import { ensureTscBuild } from "../support/shared-build.ts";
 import {
   CREATE_REQUIRE_ANCHOR_FILE,
   ENTRY_RELATIVE_PATH,
+  findAnchorDriftViolations,
   SANCTIONED_DYNAMIC_IMPORT_FILE,
   comparePaths,
   deriveRunnerClosure,
@@ -366,8 +367,10 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
       [CREATE_REQUIRE_ANCHOR_FILE]:
         'import { createRequire as cr } from "node:module";\ncr(u)("./x.js");\ncr(u)("./y.js");\n',
     });
+    // S-002.5: exact count, not a lower bound — the fixture has exactly two executing calls
+    // through the alias (`cr(u)("./x.js")`, `cr(u)("./y.js")`) and nothing else denyable.
     const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
-    expect(violations.length).toBeGreaterThanOrEqual(2);
+    expect(violations.length).toBe(2);
     expect(violations.every((v) => v.rule === "constraint-4-inadmissible-origin")).toBe(true);
   });
 
@@ -384,8 +387,10 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
         "",
       ].join("\n"),
     });
+    // S-002.5: exact count — one executing call through the alias, the decoy import buys it
+    // nothing.
     const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
-    expect(violations.length).toBeGreaterThanOrEqual(1);
+    expect(violations.length).toBe(1);
     expect(violations.every((v) => v.rule === "constraint-4-inadmissible-origin")).toBe(true);
   });
 
@@ -1879,5 +1884,101 @@ describe("FIT-42N S-004 — REQ-DGN-01.3/.4: rule-identity totality over the fix
     expect(ruleIdentityTotalityMismatches(declared, misattributed)).toEqual([
       'deny-scan/eval.js: declared "constraint-4-inadmissible-origin", produced "directory-specifier"',
     ]);
+  });
+});
+
+// ===========================================================================================
+// S-002 — REQ-XPO-01: exemption is a file-level proof obligation, forfeit on any other
+// arrangement. S-001 already ported the mechanism (buildFileContext's exemption computation,
+// checkExemption, isResolveOnlyUse) as a minimal, load-bearing piece of REQ-CST-04.3's own
+// survival obligation — this slice adds the REQ-XPO-01-labelled coverage explicitly, plus two
+// REAL fixes: re-export laundering (XPO-01.4/M1.12) and anchor-drift detection (XPO-01.5/M1.13).
+// ===========================================================================================
+
+describe("FIT-42N S-002 — REQ-XPO-01.1/.2: anchor happy path, named-import and namespace form", () => {
+  it("REQ-XPO-01.1: the anchor's named-import binding, used resolve-only, is exempt — zero violations", () => {
+    const root = plantTree({
+      [CREATE_REQUIRE_ANCHOR_FILE]:
+        'import { createRequire } from "node:module";\ncreateRequire(anchorUrl).resolve(specifier);\n',
+    });
+    expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([]);
+  });
+
+  // DR-6 hazard (design.md, plan-verify iteration-1 amendment): this closes XPO-01.2 by
+  // planting the resolve-only NAMESPACE form at the ANCHOR path — a DIFFERENT fixture from
+  // red-proof #12 above (`"REQ-CST-04.4: the namespace form is caught"`, in the deny-scan
+  // describe block), which plants the same namespace CALL shape in a NON-anchor file and must
+  // stay denied. S-002.4 lands this in the same commit as that pre-existing test, both green —
+  // it is not re-asserted here; a regression collapsing the two would fail #12 itself.
+  it("REQ-XPO-01.2: the anchor's namespace-form binding, used resolve-only, is now green — closes R2-5", () => {
+    const root = plantTree({
+      [CREATE_REQUIRE_ANCHOR_FILE]:
+        'import * as module from "node:module";\nmodule.createRequire(u).resolve(s);\n',
+    });
+    expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([]);
+  });
+});
+
+describe("FIT-42N S-002 — REQ-XPO-01.3: forfeit on any other arrangement", () => {
+  it("REQ-XPO-01.3 [red-proof]: an ALIASED createRequire binding at the anchor forfeits the exemption, every bound name denied", () => {
+    const root = plantTree({
+      [CREATE_REQUIRE_ANCHOR_FILE]:
+        'import { createRequire as cr } from "node:module";\ncr(u).resolve(s);\ncr(u)("./evil.js");\n',
+    });
+    const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
+    // Exact count (S-002.5: tighten to exact, no threshold): TWO uses of the aliased binding,
+    // BOTH denied — aliasing forfeits the exemption entirely, so even the resolve-only-SHAPED
+    // first use gets no benefit of the doubt.
+    expect(violations.length).toBe(2);
+    expect(violations.every((v) => v.rule === "constraint-4-inadmissible-origin")).toBe(true);
+  });
+});
+
+describe("FIT-42N S-002 — REQ-XPO-01.4 [red-proof]: re-export laundering is closed (M1.12)", () => {
+  it("a createRequire re-exported through a closure file and imported by a second file is still denied", () => {
+    const root = plantTree({
+      "entry.js": 'import { createRequire } from "./reexporter.js";\ncreateRequire(anchor)("./evil.js");\n',
+      "reexporter.js": 'export { createRequire } from "node:module";\n',
+    });
+    // The exemption does not launder through a re-export: "entry.js" is not the anchor file,
+    // so no exemption is even computed for it — the register denies the primitive outright.
+    expect(classifiedAs(root)).toEqual([{ rule: "constraint-4-inadmissible-origin", file: "entry.js" }]);
+  });
+
+  it("REQ-XPO-01.4: the re-exporting file itself reports zero violations — the danger is in the SECOND file's use, not the re-export declaration", () => {
+    const root = plantTree({
+      "entry.js": 'import { createRequire } from "./reexporter.js";\n',
+      "reexporter.js": 'export { createRequire } from "node:module";\n',
+    });
+    // entry.js imports the re-exported name but never CALLS it — a bare, unused import
+    // binding is a value-reference concern only (admitted, D-1/D-3), never a callee.
+    expect(classifiedAs(root)).toEqual([]);
+  });
+});
+
+describe("FIT-42N S-002 — REQ-XPO-01.5 [red-proof]: anchor drift is caught (M1.13)", () => {
+  it("a derived closure that omits the anchor file from its node set is flagged, naming the drift", () => {
+    const nodesWithoutAnchor = ["bin/pbuilder-runner.js", "transport/runner.js"];
+    expect(findAnchorDriftViolations(nodesWithoutAnchor, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([
+      {
+        rule: "unclassifiable-construct",
+        file: CREATE_REQUIRE_ANCHOR_FILE,
+        line: null,
+        found: CREATE_REQUIRE_ANCHOR_FILE,
+        detail: `the createRequire exemption anchor "${CREATE_REQUIRE_ANCHOR_FILE}" is not a member of the derived closure — an exemption pointing outside the walked closure is a dormant hole, not a pass`,
+      },
+    ]);
+  });
+
+  it("REQ-XPO-01.5: a derived closure that DOES include the anchor file reports zero drift — sibling positive", () => {
+    const nodesWithAnchor = ["bin/pbuilder-runner.js", CREATE_REQUIRE_ANCHOR_FILE];
+    expect(findAnchorDriftViolations(nodesWithAnchor, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([]);
+  });
+
+  it("REQ-XPO-01.5: the REAL runner closure includes the anchor file — non-vacuity, the check has something to verify", () => {
+    const distDir = ensureTscBuild();
+    const derivation = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH);
+    expect(derivation.nodes).toContain(CREATE_REQUIRE_ANCHOR_FILE);
+    expect(findAnchorDriftViolations(derivation.nodes, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([]);
   });
 });
