@@ -889,3 +889,300 @@ as ONE PR at cycle close — the orchestrator's responsibility, not this slice's
 in this slice; S-002.3 (the anchor-site code comment) remains its own, separately-tracked,
 deliberate archive-time obligation (see the S-002 section above) — not part of S-005's own scope,
 and not resolved by this slice's docs work.
+
+---
+
+## Verify-final remediation
+
+ONE batched fix pass closing the five gating findings of `sdd-verify --mode=final`
+(`verify-report.md`, commit `6260a17`) plus the three amendments the orchestrator judged in.
+User-authorized. Strict TDD throughout: for every finding the red-proof or the mutant-survival
+evidence was observed FIRST, against the current code, and is quoted below.
+
+Scope discipline: nothing from the report's OUT list was touched. Two items were expanded on
+evidence rather than by choice, both recorded below — a second instance of C-2's defect that the
+report did not name (found by doing exactly what C-2's fix demands: verifying REQ-PPI-03.3 in the
+real workflow), and two enumeration corrections without which C-1's central rule could not be
+enforced at all.
+
+### C-1 — the classifier admitted 26 executable arbitrary-code-execution constructs
+
+**Red-proof evidence (before the fix).** A 26-row laundering corpus was written first and run
+against the shipped classifier through `deriveRunnerClosure` — the real build gate. Every row
+failed with `expect(matching.length).toBe(N)` → `Expected: 1, Received: 0`: zero violations, the
+construct admitted. The 12 structurally-identical green siblings (aliases, destructuring,
+call-result bases, `??` fallbacks, literal receivers, computed reads through admitted origins)
+passed from the start, so no row could be satisfied by "everything violates".
+
+Reproduced verbatim from the report, plus the extra shapes named in the fix brief:
+
+```
+DENIED   | BASELINE signed red-proof CAP-05.2:  const F = Function; F("return 1")
+ADMITTED | const F = Function; const G = F; G("return 1")
+ADMITTED | const e = eval; const e2 = e; e2("1+1")
+ADMITTED | const o = {}; o.F = Function; o.F("return 1")
+ADMITTED | function h(){ return Function; } h()("return 1")
+ADMITTED | const k="eval"; const g = globalThis[k]; const f = g; f("1+1")
+ADMITTED | const C = Function.prototype.constructor;      C("return 1")()
+ADMITTED | const { constructor: C } = Function.prototype;  C("return 1")()
+ADMITTED | const w = WebAssembly.instantiate;              w(b)
+ADMITTED | lib.js exports Function.prototype.constructor; entry.js calls it
+ADMITTED | const { binding } = process; binding("fs")
+ADMITTED | const p = process; p.binding("fs")
+ADMITTED | "".constructor.constructor("return 1")()      (also [] , ({}) , /x/)
+ADMITTED | Reflect.get(globalThis,"eval")("1+1")
+ADMITTED | Reflect.get(globalThis,"process")
+ADMITTED | Object.getPrototypeOf(f).constructor("return 1")()   (also (() => {}))
+ADMITTED | (globalThis ?? {}).eval("2+2")
+ADMITTED | const g = globalThis; g.eval("1+1")
+ADMITTED | setTimeout(eval, 0, "3+3")
+ADMITTED | Promise.resolve("5+5").then(eval)
+ADMITTED | ["return 1"].map(Function)
+ADMITTED | function x(){ return () => 1 } x()()
+ADMITTED | const k="eval"; globalThis[k][k]                 (REQ-CAP-01.3's own shape)
+ADMITTED | export { createRequire as mkReq } from "node:module"  -> mkReq("a")("./evil.cjs")  (F3)
+```
+
+**Fix.** Rules, not spellings — `scripts/capability-admission.ts`:
+
+| Root cause (verify) | Rule now enforced |
+|---|---|
+| taint not transitive; REQ-CAP-05 enforced at the alias, not the occurrence | a register primitive named as a chain's ROOT or FULL PATH is a violation in every position bar `instanceof`-RHS / `typeof`-operand |
+| an unresolvable free root admitted as `local` in value position | `origin === undefined` is a violation in EVERY position — it is not one of REQ-CAP-04's four kinds |
+| `safe-terminal` an unlisted fifth admitted origin | a safe terminal is no longer an admission: a prototype-escape segment (`constructor`/`__proto__`/`prototype`) off a non-identifier base is inadmissible, and a call RESULT invoked with no property name (`f()()`) names no origin |
+| destructuring/aliasing laundered a member path | a binding that IS a chain (`const p = process`, `const { binding } = process`) is classified as that chain, one hop — which also carries copied taint to its source |
+| `x[k]` invisible, so `unclassifiable` unreachable in value position | computed chains are enumerated; off a global root they are `unclassifiable-construct` unless the key resolves to a Symbol |
+| `Reflect.get` admitted as an opaque call | classified as the computed access it performs |
+| re-export laundering compared a NAME to the register | the `export … from "node:…"` leg checks each named export's ORIGINAL name (`getNamedExports()[i].getName()`) against the module's admitted-name set, as the import leg checks each binding — an alias cannot launder past it (F3) |
+| `??` could hide a global root behind a fallback | `a ?? b` resolves THROUGH `a`, and is undecidable unless `b` is a literal |
+
+**Two enumeration corrections, required not optional.** "An unresolvable free root is a violation"
+could not be enforced until two phantom free-root families were removed from the surface, both
+genuine gaps in existing exclusions rather than new exclusions (REQ-CAP-01.5's pinned four-member
+set is unchanged):
+
+- a class `PropertyDeclaration`'s own name is a member declaration exactly like the
+  `MethodDeclaration`/`GetAccessor` names already excluded — 13 such nodes in the real closure
+  (`origin`, `appliedCount`, `failedIndex`, `problem`, …), each surfacing as a free identifier
+  bound to nothing;
+- `export { x } from "mod"` names a member of ANOTHER module, not a reference in this file's scope;
+  it is admitted per-name by the module-specifier leg. A LOCAL `export { x }` stays enumerated.
+
+Both are mirrored in `independentSurfaceCount`, the independent totality oracle, as is the computed-chain
+enumeration — the oracle implements the same specified surface, independently.
+
+**Real-closure zero-violation confirmation (the hard constraint).** `deriveRunnerClosure` over the
+real built tree: **23 nodes, 0 violations**, measured after every rule landed. The measurement
+that made this safe was taken BEFORE writing any code:
+
+| Measured on the real 23-file closure | Value | Consequence for the fix |
+|---|---|---|
+| locals aliasing an admitted global | **0** | alias substitution has zero blast radius |
+| safe-terminal chains carrying a prototype-escape segment | **0** | the escape rule cannot false-positive |
+| call-result terminals with an EMPTY property path | **0** (all 4 real ones add exactly 1 segment) | `f()()` cannot false-positive |
+| computed accesses rooted at an admitted global | **1** — `globalThis[Symbol.for(…)]`, `core/context.js:71` | forced the Symbol-key carve-out; a symbol slot cannot name a string-keyed language capability |
+| local-root member paths | **239** | `ADMITTED_MEMBER_PATHS` must NOT apply to local roots |
+| tainted roots used in VALUE position | **23** | D-3's "tainted is admitted as a value" is load-bearing and survives |
+| `eval` / `Function` / `WebAssembly` occurrences | **0 / 0 / 0** | the occurrence rule is false-positive-free |
+
+Fresh `rm -rf dist && bun run build`: `dist/runner-manifest.json` =
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde`, 118 files. No `src/**` change.
+
+**Tests added.** `fit-42n`: the 26-row laundering corpus (rule identity + exact count of the
+(rule, detail) pair per row), 12 green siblings, REQ-CAP-01.3 proven at classification AND at the
+build boundary (exit ≠ 0, no manifest, stderr naming the construct), the F3 aliased-re-export
+red-proof plus an admitted-name sibling positive.
+
+**Expectations that legitimately changed** (each strictly stronger, never relaxed):
+
+- `REQ-CAP-05.2` 1 → 2 violations: the denied root's own occurrence is now a violation as well as
+  the aliased call. Enforcing only the latter is exactly what let `const G = F` launder one hop on.
+- `REQ-CAP-03.2` 1 → 2 `constraint-4-undecidable-callee`: the inner `.constructor` off an arrow
+  function AND the outer invocation of that call's result. The old argument for admitting the outer
+  ("the inner is independently caught") fails as soon as the inner callee IS admitted, which is
+  precisely `Reflect.get(globalThis,"eval")("1+1")`.
+- Four `createRequire(x)(y)` fixtures gain a `constraint-4-undecidable-callee` — the EXECUTION half
+  of "the closure may resolve, never execute".
+- `deny-scan/web-assembly.js` detail `WebAssembly.instantiate` → `WebAssembly`: the register member
+  named verbatim, which is what REQ-CST-04.2's scenario asks for.
+- `REQ-XPO-01.4`'s "the re-exporting file reports zero violations" is replaced. Its premise — "the
+  danger is in the SECOND file's use" — holds only while the imported NAME matches the register,
+  which is the exact hole F3 exploits.
+- Placeholder ARGUMENTS in planted fixtures (`anchor`, `payload`, `body`, `bytes`, `u`, `s`, …) are
+  now bound via a `bind()` helper, appended so no message assertion's line number moves. A free
+  identifier is itself an inadmissible origin, so an unbound placeholder contributed a finding
+  unrelated to the property under test. Three committed `deny-scan/` fixtures were bound the same
+  way, keeping their REQ-CST-04.2 fixture form.
+
+Zero whole-verbatim reason strings changed. No `ViolationRule` was renamed.
+
+### C-2 — the publish gate was permanently red
+
+**Red-proof evidence.** Reproduced `publish.yml`'s own sequence against the real tree (stamp
+`0.0.0-dev.abc1234` → `bun run build` → suite):
+
+```
+Expected: "31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde"
+Received: "dec7aaf1d29fc1c281a34d24902bcc5f688952e324de059f46e022aea975aa06"
+(fail) FIT-42 S-001 — FIT-MANIFEST-BYTE-NEUTRAL > REQ-CAP-06.1: the fresh-built manifest is
+       byte-identical to the pinned digest
+```
+
+**Fix.** The standing gate is now the RELATION `design.md` §7 specifies: regenerate the manifest
+into a scratch root from the built snapshot and compare bytes — reproducibility of the DERIVATION,
+version-invariant by construction. Version-invariance is asserted, together with the fact that the
+relation is not BLIND to the version (a stamped tree reproduces its own, different bytes). The
+pinned literal is gone, and with it W-7's three-place manual re-pin ritual. The red-proof was
+`sha256(x + "\n") ≠ sha256(x)` — true of sha256, silent about the generator; it now perturbs a real
+closure file and asserts both the manifest and that file's own record digest diverge.
+
+**Slice-gate fact, recorded here rather than asserted as a standing constant** (design §7's
+"one-shot cross-tree sha comparison"): at this remediation's close, a fresh
+`rm -rf dist && bun run build` at version `0.2.3` yields
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` over 118 files, byte-identical
+to every prior slice's close.
+
+**A second instance of the same defect, not in the report.** Verifying REQ-PPI-03.3 in the real
+workflow — which C-2's fix brief explicitly demands — surfaced `REQ-MFB-02.1`
+(`test/docs/changelog-release-vehicle-guard.test.ts`) asserting
+`package.json#version === CHANGELOG`'s topmost heading UNCONDITIONALLY. A dev stamp falsifies that
+by design, so the publish job would still never have published. Scoped to release versions, with
+the dev-stamp shape asserted rather than skipped, plus a red-proof that a forgotten CHANGELOG bump
+still fails and that the exemption is no wider than the stamp. Expanded on evidence, and it was the
+difference between REQ-PPI-03.3 being true and being nearly true.
+
+**REQ-PPI-03.3 verified in the real workflow**: with `version = 0.0.0-dev.abc1234` and a stamped
+rebuild, the full suite is **2598 pass, 0 fail**. The publish job can now reach its publish step.
+
+### C-3 — REQ-CST-04.3's non-vacuity guard counted substrings
+
+**Red-proof evidence.** Measured against the real anchor, then against the mutant the scenario
+names (every code reference removed, every comment untouched):
+
+```
+real anchor : substring hits 10 | AST identifier occurrences 2   (8 hits are in comments)
+mutant      : substring hits  8 | AST identifier occurrences 0
+              -> shipped `>= 2` substring guard PASSES on a file with no real reference left
+```
+
+**Fix.** `astIdentifierOccurrences` (in `test/support/closure-integrity-checks.ts`, the established
+home for checkers shared by the fit-42 pair) counts CODE identifiers, asserted `toBe(2)` — exact,
+not a threshold. A `{@link name}` JSDoc tag DOES yield a real Identifier (R1-16's probe), so
+JSDoc-rooted nodes are excluded under the same exclusion E1 the classifier applies; without that,
+prose could still satisfy the guard, which is the whole vacuity being closed. This was found by the
+new test failing (`Expected: 0, Received: 1`), not by inspection. `REQ-CST-04.3.2` now builds the
+mutant and asserts the differential the mechanism turns on, so it invokes the guard rather than
+performing Set arithmetic beside it. The W-10b test title naming the retired deny-scan is fixed in
+the same edit.
+
+The module header's stale "No repo imports by design (node builtins only)" sentence (W-10a), sitting
+directly above a repo re-export and now above a ts-morph import, was corrected in passing.
+
+### C-4 — REQ-PTH-01 passed command substitution and dropped a valueless flag
+
+**Red-proof evidence.** Two new `bundler-scripts/` fixtures, failing before the fix:
+
+```
+backtick substitution: findBundlerTargets -> [{flag:"--outdir", target:"`pwd`/dist/transport"}]
+                       findUnclassifiableBundlerConstructs -> []          <-- PASSES
+valueless flag       : findUnclassifiableBundlerConstructs -> []          <-- PASSES (dropped)
+```
+
+**Fix.** The predicate is inverted: a recognised flag's value is a target only if it matches the
+committed safe-path grammar `[A-Za-z0-9._/-]+`. Decidability is a whitelist, never a search for
+known-bad markers — a marker test closes the spellings enumerated at the time and leaves the class
+open. Backticks, `$(…)`, `$VAR`, `${…}`, globs, `~`, shell operators, quoting, embedded whitespace
+and an absent value are all undecidable now. Quote-stripping on target values became dead code and
+was removed.
+
+**Tests added**: the two fixtures with rule-identity assertions, an 11-kind rejection table, and a
+5-spelling ACCEPTANCE table proving the inverted predicate did not start rejecting the decidable
+paths REQ-PTH-01.1-.4 depend on.
+
+### C-5 — FIT-CAP-TOTALITY's non-vacuity was unproven
+
+**Red-proof evidence.** The shipped `REQ-CAP-01.2` was
+`expect(() => expect(classifiedCount).toBe(presentCount)).toThrow()` over two local integers — it
+referenced no production symbol. The report demonstrated it passing in a file with zero project
+imports. The other half, `expect(classified.length).toBe(surface.length)` over
+`surface.map(classify)`, is structurally incapable of failing.
+
+**Fix.** REQ-CAP-01.2 mutates the ENUMERATOR (a shim dropping one `SurfaceNodeKind`) against a
+fixture that genuinely exercises the dropped kind, asserting the count fell and that the failure
+message names the kind. All five kinds are mutated in turn, each with a presence precondition. The
+map-length tautology is replaced by a DISPOSITION assertion: every node classifies into exactly one
+of `{admitted, violation, unclassifiable}`, well-formed (`via` in the admitted set, `rule` in
+`VIOLATION_RULES`, non-empty detail). The totality pass also runs over the committed `deny-scan/`
+and `green/` corpora (11 files), so it sees violating and unclassifiable nodes and not only the 23
+clean ones. `fail-closed/` is deliberately excluded with the reason stated in the test: its fixtures
+are JSON fault-injection recipes, not JS source with a capability surface.
+
+**Mutation-kill evidence.** An enumerator that silently drops `meta-property`:
+
+```
+REQ-CAP-01.1 real closure    : Expected 20, Received 19   (fail)
+REQ-CAP-01.1 corpora         : Expected  3, Received  2   (fail)
+REQ-CAP-01.2 [red-proof]     : Expected  5, Received  4   (fail)
+```
+
+The retired red-proof stayed green under the identical mutant.
+
+### Amendment A — the unkilled anchor-exemption mutant
+
+**Red-proof evidence.** Deleting `if (anchorExemptionConsumed) return false;` — the only thing
+preventing unlimited anchor exemptions — left the **entire suite green: 2598 pass, 0 fail**. No
+fixture had two resolve-only uses at the anchor, so the single-use latch was untested code.
+
+**Fix (tests only).** One resolve-only use stays exempt (sibling positive); a second is denied
+naming `constraint-4-inadmissible-origin` exactly once; N uses yield exactly N-1 denials,
+triangulated at 3 and 5 so the count cannot be satisfied by a latch that merely caps the second use.
+With the guard line deleted, two of the three new tests fail.
+
+### Amendment B — gates evaporated under root CI
+
+**Red-proof evidence.** Two of the six `it.skipIf(process.getuid?.() === 0)` sites wrapped whole
+LOOPS: `FIT-FAILCLOSED-BICONDITIONAL` dropped all 3 fault kinds though 2 are
+permission-independent, and REQ-DGN-01.3 rule-identity totality dropped all 11 fixtures though 10
+are. On a root runner those two standing checks did not run at all, and the pass count said nothing
+about it.
+
+**Fix.** Both loops filter only the chmod-dependent member (1 of 3 faults, 1 of 11 fixtures) and
+assert the active set as a recorded fact of the environment, so a root run exercises 2/3 and 10/11
+instead of 0/3 and 0/11. The four checks whose SUBJECT is an unreadable file keep their skip — there
+is no permission-independent leg — but are enumerated by an always-running inventory assertion
+instead of vanishing. A root run warns on stderr per site. New file:
+`test/support/permission-dependent.ts` (12 lines; not in design §2's File Changes table — recorded
+here alongside W-8's two).
+
+Verified by forcing `RUNNING_AS_ROOT`: 4 warnings emitted, 4 whole-subject checks skipped, both
+previously-dropped loops executing their permission-independent legs.
+
+### Amendment C — ADR-0081 was never written
+
+Transcribed `design.md` §5's block into
+`openspec/decisions/0081-resolution-based-path-verdicts-predicate-placement.md`, following
+ADR-0080's Context/Decision/Consequences/Alternatives structure. It is the only record that the
+`test/support/` → `scripts/` relocation is *placement, not timing* and therefore not a reversal of
+accepted ADR-0075 — a sentence design §2c leans on for seven `aligns` rows, and which would
+otherwise have moved into `openspec/changes/archive/` leaving the pre-archive architecture audit
+gate nothing to audit against. The Decision is stated as the code now implements it (a committed
+safe-path grammar, not a marker search), with the accepted quoted-target consequence recorded
+rather than left implicit.
+
+### Gates at remediation close
+
+| Gate | Result |
+|---|---|
+| `bun test` (full suite) | **2605 pass, 0 fail**, 7239 expect() calls, 202 files |
+| `bun test` under `publish.yml`'s version stamp | **2598 pass, 0 fail** — REQ-PPI-03.3 now true in the real workflow |
+| `tsc --noEmit` | clean |
+| fresh `rm -rf dist && bun run build` | `dist/runner-manifest.json` = `31cd5382…f333fde`, 118 files |
+| real-closure classification | 23 nodes, **0 violations** |
+| standing anti-`toContain` scan (REQ-CST-06.1) | green |
+| whole-verbatim reason strings | byte-identical; no rule renamed |
+
+One unrelated environment flake was observed intermittently across runs:
+`test/e2e/installed-consumer.e2e.test.ts`'s tarball leg times out at 5000ms when its scratch
+`bun install` runs under load (6 failures, all in that one file, which this remediation does not
+touch; it passes standalone in 3.7s). Not introduced here and not in scope — noted so a future
+reader does not mistake it for a regression.
