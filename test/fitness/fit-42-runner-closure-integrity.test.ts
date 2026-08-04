@@ -894,7 +894,9 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
     if (Node.isFunctionDeclaration(parent) && parent.getNameNode() === id) return true;
     if (Node.isClassDeclaration(parent) && parent.getNameNode() === id) return true;
     if (Node.isImportSpecifier(parent) || Node.isImportClause(parent) || Node.isNamespaceImport(parent)) return true;
+    if (Node.isExportSpecifier(parent) && parent.getExportDeclaration().getModuleSpecifier() !== undefined) return true;
     if (Node.isCatchClause(parent)) return true;
+    if (Node.isPropertyDeclaration(parent) && parent.getNameNode() === id) return true;
     if (Node.isPropertyAccessExpression(parent) && parent.getNameNode() === id) return true;
     if (Node.isPropertyAssignment(parent) && parent.getNameNode() === id) return true;
     if (Node.isShorthandPropertyAssignment(parent) && parent.getNameNode() === id) return true;
@@ -937,28 +939,36 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
     // reached by walking further up through an enclosing call — `createRequire(anchorUrl)`
     // nested inside the callee `createRequire(anchorUrl).resolve` must not swallow
     // `anchorUrl` (an argument, not part of the callee chain).
+    // A chain link is `a.b` OR `a[b]`: both are member accesses, so both are chain links for
+    // the purpose of "what is one surface node".
+    const linkBase = (node: Node): Node | undefined =>
+      Node.isPropertyAccessExpression(node) || Node.isElementAccessExpression(node) ? node.getExpression() : undefined;
+
     const consumedByCallee = new Set<Node>();
     for (const callee of callees) {
       let cur: Node = callee;
-      while (Node.isPropertyAccessExpression(cur)) {
+      for (let base = linkBase(cur); base !== undefined; base = linkBase(cur)) {
         consumedByCallee.add(cur);
-        cur = cur.getExpression();
+        cur = base;
       }
       consumedByCallee.add(cur);
     }
     const insideACallee = (node: Node): boolean => consumedByCallee.has(node);
 
-    // Every remaining maximal non-computed PropertyAccessExpression chain (member-path) or
-    // standalone Identifier (value-reference), rooted at a free OR local Identifier, counts
-    // once — found via the SAME "maximal access, not itself inside an already-counted
-    // callee" shape, but walked top-down over every access instead of bottom-up per callee.
+    // Every remaining maximal member chain (member-path) or standalone Identifier
+    // (value-reference), rooted at a free OR local Identifier, counts once — found via the SAME
+    // "maximal access, not itself inside an already-counted callee" shape, but walked top-down
+    // over every access instead of bottom-up per callee.
     const countedRoots = new Set<Node>();
-    for (const access of sourceFile.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)) {
+    for (const access of [
+      ...sourceFile.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression),
+      ...sourceFile.getDescendantsOfKind(SyntaxKind.ElementAccessExpression),
+    ]) {
       const parent = access.getParent();
-      if (parent && Node.isPropertyAccessExpression(parent) && parent.getExpression() === access) continue;
+      if (parent !== undefined && linkBase(parent) === access) continue;
       if (insideACallee(access)) continue;
       let root: Node = access;
-      while (Node.isPropertyAccessExpression(root)) root = root.getExpression();
+      for (let base = linkBase(root); base !== undefined; base = linkBase(root)) root = base;
       if (!Node.isIdentifier(root)) continue;
       countedRoots.add(root);
       count++;

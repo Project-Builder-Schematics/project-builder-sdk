@@ -12,6 +12,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import {
+  appendFileSync,
   chmodSync,
   cpSync,
   existsSync,
@@ -199,6 +200,15 @@ function classifiedAs(root: string, entry = "entry.js"): Array<{ rule: string; f
   return deriveRunnerClosure(root, entry).violations.map(({ rule, file }) => ({ rule, file }));
 }
 
+// A free identifier is itself an inadmissible origin (REQ-CAP-04: a root that resolves to no
+// binding is not one of the four admitted kinds), so a fixture's placeholder ARGUMENTS have to be
+// bound or they contribute a finding that has nothing to do with the property under test.
+// APPENDED, never prepended: the per-file binding map is position-independent, while several
+// message assertions pin the line number of the construct they name.
+function bind(...names: readonly string[]): string {
+  return names.map((name) => `const ${name} = "placeholder";\n`).join("");
+}
+
 describe("FIT-42N S-000 — every static specifier classifies, none is silently skipped", () => {
   it("REQ-CST-01.1: a bare third-party specifier is a Constraint-3 violation", () => {
     const root = plantTree({ "entry.js": 'import { Project } from "ts-morph";\n' });
@@ -280,13 +290,13 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
   });
 
   it("REQ-CST-03.3: the single dynamic import() at the sanctioned site is not a violation", () => {
-    const root = plantTree({ [SANCTIONED_DYNAMIC_IMPORT_FILE]: "const f = import(moduleUrl);\n" });
+    const root = plantTree({ [SANCTIONED_DYNAMIC_IMPORT_FILE]: `const f = import(moduleUrl);\n${bind("moduleUrl")}` });
     expect(classifiedAs(root, SANCTIONED_DYNAMIC_IMPORT_FILE)).toEqual([]);
   });
 
   it("REQ-CST-03.2: a second dynamic import() inside the sanctioned file is a per-site violation", () => {
     const root = plantTree({
-      [SANCTIONED_DYNAMIC_IMPORT_FILE]: "const f = import(moduleUrl);\nconst p = import(pluginUrl);\n",
+      [SANCTIONED_DYNAMIC_IMPORT_FILE]: `const f = import(moduleUrl);\nconst p = import(pluginUrl);\n${bind("moduleUrl", "pluginUrl")}`,
     });
     expect(classifiedAs(root, SANCTIONED_DYNAMIC_IMPORT_FILE)).toEqual([
       { rule: "constraint-2-second-site", file: SANCTIONED_DYNAMIC_IMPORT_FILE },
@@ -302,17 +312,22 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
   // call site alone is now caught, exactly once. This is a precision IMPROVEMENT (the
   // spurious double-count on a harmless import binding is gone), not a detection loss: the
   // same file still fails the build, naming the same defect.
+  // The outer invocation of the call RESULT (`createRequire(anchor)("./x.js")`) is its own
+  // violation under the closed default-deny: a call result invoked with no property name in
+  // between names no origin at all. Both findings are true of this fixture, and the second is
+  // precisely the EXECUTION half of "the closure may resolve, never execute."
   it("REQ-CST-04.1: a createRequire call outside the anchored site is a Constraint-4 violation", () => {
     const root = plantTree({
-      "entry.js": 'import { createRequire } from "node:module";\ncreateRequire(anchor)("./x.js");\n',
+      "entry.js": `import { createRequire } from "node:module";\ncreateRequire(anchor)("./x.js");\n${bind("anchor")}`,
     });
     expect(classifiedAs(root)).toEqual([
+      { rule: "constraint-4-undecidable-callee", file: "entry.js" },
       { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
     ]);
   });
 
   it("REQ-CST-04.4: the indirect-variable form is caught, not just the direct call", () => {
-    const root = plantTree({ "entry.js": "const req = createRequire(anchor);\nreq('./x.js');\n" });
+    const root = plantTree({ "entry.js": `const req = createRequire(anchor);\nreq('./x.js');\n${bind("anchor")}` });
     expect(classifiedAs(root)).toEqual([
       { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
     ]);
@@ -320,9 +335,10 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
 
   it("REQ-CST-04.4: the namespace form is caught", () => {
     const root = plantTree({
-      "entry.js": 'import * as m from "node:module";\nm.createRequire(anchor)("./x.js");\n',
+      "entry.js": `import * as m from "node:module";\nm.createRequire(anchor)("./x.js");\n${bind("anchor")}`,
     });
     expect(classifiedAs(root)).toEqual([
+      { rule: "constraint-4-undecidable-callee", file: "entry.js" },
       { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
     ]);
   });
@@ -330,7 +346,7 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
   it("REQ-CST-04.3: the anchored site's import binding and single resolution-only use are exempt", () => {
     const root = plantTree({
       [CREATE_REQUIRE_ANCHOR_FILE]:
-        'import { createRequire } from "node:module";\ncreateRequire(anchor).resolve(spec);\n',
+        `import { createRequire } from "node:module";\ncreateRequire(anchor).resolve(spec);\n${bind("anchor", "spec")}`,
     });
     expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([]);
   });
@@ -338,9 +354,10 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
   it("REQ-CST-04.1: a second createRequire use inside the anchored file still fails", () => {
     const root = plantTree({
       [CREATE_REQUIRE_ANCHOR_FILE]:
-        'import { createRequire } from "node:module";\ncreateRequire(a).resolve(s);\ncreateRequire(b)("./x.js");\n',
+        `import { createRequire } from "node:module";\ncreateRequire(a).resolve(s);\ncreateRequire(b)("./x.js");\n${bind("a", "s", "b")}`,
     });
     expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([
+      { rule: "constraint-4-undecidable-callee", file: CREATE_REQUIRE_ANCHOR_FILE },
       { rule: "constraint-4-inadmissible-origin", file: CREATE_REQUIRE_ANCHOR_FILE },
     ]);
   });
@@ -350,9 +367,10 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
   it("REQ-CST-04.3: an EXECUTING createRequire at the anchor is not exempt — resolve-only, never execute", () => {
     const root = plantTree({
       [CREATE_REQUIRE_ANCHOR_FILE]:
-        'import { createRequire } from "node:module";\ncreateRequire(anchor)("./x.js");\n',
+        `import { createRequire } from "node:module";\ncreateRequire(anchor)("./x.js");\n${bind("anchor")}`,
     });
     expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([
+      { rule: "constraint-4-undecidable-callee", file: CREATE_REQUIRE_ANCHOR_FILE },
       { rule: "constraint-4-inadmissible-origin", file: CREATE_REQUIRE_ANCHOR_FILE },
     ]);
   });
@@ -363,13 +381,16 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
   it("REQ-CST-04.3: an ALIASED createRequire import at the anchor forfeits the exemption entirely", () => {
     const root = plantTree({
       [CREATE_REQUIRE_ANCHOR_FILE]:
-        'import { createRequire as cr } from "node:module";\ncr(u)("./x.js");\ncr(u)("./y.js");\n',
+        `import { createRequire as cr } from "node:module";\ncr(u)("./x.js");\ncr(u)("./y.js");\n${bind("u")}`,
     });
     // S-002.5: exact count, not a lower bound — the fixture has exactly two executing calls
-    // through the alias (`cr(u)("./x.js")`, `cr(u)("./y.js")`) and nothing else denyable.
+    // through the alias (`cr(u)("./x.js")`, `cr(u)("./y.js")`) and nothing else denyable. Each
+    // contributes TWO findings: the aliased primitive's own inadmissible origin, and the
+    // invocation of its call result (a result invoked with no property name names no origin).
     const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
-    expect(violations.length).toBe(2);
-    expect(violations.every((v) => v.rule === "constraint-4-inadmissible-origin")).toBe(true);
+    expect(violations.filter((v) => v.rule === "constraint-4-inadmissible-origin").length).toBe(2);
+    expect(violations.filter((v) => v.rule === "constraint-4-undecidable-callee").length).toBe(2);
+    expect(violations.length).toBe(4);
   });
 
   // judgment-day Round 2: the alias check searched for THE binding and stopped at the first
@@ -382,14 +403,15 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
         'import { createRequire } from "node:module";',
         'import { createRequire as cr } from "node:module";',
         'cr(u)("./evil.cjs");',
-        "",
+        bind("u"),
       ].join("\n"),
     });
     // S-002.5: exact count — one executing call through the alias, the decoy import buys it
-    // nothing.
+    // nothing; the invoked call result is its own finding.
     const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
-    expect(violations.length).toBe(1);
-    expect(violations.every((v) => v.rule === "constraint-4-inadmissible-origin")).toBe(true);
+    expect(violations.filter((v) => v.rule === "constraint-4-inadmissible-origin").length).toBe(1);
+    expect(violations.filter((v) => v.rule === "constraint-4-undecidable-callee").length).toBe(1);
+    expect(violations.length).toBe(2);
   });
 
   it("REQ-CST-06.1: a rendered violation names the src file to edit, the rule, and the no-manifest outcome", () => {
@@ -416,10 +438,10 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
     const root = plantTree({
       "entry.js":
         'import "./p1.js";\nimport "./p2.js";\nimport "./p3.js";\nimport "./p4.js";\nimport "./p5.js";\n',
-      "p1.js": "export const r = eval(payload);\n",
-      "p2.js": "export const r = new Function(body);\n",
+      "p1.js": `export const r = eval(payload);\n${bind("payload")}`,
+      "p2.js": `export const r = new Function(body);\n${bind("body")}`,
       "p3.js": 'import "node:vm";\n',
-      "p4.js": "Bun.plugin(definition);\n",
+      "p4.js": `Bun.plugin(definition);\n${bind("definition")}`,
       "p5.js": "process.binding('fs');\n",
     });
     expect(classifiedAs(root)).toEqual([
@@ -474,6 +496,17 @@ function renderedFor(root: string, entry = "entry.js"): string {
     distDirName: "dist",
     srcDirName: "src",
   });
+}
+
+// Renders the WHOLE message of the ONE violation carrying `rule` (REQ-CST-06.1 stays
+// whole-verbatim; the rule identity is now pinned by construction rather than by reading the
+// rendered text). Needed where a fixture legitimately produces more than one true finding — a
+// `createRequire(x)(y)` shape denies both the primitive's origin and the invocation of its
+// call result, and each message is asserted against its own rule.
+function renderedForRule(root: string, rule: ViolationRule, entry = "entry.js"): string {
+  const matching = deriveRunnerClosure(root, entry).violations.filter((v) => v.rule === rule);
+  expect(matching.length).toBe(1);
+  return renderViolations(matching, { distDirName: "dist", srcDirName: "src" });
 }
 
 describe("FIT-42N S-002 — a failing classification names the facts the reader needs", () => {
@@ -772,7 +805,7 @@ describe("FIT-42N S-003 — Constraint 2: the sanction is per-SITE, not per-file
   // RP-3.
   it("REQ-CST-03.1: a dynamic import() outside the sanctioned file names Constraint 2", () => {
     const rendered = renderedFor(
-      plantTree({ "transport/session.js": "const later = import(specifier);\n" }),
+      plantTree({ "transport/session.js": `const later = import(specifier);\n${bind("specifier")}` }),
       "transport/session.js"
     );
     expect(rendered).toBe(
@@ -793,7 +826,7 @@ describe("FIT-42N S-003 — Constraint 2: the sanction is per-SITE, not per-file
   // RP-3 and fails only here.
   it("REQ-CST-03.2: a second import() inside the sanctioned file names the site and the per-SITE clause", () => {
     const root = plantTree({
-      [SANCTIONED_DYNAMIC_IMPORT_FILE]: "const f = import(moduleUrl);\nconst p = import(pluginUrl);\n",
+      [SANCTIONED_DYNAMIC_IMPORT_FILE]: `const f = import(moduleUrl);\nconst p = import(pluginUrl);\n${bind("moduleUrl", "pluginUrl")}`,
     });
     const rendered = renderedFor(root, SANCTIONED_DYNAMIC_IMPORT_FILE);
     expect(rendered).toBe(
@@ -814,8 +847,9 @@ describe("FIT-42N S-003 — Constraint 2: the sanction is per-SITE, not per-file
 describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE", () => {
   // RP-7. REQ-CST-06.1: whole-verbatim, never toContain (S-001.7).
   it("REQ-CST-04.1: a direct createRequire call names Constraint 4 and the primitive", () => {
-    const rendered = renderedFor(
-      plantTree({ "entry.js": 'createRequire(anchorUrl)("./x.js");\n' })
+    const rendered = renderedForRule(
+      plantTree({ "entry.js": `createRequire(anchorUrl)("./x.js");\n${bind("anchorUrl")}` }),
+      "constraint-4-inadmissible-origin"
     );
     expect(rendered).toBe(
       [
@@ -835,8 +869,9 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
 
   // RP-7b — the two forms a call-vs-.resolve() rule is defeated by.
   it("REQ-CST-04.4: the indirect-variable form is named by the construct it found", () => {
-    const rendered = renderedFor(
-      plantTree({ "entry.js": "const req = createRequire(anchorUrl);\nreq('./x.js');\n" })
+    const rendered = renderedForRule(
+      plantTree({ "entry.js": `const req = createRequire(anchorUrl);\nreq('./x.js');\n${bind("anchorUrl")}` }),
+      "constraint-4-inadmissible-origin"
     );
     expect(rendered).toBe(
       [
@@ -855,8 +890,9 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
   });
 
   it("REQ-CST-04.4: the namespace form is named by the construct it found", () => {
-    const rendered = renderedFor(
-      plantTree({ "entry.js": 'import * as m from "node:module";\nm.createRequire(u)("./x.js");\n' })
+    const rendered = renderedForRule(
+      plantTree({ "entry.js": `import * as m from "node:module";\nm.createRequire(u)("./x.js");\n${bind("u")}` }),
+      "constraint-4-inadmissible-origin"
     );
     expect(rendered).toBe(
       [
@@ -876,10 +912,10 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
 
   // RP-7c — one file per primitive, each naming its own.
   const primitives: Array<[string, string, string, string]> = [
-    ["eval", "p1.js", "export const r = eval(payload);\n", 'export const r = eval(payload);'],
-    ["Function", "p2.js", "export const r = new Function(body);\n", 'export const r = new Function(body);'],
+    ["eval", "p1.js", `export const r = eval(payload);\n${bind("payload")}`, 'export const r = eval(payload);'],
+    ["Function", "p2.js", `export const r = new Function(body);\n${bind("body")}`, 'export const r = new Function(body);'],
     ["node:vm", "p3.js", 'import "node:vm";\n', 'import "node:vm";'],
-    ["Bun.plugin", "p4.js", "Bun.plugin(definition);\n", 'Bun.plugin(definition);'],
+    ["Bun.plugin", "p4.js", `Bun.plugin(definition);\n${bind("definition")}`, 'Bun.plugin(definition);'],
     ["process.binding", "p5.js", "process.binding('fs');\n", "process.binding('fs');"],
   ];
 
@@ -1262,7 +1298,13 @@ describe("FIT-42N S-001 — REQ-CAP-03: callee decidability", () => {
 
   it('REQ-CAP-03.2 [red-proof]: (()=>{}).constructor("return 1")() — CONFIRMED LIVE ESCAPE (M2.2)', () => {
     const root = plantTree({ "entry.js": '(()=>{}).constructor("return 1")();\n' });
+    // TWO undecidable callees, both true of this one expression: the inner `.constructor` off an
+    // arrow function (no recognised terminal shape), and the outer invocation of that call's
+    // RESULT with no property name in between. The outer used to be admitted on the argument
+    // that the inner was independently caught — an argument that fails as soon as the inner
+    // callee IS admitted (`Reflect.get(globalThis, "eval")("1+1")`).
     expect(classifiedAs(root)).toEqual([
+      { rule: "constraint-4-undecidable-callee", file: "entry.js" },
       { rule: "constraint-4-undecidable-callee", file: "entry.js" },
     ]);
   });
@@ -1335,7 +1377,11 @@ describe("FIT-42N S-001 — REQ-CAP-05: positional decidability for denied roots
 
   it('REQ-CAP-05.2 [red-proof]: const F = Function; F("...") stays denied — the R1-17 sequencing hazard, closed (SC-2)', () => {
     const root = plantTree({ "entry.js": 'const F = Function;\nF("return 1");\n' });
+    // TWO findings: REQ-CAP-05 is enforced at the DENIED ROOT'S OWN OCCURRENCE (the initializer
+    // is not `instanceof`-RHS or `typeof`-operand), and the aliased call is denied by origin.
+    // Enforcing only the latter is what let `const G = F` launder the taint one hop further.
     expect(classifiedAs(root)).toEqual([
+      { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
       { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
     ]);
   });
@@ -1395,13 +1441,11 @@ const DENY_SCAN_FIXTURES: Readonly<Record<string, string>> = {
   "module-register-hooks.js": "module.registerHooks",
 };
 
-// The violation's own `detail` field, which is not always identical to the bare register
-// name above — `WebAssembly.instantiate(bytes)` (REQ-CST-04.2.8's own fixture form) is
-// caught as an inadmissible-origin CALLEE naming the full path, not the bare global alone.
-const DENY_SCAN_EXPECTED_DETAIL: Readonly<Record<string, string>> = {
-  ...DENY_SCAN_FIXTURES,
-  "web-assembly.js": "WebAssembly.instantiate",
-};
+// The violation's own `detail` field. Every fixture now names its register member VERBATIM —
+// `WebAssembly.instantiate(bytes)` is denied at the denied ROOT's occurrence (REQ-CAP-05), so it
+// reports `WebAssembly`, the register entry itself, rather than the fuller path it was reached
+// through. That is what REQ-CST-04.2's scenario asks for ("stderr names the primitive verbatim").
+const DENY_SCAN_EXPECTED_DETAIL: Readonly<Record<string, string>> = DENY_SCAN_FIXTURES;
 
 describe("FIT-42N S-001 — REQ-PRM-01: capability primitive register, fixture-completeness over the committed corpus", () => {
   it("REQ-PRM-01.1: the register is exactly 11 members, 10 with a deny-scan/ fixture plus createRequire's anchor", () => {
@@ -1887,7 +1931,7 @@ describe("FIT-42N S-002 — REQ-XPO-01.1/.2: anchor happy path, named-import and
   it("REQ-XPO-01.1: the anchor's named-import binding, used resolve-only, is exempt — zero violations", () => {
     const root = plantTree({
       [CREATE_REQUIRE_ANCHOR_FILE]:
-        'import { createRequire } from "node:module";\ncreateRequire(anchorUrl).resolve(specifier);\n',
+        `import { createRequire } from "node:module";\ncreateRequire(anchorUrl).resolve(specifier);\n${bind("anchorUrl", "specifier")}`,
     });
     expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([]);
   });
@@ -1901,7 +1945,7 @@ describe("FIT-42N S-002 — REQ-XPO-01.1/.2: anchor happy path, named-import and
   it("REQ-XPO-01.2: the anchor's namespace-form binding, used resolve-only, is now green — closes R2-5", () => {
     const root = plantTree({
       [CREATE_REQUIRE_ANCHOR_FILE]:
-        'import * as module from "node:module";\nmodule.createRequire(u).resolve(s);\n',
+        `import * as module from "node:module";\nmodule.createRequire(u).resolve(s);\n${bind("u", "s")}`,
     });
     expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([]);
   });
@@ -1911,36 +1955,72 @@ describe("FIT-42N S-002 — REQ-XPO-01.3: forfeit on any other arrangement", () 
   it("REQ-XPO-01.3 [red-proof]: an ALIASED createRequire binding at the anchor forfeits the exemption, every bound name denied", () => {
     const root = plantTree({
       [CREATE_REQUIRE_ANCHOR_FILE]:
-        'import { createRequire as cr } from "node:module";\ncr(u).resolve(s);\ncr(u)("./evil.js");\n',
+        `import { createRequire as cr } from "node:module";\ncr(u).resolve(s);\ncr(u)("./evil.js");\n${bind("u", "s")}`,
     });
     const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
     // Exact count (S-002.5: tighten to exact, no threshold): TWO uses of the aliased binding,
     // BOTH denied — aliasing forfeits the exemption entirely, so even the resolve-only-SHAPED
-    // first use gets no benefit of the doubt.
-    expect(violations.length).toBe(2);
-    expect(violations.every((v) => v.rule === "constraint-4-inadmissible-origin")).toBe(true);
+    // first use gets no benefit of the doubt. The executing use adds the invocation of its own
+    // call result, which names no origin.
+    expect(violations.filter((v) => v.rule === "constraint-4-inadmissible-origin").length).toBe(2);
+    expect(violations.filter((v) => v.rule === "constraint-4-undecidable-callee").length).toBe(1);
+    expect(violations.length).toBe(3);
   });
 });
 
 describe("FIT-42N S-002 — REQ-XPO-01.4 [red-proof]: re-export laundering is closed (M1.12)", () => {
   it("a createRequire re-exported through a closure file and imported by a second file is still denied", () => {
     const root = plantTree({
-      "entry.js": 'import { createRequire } from "./reexporter.js";\ncreateRequire(anchor)("./evil.js");\n',
+      "entry.js": `import { createRequire } from "./reexporter.js";\ncreateRequire(anchor)("./evil.js");\n${bind("anchor")}`,
       "reexporter.js": 'export { createRequire } from "node:module";\n',
     });
     // The exemption does not launder through a re-export: "entry.js" is not the anchor file,
-    // so no exemption is even computed for it — the register denies the primitive outright.
-    expect(classifiedAs(root)).toEqual([{ rule: "constraint-4-inadmissible-origin", file: "entry.js" }]);
+    // so no exemption is even computed for it — the register denies the primitive outright. The
+    // re-exporting file is denied on its own leg (see the ALIASED sibling below), and the
+    // executing use adds the invocation of its call result.
+    expect(classifiedAs(root)).toEqual([
+      { rule: "constraint-4-undecidable-callee", file: "entry.js" },
+      { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
+      { rule: "constraint-4-inadmissible-origin", file: "reexporter.js" },
+    ]);
   });
 
-  it("REQ-XPO-01.4: the re-exporting file itself reports zero violations — the danger is in the SECOND file's use, not the re-export declaration", () => {
+  // Previously asserted the re-exporting file reports ZERO violations, on the argument that
+  // "the danger is in the SECOND file's use". That argument holds only while the imported NAME
+  // matches the register — an ALIASED re-export (`as mkReq`) leaves no such name downstream and
+  // was admitted. The export-from leg now checks each named export's ORIGINAL name against the
+  // module's admitted-name set, exactly as the import leg checks each binding, so the laundering
+  // declaration is denied where it is written, alias or not.
+  it("REQ-XPO-01.4 [red-proof]: an ALIASED re-export of a register primitive is denied at the re-exporting file", () => {
+    const root = plantTree({
+      "entry.js": `import { mkReq } from "./reexporter.js";\nexport const out = mkReq("a")("./evil.cjs");\n`,
+      "reexporter.js": 'export { createRequire as mkReq } from "node:module";\n',
+    });
+    const violations = deriveRunnerClosure(root, "entry.js").violations;
+    const laundering = violations.filter(
+      (v) => v.file === "reexporter.js" && v.rule === "constraint-4-inadmissible-origin" && v.detail === "createRequire"
+    );
+    expect(laundering.length).toBe(1);
+  });
+
+  it("REQ-XPO-01.4: a re-export of an ADMITTED name from the same module family is not flagged — sibling positive", () => {
+    const root = plantTree({
+      "entry.js": 'import { existsSync } from "./reexporter.js";\nexport const r = existsSync(".");\n',
+      "reexporter.js": 'export { existsSync } from "node:fs";\n',
+    });
+    expect(classifiedAs(root)).toEqual([]);
+  });
+
+  it("REQ-XPO-01.4: the re-exporting file's own declaration is what carries the finding, not the unused downstream binding", () => {
     const root = plantTree({
       "entry.js": 'import { createRequire } from "./reexporter.js";\n',
       "reexporter.js": 'export { createRequire } from "node:module";\n',
     });
-    // entry.js imports the re-exported name but never CALLS it — a bare, unused import
-    // binding is a value-reference concern only (admitted, D-1/D-3), never a callee.
-    expect(classifiedAs(root)).toEqual([]);
+    // entry.js imports the re-exported name but never CALLS it; the finding belongs to the
+    // declaration that reached out of the closure for a register primitive.
+    expect(classifiedAs(root)).toEqual([
+      { rule: "constraint-4-inadmissible-origin", file: "reexporter.js" },
+    ]);
   });
 });
 
@@ -1968,5 +2048,285 @@ describe("FIT-42N S-002 — REQ-XPO-01.5 [red-proof]: anchor drift is caught (M1
     const derivation = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH);
     expect(derivation.nodes).toContain(CREATE_REQUIRE_ANCHOR_FILE);
     expect(findAnchorDriftViolations(derivation.nodes, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([]);
+  });
+});
+
+// ===========================================================================================
+// REQ-CAP-01/03/04/05, REQ-CST-04.2 — the laundering corpus. Every row is an EXECUTABLE
+// arbitrary-code-execution construct (each verified to run under `bun -e`) that reached the
+// admitted branch before the default-deny closure. A row declares the ONE denial that makes
+// its construct fail the build, by rule identity AND exact count of that (rule, detail) pair —
+// never an aggregate "some violation fired", and never a threshold. Other true findings in the
+// same fixture are permitted (a laundering chain legitimately produces a finding per hop); the
+// `zero-hop` guard below is what forbids a row from passing vacuously.
+// ===========================================================================================
+
+function denialsIn(files: Record<string, string>, entry = "entry.js"): Array<{ rule: string; detail: string }> {
+  return deriveRunnerClosure(plantTree(files), entry).violations.map(({ rule, detail }) => ({
+    rule,
+    detail: detail ?? "",
+  }));
+}
+
+interface LaunderingRow {
+  readonly id: string;
+  readonly files: Record<string, string>;
+  readonly rule: ViolationRule;
+  readonly detail: string;
+  readonly count: number;
+}
+
+const LAUNDERING_CORPUS: readonly LaunderingRow[] = [
+  // (a) a denied ROOT identifier laundered through aliases, object carriers and returns.
+  // REQ-CAP-05: any position other than `instanceof`-RHS / `typeof`-operand is a violation,
+  // enforced at the DENIED ROOT'S OWN OCCURRENCE — not at whichever alias is eventually called.
+  {
+    id: "a1 two-hop alias: const F = Function; const G = F; G(...)",
+    files: { "entry.js": 'const F = Function;\nconst G = F;\nexport const r = G("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "Function",
+    count: 2,
+  },
+  {
+    id: "a2 two-hop eval alias: const e = eval; const e2 = e; e2(...)",
+    files: { "entry.js": 'const e = eval;\nconst e2 = e;\nexport const r = e2("1+1");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "eval",
+    count: 2,
+  },
+  {
+    id: "a3 object-property carrier: o.F = Function; o.F(...)",
+    files: { "entry.js": 'const o = {};\no.F = Function;\nexport const r = o.F("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "Function",
+    count: 1,
+  },
+  {
+    id: "a4 return of a denied root: function h(){ return Function } h()(...)",
+    files: { "entry.js": 'function h() { return Function; }\nexport const r = h()("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "Function",
+    count: 1,
+  },
+  {
+    id: "a5 computed global read laundered to a callee: g = globalThis[k]; f = g; f(...)",
+    files: { "entry.js": 'const k = "eval";\nconst g = globalThis[k];\nconst f = g;\nexport const r = f("1+1");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "g",
+    count: 1,
+  },
+  // (b) a member path rooted at a denied register primitive, read in VALUE position.
+  {
+    id: "b1 Function.prototype.constructor in an initializer",
+    files: { "entry.js": 'const C = Function.prototype.constructor;\nexport const r = C("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "Function",
+    count: 2,
+  },
+  {
+    id: "b2 destructured Function.prototype: const { constructor: C } = Function.prototype",
+    files: { "entry.js": 'const { constructor: C } = Function.prototype;\nexport const r = C("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "Function",
+    count: 2,
+  },
+  {
+    id: "b3 WebAssembly.instantiate read as a value, called through the alias",
+    files: { "entry.js": "const w = WebAssembly.instantiate;\nexport function go(b) { return w(b); }\n" },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "WebAssembly",
+    count: 2,
+  },
+  {
+    id: "b4 cross-file: lib.js exports Function.prototype.constructor, entry.js calls it",
+    files: {
+      "lib.js": "export const C = Function.prototype.constructor;\n",
+      "entry.js": 'import { C } from "./lib.js";\nexport const r = C("return 1")();\n',
+    },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "Function",
+    count: 1,
+  },
+  {
+    id: "b5 destructured register member: const { binding } = process",
+    files: { "entry.js": 'const { binding } = process;\nexport const r = binding("fs");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "process.binding",
+    count: 1,
+  },
+  {
+    id: "b6 aliased admitted global: const p = process; p.binding(...)",
+    files: { "entry.js": 'const p = process;\nexport const r = p.binding("fs");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "process.binding",
+    count: 1,
+  },
+  // (c) `safe-terminal` — a chain whose base is a literal or a call RESULT, which had no origin
+  // check and no member-path check at all. `constructor`/`prototype`/`__proto__` are the
+  // segments that walk out of a value into the constructor graph; with no identifier root there
+  // is no table against which the resulting path could be checked, so they cannot be admitted.
+  {
+    id: 'c1 "".constructor.constructor("return 1")()',
+    files: { "entry.js": 'export const r = "".constructor.constructor("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: '"".constructor.constructor',
+    count: 1,
+  },
+  {
+    id: "c2 [].constructor.constructor(...)()",
+    files: { "entry.js": 'export const r = [].constructor.constructor("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "[].constructor.constructor",
+    count: 1,
+  },
+  {
+    id: "c3 ({}).constructor.constructor(...)()",
+    files: { "entry.js": 'export const r = ({}).constructor.constructor("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "({}).constructor.constructor",
+    count: 1,
+  },
+  {
+    id: "c4 /x/.constructor.constructor(...)()",
+    files: { "entry.js": 'export const r = /x/.constructor.constructor("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "/x/.constructor.constructor",
+    count: 1,
+  },
+  {
+    id: "c5 Reflect.get(globalThis, \"eval\")(\"1+1\") — an admitted call's result invoked directly",
+    files: { "entry.js": 'export const r = Reflect.get(globalThis, "eval")("1+1");\n' },
+    rule: "constraint-4-undecidable-callee",
+    detail: 'Reflect.get(globalThis, "eval")',
+    count: 1,
+  },
+  {
+    id: 'c6 Reflect.get(globalThis, "process") — reflective computed read of a global',
+    files: { "entry.js": 'export const r = Reflect.get(globalThis, "process");\n' },
+    rule: "unclassifiable-construct",
+    detail: 'Reflect.get(globalThis, "process")',
+    count: 1,
+  },
+  {
+    id: "c7 Object.getPrototypeOf(f).constructor(...)()",
+    files: { "entry.js": 'function f() {}\nexport const r = Object.getPrototypeOf(f).constructor("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "Object.getPrototypeOf(f).constructor",
+    count: 1,
+  },
+  {
+    id: "c8 Object.getPrototypeOf(() => {}).constructor(...)()",
+    files: { "entry.js": 'export const r = Object.getPrototypeOf(() => {}).constructor("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "Object.getPrototypeOf(() => {}).constructor",
+    count: 1,
+  },
+  {
+    id: "c9 (globalThis ?? {}).eval(...) — a ?? fallback hides the global root",
+    files: { "entry.js": 'export const r = (globalThis ?? {}).eval("2+2");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "globalThis.eval",
+    count: 1,
+  },
+  {
+    id: "c10 aliased global: const g = globalThis; g.eval(...)",
+    files: { "entry.js": 'const g = globalThis;\nexport const r = g.eval("1+1");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "globalThis.eval",
+    count: 1,
+  },
+  {
+    id: "c11 setTimeout(eval, 0, \"3+3\") — a denied root passed as an argument",
+    files: { "entry.js": 'setTimeout(eval, 0, "3+3");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "eval",
+    count: 1,
+  },
+  {
+    id: 'c12 Promise.resolve("5+5").then(eval)',
+    files: { "entry.js": 'export const r = Promise.resolve("5+5").then(eval);\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "eval",
+    count: 1,
+  },
+  {
+    id: 'c13 ["return 1"].map(Function)',
+    files: { "entry.js": 'export const r = ["return 1"].map(Function);\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "Function",
+    count: 1,
+  },
+  {
+    id: "c14 x()() — a call result invoked with no property name in between",
+    files: { "entry.js": "function x() { return () => 1; }\nexport const r = x()();\n" },
+    rule: "constraint-4-undecidable-callee",
+    detail: "x()",
+    count: 1,
+  },
+];
+
+describe("FIT-42N S-001 — REQ-CAP-01/03/04/05 + REQ-CST-04.2: the laundering corpus is denied, per hop", () => {
+  for (const row of LAUNDERING_CORPUS) {
+    it(`REQ-CAP-05 / REQ-CST-04.2: ${row.id}`, () => {
+      const matching = denialsIn(row.files).filter((v) => v.rule === row.rule && v.detail === row.detail);
+      expect(matching.length).toBe(row.count);
+    });
+  }
+
+  // Non-vacuity of the corpus itself: no row may pass because "everything violates". The
+  // structurally-identical green siblings below use the SAME shapes (aliases, destructuring,
+  // call-result bases, `??` fallbacks, literal receivers, computed reads) through admitted
+  // origins, and must report zero violations.
+  const GREEN_SIBLINGS: Readonly<Record<string, string>> = {
+    "alias of a local": "function helper() { return 1; }\nconst h = helper;\nexport const r = h();\n",
+    "destructuring a local object": "const o = { a: 1 };\nconst { a } = o;\nexport const r = a;\n",
+    "call result with one property name": "function als() { return { getStore() { return 1; } }; }\nexport const r = als().getStore();\n",
+    "?? fallback on a local": "const o = { a: { b() { return 1; } } };\nexport const r = (o.a ?? {}).b();\n",
+    "regex literal receiver": 'export const r = /re/.test("s");\n',
+    "string literal receiver": 'export const r = "abc".slice(1);\n',
+    "array literal receiver": "export const r = [1, 2].map((n) => n + 1);\n",
+    "computed read off a local": "const arr = [1, 2];\nconst i = 0;\nexport const r = arr[i];\n",
+    "symbol-keyed computed read off globalThis": 'const key = Symbol.for("pbuilder.slot");\nexport const r = globalThis[key];\n',
+    "admitted member paths": 'const o = {};\nObject.defineProperty(o, "a", { value: 1 });\nexport const r = Object.getPrototypeOf(o) === Object.prototype;\n',
+    "process.stdout.write.bind": "let w = process.stdout.write.bind(process.stdout);\nw = process.stdout.write.bind(process.stdout);\nexport const r = w;\n",
+    "Reflect.get off a local": 'const o = { a: 1 };\nexport const r = Reflect.get(o, "a");\n',
+  };
+
+  for (const [id, source] of Object.entries(GREEN_SIBLINGS)) {
+    it(`REQ-CAP-04: green sibling — ${id} — reports zero violations`, () => {
+      expect(denialsIn({ "entry.js": source })).toEqual([]);
+    });
+  }
+});
+
+describe("FIT-42N S-001 — REQ-CAP-01.3 [red-proof]: unclassifiable is fail-closed, never a third pass path", () => {
+  // The signed GIVEN: "a construct no admission leg (REQ-CAP-03/04/05) can resolve (a computed
+  // member expression on a computed base)". A computed access on an admitted-global root can
+  // name ANY global, including a denied one, and its key is not statically resolvable — so no
+  // leg resolves it and it renders `unclassifiable-construct` rather than a silent pass. The
+  // ruling on this scenario (verify-report.md, deferred-item (a)) directs it to be realised as
+  // one of C-1's red-proofs rather than by widening the pinned SurfaceNodeKind union.
+  it("REQ-CAP-01.3 [red-proof]: globalThis[k][k] in VALUE position is unclassifiable-construct", () => {
+    const matching = denialsIn({ "entry.js": 'const k = "eval";\nexport const r = globalThis[k][k];\n' }).filter(
+      (v) => v.rule === "unclassifiable-construct" && v.detail === "globalThis[k][k]"
+    );
+    expect(matching.length).toBe(1);
+  });
+
+  it("REQ-CAP-01.3: the build exits non-zero and leaves no manifest for that construct", () => {
+    // Pre-seeded with a VALID prior manifest, so a fail-open bug would leave a plausible-looking
+    // stale artefact rather than an absence — the same precondition FIT-FAILCLOSED-BICONDITIONAL
+    // uses. The construct is planted into a real closure file of a real dist/ copy.
+    const root = preSeededRoot();
+    expect(existsSync(manifestPathIn(root))).toBe(true);
+    appendFileSync(
+      join(root, "dist", ENTRY_RELATIVE_PATH),
+      '\nconst k = "eval";\nexport const r = globalThis[k][k];\n',
+      "utf-8"
+    );
+    const result = runGeneratorAt(root);
+    expect(result.status).not.toBe(0);
+    expect(existsSync(manifestPathIn(root))).toBe(false);
+    expect((result.stderr as unknown as string).includes("globalThis[k][k]")).toBe(true);
   });
 });

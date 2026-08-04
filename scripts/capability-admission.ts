@@ -184,6 +184,14 @@ export interface ExemptionProof {
 export interface FileContext {
   readonly file: ClosurePath;
   readonly bindings: ReadonlyMap<string, BindingOrigin>;
+  /**
+   * Bindings that ARE a member chain rather than an opaque local — `const p = process` and
+   * `const { binding } = process` both record `process.binding`'s reach. One hop, resolved at
+   * classification time, so `p.binding(…)` is decided as `process.binding(…)` is.
+   */
+  readonly aliases: ReadonlyMap<string, { readonly rootName: string; readonly path: readonly string[] }>;
+  /** Names bound to a `Symbol(…)`/`Symbol.for(…)` result — the only decidable computed keys. */
+  readonly symbolKeyed: ReadonlySet<string>;
   readonly reassignedImports: readonly string[];
   readonly reassignedModuleLocals: readonly string[];
   readonly exemption: ExemptionProof | undefined;
@@ -205,6 +213,10 @@ function isDeclarationName(id: Identifier): boolean {
   if (Node.isClassDeclaration(parent) && parent.getNameNode() === id) return true;
   if (Node.isImportSpecifier(parent)) return true;
   if (Node.isImportClause(parent)) return true;
+  // `export { x } from "mod"` names a member of ANOTHER module — not a reference to anything in
+  // this file's scope, and admitted per-name by the module-specifier leg instead. A LOCAL
+  // `export { x }` is a genuine reference and stays enumerated.
+  if (Node.isExportSpecifier(parent) && parent.getExportDeclaration().getModuleSpecifier() !== undefined) return true;
   if (Node.isNamespaceImport(parent)) return true;
   if (Node.isCatchClause(parent)) return true;
   return false;
@@ -222,6 +234,11 @@ function isPropertyNamePosition(id: Identifier): boolean {
   if (Node.isGetAccessorDeclaration(parent) && parent.getNameNode() === id) return true;
   if (Node.isSetAccessorDeclaration(parent) && parent.getNameNode() === id) return true;
   if (Node.isBindingElement(parent) && parent.getPropertyNameNode() === id) return true;
+  // A class field's own name (`origin;`, `appliedCount;`) is a member declaration exactly like
+  // MethodDeclaration/GetAccessor above — a binding site, never a reference. 13 such nodes exist
+  // in the real closure; without this they surface as free identifiers bound to nothing, which
+  // is why "an unresolvable free root is a violation" could not be enforced before.
+  if (Node.isPropertyDeclaration(parent) && parent.getNameNode() === id) return true;
   return false;
 }
 
@@ -240,17 +257,32 @@ function isDynamicImportCall(node: Node): boolean {
   return Node.isCallExpression(node) && node.getExpression().getKind() === SyntaxKind.ImportKeyword;
 }
 
-/** Walks a maximal non-computed PropertyAccessExpression chain down to its root expression. */
-function maximalAccessRoot(access: Node): Node {
-  let cur = access;
-  while (Node.isPropertyAccessExpression(cur)) cur = cur.getExpression();
-  return cur;
+/**
+ * The base expression of a member-chain link — `a` in both `a.b` and `a[b]`. `undefined` when
+ * the node is not a link. Both spellings are member accesses; only the non-computed one is
+ * decidable, which is a classification concern, not an enumeration one.
+ */
+function chainLinkBase(node: Node): Node | undefined {
+  if (Node.isPropertyAccessExpression(node) || Node.isElementAccessExpression(node)) return node.getExpression();
+  return undefined;
 }
 
+/** Walks a maximal member chain (computed links included) down to its root expression. */
+function maximalAccessRoot(access: Node): Node {
+  let cur = access;
+  for (;;) {
+    const base = chainLinkBase(cur);
+    if (base === undefined) return cur;
+    cur = base;
+  }
+}
+
+/** The dotted path for a fully non-computed chain; the raw source text once a link is computed. */
 function chainText(root: Node, leaf: Node): string {
   const segments: string[] = [];
   let cur: Node = leaf;
-  while (Node.isPropertyAccessExpression(cur) && cur !== root) {
+  while (cur !== root) {
+    if (!Node.isPropertyAccessExpression(cur)) return oneLine(leaf.getText());
     segments.unshift(cur.getName());
     cur = cur.getExpression();
   }
@@ -306,24 +338,30 @@ export function enumerateCapabilitySurface(sourceFile: SourceFile): readonly Sur
     // an Identifier, mark every link consumed — `m.createRequire` as a callee means `m`
     // itself is never ALSO a standalone value-reference surface node.
     let chainCursor: Node = callee;
-    while (Node.isPropertyAccessExpression(chainCursor)) {
+    for (let base = chainLinkBase(chainCursor); base !== undefined; base = chainLinkBase(chainCursor)) {
       consumedAsChainSegment.add(chainCursor);
-      chainCursor = chainCursor.getExpression();
+      chainCursor = base;
     }
     if (Node.isIdentifier(chainCursor)) consumedAsChainSegment.add(chainCursor);
     nodes.push({ kind: "callee", node: callee, text: oneLine(callee.getText()), line: callee.getStartLineNumber() });
   }
 
-  // 4. member-path / value-reference — every remaining free-identifier-rooted reference.
-  for (const access of sourceFile.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)) {
+  // 4. member-path / value-reference — every remaining identifier-rooted member chain. COMPUTED
+  //    links (`a[k]`) are enumerated here too: a computed access is still a member access, and
+  //    leaving the whole `x[k]` family unenumerated is what made `unclassifiable-construct`
+  //    structurally unreachable in value position (REQ-CAP-01.3).
+  for (const access of [
+    ...sourceFile.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression),
+    ...sourceFile.getDescendantsOfKind(SyntaxKind.ElementAccessExpression),
+  ]) {
     const parent = access.getParent();
-    if (parent && Node.isPropertyAccessExpression(parent) && parent.getExpression() === access) {
+    if (parent !== undefined && chainLinkBase(parent) === access) {
       continue; // not maximal — the outer access is the surface node
     }
     if (calleeExpressions.has(access)) continue; // already a callee surface node
 
     const root = maximalAccessRoot(access);
-    if (!Node.isIdentifier(root)) continue; // computed/complex base — not a member-path shape
+    if (!Node.isIdentifier(root)) continue; // complex base — not a member-path shape
     consumedAsChainSegment.add(root);
     nodes.push({
       kind: "member-path",
@@ -418,17 +456,32 @@ function taintReasonOf(initializer: Node | undefined): TaintReason | undefined {
   if (Node.isPropertyAccessExpression(initializer) || Node.isCallExpression(initializer) || Node.isNewExpression(initializer)) {
     const resolution = resolveChain(initializer);
     if (resolution === undefined) return "undecidable-initializer";
-    if (resolution.kind === "identifier-rooted") {
-      const path = [resolution.chain.rootName, ...resolution.chain.path].join(".");
-      if (DENIED_CAPABILITY_PRIMITIVES.has(path)) return "denied-initializer";
+    if (resolution.kind === "computed") return "computed-initializer";
+    if (resolution.kind === "safe-terminal") {
+      // A call RESULT held in a binding is an ordinary return value (`process.stdout.write.bind(…)`)
+      // — the inner callee was admitted on its own merits. Only a prototype-graph escape taints.
+      return resolution.path.some((segment) => PROTOTYPE_ESCAPE_SEGMENTS.has(segment)) ? "denied-initializer" : undefined;
     }
+    // A register primitive reached as the chain's ROOT taints too, not only as its full path:
+    // `Function.prototype.constructor` names `Function`.
+    if (deniedPrimitiveIn(resolution.chain) !== undefined) return "denied-initializer";
   }
   return undefined;
+}
+
+/** The member chain a binding IS, when its initializer names one. `undefined` = opaque local. */
+function aliasChainOf(initializer: Node | undefined): { readonly rootName: string; readonly path: readonly string[] } | undefined {
+  if (initializer === undefined) return undefined;
+  if (!Node.isIdentifier(initializer) && !Node.isPropertyAccessExpression(initializer)) return undefined;
+  const resolution = resolveChain(initializer);
+  return resolution?.kind === "identifier-rooted" ? resolution.chain : undefined;
 }
 
 /** Per-file facts resolved once — scope chain, import bindings, reassignments, exemption. */
 export function buildFileContext(sourceFile: SourceFile, opts: { readonly file: ClosurePath; readonly isAnchorFile: boolean }): FileContext {
   const bindings = new Map<string, BindingOrigin>();
+  const aliases = new Map<string, { readonly rootName: string; readonly path: readonly string[] }>();
+  const symbolKeyed = new Set<string>();
   const reassignedImports: string[] = [];
   const reassignedModuleLocals: string[] = [];
   const reassignmentViolations: Array<{ readonly node: Node; readonly name: string }> = [];
@@ -454,15 +507,30 @@ export function buildFileContext(sourceFile: SourceFile, opts: { readonly file: 
   // classes, parameters, destructuring — bound "local", tainted if the initializer warrants.
   for (const decl of sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration)) {
     const nameNode = decl.getNameNode();
+    const initializer = decl.getInitializer();
     if (!Node.isIdentifier(nameNode)) continue; // destructuring handled by its BindingElements below
-    const reason = taintReasonOf(decl.getInitializer());
+    const reason = taintReasonOf(initializer);
     bindings.set(nameNode.getText(), reason === undefined ? { kind: "local" } : { kind: "tainted", reason });
+    const alias = aliasChainOf(initializer);
+    if (alias !== undefined) aliases.set(nameNode.getText(), alias);
+    if (initializer !== undefined && isSymbolProducingCall(initializer)) symbolKeyed.add(nameNode.getText());
   }
+  // A destructured binding is a MEMBER of whatever was destructured — `const { binding } =
+  // process` reaches `process.binding`. Binding it as an opaque `local` with no initializer
+  // analysis at all was the destructuring half of the same laundering family.
   for (const el of sourceFile.getDescendantsOfKind(SyntaxKind.BindingElement)) {
     const nameNode = el.getNameNode();
-    if (Node.isIdentifier(nameNode) && !bindings.has(nameNode.getText())) {
-      bindings.set(nameNode.getText(), { kind: "local" });
+    if (!Node.isIdentifier(nameNode)) continue;
+    const declaration = el.getFirstAncestorByKind(SyntaxKind.VariableDeclaration);
+    const source = declaration?.getInitializer();
+    const memberName = el.getPropertyNameNode()?.getText() ?? nameNode.getText();
+    const sourceChain = Node.isObjectBindingPattern(el.getParent()) ? aliasChainOf(source) : undefined;
+    if (sourceChain !== undefined) {
+      aliases.set(nameNode.getText(), { rootName: sourceChain.rootName, path: [...sourceChain.path, memberName] });
     }
+    if (bindings.has(nameNode.getText())) continue;
+    const reason = sourceChain === undefined ? taintReasonOf(source) : undefined;
+    bindings.set(nameNode.getText(), reason === undefined ? { kind: "local" } : { kind: "tainted", reason });
   }
   for (const fn of sourceFile.getDescendantsOfKind(SyntaxKind.FunctionDeclaration)) {
     const name = fn.getName();
@@ -554,7 +622,7 @@ export function buildFileContext(sourceFile: SourceFile, opts: { readonly file: 
     }
   }
 
-  return { file: opts.file, bindings, reassignedImports, reassignedModuleLocals, exemption, reassignmentViolations };
+  return { file: opts.file, bindings, aliases, symbolKeyed, reassignedImports, reassignedModuleLocals, exemption, reassignmentViolations };
 }
 
 // ---------------------------------------------------------------------------------------
@@ -566,23 +634,63 @@ interface ResolvedChain {
   readonly path: readonly string[];
 }
 
-type ChainResolution = { readonly kind: "identifier-rooted"; readonly chain: ResolvedChain } | { readonly kind: "safe-terminal" };
+type ChainResolution =
+  | { readonly kind: "identifier-rooted"; readonly chain: ResolvedChain }
+  | { readonly kind: "safe-terminal"; readonly terminal: "value" | "call-result"; readonly path: readonly string[] }
+  | { readonly kind: "computed"; readonly access: Node };
+
+/**
+ * Property names that walk OUT of a value and into its constructor/prototype graph. On an
+ * identifier-rooted chain these are decided by `ADMITTED_MEMBER_PATHS` (which is why
+ * `process.stdout.constructor` is already denied and `Object.prototype` is already admitted).
+ * On a chain with no identifier root there is no path to look up, so nothing can check them —
+ * and every class-(c) escape (`"".constructor.constructor`, `Object.getPrototypeOf(f)
+ * .constructor`) is exactly one such segment off a literal or a call result.
+ */
+const PROTOTYPE_ESCAPE_SEGMENTS: ReadonlySet<string> = new Set(["constructor", "__proto__", "prototype"]);
+
+/**
+ * Admitted member paths that PERFORM a computed member access, mapping the accessor to the
+ * argument positions of its base and key. `Reflect.get(o, k)` IS `o[k]`; admitting the accessor
+ * without classifying the access it performs is how `Reflect.get(globalThis, "eval")` read as
+ * an ordinary admitted call. A new reflective entry in `ADMITTED_MEMBER_PATHS` needs a row here.
+ */
+const REFLECTIVE_ACCESSORS: ReadonlyMap<string, { readonly base: number; readonly key: number }> = new Map([
+  ["Reflect.get", { base: 0, key: 1 }],
+]);
+
+/** `a ?? b` resolves through `a` only when `b` cannot itself name a capability. */
+function isPlainFallback(node: Node): boolean {
+  return (
+    Node.isObjectLiteralExpression(node) ||
+    Node.isArrayLiteralExpression(node) ||
+    Node.isStringLiteral(node) ||
+    Node.isNoSubstitutionTemplateLiteral(node) ||
+    Node.isNumericLiteral(node) ||
+    node.getKind() === SyntaxKind.NullKeyword ||
+    node.getKind() === SyntaxKind.TrueKeyword ||
+    node.getKind() === SyntaxKind.FalseKeyword
+  );
+}
 
 /**
  * Walks a callee/member-path expression to its root. A chain is decidable when EVERY link is
- * one of: a non-computed property access, a parenthesized/non-null wrapper, or a terminal
- * that is either an Identifier (needs origin admission) or structurally incapable of naming
- * an externally-sourced capability — `this`/`super`, a call/`new` RESULT (the call's OWN
- * callee is independently enumerated and admitted/denied on its own), a literal, or a `??`
- * fallback. `this.#pending.push(...)`, `getRunAls().getStore()`, `/re/.test(...)` and
- * `createRequire(anchor).resolve(...)` (the exemption's own outer call) are real-closure
- * examples of "safe-terminal" chains — probe-verified 0/423 undecidable callees on this
- * branch depends on all four being admitted, not just the identifier-rooted case.
+ * one of: a non-computed property access, a parenthesized/non-null wrapper, a `??` whose
+ * fallback is a literal, or a terminal that is either an Identifier (needs origin admission)
+ * or structurally incapable of naming an externally-sourced capability — `this`/`super`, a
+ * literal, or a call/`new` RESULT. `this.#pending.push(...)`, `getRunAls().getStore()`,
+ * `/re/.test(...)`, `(property.choices ?? []).join(...)` and `createRequire(anchor).resolve(...)`
+ * (the exemption's own outer call) are the real-closure "safe-terminal" shapes — probe-verified
+ * 0/423 undecidable callees on this branch depends on them being admitted.
  *
- * ANY computed (`[...]`) access anywhere in the chain, or a callee that is ITSELF a bare
- * call/`new` result invoked with no further property name (`x()()`), is undecidable — this
- * is the shape M2.1 (`globalThis["ev"+"al"]`) and M2.2's outer call
- * (`(()=>{}).constructor(...)()`) share, and the only shape REQ-CAP-03 exists to deny.
+ * A safe terminal is NOT an admission: it says "the base cannot name its origin", and the
+ * caller still has to decide what the PATH off that base is allowed to be. `??` resolves
+ * through its left operand instead of terminating, so `(globalThis ?? {}).eval` cannot use the
+ * fallback to hide a global root.
+ *
+ * A computed link makes the chain undecidable as a callee (M2.1 `globalThis["ev"+"al"]`) and
+ * `unclassifiable` as a value off a global root — it is returned as its own kind rather than
+ * as `undefined` so the two cases can be reported under their own true rules.
  */
 function resolveChain(expr: Node): ChainResolution | undefined {
   const path: string[] = [];
@@ -598,22 +706,80 @@ function resolveChain(expr: Node): ChainResolution | undefined {
       cur = cur.getExpression();
       continue;
     }
+    if (Node.isElementAccessExpression(cur)) return { kind: "computed", access: cur };
+    if (Node.isBinaryExpression(cur) && cur.getOperatorToken().getText() === "??") {
+      if (!isPlainFallback(cur.getRight())) return undefined; // two roots for one chain
+      cur = cur.getLeft();
+      continue;
+    }
+    if (Node.isCallExpression(cur) || Node.isNewExpression(cur)) {
+      return { kind: "safe-terminal", terminal: "call-result", path };
+    }
     if (
       cur.getKind() === SyntaxKind.ThisKeyword ||
       cur.getKind() === SyntaxKind.SuperKeyword ||
-      Node.isCallExpression(cur) ||
-      Node.isNewExpression(cur) ||
       Node.isRegularExpressionLiteral(cur) ||
       Node.isStringLiteral(cur) ||
       Node.isNoSubstitutionTemplateLiteral(cur) ||
       Node.isArrayLiteralExpression(cur) ||
-      Node.isObjectLiteralExpression(cur) ||
-      (Node.isBinaryExpression(cur) && cur.getOperatorToken().getText() === "??")
+      Node.isObjectLiteralExpression(cur)
     ) {
-      return { kind: "safe-terminal" };
+      return { kind: "safe-terminal", terminal: "value", path };
     }
-    return undefined; // computed access, or any other shape that cannot name its origin
+    return undefined; // any other shape that cannot name its origin
   }
+}
+
+/**
+ * REQ-CAP-05, at the DENIED ROOT'S OWN OCCURRENCE: a chain that names a register primitive —
+ * as its root (`Function.prototype.constructor`) or as its full path (`process.binding`) — is a
+ * violation in EVERY position bar `instanceof`-RHS / `typeof`-operand, which the value-reference
+ * leg admits before origin classification is ever reached. Enforcing this at the occurrence
+ * rather than at whichever alias is eventually CALLED is what closes the whole aliasing family
+ * with no dataflow at all.
+ */
+function deniedPrimitiveIn(chain: ResolvedChain): string | undefined {
+  if (DENIED_CAPABILITY_PRIMITIVES.has(chain.rootName)) return chain.rootName;
+  const fullPath = [chain.rootName, ...chain.path].join(".");
+  return DENIED_CAPABILITY_PRIMITIVES.has(fullPath) ? fullPath : undefined;
+}
+
+/** One hop of alias substitution: a binding that IS a chain is classified as that chain. */
+function substituteAlias(chain: ResolvedChain, ctx: FileContext): ResolvedChain {
+  const alias = ctx.aliases.get(chain.rootName);
+  if (alias === undefined) return chain;
+  return { rootName: alias.rootName, path: [...alias.path, ...chain.path] };
+}
+
+/**
+ * A computed member access is decidable only when its ROOT cannot name an arbitrary capability.
+ * Off a local value it is ordinary indexing (36 real-closure sites). Off a global namespace
+ * object it can name ANY global including a denied one, so it is `unclassifiable-construct`
+ * (REQ-CAP-01.3) — unless the key resolves to a Symbol, which cannot name a string-keyed
+ * language capability (the real closure's `globalThis[Symbol.for(…)]` registry slot).
+ */
+function classifyComputedAccess(access: Node, text: string, ctx: FileContext): Disposition {
+  const root = maximalAccessRoot(access);
+  if (!Node.isIdentifier(root)) return { kind: "unclassifiable", detail: text };
+  const chain = substituteAlias({ rootName: root.getText(), path: [] }, ctx);
+  const rootIsGlobal =
+    DENIED_CAPABILITY_PRIMITIVES.has(chain.rootName) || ctx.bindings.get(chain.rootName)?.kind === "admitted-global";
+  if (!rootIsGlobal) return { kind: "admitted", via: "local" };
+  const key = Node.isElementAccessExpression(access) ? access.getArgumentExpression() : undefined;
+  if (key !== undefined && isSymbolKey(key, ctx)) return { kind: "admitted", via: "local" };
+  return { kind: "unclassifiable", detail: text };
+}
+
+function isSymbolProducingCall(node: Node): boolean {
+  if (!Node.isCallExpression(node)) return false;
+  const resolution = resolveChain(node.getExpression());
+  if (resolution?.kind !== "identifier-rooted") return false;
+  return [resolution.chain.rootName, ...resolution.chain.path].join(".") === "Symbol.for" || resolution.chain.rootName === "Symbol";
+}
+
+function isSymbolKey(key: Node, ctx: FileContext): boolean {
+  if (isSymbolProducingCall(key)) return true;
+  return Node.isIdentifier(key) && ctx.symbolKeyed.has(key.getText());
 }
 
 let anchorExemptionConsumed = false;
@@ -640,23 +806,30 @@ function findRootIdentifier(node: Node): Node | undefined {
 
 /** Origin admission + member-path admission, shared by callee/member-path/value-reference legs. */
 function classifyOrigin(
-  chain: ResolvedChain,
+  rawChain: ResolvedChain,
   ctx: FileContext,
   opts: { readonly isCalleePosition: boolean; readonly node: Node }
 ): Disposition {
-  if (checkExemption(opts.node, chain, ctx)) {
+  if (checkExemption(opts.node, rawChain, ctx)) {
     return { kind: "admitted", via: "exempt-anchor" };
   }
 
+  // A binding that IS a chain is classified as that chain: `const p = process; p.binding(…)` and
+  // `const { binding } = process` are `process.binding` however they are spelled, and a copied
+  // taint (`const G = F`) resolves to the origin of what it copied.
+  const chain = substituteAlias(rawChain, ctx);
   const origin = ctx.bindings.get(chain.rootName);
   const fullPathOfChain = [chain.rootName, ...chain.path].join(".");
 
+  const deniedPrimitive = deniedPrimitiveIn(chain);
+  if (deniedPrimitive !== undefined) {
+    return { kind: "violation", rule: "constraint-4-inadmissible-origin", detail: deniedPrimitive };
+  }
+
   if (origin === undefined) {
-    // Genuinely free, not in ADMITTED_GLOBALS, not local, not imported — e.g. `eval`,
-    // `Function`, `WebAssembly` referenced bare, or a member-path-shaped register primitive
-    // (`Bun.plugin`, `process.binding`'s cousins whose ROOT isn't itself admitted, `module.
-    // register`) reached off a free, unadmitted root.
-    if (!opts.isCalleePosition) return { kind: "admitted", via: "local" }; // D-1/D-3: value position is safe
+    // Genuinely free: not in ADMITTED_GLOBALS, not local, not imported — so NOT one of
+    // REQ-CAP-04's four admitted origin kinds, in any position. Admitting it as `local` in
+    // value position was the laundering path for every `Function.prototype.*` shape.
     return { kind: "violation", rule: "constraint-4-inadmissible-origin", detail: fullPathOfChain };
   }
 
@@ -704,6 +877,54 @@ function classifyOrigin(
   return { kind: "violation", rule: "constraint-4-inadmissible-origin", detail: fullPathOfChain };
 }
 
+/**
+ * A safe terminal says only "this base cannot name its origin" — the PATH off it still has to be
+ * decided, and with no identifier root there is no table to decide it against. Two things are
+ * therefore inadmissible: a prototype-graph escape segment, and a call RESULT invoked with no
+ * property name at all (`f()()`), which is how the result of an admitted call — `Reflect.get(
+ * globalThis, "eval")` — got executed while every individual node classified as admitted.
+ */
+function classifySafeTerminal(
+  resolution: Extract<ChainResolution, { readonly kind: "safe-terminal" }>,
+  node: SurfaceNode,
+  isCalleePosition: boolean
+): Disposition {
+  const escape = resolution.path.find((segment) => PROTOTYPE_ESCAPE_SEGMENTS.has(segment));
+  if (escape !== undefined) {
+    return { kind: "violation", rule: "constraint-4-inadmissible-origin", detail: node.text };
+  }
+  if (resolution.terminal === "call-result" && resolution.path.length === 0) {
+    return isCalleePosition
+      ? { kind: "violation", rule: "constraint-4-undecidable-callee", detail: node.text }
+      : { kind: "unclassifiable", detail: node.text };
+  }
+  return { kind: "admitted", via: "local" };
+}
+
+/**
+ * `Reflect.get(o, k)` IS `o[k]`, so it is classified as the computed access it performs rather
+ * than as the admitted member path that spells it (REQ-CAP-04.6 admits `Reflect.get` itself).
+ */
+function classifyReflectiveAccess(callee: Node, chain: ResolvedChain, ctx: FileContext): Disposition | undefined {
+  const positions = REFLECTIVE_ACCESSORS.get([chain.rootName, ...chain.path].join("."));
+  if (positions === undefined) return undefined;
+  const call = callee.getParent();
+  if (!Node.isCallExpression(call) || call.getExpression() !== callee) return undefined;
+  const args = call.getArguments();
+  const base = args[positions.base];
+  const key = args[positions.key];
+  if (base === undefined) return undefined;
+  const root = maximalAccessRoot(base);
+  if (!Node.isIdentifier(root)) return undefined;
+  const baseChain = substituteAlias({ rootName: root.getText(), path: [] }, ctx);
+  const rootIsGlobal =
+    DENIED_CAPABILITY_PRIMITIVES.has(baseChain.rootName) ||
+    ctx.bindings.get(baseChain.rootName)?.kind === "admitted-global";
+  if (!rootIsGlobal) return undefined;
+  if (key !== undefined && isSymbolKey(key, ctx)) return undefined;
+  return { kind: "unclassifiable", detail: oneLine(call.getText()) };
+}
+
 /** WHAT IS ADMITTED. Total over SurfaceNodeKind; the `default` arm yields `unclassifiable`. */
 export function classifySurfaceNode(node: SurfaceNode, ctx: FileContext): Disposition {
   switch (node.kind) {
@@ -711,6 +932,20 @@ export function classifySurfaceNode(node: SurfaceNode, ctx: FileContext): Dispos
       const moduleName = node.text;
       if (DENIED_CAPABILITY_PRIMITIVES.has(moduleName)) {
         return { kind: "violation", rule: "constraint-4-inadmissible-origin", detail: moduleName };
+      }
+      // An `export … from "node:…"` binds nothing locally, so its names are never checked at a
+      // use site the way an import's are — the per-name admission has to happen here or the
+      // export-from leg is a blanket admission of every name in the module (REQ-XPO-01.4).
+      // `getName()` is the ORIGINAL name, so an alias cannot launder it.
+      if (Node.isExportDeclaration(node.node)) {
+        const admittedNames = ADMITTED_NODE_SURFACES.get(moduleName);
+        const laundered = node.node
+          .getNamedExports()
+          .map((named) => named.getName())
+          .find((name) => !(admittedNames?.has(name) ?? false));
+        if (laundered !== undefined) {
+          return { kind: "violation", rule: "constraint-4-inadmissible-origin", detail: laundered };
+        }
       }
       if (ADMITTED_NODE_SURFACES.has(moduleName)) {
         return { kind: "admitted", via: "admitted-builtin-surface" };
@@ -721,37 +956,33 @@ export function classifySurfaceNode(node: SurfaceNode, ctx: FileContext): Dispos
       return { kind: "admitted", via: "local" };
     }
     case "callee": {
-      // NOTE: a bare call/`new` RESULT invoked directly (`x()()`) is NOT specially flagged
-      // here — resolveChain treats a call-result base as a safe terminal one level in
-      // (matching real-closure shapes like `getRunAls().getStore()`), and the call being
-      // invoked is independently enumerated as its OWN callee surface node, so any defect in
-      // IT is caught there without double-counting. M2.2 (`(()=>{}).constructor("return
-      // 1")()`) is caught this way: the INNER call's callee (`.constructor` off an arrow
-      // function) has no recognised safe-terminal shape (ArrowFunction/FunctionExpression are
-      // deliberately absent from resolveChain's terminal list) and is undecidable on its own
-      // merits — the outer call never needs its own rule.
       const resolution = resolveChain(node.node);
       if (resolution === undefined) {
         return { kind: "violation", rule: "constraint-4-undecidable-callee", detail: node.text };
       }
-      if (resolution.kind === "safe-terminal") {
-        return { kind: "admitted", via: "local" };
+      if (resolution.kind === "computed") {
+        // M2.1's shape (`globalThis["ev"+"al"]("1+1")`) — the only shape REQ-CAP-03 exists for.
+        return { kind: "violation", rule: "constraint-4-undecidable-callee", detail: node.text };
       }
+      if (resolution.kind === "safe-terminal") {
+        return classifySafeTerminal(resolution, node, true);
+      }
+      const reflective = classifyReflectiveAccess(node.node, resolution.chain, ctx);
+      if (reflective !== undefined) return reflective;
       // REQ-CAP-05: positional decidability never applies to a callee position (only
       // instanceof/typeof operands are non-capability-yielding) — origin admission decides.
       return classifyOrigin(resolution.chain, ctx, { isCalleePosition: true, node: node.node });
     }
     case "member-path": {
-      // enumerateCapabilitySurface only ever produces member-path nodes rooted at a plain
-      // Identifier (design.md's own SurfaceNode definition) — resolveChain always returns
-      // "identifier-rooted" here; the other branches exist for exhaustiveness, not because
-      // they are reachable from this kind today.
       const resolution = resolveChain(node.node);
       if (resolution === undefined) {
         return { kind: "unclassifiable", detail: node.text };
       }
+      if (resolution.kind === "computed") {
+        return classifyComputedAccess(node.node, node.text, ctx);
+      }
       if (resolution.kind === "safe-terminal") {
-        return { kind: "admitted", via: "local" };
+        return classifySafeTerminal(resolution, node, false);
       }
       return classifyOrigin(resolution.chain, ctx, { isCalleePosition: false, node: node.node });
     }
