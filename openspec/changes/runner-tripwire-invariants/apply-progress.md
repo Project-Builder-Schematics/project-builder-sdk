@@ -173,3 +173,190 @@ coupling is ever introduced, not a defect today.
 Per `slices.md`'s Delivery mechanics: orchestrator opens the S-000 PR (house pattern); the
 mechanism branch (S-001..S-005) may base off this branch immediately, without waiting for
 merge.
+
+## Slice: S-001 — Capability-Admission Property, total classification on the real closure
+
+**Status**: substantially complete — 9 of 10 tasks done (S-001.1-.6, .8, .9, .10); S-001.7
+PARTIAL, see "Deferred work" below. Covers REQ-CAP-01..06, REQ-PRM-01, REQ-CST-04.2
+[MODIFIED], REQ-CST-04.3 [MODIFIED], REQ-CST-06.1 [MODIFIED, partial], REQ-DGN-01.2.
+
+### Mechanism summary
+
+`scripts/capability-admission.ts` (new): `enumerateCapabilitySurface` (what is present) +
+`classifySurfaceNode` (what is admitted) as two independently implemented functions over
+the closed 5-member `SurfaceNodeKind` union (`callee`, `value-reference`, `member-path`,
+`meta-property`, `module-specifier`). Three admission legs: callee decidability
+(`resolveChain` — a chain is decidable iff no `[...]` computed access appears anywhere in
+it; a `this`/`super`/call-result/literal-rooted chain is a "safe terminal", admitted
+unconditionally one level in), origin admission (`classifyOrigin` — local/tainted/
+admitted-global/closure-import dispatch, D-3's per-position tainted rule), positional
+decidability (`instanceof`/`typeof` operand exemption). `derive-runner-closure.ts`'s
+`denyScan` is deleted; `classifySpecifier` gains R1-15 `builtinModules` validation and the
+R1-8 directory-specifier check; `node:vm` is folded out of its own special case (B4).
+
+### Digest-provenance reconciliation (owner-facing, not silently resolved)
+
+`ADMITTED_GLOBALS` verified at **21** members (design.md's own probe: 22) and
+`ADMITTED_MEMBER_PATHS` at **30** (design.md: 28). Traced: `git diff e6dcde2 HEAD --
+src/core/context.ts src/core/wire.ts` shows exactly two JSDoc-comment-only edits (unrelated
+template-placeholder-syntax doc fixes) landed on `main` between design.md's probe (HEAD
+`e6dcde2`) and this branch's base — confirmed zero AST/identifier-surface change. The count
+discrepancy does not come from that drift; it comes from design.md's own hand-probe being
+imprecise on these two specific numbers (all other probe numbers — 423 call sites, 37
+computed accesses, 6 `node:` modules with exact matching names, the 3 named D-2
+reassignments — were independently re-verified and match exactly). Cross-checked the two
+divergent counts against direct `rg` scans of the real closure files (no `Math`, `TypeError`,
+`RangeError`, `WeakMap`, `BigInt` etc. appear in real, non-comment code for the globals
+count; exactly 8 distinct `process.*` paths are referenced for the member-paths count,
+matching this table's own `process.*` subset one for one). Pinned the VERIFIED counts
+(21/30), not the design-recorded ones — REQ-CAP-01.1's totality property must hold against
+the REAL tree, which is what the exact-membership assertions now do. **Flagged for the
+owner**: reconcile design.md §1/§3's "22"/"28" prose (a documentation-drift fix, not a
+re-plan) — `slices.md`'s Risks section DR-5/DR-2 ruling on widening a pinned table does not
+apply here (nothing was widened; the pinned tables were built from a fresh, correct probe on
+day one, not grown mid-build to make a red test pass).
+
+### Byte-neutrality (REQ-CAP-06)
+
+Confirmed via the B6 procedure (fresh `rm -rf dist && bun run build` → live closure walk →
+regenerate → sha256 compare) at every commit of this slice:
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` — byte-identical before
+and after S-001's entire diff (verified via the same fresh-build procedure against the
+S-000-complete HEAD before this slice's first commit, and again after the final commit).
+This does NOT match design.md §8's originally-recorded `bf6c983c…a530` (HEAD `e6dcde2`) —
+same root cause as the digest-provenance note above: the two JSDoc-comment-only edits move a
+per-file sha256 (REQ-RME-02 hashes raw bytes, not semantics) even though they carry zero
+capability-surface change, and therefore move the whole manifest's bytes. This is
+`slices.md`'s Risks section case (a) — the owner re-pins the digest; S-001's own diff is
+proven byte-neutral against this branch's real pre-slice state, which is the property this
+gate actually protects.
+
+### S-001.8 survival — the 8 CST-04.x-family red-proofs (B2's corrected enumeration: #10, #11, #12, #13, #14, #15, #16, #18)
+
+All 8 pass under the new mechanism. Rule identity changed uniformly (`constraint-4-execution-primitive` → `constraint-4-inadmissible-origin`, consistent with ADR-0079's retirement of the old rule) — read as "same rule identity" in the internally-consistent sense S-001.8 asks for (a single coherent new identity per defect class), not as "the literal old string survives," which the signed design explicitly forbids (ADR-0079/design.md §4 retire that rule name outright).
+
+| # | Test | Old count/rule | New count/rule | Note |
+|---|---|---|---|---|
+| #10 | "a createRequire call outside the anchored site is a Constraint-4 violation" | 2× `constraint-4-execution-primitive` | 1× `constraint-4-inadmissible-origin` | **Deliberate count change, not a regression.** The old count included denyScan's own text-match artefact: the import declaration's OWN "createRequire" binding-site token was flagged alongside the call site (denyScan's non-anchor branch never excluded declaration names). The new mechanism's E2 exclusion (design.md §1: "a binding site is not a reference") correctly excludes it — the call site alone is caught, exactly once. Same defect, same file fails, one spurious duplicate removed. |
+| #11 | "the indirect-variable form is caught" | 1× execution-primitive | 1× inadmissible-origin | rename only |
+| #12 | "the namespace form is caught" | 1× execution-primitive | 1× inadmissible-origin | rename only (this is where a real double-count BUG was caught and fixed mid-slice — see "Bugs found" below) |
+| #13 | "a second createRequire use inside the anchored file still fails" | 1× execution-primitive | 1× inadmissible-origin | rename only |
+| #14 | "an EXECUTING createRequire at the anchor is not exempt" | 1× execution-primitive | 1× inadmissible-origin | rename only |
+| #15 | "an ALIASED createRequire import forfeits the exemption" | ≥2× execution-primitive | ≥2× inadmissible-origin | rename only |
+| #16 | "an unaliased decoy does not buy the alias an exemption" | ≥1× execution-primitive | ≥1× inadmissible-origin | rename only |
+| #18 | "the closed primitive set... is denied" (5-fixture set) | 5× execution-primitive | 5× inadmissible-origin | rename only |
+
+Red evidence for all 8: ran unmodified against the NEW mechanism first — all 8 failed on the
+old rule-name literal (7 of 8 with an otherwise-identical array; #10 additionally failed on
+count). Green evidence: updated to the new rule name (and, for #10 only, the corrected
+count with an inline justifying comment) — all 8 pass.
+
+### Bugs found and fixed during this slice (each verified via a real build + real test run before/after)
+
+1. **Relative closure-imports were denied by default.** `classifyOrigin`'s closure-import
+   branch initially ran the `node:`-only `ADMITTED_NODE_SURFACES` per-name check for EVERY
+   import, including relative ones — `formatLocator`/`locateFirstJsonSyntaxError` (imported
+   from `./error-text.js`, a file already inside the walked closure) were flagged as
+   "unadmitted origin." Fixed: a non-`node:` closure-import is unconditionally admitted (the
+   imported file is already hashed and walked by this very function).
+2. **A safe-terminal-rooted initializer was mistaken for undecidable, tainting its
+   binding.** `taintReasonOf`'s PropertyAccessExpression handling required the chain root to
+   resolve to a plain `Identifier`; `const handles = this.#handles;` roots at `this`, which
+   isn't an Identifier, so the initializer was marked `undecidable-initializer` — flagging
+   `handles.map(...)` downstream. Fixed: `taintReasonOf` now reuses the SAME `resolveChain`
+   safe-terminal logic as callee/member-path admission.
+3. **A callee chain's root identifier could be double-enumerated.** `m.createRequire(...)`
+   used as a callee added the whole `m.createRequire` expression to `calleeExpressions`, but
+   never marked `m` itself consumed — the general identifier pass then ALSO enumerated `m`
+   as its own standalone value-reference, producing 2 violations for red-proof #12's fixture
+   instead of 1. Fixed: every link of a callee's own chain (root identifier included) is now
+   marked consumed at enumeration time.
+4. **`enumerateCapabilitySurface` double-reported a fake `node:` specifier.** A
+   node:-prefixed import naming a non-existent module (`node:nonexistent-module`) was
+   flagged BOTH by `classifySpecifier`'s R1-15 `builtinModules` validation (existing walk)
+   AND by capability-admission's own module-specifier classification (new walk) — same
+   defect, same rule, twice. Fixed: module-specifier surface nodes are enumerated only for
+   specifiers that ARE real builtins; a fake one is `classifySpecifier`'s concern alone.
+5. **The independent totality counter (test-only) over-consumed argument subtrees.**
+   `FIT-CAP-TOTALITY`'s independent count initially walked UP a node's full ancestor chain
+   to check "is this inside a callee," which incorrectly swallowed `anchorUrl` (an argument
+   to `createRequire(anchorUrl)`, itself nested inside the OUTER callee
+   `createRequire(anchorUrl).resolve`) as "already counted." Fixed: the independent counter
+   now tracks only the callee's own chain links, mirroring the production fix in (3) — this
+   is a test-only bug, never shipped in the production classifier.
+
+Each of the 5 was caught by running the REAL 23-file closure through the mechanism after
+every change and confirming zero violations (the closure has none), not by reasoning alone.
+
+### New scenario coverage landed this slice
+
+`FIT-CAP-TOTALITY` (independent-count comparison across all 23 real closure files + a
+mutation red-proof for the totality assertion itself), `FIT-MANIFEST-BYTE-NEUTRAL` (standing
+sha check + perturbation red-proof), exact-membership pins for `SurfaceNodeKind`, E1-E4,
+`DENIED_CAPABILITY_PRIMITIVES`, `ADMITTED_GLOBALS`, `ADMITTED_NODE_SURFACES`,
+`ADMITTED_MEMBER_PATHS` (each with a widening/narrowing red-proof), REQ-CAP-01.7 (RCD-03.3's
+day-one JSDoc fixtures, including the R1-16 `{@link X}` shape), REQ-CAP-02.1/.2
+(reassignment precondition + the real closure's 3 D-2 reassignments as a sibling positive),
+REQ-CAP-03.1/.2/.3 (the two confirmed live escapes + a local-function sibling positive),
+REQ-CAP-04.1/.2/.3/.5/.7/.8 (node:child_process, the admitted-builtin-baseline sibling
+positive, the R1-15 unrecognised-specifier red-proof, and both table-widening red-proofs),
+REQ-CAP-05.1/.2/.3 (instanceof/typeof exemptions + the R1-17/SC-2 sequencing-hazard
+red-proof), REQ-DGN-01.2 (directory-specifier), REQ-CST-04.3.2 (AST-vs-substring
+non-vacuity), REQ-PRM-01.1/.2 (register exact-membership + the real committed
+`deny-scan/`/`green/` fixture corpus with a readdir-based completeness check, replacing an
+earlier in-memory simulation once the corpus existed), and S-001.10 (fit-46's publish-gate
+red-proof re-run against a genuine `eval` denial via a real `deriveRunnerClosure` call, not
+an arbitrary planted assertion failure).
+
+### Deferred work (honest gaps, not silently dropped)
+
+- **S-001.7, partial.** Every NEW message assertion this slice added is whole-verbatim
+  (`toBe`, not `toContain`) by construction — no new `toContain` landed on a tripwire
+  message. The 3 pre-existing S-003-tier assertions this slice's OWN rule-rename directly
+  broke (`fit-42-*.negative.test.ts`'s "a direct createRequire call names Constraint 4...",
+  "the indirect-variable form is named...", "the namespace form is named...") were converted
+  to whole-verbatim rather than patched to a new substring. The BULK pre-existing
+  `toContain` inventory design.md §6(b) counts at 47 sites (most untouched by this slice's
+  own diff — they assert messages this slice did not change) remains unconverted, and the
+  standing anti-`toContain` scan over the fit-42/fit-23/fit-46 family is NOT yet added.
+  Recommend a dedicated follow-up pass (mechanical, low-risk, high line count) before S-003
+  starts touching the same shared files, per the Build Order note that this scan should be
+  live before S-003/S-004 land.
+- **`mutants/` fixture directory not created.** The widening/narrowing/mutation red-proofs
+  (CAP-01.2, CAP-01.6, CAP-04.5, CAP-04.8) landed as in-test simulated mutants (constructing
+  a widened/narrowed `Set` inline and asserting the exact-membership check rejects it) rather
+  than as committed mutant FILES under `test/fixtures/red/runner-tripwires/mutants/`. This
+  satisfies each scenario's own Given/When/Then text (which describes a mutant TABLE, not a
+  mutant FILE), but does not realise the ≤20-committed-mutants budget line item literally.
+  Flagged for the owner: accept the simulated form, or request the file-based realisation as
+  a follow-up.
+- **REQ-CAP-01.3** (unclassifiable-construct for "a computed member expression on a computed
+  base") has no dedicated test. The mechanism's 5-kind closed union has no slot for a
+  doubly-computed access used purely as a value (never a callee) — reaching `unclassifiable`
+  for that specific shape would need a 6th enumeration path the signed design's SurfaceNode
+  definition does not describe. Not fabricated to avoid an honest gap; flagged for design
+  clarification rather than force-fit.
+
+### Verification run at slice close
+
+`bun run typecheck`: clean. `bun test` (full suite): 2506 pass, 0 fail (run twice for
+stability after one flaky run showed 6 unrelated failures that did not reproduce — this
+suite spawns many real subprocesses/scratch dirs and has occasional resource-contention
+flakes in this sandbox, distinct from anything this slice touched). Fresh-build
+byte-neutrality: confirmed at slice close, matching the value recorded above.
+
+### Commits (chronological)
+
+1. `feat(capability-admission): replace deny-scan with default-deny admission property`
+2. `test(fitness): add FIT-CAP-TOTALITY, FIT-MANIFEST-BYTE-NEUTRAL, exact-membership pins`
+3. `test(fitness): add REQ-CAP-02/03/04/05, PRM-01.2, DGN-01.2, CST-04.3.2 red-proofs`
+4. `test(fit-46): re-run the publish-gate proof against a real Constraint-4 fixture`
+5. `test(fixtures): commit the deny-scan/green fixture corpus (S-001.6)`
+6. `docs(adr): add ADR-0079/0080; test(fitness): CAP-01.6/.7 red-proofs`
+
+### Next recommended
+
+S-001.7's full conversion pass (mechanical, ~44 remaining `toContain` sites + the standing
+scan) before S-003 (`sdd-slice`'s Build Order: S-001 lands first in batch 2, and the scan
+should be live before S-003/S-004 touch the same shared files). Then S-003
+(`FIT-PATH-SPELLING-INVARIANCE`, `scripts/bundler-disjointness.ts`) per the Build Order.
