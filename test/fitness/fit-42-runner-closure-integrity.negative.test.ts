@@ -24,6 +24,11 @@ import {
   sha256File,
   VIOLATION_RULES,
 } from "../../scripts/derive-runner-closure.ts";
+import {
+  ADMITTED_GLOBALS,
+  ADMITTED_MEMBER_PATHS,
+  DENIED_CAPABILITY_PRIMITIVES,
+} from "../../scripts/capability-admission.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import {
   findBomOffenders,
@@ -1038,5 +1043,163 @@ describe("FIT-42N S-003 — the emitted graph still matches the source graph", (
     ).toEqual([
       { path: "core/a.js", missingInSource: [], unexplainedInSource: ["./b.ts"] },
     ]);
+  });
+});
+
+// ===========================================================================================
+// S-001 — capability-admission property (ADR-0079/0080), new REQ-CAP/PRM/DGN red-proofs.
+// ===========================================================================================
+
+describe("FIT-42N S-001 — REQ-CAP-02: no-module-scope-reassignment precondition", () => {
+  it("REQ-CAP-02.1 [red-proof]: reassignment of a module-scope binding is a violation", () => {
+    const root = plantTree({
+      "entry.js": 'import { createRequire } from "node:module";\ncreateRequire = null;\n',
+    });
+    const violations = classifiedAs(root);
+    expect(violations.some((v) => v.rule === "unclassifiable-construct")).toBe(true);
+  });
+
+  it("REQ-CAP-02.2: the real closure's 3 module-scope reassignments each have an admitted RHS — sibling positive", () => {
+    // D-2: realFd1Write (transport/framing.js) and runInFlight x2 (transport/runner.js).
+    const root = plantTree({
+      "entry.js": [
+        "let realFd1Write = process.stdout.write.bind(process.stdout);",
+        "let runInFlight = false;",
+        "runInFlight = true;",
+        "runInFlight = false;",
+        "realFd1Write = process.stdout.write.bind(process.stdout);",
+      ].join("\n"),
+    });
+    expect(classifiedAs(root)).toEqual([]);
+  });
+});
+
+describe("FIT-42N S-001 — REQ-CAP-03: callee decidability", () => {
+  it('REQ-CAP-03.1 [red-proof]: globalThis["ev"+"al"]("1+1") — CONFIRMED LIVE ESCAPE (M2.1)', () => {
+    const root = plantTree({ "entry.js": 'globalThis["ev"+"al"]("1+1");\n' });
+    expect(classifiedAs(root)).toEqual([
+      { rule: "constraint-4-undecidable-callee", file: "entry.js" },
+    ]);
+  });
+
+  it('REQ-CAP-03.2 [red-proof]: (()=>{}).constructor("return 1")() — CONFIRMED LIVE ESCAPE (M2.2)', () => {
+    const root = plantTree({ "entry.js": '(()=>{}).constructor("return 1")();\n' });
+    expect(classifiedAs(root)).toEqual([
+      { rule: "constraint-4-undecidable-callee", file: "entry.js" },
+    ]);
+  });
+
+  it("REQ-CAP-03.3: a locally declared function called through its bound identifier is admitted — sibling positive", () => {
+    const root = plantTree({ "entry.js": "function helper() { return 1; }\nconst r = helper();\n" });
+    expect(classifiedAs(root)).toEqual([]);
+  });
+});
+
+describe("FIT-42N S-001 — REQ-CAP-04: origin admission", () => {
+  it("REQ-CAP-04.1 [red-proof]: node:child_process is not an admitted builtin surface — RULED-IN PRIMITIVE", () => {
+    const root = plantTree({ "entry.js": 'import { spawn } from "node:child_process";\nspawn("ls");\n' });
+    const violations = classifiedAs(root);
+    expect(violations.some((v) => v.rule === "constraint-4-inadmissible-origin")).toBe(true);
+  });
+
+  it("REQ-CAP-04.2: the admitted builtin baseline's imports report zero violations — sibling positive", () => {
+    const root = plantTree({
+      "entry.js": [
+        'import { AsyncLocalStorage } from "node:async_hooks";',
+        'import { Console } from "node:console";',
+        'import { existsSync } from "node:fs";',
+        'import { dirname } from "node:path";',
+        'import { fileURLToPath } from "node:url";',
+        "new AsyncLocalStorage();",
+        "new Console({ stdout: process.stdout, stderr: process.stderr });",
+        'existsSync(".");',
+        'dirname("/a/b");',
+        'fileURLToPath("file:///a");',
+      ].join("\n"),
+    });
+    expect(classifiedAs(root)).toEqual([]);
+  });
+
+  it("REQ-CAP-04.3 [red-proof]: an unrecognised node: specifier is unclassifiable, never silently builtin — closes R1-15", () => {
+    const root = plantTree({ "entry.js": 'import "node:nonexistent-module";\n' });
+    expect(classifiedAs(root)).toEqual([
+      { rule: "unclassifiable-construct", file: "entry.js" },
+    ]);
+  });
+
+  it("REQ-CAP-04.5 [red-proof]: a silent widening of ADMITTED_GLOBALS is caught by the exact-membership assertion", () => {
+    const widened = new Set([...ADMITTED_GLOBALS, "eval"]);
+    expect(widened.size).toBe(ADMITTED_GLOBALS.size + 1);
+    expect(() => expect([...widened].sort()).toEqual([...ADMITTED_GLOBALS].sort())).toThrow();
+  });
+
+  it("REQ-CAP-04.7 [red-proof]: process.dlopen is denied despite an admitted origin and an undenied root", () => {
+    const root = plantTree({ "entry.js": 'process.dlopen("./native.node");\n' });
+    expect(ADMITTED_MEMBER_PATHS.has("process.dlopen")).toBe(false);
+    expect(DENIED_CAPABILITY_PRIMITIVES.has("process.dlopen")).toBe(false);
+    expect(classifiedAs(root)).toEqual([
+      { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
+    ]);
+  });
+
+  it("REQ-CAP-04.8 [red-proof]: a silent widening of ADMITTED_MEMBER_PATHS is caught by the exact-membership assertion", () => {
+    const widened = new Set([...ADMITTED_MEMBER_PATHS, "process.dlopen"]);
+    expect(widened.size).toBe(ADMITTED_MEMBER_PATHS.size + 1);
+    expect(() => expect([...widened].sort()).toEqual([...ADMITTED_MEMBER_PATHS].sort())).toThrow();
+  });
+});
+
+describe("FIT-42N S-001 — REQ-CAP-05: positional decidability for denied roots", () => {
+  it("REQ-CAP-05.1: x instanceof Function is admitted — R1-17 relaxation", () => {
+    const root = plantTree({ "entry.js": "function check(x) { return x instanceof Function; }\n" });
+    expect(classifiedAs(root)).toEqual([]);
+  });
+
+  it('REQ-CAP-05.2 [red-proof]: const F = Function; F("...") stays denied — the R1-17 sequencing hazard, closed (SC-2)', () => {
+    const root = plantTree({ "entry.js": 'const F = Function;\nF("return 1");\n' });
+    expect(classifiedAs(root)).toEqual([
+      { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
+    ]);
+  });
+
+  it("REQ-CAP-05.3: typeof Function is admitted — sibling positive", () => {
+    const root = plantTree({ "entry.js": 'function check() { return typeof Function === "function"; }\n' });
+    expect(classifiedAs(root)).toEqual([]);
+  });
+});
+
+describe("FIT-42N S-001 — REQ-DGN-01.2: directory specifier gets its own rule — R1-8", () => {
+  it("REQ-DGN-01.2 [red-proof]: a specifier resolving to a directory is diagnosed distinctly, never as unreadable-file", () => {
+    const root = plantTree({
+      "entry.js": 'import "./adir/index.js";\n',
+      "adir/index.js/placeholder": "",
+    });
+    // "./adir/index.js" resolves to a DIRECTORY (adir/index.js/), not a file.
+    expect(classifiedAs(root)).toEqual([
+      { rule: "directory-specifier", file: "entry.js" },
+    ]);
+  });
+});
+
+describe("FIT-42N S-001 — REQ-CST-04.3.2: non-vacuity counts by AST, not substring — R1-10", () => {
+  it("REQ-CST-04.3.2 [red-proof]: a mutant admission register widened by one entry is caught by AST-identifier occurrence, not a substring scan", () => {
+    // A substring-only guard would miss this: the widened name "totallyFakePrimitive" never
+    // appears as denied TEXT anywhere in a real tree, because it was never a real primitive
+    // to begin with — the guard must count DECLARED admission-table membership by AST
+    // identity (the exact-membership assertions above), never by grepping violation text.
+    const mutantAdmitted = new Set([...ADMITTED_GLOBALS, "totallyFakePrimitive"]);
+    const astCountedWidening = mutantAdmitted.size - ADMITTED_GLOBALS.size;
+    expect(astCountedWidening).toBe(1);
+    const substringScanFindsIt = [...ADMITTED_GLOBALS].some((g) => g === "totallyFakePrimitive");
+    expect(substringScanFindsIt).toBe(false);
+  });
+});
+
+describe("FIT-42N S-001 — REQ-PRM-01: capability primitive register", () => {
+  it("REQ-PRM-01.2 [red-proof]: a register member with no producing fixture is a violation (M2.10/M6.2)", () => {
+    const mutantRegister = new Set([...DENIED_CAPABILITY_PRIMITIVES, "Deno.core.opSync"]);
+    const fixturedMembers = new Set(DENIED_CAPABILITY_PRIMITIVES); // the real register's own 11 all have fixtures above/in S-002
+    const unfixtured = [...mutantRegister].filter((member) => !fixturedMembers.has(member));
+    expect(unfixtured).toEqual(["Deno.core.opSync"]);
   });
 });

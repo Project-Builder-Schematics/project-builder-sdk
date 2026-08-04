@@ -11,6 +11,7 @@
 // exact membership (REQ-CAP-01.4/.5, REQ-CAP-04.4/.5/.6) — probe-verified against the real
 // runner closure (23 files, 423 call/`new` sites) on this branch.
 import { Node, SyntaxKind, type Identifier, type SourceFile } from "ts-morph";
+import { builtinModules } from "node:module";
 import type { ClosurePath, ViolationRule } from "./derive-runner-closure.ts";
 
 /** The ONE register of denied capability primitives (REQ-PRM-01) — exactly 11 members. */
@@ -266,18 +267,22 @@ export function enumerateCapabilitySurface(sourceFile: SourceFile): readonly Sur
   // `m.createRequire(...)` must not ALSO surface as its own standalone value-reference.
   const consumedAsChainSegment = new Set<Node>();
 
-  // 1. module-specifier — node:-prefixed import/export specifiers only. Relative and bare
-  //    specifiers are exhaustively classified elsewhere (classifySpecifier); this leg exists
-  //    for the register/admission concern only.
+  // 1. module-specifier — node:-prefixed import/export specifiers that name a REAL builtin
+  //    only. Relative and bare specifiers are exhaustively classified elsewhere
+  //    (classifySpecifier); this leg exists for the register/admission concern only. A
+  //    node:-prefixed specifier that is NOT a real builtin is already `unclassifiable-
+  //    construct` via classifySpecifier's own R1-15 validation — enumerating it here too
+  //    would double-report the identical defect under the identical rule.
+  const isRealNodeBuiltin = (specifier: string): boolean => builtinModules.includes(specifier.slice("node:".length));
   for (const declaration of sourceFile.getImportDeclarations()) {
     const value = declaration.getModuleSpecifierValue();
-    if (value.startsWith("node:")) {
+    if (value.startsWith("node:") && isRealNodeBuiltin(value)) {
       nodes.push({ kind: "module-specifier", node: declaration, text: value, line: declaration.getStartLineNumber() });
     }
   }
   for (const declaration of sourceFile.getExportDeclarations()) {
     const value = declaration.getModuleSpecifierValue();
-    if (value !== undefined && value.startsWith("node:")) {
+    if (value !== undefined && value.startsWith("node:") && isRealNodeBuiltin(value)) {
       nodes.push({ kind: "module-specifier", node: declaration, text: value, line: declaration.getStartLineNumber() });
     }
   }
