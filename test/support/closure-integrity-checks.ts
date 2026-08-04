@@ -6,6 +6,20 @@ import { join, posix } from "node:path";
 // the assertion and its red-proof must run the SAME code, or the red-proof proves nothing.
 // No repo imports by design (node builtins only), so this module adds nothing to the
 // module graph FIT-27 walks from test/support/**.
+//
+// ADR-0081: the bundler-output disjointness predicate lives in `scripts/bundler-
+// disjointness.ts` (every other tripwire predicate's home) — this module is a CONSUMER,
+// re-exporting it. Placement, not timing: Constraint 1 still ships as a structural CI
+// check (`fit-42`), never a loader-observed build tripwire (ADR-0075 untouched).
+export {
+  findBundlerTargets,
+  findDisjointnessViolations,
+  findUnclassifiableBundlerConstructs,
+  type BundlerFlag,
+  type BundlerTarget,
+  type DisjointnessViolation,
+  type UnclassifiableBundlerConstruct,
+} from "../../scripts/bundler-disjointness.ts";
 
 export interface PathHygieneFinding {
   readonly rule: "non-posix" | "leading-dot-slash" | "absolute" | "parent-segment" | "duplicate";
@@ -92,67 +106,6 @@ export function findIntermediatePackageJsons(
   return findings;
 }
 
-export interface BundlerTarget {
-  readonly script: string;
-  readonly flag: "--outfile" | "--outdir" | "-o";
-  readonly target: string;
-}
-
-const BUNDLER_FLAG = /(?:^|\s)(--outfile|--outdir|-o)[=\s]+(\S+)/g;
-
-export function findBundlerTargets(scripts: Record<string, string>): BundlerTarget[] {
-  const targets: BundlerTarget[] = [];
-  for (const [script, command] of Object.entries(scripts)) {
-    for (const match of command.matchAll(BUNDLER_FLAG)) {
-      targets.push({
-        script,
-        flag: match[1] as BundlerTarget["flag"],
-        target: (match[2] as string).replace(/^["']|["']$/g, ""),
-      });
-    }
-  }
-  return targets;
-}
-
-export interface DisjointnessViolation {
-  readonly script: string;
-  readonly target: string;
-  readonly colliding: string;
-}
-
-// Comparison-only — the reported target/colliding strings in DisjointnessViolation stay
-// exactly as captured/observed. A leading "./" and a trailing "/" are the SAME path
-// (`bun build --outdir ./dist/x` is the idiomatic spelling; docs/runner-integrity-invariants
-// .md:86-87 names this drift as the realistic Constraint-1 failure) but compared as raw
-// strings they evade both the exact-match and the directory-containment check below.
-function normaliseForComparison(path: string): string {
-  const withoutLeadingDot = path.startsWith("./") ? path.slice(2) : path;
-  const normalised = posix.normalize(withoutLeadingDot);
-  return normalised.length > 1 && normalised.endsWith("/") ? normalised.slice(0, -1) : normalised;
-}
-
-/** A bundler aimed at the runner rewrites the module graph the baseline pins. */
-export function findDisjointnessViolations(
-  targets: readonly BundlerTarget[],
-  closurePaths: readonly string[]
-): DisjointnessViolation[] {
-  const violations: DisjointnessViolation[] = [];
-  for (const { script, flag, target } of targets) {
-    const normalisedTarget = normaliseForComparison(target);
-    for (const closurePath of closurePaths) {
-      const normalisedClosurePath = normaliseForComparison(closurePath);
-      // --outdir collides by DIRECTORY CONTAINMENT: naming the directory is enough to
-      // overwrite everything under it, so an exact-match check would miss the real case.
-      const collides =
-        flag === "--outdir"
-          ? normalisedClosurePath === normalisedTarget ||
-            normalisedClosurePath.startsWith(`${normalisedTarget}/`)
-          : normalisedClosurePath === normalisedTarget;
-      if (collides) violations.push({ script, target, colliding: closurePath });
-    }
-  }
-  return violations;
-}
 
 export interface ClosureEdgeLike {
   readonly from: string;
