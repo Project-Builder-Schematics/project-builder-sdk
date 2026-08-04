@@ -346,14 +346,20 @@ describe("FIT-42 S-002 — the manifest's shape, exclusions, hygiene and orderin
 });
 
 describe("FIT-42 S-002 — the closure's own bytes are line-ending and BOM clean", () => {
+  // Memoized like derivedFromDistDir above: both call sites below read the same static,
+  // never-mutated file bytes, so one disk read replaces what used to be two.
+  let closureFileBytesCache: Array<{ path: string; bytes: Uint8Array }> | undefined;
   function closureFileBytes(): Array<{ path: string; bytes: Uint8Array }> {
-    const files: Array<{ path: string; bytes: Uint8Array }> = [];
-    for (const node of derivedFromDistDir().nodes) {
-      files.push({ path: `dist/${node}`, bytes: readFileSync(join(distDir, node)) });
-      const source = join(PROJECT_ROOT, "src", node.replace(/\.js$/, ".ts"));
-      if (existsSync(source)) files.push({ path: `src/${node}`, bytes: readFileSync(source) });
+    if (closureFileBytesCache === undefined) {
+      const files: Array<{ path: string; bytes: Uint8Array }> = [];
+      for (const node of derivedFromDistDir().nodes) {
+        files.push({ path: `dist/${node}`, bytes: readFileSync(join(distDir, node)) });
+        const source = join(PROJECT_ROOT, "src", node.replace(/\.js$/, ".ts"));
+        if (existsSync(source)) files.push({ path: `src/${node}`, bytes: readFileSync(source) });
+      }
+      closureFileBytesCache = files;
     }
-    return files;
+    return closureFileBytesCache;
   }
 
   it("REQ-RMD-03.2: no emitted closure file contains a CRLF pair", () => {
