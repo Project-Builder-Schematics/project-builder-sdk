@@ -1287,3 +1287,46 @@ rows failing on their token readings.
 - Standing anti-`toContain` scan: green. Whole-verbatim reason strings byte-identical except the two
   deliberate, recorded changes (the `constraint-4-*` `why:` texts, and `checkSuiteGate`'s job-name
   prefix) — both with their pinned expectations updated in the same commit.
+
+### Part 3b — signed-spec claim-scope correction (blind-judge flag, 2026-08-05)
+
+A blind judge re-ran its probes against the finished work and confirmed findings 1/2/3/5/6 and the
+default-deny mutant are genuinely closed (1-2 violations each where there were 0; real closure
+still 23 nodes / 0 violations), and credited the Known gaps section as corroborating the honest
+framing from the authors' own side. It then flagged the one remaining gap: **the docs and
+ADR-0079/0080 were amended, but the SIGNED SPEC's normative text was not.** REQ-CAP-01's own
+requirement prose still asserted default-violation and total classification as security
+PROPERTIES — so archiving as-was would have left the signed spec asserting exactly what
+`docs/runner-integrity-invariants.md` now retracts. That is the same spec↔implementation
+divergence class this change exists to prevent, in the change's own artefacts.
+
+Amended, all in the repo's dated-amendment style (superseded text preserved, never deleted; each
+block governs on divergence; **zero scenario Given/When/Then altered** — this is a correction to
+requirement CLAIM SCOPE, not to what any test asserts):
+
+| Location | Retracted / corrected claim | Amendment |
+|---|---|---|
+| Spec header (V2 → V3 summary) | "default is violation; ambiguity is violation" as the mechanism's property | Blockquote banner above the summary: claims are scoped, not restated; names the three-way split and points at REQ-CAP-01's block, Known gaps, and `capability-admission-oracle` |
+| **REQ-CAP-01** requirement prose | "The default for any node the classifier does not recognise MUST be `violation` — never a silent pass", and totality framed as absolute | Full scope correction enumerating what IS guaranteed: (1) ORIGIN default-deny — real, mutant-killed; (2) PATH is a **deny predicate over an unbounded name space**, explicitly *not* a closed set, so an unlisted carrier property passes; (3) totality is **relative to the ENUMERATOR**, with the closed `SurfaceNodeKind` union named as the boundary and tagged templates cited as the construct that was invisible for two rounds. States the structural dataflow reason it cannot be patched, and states the purpose as a drift control per `north-star.md` |
+| **REQ-CAP-03** requirement prose | "This is the leg that kills indirection, aliasing, and computed access structurally" | First sentence stands and its coverage GREW (a tagged template's tag is a callee). Second sentence retracted: computed callees and `f()()` are killed by shape; aliasing is not — it is denied per-occurrence plus one alias hop, and `w.go.Reflect.get(w.go,"eval")` has a perfectly resolvable callee and is admitted |
+| **REQ-CAP-04** requirement prose | Nothing retracted — this is the surviving half | Scope note only, to stop it being read wider: it governs the ORIGIN of the chain's ROOT and nothing else; PATH is decided by CAP-04.6's exact table off an admitted global and by CAP-01's item 2 off any other root kind |
+| **REQ-PRM-01** iteration-2 amendment paragraph | "Every member path that is neither a register primitive nor in the admitted table is a violation by default" | True only off an **admitted-global root**; off a local/parameter/import/safe-terminal root the default is the deny predicate, not a violation. Table disjointness stands; whole-space default-deny does not |
+| **REQ-CST-04.2** requirement prose | "any closure-file reference to a denied capability primitive" read as reachability | Scope note: it governs **syntactic** references, which is enforced and red-proofed. It is not a reachability claim — `pick(globalThis,"eval")("…")` reaches the primitive while referencing it nowhere |
+| **slices.md** meta-finding disposition | `CLOSED-BY-MECHANISM` for "Constraint 4 wants a structural invariant, not a shape scanner" | Corrected to `RE-REGISTERED` → `capability-admission-oracle`. This was the sharpest divergence in slices.md: the row claimed the class closed while round 3 proved it open. Row-count tally re-derived (4 `CLOSED-BY-MECHANISM` + 1 `RE-REGISTERED`; "zero `RE-REGISTERED` this cycle" removed), and the S-001 acceptance criterion gains a claim-scope note |
+
+Judged accurate and deliberately left alone (recorded so the next reader does not re-open them):
+**REQ-CAP-02** (the reassignment precondition is its own decidable check and is enforced),
+**REQ-CAP-05** (positional decidability over a CLOSED register — `instanceof`-RHS / `typeof`-operand
+only — is a bounded claim and holds), **REQ-CAP-01.1/.2/.3 and CAP-03.1/.2 scenario text** (every
+Given/When/Then still holds and is still asserted; CAP-03.1's "catches the SHAPE, not the spelling"
+is scoped to a computed callee, where it is true), **REQ-CAP-04.6/.7/.8** (exact-membership pinning
+off an admitted global is precisely the case a table CAN decide), and slices.md's remaining four
+`CLOSED-BY-MECHANISM` rows — R1-7 (its named spellings ARE caught; verified), R1-16 (E1 red-proofed
+by CAP-01.7), R1-17 (CAP-05.1/.2/.3), and the `node:vm` fold (structural).
+
+Gates re-confirmed after the spec amendment (documentation only, no code touched): `bun test`
+**2645 pass / 0 fail**, `tsc --noEmit` clean, `dist/runner-manifest.json` still
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` with 118 files byte-identical.
+
+The docs, both ADRs, the signed spec and slices.md now say the same thing about what Constraint 4
+guarantees. That consistency is the archive precondition the judge was protecting.

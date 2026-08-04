@@ -4,6 +4,17 @@
 **Status**: SIGNED — Daniel Ramirez, 2026-07-29 (V1 signed as drafted; owner rulings 1-8 incorporated)
 **Change**: `runner-tripwire-invariants`
 
+> **Judgment-day scope correction (2026-08-05, owner ruling)**: the V2 → V3 summary below and
+> REQ-CAP-01/03's requirement prose asserted default-violation and total classification as
+> security PROPERTIES of the mechanism. A third adversarial round demonstrated executable
+> bypasses, and those claims are now **scoped, not restated** — default-deny holds on ORIGIN
+> (real, mutant-killed), PATH is a deny predicate over an unbounded name space, and totality is
+> relative to the ENUMERATOR. Superseded wording is preserved everywhere; each dated
+> `Judgment-day scope correction` block governs on divergence. **No scenario's Given/When/Then
+> changed** — every test still asserts what it asserted. Read REQ-CAP-01's block first;
+> `docs/runner-integrity-invariants.md#known-gaps` carries the demonstrated residuals and
+> `openspec/pending-changes.md` registers `capability-admission-oracle` for the soundness work.
+
 V2 → V3 (owner-authorized unfreeze batch, 2026-07-29, ruling 1 + PM finding + ruling 7):
 Constraint-4's guard replaces a text-matching deny-scan with a default-deny
 **capability-admission property** — every node of a closure file's capability surface
@@ -31,6 +42,53 @@ exactly one of `{admitted, violation, unclassifiable-construct}`. The default fo
 the classifier does not recognise MUST be `violation` or `unclassifiable-construct` —
 never a silent pass. For every closure file, classified-node count MUST equal
 present-node count, asserted as an exact structural equality, never a threshold.
+
+**Judgment-day scope correction (2026-08-05)** — the superseded text above is preserved, not
+deleted; this block governs on divergence. A third adversarial round (blind judgment-day, two
+independent judges) demonstrated **executable** bypasses after the two previous rounds had each
+closed the spellings they were shown. "The default for any node the classifier does not
+recognise MUST be violation — never a silent pass" is therefore **retracted as a
+whole-mechanism property**: it holds for one of the three halves and is false for the other
+two. What the mechanism guarantees, and what the tests actually assert, is:
+
+1. **ORIGIN admission is default-deny, and this is real.** A resolved root binding that is not
+   local, not a closure import of an admitted name, and not an `ADMITTED_GLOBALS` member MUST be
+   a violation in every position (REQ-CAP-04). This branch previously had no fixture at all —
+   replacing it with an admit left the entire suite green — and now carries red-proofs whose
+   mutant is verified killed.
+2. **PATH admission is a DENY PREDICATE where no table applies, NOT a closed set.**
+   `ADMITTED_MEMBER_PATHS` decides the path off an admitted GLOBAL by exact full-path identity
+   (REQ-CAP-04.6). Off a local, a parameter, a closure import, or a safe terminal (a literal,
+   `this`, a call result) there is no path to look up, so the path MUST be checked against a
+   predicate over property names derived from the REQ-PRM-01 register plus the prototype-graph
+   escapes. A predicate over an unbounded name space cannot be a closed set: **a carrier property
+   named anything the predicate does not name passes.** The requirement is the predicate's
+   application, never the absence of an unlisted name.
+3. **Totality is relative to the ENUMERATOR, and the enumerator's coverage is the boundary.**
+   `classified-node count == present-node count` is asserted against an independently implemented
+   raw count and remains exactly true — but both walkers range over the same closed
+   `SurfaceNodeKind` union (REQ-CAP-01.4). A construct neither walker reaches is **not**
+   `unclassifiable-construct`; it is invisible. Tagged templates were exactly such a construct
+   for two review rounds and are now enumerated; nothing structurally guarantees the next one is.
+
+This cannot be patched into soundness by further rounds, and the reason is structural rather
+than a matter of effort: deciding which values an aliasing/reflection graph can reach is
+dataflow analysis, and this mechanism is a syntax-only AST allowlist by deliberate choice
+(ADR-0079 rejected the ts-morph type checker so a fail-closed build gate's verdict would not
+depend on install state — a trade this correction does not reverse).
+
+**What this REQ is for**, stated so no downstream reader infers otherwise: a **drift control**
+against honest mistakes and agent edits that widen the runner's executed surface — the framing
+`north-star.md` used from the start — never an adversary control. A green `fit-42` is not
+evidence that the closure cannot execute unhashed code.
+
+The demonstrated post-fix bypasses are recorded verbatim in
+`docs/runner-integrity-invariants.md#known-gaps`; ADR-0079's Amendment and ADR-0080's
+scope-correction note carry the same retraction on the decision side; the soundness work is
+registered as its own future change, `capability-admission-oracle` (deliverable
+`FIT-CAP-ORACLE`, the differential oracle deferred in `design.md` §7), in
+`openspec/pending-changes.md`. **No scenario below is altered** — every Given/When/Then still
+holds and every test still asserts it. This is a correction to the requirement's CLAIM SCOPE.
 
 #### Scenario REQ-CAP-01.1: Totality holds on the real closure
 
@@ -120,6 +178,24 @@ Every call or `new` expression whose callee is not a statically resolvable bindi
 a violation. This is the leg that kills indirection, aliasing, and computed access
 structurally, without spelling any of them out.
 
+**Judgment-day scope correction (2026-08-05)** — superseded text preserved above; this block
+governs on divergence. The first sentence stands and its coverage GREW: "call or `new`" MUST
+also include a **tagged template's tag**, which is an invocation (`` C`return process.version` ``
+executes exactly as `C("…")` does) and was outside the enumerated surface entirely for two
+review rounds. The second sentence is **retracted**: this leg does not kill aliasing
+structurally.
+
+- What it does kill structurally: a **computed** callee (`globalThis["ev"+"al"](…)`) and a call
+  result invoked with no property name (`f()()`), whatever they spell. Those are shapes, and the
+  scenarios below are their red-proofs.
+- What it does NOT kill: aliasing. Aliasing is denied by deciding a register primitive at its own
+  occurrence plus ONE hop of alias substitution — not by any property of the callee position. A
+  capability reached through a carrier property (`w.go.Reflect.get(w.go,"eval")`) has a perfectly
+  statically resolvable callee and is admitted; it is executable and demonstrated. See
+  REQ-CAP-01's scope correction (item 2) and `docs/runner-integrity-invariants.md#known-gaps`.
+
+No scenario below is altered.
+
 #### Scenario REQ-CAP-03.1 [red-proof]: `globalThis["ev"+"al"]("1+1")` — CONFIRMED LIVE ESCAPE (M2.1)
 
 - GIVEN a synthetic closure file containing `globalThis["ev"+"al"]("1+1")`
@@ -143,6 +219,16 @@ structurally, without spelling any of them out.
 A resolved binding's origin MUST classify as exactly one of `{local, closure import,
 admitted global, admitted builtin surface}`. Any other origin is a violation naming the
 primitive.
+
+**Scope note (2026-08-05, judgment-day scope correction)** — no text above is superseded; this
+REQ is the half of the mechanism that survived the third adversarial round intact, and its
+default-deny branch is now red-proofed with the mutant verified killed (REQ-CAP-04.7's
+default-deny rows). The note exists to stop the requirement being read wider than it is: it
+governs the ORIGIN of the chain's ROOT and nothing else. What the chain does with that root —
+the member PATH — is decided by REQ-CAP-04.6's exact table off an admitted global, and by
+REQ-CAP-01's scope-correction item 2 (a deny predicate, not a closed set) off any other root
+kind. An admitted origin has never implied an admitted chain, and after this correction it does
+not imply a decidable one either.
 
 #### Scenario REQ-CAP-04.1 [red-proof]: `node:child_process` is not an admitted builtin surface — RULED-IN PRIMITIVE (ruling 3)
 
@@ -308,6 +394,15 @@ construction (a member path cannot be both a register primitive and admitted). E
 member path that is neither a register primitive (this REQ) nor in the admitted table
 (REQ-CAP-04.6) is a violation by default; REQ-CAP-04.6/.7/.8 make that default-deny
 property machine-checked rather than assumed.
+
+**Judgment-day scope correction (2026-08-05)** — superseded text preserved above; this block
+governs on divergence. "Every member path that is neither a register primitive nor in the
+admitted table is a violation by default" is true only for a path off an **admitted-global
+root**, which is the only case `ADMITTED_MEMBER_PATHS` can decide by exact identity. Off a
+local, a parameter, a closure import or a safe terminal there is no full path to look up, and
+the default there is a **deny predicate over segment names**, not a violation: an unlisted
+carrier property passes (REQ-CAP-01 scope correction, item 2). The two tables being disjoint
+stands; "default-deny over the whole member-path space" does not.
 
 ### REQ-XPO-01: Exemption Is a File-Level Proof Obligation
 
@@ -524,6 +619,16 @@ directly in the requirement text, evaluated by the old text-matching deny-scan. 
 per owner ruling 1 — the enumeration moves to scenario examples below; the requirement
 text now demands the register property, REQ-PRM-01, instead. Four primitives added per
 ruling 3.)
+
+**Judgment-day scope correction (2026-08-05)** — no text above is superseded; a reading of it is.
+"Any closure-file REFERENCE to a denied capability primitive" means a **syntactic** reference —
+the primitive named as an identifier, as a member path, or as a module specifier, at its own
+occurrence, in any position bar REQ-CAP-05's two. That property holds and every scenario below
+red-proofs it. It is NOT a reachability claim: a closure file can reach a register primitive
+while referencing it nowhere, by indexing a carrier with a string
+(`function pick(o,k){return o[k]}; pick(globalThis,"eval")("…")` — executed, zero findings).
+Deciding reachability is dataflow analysis, which REQ-CAP-01's scope correction records as out of
+this mechanism's reach and `capability-admission-oracle` as the change that addresses it.
 
 #### Scenarios REQ-CST-04.2.1–9 [red-proof]: Denied primitives, named
 

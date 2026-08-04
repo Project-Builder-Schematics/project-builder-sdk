@@ -102,7 +102,7 @@ coupling to REQ-PPI-*)
 **Acceptance**:
 - GIVEN the current runner closure (23 files, 423 sites) and the synthetic fixtures
 - WHEN `enumerateCapabilitySurface` + `classifySurfaceNode` run
-- THEN classified-count == present-count exactly (CAP-01.1); the `SurfaceNodeKind` union and the E1-E4 exclusions are each pinned by exact membership (CAP-01.4/.5, plan-verify iteration-1); both live escapes (`globalThis["ev"+"al"]`, IIFE-constructor) and `node:child_process` fail naming the callee/origin rule (CAP-03.1/.2, CAP-04.1); `x instanceof Function` is admitted while `const F = Function; F(...)` stays denied (CAP-05); admitted tables pin exactly 21/6 members (CAP-04.4/.5 — reconciled 2026-08-05 from the signed 22, see the spec's own Count reconciliation note); member paths off an admitted root pin exactly 30 members (reconciled from the signed 28) and `process.dlopen` fails naming the member path (CAP-04.6/.7/.8, plan-verify iteration-2); `dist/runner-manifest.json` is byte-identical to `bf6c983c…a530` (CAP-06.1)
+- THEN classified-count == present-count exactly (CAP-01.1); the `SurfaceNodeKind` union and the E1-E4 exclusions are each pinned by exact membership (CAP-01.4/.5, plan-verify iteration-1); both live escapes (`globalThis["ev"+"al"]`, IIFE-constructor) and `node:child_process` fail naming the callee/origin rule (CAP-03.1/.2, CAP-04.1); `x instanceof Function` is admitted while `const F = Function; F(...)` stays denied (CAP-05); admitted tables pin exactly 21/6 members (CAP-04.4/.5 — reconciled 2026-08-05 from the signed 22, see the spec's own Count reconciliation note); member paths off an admitted root pin exactly 30 members (reconciled from the signed 28) and `process.dlopen` fails naming the member path (CAP-04.6/.7/.8, plan-verify iteration-2); `dist/runner-manifest.json` is byte-identical to `bf6c983c…a530` (CAP-06.1). **Claim scope corrected 2026-08-05 (judgment-day round 1)**: every assertion in this acceptance criterion still holds and every test still asserts it, but the REQ-CAP-01/03 PROSE it realises no longer claims default-violation or total classification as security properties — default-deny holds on ORIGIN (mutant-killed), PATH is a deny predicate over an unbounded name space, and totality is relative to the ENUMERATOR. See the spec's dated `Judgment-day scope correction` blocks and `docs/runner-integrity-invariants.md#known-gaps`
 
 **Checker-files/closure statement (plan-verify iteration-1 amendment, gap 8, 2026-07-29)**: the
 new `scripts/capability-admission.ts` and `scripts/bundler-disjointness.ts` files (and every other
@@ -442,7 +442,7 @@ baseline refresh`) is process-dependent on a post-verify hook outcome and is mar
 
 | Row | Disposition | Evidence |
 |---|---|---|
-| **Meta-finding** (Constraint 4 wants a structural invariant, not a shape scanner) | `CLOSED-BY-MECHANISM` | This change's entire raison d'être: ADR-0079 (design.md §5) replaces the deny-scan with the capability-admission property; slices S-001..S-004 realise it |
+| **Meta-finding** (Constraint 4 wants a structural invariant, not a shape scanner) | `RE-REGISTERED` — **was `CLOSED-BY-MECHANISM`; corrected 2026-08-05 after judgment-day round 1** | The mechanism redesign (ADR-0079, slices S-001..S-004) raised the bar substantially but did NOT close the class: a third adversarial round demonstrated executable bypasses, making three rounds that each closed the spellings they were shown. Claiming `CLOSED-BY-MECHANISM` here would restate exactly what ADR-0079's Amendment, ADR-0080's scope-correction note, REQ-CAP-01's scope correction and `docs/runner-integrity-invariants.md#known-gaps` now retract. Re-registered as its own future change `capability-admission-oracle` (deliverable `FIT-CAP-ORACLE`, the differential oracle deferred in design.md §7) in `openspec/pending-changes.md`, with the three executed bypass classes as motivating evidence and the explicit note that a member-path allowlist cannot be made sound without dataflow analysis |
 | **R2-3** (version-failure reuses `unreadable-file` rule) | `CLOSED-BY-FIX` | `REQ-DGN-01.1`, slice `S-004` (S-004.2) |
 | **R2-4** (malformed `package.json` fails OPEN, stale manifest) | `CLOSED-BY-FIX` | `REQ-FCG-01.1`, slice `S-004` (S-004.1) |
 | **R2-5** (false positive on `module.createRequire(u).resolve(s)`) | `CLOSED-BY-FIX` | `REQ-XPO-01.2`, slice `S-002` (S-002.1) |
@@ -466,11 +466,14 @@ baseline refresh`) is process-dependent on a post-verify hook outcome and is mar
 | **`react-conformance.test.ts` declares no timeout** | `CLOSED-BY-FIX` | `REQ-PPI-04.1/.2`, slice `S-000` (S-000.3/S-000.4); pulled in-scope by ruling 6 (`triage.md` Scope Amendment finding F) |
 | **Two spec-wording deviations** (`REQ-RMD-05.1` username-substring, `REQ-RMD-01.2` locale scenario) | `CLOSED-BY-FIX` | `REQ-RMD-05.1` [MODIFIED] + `REQ-RMD-01.2` [MODIFIED], slice `S-004` (S-004.5/S-004.6) |
 
-Row-count check: 23 register rows in → 23 dispositions out — 5 `CLOSED-BY-MECHANISM` (meta-
-finding, R1-7, R1-16, R1-17, `node:vm` fold) + 13 `CLOSED-BY-FIX` (R2-3, R2-4, R2-5, R2-6, R1-5,
+Row-count check (**re-tallied 2026-08-05, judgment-day scope correction** — the meta-finding row
+moved from `CLOSED-BY-MECHANISM` to `RE-REGISTERED`; every other disposition is unchanged): 23
+register rows in → 23 dispositions out — 4 `CLOSED-BY-MECHANISM` (R1-7, R1-16, R1-17, `node:vm`
+fold) + 13 `CLOSED-BY-FIX` (R2-3, R2-4, R2-5, R2-6, R1-5,
 R1-6, R1-8, R1-10, R1-11, R1-13, R1-15, react-conformance timeout, two spec-wording deviations)
 + 4 `OUT-WITH-REASON` (R1-9, R1-12, R1-14, R1-18) + 1 `archive-verifies` (architecture baseline
-refresh) = 23, zero silently dropped, zero `RE-REGISTERED` this cycle — satisfies `triage.md`
+refresh) + 1 `RE-REGISTERED` (meta-finding → `capability-admission-oracle`) = 23, zero silently
+dropped — satisfies `triage.md`
 Scope Amendment (c)'s acceptance criterion ("row-count delta fully explained"). `sdd-archive`
 re-verifies each row against the actually-built/actually-merged code before writing this table
 into `openspec/pending-changes.md`'s next revision; it does not originate dispositions the plan
