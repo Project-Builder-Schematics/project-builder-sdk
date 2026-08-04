@@ -17,7 +17,6 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  readdirSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -25,6 +24,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
 import { ensureTscBuild } from "../support/shared-build.ts";
+import { expectCorpusMatchesDeclared } from "../support/corpus-completeness.ts";
 import {
   CREATE_REQUIRE_ANCHOR_FILE,
   ENTRY_RELATIVE_PATH,
@@ -1414,9 +1414,7 @@ describe("FIT-42N S-001 — REQ-PRM-01: capability primitive register, fixture-c
   });
 
   it("REQ-PRM-01.2: readdir(deny-scan/) matches the declared class-ID list exactly, both directions", () => {
-    const onDisk = readdirSync(DENY_SCAN_DIR).sort();
-    const declared = Object.keys(DENY_SCAN_FIXTURES).sort();
-    expect(onDisk).toEqual(declared);
+    expectCorpusMatchesDeclared(DENY_SCAN_DIR, Object.keys(DENY_SCAN_FIXTURES));
   });
 
   for (const [file, primitive] of Object.entries(DENY_SCAN_FIXTURES)) {
@@ -1613,9 +1611,7 @@ describe("FIT-42N S-003 — REQ-PTH-01: the bundler-scripts/ corpus is complete,
   const DECLARED_GREEN = ["green-outside-closure.json"];
 
   it("REQ-PTH-01: readdir(bundler-scripts/) matches the declared class-ID list exactly, both directions", () => {
-    const onDisk = readdirSync(BUNDLER_SCRIPTS_DIR).sort();
-    const declared = [...DECLARED_RED, ...DECLARED_GREEN].sort();
-    expect(onDisk).toEqual(declared);
+    expectCorpusMatchesDeclared(BUNDLER_SCRIPTS_DIR, [...DECLARED_RED, ...DECLARED_GREEN]);
   });
 
   it("REQ-PTH-01.6: the mandatory green sibling produces zero violations and zero unclassifiable constructs — non-vacuity", () => {
@@ -1684,7 +1680,7 @@ describe("FIT-42N S-004 — REQ-FCG-01: the fail-closed/ corpus is complete, rea
   const DECLARED = ["malformed-json.json", "unreadable-closure-file.json", "generic-throw-null-package.json"];
 
   it("REQ-FCG-01: readdir(fail-closed/) matches the declared class-ID list exactly, both directions", () => {
-    expect(readdirSync(FAIL_CLOSED_DIR).sort()).toEqual([...DECLARED].sort());
+    expectCorpusMatchesDeclared(FAIL_CLOSED_DIR, DECLARED);
   });
 });
 
