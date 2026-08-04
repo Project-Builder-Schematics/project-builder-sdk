@@ -345,7 +345,7 @@ suite spawns many real subprocesses/scratch dirs and has occasional resource-con
 flakes in this sandbox, distinct from anything this slice touched). Fresh-build
 byte-neutrality: confirmed at slice close, matching the value recorded above.
 
-### Commits (chronological)
+### Commits (chronological, first pass)
 
 1. `feat(capability-admission): replace deny-scan with default-deny admission property`
 2. `test(fitness): add FIT-CAP-TOTALITY, FIT-MANIFEST-BYTE-NEUTRAL, exact-membership pins`
@@ -354,9 +354,121 @@ byte-neutrality: confirmed at slice close, matching the value recorded above.
 5. `test(fixtures): commit the deny-scan/green fixture corpus (S-001.6)`
 6. `docs(adr): add ADR-0079/0080; test(fitness): CAP-01.6/.7 red-proofs`
 
+## Completion pass (2026-08-04) — S-001.7 + doc-drift reconciliation + CAP-01.3 note
+
+Closes the three items the orchestrator routed back before S-003: S-001.7 (blocking),
+the doc-drift re-pin, and the REQ-CAP-01.3 clarification.
+
+### S-001.7 — whole-verbatim conversion + standing scan, now COMPLETE
+
+**Conversion count**: 50 pre-existing `toContain` call-sites (on a `rendered`/`stderr`/
+`.reason` message receiver) across the family, consolidated into ~19 whole-verbatim `toBe`
+assertions (several tests previously asserted 2-4 `toContain` fragments of ONE message; each
+collapsed to one exact-string comparison, which is strictly stronger — nothing between the
+asserted fragments can silently be wrong). Breakdown: 3 in
+`fit-42-runner-closure-integrity.test.ts` (the version-missing stderr, the real-tree bare-
+specifier stderr, the baseline-writer-failure stderr — all captured from REAL `runGenerator`/
+`regen-closure-baseline.ts` runs, not hand-guessed), ~15 tests / 38 call-sites in
+`fit-42-runner-closure-integrity.negative.test.ts` (synthetic-fixture `rendered` values,
+captured via a throwaway probe script reproducing each test's exact fixture, then deleted),
+3 in `fit-23-publish-workflow-guard.test.ts` (`.reason` fields from `checkRepoOwnerGuard`/
+`checkPublishOrdering`, two of which reference the file's own `OWNER_REPO` constant via
+template literal rather than a hardcoded string — matching the file's existing convention of
+deriving expected values from the same source the code under test reads, never weakened to
+partial matching). `fit-46-publish-sequence-integrity.test.ts` had zero pre-existing
+`toContain` sites — nothing to convert there.
+
+**No dynamic-segment exceptions needed.** Every converted message was either a fully
+deterministic string (fixture content is test-authored, not runtime-random) or, for the two
+fit-23 `.reason` assertions whose expected text embeds `OWNER_REPO`, resolved by referencing
+the SAME constant the assertion's own file already imports — the file's own established
+convention for composed/parameterised expected values (see e.g. the primitives-loop pattern
+already in `fit-42-*.negative.test.ts`), not a new pattern and not a weakening.
+
+**Remaining `toContain` sites (14, left alone, not tripwire messages)**: array-membership
+checks (`paths.toContain(...)`, `.nodes.not.toContain(...)`, `targets.map(...).toContain(...)`),
+raw source/manifest-content checks (`authoringError.toContain(...)`, `source.toContain(...)`,
+`manifestRaw.not.toContain(...)`), and one workflow-YAML command-line content check
+(`line.toContain("npm publish")`). None of these assert a rendered violation or guard-
+failure message — REQ-CST-06.1 governs message assertions, not membership/content checks —
+and the standing scan (below) is specifically built to leave them alone.
+
+**Standing scan**: `FIT-42N S-001 — REQ-CST-06.1: standing scan — no toContain on a tripwire
+message` (new describe block, end of `fit-42-runner-closure-integrity.negative.test.ts`).
+Regex-based over each scanned file's raw source text (`expect(RECEIVER).toContain(` /
+`.not.toContain(`), classifying RECEIVER as a "tripwire message" iff it matches
+`\b(rendered|stderr)\b|\.reason\b|\.message\b` — the family's own established naming
+convention for rendered/guard-failure text. One test per scanned file
+(`test/fitness/fit-42-runner-closure-integrity.{test,negative.test}.ts`,
+`fit-23-publish-workflow-guard.test.ts`, `fit-46-publish-sequence-integrity.test.ts`) — 4
+tests, all currently green (zero message-receiver `toContain` remains anywhere in the
+family). Plus a red-proof (`REQ-CST-06.1 [red-proof]: the scan itself catches a planted
+toContain on a message receiver`) proving the scan actually fires, and a false-positive
+guard (`the scan does NOT flag legitimate non-message toContain`) proving it leaves the 14
+array/content checks alone. **Self-scan gotcha found and fixed**: the scan's own red-proof
+and false-positive-guard tests originally spelled the literal banned syntax
+(`expect(rendered).toContain(...)`) as PLAIN STRING DATA inside their own fixture arrays —
+since the scan reads `fit-42-runner-closure-integrity.negative.test.ts`'s raw source text
+and that file is itself in `SCANNED_FILES`, it flagged its own test data as offending code.
+Fixed by building the banned token via string concatenation (`const CALL =
+["toCon","tain"].join("")`) in the fixture data, and by changing the offender-report string
+format to never spell `expect(` immediately followed by `.toContain(` as one literal
+substring — both are test-authoring devices to avoid self-matching, not a weakening of what
+the scan actually detects at runtime.
+
+### Doc-drift reconciliation — design.md re-pinned (owner-authorized, per slices.md Risks case (a))
+
+Added a dated reconciliation note in `design.md` §1 (right after the probe table) recording:
+`ADMITTED_GLOBALS` 22→21, `ADMITTED_MEMBER_PATHS` 28→30, both re-verified and root-caused to
+`git diff e6dcde2 HEAD -- src/core/context.ts src/core/wire.ts` showing exclusively
+JSDoc-comment-only edits (zero AST/surface change) — probe imprecision on these two specific
+numbers, not source drift (every other probe figure re-verified exact). Updated §3's Data
+Model code-comment counts (`22 today` → `21 today`, `28 today` → `30 today`) and §8's
+byte-neutrality gate value (`bf6c983c…a530` → `31cd5382…33fde`, with the supersession
+recorded, not the old value deleted) plus the Test Derivation table's citation (§6, REQ-CAP-06
+row). The re-pinned digest is the SAME value this slice's own `FIT-MANIFEST-BYTE-NEUTRAL` test
+already asserts (`scripts/capability-admission.ts`'s own commit); this pass makes design.md's
+prose agree with what already shipped, not the other way around. `specs/runner-integrity-
+manifest/spec.md`'s matching REQ-CAP-04.4/.6 scenario text still carries the stale 22/28 —
+flagged in the design.md note itself for the archive-time delta sync to correct.
+
+### REQ-CAP-01.3 clarification — recorded in design.md, judged at verify-final
+
+Added a dated note in `design.md` §1 (after the E1-E4 exclusion table) tracing why REQ-CAP-01.3
+("a computed member expression on a computed base... renders as unclassifiable-construct")
+has no dedicated test: the signed `SurfaceNodeKind` union (§3, pinned exact by REQ-CAP-01.4)
+has no slot for a bare computed-access node in VALUE position (never a callee) — `member-path`
+is explicitly non-computed by its own definition, `value-reference` requires a plain
+`Identifier`, and the other three kinds don't apply. The CALLEE-position variant of this shape
+(`a[b][c]()`) IS caught, but under REQ-CAP-03 (`constraint-4-undecidable-callee`), which is a
+different, already red-proven scenario (M2.1) — not REQ-CAP-01.3's own text, which is scoped
+to a construct no OTHER leg resolves. **Disposition given, not decided unilaterally**: NOT
+vacuously covered by totality (nothing is ever enumerated for this shape, so there is no
+present-but-unclassified case for `FIT-CAP-TOTALITY` to catch) — the scenario is
+unimplementable AS WRITTEN under the union this same design signed off on. Two ways to close
+it are named (a 6th `SurfaceNodeKind`, needing its own REQ-CAP-01.4 unfreeze; or retiring the
+scenario since D-1's own value-position-is-safe argument already covers the shape) — left for
+`sdd-verify --mode=final` to judge, not resolved silently here.
+
+### Gate re-confirmation at completion-pass close
+
+`bun run typecheck`: clean. Fresh `rm -rf dist && bun run build`:
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` (matches the re-pinned
+digest exactly). `bun test` (full suite): **2512 pass, 0 fail**, run twice for stability
+(the S-000-era note about occasional subprocess-contention flakiness in this sandbox still
+applies generically to the suite; both completion-pass runs were clean). Net new tests this
+pass: +6 (the standing-scan describe block: 4 per-file scans + 1 red-proof + 1
+false-positive-guard).
+
+### Commits (chronological, completion pass)
+
+7. `test(fitness): convert fit-42/fit-23 toContain message assertions to whole-verbatim`
+8. `test(fitness): add the standing scan forbidding toContain on tripwire messages`
+9. `docs(design): re-pin admitted-table counts and byte digest; add CAP-01.3 note`
+10. `docs(sdd): mark S-001.7 complete, record the completion pass`
+
 ### Next recommended
 
-S-001.7's full conversion pass (mechanical, ~44 remaining `toContain` sites + the standing
-scan) before S-003 (`sdd-slice`'s Build Order: S-001 lands first in batch 2, and the scan
-should be live before S-003/S-004 touch the same shared files). Then S-003
-(`FIT-PATH-SPELLING-INVARIANCE`, `scripts/bundler-disjointness.ts`) per the Build Order.
+S-003 (`FIT-PATH-SPELLING-INVARIANCE`, `scripts/bundler-disjointness.ts`) per the Build Order
+— S-001 is now fully complete (10/10 tasks) and the standing anti-`toContain` scan is live on
+the shared `fit-42-*` files before S-003/S-004 touch them, as the Build Order requires.
