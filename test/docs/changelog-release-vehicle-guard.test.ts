@@ -12,6 +12,7 @@
  * frozen-string-guard precedent.
  */
 import { describe, it, expect } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PROJECT_ROOT } from "../support/jsdoc-scan.ts";
@@ -71,30 +72,74 @@ describe("REQ-MFB-02.1 — CHANGELOG.md carries all four 0.2.0 entries under the
 
 describe("REQ-MFB-02.1 — package.json#version is bumped alongside the CHANGELOG", () => {
   // `publish.yml` stamps `0.0.0-dev.<short-sha>` and then runs the FULL suite as its publish gate
-  // (REQ-PPI-03). A dev stamp is not a release version and has no CHANGELOG heading by design, so
-  // asserting equality unconditionally makes the publish job permanently red — the same defect as
-  // the byte-neutrality digest constant (verify-report C-2), in a second place. The invariant is
-  // about RELEASE versions; the dev-stamp shape is named explicitly rather than skipped silently.
+  // (REQ-PPI-03), so the working tree's version is transient in exactly the run that matters.
+  // Returning early on the stamp shape made the guard INERT there — it asserted the shape of the
+  // value that had selected the branch, which is a tautology, not the invariant. The invariant is
+  // about the version the COMMIT declares, and git can still read that under a stamp.
   const DEV_STAMP = /^0\.0\.0-dev\.[\da-f]{7}$/;
+  const RELEASE_HEADING = /^## (\d+\.\d+\.\d+)$/m;
 
-  it("a release version matches the CHANGELOG's topmost version heading", () => {
-    const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8")) as { version: string };
-    if (DEV_STAMP.test(pkg.version)) {
-      // The publish job's own transient state: assert THAT, so the case is covered rather than
-      // waved through, and a malformed stamp still fails here.
-      expect(pkg.version).toMatch(DEV_STAMP);
-      return;
+  const workingTreeVersion = (): string =>
+    (JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8")) as { version: string }).version;
+
+  /** The version at HEAD — never the stamped working tree. A read failure fails loudly. */
+  function committedVersion(): string {
+    const result = spawnSync("git", ["show", "HEAD:package.json"], {
+      cwd: PROJECT_ROOT,
+      encoding: "utf-8",
+    });
+    if (result.status !== 0) {
+      throw new Error(
+        `changelog guard: cannot read HEAD:package.json (git exited ${String(result.status)}), so the release-version invariant cannot be checked. Failing is correct; a silent pass is what this guard exists to prevent.\n${result.stderr as unknown as string}`
+      );
     }
-    const topHeading = /^## (\d+\.\d+\.\d+)$/m.exec(changelog())?.[1];
-    expect(pkg.version).toBe(topHeading ?? "(no version heading in CHANGELOG.md)");
+    return (JSON.parse(result.stdout as unknown as string) as { version: string }).version;
+  }
+
+  /** The invariant, as a function — so it can be red-proofed against fixtures, not just run. */
+  function checkVersionHasChangelogHeading(
+    version: string,
+    topHeading: string | undefined
+  ): { ok: boolean; reason?: string } {
+    if (topHeading === undefined) {
+      return { ok: false, reason: "CHANGELOG.md has no `## <major.minor.patch>` heading" };
+    }
+    if (version !== topHeading) {
+      return {
+        ok: false,
+        reason: `version ${version} does not match the CHANGELOG's topmost heading ${topHeading}`,
+      };
+    }
+    return { ok: true };
+  }
+
+  it("the version under release matches the CHANGELOG's topmost heading — under a dev stamp too", () => {
+    const stamped = DEV_STAMP.test(workingTreeVersion());
+    // Under the publish stamp the committed version IS the release version; otherwise the
+    // working tree is authoritative. Either way the invariant itself is what gets asserted.
+    const releaseVersion = stamped ? committedVersion() : workingTreeVersion();
+    expect(checkVersionHasChangelogHeading(releaseVersion, RELEASE_HEADING.exec(changelog())?.[1])).toEqual({
+      ok: true,
+    });
   });
 
-  it("[red-proof] a release version with no matching CHANGELOG heading fails, and a dev stamp is not a release version", () => {
-    const topHeading = /^## (\d+\.\d+\.\d+)$/m.exec(changelog())?.[1];
-    expect(topHeading).toBe("0.2.3");
-    // The guard is not vacuous: an ordinary bump that forgot the CHANGELOG still fails...
-    expect(() => expect("0.9.9").toBe(topHeading ?? "")).toThrow();
-    // ...and the exemption is exactly the publish stamp's shape, nothing wider.
+  it("the git oracle the stamped branch depends on is readable and carries a release-shaped version", () => {
+    expect(committedVersion()).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it("[red-proof] the guard fails on a mismatch and on a missing heading, and the stamp shape is exactly publish.yml's", () => {
+    // Fixture data, never a claim about this repo's current release — the old proof pinned the
+    // live version and compared a literal to it, which no mutation of the guard could fail.
+    expect(checkVersionHasChangelogHeading("0.9.9", "0.2.3")).toEqual({
+      ok: false,
+      reason: "version 0.9.9 does not match the CHANGELOG's topmost heading 0.2.3",
+    });
+    expect(checkVersionHasChangelogHeading("0.2.3", undefined)).toEqual({
+      ok: false,
+      reason: "CHANGELOG.md has no `## <major.minor.patch>` heading",
+    });
+    expect(checkVersionHasChangelogHeading("0.2.3", "0.2.3")).toEqual({ ok: true });
+    // A dev stamp is never mistaken for a release version, and the exemption is no wider.
     expect(DEV_STAMP.test("0.0.0-dev.abc1234")).toBe(true);
     expect(DEV_STAMP.test("0.9.9")).toBe(false);
     expect(DEV_STAMP.test("0.0.0-dev.notasha")).toBe(false);
