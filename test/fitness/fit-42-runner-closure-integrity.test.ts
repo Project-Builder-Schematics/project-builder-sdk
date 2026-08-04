@@ -915,7 +915,8 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
     if (Node.isPropertyDeclaration(parent) && parent.getNameNode() === id) return true;
     if (Node.isPropertyAccessExpression(parent) && parent.getNameNode() === id) return true;
     if (Node.isPropertyAssignment(parent) && parent.getNameNode() === id) return true;
-    if (Node.isShorthandPropertyAssignment(parent) && parent.getNameNode() === id) return true;
+    // A SHORTHAND property name is NOT excluded: `{ process }` has no enclosing access to stand
+    // in as the surface node, so the name itself is the reference.
     if (Node.isPropertySignature(parent) && parent.getNameNode() === id) return true;
     if (Node.isMethodDeclaration(parent) && parent.getNameNode() === id) return true;
     if (Node.isMethodSignature(parent) && parent.getNameNode() === id) return true;
@@ -947,6 +948,10 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
       if (Node.isCallExpression(call) && call.getExpression().getKind() === SyntaxKind.ImportKeyword) continue;
       callees.add(call.getExpression());
     }
+    // A tagged template's TAG is a callee: `` C`return process.version` `` invokes C.
+    for (const tagged of sourceFile.getDescendantsOfKind(SyntaxKind.TaggedTemplateExpression)) {
+      callees.add(tagged.getTag());
+    }
     count += callees.size;
 
     // A node is "consumed by a callee" only if it is a LINK IN THE CALLEE'S OWN CHAIN — the
@@ -972,9 +977,10 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
     const insideACallee = (node: Node): boolean => consumedByCallee.has(node);
 
     // Every remaining maximal member chain (member-path) or standalone Identifier
-    // (value-reference), rooted at a free OR local Identifier, counts once — found via the SAME
-    // "maximal access, not itself inside an already-counted callee" shape, but walked top-down
-    // over every access instead of bottom-up per callee.
+    // (value-reference) counts once — found via the SAME "maximal access, not itself inside an
+    // already-counted callee" shape, but walked top-down over every access instead of bottom-up
+    // per callee. The chain's ROOT need not be an identifier: `"".constructor.constructor` and
+    // `this.g.eval` are member paths whose base is a literal / `this`.
     const countedRoots = new Set<Node>();
     for (const access of [
       ...sourceFile.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression),
@@ -985,8 +991,7 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
       if (insideACallee(access)) continue;
       let root: Node = access;
       for (let base = linkBase(root); base !== undefined; base = linkBase(root)) root = base;
-      if (!Node.isIdentifier(root)) continue;
-      countedRoots.add(root);
+      if (Node.isIdentifier(root)) countedRoots.add(root);
       count++;
     }
     for (const id of sourceFile.getDescendantsOfKind(SyntaxKind.Identifier)) {

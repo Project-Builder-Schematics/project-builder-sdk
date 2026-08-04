@@ -5,7 +5,10 @@
 // `.` (total-root targeting the length-1 trailing-slash-strip skip missed), `-odist/...`
 // (the short flag concatenated with no separator — never parsed at all), `../dist/...`
 // (a relative-parent escape never resolved), `--outdir=$VAR` (undecidable at build time,
-// silently treated as an ordinary string target).
+// silently treated as an ordinary string target). Three more, probe-confirmed in judgment-day
+// round 1: `-outdir dist/x` (read as `-o` + the path segment "utdir", dropping the real path in
+// the next token), `--outdir --minify dist/x` (a flag accepted as a path — the safe-path grammar
+// admits `-`), and `--OUTDIR` (matched by no spelling and silently ignored).
 //
 // Every candidate flag token is resolved with `node:path`'s own `posix.resolve` against a
 // FIXED virtual anchor (`/`) — pure path algebra, no real filesystem access, deterministic
@@ -51,6 +54,10 @@ const SAFE_PATH = /^[A-Za-z0-9._/-]+$/;
 /** A recognised flag's value is a target only if the grammar can decide it; absent counts too. */
 function readValue(flag: BundlerFlag, value: string | undefined, token: string, consumed: number): TokenReading {
   if (value === undefined) return { kind: "undecidable", token, consumed: 1 };
+  // The safe-path grammar admits `-`, so a FLAG standing where a value belongs (`--outdir
+  // --minify dist/x`) matched it and was accepted as an output path — silently moving the real
+  // target one token further along, where nothing classified it. A leading `-` decides nothing.
+  if (value.startsWith("-")) return { kind: "undecidable", token: consumed === 2 ? `${token} ${value}` : token, consumed };
   if (!SAFE_PATH.test(value)) return { kind: "undecidable", token: consumed === 2 ? `${token} ${value}` : token, consumed };
   return { kind: "target", flag, value, token, consumed };
 }
@@ -74,19 +81,29 @@ interface TokenReading {
  */
 function classifyToken(tokens: readonly string[], index: number): TokenReading | undefined {
   const token = tokens[index] as string;
+  // SHAPE is decided case-insensitively (`--OUTDIR` was matched by nothing and silently
+  // ignored); the VALUE is never case-folded — a path's case is part of the path.
+  const shape = token.toLowerCase();
 
   for (const flag of RECOGNISED_LONG) {
-    if (token === flag) return readValue(flag, tokens[index + 1], token, 2);
-    if (token.startsWith(`${flag}=`)) return readValue(flag, token.slice(flag.length + 1), token, 1);
+    if (shape === flag) return readValue(flag, tokens[index + 1], token, 2);
+    if (shape.startsWith(`${flag}=`)) return readValue(flag, token.slice(flag.length + 1), token, 1);
   }
 
-  if (token === "-o") return readValue("-o", tokens[index + 1], token, 2);
-  if (token.startsWith("-o") && token.length > 2) return readValue("-o", token.slice(2), token, 1);
+  if (shape === "-o") return readValue("-o", tokens[index + 1], token, 2);
+
+  // A SINGLE-dash `-out…` is an unrecognised output-flag spelling, NOT the concatenated short
+  // form: reading `-outdir dist/x` as `-o` + `utdir` produced a target of "utdir" (colliding
+  // with nothing) and dropped the real path in the next token. Checked before the concatenated
+  // form below, which is what mis-claimed it.
+  if (shape.startsWith("-out")) return { kind: "unclassifiable-shape", token, consumed: 1 };
+
+  if (shape.startsWith("-o") && token.length > 2) return readValue("-o", token.slice(2), token, 1);
 
   // Output-flag-SHAPED but not one of the three recognised spellings above — e.g.
   // `--out-dir`. Never confused with an ordinary non-output flag: those don't start with
   // `--out` or `-o` at all, and are correctly left unclassified (returns undefined below).
-  if (token.startsWith("--out") && !RECOGNISED_LONG.includes(token as BundlerFlag)) {
+  if (shape.startsWith("--out")) {
     return { kind: "unclassifiable-shape", token, consumed: 1 };
   }
 

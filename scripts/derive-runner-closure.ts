@@ -425,13 +425,13 @@ const RULE_BODIES: Record<ViolationRule, (detail: string) => RuleBody> = {
   "constraint-4-undecidable-callee": (detail) => ({
     summary: "call target is not a statically resolvable binding",
     rule: `Constraint 4 — the closure may RESOLVE, never EXECUTE.\n         every call/new callee must be a statically resolvable binding: a bare identifier, or a non-computed member chain rooted at one, this, super, a call/new result, or a literal.\n         undecidable callee: ${detail}`,
-    why: "a computed, string-built, or bare call-result-invoked-again callee hides which primitive actually executes — the SHAPE is denied, never a specific spelling. globalThis[\"ev\"+\"al\"](...) and (()=>{}).constructor(\"return 1\")() both defeat a name-matching guard this way.",
+    why: "a computed, string-built, or bare call-result-invoked-again callee hides which primitive actually executes, so these three SHAPES are denied whatever they spell. That is not a claim that every undecidable callee is caught: origin admission is default-deny, but the member PATH off a local or a call result is decided by a deny predicate, so a capability reached through an unlisted property name is not caught at all (docs/runner-integrity-invariants.md#known-gaps). This is a drift control, not an adversary control.",
     fix: "call the target through a directly-named, statically resolvable binding, or move the work outside the closure.",
   }),
   "constraint-4-inadmissible-origin": (detail) => ({
     summary: "capability primitive or unadmitted origin in the closure",
     rule: `Constraint 4 — the closure may RESOLVE, never EXECUTE.\n         admitted origins: local, a closure import of an admitted name, an admitted global, or an admitted builtin member path.\n         forbidden origin: ${detail}`,
-    why: "a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. See docs/runner-integrity-invariants.md#constraint-4.",
+    why: "a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. Origin admission is default-deny; the member PATH off a root those tables cannot decide is a deny predicate, and its known gaps are recorded in docs/runner-integrity-invariants.md#known-gaps. See docs/runner-integrity-invariants.md#constraint-4.",
     fix: "resolve the value through an admitted origin, or move the work outside the closure. If the primitive is genuinely needed, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-4 and agree it with the engine before regenerating any baseline.",
   }),
   "directory-specifier": (detail) => ({

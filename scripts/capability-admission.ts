@@ -1,9 +1,25 @@
 // Capability-admission property (ADR-0079): replaces `denyScan`'s default-PASS text scan.
-// Every node of a closure file's capability surface classifies into exactly one of
-// {admitted, violation, unclassifiable-construct}; the default for anything unrecognised is
-// violation or unclassifiable, never a silent pass. Two independently-implemented functions
-// make totality falsifiable: `enumerateCapabilitySurface` (what is present) and
-// `classifySurfaceNode` (what is admitted) — see FIT-CAP-TOTALITY.
+// Every node the surface ENUMERATOR reaches classifies into exactly one of {admitted,
+// violation, unclassifiable-construct}, and the ORIGIN half of that decision is genuinely
+// default-deny: a root binding that is not local, not a closure import and not an
+// `ADMITTED_GLOBALS` member is a violation in every position. Two independently-implemented
+// functions make that totality falsifiable: `enumerateCapabilitySurface` (what is present)
+// and `classifySurfaceNode` (what is admitted) — see FIT-CAP-TOTALITY.
+//
+// What this is NOT: a sound adversary control. Two halves are not default-deny, by
+// construction rather than by oversight.
+//   - The PATH off a root the tables cannot decide (a local, a parameter, a closure import, a
+//     safe terminal) is checked against `CAPABILITY_BEARING_SEGMENTS`, a DENY predicate over an
+//     unbounded name space — anything it does not name passes.
+//   - Enumeration totality is relative to the enumerator's own five `SurfaceNodeKind`s: a
+//     construct it does not reach is not "unclassifiable", it is invisible. Tagged templates
+//     were exactly that for two review rounds.
+// Three independent rounds each closed the spellings they were shown and the next round found
+// more; deciding an alias/reflection graph against an AST allowlist is a dataflow-analysis
+// problem this mechanism does not solve. Its real job is DRIFT control — catching honest
+// mistakes and agent edits that widen the closure's executed surface — not resisting an author
+// who is trying. Demonstrated residual bypasses and the deferred differential oracle:
+// docs/runner-integrity-invariants.md#known-gaps.
 //
 // Three legs, all syntax-only (no ts-morph type checker, no module resolution): callee
 // decidability (REQ-CAP-03), origin admission (REQ-CAP-04), positional decidability for
@@ -227,7 +243,8 @@ function isPropertyNamePosition(id: Identifier): boolean {
   if (!parent) return false;
   if (Node.isPropertyAccessExpression(parent) && parent.getNameNode() === id) return true;
   if (Node.isPropertyAssignment(parent) && parent.getNameNode() === id) return true;
-  if (Node.isShorthandPropertyAssignment(parent) && parent.getNameNode() === id) return true;
+  // A SHORTHAND property is deliberately absent: `{ process }` has no enclosing access to be the
+  // surface node instead, so E3's justification does not hold for it — the name IS the reference.
   if (Node.isPropertySignature(parent) && parent.getNameNode() === id) return true;
   if (Node.isMethodDeclaration(parent) && parent.getNameNode() === id) return true;
   if (Node.isMethodSignature(parent) && parent.getNameNode() === id) return true;
@@ -255,6 +272,26 @@ function isTypePosition(id: Identifier): boolean {
 
 function isDynamicImportCall(node: Node): boolean {
   return Node.isCallExpression(node) && node.getExpression().getKind() === SyntaxKind.ImportKeyword;
+}
+
+/**
+ * The callee node of every invocation form: a call's/`new`'s expression, and a TAGGED TEMPLATE's
+ * tag. ``C`return process.version` `` invokes `C` exactly as `C("…")` does, and leaving the tag
+ * off this list left the whole form outside the surface — no leg ever ran on it.
+ */
+function invocationCallees(sourceFile: SourceFile): Node[] {
+  const callees: Node[] = [];
+  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    if (isDynamicImportCall(call)) continue;
+    callees.push(call.getExpression());
+  }
+  for (const created of sourceFile.getDescendantsOfKind(SyntaxKind.NewExpression)) {
+    callees.push(created.getExpression());
+  }
+  for (const tagged of sourceFile.getDescendantsOfKind(SyntaxKind.TaggedTemplateExpression)) {
+    callees.push(tagged.getTag());
+  }
+  return callees;
 }
 
 /**
@@ -324,15 +361,10 @@ export function enumerateCapabilitySurface(sourceFile: SourceFile): readonly Sur
     nodes.push({ kind: "meta-property", node: meta, text: meta.getText(), line: meta.getStartLineNumber() });
   }
 
-  // 3. callee — the expression of every call/`new`, excluding dynamic import(). Enumerated
+  // 3. callee — the callee of every invocation, excluding dynamic import(). Enumerated
   //    BEFORE the general identifier/member-path pass so that pass can skip nodes already
   //    consumed here (a maximal chain used as a callee is ONE surface node, not two).
-  for (const call of [
-    ...sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression),
-    ...sourceFile.getDescendantsOfKind(SyntaxKind.NewExpression),
-  ]) {
-    if (isDynamicImportCall(call)) continue;
-    const callee = call.getExpression();
+  for (const callee of invocationCallees(sourceFile)) {
     calleeExpressions.add(callee);
     // If the callee is (or contains, as its base) a PropertyAccessExpression chain rooted at
     // an Identifier, mark every link consumed — `m.createRequire` as a callee means `m`
@@ -360,9 +392,12 @@ export function enumerateCapabilitySurface(sourceFile: SourceFile): readonly Sur
     }
     if (calleeExpressions.has(access)) continue; // already a callee surface node
 
+    // A chain rooted at something OTHER than an identifier is enumerated too. Skipping it is
+    // what let `export const C = "".constructor.constructor` produce an escape with no finding
+    // at all: the escape has to be decided at its PRODUCING occurrence, because no cross-module
+    // dataflow follows the import edge to whichever file eventually calls it.
     const root = maximalAccessRoot(access);
-    if (!Node.isIdentifier(root)) continue; // complex base — not a member-path shape
-    consumedAsChainSegment.add(root);
+    if (Node.isIdentifier(root)) consumedAsChainSegment.add(root);
     nodes.push({
       kind: "member-path",
       node: access,
@@ -453,18 +488,25 @@ function taintReasonOf(initializer: Node | undefined): TaintReason | undefined {
   if (Node.isIdentifier(initializer) && DENIED_CAPABILITY_PRIMITIVES.has(initializer.getText())) {
     return "denied-initializer";
   }
-  if (Node.isPropertyAccessExpression(initializer) || Node.isCallExpression(initializer) || Node.isNewExpression(initializer)) {
+  if (
+    Node.isPropertyAccessExpression(initializer) ||
+    Node.isCallExpression(initializer) ||
+    Node.isNewExpression(initializer) ||
+    Node.isTaggedTemplateExpression(initializer)
+  ) {
     const resolution = resolveChain(initializer);
     if (resolution === undefined) return "undecidable-initializer";
     if (resolution.kind === "computed") return "computed-initializer";
     if (resolution.kind === "safe-terminal") {
       // A call RESULT held in a binding is an ordinary return value (`process.stdout.write.bind(…)`)
-      // — the inner callee was admitted on its own merits. Only a prototype-graph escape taints.
-      return resolution.path.some((segment) => PROTOTYPE_ESCAPE_SEGMENTS.has(segment)) ? "denied-initializer" : undefined;
+      // — the inner callee was admitted on its own merits. Only a capability-bearing path taints.
+      return capabilityBearingSegment(resolution.path) === undefined ? undefined : "denied-initializer";
     }
     // A register primitive reached as the chain's ROOT taints too, not only as its full path:
     // `Function.prototype.constructor` names `Function`.
     if (deniedPrimitiveIn(resolution.chain) !== undefined) return "denied-initializer";
+    const fullPath = [resolution.chain.rootName, ...resolution.chain.path].join(".");
+    if (capabilityBearingSegment(resolution.chain.path, fullPath) !== undefined) return "denied-initializer";
   }
   return undefined;
 }
@@ -640,14 +682,41 @@ type ChainResolution =
   | { readonly kind: "computed"; readonly access: Node };
 
 /**
- * Property names that walk OUT of a value and into its constructor/prototype graph. On an
- * identifier-rooted chain these are decided by `ADMITTED_MEMBER_PATHS` (which is why
- * `process.stdout.constructor` is already denied and `Object.prototype` is already admitted).
- * On a chain with no identifier root there is no path to look up, so nothing can check them —
- * and every class-(c) escape (`"".constructor.constructor`, `Object.getPrototypeOf(f)
- * .constructor`) is exactly one such segment off a literal or a call result.
+ * Property names that can only be reached by walking INTO a capability. Two groups:
+ *   - every dot segment of every non-`node:` register member (`eval`, `Function`, `Bun`,
+ *     `plugin`, `process`, `binding`, `WebAssembly`, `module`, `register`, `registerHooks`,
+ *     `createRequire`), derived from the register so the two cannot drift;
+ *   - the prototype-graph escapes, which walk OUT of any value and into its constructor graph
+ *     and are therefore not derivable from the register at all.
+ *
+ * `ADMITTED_MEMBER_PATHS` decides the path off an admitted GLOBAL and nothing else, so a chain
+ * rooted at a local, a parameter, a closure import or a safe terminal used to get no path check
+ * at all — the root's own admission decided the whole chain. This is what the path is checked
+ * against instead.
+ *
+ * It is a DENY predicate over an unbounded name space, so it closes demonstrated spellings and
+ * makes no closure claim: a carrier property named anything not listed here still launders its
+ * base. See docs/runner-integrity-invariants.md#known-gaps.
  */
-const PROTOTYPE_ESCAPE_SEGMENTS: ReadonlySet<string> = new Set(["constructor", "__proto__", "prototype"]);
+const CAPABILITY_BEARING_SEGMENTS: ReadonlySet<string> = new Set([
+  ...[...DENIED_CAPABILITY_PRIMITIVES]
+    .filter((primitive) => !primitive.startsWith("node:"))
+    .flatMap((primitive) => primitive.split(".")),
+  "constructor",
+  "__proto__",
+  "prototype",
+]);
+
+/**
+ * The first capability-bearing segment of a chain's path, or `undefined`. An exact
+ * `ADMITTED_MEMBER_PATHS` entry wins — `Object.prototype` is admitted at full-path identity
+ * even though `prototype` is a bearing segment — so `fullPath` is passed wherever one exists
+ * (an identifier-rooted chain) and omitted where none can (a safe terminal).
+ */
+function capabilityBearingSegment(path: readonly string[], fullPath?: string): string | undefined {
+  if (fullPath !== undefined && ADMITTED_MEMBER_PATHS.has(fullPath)) return undefined;
+  return path.find((segment) => CAPABILITY_BEARING_SEGMENTS.has(segment));
+}
 
 /**
  * Admitted member paths that PERFORM a computed member access, mapping the accessor to the
@@ -677,8 +746,11 @@ function isPlainFallback(node: Node): boolean {
  * Walks a callee/member-path expression to its root. A chain is decidable when EVERY link is
  * one of: a non-computed property access, a parenthesized/non-null wrapper, a `??` whose
  * fallback is a literal, or a terminal that is either an Identifier (needs origin admission)
- * or structurally incapable of naming an externally-sourced capability — `this`/`super`, a
- * literal, or a call/`new` RESULT. `this.#pending.push(...)`, `getRunAls().getStore()`,
+ * or a base that cannot NAME its own origin — `this`/`super`, a literal, or a call/`new`
+ * RESULT. Such a base is not thereby harmless: `function g(){ return globalThis }` makes `g()`
+ * a call result carrying the entire global surface, which is why the PATH off a safe terminal
+ * is checked separately (`classifySafeTerminal`) instead of being admitted with its base.
+ * `this.#pending.push(...)`, `getRunAls().getStore()`,
  * `/re/.test(...)`, `(property.choices ?? []).join(...)` and `createRequire(anchor).resolve(...)`
  * (the exemption's own outer call) are the real-closure "safe-terminal" shapes — probe-verified
  * 0/423 undecidable callees on this branch depends on them being admitted.
@@ -712,12 +784,16 @@ function resolveChain(expr: Node): ChainResolution | undefined {
       cur = cur.getLeft();
       continue;
     }
-    if (Node.isCallExpression(cur) || Node.isNewExpression(cur)) {
+    // A tagged template IS an invocation, so its value is a call result exactly as `f(…)`'s is.
+    if (Node.isCallExpression(cur) || Node.isNewExpression(cur) || Node.isTaggedTemplateExpression(cur)) {
       return { kind: "safe-terminal", terminal: "call-result", path };
     }
     if (
       cur.getKind() === SyntaxKind.ThisKeyword ||
       cur.getKind() === SyntaxKind.SuperKeyword ||
+      // `import.meta` is its own admitted surface node; a path off it (`import.meta.url`) has no
+      // identifier root, so it resolves here rather than falling through to `undefined`.
+      cur.getKind() === SyntaxKind.MetaProperty ||
       Node.isRegularExpressionLiteral(cur) ||
       Node.isStringLiteral(cur) ||
       Node.isNoSubstitutionTemplateLiteral(cur) ||
@@ -826,6 +902,13 @@ function classifyOrigin(
     return { kind: "violation", rule: "constraint-4-inadmissible-origin", detail: deniedPrimitive };
   }
 
+  // The PATH is decided independently of the root's own admission. Without this, `h.constructor`,
+  // `w.p.binding` and `Holder.g.eval` were all `admitted via local` on the strength of a local
+  // root: a carrier property is how an admitted origin hands over a capability it may not name.
+  if (capabilityBearingSegment(chain.path, fullPathOfChain) !== undefined) {
+    return { kind: "violation", rule: "constraint-4-inadmissible-origin", detail: fullPathOfChain };
+  }
+
   if (origin === undefined) {
     // Genuinely free: not in ADMITTED_GLOBALS, not local, not imported — so NOT one of
     // REQ-CAP-04's four admitted origin kinds, in any position. Admitting it as `local` in
@@ -880,16 +963,20 @@ function classifyOrigin(
 /**
  * A safe terminal says only "this base cannot name its origin" — the PATH off it still has to be
  * decided, and with no identifier root there is no table to decide it against. Two things are
- * therefore inadmissible: a prototype-graph escape segment, and a call RESULT invoked with no
+ * therefore inadmissible: a capability-bearing path segment, and a call RESULT invoked with no
  * property name at all (`f()()`), which is how the result of an admitted call — `Reflect.get(
  * globalThis, "eval")` — got executed while every individual node classified as admitted.
+ *
+ * Every OTHER path off a safe terminal is admitted, which is a default-PASS on an unbounded name
+ * space: a function returning a capability object launders whatever this predicate does not name.
+ * `g().eval` is closed; the class is not. docs/runner-integrity-invariants.md#known-gaps.
  */
 function classifySafeTerminal(
   resolution: Extract<ChainResolution, { readonly kind: "safe-terminal" }>,
   node: SurfaceNode,
   isCalleePosition: boolean
 ): Disposition {
-  const escape = resolution.path.find((segment) => PROTOTYPE_ESCAPE_SEGMENTS.has(segment));
+  const escape = capabilityBearingSegment(resolution.path);
   if (escape !== undefined) {
     return { kind: "violation", rule: "constraint-4-inadmissible-origin", detail: node.text };
   }

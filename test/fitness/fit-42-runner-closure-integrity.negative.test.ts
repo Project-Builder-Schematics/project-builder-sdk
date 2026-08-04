@@ -879,7 +879,7 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
         "  rule:  Constraint 4 — the closure may RESOLVE, never EXECUTE.",
         "         admitted origins: local, a closure import of an admitted name, an admitted global, or an admitted builtin member path.",
         "         forbidden origin: createRequire",
-        "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. See docs/runner-integrity-invariants.md#constraint-4.",
+        "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. Origin admission is default-deny; the member PATH off a root those tables cannot decide is a deny predicate, and its known gaps are recorded in docs/runner-integrity-invariants.md#known-gaps. See docs/runner-integrity-invariants.md#constraint-4.",
         "  fix:   resolve the value through an admitted origin, or move the work outside the closure. If the primitive is genuinely needed, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-4 and agree it with the engine before regenerating any baseline.",
         "",
         "No manifest was written; dist/runner-manifest.json does not exist.",
@@ -901,7 +901,7 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
         "  rule:  Constraint 4 — the closure may RESOLVE, never EXECUTE.",
         "         admitted origins: local, a closure import of an admitted name, an admitted global, or an admitted builtin member path.",
         "         forbidden origin: createRequire",
-        "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. See docs/runner-integrity-invariants.md#constraint-4.",
+        "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. Origin admission is default-deny; the member PATH off a root those tables cannot decide is a deny predicate, and its known gaps are recorded in docs/runner-integrity-invariants.md#known-gaps. See docs/runner-integrity-invariants.md#constraint-4.",
         "  fix:   resolve the value through an admitted origin, or move the work outside the closure. If the primitive is genuinely needed, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-4 and agree it with the engine before regenerating any baseline.",
         "",
         "No manifest was written; dist/runner-manifest.json does not exist.",
@@ -922,7 +922,7 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
         "  rule:  Constraint 4 — the closure may RESOLVE, never EXECUTE.",
         "         admitted origins: local, a closure import of an admitted name, an admitted global, or an admitted builtin member path.",
         "         forbidden origin: m.createRequire",
-        "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. See docs/runner-integrity-invariants.md#constraint-4.",
+        "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. Origin admission is default-deny; the member PATH off a root those tables cannot decide is a deny predicate, and its known gaps are recorded in docs/runner-integrity-invariants.md#known-gaps. See docs/runner-integrity-invariants.md#constraint-4.",
         "  fix:   resolve the value through an admitted origin, or move the work outside the closure. If the primitive is genuinely needed, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-4 and agree it with the engine before regenerating any baseline.",
         "",
         "No manifest was written; dist/runner-manifest.json does not exist.",
@@ -951,7 +951,7 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
           "  rule:  Constraint 4 — the closure may RESOLVE, never EXECUTE.",
           "         admitted origins: local, a closure import of an admitted name, an admitted global, or an admitted builtin member path.",
           `         forbidden origin: ${primitive}`,
-          "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. See docs/runner-integrity-invariants.md#constraint-4.",
+          "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. Origin admission is default-deny; the member PATH off a root those tables cannot decide is a deny predicate, and its known gaps are recorded in docs/runner-integrity-invariants.md#known-gaps. See docs/runner-integrity-invariants.md#constraint-4.",
           "  fix:   resolve the value through an admitted origin, or move the work outside the closure. If the primitive is genuinely needed, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-4 and agree it with the engine before regenerating any baseline.",
           "",
           "No manifest was written; dist/runner-manifest.json does not exist.",
@@ -1388,6 +1388,43 @@ describe("FIT-42N S-001 — REQ-CAP-04: origin admission", () => {
     expect(widened.size).toBe(ADMITTED_MEMBER_PATHS.size + 1);
     expect(() => expect([...widened].sort()).toEqual([...ADMITTED_MEMBER_PATHS].sort())).toThrow();
   });
+
+  // The default-deny branch itself (`origin === undefined` — not local, not imported, not an
+  // ADMITTED_GLOBALS member) had NO fixture: replacing it with `{admitted, via: "local"}` left
+  // the whole suite green, which means the branch every other REQ-CAP row rests on was
+  // unproven. Three ordinary globals absent from the table, each in a different position.
+  const UNADMITTED_FREE_IDENTIFIERS: Readonly<Record<string, { source: string; detail: string }>> = {
+    "Math.random() — a member path off an unadmitted global": {
+      source: "export const r = Math.random();\n",
+      detail: "Math.random",
+    },
+    "new WeakMap() — an unadmitted global as a `new` callee": {
+      source: "export const r = new WeakMap();\n",
+      detail: "WeakMap",
+    },
+    "TypeError — an unadmitted global read as a value": {
+      source: 'export const r = new TypeError("x");\n',
+      detail: "TypeError",
+    },
+  };
+
+  for (const [id, { source, detail }] of Object.entries(UNADMITTED_FREE_IDENTIFIERS)) {
+    it(`REQ-CAP-04.7 [red-proof]: default-deny — ${id}`, () => {
+      for (const name of ["Math", "WeakMap", "TypeError"]) {
+        expect(ADMITTED_GLOBALS.has(name)).toBe(false);
+      }
+      const matching = denialsIn({ "entry.js": source }).filter(
+        (v) => v.rule === "constraint-4-inadmissible-origin" && v.detail === detail
+      );
+      expect(matching.length).toBe(1);
+    });
+  }
+
+  it("REQ-CAP-04.7: an ADMITTED_GLOBALS member at an admitted member path is not denied — the default-deny's sibling positive", () => {
+    expect(ADMITTED_GLOBALS.has("Array")).toBe(true);
+    expect(ADMITTED_MEMBER_PATHS.has("Array.isArray")).toBe(true);
+    expect(denialsIn({ "entry.js": "export const r = Array.isArray([]);\n" })).toEqual([]);
+  });
 });
 
 describe("FIT-42N S-001 — REQ-CAP-05: positional decidability for denied roots", () => {
@@ -1752,6 +1789,37 @@ describe("FIT-42N S-003 — REQ-PTH-01.7: an unrecognised output-flag-shaped tok
     expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([]);
     expect(findBundlerTargets(scripts)).toEqual([
       { script: "ok", flag: "--outfile", target: "dist/bin/codegen.js" },
+    ]);
+  });
+
+  // judgment-day round 1: three more spellings the token grammar mis-read, each demonstrated.
+  // A SINGLE-dash `-out…` token was split as the concatenated short form `-o` + `utdir`, which
+  // is a decidable safe path — so it produced a target of "utdir" (colliding with nothing) and
+  // DROPPED the real path in the next token entirely.
+  it("REQ-PTH-01.7 [red-proof]: a single-dash -outdir/-outfile is unclassifiable, never read as -o + a path segment", () => {
+    for (const token of ["-outdir", "-outfile"]) {
+      const scripts = { leak: `bun build z.ts ${token} dist/transport` };
+      expect(findBundlerTargets(scripts)).toEqual([]);
+      expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([{ script: "leak", token }]);
+    }
+  });
+
+  // The safe-path grammar admits `-`, so a FLAG standing where a value belongs read as an
+  // ordinary path: the real target moved one token further along and was never classified.
+  it("REQ-PTH-01.5 [red-proof]: a value that is itself a flag is undecidable, never accepted as a path", () => {
+    const scripts = { leak: "bun build z.ts --outdir --minify dist/transport" };
+    expect(findBundlerTargets(scripts)).toEqual([]);
+    expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([
+      { script: "leak", token: "--outdir --minify" },
+    ]);
+  });
+
+  it("REQ-PTH-01.7 [red-proof]: flag SHAPE is decided case-insensitively — --OUTDIR was silently ignored", () => {
+    const scripts = { leak: "bun build z.ts --OUTDIR dist/transport" };
+    const targets = findBundlerTargets(scripts);
+    expect(targets).toEqual([{ script: "leak", flag: "--outdir", target: "dist/transport" }]);
+    expect(findDisjointnessViolations(targets, PTH_CLOSURE_PATHS)).toEqual([
+      { script: "leak", target: "dist/transport", colliding: "dist/transport/runner.js" },
     ]);
   });
 });
@@ -2431,6 +2499,145 @@ const LAUNDERING_CORPUS: readonly LaunderingRow[] = [
     detail: "x()",
     count: 1,
   },
+  // (d) a capability reached through a path off a root whose OWN origin is admitted — a local
+  // binding, a parameter, a class, a closure import. `ADMITTED_MEMBER_PATHS` decides paths off
+  // an admitted GLOBAL and nothing else, so before these rows the whole family had no path
+  // check at all: `classifyOrigin` returned `admitted via local` on the root alone.
+  {
+    id: "d1 h.constructor(...) — the Function constructor off a local function declaration",
+    files: { "entry.js": 'function h() {}\nconst bad = h.constructor("return 1");\nexport const r = bad();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "h.constructor",
+    count: 1,
+  },
+  {
+    id: "d2 const C = fn.constructor; C(...)() — the same escape read as a value first",
+    files: { "entry.js": 'const fn = () => {};\nconst C = fn.constructor;\nexport const r = C("return 1")();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    // TWO, for the same reason a2/b1 carry two: the member-path occurrence in the initializer,
+    // and the alias `C` resolved back to the chain it IS at the call site. Either alone would
+    // leave the other hop admitted.
+    detail: "fn.constructor",
+    count: 2,
+  },
+  {
+    id: "d3 object-literal carrier of an admitted global: const w = { p: process }; w.p.binding(...)",
+    files: { "entry.js": 'const w = { p: process };\nexport const r = w.p.binding("fs");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "w.p.binding",
+    count: 1,
+  },
+  {
+    id: "d4 shorthand carrier: const w = { process }; w.process.binding(...)",
+    files: { "entry.js": 'const w = { process };\nexport const r = w.process.binding("fs");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "w.process.binding",
+    count: 1,
+  },
+  {
+    id: "d5 static class field carrier: class Holder { static g = globalThis }; Holder.g.eval(...)",
+    files: { "entry.js": 'class Holder { static g = globalThis; }\nexport const r = Holder.g.eval("1+1");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "Holder.g.eval",
+    count: 1,
+  },
+  {
+    id: "d6 parameter default carrier: function f(g = globalThis) { return g.eval(...) }",
+    files: { "entry.js": 'export function f(g = globalThis) { return g.eval("1+1"); }\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "g.eval",
+    count: 1,
+  },
+  {
+    id: "d7 parameter-rooted escape: function go(x) { x.constructor(...) }",
+    files: { "entry.js": 'export function go(x) { const bad = x.constructor("return process"); return bad(); }\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "x.constructor",
+    count: 1,
+  },
+  // (e) a path off a SAFE TERMINAL. `classifySafeTerminal` rejected `constructor`/`__proto__`/
+  // `prototype` and the bare `f()()` shape, and admitted every other path — a default-PASS on
+  // exactly the shape that has no root to look up. A returned global carries its whole surface.
+  {
+    id: "e1 g().eval(...) — a function returning globalThis",
+    files: { "entry.js": 'function g() { return globalThis; }\nexport const r = g().eval("1+1");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "g().eval",
+    count: 1,
+  },
+  {
+    id: "e2 g().Bun.plugin(...) — a register member two segments off a call result",
+    files: { "entry.js": "function g() { return globalThis; }\nexport const r = g().Bun.plugin({ setup() {} });\n" },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "g().Bun.plugin",
+    count: 1,
+  },
+  {
+    id: "e3 g().WebAssembly.instantiate(...)",
+    files: { "entry.js": "function g() { return globalThis; }\nexport const r = g().WebAssembly.instantiate(1);\n" },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "g().WebAssembly.instantiate",
+    count: 1,
+  },
+  {
+    id: "e4 g().binding(...) — a function returning process",
+    files: { "entry.js": 'function g() { return process; }\nexport const r = g().binding("fs");\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "g().binding",
+    count: 1,
+  },
+  {
+    id: "e5 this-field carrier: class Box { constructor() { this.g = globalThis } boom() { this.g.eval(...) } }",
+    files: {
+      "entry.js": 'class Box {\n  constructor() { this.g = globalThis; }\n  boom() { return this.g.eval("1+1"); }\n}\nexport const b = new Box();\n',
+    },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "this.g.eval",
+    count: 1,
+  },
+  {
+    id: "e6 parameter-passed global: function use(p) { p.binding(...) }; use(process)",
+    files: { "entry.js": 'function use(p) { return p.binding("fs"); }\nexport const r = use(process);\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "p.binding",
+    count: 1,
+  },
+  // (f) TAGGED TEMPLATES — an invocation form the surface never enumerated at all, so no leg
+  // ever ran on the tag. ``C`return process.version` `` executes exactly as `C("…")` does.
+  {
+    id: "f1 tagged template tag: \"\".constructor.constructor`return process.version`",
+    files: { "entry.js": 'const C = "".constructor.constructor`return process.version`;\nexport const r = C();\n' },
+    rule: "constraint-4-inadmissible-origin",
+    detail: '"".constructor.constructor',
+    count: 1,
+  },
+  {
+    id: "f2 tagged template tag off a local: h.constructor`return 1`",
+    files: { "entry.js": "function h() {}\nconst C = h.constructor`return 1`;\nexport const r = C();\n" },
+    rule: "constraint-4-inadmissible-origin",
+    detail: "h.constructor",
+    count: 1,
+  },
+  {
+    id: "f3 tagged template on a call result: x()`hi` — the tag is an undecidable callee",
+    files: { "entry.js": "function x() { return () => () => 1; }\nconst g = x()`hi`;\nexport const r = g();\n" },
+    rule: "constraint-4-undecidable-callee",
+    detail: "x()",
+    count: 1,
+  },
+  // (g) a chain whose ROOT is a literal, read in VALUE position and exported. The producing
+  // occurrence is what has to decide the escape: a cross-module dataflow analysis this
+  // mechanism does not have could never follow the import edge instead.
+  {
+    id: 'g1 cross-file: lib.js exports "".constructor.constructor, entry.js calls it',
+    files: {
+      "lib.js": 'export const C = "".constructor.constructor;\n',
+      "entry.js": 'import { C } from "./lib.js";\nconst bad = C("return process.version");\nexport const r = bad();\n',
+    },
+    rule: "constraint-4-inadmissible-origin",
+    detail: '"".constructor.constructor',
+    count: 1,
+  },
 ];
 
 describe("FIT-42N S-001 — REQ-CAP-01/03/04/05 + REQ-CST-04.2: the laundering corpus is denied, per hop", () => {
@@ -2458,6 +2665,17 @@ describe("FIT-42N S-001 — REQ-CAP-01/03/04/05 + REQ-CST-04.2: the laundering c
     "admitted member paths": 'const o = {};\nObject.defineProperty(o, "a", { value: 1 });\nexport const r = Object.getPrototypeOf(o) === Object.prototype;\n',
     "process.stdout.write.bind": "let w = process.stdout.write.bind(process.stdout);\nw = process.stdout.write.bind(process.stdout);\nexport const r = w;\n",
     "Reflect.get off a local": 'const o = { a: 1 };\nexport const r = Reflect.get(o, "a");\n',
+    // The (d)/(e)/(f)/(g) families' own green siblings: the SAME carrier, safe-terminal,
+    // tagged-template and literal-rooted shapes, carrying no capability-bearing segment.
+    "object-literal carrier of a local": "const inner = { m() { return 1; } };\nconst w = { p: inner };\nexport const r = w.p.m();\n",
+    "shorthand carrier of a local": "const inner = { m() { return 1; } };\nconst w = { inner };\nexport const r = w.inner.m();\n",
+    "static class field holding a local": "const inner = { m() { return 1; } };\nclass Holder { static g = inner; }\nexport const r = Holder.g.m();\n",
+    "parameter default holding a local": "const inner = { m() { return 1; } };\nexport function f(g = inner) { return g.m(); }\n",
+    "this-field holding a local": "class Box {\n  constructor() { this.n = 1; }\n  read() { return this.n; }\n}\nexport const b = new Box();\n",
+    "safe-terminal path with an ordinary name": "function g() { return { getStore() { return 1; } }; }\nexport const r = g().getStore();\n",
+    "tagged template on a local tag": "function tag(parts) { return parts[0]; }\nexport const r = tag`hi`;\n",
+    "literal-rooted value chain": 'export const r = "abc".length;\n',
+    "import.meta member path": "export const here = import.meta.url;\n",
   };
 
   for (const [id, source] of Object.entries(GREEN_SIBLINGS)) {
