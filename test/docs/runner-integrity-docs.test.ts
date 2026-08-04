@@ -16,8 +16,7 @@
 import { describe, it, expect, beforeAll } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { deriveRunnerClosure, ENTRY_RELATIVE_PATH } from "../../scripts/derive-runner-closure.ts";
-import { ensureTscBuild } from "../support/shared-build.ts";
+import { ensureRealClosureDerivation } from "../support/shared-build.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DOC_PATH = join(PROJECT_ROOT, "docs/runner-integrity-invariants.md");
@@ -354,8 +353,7 @@ describe("REQ-DLV-01 — documentation counts derived from the live derivation, 
   let closureFileCount: number;
 
   beforeAll(() => {
-    const distDir = ensureTscBuild();
-    closureFileCount = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).nodes.length;
+    closureFileCount = ensureRealClosureDerivation().nodes.length;
   });
 
   // Non-vacuity: the checks below only mean something if the live closure has a real,

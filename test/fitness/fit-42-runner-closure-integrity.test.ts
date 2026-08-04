@@ -38,7 +38,7 @@ import {
   type RunnerManifest,
 } from "../../scripts/derive-runner-closure.ts";
 import { homedir, tmpdir, userInfo } from "node:os";
-import { ensureTscBuild } from "../support/shared-build.ts";
+import { ensureRealClosureDerivation, ensureTscBuild } from "../support/shared-build.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { PROJECT_ROOT, hashFile } from "../support/scratch-consumer.ts";
 import {
@@ -122,7 +122,7 @@ function freezeDerivation(derivation: ClosureDerivation): ClosureDerivation {
 let distDirDerivation: ClosureDerivation | undefined;
 function derivedFromDistDir(): ClosureDerivation {
   if (distDirDerivation === undefined) {
-    distDirDerivation = freezeDerivation(deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH));
+    distDirDerivation = freezeDerivation(ensureRealClosureDerivation());
   }
   return distDirDerivation;
 }

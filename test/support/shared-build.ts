@@ -5,6 +5,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import { deriveRunnerClosure, ENTRY_RELATIVE_PATH, type ClosureDerivation } from "../../scripts/derive-runner-closure.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DIST_DIR = join(PROJECT_ROOT, "dist");
@@ -45,6 +46,21 @@ export function requireDistArtifacts(distDir: string): void {
       throw new Error(`requireDistArtifacts: missing build artifact ${artifact} — run "bun run build" first`);
     }
   }
+}
+
+let realClosureDerivation: ClosureDerivation | undefined;
+
+/**
+ * The real dist/ tree's runner closure, derived AT MOST ONCE per `bun test` process
+ * (memoized as a module-singleton, same idiom as `ensureTscBuild`). FIT-42's own closure
+ * checks and the docs-count fitness check (REQ-DLV-01) both derive the SAME closure from the
+ * SAME build; this is the one call site both consume instead of each re-deriving it.
+ */
+export function ensureRealClosureDerivation(): ClosureDerivation {
+  if (realClosureDerivation === undefined) {
+    realClosureDerivation = deriveRunnerClosure(ensureTscBuild(), ENTRY_RELATIVE_PATH);
+  }
+  return realClosureDerivation;
 }
 
 const minifiedEntryCache = new Map<string, { sizeBytes: number; output: string }>();
