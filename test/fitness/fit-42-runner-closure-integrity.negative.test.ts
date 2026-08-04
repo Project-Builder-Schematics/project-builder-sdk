@@ -16,14 +16,12 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   readdirSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
 import { ensureTscBuild } from "../support/shared-build.ts";
@@ -1658,7 +1656,7 @@ function readFailClosedFixture(file: string): FailClosedFixture {
 // with a valid prior manifest" precondition every fault kind below is injected against.
 function preSeededRoot(): string {
   const distDir = ensureTscBuild();
-  const root = mkdtempSync(join(tmpdir(), "fit-42n-fail-closed-"));
+  const root = scratchRoot();
   cpSync(distDir, join(root, "dist"), { recursive: true });
   cpSync(join(PROJECT_ROOT, "package.json"), join(root, "package.json"));
   const seed = runGeneratorAt(root);
