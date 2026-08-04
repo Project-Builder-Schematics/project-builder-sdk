@@ -540,8 +540,18 @@ describe("FIT-42 S-002 — the generator fails closed on an invalid package.json
     withVersion(root, undefined);
     const result = runGenerator(root);
 
-    expect(result.stderr).toContain("package.json");
-    expect(result.stderr).toContain("version");
+    expect(result.stderr).toBe(
+      [
+        "runner-manifest: src/package.json — closure file could not be read.",
+        '  found: package.json is missing a non-empty "version" field (found: undefined)     (emitted: dist/package.json)',
+        "  rule:  Zero silent skips — an unreadable closure file fails the build; it is never skipped.",
+        "  why:   a file that cannot be read cannot be hashed, and a manifest missing one of its files is indistinguishable from tampering on the user's machine.",
+        "  fix:   restore read permission on the file, or remove it from the closure.",
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 });
 
@@ -682,10 +692,18 @@ describe("FIT-42 S-003 — the one real-tree negative, and the epilogue each too
 
     expect(result.status).not.toBe(0);
     expect(existsSync(manifestIn(root))).toBe(false);
-    expect(stderr).toContain("runner-manifest: src/core/wire.ts");
-    expect(stderr).toContain('"ts-morph"');
-    expect(stderr).toContain("Constraint 3 — no bare third-party specifier inside the closure.");
-    expect(stderr).toContain("No manifest was written; dist/runner-manifest.json does not exist.");
+    expect(stderr).toBe(
+      [
+        "runner-manifest: src/core/wire.ts — bare specifier in the runner closure.",
+        '  found: import { Project } from "ts-morph";     (emitted: dist/core/wire.js:50)',
+        "  rule:  Constraint 3 — no bare third-party specifier inside the closure.",
+        "  why:   \"ts-morph\" resolves into node_modules/, which the manifest does not cover, so it would execute unverified during the bootstrap.",
+        '  fix:   move the code that needs "ts-morph" behind the factory import, or into a module outside the runner closure (src/commons/**, src/dialects/**). If the runner must genuinely depend on it, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-3 and agree it with the engine before regenerating any baseline.',
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 
   it("REQ-CST-06.1: the baseline writer's failure names the baseline, never the manifest", () => {
@@ -700,11 +718,20 @@ describe("FIT-42 S-003 — the one real-tree negative, and the epilogue each too
     const stderr = result.stderr as unknown as string;
 
     expect(result.status).not.toBe(0);
-    expect(stderr).toContain("Constraint 3 — no bare third-party specifier inside the closure.");
-    expect(stderr).toContain(
-      "No baseline was written; test/fitness/runner-closure-graph-baseline.json is unchanged."
+    expect(stderr).toBe(
+      [
+        "regen-closure-baseline: refusing to write a baseline from a tree that cannot build.",
+        "",
+        "runner-manifest: src/core/wire.ts — bare specifier in the runner closure.",
+        '  found: import { Project } from "ts-morph";     (emitted: dist/core/wire.js:50)',
+        "  rule:  Constraint 3 — no bare third-party specifier inside the closure.",
+        "  why:   \"ts-morph\" resolves into node_modules/, which the manifest does not cover, so it would execute unverified during the bootstrap.",
+        '  fix:   move the code that needs "ts-morph" behind the factory import, or into a module outside the runner closure (src/commons/**, src/dialects/**). If the runner must genuinely depend on it, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-3 and agree it with the engine before regenerating any baseline.',
+        "",
+        "No baseline was written; test/fitness/runner-closure-graph-baseline.json is unchanged.",
+        "",
+      ].join("\n")
     );
-    expect(stderr).not.toContain("No manifest was written");
   });
 });
 
