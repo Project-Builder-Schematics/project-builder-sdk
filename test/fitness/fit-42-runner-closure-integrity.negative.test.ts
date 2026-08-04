@@ -11,8 +11,9 @@
  * extensions do not collide with this one.
  */
 import { describe, it, expect } from "bun:test";
-import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
 import {
   CREATE_REQUIRE_ANCHOR_FILE,
   SANCTIONED_DYNAMIC_IMPORT_FILE,
@@ -1195,10 +1196,75 @@ describe("FIT-42N S-001 — REQ-CST-04.3.2: non-vacuity counts by AST, not subst
   });
 });
 
-describe("FIT-42N S-001 — REQ-PRM-01: capability primitive register", () => {
+// The committed corpus (design.md §6d: runtime-planted fixtures cannot be readdir-enumerated,
+// and directory enumeration is the machine-checked exhaustiveness device this REQ needs).
+const DENY_SCAN_DIR = join(PROJECT_ROOT, "test/fixtures/red/runner-tripwires/deny-scan");
+const GREEN_DIR = join(PROJECT_ROOT, "test/fixtures/red/runner-tripwires/green");
+
+// Filename -> the primitive its fixture produces (REQ-PRM-01.2's per-member bijection).
+// createRequire is the 11th register member; its producing fixture is the anchor file
+// itself (single-instance-probe.ts, proven via REQ-XPO-01 in S-002) — never a deny-scan/
+// entry (slices.md S-001.6's own note).
+const DENY_SCAN_FIXTURES: Readonly<Record<string, string>> = {
+  "eval.js": "eval",
+  "function-construction.js": "Function",
+  "node-vm.js": "node:vm",
+  "node-child-process.js": "node:child_process",
+  "node-worker-threads.js": "node:worker_threads",
+  "web-assembly.js": "WebAssembly",
+  "bun-plugin.js": "Bun.plugin",
+  "process-binding.js": "process.binding",
+  "module-register.js": "module.register",
+  "module-register-hooks.js": "module.registerHooks",
+};
+
+// The violation's own `detail` field, which is not always identical to the bare register
+// name above — `WebAssembly.instantiate(bytes)` (REQ-CST-04.2.8's own fixture form) is
+// caught as an inadmissible-origin CALLEE naming the full path, not the bare global alone.
+const DENY_SCAN_EXPECTED_DETAIL: Readonly<Record<string, string>> = {
+  ...DENY_SCAN_FIXTURES,
+  "web-assembly.js": "WebAssembly.instantiate",
+};
+
+describe("FIT-42N S-001 — REQ-PRM-01: capability primitive register, fixture-completeness over the committed corpus", () => {
+  it("REQ-PRM-01.1: the register is exactly 11 members, 10 with a deny-scan/ fixture plus createRequire's anchor", () => {
+    expect(DENIED_CAPABILITY_PRIMITIVES.size).toBe(11);
+    expect(DENIED_CAPABILITY_PRIMITIVES.has("createRequire")).toBe(true);
+    const fixturedPrimitives = new Set(Object.values(DENY_SCAN_FIXTURES));
+    const nonAnchorMembers = [...DENIED_CAPABILITY_PRIMITIVES].filter((p) => p !== "createRequire");
+    expect(nonAnchorMembers.length).toBe(10);
+    expect([...fixturedPrimitives].sort()).toEqual([...nonAnchorMembers].sort());
+  });
+
+  it("REQ-PRM-01.2: readdir(deny-scan/) matches the declared class-ID list exactly, both directions", () => {
+    const onDisk = readdirSync(DENY_SCAN_DIR).sort();
+    const declared = Object.keys(DENY_SCAN_FIXTURES).sort();
+    expect(onDisk).toEqual(declared);
+  });
+
+  for (const [file, primitive] of Object.entries(DENY_SCAN_FIXTURES)) {
+    it(`REQ-CST-04.2: deny-scan/${file} is denied, naming ${primitive}`, () => {
+      const root = scratchRoot();
+      const content = readFileSync(join(DENY_SCAN_DIR, file), "utf-8");
+      mkdirSync(root, { recursive: true });
+      writeFileSync(join(root, "entry.js"), content, "utf-8");
+      const violations = deriveRunnerClosure(root, "entry.js").violations;
+      expect(violations.length).toBe(1);
+      expect(violations[0]?.detail).toBe(DENY_SCAN_EXPECTED_DETAIL[file]);
+    });
+  }
+
+  it("REQ-PRM-01: the mandatory green sibling produces zero violations — non-vacuity", () => {
+    const root = scratchRoot();
+    const content = readFileSync(join(GREEN_DIR, "clean-admitted-surface.js"), "utf-8");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(root, "entry.js"), content, "utf-8");
+    expect(deriveRunnerClosure(root, "entry.js").violations).toEqual([]);
+  });
+
   it("REQ-PRM-01.2 [red-proof]: a register member with no producing fixture is a violation (M2.10/M6.2)", () => {
     const mutantRegister = new Set([...DENIED_CAPABILITY_PRIMITIVES, "Deno.core.opSync"]);
-    const fixturedMembers = new Set(DENIED_CAPABILITY_PRIMITIVES); // the real register's own 11 all have fixtures above/in S-002
+    const fixturedMembers = new Set([...Object.values(DENY_SCAN_FIXTURES), "createRequire"]);
     const unfixtured = [...mutantRegister].filter((member) => !fixturedMembers.has(member));
     expect(unfixtured).toEqual(["Deno.core.opSync"]);
   });
