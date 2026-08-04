@@ -21,7 +21,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
   BASELINE_RELATIVE_PATH,
@@ -54,6 +54,7 @@ import {
   renderBaselineDrift,
   type EmitComparisonEntry,
 } from "../support/closure-integrity-checks.ts";
+import { findUnclassifiableBundlerConstructs } from "../../scripts/bundler-disjointness.ts";
 import { Node, Project, SyntaxKind, type SourceFile } from "ts-morph";
 import {
   ADMITTED_GLOBALS,
@@ -643,7 +644,10 @@ describe("FIT-42 S-003 — the closure graph is the one the sources describe", (
     expect(findGraphEmitMismatches(named)).toEqual([]);
   });
 
-  it("REQ-BDI-01.1: every bundler target in package.json#scripts lands outside the closure", () => {
+  // REQ-PTH-01.6: the real package.json#scripts, real closure path set — sibling positive
+  // (non-vacuity) for the resolution-based mechanism, same fixture REQ-BDI-01.1 already
+  // exercises.
+  it("REQ-BDI-01.1 / REQ-PTH-01.6: every bundler target in package.json#scripts lands outside the closure", () => {
     const scripts = (
       JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
         scripts: Record<string, string>;
@@ -658,6 +662,7 @@ describe("FIT-42 S-003 — the closure graph is the one the sources describe", (
     expect(targets.map((target) => target.target)).toContain("dist/bin/pbuilder-codegen.js");
     expect(closurePaths).not.toContain("dist/bin/pbuilder-codegen.js");
     expect(findDisjointnessViolations(targets, closurePaths)).toEqual([]);
+    expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([]);
   });
 
   it("REQ-BDI-03.1: the derived graph shows no drift against the committed baseline", () => {
@@ -1027,5 +1032,80 @@ describe("FIT-42 S-001 — FIT-MANIFEST-BYTE-NEUTRAL", () => {
     const { createHash } = require("node:crypto") as typeof import("node:crypto");
     const perturbedSha = createHash("sha256").update(perturbed).digest("hex");
     expect(perturbedSha).not.toBe(PRE_AND_POST_S001_SHA256);
+  });
+});
+
+// ===========================================================================================
+// S-003 — FIT-PATH-SPELLING-INVARIANCE (ADR-0081, design.md §6 TD-9): disjointness verdicts
+// are invariant under spelling. A deterministic cross-product enumerator over the flag/path
+// grammar, checked against Node's OWN `resolve`/`relative` semantics as an INDEPENDENT
+// ground-truth oracle — same "two independently-implemented checks must agree" shape as
+// FIT-CAP-TOTALITY, so a regression in the production `collides()` logic cannot also move
+// the oracle it is being checked against.
+// ===========================================================================================
+
+describe("FIT-42 S-003 — FIT-PATH-SPELLING-INVARIANCE: disjointness verdicts are invariant under spelling", () => {
+  const FLAGS = ["--outdir", "--outfile", "-o"] as const;
+
+  // Representative path spellings spanning every escaping class this slice closes, plus
+  // ordinary well-formed spellings — the committed grammar the enumerator tries every
+  // candidate reading of.
+  const PATH_SPELLINGS = [
+    "dist/transport",
+    "./dist/transport",
+    ".//dist/transport",
+    "dist/transport/",
+    "../dist/transport",
+    ".",
+    "dist/transport/runner.js",
+    "./dist/transport/runner.js",
+    "dist/bin/pbuilder-codegen.js",
+  ];
+
+  const CLOSURE_PATHS = ["dist/bin/pbuilder-runner.js", "dist/transport/runner.js"];
+
+  // Ground-truth oracle: Node's OWN `posix.relative` (never the production module's
+  // `posix.resolve` + `startsWith` implementation, even though both ultimately call into
+  // `node:path` — the INDEPENDENCE that matters is the comparison ALGORITHM, not the
+  // underlying path-resolution primitive, matching QA TD-9's own framing).
+  function groundTruthCollides(flag: string, target: string, closurePath: string): boolean {
+    const resolvedTarget = posix.resolve("/", target);
+    const resolvedClosurePath = posix.resolve("/", closurePath);
+    const relative = posix.relative(resolvedTarget, resolvedClosurePath);
+    if (flag !== "--outdir") return relative === "";
+    return relative === "" || (!relative.startsWith("..") && !posix.isAbsolute(relative));
+  }
+
+  it("REQ-PTH-01: every candidate reading of every flag/path combination agrees with the ground-truth oracle", () => {
+    const disagreements: string[] = [];
+    for (const flag of FLAGS) {
+      for (const target of PATH_SPELLINGS) {
+        const targets = [{ script: "probe", flag, target }];
+        for (const closurePath of CLOSURE_PATHS) {
+          const productionVerdict =
+            findDisjointnessViolations(targets, [closurePath]).length > 0;
+          const oracleVerdict = groundTruthCollides(flag, target, closurePath);
+          if (productionVerdict !== oracleVerdict) {
+            disagreements.push(
+              `flag=${flag} target="${target}" closurePath="${closurePath}": production=${productionVerdict} oracle=${oracleVerdict}`
+            );
+          }
+        }
+      }
+    }
+    expect(disagreements).toEqual([]);
+  });
+
+  it("REQ-PTH-01 [red-proof]: the oracle itself is not vacuous — it disagrees with a deliberately wrong verdict", () => {
+    // Proves the comparison above can actually fail: a target that is NOT dist/transport
+    // must NOT be reported as colliding with dist/transport/runner.js.
+    const wrongVerdict = true; // dist/bin/pbuilder-codegen.js does not collide with dist/transport/runner.js
+    const oracleVerdict = groundTruthCollides(
+      "--outdir",
+      "dist/bin/pbuilder-codegen.js",
+      "dist/transport/runner.js"
+    );
+    expect(oracleVerdict).toBe(false);
+    expect(oracleVerdict === wrongVerdict).toBe(false);
   });
 });
