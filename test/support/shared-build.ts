@@ -24,6 +24,11 @@ const DIST_DIR = join(PROJECT_ROOT, "dist");
  *
  * Held for the whole process, not just for the build: the destructive window is every read of
  * `dist/` after it, not only the `rm -rf`.
+ *
+ * Ownership is reclaimed by LIVENESS, not by cleanup — `bun test` terminates the worker that
+ * acquired the lock rather than exiting it, so a `process.on("exit")` release provably never
+ * fires here and the file routinely outlives the run. That is fine and is the design: a lock
+ * naming a dead pid is stale and is taken over silently. The leftover file is gitignored.
  */
 const BUILD_LOCK_PATH = join(PROJECT_ROOT, ".tmp-shared-build.lock");
 
@@ -52,15 +57,6 @@ function acquireBuildLock(): void {
     // A dead holder's lock is stale — a killed run cannot be waited for.
   }
   writeFileSync(BUILD_LOCK_PATH, `${process.pid}\n`, "utf-8");
-  process.on("exit", () => {
-    try {
-      if (existsSync(BUILD_LOCK_PATH) && readFileSync(BUILD_LOCK_PATH, "utf-8").trim() === String(process.pid)) {
-        unlinkSync(BUILD_LOCK_PATH);
-      }
-    } catch {
-      // Best effort: a stale lock is recovered by the liveness check above, never by a throw here.
-    }
-  });
 }
 
 let tscBuildDist: string | undefined;
