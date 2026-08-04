@@ -35,12 +35,12 @@ which is contradictory as written. Reading (a) below is the correct one):
   not YAML declaration order (PPI-05, R1-13 fix)
 
 ### Tasks
-- [ ] S-000.1 `publishRunSteps` rewrite: topologically order jobs by `needs:`, preserve within-job step position (REQ-PPI-05, R1-13)
-- [ ] S-000.2 `publish.yml`: explicit rebuild step between stamp and publish; suite step before publish, no `continue-on-error` (REQ-PPI-02, PPI-03)
-- [ ] S-000.3 `react-conformance.test.ts`: explicit per-file timeout, distinct from runner default (REQ-PPI-04)
-- [ ] S-000.4 `fit-46-publish-sequence-integrity.test.ts`: real scratch stamp→rebuild→pack, digest-vs-bytes (unconditional match, PPI-01.1), `--ignore-scripts` mismatch red-proof (PPI-01.2), gate-mechanism proof using ANY existing suite-check failure — never specifically a Constraint-4 fixture, which does not exist yet at S-000 time (REQ-PPI-03.2's S-000 leg, plan-verify iteration-2 amendment finding G — see `specs/publish-pipeline-hardening/spec.md`'s own dated note on REQ-PPI-03.2)
-- [ ] S-000.5 `fit-23-*.test.ts`: rebuild-step presence/absence, execution-order red-proof (REQ-PPI-02.2, PPI-05.2)
-- [ ] S-000.6 Red-proof each [red] scenario first (Strict TDD); confirm existing `fit-23` 18/18 baseline unaffected
+- [x] S-000.1 `publishRunSteps` rewrite: topologically order jobs by `needs:`, preserve within-job step position (REQ-PPI-05, R1-13)
+- [x] S-000.2 `publish.yml`: explicit rebuild step between stamp and publish; suite step before publish, no `continue-on-error` (REQ-PPI-02, PPI-03)
+- [x] S-000.3 `react-conformance.test.ts`: explicit per-file timeout, distinct from runner default (REQ-PPI-04)
+- [x] S-000.4 `fit-46-publish-sequence-integrity.test.ts`: real scratch stamp→rebuild→pack, digest-vs-bytes (unconditional match, PPI-01.1), `--ignore-scripts` mismatch red-proof (PPI-01.2), gate-mechanism proof using ANY existing suite-check failure — never specifically a Constraint-4 fixture, which does not exist yet at S-000 time (REQ-PPI-03.2's S-000 leg, plan-verify iteration-2 amendment finding G — see `specs/publish-pipeline-hardening/spec.md`'s own dated note on REQ-PPI-03.2)
+- [x] S-000.5 `fit-23-*.test.ts`: rebuild-step presence/absence, execution-order red-proof (REQ-PPI-02.2, PPI-05.2)
+- [x] S-000.6 Red-proof each [red] scenario first (Strict TDD); confirm existing `fit-23` 18/18 baseline unaffected
 
 **`fit-46` suite placement (plan-verify iteration-1 amendment, gap 8, 2026-07-29)**: `bun test`
 (`package.json`'s `"test"` script, no `bunfig.toml` test-path filtering found) discovers every
