@@ -33,5 +33,8 @@ test/e2e/author-emulation/reports/
 .tmp-*/
 *.tgz
 
+# Shared-build owner lock (test/support/shared-build.ts) — one bun test run may own dist/
+.tmp-shared-build.lock
+
 # Local Verdaccio registry storage (tarballs + metadata, machine-local)
 tools/verdaccio/storage/
