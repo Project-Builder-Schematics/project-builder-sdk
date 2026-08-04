@@ -1075,6 +1075,38 @@ describe("FIT-42N S-001 — REQ-CAP-02: no-module-scope-reassignment preconditio
   });
 });
 
+describe("FIT-42N S-001 — REQ-CAP-01.7: RCD-03.3's day-one JSDoc fixtures stay non-flagged under admission, governed by E1", () => {
+  // Distinct from CAP-01.2's mutation-catching red-proof: this asserts E1 is FALSIFIABLE
+  // (governs a real, day-one fixture), not merely unexercised. Same shape as the pre-existing
+  // RP-12 proof (S-000 tier), but citing REQ-CAP-01.7 explicitly as S-001.4's own task text
+  // requires — a `{@link denied}` JSDoc tag is ALSO structurally excluded (R1-16's probe:
+  // `{@link X}` DOES yield a real Identifier node, parent kind JSDocLink — E1 must exclude by
+  // JSDoc-ancestry, not merely by "prose never becomes an Identifier").
+  it("REQ-CAP-01.7: a bare specifier and a resolvable relative specifier, both JSDoc-quoted, add nothing", () => {
+    const root = plantTree({
+      "entry.js": [
+        "/**",
+        " * @example",
+        ' * import { Thing } from "some-package";',
+        ' * import type { Other } from "./real-target.ts";',
+        " */",
+        "export const noop = 1;",
+      ].join("\n"),
+      "real-target.ts": "export const other = 1;\n",
+    });
+    const derivation = deriveRunnerClosure(root, "entry.js");
+    expect(derivation.violations).toEqual([]);
+    expect(derivation.nodes).toEqual(["entry.js"]);
+  });
+
+  it("REQ-CAP-01.7: a {@link eval} JSDoc reference to a denied primitive is excluded by E1, never flagged", () => {
+    const root = plantTree({
+      "entry.js": ["/**", " * {@link eval} is mentioned here for documentation only.", " */", "export const noop = 1;"].join("\n"),
+    });
+    expect(classifiedAs(root)).toEqual([]);
+  });
+});
+
 describe("FIT-42N S-001 — REQ-CAP-03: callee decidability", () => {
   it('REQ-CAP-03.1 [red-proof]: globalThis["ev"+"al"]("1+1") — CONFIRMED LIVE ESCAPE (M2.1)', () => {
     const root = plantTree({ "entry.js": 'globalThis["ev"+"al"]("1+1");\n' });

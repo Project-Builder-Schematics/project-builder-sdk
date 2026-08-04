@@ -725,6 +725,27 @@ describe("FIT-42 S-001 — the closed unions are pinned by exact membership", ()
     expect(exclusions).toEqual(["declaration-name", "jsdoc-rooted", "property-name", "type-position"].sort());
   });
 
+  it("REQ-CAP-01.6 [red-proof]: silently narrowing the union or widening an exclusion is caught", () => {
+    // (a) a SurfaceNodeKind union with one member silently removed keeps totality trivially
+    // true (the surface just shrinks with it) — the exact-membership assertion above is what
+    // catches the narrowing, not the totality count.
+    const narrowed = new Set([...SURFACE_NODE_KINDS]);
+    narrowed.delete("member-path");
+    expect(narrowed.size).toBe(SURFACE_NODE_KINDS.size - 1);
+    expect(() => {
+      const kinds: string[] = [...narrowed].sort();
+      expect(kinds).toEqual([...SURFACE_NODE_KINDS].sort());
+    }).toThrow();
+
+    // (b) an exclusion table with a fifth, unauthorised entry silently added.
+    const widened = new Set([...SURFACE_EXCLUSIONS, "computed-access"]);
+    expect(widened.size).toBe(SURFACE_EXCLUSIONS.size + 1);
+    expect(() => {
+      const exclusions: string[] = [...widened].sort();
+      expect(exclusions).toEqual([...SURFACE_EXCLUSIONS].sort());
+    }).toThrow();
+  });
+
   // REQ-PRM-01.1: the exact set, verbatim from the signed scenario text.
   it("REQ-PRM-01.1: the denied-primitive register is exactly the pinned 11-member set", () => {
     expect([...DENIED_CAPABILITY_PRIMITIVES].sort()).toEqual(
