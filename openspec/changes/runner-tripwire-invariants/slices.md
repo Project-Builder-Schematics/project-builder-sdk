@@ -301,14 +301,14 @@ own line above is not rewritten.
 - THEN exit≠0 and no manifest exists in every case, and exit=0 with a manifest on the clean path (FCG-01); the version-validation failure gets its own rule, never `unreadable-file` (DGN-01.1); the corpus-wide declared-vs-produced `ViolationRule` multiset is exactly equal, and a rule-swap/misattribution mutant fails naming the mismatch (DGN-01.3/.4, plan-verify iteration-2); the manifest scan matches `runner` only as a path segment (RMD-05.1); no locale-sensitive API exists in the generator's source (RMD-01.2)
 
 ### Tasks
-- [ ] S-004.1 Single fail-closed boundary routing every throw; write-temp-then-rename as the only write path (REQ-FCG-01)
-- [ ] S-004.2 Version-validation gets `manifest-version-invalid`, its own `ViolationRule` (REQ-DGN-01.1, R2-3)
-- [ ] S-004.3 `FIT-FAILCLOSED-BICONDITIONAL`: pre-seeded scratch root, ≥3 fault kinds each asserted independently, plus the success case
-- [ ] S-004.4 `test/fixtures/red/runner-tripwires/fail-closed/` + `test/support/scratch-dir.ts` reuse
-- [ ] S-004.5 Path-segment-bounded username scan (`runner.js` not a false positive; `dist/runner/notes.js` caught) (REQ-RMD-05.1)
-- [ ] S-004.6 Source scan for `.localeCompare(`/`Intl.Collator`/`.toLocale{Upper,Lower}Case(` across the generator + transitive helpers (REQ-RMD-01.2)
-- [ ] S-004.7 Whole-verbatim messages (CST-06.1, no new `toContain`); byte-neutrality gate holds
-- [ ] S-004.8 Rule-identity totality check: corpus-wide declared-vs-produced `ViolationRule` multiset equality (REQ-DGN-01.3) + rule-renderer-swap/misattribution mutant red-proof (REQ-DGN-01.4) — **plan-verify iteration-2 amendment, finding B, 2026-07-29**. STANDING check (same class as `FIT-CAP-TOTALITY`), not a one-time end-of-slice assertion: it holds over whatever fixture corpus exists on the branch at each commit. S-004 runs last within batch 2 (see "Build Order" below), so S-001/S-003's corpora already exist when this lands; S-002's corpus (batch 3, after S-004) satisfies the check by construction — Strict TDD means every S-002 fixture is built RED-first with its declared rule already correct, so the standing check has nothing to retroactively catch there
+- [x] S-004.1 Single fail-closed boundary routing every throw; write-temp-then-rename as the only write path (REQ-FCG-01)
+- [x] S-004.2 Version-validation gets `manifest-version-invalid`, its own `ViolationRule` (REQ-DGN-01.1, R2-3)
+- [x] S-004.3 `FIT-FAILCLOSED-BICONDITIONAL`: pre-seeded scratch root, ≥3 fault kinds each asserted independently, plus the success case
+- [x] S-004.4 `test/fixtures/red/runner-tripwires/fail-closed/` + `test/support/scratch-dir.ts` reuse
+- [x] S-004.5 Path-segment-bounded username scan (`runner.js` not a false positive; `dist/runner/notes.js` caught) (REQ-RMD-05.1)
+- [x] S-004.6 Source scan for `.localeCompare(`/`Intl.Collator`/`.toLocale{Upper,Lower}Case(` across the generator + transitive helpers (REQ-RMD-01.2)
+- [x] S-004.7 Whole-verbatim messages (CST-06.1, no new `toContain`); byte-neutrality gate holds
+- [x] S-004.8 Rule-identity totality check: corpus-wide declared-vs-produced `ViolationRule` multiset equality (REQ-DGN-01.3) + rule-renderer-swap/misattribution mutant red-proof (REQ-DGN-01.4) — **plan-verify iteration-2 amendment, finding B, 2026-07-29**. STANDING check (same class as `FIT-CAP-TOTALITY`), not a one-time end-of-slice assertion: it holds over whatever fixture corpus exists on the branch at each commit. S-004 runs last within batch 2 (see "Build Order" below), so S-001/S-003's corpora already exist when this lands; S-002's corpus (batch 3, after S-004) satisfies the check by construction — Strict TDD means every S-002 fixture is built RED-first with its declared rule already correct, so the standing check has nothing to retroactively catch there
 
 ---
 

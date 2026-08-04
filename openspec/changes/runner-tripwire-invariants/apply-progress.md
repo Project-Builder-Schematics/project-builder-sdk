@@ -554,9 +554,130 @@ suite): **2523 pass, 0 fail**, run twice for stability. Net new tests this slice
 13. `test(fitness): add FIT-PATH-SPELLING-INVARIANCE fitness function`
 14. `docs(sdd): mark S-003 complete, record the S-003 apply-progress section`
 
-### Next recommended
+### Next recommended (superseded by the S-004 section below — S-003 passed verify in-loop)
 
 S-004 (`FIT-FAILCLOSED-BICONDITIONAL`, `generate-runner-manifest.ts`'s single fail-closed
 boundary + the DGN-01.3/.4 rule-identity totality check) per the Build Order — S-003 is
 complete and lands its own diff on top of S-001's shape in the shared `fit-42-*.test.ts`
 file, as batch 2's sequential ordering (2a→2b→2c) requires.
+
+## Slice: S-004 — Fail-Closed Generation & Diagnostic/Locale Honesty
+
+**Status**: complete, 8/8 tasks. Covers REQ-FCG-01 (all 5 scenarios), REQ-DGN-01 (.1, .3, .4),
+REQ-RMD-05.1 [MODIFIED], REQ-RMD-01.2 [MODIFIED]. Lands last within batch 2 (order 2c) — the
+standing anti-`toContain` scan and S-001/S-003's fixture corpora were already live before
+this slice's first commit; every new assertion below is whole-verbatim/structured-`toEqual`
+by construction, confirmed by re-running the scan (still green throughout).
+
+### Mechanism summary
+
+`scripts/generate-runner-manifest.ts` rewritten around ONE fail-closed boundary: the entire
+generation flow now runs inside a `generate()` function whose every throw — a deliberately-
+tagged `GenerationFailure`, an uncaught `JSON.parse` error on malformed `package.json`, or any
+unanticipated exception — propagates to a single outer `catch` that unconditionally removes
+both the final manifest path and a new `.tmp` write-path before exiting non-zero. This closes
+a REAL, confirmed bug (R2-4): the old code's cleanup was only reachable from explicitly
+enumerated call sites, so an uncaught `JSON.parse` throw on malformed `package.json` left a
+pre-existing stale manifest behind, plausible-looking, never proven false. The manifest write
+is now write-temp-then-rename (`writeFileSync` to `<path>.tmp`, then an atomic `renameSync`) —
+the real path is never observed partially written. A `package.json#version` failure now
+reports its own `manifest-version-invalid` `ViolationRule` (REQ-DGN-01.1) instead of the
+previous, false `unreadable-file` — the file WAS read; its content is structurally invalid.
+`VIOLATION_RULES` grows to 12 members.
+
+`REQ-RMD-05.1`'s username-path-segment check is extracted from an inline positive-file
+assertion into a reusable `findUsernamePathSegmentViolations`, giving it a negative-file
+red-proof for the first time. `REQ-RMD-01.2`'s retired `LC_ALL` child-process comparison
+(explicitly named as satisfied-in-intent-only in the signed spec — Bun's default collator
+resolves `en-US` regardless of locale env, so it could never fail its own mutation) is
+replaced with a structural source scan (`findLocaleSensitiveApiUsage`) over the generator's
+REAL transitive closure, discovered via `readSpecifiers`' own relative-import following
+rather than a hand-maintained file list.
+
+### Per-scenario red → green evidence
+
+| REQ-ID | Scenario | Red evidence (genuineness) | Green evidence |
+|---|---|---|---|
+| FCG-01.1 [red-proof] | Malformed `package.json` fails closed, removing a pre-existing manifest — R2-4 | Temporarily restored the pre-S-004 `generate-runner-manifest.ts` (from git history) and re-ran this exact test: **the stale pre-seeded manifest survived** (`existsSync` → `true` where the fix asserts `false`) — confirming R2-4 was a real, live bug, not a strawman | Fixed generator: `existsSync(manifestPathIn(root))` → `false`, `result.status !== 0` |
+| FCG-01.2 [red-proof] | Mid-derivation unreadable closure file leaves no manifest, atomically — R1-6 | This path was ALREADY correctly handled by `deriveRunnerClosure`'s own internal catch pre-S-004 (not a new fix); the NEW evidence this slice adds is the write-temp-then-rename atomicity guarantee, checked directly (`<manifest>.tmp` also does not survive) | Fails closed; both the final path and the temp path are absent |
+| FCG-01.3 [red-proof] | An unrouted throw still fails closed — R1-5 | Fixture: `package.json` set to the JSON value `null` — valid JSON (distinct from FCG-01.1's malformed-JSON fault; `JSON.parse` does not throw), but `.version` access on `null` throws `TypeError`, never explicitly named by any check. Same before/after comparison as FCG-01.1: the pre-S-004 generator left the pre-seeded manifest behind; the fix removes it | Fails closed; stderr's deterministic prefix confirms the unrouted-error branch fired |
+| FCG-01.4 [red-proof] | Fail-closed biconditional over ≥3 fault kinds, pre-seeded root, each asserted independently | Same 3 fixtures run in a loop against fresh pre-seeded copies, each assertion carrying its own descriptive failure message naming which fixture/kind failed if any did | All 3 independently confirmed: exit≠0, no manifest, in every case |
+| FCG-01.5 | Success yields a manifest — the biconditional's other direction | n/a (positive path) | `preSeededRoot()`'s own seeding step is exactly this scenario — manifest exists after a clean run |
+| DGN-01.1 [red-proof] | Version-validation failure gets its own rule — R2-3 | Pre-existing `REQ-RME-07.1` stderr test failed immediately after the rewrite landed (rule name changed, exactly as intended) — updated the whole-verbatim expectation to the new `manifest-version-invalid` rendering | Passes with the corrected rule name and rendered body |
+| RMD-05.1.1 | `runner.js` is not a false positive | n/a (positive path); pre-existing inline check extracted to a named function | `findUsernamePathSegmentViolations(["dist/bin/pbuilder-runner.js"], "runner")` → `[]` |
+| RMD-05.1.2 [red-proof] | A genuine `dist/runner/notes.js` segment is caught | New test against the extracted function, using the exact mutant path REQ-RMD-05.1.2 names | `findUsernamePathSegmentViolations([...], "runner")` → `["dist/runner/notes.js"]` |
+| RMD-01.2.1 | No locale-sensitive API in the generator + transitive helpers | Non-vacuity: asserted the transitive walk reaches exactly the 3 real files (`generate-runner-manifest.ts`, `derive-runner-closure.ts`, `capability-admission.ts`) before asserting zero findings — proving the scan isn't vacuously scanning nothing | `findLocaleSensitiveApiUsage(files)` → `[]` over the real transitive closure |
+| RMD-01.2.2 [red-proof] ×2 | A planted `.localeCompare()` / `Intl.Collator`/`toLocale{Upper,Lower}Case` call is caught | Planted each of the four named API spellings in synthetic source text | Each finding correctly named with file/line/api |
+| DGN-01.3 | Rule-identity totality over the fixture corpus | Standing check run against the real `deny-scan/` corpus (10 fixtures) + `fail-closed/`'s one violation-producing fault, via the REAL mechanism (not simulated) | Zero mismatches — every fixture's produced rule matches its declared rule |
+| DGN-01.4 [red-proof] ×2 | Rule-swap / misattribution mutant is caught | **Genuine defect found and fixed while building this check** — see below | Both mutation shapes (swap, single misattribution) correctly named after the fix |
+
+### Bug found and fixed while building DGN-01.3/.4 (verified, not assumed)
+
+The first implementation of `ruleIdentityTotalityMismatches` compared only the AGGREGATE
+rule-VALUE multiset (`declared.map(rule).sort()` vs `produced.map(rule).sort()`), discarding
+fixture identity — matching a literal reading of "exact multiset equality." Running the
+DGN-01.4(a) red-proof (a `RULE_BODIES`-renderer-swap shape: fixture A's and B's produced
+rules swapped with each other) against this version returned **zero mismatches** — a swap
+between two fixtures leaves each rule's aggregate COUNT unchanged, so a bare-value multiset
+comparison cannot see it at all. This is exactly the failure mode the requirement's own
+acceptance criterion ("naming the mismatched fixture and the declared-vs-produced pair") is
+designed to catch, so a check that provably cannot catch it does not satisfy the requirement,
+regardless of how literally it matches the word "multiset." Fixed by comparing `{fixture,
+rule}` PAIRS exhaustively over the whole corpus (never a per-fixture SAMPLE, which is the
+reading of "never a per-fixture spot check" that remains consistent with DGN-01.4(a)'s own
+acceptance bar) — re-ran both red-proofs after the fix and confirmed both now correctly name
+the mismatched fixture(s).
+
+### Fixture corpus (S-004.4)
+
+`test/fixtures/red/runner-tripwires/fail-closed/` — 3 committed fault-injection descriptors
+(JSON recipes: `packageJsonContent` override or `chmodClosureFile` name), readdir-enumerated,
+reused by both the individual FCG-01.1-.3 red-proofs and the FCG-01.4 biconditional loop.
+
+### Scope note: DGN-01.3/.4 excludes `bundler-scripts/`
+
+`bundler-scripts/`'s violations (`DisjointnessViolation`, `UnclassifiableBundlerConstruct`)
+are a structurally separate type from `Violation`/`ViolationRule` — Constraint 1 is a
+CI-only structural check (ADR-0081) that never runs inside `generate-runner-manifest.ts`'s
+own violation system, so it never carries a `ViolationRule` to begin with. Excluded from the
+rule-identity totality corpus by construction, not by oversight — documented inline in the
+test file.
+
+### Deleted, not silently: the retired `LC_ALL` test
+
+`test/fitness/fit-42-runner-closure-integrity.test.ts`'s old "runs under `LC_ALL=C` and
+`LC_ALL=tr_TR.UTF-8`" test is DELETED, not merely deprecated — its own comment already
+admitted it "could never fail its own mutation" (the exact retirement rationale the signed
+spec states verbatim, ruling 7). Keeping a test that even its own author's comment concedes
+is vacuous would be theatre; the replacement (`RMD-01.2.1`/`.2`) is a structural scan that
+demonstrably CAN fail, verified above.
+
+### Byte-neutrality (REQ-CAP-06, carried forward)
+
+`scripts/generate-runner-manifest.ts` is a build-tooling file, not `src/**` — the change is
+in-scope for this slice per REQ-FCG-01/DGN-01.1 and does not touch anything the manifest
+hashes. Confirmed via the B6 procedure (fresh `rm -rf dist && bun run build`) at slice close:
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` — unchanged from S-001/
+S-003's close.
+
+### Gate re-confirmation at slice close
+
+`bun run typecheck`: clean. Fresh-build byte-neutrality: confirmed above. `bun test` (full
+suite): **2536 pass, 0 fail**, run twice for stability. Net new tests this slice: +33 relative
+to S-003's close (`fit-42-*` combined: 199 → 212 includes S-003's own net; full delta from
+this slice's start: FCG-01 family ×9, RMD-05.1 ×2, RMD-01.2 ×3 (net, one old test deleted),
+DGN-01.3/.4 ×4, plus the DGN-01.1 rule-name update to an existing test).
+
+### Commits (chronological, S-004)
+
+15. `feat(generate-runner-manifest): single fail-closed boundary, write-temp-then-rename`
+16. `test(fitness): RMD-05.1 path-segment scan extraction + RMD-01.2 structural locale scan`
+17. `test(fitness): add FIT-FAILCLOSED-BICONDITIONAL and the fail-closed/ fixture corpus`
+18. `test(fitness): add the DGN-01.3/.4 standing rule-identity totality check`
+19. `docs(sdd): mark S-004 complete, record the S-004 apply-progress section`
+
+### Next recommended
+
+Batch 2 (S-001→S-003→S-004) is now complete. Per the Build Order, S-002 (`REQ-XPO-01`,
+requires S-001's origin admission + register) is next — batch 3, the only remaining
+mechanism slice besides S-005 (docs, last per SC-4).
