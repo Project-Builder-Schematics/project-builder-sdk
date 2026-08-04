@@ -22,10 +22,10 @@
  */
 import { describe, it, expect, setDefaultTimeout } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { sha256Bytes } from "../../scripts/derive-runner-closure.ts";
 import { ensureTscBuild } from "../support/shared-build.ts";
 import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
 
@@ -42,10 +42,6 @@ interface ManifestFileRecord {
 }
 interface RunnerManifest {
   files: ManifestFileRecord[];
-}
-
-function sha256Bytes(bytes: Buffer): string {
-  return createHash("sha256").update(bytes).digest("hex");
 }
 
 /** Copies the real, already-built dist/ + package.json into a fresh scratch root — the real
