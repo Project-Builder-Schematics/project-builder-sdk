@@ -30,6 +30,7 @@ import {
   ADMITTED_MEMBER_PATHS,
   DENIED_CAPABILITY_PRIMITIVES,
 } from "../../scripts/capability-admission.ts";
+import { findUnclassifiableBundlerConstructs } from "../../scripts/bundler-disjointness.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import {
   findBomOffenders,
@@ -1487,5 +1488,111 @@ describe("FIT-42N S-001 — REQ-CST-06.1: standing scan — no toContain on a tr
       `expect(line).${CALL}("npm publish");`,
     ].join("\n");
     expect(findMessageToContainSites(legitimate)).toEqual([]);
+  });
+});
+
+// ===========================================================================================
+// S-003 — REQ-PTH-01: resolution-based bundler-output disjointness (ADR-0081). The committed
+// corpus (design.md §6d, same rationale as S-001's deny-scan/ corpus: a runtime-planted
+// fixture cannot be readdir-enumerated).
+// ===========================================================================================
+
+const BUNDLER_SCRIPTS_DIR = join(PROJECT_ROOT, "test/fixtures/red/runner-tripwires/bundler-scripts");
+const PTH_CLOSURE_PATHS = ["dist/bin/pbuilder-runner.js", "dist/transport/runner.js"];
+
+function readScriptsFixture(file: string): Record<string, string> {
+  return JSON.parse(readFileSync(join(BUNDLER_SCRIPTS_DIR, file), "utf-8")) as Record<string, string>;
+}
+
+describe("FIT-42N S-003 — REQ-PTH-01: five confirmed escaping spellings, closed", () => {
+  it("REQ-PTH-01.1 [red-proof]: a double-slash-dot --outdir still collides", () => {
+    const scripts = readScriptsFixture("double-slash-dot.json");
+    const targets = findBundlerTargets(scripts);
+    expect(targets).toEqual([{ script: "leak", flag: "--outdir", target: ".//dist/transport" }]);
+    expect(findDisjointnessViolations(targets, PTH_CLOSURE_PATHS)).toEqual([
+      { script: "leak", target: ".//dist/transport", colliding: "dist/transport/runner.js" },
+    ]);
+  });
+
+  it("REQ-PTH-01.2 [red-proof]: --outdir . targets the total root, colliding with every closure path", () => {
+    const scripts = readScriptsFixture("total-root.json");
+    const targets = findBundlerTargets(scripts);
+    expect(targets).toEqual([{ script: "leak", flag: "--outdir", target: "." }]);
+    expect(findDisjointnessViolations(targets, PTH_CLOSURE_PATHS)).toEqual([
+      { script: "leak", target: ".", colliding: "dist/bin/pbuilder-runner.js" },
+      { script: "leak", target: ".", colliding: "dist/transport/runner.js" },
+    ]);
+  });
+
+  it("REQ-PTH-01.3 [red-proof]: the -o short form concatenated with no separator is parsed and collides", () => {
+    const scripts = readScriptsFixture("concatenated-short-form.json");
+    const targets = findBundlerTargets(scripts);
+    expect(targets).toEqual([{ script: "leak", flag: "-o", target: "dist/transport/runner.js" }]);
+    expect(findDisjointnessViolations(targets, PTH_CLOSURE_PATHS)).toEqual([
+      { script: "leak", target: "dist/transport/runner.js", colliding: "dist/transport/runner.js" },
+    ]);
+  });
+
+  it("REQ-PTH-01.4 [red-proof]: a relative-parent escape resolves back into the closure and collides", () => {
+    const scripts = readScriptsFixture("relative-parent.json");
+    const targets = findBundlerTargets(scripts);
+    expect(targets).toEqual([{ script: "leak", flag: "--outdir", target: "../dist/transport" }]);
+    expect(findDisjointnessViolations(targets, PTH_CLOSURE_PATHS)).toEqual([
+      { script: "leak", target: "../dist/transport", colliding: "dist/transport/runner.js" },
+    ]);
+  });
+
+  it("REQ-PTH-01.5 [red-proof]: --outdir=$VAR is undecidable at build time — unclassifiable, never a pass", () => {
+    const scripts = readScriptsFixture("undecidable-var.json");
+    expect(findBundlerTargets(scripts)).toEqual([]);
+    expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([
+      { script: "leak", token: "--outdir=$VAR" },
+    ]);
+  });
+});
+
+describe("FIT-42N S-003 — REQ-PTH-01.7: an unrecognised output-flag-shaped token is unclassifiable, never silent", () => {
+  it("REQ-PTH-01.7 [red-proof]: --out-dir is output-flag-shaped but not a recognised spelling", () => {
+    const scripts = readScriptsFixture("unrecognized-flag-shape.json");
+    // Never silently ignored (ordinary non-output flags like --minify ARE ignored — this
+    // must not be), and never silently MISREAD as the recognised --outdir spelling either.
+    expect(findBundlerTargets(scripts)).toEqual([]);
+    expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([
+      { script: "leak", token: "--out-dir" },
+    ]);
+  });
+
+  it("REQ-PTH-01.7: an ordinary non-output flag (--minify) is correctly left unclassified — scope-limit sentence", () => {
+    const scripts = { ok: "bun build z.ts --minify --outfile dist/bin/codegen.js" };
+    expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([]);
+    expect(findBundlerTargets(scripts)).toEqual([
+      { script: "ok", flag: "--outfile", target: "dist/bin/codegen.js" },
+    ]);
+  });
+});
+
+describe("FIT-42N S-003 — REQ-PTH-01: the bundler-scripts/ corpus is complete, readdir-enumerated both directions", () => {
+  const DECLARED_RED = [
+    "double-slash-dot.json",
+    "total-root.json",
+    "concatenated-short-form.json",
+    "relative-parent.json",
+    "undecidable-var.json",
+    "unrecognized-flag-shape.json",
+  ];
+  const DECLARED_GREEN = ["green-outside-closure.json"];
+
+  it("REQ-PTH-01: readdir(bundler-scripts/) matches the declared class-ID list exactly, both directions", () => {
+    const onDisk = readdirSync(BUNDLER_SCRIPTS_DIR).sort();
+    const declared = [...DECLARED_RED, ...DECLARED_GREEN].sort();
+    expect(onDisk).toEqual(declared);
+  });
+
+  it("REQ-PTH-01.6: the mandatory green sibling produces zero violations and zero unclassifiable constructs — non-vacuity", () => {
+    const scripts = readScriptsFixture("green-outside-closure.json");
+    const targets = findBundlerTargets(scripts);
+    expect(targets).toEqual([{ script: "ok", flag: "--outfile", target: "dist/bin/pbuilder-codegen.js" }]);
+    expect(findDisjointnessViolations(targets, PTH_CLOSURE_PATHS)).toEqual([]);
+    expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([]);
   });
 });
