@@ -1,0 +1,5 @@
+{
+  "kind": "unreadable-closure-file",
+  "chmodClosureFile": "core/session.js",
+  "description": "REQ-FCG-01.2/R1-6: a closure file becomes unreadable mid-derivation — caught internally by deriveRunnerClosure as an unreadable-file violation, still routed to the single fail-closed boundary; the manifest write-temp-then-rename path guarantees no truncated file survives."
+}

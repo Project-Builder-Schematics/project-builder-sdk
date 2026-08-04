@@ -1,0 +1,5 @@
+{
+  "kind": "malformed-json",
+  "packageJsonContent": "{ this is not valid JSON",
+  "description": "REQ-FCG-01.1/R2-4: unparseable package.json — JSON.parse throws, uncaught by any explicit check, routed to the single fail-closed boundary."
+}

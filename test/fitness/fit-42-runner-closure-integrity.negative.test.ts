@@ -11,9 +11,22 @@
  * extensions do not collide with this one.
  */
 import { describe, it, expect } from "bun:test";
-import { chmodSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
+import { ensureTscBuild } from "../support/shared-build.ts";
 import {
   CREATE_REQUIRE_ANCHOR_FILE,
   SANCTIONED_DYNAMIC_IMPORT_FILE,
@@ -1610,5 +1623,137 @@ describe("FIT-42N S-003 — REQ-PTH-01: the bundler-scripts/ corpus is complete,
     expect(targets).toEqual([{ script: "ok", flag: "--outfile", target: "dist/bin/pbuilder-codegen.js" }]);
     expect(findDisjointnessViolations(targets, PTH_CLOSURE_PATHS)).toEqual([]);
     expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([]);
+  });
+});
+
+// ===========================================================================================
+// S-004 — REQ-FCG-01: FIT-FAILCLOSED-BICONDITIONAL. `exit != 0` iff no manifest exists, per
+// injected fault, against a scratch root PRE-SEEDED with a valid prior manifest — so a
+// fail-open bug would leave a plausible-looking stale artefact behind, never an absence. The
+// committed corpus (design.md §6d): a fault kind's INJECTION RECIPE (package.json content
+// override, or a closure file to chmod) rather than static source text.
+// ===========================================================================================
+
+interface FailClosedFixture {
+  readonly kind: "malformed-json" | "unreadable-closure-file" | "generic-throw";
+  readonly packageJsonContent?: string;
+  readonly chmodClosureFile?: string;
+  readonly description: string;
+}
+
+const FAIL_CLOSED_DIR = join(PROJECT_ROOT, "test/fixtures/red/runner-tripwires/fail-closed");
+
+function readFailClosedFixture(file: string): FailClosedFixture {
+  return JSON.parse(readFileSync(join(FAIL_CLOSED_DIR, file), "utf-8")) as FailClosedFixture;
+}
+
+// A REAL copy of dist/ + package.json, with a manifest ALREADY generated — the "pre-seeded
+// with a valid prior manifest" precondition every fault kind below is injected against.
+function preSeededRoot(): string {
+  const distDir = ensureTscBuild();
+  const root = mkdtempSync(join(tmpdir(), "fit-42n-fail-closed-"));
+  cpSync(distDir, join(root, "dist"), { recursive: true });
+  cpSync(join(PROJECT_ROOT, "package.json"), join(root, "package.json"));
+  const seed = runGeneratorAt(root);
+  if (seed.status !== 0) {
+    throw new Error(`pre-seeding failed unexpectedly: ${seed.stderr as unknown as string}`);
+  }
+  return root;
+}
+
+function applyFault(root: string, fixture: FailClosedFixture): void {
+  if (fixture.packageJsonContent !== undefined) {
+    writeFileSync(join(root, "package.json"), fixture.packageJsonContent, "utf-8");
+  }
+  if (fixture.chmodClosureFile !== undefined) {
+    chmodSync(join(root, "dist", fixture.chmodClosureFile), 0o000);
+  }
+}
+
+function runGeneratorAt(root: string): ReturnType<typeof spawnSync> {
+  return spawnSync("bun", ["scripts/generate-runner-manifest.ts", root], {
+    cwd: PROJECT_ROOT,
+    encoding: "utf-8",
+  });
+}
+
+const manifestPathIn = (root: string): string => join(root, "dist", "runner-manifest.json");
+
+describe("FIT-42N S-004 — REQ-FCG-01: the fail-closed/ corpus is complete, readdir-enumerated", () => {
+  const DECLARED = ["malformed-json.json", "unreadable-closure-file.json", "generic-throw-null-package.json"];
+
+  it("REQ-FCG-01: readdir(fail-closed/) matches the declared class-ID list exactly, both directions", () => {
+    expect(readdirSync(FAIL_CLOSED_DIR).sort()).toEqual([...DECLARED].sort());
+  });
+});
+
+describe("FIT-42N S-004 — FIT-FAILCLOSED-BICONDITIONAL: exit != 0 iff no manifest, per fault", () => {
+  const FIXTURE_FILES = ["malformed-json.json", "unreadable-closure-file.json", "generic-throw-null-package.json"];
+
+  it.skipIf(process.getuid?.() === 0)(
+    "REQ-FCG-01.4 [red-proof]: each of 3 injected fault kinds independently fails closed against a pre-seeded root",
+    () => {
+      for (const file of FIXTURE_FILES) {
+        const fixture = readFailClosedFixture(file);
+        const root = preSeededRoot();
+        expect(existsSync(manifestPathIn(root)), `${file}: pre-seeding itself failed`).toBe(true);
+
+        applyFault(root, fixture);
+        const result = runGeneratorAt(root);
+
+        expect(result.status, `${file} (${fixture.kind}) should fail closed`).not.toBe(0);
+        expect(existsSync(manifestPathIn(root)), `${file} (${fixture.kind}) must leave no manifest`).toBe(false);
+      }
+    }
+  );
+
+  it("REQ-FCG-01.5: success yields a manifest — the biconditional's other direction", () => {
+    const root = preSeededRoot();
+    expect(existsSync(manifestPathIn(root))).toBe(true);
+  });
+});
+
+describe("FIT-42N S-004 — REQ-FCG-01: individual fault-kind red-proofs", () => {
+  it("REQ-FCG-01.1 [red-proof]: malformed package.json fails closed, removing a pre-existing manifest — R2-4", () => {
+    const root = preSeededRoot();
+    applyFault(root, readFailClosedFixture("malformed-json.json"));
+    const result = runGeneratorAt(root);
+    expect(result.status).not.toBe(0);
+    expect(existsSync(manifestPathIn(root))).toBe(false);
+  });
+
+  it.skipIf(process.getuid?.() === 0)(
+    "REQ-FCG-01.2 [red-proof]: a mid-derivation unreadable closure file leaves no manifest, atomically — R1-6",
+    () => {
+      const root = preSeededRoot();
+      applyFault(root, readFailClosedFixture("unreadable-closure-file.json"));
+      const result = runGeneratorAt(root);
+      expect(result.status).not.toBe(0);
+      expect(existsSync(manifestPathIn(root))).toBe(false);
+      // write-temp-then-rename: no truncated/partial artefact of any kind survives either.
+      expect(existsSync(`${manifestPathIn(root)}.tmp`)).toBe(false);
+    }
+  );
+
+  it("REQ-FCG-01.3 [red-proof]: an unrouted throw (package.json is valid JSON `null`) still fails closed — R1-5", () => {
+    const root = preSeededRoot();
+    applyFault(root, readFailClosedFixture("generic-throw-null-package.json"));
+    // Confirms the fixture's own premise: `null` IS valid JSON (a different fault than
+    // malformed-json.json) — JSON.parse itself does not throw; the failure is the LATER,
+    // genuinely unrouted `rootPackage.version` access on a non-object.
+    expect(() => JSON.parse(readFileSync(join(root, "package.json"), "utf-8"))).not.toThrow();
+
+    const result = runGeneratorAt(root);
+    expect(result.status).not.toBe(0);
+    expect(existsSync(manifestPathIn(root))).toBe(false);
+    // Whole-verbatim exception (documented, not a silent weakening — REQ-CST-06.1): the
+    // unrouted-error branch's message embeds `error.stack`, which is inherently
+    // non-deterministic (absolute paths, line numbers). Only the FIXED, deterministic prefix
+    // is asserted, via `startsWith` rather than `toContain` — the standing scan (below) is a
+    // substring-match ban, not a "no partial assertion of any kind" ban, and this checks the
+    // entire deterministic portion of the message, never treating "it fails" as "it fails
+    // usefully" on the strength of an arbitrary fragment.
+    const stderr = result.stderr as unknown as string;
+    expect(stderr.startsWith("runner-manifest: generation failed with an unrouted error.\n")).toBe(true);
   });
 });
