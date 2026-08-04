@@ -1274,12 +1274,12 @@ before this change.
 
 | # | Finding | Verdict | How it was proved closed (by this gate, independently) |
 |---|---|---|---|
-| **C-1** | 15 ACE constructs silently admitted | ✅ **CLOSED** | All 15 originals now DENIED through `deriveRunnerClosure`; **18 new shapes authored by this gate** also DENIED; real closure **0 violations**; 3 green controls still admitted. Corpus is **21 rows** + 12 green siblings (see N-6 on the disclosed count) |
+| **C-1** | 15 ACE constructs silently admitted | ✅ **CLOSED** | All 15 originals now DENIED through `deriveRunnerClosure`; **18 new shapes authored by this gate** also DENIED; real closure **0 violations**; 3 green controls admitted. **Corpus genuineness proved by differential**: all **26** constructs yield `0` matching findings against the pre-fix classifier at `6260a17` and the exact declared count at HEAD (25 table rows + REQ-CAP-01.3), with 12 green siblings `[]` under both |
 | **C-2** | Publish suite gate permanently red | ✅ **CLOSED** | Stamp → rebuild → `bun test` replicated: 2605 pass / 0 fail. Pinned literal removed; gate is now the design §7 relation; red-proof perturbs a real closure file |
 | **C-3** | R1-10 substring non-vacuity guard | ✅ **CLOSED** | Guard is `astIdentifierOccurrences(probe, "createRequire")` asserted `toBe(2)` — AST-counted, exact, no threshold. Ledger row corrected |
 | **C-4** | Bundler undecidability leak | ✅ **CLOSED** | Predicate inverted to a whitelist (`SAFE_PATH`); backtick, `$( )`, valueless flag and quoted-with-space all now `unclassifiable`; real scripts unaffected (1 target, 0 unclassifiable) |
 | **C-5** | FIT-CAP-TOTALITY non-vacuity tautology | ✅ **CLOSED** | New body mutates the **real enumerator** across **all five** `SurfaceNodeKind`s in turn, each with its own non-vacuity assertion. Cannot pass without production code |
-| **Amd A** | Anchor single-use latch mutant survived | ✅ CLOSED (shape verified) | Fixture added at `9d50d17`; the exemption family now asserts the execution-half finding, so the latch is load-bearing |
+| **Amd A** | Anchor single-use latch mutant survived | ✅ **CLOSED** (mutant executed) | Latch = `capability-admission.ts:789` (`if (anchorExemptionConsumed) return false;`). Deleted in isolated `git archive` trees: pre-`9d50d17` → **268 pass / 0 fail (mutant SURVIVES)**; HEAD → **274 pass / 2 fail (KILLED)**, the failures naming *"the exemption is consumed"* and *"N resolve-only uses yield exactly N-1 denials"*. The sibling positive (one use → exempt) correctly still passes |
 | **Amd B** | Root skips over-broad | ✅ **CLOSED** | Skips reduced to **4** whole-subject unreadable-file tests. `REQ-DGN-01.3` totality **no longer skipped** under root — it filters to the 10 permission-independent fixtures and asserts the active count. Loudness via `warnIfPermissionChecksInactive` at 4 sites |
 | **W-1** | ADR-0081 never written | ✅ **CLOSED** | `openspec/decisions/0081-…md` present, 3904 bytes, full Context/Decision/Consequences/Alternatives; Status `Accepted`, consistent with 0079/0080 |
 
@@ -1388,11 +1388,22 @@ in-scope remediation, NOT scope creep.** Reasoning:
   that the mutant surface count falls by exactly that kind's population, with the independent
   oracle (`independentSurfaceCount`) as the reference. It imports and calls real production
   functions, so it cannot pass with zero production code — the defining property of the old body.
-- **Amd A**: the anchor-exemption family now asserts the execution-half finding (`2 ×
-  inadmissible-origin + 1 × undecidable-callee`, total exactly 3), which is what makes the
-  single-use latch load-bearing rather than unobserved. Shape verified against the signed
-  `REQ-XPO-01` scenarios; the latch-deletion mutation itself was not re-executed by this gate
-  (`unverified` on the execution, `verified` on the assertion shape).
+- **Amd A killed, mutation executed.** The latch is `capability-admission.ts:789`
+  (`if (anchorExemptionConsumed) return false;` inside `checkExemption`). Deleting it in two
+  isolated `git archive` trees (never the worktree) and running both fit-42 files:
+
+  ```
+  POST (HEAD), unmutated baseline:   276 pass, 0 fail
+  PRE  (d325901) + latch deleted:    268 pass, 0 fail   <- mutant SURVIVES
+  POST (HEAD)   + latch deleted:     274 pass, 2 fail   <- mutant KILLED
+  ```
+
+  The two failures name the property directly — *"REQ-XPO-01.1 [red-proof]: a SECOND resolve-only
+  use at the anchor is denied — the exemption is consumed"* and *"N resolve-only uses yield exactly
+  N-1 denials — one exemption, never a licence"* — while the sibling positive (one use → exempt)
+  correctly still passes. This upgrades Amd A from `unverified` to demonstrated. The builder's
+  claim was whole-suite; only the two fit-42 files were re-run here, so the whole-suite figure
+  remains a superset claim, uncontradicted.
 
 ---
 
@@ -1551,22 +1562,81 @@ for `react-conformance.test.ts`. **FU-17.**
 the real scripts are unaffected (verified: 1 target, 0 unclassifiable), but the exclusion of `@`
 deserves a line in the ADR so the failure is self-explaining. **FU-18.**
 
-### N-6 — `WARNING` — the remediation's own disclosed corpus count is wrong (21, not 26)
+### N-6 — **RETRACTED** — the disclosed corpus count is accurate; the error was this gate's
 
-`a492cbc`'s commit message states *"a **26-row** laundering corpus"*. The actual
-`LAUNDERING_CORPUS` holds **21** rows — verified by enumerating every `id:` between the
-declaration and its closing `];`: 5 in class (a), 6 in (b), 10 in (c). The row ids themselves show
-the drift: they skip `c1`, `c6`, `c12` and `c13`, i.e. rows were merged or dropped during
-development and the message's count was never updated. The 12 `GREEN_SIBLINGS` figure *is* accurate.
+An earlier revision of this section asserted that `a492cbc`'s *"26-row laundering corpus"* was
+really 21 rows, and registered it as a count-drift `WARNING` (FU-21). **That finding was wrong and
+is withdrawn.** The correct figures:
 
-**Not a coverage gap** — all three classes are covered, the 21 rows assert rule identity, detail
-identity and exact count (`expect(matching.length).toBe(row.count)`, no thresholds), and this gate
-established closure independently of the corpus anyway. But it is exactly the count-drift this
-change's own doctrine exists to prevent (exact counts never approximations; the 49/49 tag device),
-and iteration 1 already found that device broken (FU-5) — so this is the second instance of the
-same bookkeeping weakness, now in a commit message that a future reader will treat as the record.
-**FU-21**: correct the count where it is quoted, and prefer a derived assertion
-(`expect(LAUNDERING_CORPUS.length).toBe(N)`) over a prose count.
+- `LAUNDERING_CORPUS` (`fit-42n:2247-2434`) holds **25** rows — `a1-a5`, `b1-b6`, `c1-c14`.
+- The 26th laundering construct, `globalThis[k][k]` (REQ-CAP-01.3), lives in its own `describe`
+  at `fit-42n:2470` rather than in the table.
+- 25 + 1 = **26 laundering constructs proved**. The disclosure is substantively accurate, and the
+  12 `GREEN_SIBLINGS` figure was accurate too.
+
+**Root cause of the error, so it is not repeated**: this gate counted rows with
+`rg -c 'id: "'`, which matches only **double**-quoted ids. Four rows are **single**-quoted because
+their own text contains double quotes:
+
+```
+id: 'c1 "".constructor.constructor("return 1")()',
+id: 'c6 Reflect.get(globalThis, "process") — reflective computed read of a global',
+id: 'c12 Promise.resolve("5+5").then(eval)',
+id: 'c13 ["return 1"].map(Function)',
+```
+
+21 double-quoted + 4 single-quoted = 25. A line-based count (`^\s*id:`) returns 25 directly. The
+`c1/c6/c12/c13` "gaps" this gate read as evidence of dropped rows were an artefact of its own
+regex, not of the corpus.
+
+Two consequences worth recording rather than burying: the four missed rows are **coverage this
+gate had not credited** — `c12 Promise.resolve("5+5").then(eval)` and `c13 ["return 1"].map(Function)`
+pass a denied root as a **callback**, a shape class none of this gate's own 18 probes covered. And
+the incident is a reminder that a count asserted in prose is only as good as the reader's regex:
+**FU-21 is retained in amended form** — prefer a derived assertion
+(`expect(LAUNDERING_CORPUS.length).toBe(25)`) over a prose count, so neither author nor reviewer has
+to count by hand.
+
+### N-7 — `SUGGESTION` — dead reference in a load-bearing comment
+
+`fit-42n:2229` states that *"the `zero-hop` guard below is what forbids a row from passing
+vacuously"*. No such guard exists — `rg 'zero-hop'` matches only that comment. The device that
+actually provides corpus non-vacuity is `GREEN_SIBLINGS`. Harmless mechanically, but it is a false
+statement in the comment explaining why the corpus is not vacuous, in a change whose own
+`REQ-DGN-01` is about diagnostic honesty. **FU-22.**
+
+### N-8 — `WARNING` — Amendment B introduced two new vacuous assertions, the same class C-5 fixed
+
+The loudness mechanism's "recorded fact of this environment" claim rests partly on assertions that
+cannot fail:
+
+- `expect(RUNNING_AS_ROOT).toBe(process.getuid?.() === 0)` (`fit-42n:92`, `fit-42:467`) —
+  `RUNNING_AS_ROOT` is *defined* as exactly that expression (`permission-dependent.ts:9`), so this
+  is `x === x` under every uid.
+- `expect(activeFaults).toEqual(RUNNING_AS_ROOT ? [two names] : FIXTURE_FILES)` (`fit-42n:1857`) —
+  on a non-root runner the filter is a no-op by construction, so it asserts
+  `FIXTURE_FILES === FIXTURE_FILES`. It carries information only on a root runner, i.e. exactly
+  where nobody is watching.
+
+This is the same tautology class as C-5, introduced by the batch that fixed C-5 — worth naming
+plainly rather than passing over. The *other* two sites do carry real content
+(`expect(activeRuleFixtures.length).toBe(RUNNING_AS_ROOT ? 10 : 11)` and the `deny-scan/` count
+`toBe(10)`), which is why Amd B is still judged CLOSED. **Fix**: assert the *observable
+consequence* (the active fixture set) rather than the predicate's own definition. **FU-23.**
+
+### N-9 — `WARNING` — fit-42's warn-only root handling is weaker than the repo's existing convention
+
+Three pre-existing files **hard-fail** under root rather than skipping:
+`test/skeleton/schema-discovery.test.ts:87`, `reserved-lifecycle-names.test.ts:77`,
+`run-boundary-validation.test.ts:175` each `throw new Error("must run as non-root: chmod-000
+fixtures are bypassed by root…")`. Demonstrated under a simulated root, `schema-discovery.test.ts`
+gives **8 pass, 1 fail**.
+
+So a root run of the full suite fails anyway, and fit-42's skip-and-warn accommodation buys little
+while leaving fit-42's own pass count reading green. Per the craftsman rule "match existing patterns
+first", the established pattern here is enforcement, not a stderr line. Not a regression — Amd B is
+strictly better than the six silent skips it replaced — but the convention divergence should be a
+deliberate choice, not an accident. **FU-24.**
 
 ### N-5 — nit — design §5 still lists ADRs 0079–0081 as `Status: Proposed`
 
@@ -1601,7 +1671,10 @@ FU-10, FU-11, FU-12.
 | FU-18 | **N-4** — document `SAFE_PATH`'s `@` exclusion in ADR-0081 |
 | FU-19 | **N-5** — design §5 ADR statuses stale (`Proposed` vs `Accepted` on disk) |
 | FU-20 | **N-1** — exclude statement labels (recommended to fix before archive, 2 lines) |
-| FU-21 | **N-6** — corpus count disclosed as 26, actually 21; prefer a derived length assertion over a prose count (second instance of the FU-5 bookkeeping weakness) |
+| FU-21 | **N-6 (amended)** — the corpus count was accurate; prefer `expect(LAUNDERING_CORPUS.length).toBe(25)` over a prose count so neither author nor reviewer counts by hand |
+| FU-22 | **N-7** — dead `zero-hop` reference in the comment explaining corpus non-vacuity |
+| FU-23 | **N-8** — two vacuous assertions introduced by Amd B; assert the observable consequence, not the predicate's own definition |
+| FU-24 | **N-9** — fit-42 warns under root where three `test/skeleton/*` files hard-fail; align the convention deliberately |
 
 **Also for archive**: `S-002.3`'s owner decision; `REQ-CAP-01.3` now COMPLIANT (ruling (a)
 satisfied by implementation); the `R1-10` row correction is already landed and must be carried into
@@ -1659,17 +1732,24 @@ across all five node kinds. Every disclosed expectation change is strictly stron
 spec-compliant; the one that replaced a prior assertion replaced a false lemma that was never
 signed, and bounded the replacement with a sibling positive.
 
-Two latent false positives (statement labels; a directly-visible function-literal callee) and one
-elevated pre-existing flake are registered, plus one disclosure-accuracy finding. None gates: both
-false positives fail in the safe direction, neither is reachable in the real closure, and no signed
-scenario breaks. N-1 is a 2-line exclusion worth folding in before archive; N-2 needs an owner
-decision rather than a default; N-6 is bookkeeping, but it is the second instance of a count-drift
-pattern this change's own doctrine forbids.
+Two latent false positives (statement labels; a directly-visible function-literal callee), one
+elevated pre-existing flake, and three test-quality findings are registered. None gates: both false
+positives fail in the safe direction, neither is reachable in the real closure, and no signed
+scenario breaks. **N-1** is a 2-line exclusion worth folding in before archive; **N-2** needs an
+owner decision rather than a default; **N-8** is notable because the batch that fixed C-5's
+tautology introduced two more of the same class.
 
-**On the evidence standard applied here**: closure was established by probing the production code
-path directly — 33 laundering shapes, 14 legitimate-JS false-positive probes, a real-closure
-classification run, and a full replication of `publish.yml`'s stamp→rebuild→test sequence. The
-builder's own tests and commit messages were treated as claims to check, not as evidence: two of
-those claims (the stamped-run pass count, the corpus row count) proved inaccurate on inspection
-while their substance held, and one of this gate's own iteration-2 probe scores (N6) was wrong on
-first pass and is corrected above.
+**On the evidence standard applied here.** Closure was established by probing the production code
+path directly, not by reading the builder's tests: 33 laundering shapes (15 originals + 18 authored
+here), 14 legitimate-JS false-positive probes, a real-closure classification run, a full replication
+of `publish.yml`'s stamp→rebuild→test sequence, a **26/26 differential of the laundering corpus
+against the pre-fix classifier**, per-kind **production** mutation of the enumerator (all five
+killed), the C-3 substring mutant in both rename and deletion variants, and the Amd A latch-deletion
+mutant in isolated trees.
+
+Three claims were checked and found imprecise while their substance held — the builder's stamped-run
+pass count (2598 vs the measured 2605) and, twice, **this gate's own**: probe N6 was mis-scored as a
+false positive when corpus row `c14` shows the call-result boundary is deliberate, and finding N-6
+accused the builder of a count drift that turned out to be an artefact of this gate's own regex. Both
+are corrected in place above rather than quietly dropped, with their root causes recorded. A gate
+that will not audit itself is not a gate.
