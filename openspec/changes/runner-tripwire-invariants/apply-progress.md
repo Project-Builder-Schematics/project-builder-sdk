@@ -676,8 +676,140 @@ DGN-01.3/.4 ×4, plus the DGN-01.1 rule-name update to an existing test).
 18. `test(fitness): add the DGN-01.3/.4 standing rule-identity totality check`
 19. `docs(sdd): mark S-004 complete, record the S-004 apply-progress section`
 
-### Next recommended
+### S-004 verify-in-loop-5 carryover (non-blocking WARNING, folded in before S-002)
+
+verify-in-loop-5 (PASS, one non-blocking WARNING): the FCG-01.3 red-proof's unrouted-error
+stderr assertion pinned only the deterministic PREFIX (`startsWith`) around the inherently
+non-deterministic `error.stack` fragment; a deterministic SUFFIX (`"\n\nNo manifest was
+written; dist/runner-manifest.json does not exist.\n"`) was also assertable and had been left
+unpinned. Cheap to fold in immediately: added the matching `endsWith` check alongside the
+existing `startsWith` one. Commit `44c537f`.
+
+### Next recommended (superseded by the S-002 section below)
 
 Batch 2 (S-001→S-003→S-004) is now complete. Per the Build Order, S-002 (`REQ-XPO-01`,
 requires S-001's origin admission + register) is next — batch 3, the only remaining
 mechanism slice besides S-005 (docs, last per SC-4).
+
+## Slice: S-002 — Exemption Proof Obligation (createRequire anchor)
+
+**Status**: complete, 6/7 tasks (S-002.3 deliberately deferred to archive time — see below).
+Covers REQ-XPO-01 (.1 through .5). Lands last within the mechanism batches, requiring S-001's
+`closure-import` origin leg and the capability-admission register. The standing anti-
+`toContain` scan and all prior fixture corpora were already live; every new assertion in this
+slice is whole-verbatim/structured-`toEqual`/exact-equality by construction (re-run of the
+6-test standing scan, still green throughout).
+
+### Mechanism summary
+
+REQ-XPO-01 formalises "a proof ON THE FILE, forfeit on any other arrangement" — S-001 had
+ported only the minimal happy-path (single unaliased `createRequire` binding at the anchor,
+resolve-only use exempt). This slice closes the three arrangements S-001 left open, each a
+REAL, verified gap rather than a documentation-only addition:
+
+1. **Aliasing must forfeit the exemption entirely (XPO-01.3)** — S-001's `buildFileContext`
+   granted the exemption keyed on whatever LOCAL name the single `createRequire` binding used,
+   aliased or not, so a resolve-only-SHAPED use through an alias was silently admitted exactly
+   like the canonical name — contradicting this slice's own acceptance criterion. Fixed by
+   granting `exemption` only when the named-import form's local binding name is the literal
+   `createRequire`; an aliased name gets no `ExemptionProof` at all, so every use of it —
+   resolve-shaped or not — falls through to ordinary origin classification, which denies
+   `createRequire` unconditionally off `node:module` (its admitted-name set there is empty by
+   design). The namespace form has no canonical name to alias against and is unaffected.
+2. **Re-export laundering must not bypass the register (XPO-01.4/M1.12)** — `classifyOrigin`'s
+   closure-import branch admitted ANY non-`node:` relative specifier unconditionally (S-001's
+   own "closure-imports are inherently admitted" shortcut). `export { createRequire } from
+   "node:module"` re-exported through an intermediate closure file, then imported by a second
+   file and called, bypassed the entire register: the second file's origin was a RELATIVE
+   specifier, never itself `node:`-prefixed, so it was admitted before the register ever saw
+   `createRequire`. Fixed by denying a closure-import whose `importedName` is itself a
+   `DENIED_CAPABILITY_PRIMITIVES` member, regardless of the specifier's own `node:`-ness — the
+   exemption is a proof on the ANCHOR FILE specifically, never a predicate that follows a name
+   through however many re-exports launder it.
+3. **Anchor drift must be independently checked (XPO-01.5/M1.13)** — `isAnchorFile` can only
+   ever be `true` for a node the real walk actually reached, so an exemption whose anchor has
+   silently dropped OUT of the closure (e.g. a future refactor removing the import edge that
+   reaches it) can never be caught from WITHIN a single real walk — nothing would verify the
+   exemption's own precondition. Added `findAnchorDriftViolations` (new export,
+   `derive-runner-closure.ts`) as an independent, POST-WALK-only check, wired ONLY into
+   `generate-runner-manifest.ts`'s real `generate()` — never into `deriveRunnerClosure` itself,
+   which every synthetic fixture in both fit-42 test files calls with an unrelated entry file
+   and would otherwise spuriously fail this check on every single one of them.
+
+### Per-scenario red → green evidence
+
+| REQ-ID | Scenario | Red evidence (genuineness) | Green evidence |
+|---|---|---|---|
+| XPO-01.1 | Named-import anchor, resolve-only, exempt | n/a (positive path; S-001's existing mechanism, explicit REQ-XPO-01.1 citation added) | `classifiedAs(root, anchor)` → `[]` |
+| XPO-01.2 | Namespace-form anchor, resolve-only, now green — closes R2-5 | n/a (positive path; S-001's existing `isResolveOnlyUse` namespace branch + `createRequireBindingsIn`'s namespace collection, explicit REQ-XPO-01.2 citation added). Landed in the same commit as red-proof #12 (`"REQ-CST-04.4: the namespace form is caught"`, untouched, at its original location) staying green — the DR-6 hazard this slice's own S-002.4 task names | `classifiedAs(root, anchor)` → `[]`; #12 unchanged, still denies the non-anchor namespace-call shape |
+| XPO-01.3 [red-proof] | An aliased `createRequire` binding forfeits the exemption entirely — both a resolve-shaped and an execute-shaped use through the alias are denied | Ran red against S-001's code: 1 violation (only the execute-shaped use), not the expected 2 — the resolve-shaped use through the alias was silently admitted, confirming the gap named above | Fixed `buildFileContext`: exactly 2 violations, both `constraint-4-inadmissible-origin` |
+| XPO-01.4 [red-proof] | A `createRequire` re-exported through a closure file, then imported and called by a second file, is still denied (M1.12) | `git stash`-restored the pre-fix `capability-admission.ts` and re-ran this exact test: **0 violations where 1 was expected** — proving the laundering hole was real, not a strawman; restored the fix, re-ran, green | Fixed `classifyOrigin`: `[{ rule: "constraint-4-inadmissible-origin", file: "entry.js" }]` |
+| XPO-01.4 (sibling) | The re-exporting file itself, with an unused import binding, reports zero violations | n/a (sibling positive — a bare unused import is a value-reference, never a callee, D-1/D-3) | `classifiedAs(root)` → `[]` |
+| XPO-01.5 [red-proof] | A derived closure omitting the anchor file is flagged by name | New function (`findAnchorDriftViolations`) tested directly against a constructed node list; there is no "before" state to compare against since the function is new this slice | `findAnchorDriftViolations(nodesWithoutAnchor, anchor)` → one violation naming the anchor path |
+| XPO-01.5 (sibling) | A derived closure that DOES include the anchor reports zero drift | n/a (sibling positive) | `findAnchorDriftViolations(nodesWithAnchor, anchor)` → `[]` |
+| XPO-01.5 (non-vacuity) | The REAL runner closure includes the anchor file — the check has something genuine to verify, not just synthetic fixtures | Fresh `rm -rf dist && bun run build` after wiring `findAnchorDriftViolations` into `generate()`: build succeeded, proving the real anchor file is genuinely a member of the real derived closure | `deriveRunnerClosure`'s real-build nodes `toContain` the anchor; `findAnchorDriftViolations` on them → `[]` |
+
+### S-002.5: threshold-to-exact tightening
+
+Two pre-existing `toBeGreaterThanOrEqual` assertions (the S-001 aliasing/decoy forfeiture
+red-proofs, `"an ALIASED createRequire import... forfeits the exemption entirely"` and
+`"an unaliased decoy alongside an aliased import does not buy the alias an exemption"`) were
+threshold assertions on a fully deterministic count — tightened to `.toBe(2)` and `.toBe(1)`
+respectively, matching design.md's own exact-counts-never-thresholds rule (line 376).
+
+### S-002.6: behavioural-survival of the remaining 10 S-000-tier red-proofs
+
+Per the 2026-07-29 plan-verify final batch amendment's corrected count (7 specifier-
+classification-block items, untouched since S-000, + 3 deny-scan-remainder items — `REQ-CST-
+03.1`/`.2`, `REQ-CST-06.1` — not already claimed by S-001.8): all 10 verified still passing,
+unmodified, as part of the full 220-test fit-42 combined run at this slice's close. None of
+S-001/S-003/S-004/S-002's code changes touch the specifier-classification leg these red-proofs
+exercise.
+
+### S-002.3: anchor-site code comment — deferred to archive time, not skipped
+
+The task text ("an explicit code comment at the anchor site cross-referencing REQ-CST-04.4 and
+REQ-XPO-01.2") implies editing `src/transport/single-instance-probe.ts`. Verified via
+`tsconfig.build.json`/`tsconfig.json`: neither sets `removeComments` (TypeScript's own default
+is `false`, comments preserved in emit) — so any such edit changes
+`dist/transport/single-instance-probe.js`'s bytes, breaking this slice's own non-negotiable
+REQ-CAP-06 byte-neutrality gate. `design.md` line 427 independently and explicitly classifies
+this exact item as an "archive-time obligation, not a design blocker" (grouped alongside two
+other archive-deferred items: a tech-writer pass on REQ-CST-04.1's rationale and REQ-CAP-02.2's
+scenario title). Deferring here matches the design's own authoritative classification rather
+than silently skipping the task or breaking byte-neutrality to force it in. No code or test
+work is outstanding from this deferral.
+
+### Byte-neutrality (REQ-CAP-06, carried forward)
+
+`scripts/capability-admission.ts` and `scripts/derive-runner-closure.ts` are build-tooling
+files, not `src/**` — in-scope per REQ-XPO-01 and untouched by the manifest's own hashed
+contents. Confirmed via the established procedure (fresh `rm -rf dist && bun run build`) at
+slice close: `31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` — unchanged
+from S-001/S-003/S-004's close. The build succeeding is itself evidence for XPO-01.5's
+non-vacuity claim (above): the real anchor file survived `findAnchorDriftViolations`'s new
+check without the build needing to fail.
+
+### Gate re-confirmation at slice close
+
+`bun run typecheck`: clean. Fresh-build byte-neutrality: confirmed above. Standing anti-
+`toContain` scan: 6/6 pass. `bun test` (full suite): **2545 pass, 0 fail**, run twice for
+stability. `fit-42-*` combined: 212 (S-004 close) → 220 at this slice's close (net +8: XPO-01.1,
+.2, .3, .4×2, .5×3).
+
+### Commits (chronological, S-002)
+
+20. `test(fitness): strengthen the unrouted-error stderr assertion with a suffix pin` (S-004
+    verify-in-loop-5 carryover, `44c537f`, folded in before S-002 proper)
+21. `fix(capability-admission): close two REQ-XPO-01 exemption gaps` (aliasing forfeiture
+    XPO-01.3 + re-export laundering XPO-01.4)
+22. `feat(derive-runner-closure): add findAnchorDriftViolations for anchor-drift detection`
+    (XPO-01.5, wired into the real build)
+23. `test(fitness): add the REQ-XPO-01 exemption-proof-obligation scenarios` (XPO-01.1-.5
+    coverage + the S-002.5 exact-equality tightening)
+24. `docs(sdd): mark S-002 complete, record the S-002 apply-progress section`
+
+### Next recommended
+
+Batch 3 (S-002) is now complete. Per the Build Order, S-005 (docs, SC-4) is the only remaining
+slice.
