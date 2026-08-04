@@ -2046,6 +2046,39 @@ describe("FIT-42N S-002 — REQ-XPO-01.1/.2: anchor happy path, named-import and
   });
 });
 
+describe("FIT-42N S-002 — REQ-XPO-01.1: the exemption is SINGLE-USE, not a per-file licence", () => {
+  // The anchor exemption is granted at most ONCE per file walk. Nothing exercised that: every
+  // existing anchor fixture has exactly one resolve-only use, so the single-use latch was
+  // untested code — deleting it left the whole suite green (2598 tests), which is unlimited
+  // unflagged exemptions at the anchor for the cost of one extra `.resolve()` call.
+  function anchorWithResolveOnlyUses(count: number): Array<{ rule: string; file: string }> {
+    const uses = Array.from({ length: count }, (_, i) => `export const p${i} = createRequire(anchor).resolve(spec);`);
+    const root = plantTree({
+      [CREATE_REQUIRE_ANCHOR_FILE]: `import { createRequire } from "node:module";\n${uses.join("\n")}\n${bind("anchor", "spec")}`,
+    });
+    return classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
+  }
+
+  it("REQ-XPO-01.1: one resolve-only use at the anchor is exempt — the sibling positive", () => {
+    expect(anchorWithResolveOnlyUses(1)).toEqual([]);
+  });
+
+  it("REQ-XPO-01.1 [red-proof]: a SECOND resolve-only use at the anchor is denied — the exemption is consumed", () => {
+    expect(anchorWithResolveOnlyUses(2)).toEqual([
+      { rule: "constraint-4-inadmissible-origin", file: CREATE_REQUIRE_ANCHOR_FILE },
+    ]);
+  });
+
+  it("REQ-XPO-01.1: N resolve-only uses yield exactly N-1 denials — one exemption, never a licence", () => {
+    // Triangulated so the count cannot be satisfied by a latch that merely caps the SECOND use.
+    for (const count of [3, 5]) {
+      const violations = anchorWithResolveOnlyUses(count);
+      expect(violations.length).toBe(count - 1);
+      expect(violations.every((v) => v.rule === "constraint-4-inadmissible-origin")).toBe(true);
+    }
+  });
+});
+
 describe("FIT-42N S-002 — REQ-XPO-01.3: forfeit on any other arrangement", () => {
   it("REQ-XPO-01.3 [red-proof]: an ALIASED createRequire binding at the anchor forfeits the exemption, every bound name denied", () => {
     const root = plantTree({
