@@ -809,7 +809,83 @@ stability. `fit-42-*` combined: 212 (S-004 close) → 220 at this slice's close 
     coverage + the S-002.5 exact-equality tightening)
 24. `docs(sdd): mark S-002 complete, record the S-002 apply-progress section`
 
-### Next recommended
+### Next recommended (superseded by the S-005 section below)
 
 Batch 3 (S-002) is now complete. Per the Build Order, S-005 (docs, SC-4) is the only remaining
 slice.
+
+## Slice: S-005 — Documentation Counts Derived From Live Derivation
+
+**Status**: complete, 3/3 tasks. Covers REQ-DLV-01 (.1, .2 [red-proof]) plus the non-REQ-tied
+S-005.3 doc-fidelity task. Last slice per the Build Order (SC-4: docs land after every
+enforcement slice). `test/docs/runner-integrity-docs.test.ts` is a pre-existing permanent
+fixture belonging to an already-archived change (`archive/2026-07-25-runner-integrity-manifest`,
+REQ-IID-01..08 + REQ-BDI-01.2) — this slice EXTENDS it with a new REQ-DLV-01 describe block and
+does not touch any of its 23 pre-existing tests, all of which re-ran green throughout.
+
+### Mechanism summary
+
+R1-11's defect: `docs/runner-integrity-invariants.md` states the manifest's closure/file counts
+(23 closure files, 24 total manifest entries including `package.json`) as PROSE, and nothing in
+the test suite bound those numbers to the real, live closure size — a doc that drifted (e.g. the
+closure growing to 24 files) would go stale silently, with every pre-existing frozen-string test
+still passing (they check that specific WORDS exist verbatim, never that the embedded NUMBER is
+still correct).
+
+Added `findStaleCountClaims(markdown, closureFileCount)` to the doc test: a set of frozen PROSE
+templates (mirroring this file's own established frozen-string convention, e.g. `SCOPE_PULL_QUOTE`)
+with the NUMBER supplied by `deriveRunnerClosure`'s live `nodes.length` at test-run time, never as
+a literal in the test. Two independent families — TOTAL_ENTRY_CLAIMS (closureFileCount + 1) and
+CLOSURE_FILE_CLAIMS (closureFileCount) — cover every count-bearing sentence in the doc (7 template
+renders total). A mismatch reports the claim's label and the live value it should have matched,
+per REQ-DLV-01.2's own acceptance wording ("naming the mismatched count and the live value").
+
+S-005.3 separately fixes a real fidelity gap in Constraint 4's own prose (not a count, but an
+enumeration promise): the old text ("The same scan covers `eval`, `new Function`, `node:vm`,
+`Bun.plugin` and `process.binding`") named only 5 of the register's 11 actual members and used
+deny-scan-list framing ("the same scan covers") left over from before S-001 replaced `denyScan`
+with capability admission. Replaced with a default-DENY capability-admission framing naming the
+full, current 11-member register and the S-002 exemption-forfeiture rules (aliasing, re-export
+laundering, anchor drift) — the doc's enforcement promise now matches what `capability-admission.ts`
+actually enforces, exactly.
+
+### Per-scenario red → green evidence
+
+| REQ-ID | Scenario | Red evidence (genuineness) | Green evidence |
+|---|---|---|---|
+| DLV-01.1 (non-vacuity) | The live derivation yields a non-zero closure file count | n/a (precondition guard — the checks below are meaningless against a zero-sized closure) | `closureFileCount` (23) `> 0` |
+| DLV-01.1 | Every count claim in the doc matches the live derivation | n/a (positive path) | `findStaleCountClaims(doc(), 23)` → `[]` |
+| DLV-01.2 [red-proof] | A mutant total-entry count (`entry #24 because` → `entry #25 because`) is caught | The SAME function (`findStaleCountClaims`) that returns `[]` on the real doc returns exactly ONE mismatch on this mutant — not zero (proving the function discriminates, not vacuous) and not more than one (proving the mutation didn't collaterally break an unrelated claim) | `[{ label: "\`entry #N because\` heading justification", liveValue: 24 }]` |
+| DLV-01.2 [red-proof] | A mutant closure-file count (`23 closure files plus` → `22 closure files plus`) is caught | Same discrimination proof, independently, for the CLOSURE_FILE_CLAIMS family — shows both template arrays are live, not just one | `[{ label: "\`N closure files plus package.json\` pull-quote", liveValue: 23 }]` |
+| S-005.3 (non-REQ) | Constraint 4's enumeration promise matches enforcement exactly | n/a (doc-fidelity fix, not a Given/When/Then scenario — spec's own Open Item 3 classifies register-disposition-completeness as a PM/archive-gate document property, and this task's own wording mirrors that framing) | Full 11-member register named; re-ran REQ-IID-01's structural heading/`enforced-by` parsing tests, all still pass |
+
+### Byte-neutrality (REQ-CAP-06, carried forward)
+
+This slice touches only `docs/**` and `test/docs/**` — neither is part of the closure
+`deriveRunnerClosure` walks nor build tooling that feeds `dist/runner-manifest.json`. Confirmed
+via the established procedure (fresh `rm -rf dist && bun run build`) at slice close:
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` — unchanged from every prior
+slice's close, as expected for a docs-only change.
+
+### Gate re-confirmation at slice close
+
+`bun run typecheck`: clean. Fresh-build byte-neutrality: confirmed above. `bun test` (full
+suite): **2548 pass, 0 fail**, run twice for stability. `test/docs/runner-integrity-docs.test.ts`:
+23 (pre-existing) → 27 at this slice's close (net +4: non-vacuity, DLV-01.1 real match, DLV-01.2
+×2 red-proofs).
+
+### Commits (chronological, S-005)
+
+25. `docs(runner-integrity): describe capability admission, name the full register in Constraint 4`
+26. `test(docs): bind runner-integrity-invariants.md's counts to the live derivation (REQ-DLV-01)`
+27. `docs(sdd): mark S-005 complete, record the S-005 apply-progress section`
+
+### Next recommended
+
+All five mechanism slices (S-000 through S-005) are now complete per the Build Order. Per the
+Build Order's delivery-shape ruling (`main` requires PR + green required status check): S-000
+already shipped as its own PR; S-001..S-005 ship together on this branch (`feat/tripwire-mechanism`)
+as ONE PR at cycle close — the orchestrator's responsibility, not this slice's. Nothing left open
+in this slice; S-002.3 (the anchor-site code comment) remains its own, separately-tracked,
+deliberate archive-time obligation (see the S-002 section above) — not part of S-005's own scope,
+and not resolved by this slice's docs work.
