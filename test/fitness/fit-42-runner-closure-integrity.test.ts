@@ -18,6 +18,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -29,6 +30,7 @@ import {
   ENTRY_RELATIVE_PATH,
   MANIFEST_RELATIVE_PATH,
   SANCTIONED_DYNAMIC_IMPORT_FILE,
+  VIOLATION_RULES,
   comparePaths,
   deriveRunnerClosure,
   readSpecifiers,
@@ -988,29 +990,106 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
     return count;
   }
 
+  const project = new Project({ compilerOptions: { allowJs: true }, skipAddingFilesFromTsConfig: true });
+  const parse = (path: string, source: string): SourceFile =>
+    project.createSourceFile(path, source, { overwrite: true });
+
+  const ADMITTED_VIA = ["local", "closure-import", "admitted-global", "admitted-builtin-surface", "exempt-anchor"];
+
+  /**
+   * The DISPOSITION half of totality: every surface node classifies into exactly one of
+   * `{admitted, violation, unclassifiable}` AND the record is well-formed. `classified.length ===
+   * surface.length` cannot express that — `Array.prototype.map` always returns an array of equal
+   * length, so it is structurally incapable of failing (ADR-0080 anticipated exactly this).
+   */
+  function assertTotalDispositions(sourceFile: SourceFile, file: ClosurePath, isAnchorFile: boolean): void {
+    resetAnchorExemptionLatch();
+    const ctx = buildFileContext(sourceFile, { file, isAnchorFile });
+    for (const node of enumerateCapabilitySurface(sourceFile)) {
+      const disposition = classifySurfaceNode(node, ctx);
+      if (disposition.kind === "admitted") {
+        expect(ADMITTED_VIA).toContain(disposition.via);
+      } else if (disposition.kind === "violation") {
+        expect(VIOLATION_RULES).toContain(disposition.rule);
+        expect(disposition.detail.length > 0).toBe(true);
+      } else {
+        expect(disposition.kind).toBe("unclassifiable");
+        expect(disposition.detail.length > 0).toBe(true);
+      }
+    }
+  }
+
   it("REQ-CAP-01.1: totality holds on the real closure — classified count equals an independent present count", () => {
-    const project = new Project({ compilerOptions: { allowJs: true }, skipAddingFilesFromTsConfig: true });
     for (const node of derivedFromDistDir().nodes) {
       const absolute = join(distDir, node);
-      const sourceFile = project.createSourceFile(absolute, readFileSync(absolute, "utf-8"), { overwrite: true });
-      const surface = enumerateCapabilitySurface(sourceFile);
-      expect(surface.length).toBe(independentSurfaceCount(sourceFile));
-
-      resetAnchorExemptionLatch();
-      const ctx = buildFileContext(sourceFile, { file: node, isAnchorFile: node === CREATE_REQUIRE_ANCHOR_FILE });
-      const classified = surface.map((n) => classifySurfaceNode(n, ctx));
-      expect(classified.length).toBe(surface.length);
+      const sourceFile = parse(absolute, readFileSync(absolute, "utf-8"));
+      expect(enumerateCapabilitySurface(sourceFile).length).toBe(independentSurfaceCount(sourceFile));
+      assertTotalDispositions(sourceFile, node, node === CREATE_REQUIRE_ANCHOR_FILE);
     }
   });
 
-  it("REQ-CAP-01.2 [red-proof]: a mutant classifier routing an unrecognised node kind to silent pass is caught", () => {
-    // Simulates the mutation directly against the totality ASSERTION itself (not the
-    // production classifier, which has no such branch to mutate): a present-count that
-    // exceeds a classified-count is exactly the divergence a routed-to-pass mutation would
-    // produce, and the assertion below is what FIT-CAP-TOTALITY's real invocation runs.
-    const presentCount = 5;
-    const classifiedCount = 4; // one synthetic node kind silently skipped by the mutant
-    expect(() => expect(classifiedCount).toBe(presentCount)).toThrow();
+  // Totality on CLEAN files alone can never catch a divergence that only a violating or
+  // unclassifiable node produces, and every one of the change's own red corpora is a file the
+  // pass never saw. `fail-closed/` is deliberately absent: its fixtures are JSON fault-injection
+  // recipes (a package.json override, a closure file to chmod), not JS source with a capability
+  // surface — the property they carry is FIT-FAILCLOSED-BICONDITIONAL's, over the real closure
+  // files this pass already covers.
+  it("REQ-CAP-01.1: totality holds over the committed deny-scan/ and green/ corpora too", () => {
+    const corpusDirs = [
+      join(PROJECT_ROOT, "test/fixtures/red/runner-tripwires/deny-scan"),
+      join(PROJECT_ROOT, "test/fixtures/red/runner-tripwires/green"),
+    ];
+    const files = corpusDirs.flatMap((dir) =>
+      readdirSync(dir)
+        .filter((name) => name.endsWith(".js"))
+        .map((name) => join(dir, name))
+    );
+    expect(files.length).toBe(11);
+    for (const absolute of files) {
+      const sourceFile = parse(absolute, readFileSync(absolute, "utf-8"));
+      expect(enumerateCapabilitySurface(sourceFile).length).toBe(independentSurfaceCount(sourceFile));
+      assertTotalDispositions(sourceFile, "entry.js", false);
+    }
+  });
+
+  it("REQ-CAP-01.2 [red-proof]: an ENUMERATOR that drops one SurfaceNodeKind is caught, naming the kind", () => {
+    // ADR-0080 chose the enumerator/classifier split precisely because the detectable mutation
+    // lives on the ENUMERATOR: a classifier mutation that routes a node to a pass path cannot
+    // move `classified.length`. So the mutant is a shim over the real enumerator that silently
+    // drops one kind — the exact shape of "an unrecognised node routed to silent pass" — and the
+    // independent oracle is what notices. Every one of the five kinds is mutated in turn, against
+    // a fixture that genuinely exercises it, so no kind is proven only by its siblings.
+    const fixture = parse(
+      "cap-0102-mutant-fixture.js",
+      [
+        'import { existsSync } from "node:fs";',    // module-specifier
+        "export const here = import.meta.url;",      // meta-property
+        "const local = 1;",
+        'export const found = existsSync(".");',     // callee
+        "export const out = process.stdout;",        // member-path
+        "export const copy = local;",                // value-reference
+      ].join("\n")
+    );
+    const present = independentSurfaceCount(fixture);
+    expect(enumerateCapabilitySurface(fixture).length).toBe(present);
+
+    for (const dropped of SURFACE_NODE_KINDS) {
+      const ofKind = enumerateCapabilitySurface(fixture).filter((node) => node.kind === dropped);
+      // Non-vacuity of the mutation: the fixture must actually exercise the kind being dropped,
+      // or "the count fell" would prove nothing about that kind.
+      expect(ofKind.length > 0).toBe(true);
+
+      const mutantSurface = enumerateCapabilitySurface(fixture).filter((node) => node.kind !== dropped);
+      expect(mutantSurface.length).toBe(present - ofKind.length);
+      // The failure names the dropped kind and the classified-vs-present counts, which is what
+      // REQ-CAP-01.2's THEN requires of it.
+      expect(() => {
+        expect(
+          mutantSurface.length,
+          `mutant enumerator dropped SurfaceNodeKind "${dropped}": classified ${mutantSurface.length} < present ${present}`
+        ).toBe(present);
+      }).toThrow(`mutant enumerator dropped SurfaceNodeKind "${dropped}"`);
+    }
   });
 });
 
