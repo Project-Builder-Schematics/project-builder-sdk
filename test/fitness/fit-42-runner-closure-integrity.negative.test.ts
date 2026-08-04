@@ -41,6 +41,7 @@ import {
   findGraphEmitMismatches,
   findIntermediatePackageJsons,
   findPathHygieneViolations,
+  findUsernamePathSegmentViolations,
   hasDrift,
   renderBaselineDrift,
 } from "../support/closure-integrity-checks.ts";
@@ -601,6 +602,19 @@ describe("FIT-42N S-002 — the manifest-shape and byte-hygiene checkers fire", 
         { path: "dist/bom.js", bytes: Buffer.from("﻿const a = 1;\n") },
       ])
     ).toEqual(["dist/bom.js"]);
+  });
+
+  it("REQ-RMD-05.1.1: runner.js is NOT a false positive for username `runner` — path-segment-bounded", () => {
+    expect(findUsernamePathSegmentViolations(["dist/bin/pbuilder-runner.js"], "runner")).toEqual([]);
+  });
+
+  it("REQ-RMD-05.1.2 [red-proof]: a genuine username path segment (dist/runner/notes.js) is caught", () => {
+    expect(
+      findUsernamePathSegmentViolations(
+        ["dist/bin/pbuilder-runner.js", "dist/runner/notes.js"],
+        "runner"
+      )
+    ).toEqual(["dist/runner/notes.js"]);
   });
 });
 

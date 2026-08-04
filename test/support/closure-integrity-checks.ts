@@ -21,6 +21,50 @@ export {
   type UnclassifiableBundlerConstruct,
 } from "../../scripts/bundler-disjointness.ts";
 
+/**
+ * REQ-RMD-05.1: `username` bounded by PATH-SEGMENT delimiters, never a bare substring scan —
+ * the CI user is literally named `runner`, which legitimately appears inside real closure
+ * paths (`dist/bin/pbuilder-runner.js`) without ever being a path SEGMENT there (`runner.js`
+ * is one segment, not `runner` followed by a `/`). Returns every path where `username` is
+ * one of the `/`-split segments exactly.
+ */
+export function findUsernamePathSegmentViolations(
+  paths: readonly string[],
+  username: string
+): string[] {
+  return paths.filter((path) => path.split("/").includes(username));
+}
+
+export interface LocaleSensitiveApiFinding {
+  readonly path: string;
+  readonly line: number;
+  readonly api: string;
+}
+
+const LOCALE_SENSITIVE_APIS = [".localeCompare(", "Intl.Collator", ".toLocaleUpperCase(", ".toLocaleLowerCase("];
+
+/**
+ * REQ-RMD-01.2: a structural, non-flaky proof that generation cannot vary by locale — no
+ * `LC_ALL` child-process comparison (retired: Bun's default collator resolves `en-US`
+ * regardless of the locale env, so that scenario could never fail its own mutation). Scans
+ * raw source TEXT (not an AST) for the four locale-sensitive API spellings the requirement
+ * names, line by line, naming the file/line/api of every hit.
+ */
+export function findLocaleSensitiveApiUsage(
+  files: ReadonlyArray<{ readonly path: string; readonly source: string }>
+): LocaleSensitiveApiFinding[] {
+  const findings: LocaleSensitiveApiFinding[] = [];
+  for (const { path, source } of files) {
+    const lines = source.split("\n");
+    lines.forEach((lineText, index) => {
+      for (const api of LOCALE_SENSITIVE_APIS) {
+        if (lineText.includes(api)) findings.push({ path, line: index + 1, api });
+      }
+    });
+  }
+  return findings;
+}
+
 export interface PathHygieneFinding {
   readonly rule: "non-posix" | "leading-dot-slash" | "absolute" | "parent-segment" | "duplicate";
   readonly path: string;

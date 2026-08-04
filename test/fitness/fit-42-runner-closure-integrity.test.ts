@@ -21,7 +21,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join, posix } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
   BASELINE_RELATIVE_PATH,
@@ -52,6 +52,8 @@ import {
   findPathHygieneViolations,
   hasDrift,
   renderBaselineDrift,
+  findLocaleSensitiveApiUsage,
+  findUsernamePathSegmentViolations,
   type EmitComparisonEntry,
 } from "../support/closure-integrity-checks.ts";
 import { findUnclassifiableBundlerConstructs } from "../../scripts/bundler-disjointness.ts";
@@ -334,14 +336,12 @@ describe("FIT-42 S-002 — the manifest's shape, exclusions, hygiene and orderin
   // which every closure path legitimately contains (`dist/bin/pbuilder-runner.js`). The leak
   // this guards against is an ABSOLUTE path escaping into the manifest, so the identity is
   // tested where it could actually appear — as a path segment — plus the two roots that carry it.
-  it("REQ-RMD-05.1: the manifest bytes carry no cwd, no home directory and no username segment", () => {
+  it("REQ-RMD-05.1.1: the manifest bytes carry no cwd, no home directory and no username segment", () => {
     expect(manifestRaw).not.toContain(process.cwd());
     expect(manifestRaw).not.toContain(homedir());
     const username = userInfo().username;
-    const leakedSegments = JSON.parse(manifestRaw)
-      .files.map((file: { path: string }) => file.path)
-      .filter((path: string) => path.split("/").includes(username));
-    expect(leakedSegments).toEqual([]);
+    const paths = (JSON.parse(manifestRaw) as RunnerManifest).files.map((file) => file.path);
+    expect(findUsernamePathSegmentViolations(paths, username)).toEqual([]);
   });
 });
 
@@ -403,21 +403,6 @@ describe("FIT-42 S-002 — the manifest is deterministic", () => {
     const first = readFileSync(manifestIn(root), "utf-8");
     expect(runGenerator(root).status).toBe(0);
     expect(readFileSync(manifestIn(root), "utf-8")).toBe(first);
-  });
-
-  // Two CHILD processes, never a mutation of this process's env.
-  //
-  // SCOPE, stated so nobody reads this as more than it is: under Bun no locale env var
-  // (LC_ALL, LANG, LC_COLLATE) moves the default collator — `Intl.Collator()` resolves to
-  // en-US regardless, verified — so this proves cross-process byte-stability under a
-  // differing environment, NOT that a `localeCompare` implementation would be caught.
-  // The assertion that actually kills `localeCompare` is REQ-RME-05.2's pinned pairs.
-  it("REQ-RMD-01.2: runs under LC_ALL=C and LC_ALL=tr_TR.UTF-8 agree byte for byte", () => {
-    const root = copiedPackageRoot();
-    expect(runGenerator(root, { LC_ALL: "C" }).status).toBe(0);
-    const underC = readFileSync(manifestIn(root), "utf-8");
-    expect(runGenerator(root, { LC_ALL: "tr_TR.UTF-8" }).status).toBe(0);
-    expect(readFileSync(manifestIn(root), "utf-8")).toBe(underC);
   });
 
   it("REQ-RMD-02.1: a root whose path holds a space and a non-ASCII segment yields the canonical bytes", () => {
@@ -1109,5 +1094,80 @@ describe("FIT-42 S-003 — FIT-PATH-SPELLING-INVARIANCE: disjointness verdicts a
     );
     expect(oracleVerdict).toBe(false);
     expect(oracleVerdict === wrongVerdict).toBe(false);
+  });
+});
+
+// ===========================================================================================
+// S-004 — REQ-RMD-01.2: locale independence, structural not behavioural. Retired (ruling 7):
+// the LC_ALL child-process comparison this REQ used to run — Bun's default collator resolves
+// en-US regardless of the locale env, so that scenario could never fail its own mutation
+// (satisfied-in-intent only). Replaced by a source scan a planted mutation CAN fail.
+// ===========================================================================================
+
+describe("FIT-42 S-004 — REQ-RMD-01.2: no locale-sensitive API in the generator's source", () => {
+  // Real transitive closure via readSpecifiers' own relative-import following — never a
+  // hand-maintained file list that a future helper could silently fall outside of.
+  function collectTransitiveScriptFiles(entryAbsolutePath: string): string[] {
+    const visited = new Set<string>();
+    const queue = [entryAbsolutePath];
+    while (queue.length > 0) {
+      const current = queue.shift() as string;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      const { staticSpecifiers } = readSpecifiers(current);
+      for (const specifier of staticSpecifiers) {
+        if (specifier.startsWith("./") || specifier.startsWith("../")) {
+          queue.push(join(dirname(current), specifier));
+        }
+      }
+    }
+    return [...visited];
+  }
+
+  function generatorSourceFiles(): Array<{ path: string; source: string }> {
+    const entry = join(PROJECT_ROOT, "scripts/generate-runner-manifest.ts");
+    return collectTransitiveScriptFiles(entry).map((absolutePath) => ({
+      path: absolutePath.slice(PROJECT_ROOT.length + 1),
+      source: readFileSync(absolutePath, "utf-8"),
+    }));
+  }
+
+  it("REQ-RMD-01.2.1: the generator + its transitive helpers include no locale-sensitive API", () => {
+    const files = generatorSourceFiles();
+    // Non-vacuous: the transitive walk actually reaches more than just the entry file.
+    expect(files.map((f) => f.path).sort()).toEqual(
+      [
+        "scripts/generate-runner-manifest.ts",
+        "scripts/derive-runner-closure.ts",
+        "scripts/capability-admission.ts",
+      ].sort()
+    );
+    expect(findLocaleSensitiveApiUsage(files)).toEqual([]);
+  });
+
+  it("REQ-RMD-01.2.2 [red-proof]: a planted .localeCompare() call is caught, naming the file and line", () => {
+    const files = [
+      {
+        path: "scripts/generate-runner-manifest.ts",
+        source: ["const sorted = paths.sort((a, b) => a.localeCompare(b));", "export {};"].join("\n"),
+      },
+    ];
+    expect(findLocaleSensitiveApiUsage(files)).toEqual([
+      { path: "scripts/generate-runner-manifest.ts", line: 1, api: ".localeCompare(" },
+    ]);
+  });
+
+  it("REQ-RMD-01.2.2 [red-proof]: Intl.Collator and the two toLocale*Case forms are each caught", () => {
+    const files = [
+      {
+        path: "a.ts",
+        source: ["const c = new Intl.Collator();", "x.toLocaleUpperCase();", "y.toLocaleLowerCase();"].join("\n"),
+      },
+    ];
+    expect(findLocaleSensitiveApiUsage(files)).toEqual([
+      { path: "a.ts", line: 1, api: "Intl.Collator" },
+      { path: "a.ts", line: 2, api: ".toLocaleUpperCase(" },
+      { path: "a.ts", line: 3, api: ".toLocaleLowerCase(" },
+    ]);
   });
 });
