@@ -48,6 +48,7 @@ import {
 import { findUnclassifiableBundlerConstructs } from "../../scripts/bundler-disjointness.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import {
+  astIdentifierOccurrences,
   findBomOffenders,
   findCrlfOffenders,
   diffClosureBaseline,
@@ -1406,16 +1407,50 @@ describe("FIT-42N S-001 — REQ-DGN-01.2: directory specifier gets its own rule 
 });
 
 describe("FIT-42N S-001 — REQ-CST-04.3.2: non-vacuity counts by AST, not substring — R1-10", () => {
-  it("REQ-CST-04.3.2 [red-proof]: a mutant admission register widened by one entry is caught by AST-identifier occurrence, not a substring scan", () => {
-    // A substring-only guard would miss this: the widened name "totallyFakePrimitive" never
-    // appears as denied TEXT anywhere in a real tree, because it was never a real primitive
-    // to begin with — the guard must count DECLARED admission-table membership by AST
-    // identity (the exact-membership assertions above), never by grepping violation text.
-    const mutantAdmitted = new Set([...ADMITTED_GLOBALS, "totallyFakePrimitive"]);
-    const astCountedWidening = mutantAdmitted.size - ADMITTED_GLOBALS.size;
-    expect(astCountedWidening).toBe(1);
-    const substringScanFindsIt = [...ADMITTED_GLOBALS].some((g) => g === "totallyFakePrimitive");
-    expect(substringScanFindsIt).toBe(false);
+  // The MUTANT the scenario needs: the real anchor with every `createRequire` reference removed
+  // from CODE and every mention left untouched in COMMENTS. A guard that can be satisfied by
+  // prose cannot distinguish "the exemption is working" from "the file no longer uses the
+  // primitive at all" — which is the vacuity R1-10 named ("counts substrings, incl. comments").
+  function anchorWithCodeReferencesRemoved(): string {
+    const probe = readFileSync(join(ensureTscBuild(), CREATE_REQUIRE_ANCHOR_FILE), "utf-8");
+    return probe
+      .split("\n")
+      .map((line) => {
+        const trimmed = line.trimStart();
+        const isComment = trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*");
+        return isComment ? line : line.replaceAll("createRequire", "notThePrimitive");
+      })
+      .join("\n");
+  }
+
+  it("REQ-CST-04.3.2 [red-proof]: the guard's own mechanism is what tells the mutant apart — AST count, not substring count", () => {
+    const mutant = anchorWithCodeReferencesRemoved();
+    const substringCount = mutant.split("createRequire").length - 1;
+
+    // The retired mechanism: still 8 hits, all inside comments, so the shipped
+    // `>= 2` substring threshold stayed GREEN against a file with no real reference left.
+    expect(substringCount).toBe(8);
+
+    // The mandated mechanism, invoked directly: zero identifier occurrences, so the guard the
+    // real tree runs (fit-42's `toBe(2)`) fails on this mutant. That difference IS the scenario.
+    expect(astIdentifierOccurrences(mutant, "createRequire")).toBe(0);
+    expect(astIdentifierOccurrences(mutant, "notThePrimitive")).toBe(2);
+  });
+
+  it("REQ-CST-04.3.2: comments and string literals never count as occurrences — the mechanism's own property", () => {
+    const source = [
+      "// createRequire in a line comment",
+      "/** createRequire in JSDoc, {@link createRequire} too */",
+      'const s = "createRequire in a string literal";',
+      "export const noop = 1;",
+    ].join("\n");
+    expect(source.split("createRequire").length - 1).toBe(4);
+    expect(astIdentifierOccurrences(source, "createRequire")).toBe(0);
+  });
+
+  it("REQ-CST-04.3.2: a real code reference DOES count — non-vacuity of the counter itself", () => {
+    const source = 'import { createRequire } from "node:module";\nexport const r = createRequire(import.meta.url);\n';
+    expect(astIdentifierOccurrences(source, "createRequire")).toBe(2);
   });
 });
 

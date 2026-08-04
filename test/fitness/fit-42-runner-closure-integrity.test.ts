@@ -42,6 +42,7 @@ import { ensureRealClosureDerivation, ensureTscBuild } from "../support/shared-b
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { PROJECT_ROOT, hashFile } from "../support/scratch-consumer.ts";
 import {
+  astIdentifierOccurrences,
   diffClosureBaseline,
   findBomOffenders,
   findBundlerTargets,
@@ -579,15 +580,20 @@ describe("FIT-42 S-003 — the real tree honours Constraints 2, 4 and 5", () => 
     expect(source).toContain("SANCTIONED-FACTORY-IMPORT");
   });
 
-  it("REQ-CST-04.3: the deny-scan reports zero violations against the real closure", () => {
+  // Titled against the admission mechanism, not the retired text-matching deny-scan — the
+  // wording REQ-CST-04.3's MODIFIED block exists to stop (W-10b).
+  it("REQ-CST-04.3: capability-admission classification reports zero violations against the real closure", () => {
     expect([...derivedFromSnapshot().violations]).toEqual([]);
   });
 
-  // Non-vacuity: the anchored file really does hold createRequire references, so "no
-  // violations" above is an exemption working, not a file that happens to be clean.
+  // Non-vacuity: the anchored file really does hold createRequire references, so "no violations"
+  // above is an exemption working, not a file that happens to be clean. Counted by AST identifier
+  // occurrence and pinned EXACTLY (REQ-CST-04.3's own MODIFIED text; never a substring count,
+  // never a threshold — R1-10). The real anchor carries 10 substring hits, 8 of them inside
+  // comments, and exactly 2 identifier occurrences.
   it("REQ-CST-04.3: the anchored probe genuinely references createRequire and is not flagged", () => {
     const probe = readFileSync(join(snapshotDist(), CREATE_REQUIRE_ANCHOR_FILE), "utf-8");
-    expect(probe.split("createRequire").length - 1).toBeGreaterThanOrEqual(2);
+    expect(astIdentifierOccurrences(probe, "createRequire")).toBe(2);
     const flagged = derivedFromSnapshot().violations.filter(
       (violation) => violation.file === CREATE_REQUIRE_ANCHOR_FILE
     );
