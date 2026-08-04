@@ -1750,13 +1750,17 @@ describe("FIT-42N S-004 — REQ-FCG-01: individual fault-kind red-proofs", () =>
     expect(existsSync(manifestPathIn(root))).toBe(false);
     // Whole-verbatim exception (documented, not a silent weakening — REQ-CST-06.1): the
     // unrouted-error branch's message embeds `error.stack`, which is inherently
-    // non-deterministic (absolute paths, line numbers). Only the FIXED, deterministic prefix
-    // is asserted, via `startsWith` rather than `toContain` — the standing scan (below) is a
-    // substring-match ban, not a "no partial assertion of any kind" ban, and this checks the
-    // entire deterministic portion of the message, never treating "it fails" as "it fails
-    // usefully" on the strength of an arbitrary fragment.
+    // non-deterministic (absolute paths, line numbers) — only THAT middle segment is
+    // unassertable verbatim. Both the leading AND trailing deterministic segments are
+    // asserted (`startsWith`/`endsWith`, never `toContain` — the standing scan below is a
+    // substring-MATCH ban, not a "no partial assertion" ban), pinning everything around the
+    // one genuinely non-deterministic fragment rather than only the prefix (verify-in-loop-5
+    // finding: a deterministic suffix was also assertable and had been left unpinned).
     const stderr = result.stderr as unknown as string;
     expect(stderr.startsWith("runner-manifest: generation failed with an unrouted error.\n")).toBe(true);
+    expect(stderr.endsWith("\n\nNo manifest was written; dist/runner-manifest.json does not exist.\n")).toBe(
+      true
+    );
   });
 });
 
