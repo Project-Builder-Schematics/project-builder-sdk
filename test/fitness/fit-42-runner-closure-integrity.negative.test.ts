@@ -378,10 +378,18 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
       deriveRunnerClosure(root, "transport/entry.js").violations,
       { distDirName: "dist", srcDirName: "src" }
     );
-    expect(rendered).toContain("runner-manifest: src/transport/entry.ts");
-    expect(rendered).toContain("(emitted: dist/transport/entry.js:1)");
-    expect(rendered).toContain("Constraint 3 — no bare third-party specifier inside the closure.");
-    expect(rendered).toContain("No manifest was written; dist/runner-manifest.json does not exist.");
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/transport/entry.ts — bare specifier in the runner closure.",
+        '  found: import { Project } from "ts-morph";     (emitted: dist/transport/entry.js:1)',
+        "  rule:  Constraint 3 — no bare third-party specifier inside the closure.",
+        "  why:   \"ts-morph\" resolves into node_modules/, which the manifest does not cover, so it would execute unverified during the bootstrap.",
+        '  fix:   move the code that needs "ts-morph" behind the factory import, or into a module outside the runner closure (src/commons/**, src/dialects/**). If the runner must genuinely depend on it, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-3 and agree it with the engine before regenerating any baseline.',
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 
   it("REQ-CST-04.2: the closed primitive set — eval, Function, node:vm, Bun.plugin, process.binding — is denied", () => {
@@ -451,9 +459,18 @@ function renderedFor(root: string, entry = "entry.js"): string {
 describe("FIT-42N S-002 — a failing classification names the facts the reader needs", () => {
   it("REQ-RCD-03.1: an unclassifiable construct names the src path, the line and the construct", () => {
     const rendered = renderedFor(plantTree({ "entry.js": 'import "file:///etc/passwd";\n' }));
-    expect(rendered).toContain("runner-manifest: src/entry.ts");
-    expect(rendered).toContain("(emitted: dist/entry.js:1)");
-    expect(rendered).toContain('import "file:///etc/passwd";');
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/entry.ts — construct could not be classified.",
+        '  found: import "file:///etc/passwd";     (emitted: dist/entry.js:1)',
+        "  rule:  Zero silent skips — every capability-surface node and import-like construct must classify as exactly one of { admitted, a named violation, unclassifiable-construct }.",
+        '  why:   an unclassifiable construct (file:///etc/passwd) fails the build rather than being skipped, because a skipped node is a hole in the closure that nothing downstream would notice.',
+        "  fix:   write the construct in a statically decidable shape. If the construct must stay, the walker has to learn it — that is a change to scripts/derive-runner-closure.ts or scripts/capability-admission.ts AND to docs/runner-integrity-invariants.md, not a special case here.",
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 
   // RP-13.
@@ -462,17 +479,36 @@ describe("FIT-42N S-002 — a failing classification names the facts the reader 
       plantTree({ "core/entry.js": 'import "./missing.js";\n' }),
       "core/entry.js"
     );
-    expect(rendered).toContain("src/core/entry.ts");
-    expect(rendered).toContain('import "./missing.js";');
-    expect(rendered).toContain("core/missing.js");
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/core/entry.ts — relative specifier resolves to no file (attempted core/missing.js).",
+        '  found: import "./missing.js";     (emitted: dist/core/entry.js:1)',
+        "  rule:  Zero silent skips — a classified-but-unresolvable specifier is a hole in the closure, never a subset.",
+        "  why:   dropping the subtree behind an unresolvable specifier leaves the manifest a strict subset of the code that runs, which voids the closure-sealing lemma.",
+        "  fix:   correct the specifier, or add the file it names.",
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 
   it("REQ-RCD-03.4: a query-suffixed specifier is reported as a classification failure naming the suffix", () => {
     const rendered = renderedFor(
       plantTree({ "entry.js": 'import "./a.js?v=1";\n', "a.js": "export const a = 1;\n" })
     );
-    expect(rendered).toContain("could not be classified");
-    expect(rendered).toContain('query or fragment in "./a.js?v=1"');
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/entry.ts — construct could not be classified.",
+        '  found: import "./a.js?v=1";     (emitted: dist/entry.js:1)',
+        "  rule:  Zero silent skips — every capability-surface node and import-like construct must classify as exactly one of { admitted, a named violation, unclassifiable-construct }.",
+        '  why:   an unclassifiable construct (query or fragment in "./a.js?v=1") fails the build rather than being skipped, because a skipped node is a hole in the closure that nothing downstream would notice.',
+        "  fix:   write the construct in a statically decidable shape. If the construct must stay, the walker has to learn it — that is a change to scripts/derive-runner-closure.ts or scripts/capability-admission.ts AND to docs/runner-integrity-invariants.md, not a special case here.",
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 
   it.skipIf(process.getuid?.() === 0)(
@@ -484,8 +520,18 @@ describe("FIT-42N S-002 — a failing classification names the facts the reader 
       });
       chmodSync(join(root, "locked.js"), 0o000);
       const rendered = renderedFor(root);
-      expect(rendered).toContain("closure file could not be read");
-      expect(rendered).toContain("(emitted: dist/locked.js)");
+      expect(rendered).toBe(
+        [
+          "runner-manifest: src/locked.ts — closure file could not be read.",
+          "  found: locked.js     (emitted: dist/locked.js)",
+          "  rule:  Zero silent skips — an unreadable closure file fails the build; it is never skipped.",
+          "  why:   a file that cannot be read cannot be hashed, and a manifest missing one of its files is indistinguishable from tampering on the user's machine.",
+          "  fix:   restore read permission on the file, or remove it from the closure.",
+          "",
+          "No manifest was written; dist/runner-manifest.json does not exist.",
+          "",
+        ].join("\n")
+      );
     }
   );
 });
@@ -599,20 +645,33 @@ describe("FIT-42N S-003 — readSpecifiers separates value imports from erased o
 describe("FIT-42N S-003 — the violation epilogue is true for the tool that printed it", () => {
   const bareSpecifierTree = { "entry.js": 'import { Project } from "ts-morph";\n' };
 
+  const bareSpecifierRendered = [
+    "runner-manifest: src/entry.ts — bare specifier in the runner closure.",
+    '  found: import { Project } from "ts-morph";     (emitted: dist/entry.js:1)',
+    "  rule:  Constraint 3 — no bare third-party specifier inside the closure.",
+    "  why:   \"ts-morph\" resolves into node_modules/, which the manifest does not cover, so it would execute unverified during the bootstrap.",
+    '  fix:   move the code that needs "ts-morph" behind the factory import, or into a module outside the runner closure (src/commons/**, src/dialects/**). If the runner must genuinely depend on it, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-3 and agree it with the engine before regenerating any baseline.',
+    "",
+  ];
+
   it("REQ-CST-06.1: the build path keeps the frozen no-manifest sentence", () => {
     const rendered = renderedFor(plantTree(bareSpecifierTree));
-    expect(rendered).toContain("No manifest was written; dist/runner-manifest.json does not exist.");
+    expect(rendered).toBe(
+      [...bareSpecifierRendered, "No manifest was written; dist/runner-manifest.json does not exist.", ""].join("\n")
+    );
   });
 
   // The baseline writer reuses this renderer. Telling a maintainer whose BASELINE
-  // regeneration failed that no MANIFEST was written names the wrong artefact entirely.
+  // regeneration failed that no MANIFEST was written names the wrong artefact entirely. A
+  // whole-string match against the caller-supplied epilogue inherently proves the old
+  // "No manifest was written" sentence is gone — nothing unexpected can hide in a full
+  // equality the way it could survive a `.not.toContain` check on a substring.
   it("REQ-CST-06.1: a caller-supplied epilogue replaces it, and the manifest sentence is gone", () => {
     const rendered = renderViolations(
       deriveRunnerClosure(plantTree(bareSpecifierTree), "entry.js").violations,
       { distDirName: "dist", srcDirName: "src", outcome: "No baseline was written." }
     );
-    expect(rendered).toContain("No baseline was written.");
-    expect(rendered).not.toContain("No manifest was written");
+    expect(rendered).toBe([...bareSpecifierRendered, "No baseline was written.", ""].join("\n"));
   });
 });
 
@@ -623,10 +682,18 @@ describe("FIT-42N S-003 — Constraint 3 / 3a: what may be named inside the clos
       plantTree({ "transport/entry.js": 'import { Project } from "ts-morph";\n' }),
       "transport/entry.js"
     );
-    expect(rendered).toContain("runner-manifest: src/transport/entry.ts");
-    expect(rendered).toContain("(emitted: dist/transport/entry.js:1)");
-    expect(rendered).toContain('"ts-morph"');
-    expect(rendered).toContain("Constraint 3 — no bare third-party specifier inside the closure.");
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/transport/entry.ts — bare specifier in the runner closure.",
+        '  found: import { Project } from "ts-morph";     (emitted: dist/transport/entry.js:1)',
+        "  rule:  Constraint 3 — no bare third-party specifier inside the closure.",
+        "  why:   \"ts-morph\" resolves into node_modules/, which the manifest does not cover, so it would execute unverified during the bootstrap.",
+        '  fix:   move the code that needs "ts-morph" behind the factory import, or into a module outside the runner closure (src/commons/**, src/dialects/**). If the runner must genuinely depend on it, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-3 and agree it with the engine before regenerating any baseline.',
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 
   // RP-5 — the discriminating fixture. A name-allowlist implementation passes a fixture
@@ -653,8 +720,17 @@ describe("FIT-42N S-003 — Constraint 3 / 3a: what may be named inside the clos
     const rendered = renderedFor(
       plantTree({ "entry.js": 'import { readFileSync } from "fs";\nimport { join } from "node:fs";\n' })
     );
-    expect(rendered).toContain(
-      'The check is on the PREFIX, not on a list of builtin names — adding "fs" to an allowlist is not the fix.'
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/entry.ts — builtin imported without the `node:` prefix.",
+        '  found: import { readFileSync } from "fs";     (emitted: dist/entry.js:1)',
+        "  rule:  Constraint 3a — every builtin in the closure is written `node:`-prefixed.",
+        '  why:   "fs" is an ordinary package name that a node_modules/fs package can shadow; "node:fs" cannot be shadowed. The check is on the PREFIX, not on a list of builtin names — adding "fs" to an allowlist is not the fix.',
+        '  fix:   change the specifier to "node:fs".',
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
     );
   });
 });
@@ -666,9 +742,18 @@ describe("FIT-42N S-003 — Constraint 2: the sanction is per-SITE, not per-file
       plantTree({ "transport/session.js": "const later = import(specifier);\n" }),
       "transport/session.js"
     );
-    expect(rendered).toContain("runner-manifest: src/transport/session.ts");
-    expect(rendered).toContain("dynamic import() outside the sanctioned factory-import site");
-    expect(rendered).toContain("Constraint 2 — the closure contains exactly one dynamic import()");
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/transport/session.ts — dynamic import() outside the sanctioned factory-import site.",
+        "  found: import(specifier)     (emitted: dist/transport/session.js:1)",
+        "  rule:  Constraint 2 — the closure contains exactly one dynamic import(): the author-factory import in src/transport/runner.ts, marked SANCTIONED-FACTORY-IMPORT.",
+        "  why:   a dynamic import() admits code no digest covers into the bootstrap; the one sanctioned site is the deliberate author-code boundary.",
+        "  fix:   use a static import if the target is already in the closure, or move the lazy load to the far side of the factory boundary. A second boundary is a contract change: docs/runner-integrity-invariants.md#constraint-2, agreed with the engine first.",
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 
   // RP-3b — the proof that Constraint 2 is site-scoped. A path-scoped implementation passes
@@ -678,10 +763,17 @@ describe("FIT-42N S-003 — Constraint 2: the sanction is per-SITE, not per-file
       [SANCTIONED_DYNAMIC_IMPORT_FILE]: "const f = import(moduleUrl);\nconst p = import(pluginUrl);\n",
     });
     const rendered = renderedFor(root, SANCTIONED_DYNAMIC_IMPORT_FILE);
-    expect(rendered).toContain("second dynamic import() inside the factory-import file");
-    expect(rendered).toContain("src/transport/runner.ts:SANCTIONED-FACTORY-IMPORT");
-    expect(rendered).toContain(
-      "Constraint 2 — the sanction is per-SITE, not per-file. Living in runner.ts does not make an import() sanctioned."
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/transport/runner.ts — second dynamic import() inside the factory-import file.",
+        "  found: import(pluginUrl)     (emitted: dist/transport/runner.js:2)",
+        "  rule:  Constraint 2 — the sanction is per-SITE, not per-file. Living in runner.ts does not make an import() sanctioned.",
+        "  why:   src/transport/runner.ts:SANCTIONED-FACTORY-IMPORT is the author-code boundary; this is a different site, and it admits code no digest covers exactly as one anywhere else would.",
+        "  fix:   remove this import(), or route the work through the sanctioned site. If the runner needs a second dynamic boundary, that is a contract change: docs/runner-integrity-invariants.md#constraint-2, agreed with the engine first.",
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
     );
   });
 });
@@ -750,19 +842,32 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
   });
 
   // RP-7c — one file per primitive, each naming its own.
-  const primitives: Array<[string, string, string]> = [
-    ["eval", "p1.js", "export const r = eval(payload);\n"],
-    ["Function", "p2.js", "export const r = new Function(body);\n"],
-    ["node:vm", "p3.js", 'import "node:vm";\n'],
-    ["Bun.plugin", "p4.js", "Bun.plugin(definition);\n"],
-    ["process.binding", "p5.js", "process.binding('fs');\n"],
+  const primitives: Array<[string, string, string, string]> = [
+    ["eval", "p1.js", "export const r = eval(payload);\n", 'export const r = eval(payload);'],
+    ["Function", "p2.js", "export const r = new Function(body);\n", 'export const r = new Function(body);'],
+    ["node:vm", "p3.js", 'import "node:vm";\n', 'import "node:vm";'],
+    ["Bun.plugin", "p4.js", "Bun.plugin(definition);\n", 'Bun.plugin(definition);'],
+    ["process.binding", "p5.js", "process.binding('fs');\n", "process.binding('fs');"],
   ];
 
-  for (const [primitive, file, source] of primitives) {
+  for (const [primitive, file, source, found] of primitives) {
     it(`REQ-CST-04.2: ${primitive} is denied and named as the forbidden origin`, () => {
       const rendered = renderedFor(plantTree({ [file]: source }), file);
-      expect(rendered).toContain(`forbidden origin: ${primitive}`);
-      expect(rendered).toContain("Constraint 4 — the closure may RESOLVE, never EXECUTE.");
+      const stem = file.replace(/\.js$/, "");
+      expect(rendered).toBe(
+        [
+          `runner-manifest: src/${stem}.ts — capability primitive or unadmitted origin in the closure.`,
+          `  found: ${found}     (emitted: dist/${file}:1)`,
+          "  rule:  Constraint 4 — the closure may RESOLVE, never EXECUTE.",
+          "         admitted origins: local, a closure import of an admitted name, an admitted global, or an admitted builtin member path.",
+          `         forbidden origin: ${primitive}`,
+          "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. See docs/runner-integrity-invariants.md#constraint-4.",
+          "  fix:   resolve the value through an admitted origin, or move the work outside the closure. If the primitive is genuinely needed, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-4 and agree it with the engine before regenerating any baseline.",
+          "",
+          "No manifest was written; dist/runner-manifest.json does not exist.",
+          "",
+        ].join("\n")
+      );
     });
   }
 });
@@ -976,18 +1081,23 @@ describe("FIT-42N S-003 — the closure-graph baseline catches node AND edge dri
       observed: 4,
       baseline: 3,
     });
-    expect(rendered).toContain("fit-42: the runner closure changed.");
-    expect(rendered).toContain(
-      "4 files are reachable from dist/bin/pbuilder-runner.js; the committed baseline has 3."
+    expect(rendered).toBe(
+      [
+        "fit-42: the runner closure changed.",
+        "  4 files are reachable from dist/bin/pbuilder-runner.js; the committed baseline has 3.",
+        "  added node:  c.js",
+        "  added edge:  b.js -> ./c.js   (src/b.ts)",
+        "  removed:     (none)",
+        "",
+        "This is not automatically wrong — the closure is allowed to grow. It is wrong if you did not",
+        "mean to change it. If you did mean it:",
+        "  1. check the new file against the constraints in docs/runner-integrity-invariants.md,",
+        "  2. regenerate: bun run build && bun run regen:closure-baseline,",
+        "  3. commit test/fitness/runner-closure-graph-baseline.json in the SAME commit, and say in",
+        "     the commit message why the closure grew — the engine verifies whatever we publish.",
+        "",
+      ].join("\n")
     );
-    expect(rendered).toContain("added node:  c.js");
-    expect(rendered).toContain("added edge:  b.js -> ./c.js   (src/b.ts)");
-    expect(rendered).toContain("removed:     (none)");
-    expect(rendered).toContain(
-      "This is not automatically wrong — the closure is allowed to grow."
-    );
-    expect(rendered).toContain("bun run build && bun run regen:closure-baseline");
-    expect(rendered).toContain("commit test/fitness/runner-closure-graph-baseline.json in the SAME commit");
   });
 });
 
@@ -1299,5 +1409,83 @@ describe("FIT-42N S-001 — REQ-PRM-01: capability primitive register, fixture-c
     const fixturedMembers = new Set([...Object.values(DENY_SCAN_FIXTURES), "createRequire"]);
     const unfixtured = [...mutantRegister].filter((member) => !fixturedMembers.has(member));
     expect(unfixtured).toEqual(["Deno.core.opSync"]);
+  });
+});
+
+// ===========================================================================================
+// S-001.7 — standing scan: no `toContain` on a tripwire/guard-failure MESSAGE, ever again, in
+// this file family. Scoped to the fit-42/fit-23/fit-46 family only (slices.md's own scope
+// note — a repo-wide scan would flag unrelated `toContain` usage this change has no
+// acceptance criterion over).
+// ===========================================================================================
+
+describe("FIT-42N S-001 — REQ-CST-06.1: standing scan — no toContain on a tripwire message", () => {
+  const SCANNED_FILES = [
+    "test/fitness/fit-42-runner-closure-integrity.test.ts",
+    "test/fitness/fit-42-runner-closure-integrity.negative.test.ts",
+    "test/fitness/fit-23-publish-workflow-guard.test.ts",
+    "test/fitness/fit-46-publish-sequence-integrity.test.ts",
+  ];
+
+  // A "tripwire message" receiver is one of this family's own established naming
+  // conventions for rendered/guard-failure text: `rendered` (renderViolations/
+  // renderBaselineDrift output), `stderr` (a spawned tool's error output), or a `.reason`/
+  // `.message` field (a guard-check's own failure explanation, e.g. checkRepoOwnerGuard's
+  // `{ok, reason}`). Array-membership and raw-file-content checks (`paths`, `source`,
+  // `manifestRaw`, `.nodes`, `line`, …) are legitimate `toContain` uses this scan must NOT
+  // flag — REQ-CST-06.1 governs MESSAGE assertions, not membership checks.
+  const MESSAGE_RECEIVER = /\b(rendered|stderr)\b|\.reason\b|\.message\b/;
+  const TO_CONTAIN_CALL = /expect\(([^)]*)\)\s*\.(?:not\.)?toContain\(/g;
+
+  // The offender-report format deliberately never spells the banned call syntax
+  // (`expect(` immediately followed by `.toContain(`) as one literal substring — otherwise
+  // the scan, which reads this very file among `SCANNED_FILES`, would flag its own report
+  // strings (and the red-proof's expected-output array below) as additional offenders.
+  function findMessageToContainSites(source: string): string[] {
+    const offenders: string[] = [];
+    for (const match of source.matchAll(TO_CONTAIN_CALL)) {
+      const receiver = match[1] ?? "";
+      if (MESSAGE_RECEIVER.test(receiver)) {
+        const line = source.slice(0, match.index).split("\n").length;
+        offenders.push(`line ${line}: receiver "${receiver.trim()}" (banned substring-match call)`);
+      }
+    }
+    return offenders;
+  }
+
+  for (const relativePath of SCANNED_FILES) {
+    it(`REQ-CST-06.1: ${relativePath} has zero toContain calls on a rendered/guard-failure message`, () => {
+      const source = readFileSync(join(PROJECT_ROOT, relativePath), "utf-8");
+      expect(findMessageToContainSites(source)).toEqual([]);
+    });
+  }
+
+  // The planted/legitimate fixtures below build the banned call syntax via concatenation
+  // (never spelling `expect(` + `.toContain(` adjacently in this file's own literal text) —
+  // otherwise the scan, which reads this very file among `SCANNED_FILES`, would flag its
+  // own red-proof's planted test DATA as a real offending call.
+  const CALL = ["toCon", "tain"].join("");
+
+  it("REQ-CST-06.1 [red-proof]: the scan itself catches a planted toContain on a message receiver", () => {
+    const planted = [
+      "const rendered = renderViolations(violations, opts);",
+      `expect(rendered).${CALL}("Constraint 4");`,
+      "",
+      "const result = checkRepoOwnerGuard(doc, owner);",
+      `expect(result.reason).${CALL}("missing the repo-owner guard");`,
+    ].join("\n");
+    expect(findMessageToContainSites(planted)).toEqual([
+      'line 2: receiver "rendered" (banned substring-match call)',
+      'line 5: receiver "result.reason" (banned substring-match call)',
+    ]);
+  });
+
+  it("REQ-CST-06.1: the scan does NOT flag legitimate non-message toContain (array membership, raw content)", () => {
+    const legitimate = [
+      `expect(paths).${CALL}("dist/core/authoring-error.js");`,
+      `expect(source).${CALL}("SANCTIONED-FACTORY-IMPORT");`,
+      `expect(line).${CALL}("npm publish");`,
+    ].join("\n");
+    expect(findMessageToContainSites(legitimate)).toEqual([]);
   });
 });
