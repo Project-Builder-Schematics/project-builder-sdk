@@ -102,9 +102,15 @@ function tokenize(command: string): string[] {
   return command.split(/\s+/).filter((token) => token.length > 0);
 }
 
-/** Every RECOGNISED (`--outfile`/`--outdir`/`-o`) target, decidable value only. */
-export function findBundlerTargets(scripts: Record<string, string>): BundlerTarget[] {
+interface ClassifiedBundlerConstructs {
+  readonly targets: BundlerTarget[];
+  readonly unclassifiable: UnclassifiableBundlerConstruct[];
+}
+
+/** ONE tokenize/classify walk producing both target and unclassifiable-construct lists. */
+function classifyBundlerConstructs(scripts: Record<string, string>): ClassifiedBundlerConstructs {
   const targets: BundlerTarget[] = [];
+  const unclassifiable: UnclassifiableBundlerConstruct[] = [];
   for (const [script, command] of Object.entries(scripts)) {
     const tokens = tokenize(command);
     for (let index = 0; index < tokens.length; index += 1) {
@@ -115,10 +121,17 @@ export function findBundlerTargets(scripts: Record<string, string>): BundlerTarg
           flag: reading.flag as BundlerFlag,
           target: (reading.value as string).replace(/^["']|["']$/g, ""),
         });
+      } else if (reading?.kind === "undecidable" || reading?.kind === "unclassifiable-shape") {
+        unclassifiable.push({ script, token: reading.token });
       }
     }
   }
-  return targets;
+  return { targets, unclassifiable };
+}
+
+/** Every RECOGNISED (`--outfile`/`--outdir`/`-o`) target, decidable value only. */
+export function findBundlerTargets(scripts: Record<string, string>): BundlerTarget[] {
+  return classifyBundlerConstructs(scripts).targets;
 }
 
 /**
@@ -128,17 +141,7 @@ export function findBundlerTargets(scripts: Record<string, string>): BundlerTarg
 export function findUnclassifiableBundlerConstructs(
   scripts: Record<string, string>
 ): UnclassifiableBundlerConstruct[] {
-  const found: UnclassifiableBundlerConstruct[] = [];
-  for (const [script, command] of Object.entries(scripts)) {
-    const tokens = tokenize(command);
-    for (let index = 0; index < tokens.length; index += 1) {
-      const reading = classifyToken(tokens, index);
-      if (reading?.kind === "undecidable" || reading?.kind === "unclassifiable-shape") {
-        found.push({ script, token: reading.token });
-      }
-    }
-  }
-  return found;
+  return classifyBundlerConstructs(scripts).unclassifiable;
 }
 
 /** Resolution-based verdict: BOTH sides resolved against the same fixed virtual anchor. */
