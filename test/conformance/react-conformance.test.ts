@@ -11,7 +11,10 @@
  * exports `find`, so conformance re-assembles the same real `Dialect`/`OpPack` objects rather
  * than importing a mock.
  */
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, setDefaultTimeout } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
 import { parse, print } from "../../src/dialects/react/ast.ts";
@@ -19,6 +22,15 @@ import { setJsxProp, addImport } from "../../src/dialects/react/ops.ts";
 import { testDialect, testOpPack, type DialectFixture, type OpPackFixture } from "../../src/conformance/index.ts";
 import { golden } from "../support/golden.ts";
 
+// REQ-PPI-04: an explicit per-file timeout, distinct from Bun's 5000ms default — the
+// ~4 MiB JSX corpus sample (below) and the op-pack fidelity exercises are real parse/print
+// work, not a hang, but a genuine regression here must fail AT the declared boundary, never
+// by silently exceeding Bun's default and dragging the publish suite gate (REQ-PPI-03) with
+// it. See the [red-proof] test below for the behavioural proof that the boundary actually
+// terminates a non-resolving fixture, naming the file.
+setDefaultTimeout(20000);
+
+const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 const REACT_GOLDEN_DIR = new URL("../dialects/react/golden/", import.meta.url).pathname;
 
 function reactGolden(name: string): string {
@@ -188,5 +200,43 @@ describe("REQ-RXD-08.2 — setJsxProp op-pack fidelity proven under real mutatio
       ],
     };
     await expect(testOpPack(fixture)).resolves.toBeUndefined();
+  });
+});
+
+describe("REQ-PPI-04 [red-proof]: a non-resolving test fails at the declared timeout boundary, not by hanging", () => {
+  // Outside test/ so bun's test-file glob (evaluated once at suite start) never picks this
+  // scratch fixture up mid-run — same precedent as test/docs/testing-story-docs.test.ts's
+  // `.tmp-readme-copy-runnable/`.
+  const SCRATCH_DIR = join(PROJECT_ROOT, ".tmp-react-conformance-timeout-fixture");
+
+  it("REQ-PPI-04.2 [red-proof]: a fixture that never resolves fails at its declared per-file timeout, naming the file", () => {
+    mkdirSync(SCRATCH_DIR, { recursive: true });
+    const scratchFile = join(SCRATCH_DIR, "hanging-fixture.test.ts");
+    writeFileSync(
+      scratchFile,
+      [
+        'import { test, setDefaultTimeout } from "bun:test";',
+        "setDefaultTimeout(300);",
+        'test("never resolves", () => new Promise(() => {}));',
+        "",
+      ].join("\n")
+    );
+    try {
+      // Child `bun test` invocation against a single scratch file (test/docs/testing-story-
+      // docs.test.ts:69's shape) — asserted on exit code/output only, never on process-wide
+      // side effects. `timeout` is a defensive OUTER bound: the suite gate must terminate
+      // instead of hanging even if the declared per-file timeout itself somehow failed to fire.
+      const result = spawnSync("bun", ["test", scratchFile], {
+        cwd: PROJECT_ROOT,
+        encoding: "utf-8",
+        timeout: 10000,
+      });
+      const output = `${result.stdout}\n${result.stderr}`;
+      expect(result.status).not.toBe(0);
+      expect(output).toContain("hanging-fixture.test.ts");
+      expect(output.toLowerCase()).toContain("timed out");
+    } finally {
+      rmSync(SCRATCH_DIR, { recursive: true, force: true });
+    }
   });
 });
