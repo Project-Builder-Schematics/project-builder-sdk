@@ -467,8 +467,96 @@ false-positive-guard).
 9. `docs(design): re-pin admitted-table counts and byte digest; add CAP-01.3 note`
 10. `docs(sdd): mark S-001.7 complete, record the completion pass`
 
-### Next recommended
+### Next recommended (superseded by the S-003 section below — S-001 passed verify in-loop)
 
 S-003 (`FIT-PATH-SPELLING-INVARIANCE`, `scripts/bundler-disjointness.ts`) per the Build Order
 — S-001 is now fully complete (10/10 tasks) and the standing anti-`toContain` scan is live on
 the shared `fit-42-*` files before S-003/S-004 touch them, as the Build Order requires.
+
+## Slice: S-003 — Resolution-Based Path Verdicts, bundler disjointness by resolved path
+
+**Status**: complete, 5/5 tasks. Covers REQ-PTH-01 (all 7 scenarios: .1-.5 red-proof, .6
+sibling positive, .7 red-proof). Lands on top of S-001's shape per the Build Order (batch 2,
+order 2b) — the standing anti-`toContain` scan (S-001.7) was already live on
+`fit-42-runner-closure-integrity.{test,negative.test}.ts` before this slice touched them;
+every new assertion below is whole-verbatim/structured-`toEqual` by construction, confirmed
+by re-running the scan (still 6/6 green, no new offenders).
+
+### Mechanism summary
+
+`scripts/bundler-disjointness.ts` (new): resolution-based disjointness, replacing
+`normaliseForComparison`'s string manipulation. Both the candidate bundler target and each
+closure path are resolved via `node:path`'s `posix.resolve` against a FIXED virtual anchor
+(`"/"`) — pure path algebra, no real filesystem access, anchor-invariant since both sides
+resolve against the same anchor. `--outdir` collides by directory-prefix containment;
+`-o`/`--outfile` collide by exact-path equality only. The flag/path grammar is a token-level
+classifier (`classifyToken`) trying every candidate reading of an ambiguous token: `--outdir`/
+`--outfile` with `=` or space separation, `-o` with space separation OR (new) zero-separator
+concatenation (`-oVALUE`) — the shape that let `-o` targets past the retired regex entirely.
+A recognised flag whose value contains `$` (shell-variable/undecidable), or an output-flag-
+shaped token (`-o`/`--out`-prefixed) that names no recognised spelling, is reported via the
+new `findUnclassifiableBundlerConstructs` — never silently treated as an ordinary string
+target, never silently ignored.
+
+`test/support/closure-integrity-checks.ts` re-exports from `scripts/bundler-disjointness.ts`
+(ADR-0081: placement, not timing — Constraint 1 still ships as a structural CI check,
+`fit-42`, never a loader-observed build tripwire; ADR-0075 untouched). `findBundlerTargets`/
+`findDisjointnessViolations`'s external signatures and return shapes are UNCHANGED from the
+retired implementation — every one of the 6 pre-existing tests exercising them
+(`REQ-BDI-01.1`'s extraction + 5 disjointness scenarios) passes unmodified against the new
+resolution-based internals, confirming the relocation preserved every already-correct verdict
+while additionally closing the 5 escapes.
+
+### Per-scenario red → green evidence
+
+| REQ-ID | Scenario | Fixture | Red evidence (genuineness) | Green evidence |
+|---|---|---|---|---|
+| PTH-01.1 [red-proof] | `--outdir .//dist/transport` still collides | `bundler-scripts/double-slash-dot.json` | Reproduced the RETIRED `normaliseForComparison`+`oldCollides` logic in a throwaway probe (deleted after use): for target `".//dist/transport"`, `oldCollides("--outdir", target, "dist/transport/runner.js")` → **false** — the retired mechanism's leading-`./`-strip does not touch a DOUBLE slash, so it never normalises this to the same string as a clean `dist/transport` target. Confirmed genuinely escaping. | `findDisjointnessViolations` reports exactly one violation, `colliding: "dist/transport/runner.js"` |
+| PTH-01.2 [red-proof] | `--outdir .` targets the total root | `bundler-scripts/total-root.json` | Same probe: `oldCollides("--outdir", ".", closurePath)` → **false** for both closure paths — the retired mechanism's length-1 trailing-slash-strip guard (`normalised.length > 1 &&...`) skips normalising `"."` itself, so it never resolves to the shared root prefix every closure path shares. | Resolves to `posix.resolve("/", ".")` = `"/"`; every closure path starts with `"/"` → 2 violations, one per closure path (both reported) |
+| PTH-01.3 [red-proof] | `-odist/transport/runner.js`, concatenated short form | `bundler-scripts/concatenated-short-form.json` | Ran the RETIRED extraction regex (`/(?:^|\s)(--outfile\|--outdir\|-o)[=\s]+(\S+)/g`, which requires a separator) against the fixture command directly: **0 targets extracted** — the flag was never even parsed, let alone compared. | New `classifyToken`'s `token.startsWith("-o") && token.length > 2` branch extracts `flag: "-o", target: "dist/transport/runner.js"`; `findDisjointnessViolations` reports the exact-match collision |
+| PTH-01.4 [red-proof] | `--outdir ../dist/transport`, relative-parent escape | `bundler-scripts/relative-parent.json` | Same probe: `oldCollides("--outdir", "../dist/transport", "dist/transport/runner.js")` → **false** — the retired mechanism never resolves `..` at all, so the literal string `"../dist/transport"` shares no prefix with `"dist/transport/runner.js"`. | `posix.resolve("/", "../dist/transport")` collapses the parent traversal (clamped at the virtual root) to `"/dist/transport"`, identical to a clean target — collision correctly reported |
+| PTH-01.5 [red-proof] | `--outdir=$VAR`, undecidable at build time | `bundler-scripts/undecidable-var.json` | The retired mechanism had no "unclassifiable" concept at all — the old regex would have extracted `target: "$VAR"` and silently compared it as an ordinary (always-non-colliding) string, never surfacing the undecidability. Confirmed via the same probe. | `findBundlerTargets` returns `[]` (never silently treated as a target); `findUnclassifiableBundlerConstructs` returns `[{script: "leak", token: "--outdir=$VAR"}]` |
+| PTH-01.6 | Real `package.json#scripts` + real closure — non-vacuity sibling | Real tree (`fit-42-runner-closure-integrity.test.ts`) | n/a (positive path) — pre-existing `REQ-BDI-01.1` test already covered this fixture; re-labelled `REQ-BDI-01.1 / REQ-PTH-01.6` and extended with an explicit `findUnclassifiableBundlerConstructs(scripts)` → `[]` assertion | Passes unmodified against the new mechanism; `dist/bin/pbuilder-codegen.js` still correctly judged outside the closure |
+| PTH-01.7 [red-proof] | `--out-dir ./dist/transport`, unrecognised output-flag-shaped token | `bundler-scripts/unrecognized-flag-shape.json` | No retired-mechanism equivalent exists (the concept is new). Genuineness argument instead: `findBundlerTargets` returns `[]` (never silently misread as `--outdir`), a companion test proves an ordinary non-output flag (`--minify`) is correctly left OUT of `findUnclassifiableBundlerConstructs` — proving the classifier discriminates shape, not merely flags every unrecognised token | `findUnclassifiableBundlerConstructs` returns `[{script: "leak", token: "--out-dir"}]` |
+| PTH-01 (FIT-PATH-SPELLING-INVARIANCE) | Cross-product enumerator agrees with an independent ground-truth oracle | Generated: 3 flags × 9 path spellings × 2 closure paths | Own-mutation red-proof: temporarily replaced `resolveAgainstAnchor`'s body with an identity function (`return path;`, bypassing `posix.resolve` entirely) — the fitness function immediately reported **8 concrete disagreements** naming the exact flag/target/closurePath triples where production and the independent `posix.relative`-based oracle diverged. Confirmed non-vacuous, then reverted (verified byte-identical to the pre-mutation file). | All 54 generated combinations agree; a companion test proves the oracle itself is discriminating (a non-colliding pair is correctly judged `false`, not vacuously `true`) |
+
+### Fixture corpus (S-003.4)
+
+`test/fixtures/red/runner-tripwires/bundler-scripts/` — 6 red fixtures (5 original + 1 for
+the PTH-01.7 iteration-1 amendment, which landed after S-003.4's task text was originally
+written — same pattern as S-001's own amendment-coverage additions) + 1 green sibling
+(`green-outside-closure.json`), each a committed `{scriptName: command}` JSON file.
+Readdir-enumerated completeness check asserts the on-disk set matches the declared 7-file
+class-ID list in both directions. `mutants/`-style budget line item not separately realised
+here either (same disposition as S-001.6's own note: the widening/mutation red-proof above
+used an in-code mutation, not a committed mutant file).
+
+### Byte-neutrality (REQ-CAP-06, carried forward)
+
+`scripts/bundler-disjointness.ts` and its test-file consumers touch no `src/**` file.
+Confirmed via the B6 procedure (fresh `rm -rf dist && bun run build`) at slice close:
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` — unchanged from S-001's
+close, exactly as expected for a slice with zero `src/` diff.
+
+### Gate re-confirmation at slice close
+
+`bun run typecheck`: clean. Fresh-build byte-neutrality: confirmed above. `bun test` (full
+suite): **2523 pass, 0 fail**, run twice for stability. Net new tests this slice: +11
+(5 escaping-spelling red-proofs, 1 unrecognised-flag-shape red-proof + 1 scope-limit sibling,
+1 corpus-completeness check, 1 PTH-01.6 non-vacuity assertion folded into the existing
+`REQ-BDI-01.1` test, 2 `FIT-PATH-SPELLING-INVARIANCE` tests). `fit-42-*` combined:
+188 → 199 tests.
+
+### Commits (chronological, S-003)
+
+11. `feat(bundler-disjointness): resolution-based verdicts replace string normalisation`
+12. `test(fitness): add REQ-PTH-01 red-proofs and the bundler-scripts fixture corpus`
+13. `test(fitness): add FIT-PATH-SPELLING-INVARIANCE fitness function`
+14. `docs(sdd): mark S-003 complete, record the S-003 apply-progress section`
+
+### Next recommended
+
+S-004 (`FIT-FAILCLOSED-BICONDITIONAL`, `generate-runner-manifest.ts`'s single fail-closed
+boundary + the DGN-01.3/.4 rule-identity totality check) per the Build Order — S-003 is
+complete and lands its own diff on top of S-001's shape in the shared `fit-42-*.test.ts`
+file, as batch 2's sequential ordering (2a→2b→2c) requires.

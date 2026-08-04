@@ -279,11 +279,11 @@ own line above is not rewritten.
 - THEN each violates, `=$VAR` as an explicit `unclassifiable-construct`; `dist/bin/pbuilder-codegen.js` still reports zero violations (non-vacuity, PTH-01.6)
 
 ### Tasks
-- [ ] S-003.1 `scripts/bundler-disjointness.ts`: `resolve()`-based verdicts, deterministic cross-product enumerator over the flag/path grammar (ADR-0081)
-- [ ] S-003.2 `test/support/closure-integrity-checks.ts` becomes a consumer (predicate relocated, placement-not-timing)
-- [ ] S-003.3 `FIT-PATH-SPELLING-INVARIANCE`, ground-truth oracle = Node's own `resolve`/`relative` semantics (QA TD-9)
-- [ ] S-003.4 `test/fixtures/red/runner-tripwires/bundler-scripts/`: 5 red fixtures + non-vacuity sibling, `readdir`-enumerated
-- [ ] S-003.5 Whole-verbatim messages (CST-06.1, no new `toContain`); byte-neutrality gate holds
+- [x] S-003.1 `scripts/bundler-disjointness.ts`: `resolve()`-based verdicts, deterministic cross-product enumerator over the flag/path grammar (ADR-0081)
+- [x] S-003.2 `test/support/closure-integrity-checks.ts` becomes a consumer (predicate relocated, placement-not-timing)
+- [x] S-003.3 `FIT-PATH-SPELLING-INVARIANCE`, ground-truth oracle = Node's own `resolve`/`relative` semantics (QA TD-9)
+- [x] S-003.4 `test/fixtures/red/runner-tripwires/bundler-scripts/`: 5 red fixtures + non-vacuity sibling, `readdir`-enumerated (6th red fixture added for the PTH-01.7 iteration-1 amendment, landed after this task's original text)
+- [x] S-003.5 Whole-verbatim messages (CST-06.1, no new `toContain`); byte-neutrality gate holds
 
 ---
 
