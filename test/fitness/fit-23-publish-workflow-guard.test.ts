@@ -541,6 +541,50 @@ describe("FIT-23 S-000 — REQ-PPI-03.1: the publish job runs a full-suite step,
     const result = checkSuiteGate(doc);
     expect(result).toEqual({ ok: true });
   });
+
+  // Strict TDD triangulation (verify-in-loop-1 finding): checkSuiteGate has 4 conditional
+  // branches (1 success + 3 distinct failure-reason returns) but only the success path was
+  // exercised. These 3 mirror the pairing pattern every sibling checker in this file follows
+  // (checkRepoOwnerGuard, checkAllUsesShaPinned, checkPublishOrdering,
+  // checkExplicitRebuildStep) — each named failure-reason branch gets its own fixture.
+  it("checkSuiteGate fails when no `bun test` step exists before the publish step", () => {
+    const doc = YAML.parse(`
+jobs:
+  publish:
+    steps:
+      - run: npm publish --tag dev
+`) as WorkflowDoc;
+    const result = checkSuiteGate(doc);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("no full-suite (bun test) step found before the publish step");
+  });
+
+  it("checkSuiteGate fails when the suite step runs after the publish step", () => {
+    const doc = YAML.parse(`
+jobs:
+  publish:
+    steps:
+      - run: npm publish --tag dev
+      - run: bun test
+`) as WorkflowDoc;
+    const result = checkSuiteGate(doc);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("the suite step runs after the publish step, not before");
+  });
+
+  it("checkSuiteGate fails when the suite step declares continue-on-error: true", () => {
+    const doc = YAML.parse(`
+jobs:
+  publish:
+    steps:
+      - run: bun test
+        continue-on-error: true
+      - run: npm publish --tag dev
+`) as WorkflowDoc;
+    const result = checkSuiteGate(doc);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("the suite step declares continue-on-error: true");
+  });
 });
 
 describe("FIT-23 S-000 — REQ-PPI-04.1 (structural leg): react-conformance.test.ts declares an explicit per-file timeout", () => {

@@ -68,14 +68,17 @@ S-000-tier survival red-proofs in `fit-42-*.negative.test.ts` are untouched by t
 
 ### Gate results (full worktree)
 
-- `bun test` (full suite): **2459 pass, 0 fail**, 5497 `expect()` calls, across 202 files, 76.21s.
+- `bun test` (full suite): **2462 pass, 0 fail**, 5503 `expect()` calls, across 202 files,
+  73.58s (post verify-in-loop-1 fix round; was 2459/2459 pass, 5497 `expect()` calls, 76.21s
+  before the 3 `checkSuiteGate` triangulation tests were added — see below).
 - `tsc --noEmit`: clean, no errors.
 - Lint: no lint tool/config present in this repo (`package.json` has no `lint` script,
   no `.eslintrc*`/`eslint.config*`/`biome.json*` found) — skipped per the task's
   "if configured" instruction.
-- `fit-23-publish-workflow-guard.test.ts`: **24/24 pass** — the pre-existing 18/18 baseline
+- `fit-23-publish-workflow-guard.test.ts`: **27/27 pass** — the pre-existing 18/18 baseline
   (`REQ-PPH-*`, `REQ-BPI-03.1`) is unaffected; 6 new S-000 tests added
-  (REQ-PPI-05.1/.2, REQ-PPI-02.1/.2, REQ-PPI-03.1, REQ-PPI-04.1).
+  (REQ-PPI-05.1/.2, REQ-PPI-02.1/.2, REQ-PPI-03.1, REQ-PPI-04.1) plus 3 more added in the
+  verify-in-loop-1 fix round (`checkSuiteGate` triangulation, see below) — 18 + 6 + 3 = 27.
 - `fit-46-publish-sequence-integrity.test.ts` (new): **4/4 pass** (REQ-PPI-01.1/.2,
   REQ-PPI-03.2/.3).
 - `test/conformance/react-conformance.test.ts`: **4/4 pass** — 3 pre-existing +
@@ -108,9 +111,62 @@ S-000-tier survival red-proofs in `fit-42-*.negative.test.ts` are untouched by t
 
 ### Deviations / halts
 
-None. No table growth, no exclusion widening, no scope beyond S-000's REQ-PPI-01..05 set.
-`REQ-BPI-03.1`'s existing tests in `fit-23-*.test.ts` were left untouched — they still pass
-correctly, and REQ-BPI-03.1 is a `runner-integrity-manifest`-owned REQ, out of S-000's scope.
+One deviation, disclosed above under "Key engineering decision: fit-46's 'rebuild' step":
+`regenerateManifest()` spawns with `cwd: PROJECT_ROOT` + an explicit scratch-root argument,
+where `slices.md`'s Build-mechanics note literally reads `cwd: <scratchRoot>` for that leg. A
+literal `cwd: <scratchRoot>` is technically infeasible for a `dist/`+`package.json`-only
+scratch target (no `src/`/`node_modules` to run `tsc` against). `verify-in-loop-1.md`
+(`sdd-verify --mode=in-loop`, iteration 1) independently audited this deviation against the
+script source, the established `fit-42` `runGenerator` precedent, and an empirical
+double-inversion of REQ-PPI-01.1/.2, and ruled it **ACCEPTABLE — faithful to REQ-PPI-01's
+intent, not the R1-12 anti-pattern**. No other deviation, no table growth, no exclusion
+widening, no scope beyond S-000's REQ-PPI-01..05 set. `REQ-BPI-03.1`'s existing tests in
+`fit-23-*.test.ts` were left untouched — they still pass correctly, and REQ-BPI-03.1 is a
+`runner-integrity-manifest`-owned REQ, out of S-000's scope.
+
+### Verify in-loop iteration 1
+
+`verify-in-loop-1.md` (commit `727cae7`) returned `NEEDS_FIX`: one Strict TDD triangulation
+gap — `checkSuiteGate` (`test/fitness/fit-23-publish-workflow-guard.test.ts`) had 4
+conditional branches (1 success + 3 distinct failure-reason returns) but only the success
+path was exercised, breaking the positive+negative pairing pattern every sibling checker in
+the file follows. Closed by adding 3 negative-case tests — see "Fix: checkSuiteGate
+triangulation gap" below. The report also raised two non-blocking SUGGESTIONs: the
+"Deviations / halts: None" vs. the disclosed `cwd` deviation inconsistency (reconciled
+above) and a residual narrow-proof risk on the manifest-only rebuild shortcut (recorded
+below).
+
+### Fix: checkSuiteGate triangulation gap (verify-in-loop-1)
+
+Added 3 negative-case tests to the existing `"FIT-23 S-000 — REQ-PPI-03.1..."` describe
+block in `test/fitness/fit-23-publish-workflow-guard.test.ts`, one per untested
+failure-reason branch, each red-proofed by temporarily inverting its expected `reason`
+string and confirming the fixture genuinely reaches that branch (not a neighbouring one)
+before restoring the correct assertion:
+
+| Test | Fixture | Branch proven |
+|---|---|---|
+| "checkSuiteGate fails when no `bun test` step exists before the publish step" | publish job with only an `npm publish` step | `no full-suite (bun test) step found before the publish step` |
+| "checkSuiteGate fails when the suite step runs after the publish step" | publish job with `npm publish` then `bun test` | `the suite step runs after the publish step, not before` |
+| "checkSuiteGate fails when the suite step declares continue-on-error: true" | publish job with a `bun test` step carrying `continue-on-error: true`, positioned correctly before `npm publish` | `the suite step declares continue-on-error: true` |
+
+Red evidence: with each expected `reason` string temporarily replaced by a wrong literal
+(e.g. `"WRONG-no full-suite step"`), all 3 failed with `Received:` showing the correct,
+DISTINCT reason string for each fixture — proving each fixture drives its own intended
+branch, not a shared/vacuous one. Restored to the correct assertions, all pass.
+
+`fit-23-publish-workflow-guard.test.ts`: **27/27 pass** (24 prior + 3 new), 44 `expect()`
+calls.
+
+### Residual note: manifest-only rebuild shortcut's narrow-proof risk
+
+`verify-in-loop-1.md`'s Deviation audit flagged, as a SUGGESTION (not a live gap): fit-46's
+"rebuild" leg regenerates the manifest directly rather than re-running `tsc`, which is sound
+today because `dist/*.js` bytes never depend on the stamped version. If a future build step
+ever made `dist/*.js` bytes version-coupled, this narrower proof would not catch a resulting
+staleness (the manifest would regenerate from stale-but-internally-consistent bytes with no
+mismatch surfacing) — a latent property of the chosen shortcut, worth a second look if that
+coupling is ever introduced, not a defect today.
 
 ### Next recommended
 
