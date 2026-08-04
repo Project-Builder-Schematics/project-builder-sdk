@@ -618,10 +618,6 @@ function resolveChain(expr: Node): ChainResolution | undefined {
 
 let anchorExemptionConsumed = false;
 
-function resetExemptionConsumptionForTest(): void {
-  anchorExemptionConsumed = false;
-}
-
 function checkExemption(node: Node, chain: ResolvedChain, ctx: FileContext): boolean {
   if (ctx.exemption === undefined || chain.rootName !== ctx.exemption.binding) return false;
   if (anchorExemptionConsumed) return false;
@@ -781,5 +777,5 @@ export function classifySurfaceNode(node: SurfaceNode, ctx: FileContext): Dispos
 
 /** Resets the per-walk anchor-exemption single-use latch. Call once per file processed. */
 export function resetAnchorExemptionLatch(): void {
-  resetExemptionConsumptionForTest();
+  anchorExemptionConsumed = false;
 }
