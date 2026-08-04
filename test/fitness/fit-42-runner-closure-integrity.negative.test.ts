@@ -29,6 +29,7 @@ import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
 import { ensureTscBuild } from "../support/shared-build.ts";
 import {
   CREATE_REQUIRE_ANCHOR_FILE,
+  ENTRY_RELATIVE_PATH,
   SANCTIONED_DYNAMIC_IMPORT_FILE,
   comparePaths,
   deriveRunnerClosure,
@@ -37,6 +38,7 @@ import {
   serialiseManifest,
   sha256File,
   VIOLATION_RULES,
+  type ViolationRule,
 } from "../../scripts/derive-runner-closure.ts";
 import {
   ADMITTED_GLOBALS,
@@ -1755,5 +1757,123 @@ describe("FIT-42N S-004 — REQ-FCG-01: individual fault-kind red-proofs", () =>
     // usefully" on the strength of an arbitrary fragment.
     const stderr = result.stderr as unknown as string;
     expect(stderr.startsWith("runner-manifest: generation failed with an unrouted error.\n")).toBe(true);
+  });
+});
+
+// ===========================================================================================
+// S-004.8 — REQ-DGN-01.3/.4: rule-identity totality over the fixture corpus. A STANDING check
+// (same class as FIT-CAP-TOTALITY), not a one-time end-of-slice assertion — it holds over
+// whatever fixture corpus exists on the branch at each commit. Scoped to fixtures that
+// produce an actual `Violation` object carrying a `ViolationRule` (deny-scan/, and
+// fail-closed/'s one violation-producing fault) — bundler-scripts/'s DisjointnessViolation/
+// UnclassifiableBundlerConstruct are a STRUCTURALLY SEPARATE type that never carries a
+// `ViolationRule` at all (Constraint 1 is a CI-only structural check, ADR-0081 — it never
+// runs inside generate-runner-manifest.ts's own violation system), so it is out of THIS
+// REQ's scope by construction, not by oversight.
+// ===========================================================================================
+
+interface RuleIdentityEntry {
+  readonly fixture: string;
+  readonly declaredRule: ViolationRule;
+}
+
+const RULE_IDENTITY_FIXTURES: readonly RuleIdentityEntry[] = [
+  ...Object.keys(DENY_SCAN_FIXTURES).map((file) => ({
+    fixture: `deny-scan/${file}`,
+    declaredRule: "constraint-4-inadmissible-origin" as ViolationRule,
+  })),
+  { fixture: "fail-closed/unreadable-closure-file.json", declaredRule: "unreadable-file" as ViolationRule },
+];
+
+function produceRuleFor(entry: RuleIdentityEntry): ViolationRule {
+  if (entry.fixture.startsWith("deny-scan/")) {
+    const file = entry.fixture.slice("deny-scan/".length);
+    const content = readFileSync(join(DENY_SCAN_DIR, file), "utf-8");
+    const root = scratchRoot();
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(root, "entry.js"), content, "utf-8");
+    const violations = deriveRunnerClosure(root, "entry.js").violations;
+    return (violations[0] as { rule: ViolationRule }).rule;
+  }
+  // fail-closed/unreadable-closure-file.json — a REAL closure file made unreadable, checked
+  // directly via deriveRunnerClosure (no subprocess needed to observe the Violation object).
+  const fixture = readFailClosedFixture("unreadable-closure-file.json");
+  const distDir = ensureTscBuild();
+  const root = scratchRoot();
+  cpSync(distDir, join(root, "dist"), { recursive: true });
+  chmodSync(join(root, "dist", fixture.chmodClosureFile as string), 0o000);
+  const violations = deriveRunnerClosure(join(root, "dist"), ENTRY_RELATIVE_PATH).violations;
+  return (violations[0] as { rule: ViolationRule }).rule;
+}
+
+/**
+ * Multiset equality over the WHOLE corpus, run exhaustively (never a per-fixture SPOT CHECK,
+ * i.e. never a sample) — compared as `{fixture, rule}` PAIRS, not bare rule-value counts.
+ *
+ * GENUINENESS NOTE: an earlier version of this function compared only the aggregate
+ * rule-VALUE multiset (`declared.map(d => d.declaredRule).sort()` vs the same for produced),
+ * short-circuiting to "no mismatch" whenever the two sorted arrays matched. Empirically, this
+ * FAILED to catch REQ-DGN-01.4(a)'s own named mutation shape (a RULE_BODIES-renderer swap
+ * between two fixtures): swapping fixture A's and B's produced rules leaves the aggregate
+ * counts of each rule value unchanged, so a bare-value multiset comparison sees no
+ * difference at all — the exact pathological case a "multiset, not a per-fixture check"
+ * framing risks if "multiset" is read as "discard fixture identity entirely." Comparing
+ * `{fixture, rule}` pairs (fixture identity retained, exhaustive over the whole corpus, never
+ * a sample) is the reading that actually satisfies DGN-01.4(a)'s own acceptance criterion.
+ */
+function ruleIdentityTotalityMismatches(
+  declared: readonly RuleIdentityEntry[],
+  produced: readonly { readonly fixture: string; readonly rule: ViolationRule }[]
+): string[] {
+  const producedByFixture = new Map(produced.map((p) => [p.fixture, p.rule]));
+  const mismatches: string[] = [];
+  for (const d of declared) {
+    const actual = producedByFixture.get(d.fixture);
+    if (actual !== d.declaredRule) {
+      mismatches.push(`${d.fixture}: declared "${d.declaredRule}", produced "${actual ?? "MISSING"}"`);
+    }
+  }
+  return mismatches;
+}
+
+describe("FIT-42N S-004 — REQ-DGN-01.3/.4: rule-identity totality over the fixture corpus (standing)", () => {
+  it.skipIf(process.getuid?.() === 0)(
+    "REQ-DGN-01.3: the produced-rule multiset equals the declared-rule multiset, exact — never a per-fixture spot check",
+    () => {
+      const produced = RULE_IDENTITY_FIXTURES.map((entry) => ({
+        fixture: entry.fixture,
+        rule: produceRuleFor(entry),
+      }));
+      expect(ruleIdentityTotalityMismatches(RULE_IDENTITY_FIXTURES, produced)).toEqual([]);
+    }
+  );
+
+  it("REQ-DGN-01.4 [red-proof]: a rule-swap mutant is caught, naming the mismatched fixture and the declared-vs-produced pair", () => {
+    // (a) RULE_BODIES-renderer-swap shape: two fixtures' PRODUCED rules end up swapped with
+    // each other — the aggregate multiset stays superficially plausible in size but the
+    // per-fixture pairing is wrong, which the join-based naming step catches.
+    const declared: RuleIdentityEntry[] = [
+      { fixture: "deny-scan/eval.js", declaredRule: "constraint-4-inadmissible-origin" },
+      { fixture: "fail-closed/unreadable-closure-file.json", declaredRule: "unreadable-file" },
+    ];
+    const swapped = [
+      { fixture: "deny-scan/eval.js", rule: "unreadable-file" as ViolationRule },
+      { fixture: "fail-closed/unreadable-closure-file.json", rule: "constraint-4-inadmissible-origin" as ViolationRule },
+    ];
+    expect(ruleIdentityTotalityMismatches(declared, swapped)).toEqual([
+      'deny-scan/eval.js: declared "constraint-4-inadmissible-origin", produced "unreadable-file"',
+      'fail-closed/unreadable-closure-file.json: declared "unreadable-file", produced "constraint-4-inadmissible-origin"',
+    ]);
+  });
+
+  it('REQ-DGN-01.4 [red-proof]: mints rule X for a violation whose fixture declares rule Y is caught', () => {
+    // (b) a single misattribution, everything else correct.
+    const declared: RuleIdentityEntry[] = [
+      { fixture: "deny-scan/eval.js", declaredRule: "constraint-4-inadmissible-origin" },
+    ];
+    const misattributed = [{ fixture: "deny-scan/eval.js", rule: "directory-specifier" as ViolationRule }];
+    expect(ruleIdentityTotalityMismatches(declared, misattributed)).toEqual([
+      'deny-scan/eval.js: declared "constraint-4-inadmissible-origin", produced "directory-specifier"',
+    ]);
   });
 });
