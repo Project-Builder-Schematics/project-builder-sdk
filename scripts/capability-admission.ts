@@ -532,14 +532,25 @@ export function buildFileContext(sourceFile: SourceFile, opts: { readonly file: 
     }
   }
 
-  // Exemption proof (createRequire anchor) — S-001's minimal port of the existing anchor
-  // exemption; XPO-01's full "forfeit on any other arrangement" formalisation is S-002's job.
+  // Exemption proof (createRequire anchor, REQ-XPO-01) — a proof ON THE FILE, forfeit on any
+  // other arrangement (XPO-01.3). "Any other arrangement" specifically means: the named-import
+  // form bound under any name OTHER than the literal "createRequire" — an ALIASED import. The
+  // namespace form has no canonical name to alias against (XPO-01.2 requires it green as-is),
+  // so only the named-import branch can forfeit. Forfeiting means simply never granting the
+  // exemption at all: with `exemption` left `undefined`, EVERY use of the binding — including
+  // an otherwise-resolve-only-shaped one — falls through to the ordinary origin classification
+  // below, which denies `createRequire` unconditionally as a `node:module` closure-import (its
+  // per-name admission set is deliberately empty). That is what "denies every bound name" means
+  // in practice: no separate forfeiture branch is needed, only the refusal to except it here.
   let exemption: ExemptionProof | undefined;
   if (opts.isAnchorFile) {
     const anchorBindings = createRequireBindingsIn(sourceFile);
     if (anchorBindings.length === 1) {
       const only = anchorBindings[0] as { readonly name: string; readonly form: "named-import" | "namespace" };
-      exemption = { primitive: "createRequire", binding: only.name, form: only.form, anchorIsClosureNode: true };
+      const isAliased = only.form === "named-import" && only.name !== "createRequire";
+      if (!isAliased) {
+        exemption = { primitive: "createRequire", binding: only.name, form: only.form, anchorIsClosureNode: true };
+      }
     }
   }
 
@@ -671,10 +682,23 @@ function classifyOrigin(
 
   // origin.kind === "closure-import". A RELATIVE specifier names another file already inside
   // the walked closure (already hashed, already walked by this very function) — inherently
-  // admitted, regardless of which name was imported. Only a `node:` specifier needs the
-  // per-name ADMITTED_NODE_SURFACES check (an EXTERNAL origin, not itself closure-verified).
-  if (!origin.specifier.startsWith("node:")) {
+  // admitted, EXCEPT when the imported NAME is itself a denied register primitive
+  // (REQ-XPO-01.4/M1.12: re-export laundering). `export { createRequire } from "node:module"`
+  // followed by `import { createRequire } from "./reexporter.js"` must not turn a `node:`
+  // origin into a blanket-admitted relative one just because it passed through a closure
+  // file first — the exemption is a proof ON THE ANCHOR FILE specifically (REQ-XPO-01's own
+  // text), never a predicate that follows a name through however many re-exports launder it.
+  // A `node:` specifier separately needs the per-name ADMITTED_NODE_SURFACES check below (an
+  // EXTERNAL origin, not itself closure-verified).
+  if (!origin.specifier.startsWith("node:") && !DENIED_CAPABILITY_PRIMITIVES.has(origin.importedName)) {
     return { kind: "admitted", via: "closure-import" };
+  }
+  if (!origin.specifier.startsWith("node:")) {
+    // Laundered register primitive: the exemption check already ran, unconditionally, at the
+    // top of this function — `ctx.exemption` (if granted at all) is scoped to files where
+    // `isAnchorFile` was true when `buildFileContext` ran, never to an arbitrary downstream
+    // importer of a re-export, so reaching here means it correctly did not apply.
+    return { kind: "violation", rule: "constraint-4-inadmissible-origin", detail: fullPathOfChain };
   }
   const admittedNames = ADMITTED_NODE_SURFACES.get(origin.specifier);
   if (admittedNames?.has(origin.importedName)) {
