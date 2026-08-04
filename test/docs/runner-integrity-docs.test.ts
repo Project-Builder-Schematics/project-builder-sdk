@@ -13,9 +13,11 @@
  *
  * [permanent-fixture] — mirrors test/docs/security-authoring-guard.test.ts.
  */
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, beforeAll } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { deriveRunnerClosure, ENTRY_RELATIVE_PATH } from "../../scripts/derive-runner-closure.ts";
+import { ensureTscBuild } from "../support/shared-build.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DOC_PATH = join(PROJECT_ROOT, "docs/runner-integrity-invariants.md");
@@ -288,5 +290,97 @@ describe("REQ-IID-08 + docs index + SECURITY.md", () => {
     const security = readFileSync(SECURITY_PATH, "utf-8");
     expect(security).toContain(SECURITY_SUBSECTION_HEADING);
     expect(flat(security)).toContain(flat(SECURITY_SUBSECTION));
+  });
+});
+
+// ===========================================================================================
+// S-005 — REQ-DLV-01: the doc's own closure/file-count claims are checked against
+// `deriveRunnerClosure`'s LIVE output, never a hardcoded literal committed in this test (R1-11).
+// The templates below carry the surrounding PROSE frozen (mirroring every other frozen-string
+// check above); only the NUMBER inside each is supplied by the live derivation at test-run time
+// — "23"/"24" never appear as literals anywhere in this describe block.
+// ===========================================================================================
+
+interface CountClaimTemplate {
+  readonly label: string;
+  readonly render: (n: number) => string;
+}
+
+// Every claim below is either the TOTAL manifest entry count (23 closure files + package.json)
+// or the CLOSURE file count on its own — both derived from the same live closureFileCount.
+const TOTAL_ENTRY_CLAIMS: CountClaimTemplate[] = [
+  { label: "`lists N files:` opening claim", render: (n) => `lists ${n} files: the` },
+  { label: "`Hashing our own N files` justification aside", render: (n) => `Hashing our own ${n} files does` },
+  {
+    label: "`verifying N digests` closure-sealing-lemma framing",
+    render: (n) => `verifying ${n} digests is equivalent`,
+  },
+  { label: "`entry #N because` heading justification", render: (n) => `entry #${n} because` },
+];
+
+const CLOSURE_FILE_CLAIMS: CountClaimTemplate[] = [
+  { label: "`the N emitted .js files` opening claim", render: (n) => `the ${n} emitted \`.js\` files` },
+  { label: "`N closure files plus package.json` pull-quote", render: (n) => `${n} closure files plus` },
+  { label: "`all N closure files:` entry-#24 justification", render: (n) => `all ${n} closure files:` },
+];
+
+interface CountMismatch {
+  readonly label: string;
+  readonly liveValue: number;
+}
+
+// Structural, not prose: every claim renders against the LIVE value and is checked for
+// presence — a doc that drifts from the real closure size (or a mutant with one count
+// changed) fails to contain the correctly-rendered phrase and is reported by label plus the
+// live value it should have matched, per REQ-DLV-01.2's own acceptance wording.
+function findStaleCountClaims(markdown: string, closureFileCount: number): CountMismatch[] {
+  const flatMarkdown = flat(markdown);
+  const totalEntryCount = closureFileCount + 1;
+  const mismatches: CountMismatch[] = [];
+  for (const claim of TOTAL_ENTRY_CLAIMS) {
+    if (!flatMarkdown.includes(claim.render(totalEntryCount))) {
+      mismatches.push({ label: claim.label, liveValue: totalEntryCount });
+    }
+  }
+  for (const claim of CLOSURE_FILE_CLAIMS) {
+    if (!flatMarkdown.includes(claim.render(closureFileCount))) {
+      mismatches.push({ label: claim.label, liveValue: closureFileCount });
+    }
+  }
+  return mismatches;
+}
+
+describe("REQ-DLV-01 — documentation counts derived from the live derivation, never frozen", () => {
+  let closureFileCount: number;
+
+  beforeAll(() => {
+    const distDir = ensureTscBuild();
+    closureFileCount = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).nodes.length;
+  });
+
+  // Non-vacuity: the checks below only mean something if the live closure has a real,
+  // non-zero size to compare against.
+  it("DLV-01.1: the live derivation yields a non-zero closure file count", () => {
+    expect(closureFileCount).toBeGreaterThan(0);
+  });
+
+  it("DLV-01.1: every count claim in the doc matches the live derivation, exactly", () => {
+    expect(findStaleCountClaims(doc(), closureFileCount)).toEqual([]);
+  });
+
+  it("DLV-01.2 [red-proof]: a mutant total-entry count is caught, naming the claim and the live value", () => {
+    const mutant = doc().replace("entry #24 because", "entry #25 because");
+    expect(findStaleCountClaims(mutant, closureFileCount)).toEqual([
+      { label: "`entry #N because` heading justification", liveValue: closureFileCount + 1 },
+    ]);
+  });
+
+  // Sibling red-proof: the check above only exercises the TOTAL-entry leg; a mutant on the
+  // CLOSURE-file leg is caught independently, proving both templates arrays are live, not one.
+  it("DLV-01.2 [red-proof]: a mutant closure-file count is caught, naming the claim and the live value", () => {
+    const mutant = doc().replace("23 closure files plus", "22 closure files plus");
+    expect(findStaleCountClaims(mutant, closureFileCount)).toEqual([
+      { label: "`N closure files plus package.json` pull-quote", liveValue: closureFileCount },
+    ]);
   });
 });
