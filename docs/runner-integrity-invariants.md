@@ -109,11 +109,18 @@ of builtin names: `"fs"` is an ordinary package name a `node_modules/fs` package
 
 - enforced-by: fit-42
 
-`createRequire(anchor)("./x")` executes unhashed CommonJS with no import edge anywhere — invisible
-to the closure walk and covered by no digest. Any `createRequire` reference in a closure file is a
-violation, with a single anchored exemption in `src/transport/single-instance-probe.ts`, whose use
-is resolution-only. The same scan covers `eval`, `new Function`, `node:vm`, `Bun.plugin` and
-`process.binding`.
+Every node of a closure file's capability surface — every callee, member path, value reference,
+meta-property and module specifier — classifies into exactly one of *admitted* or *violation*; the
+default for anything unrecognised is a violation, never a silent pass. This is a default-DENY
+classifier, not a deny-list text scan. `createRequire(anchor)("./x")` is the motivating case: it
+executes unhashed CommonJS with no import edge anywhere — invisible to the closure walk and covered
+by no digest. The full denied-primitives register is eleven members: `eval`, `Function`,
+`createRequire`, `Bun.plugin`, `process.binding`, `node:vm`, `node:child_process`,
+`node:worker_threads`, `WebAssembly`, `module.register` and `module.registerHooks`. `createRequire`
+alone carries a single anchored exemption, proven on `src/transport/single-instance-probe.ts`
+specifically: its one binding must be unaliased and used resolution-only, never executed, and never
+laundered through a re-export or an anchor that has drifted out of the closure — any other
+arrangement forfeits the exemption and denies every use of it.
 
 This one is **SDK-added**: it is broader than the engine's original wording, which is why the
 marker matters here. The engine adopted it into their own mirror check.
