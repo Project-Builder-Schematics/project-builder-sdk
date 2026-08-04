@@ -217,6 +217,35 @@ export function deriveRunnerClosure(distRoot: string, entryRelPath: string): Clo
   };
 }
 
+/**
+ * REQ-XPO-01.5: the createRequire exemption is a proof ON THE ANCHOR FILE — sound only if
+ * that file is genuinely a member of the derived closure. `isAnchorFile` (passed into
+ * `buildFileContext` per node, above) can only ever be true for a node the walk actually
+ * reached, so this can never fire from WITHIN a single real walk — it exists as an
+ * independent, POST-WALK invariant check for the one caller that cares (the real build:
+ * `generate-runner-manifest.ts`), never wired into `deriveRunnerClosure` itself, which
+ * synthetic test fixtures (naming an unrelated entry file) call constantly and would
+ * otherwise all spuriously fail this check. An exemption pointing at a file outside the
+ * walked closure is a dormant hole, not a pass — if the anchor were ever to drop out of the
+ * closure (e.g. a future refactor removes the import edge that reaches it), NOTHING would
+ * verify the exemption's own precondition without this explicit call.
+ */
+export function findAnchorDriftViolations(
+  derivedNodes: readonly ClosurePath[],
+  anchorFile: ClosurePath
+): Violation[] {
+  if (derivedNodes.includes(anchorFile)) return [];
+  return [
+    {
+      rule: "unclassifiable-construct",
+      file: anchorFile,
+      line: null,
+      found: anchorFile,
+      detail: `the createRequire exemption anchor "${anchorFile}" is not a member of the derived closure — an exemption pointing outside the walked closure is a dormant hole, not a pass`,
+    },
+  ];
+}
+
 // Constraint 2 (the sanctioned dynamic import() site) is untouched by ADR-0079 — it is a
 // separate guard from Constraint 4's capability-admission property.
 function constraint2Violations(sourceFile: SourceFile, file: ClosurePath): Violation[] {

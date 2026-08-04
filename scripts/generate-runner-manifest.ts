@@ -18,10 +18,12 @@ import { fileURLToPath } from "node:url";
 import {
   comparePaths,
   deriveRunnerClosure,
+  findAnchorDriftViolations,
   renderViolations,
   serialiseManifest,
   sha256Bytes,
   sha256File,
+  CREATE_REQUIRE_ANCHOR_FILE,
   DIST_DIR_NAME,
   ENTRY_RELATIVE_PATH,
   MANIFEST_RELATIVE_PATH,
@@ -52,6 +54,13 @@ function fail(violations: readonly Violation[]): never {
 function generate(): void {
   const derivation = deriveRunnerClosure(distRoot, ENTRY_RELATIVE_PATH);
   if (derivation.violations.length > 0) fail(derivation.violations);
+
+  // REQ-XPO-01.5: the createRequire exemption is only sound if its anchor genuinely exists in
+  // the closure it was proven against — checked here, once, against the REAL build's own
+  // derivation (never inside deriveRunnerClosure itself, which synthetic test fixtures with
+  // unrelated entry points call constantly and would otherwise all spuriously fail this).
+  const anchorDrift = findAnchorDriftViolations(derivation.nodes, CREATE_REQUIRE_ANCHOR_FILE);
+  if (anchorDrift.length > 0) fail(anchorDrift);
 
   // Read once, reused for both the digest and `packageVersion` below — mirrors the
   // derivation's own read-once discipline for the closure files (`fileBytes`).
