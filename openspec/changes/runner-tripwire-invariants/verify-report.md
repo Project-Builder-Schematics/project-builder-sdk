@@ -1274,7 +1274,7 @@ before this change.
 
 | # | Finding | Verdict | How it was proved closed (by this gate, independently) |
 |---|---|---|---|
-| **C-1** | 15 ACE constructs silently admitted | ✅ **CLOSED** | All 15 originals now DENIED through `deriveRunnerClosure`; **18 new shapes authored by this gate** also DENIED; real closure **0 violations**; 3 green controls still admitted |
+| **C-1** | 15 ACE constructs silently admitted | ✅ **CLOSED** | All 15 originals now DENIED through `deriveRunnerClosure`; **18 new shapes authored by this gate** also DENIED; real closure **0 violations**; 3 green controls still admitted. Corpus is **21 rows** + 12 green siblings (see N-6 on the disclosed count) |
 | **C-2** | Publish suite gate permanently red | ✅ **CLOSED** | Stamp → rebuild → `bun test` replicated: 2605 pass / 0 fail. Pinned literal removed; gate is now the design §7 relation; red-proof perturbs a real closure file |
 | **C-3** | R1-10 substring non-vacuity guard | ✅ **CLOSED** | Guard is `astIdentifierOccurrences(probe, "createRequire")` asserted `toBe(2)` — AST-counted, exact, no threshold. Ledger row corrected |
 | **C-4** | Bundler undecidability leak | ✅ **CLOSED** | Predicate inverted to a whitelist (`SAFE_PATH`); backtick, `$( )`, valueless flag and quoted-with-space all now `unclassifiable`; real scripts unaffected (1 target, 0 unclassifiable) |
@@ -1311,7 +1311,7 @@ closed by inverting decision rules, not by listing shapes:
 | N3 | `[].flat.constructor("return 1")()` — escape segment not first | undecidable-callee + inadmissible-origin |
 | N4 | `({}).__proto__.constructor("return 1")()` | undecidable-callee + inadmissible-origin |
 | N5 | `new ("".constructor.constructor)("return 1")()` | undecidable-callee + inadmissible-origin |
-| N6 | `(()=>()=>1)()()` — curried IIFE | undecidable-callee |
+| N6 | `(()=>()=>1)()()` — call result invoked with no property name | undecidable-callee — **intended**, see N-2 |
 | N7 | `` `x`.constructor.constructor("return 1")() `` — template root | undecidable-callee + inadmissible-origin |
 | N8 | `const g = globalThis[k]; g("1+1")` — ElementAccess initializer | inadmissible-origin + **unclassifiable-construct** |
 | N9 | `const o = { get f(){ return Function; } }; o.f("return 1")` | inadmissible-origin |
@@ -1514,15 +1514,25 @@ pre-fix `safe-terminal` "value" arm existed precisely to admit it, and IIFE is a
 pattern. This gate's **N6** (`(()=>()=>1)()()`) is the same false positive, initially mis-scored
 here as a correct denial.
 
-*Latent, not live*: the real closure contains **0** IIFEs (measured). The 12 green siblings shipped
-with the fix are structural shadows of the laundering rows (aliases, destructuring) and cover
-neither IIFEs nor labels, which is why this went unnoticed.
+*Latent, not live*: the real closure contains **0** IIFEs (measured).
+
+**Scope of the gap, stated precisely** (narrower than first assessed). The 12 `GREEN_SIBLINGS` are
+broader than a first read suggests — they pin literal receivers (`/re/.test`, `"abc".slice`,
+`[1,2].map`), computed reads off a local, `Reflect.get` off a local, a `??` fallback, and crucially
+**"call result with one property name"** (`als().getStore()`) as *admitted*. And corpus row **c14**
+(`x()()` — a call result invoked with **no** property name) pins that shape as *denied* on purpose.
+So the call-result boundary is deliberate and correctly bounded on both sides — this gate's **N6**
+(`(()=>()=>1)()()`) is **intended behaviour**, not a defect, and is re-scored accordingly above.
+
+The genuine gap is narrower: a **callee that is a directly visible function literal** — a single
+IIFE, `(()=>({a:1}))()` — which is neither a call result nor a binding, and which no green sibling
+covers.
 
 **This needs an explicit owner decision, not a silent state**: either (a) accept the strictness as
 intended and land a red/green fixture pair plus a documented note so the next contributor is not
 surprised by a build failure on an IIFE, or (b) admit a callee that is a directly visible function
-literal (distinct from a call *result*, which must stay denied — that distinction is what closes
-C-1c). Registered as **FU-15**.
+literal — keeping call *results* denied, which is the distinction that closes C-1c and which c14
+already pins. Registered as **FU-15**.
 
 ### N-3 — `WARNING` — the `installed-consumer.e2e` flake now gates publish
 
@@ -1540,6 +1550,23 @@ for `react-conformance.test.ts`. **FU-17.**
 `unclassifiable`, failing the build. This is ADR-0081's sanctioned over-approximation direction and
 the real scripts are unaffected (verified: 1 target, 0 unclassifiable), but the exclusion of `@`
 deserves a line in the ADR so the failure is self-explaining. **FU-18.**
+
+### N-6 — `WARNING` — the remediation's own disclosed corpus count is wrong (21, not 26)
+
+`a492cbc`'s commit message states *"a **26-row** laundering corpus"*. The actual
+`LAUNDERING_CORPUS` holds **21** rows — verified by enumerating every `id:` between the
+declaration and its closing `];`: 5 in class (a), 6 in (b), 10 in (c). The row ids themselves show
+the drift: they skip `c1`, `c6`, `c12` and `c13`, i.e. rows were merged or dropped during
+development and the message's count was never updated. The 12 `GREEN_SIBLINGS` figure *is* accurate.
+
+**Not a coverage gap** — all three classes are covered, the 21 rows assert rule identity, detail
+identity and exact count (`expect(matching.length).toBe(row.count)`, no thresholds), and this gate
+established closure independently of the corpus anyway. But it is exactly the count-drift this
+change's own doctrine exists to prevent (exact counts never approximations; the 49/49 tag device),
+and iteration 1 already found that device broken (FU-5) — so this is the second instance of the
+same bookkeeping weakness, now in a commit message that a future reader will treat as the record.
+**FU-21**: correct the count where it is quoted, and prefer a derived assertion
+(`expect(LAUNDERING_CORPUS.length).toBe(N)`) over a prose count.
 
 ### N-5 — nit — design §5 still lists ADRs 0079–0081 as `Status: Proposed`
 
@@ -1574,6 +1601,7 @@ FU-10, FU-11, FU-12.
 | FU-18 | **N-4** — document `SAFE_PATH`'s `@` exclusion in ADR-0081 |
 | FU-19 | **N-5** — design §5 ADR statuses stale (`Proposed` vs `Accepted` on disk) |
 | FU-20 | **N-1** — exclude statement labels (recommended to fix before archive, 2 lines) |
+| FU-21 | **N-6** — corpus count disclosed as 26, actually 21; prefer a derived length assertion over a prose count (second instance of the FU-5 bookkeeping weakness) |
 
 **Also for archive**: `S-002.3`'s owner decision; `REQ-CAP-01.3` now COMPLIANT (ruling (a)
 satisfied by implementation); the `R1-10` row correction is already landed and must be carried into
@@ -1631,7 +1659,17 @@ across all five node kinds. Every disclosed expectation change is strictly stron
 spec-compliant; the one that replaced a prior assertion replaced a false lemma that was never
 signed, and bounded the replacement with a sibling positive.
 
-Two latent false positives (statement labels, IIFEs) and one elevated pre-existing flake are
-registered. None gates: both false positives fail in the safe direction, neither is reachable in
-the real closure, and no signed scenario breaks. N-1 is a 2-line exclusion worth folding in before
-archive; N-2 needs an owner decision rather than a default.
+Two latent false positives (statement labels; a directly-visible function-literal callee) and one
+elevated pre-existing flake are registered, plus one disclosure-accuracy finding. None gates: both
+false positives fail in the safe direction, neither is reachable in the real closure, and no signed
+scenario breaks. N-1 is a 2-line exclusion worth folding in before archive; N-2 needs an owner
+decision rather than a default; N-6 is bookkeeping, but it is the second instance of a count-drift
+pattern this change's own doctrine forbids.
+
+**On the evidence standard applied here**: closure was established by probing the production code
+path directly — 33 laundering shapes, 14 legitimate-JS false-positive probes, a real-closure
+classification run, and a full replication of `publish.yml`'s stamp→rebuild→test sequence. The
+builder's own tests and commit messages were treated as claims to check, not as evidence: two of
+those claims (the stamped-run pass count, the corpus row count) proved inaccurate on inspection
+while their substance held, and one of this gate's own iteration-2 probe scores (N6) was wrong on
+first pass and is corrected above.
