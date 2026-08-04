@@ -875,8 +875,9 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
 
 describe("FIT-42N S-003 — every rule in the closed set renders a usable message", () => {
   // ADR-0079: `constraint-4-execution-primitive` (denyScan's one Constraint-4 rule) retires;
-  // capability-admission reports one of two rules instead, plus `directory-specifier` (R1-8).
-  it("REQ-CST-06.1: the exported rule set is the eleven-member closed set", () => {
+  // capability-admission reports one of two rules instead, plus `directory-specifier` (R1-8)
+  // and `manifest-version-invalid` (R2-3, S-004).
+  it("REQ-CST-06.1: the exported rule set is the twelve-member closed set", () => {
     expect([...VIOLATION_RULES].sort()).toEqual([
       "constraint-2-dynamic-import",
       "constraint-2-second-site",
@@ -885,6 +886,7 @@ describe("FIT-42N S-003 — every rule in the closed set renders a usable messag
       "constraint-4-inadmissible-origin",
       "constraint-4-undecidable-callee",
       "directory-specifier",
+      "manifest-version-invalid",
       "symlink-escape",
       "unclassifiable-construct",
       "unreadable-file",
@@ -893,7 +895,7 @@ describe("FIT-42N S-003 — every rule in the closed set renders a usable messag
   });
 
   it("REQ-CST-06.1: every rule renders the full skeleton — found, rule, why, fix, epilogue", () => {
-    expect(VIOLATION_RULES.length).toBe(11);
+    expect(VIOLATION_RULES.length).toBe(12);
     const missing = [...VIOLATION_RULES].filter((rule) => {
       const rendered = renderViolations(
         [{ rule, file: "core/x.js", line: 7, found: "planted", detail: "planted-detail" }],

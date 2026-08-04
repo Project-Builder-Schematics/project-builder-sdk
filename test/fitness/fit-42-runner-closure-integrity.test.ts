@@ -536,18 +536,20 @@ describe("FIT-42 S-002 — the generator fails closed on an invalid package.json
     expect(existsSync(manifestIn(root))).toBe(false);
   });
 
-  it("REQ-RME-07.1: the failure names package.json and the missing version concretely on stderr", () => {
+  // REQ-DGN-01.1 (S-004): a version failure gets its OWN rule — never `unreadable-file`. The
+  // file WAS read; its content (a missing/empty `version` field) is structurally invalid.
+  it("REQ-RME-07.1 / REQ-DGN-01.1: the failure names package.json and the missing version concretely on stderr", () => {
     const root = copiedPackageRoot();
     withVersion(root, undefined);
     const result = runGenerator(root);
 
     expect(result.stderr).toBe(
       [
-        "runner-manifest: src/package.json — closure file could not be read.",
+        "runner-manifest: src/package.json — package.json#version is missing, non-string, or empty.",
         '  found: package.json is missing a non-empty "version" field (found: undefined)     (emitted: dist/package.json)',
-        "  rule:  Zero silent skips — an unreadable closure file fails the build; it is never skipped.",
-        "  why:   a file that cannot be read cannot be hashed, and a manifest missing one of its files is indistinguishable from tampering on the user's machine.",
-        "  fix:   restore read permission on the file, or remove it from the closure.",
+        "  rule:  Zero silent skips — packageVersion must be a non-empty string, and a version failure is never misreported as an unreadable file: the file WAS read, its content is structurally invalid.",
+        '  why:   package.json is missing a non-empty "version" field (found: undefined) — the engine needs packageVersion to tell a version mismatch apart from an integrity mismatch (REQ-RME-07.1); a manifest missing it, or built from a version that was never genuinely there, would misattribute a future failure.',
+        '  fix:   set a non-empty "version" string in package.json.',
         "",
         "No manifest was written; dist/runner-manifest.json does not exist.",
         "",

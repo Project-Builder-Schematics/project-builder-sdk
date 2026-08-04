@@ -63,6 +63,7 @@ export const VIOLATION_RULES = [
   "constraint-4-undecidable-callee",
   "constraint-4-inadmissible-origin",
   "directory-specifier",
+  "manifest-version-invalid",
   "unclassifiable-construct",
   "unresolvable-specifier",
   "unreadable-file",
@@ -409,6 +410,12 @@ const RULE_BODIES: Record<ViolationRule, (detail: string) => RuleBody> = {
     rule: "Zero silent skips — a specifier resolving to a directory is a hole in the closure, never a subset, and never the same defect as an unreadable file.",
     why: `${detail} — a directory has no bytes to hash, and reporting it as "unreadable" misattributes the defect to the wrong condition.`,
     fix: "point the specifier at the actual file inside the directory.",
+  }),
+  "manifest-version-invalid": (detail) => ({
+    summary: "package.json#version is missing, non-string, or empty",
+    rule: "Zero silent skips — packageVersion must be a non-empty string, and a version failure is never misreported as an unreadable file: the file WAS read, its content is structurally invalid.",
+    why: `${detail} — the engine needs packageVersion to tell a version mismatch apart from an integrity mismatch (REQ-RME-07.1); a manifest missing it, or built from a version that was never genuinely there, would misattribute a future failure.`,
+    fix: 'set a non-empty "version" string in package.json.',
   }),
   "unclassifiable-construct": (detail) => ({
     summary: "construct could not be classified",
