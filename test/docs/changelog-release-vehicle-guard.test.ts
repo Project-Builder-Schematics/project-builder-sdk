@@ -70,10 +70,34 @@ describe("REQ-MFB-02.1 — CHANGELOG.md carries all four 0.2.0 entries under the
 });
 
 describe("REQ-MFB-02.1 — package.json#version is bumped alongside the CHANGELOG", () => {
-  it("package.json version matches the CHANGELOG's topmost version heading", () => {
+  // `publish.yml` stamps `0.0.0-dev.<short-sha>` and then runs the FULL suite as its publish gate
+  // (REQ-PPI-03). A dev stamp is not a release version and has no CHANGELOG heading by design, so
+  // asserting equality unconditionally makes the publish job permanently red — the same defect as
+  // the byte-neutrality digest constant (verify-report C-2), in a second place. The invariant is
+  // about RELEASE versions; the dev-stamp shape is named explicitly rather than skipped silently.
+  const DEV_STAMP = /^0\.0\.0-dev\.[\da-f]{7}$/;
+
+  it("a release version matches the CHANGELOG's topmost version heading", () => {
     const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8")) as { version: string };
+    if (DEV_STAMP.test(pkg.version)) {
+      // The publish job's own transient state: assert THAT, so the case is covered rather than
+      // waved through, and a malformed stamp still fails here.
+      expect(pkg.version).toMatch(DEV_STAMP);
+      return;
+    }
     const topHeading = /^## (\d+\.\d+\.\d+)$/m.exec(changelog())?.[1];
     expect(pkg.version).toBe(topHeading ?? "(no version heading in CHANGELOG.md)");
+  });
+
+  it("[red-proof] a release version with no matching CHANGELOG heading fails, and a dev stamp is not a release version", () => {
+    const topHeading = /^## (\d+\.\d+\.\d+)$/m.exec(changelog())?.[1];
+    expect(topHeading).toBe("0.2.3");
+    // The guard is not vacuous: an ordinary bump that forgot the CHANGELOG still fails...
+    expect(() => expect("0.9.9").toBe(topHeading ?? "")).toThrow();
+    // ...and the exemption is exactly the publish stamp's shape, nothing wider.
+    expect(DEV_STAMP.test("0.0.0-dev.abc1234")).toBe(true);
+    expect(DEV_STAMP.test("0.9.9")).toBe(false);
+    expect(DEV_STAMP.test("0.0.0-dev.notasha")).toBe(false);
   });
 });
 

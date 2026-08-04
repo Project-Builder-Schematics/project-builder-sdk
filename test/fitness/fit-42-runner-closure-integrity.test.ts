@@ -1094,32 +1094,70 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
 });
 
 describe("FIT-42 S-001 — FIT-MANIFEST-BYTE-NEUTRAL", () => {
-  // B6 procedure: fresh build -> live closure walk over that fresh dist/ -> regenerate the
-  // manifest output -> compare sha256 against the pinned digest. `distDir`/`manifest` above
-  // are exactly that fresh-build result (ensureTscBuild() in this file's own beforeAll).
+  // The property is REPRODUCIBILITY OF THE DERIVATION, asserted as a RELATION between two
+  // regenerations of the same tree — never equality against a recorded digest constant.
   //
-  // Provenance note (owner-facing, not a silent re-pin): the digest below is THIS branch's
-  // own verified value, captured both before AND after the capability-admission slice
-  // landed (byte-identical either way — S-001 touches no `src/**` file). It differs from
-  // design.md §8's originally-recorded `bf6c983c…a530` (HEAD e6dcde2): `git diff e6dcde2
-  // HEAD -- src/core/context.ts src/core/wire.ts` shows two JSDoc-comment-only edits inside
-  // the runner closure (unrelated template-placeholder-syntax doc fixes, landed on `main`
-  // between the design probe and this branch's base) — a comment byte change still moves a
-  // per-file sha256 (REQ-RME-02 hashes raw bytes, not semantics), and therefore the whole
-  // manifest's bytes. This is `slices.md`'s Risks section case (a): the digest needs the
-  // owner's re-pin, not a rejection — S-001's own diff is proven byte-neutral against this
-  // branch's actual pre-slice state.
-  const PRE_AND_POST_S001_SHA256 = "31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde";
+  // A digest constant cannot express it. The manifest embeds `packageVersion` and package.json's
+  // own sha256, so ANY version change falsifies the constant while the derivation is provably
+  // unchanged. `publish.yml` stamps `0.0.0-dev.<sha>` and rebuilds BEFORE its suite gate, so a
+  // standing constant made the hardened publish job permanently red — REQ-PPI-03.3 false in the
+  // real workflow, the 0.1.0 release blocked, and the first person to hit it invited to add
+  // `continue-on-error`, which is the outcome ruling 6 exists to prevent. It also made every
+  // unrelated version bump pay a manual three-place re-pin (W-7). The relational form is what
+  // design.md §7 specifies for the STANDING gate ("byte-reproducible from a fresh derivation");
+  // the cross-tree sha comparison stays a one-shot SLICE gate, recorded in this change's
+  // apply-progress rather than asserted here.
+  function regenerateInto(root: string, mutate?: (root: string) => void): string {
+    cpSync(distDir, join(root, "dist"), { recursive: true });
+    cpSync(join(PROJECT_ROOT, "package.json"), join(root, "package.json"));
+    mutate?.(root);
+    const result = spawnSync("bun", ["scripts/generate-runner-manifest.ts", root], {
+      cwd: PROJECT_ROOT,
+      encoding: "utf-8",
+    });
+    expect(result.status).toBe(0);
+    return readFileSync(join(root, "dist", MANIFEST_RELATIVE_PATH), "utf-8");
+  }
 
-  it("REQ-CAP-06.1: the fresh-built manifest is byte-identical to the pinned digest (this branch's own pre/post-S-001 value)", () => {
-    expect(hashFile(manifestPath)).toBe(PRE_AND_POST_S001_SHA256);
+  it("REQ-CAP-06.1: regenerating from the built tree reproduces the manifest's bytes exactly", () => {
+    expect(regenerateInto(scratchRoot())).toBe(manifestRaw);
   });
 
-  it("REQ-CAP-06.1 [red-proof]: a byte-perturbed manifest fails the digest comparison", () => {
-    const perturbed = `${manifestRaw}\n`;
-    const { createHash } = require("node:crypto") as typeof import("node:crypto");
-    const perturbedSha = createHash("sha256").update(perturbed).digest("hex");
-    expect(perturbedSha).not.toBe(PRE_AND_POST_S001_SHA256);
+  it("REQ-CAP-06.1: the relation is version-INVARIANT — it holds under publish.yml's own version stamp", () => {
+    // publish.yml's real sequence: stamp `0.0.0-dev.<sha>`, rebuild, THEN gate on the suite. The
+    // stamp is derived from the LIVE version so it is distinct from it whatever that version is —
+    // including when the suite is itself running inside the publish job, already stamped.
+    const stampedVersion = `0.0.0-dev.${manifest.packageVersion.replace(/\W/g, "").slice(-7).padStart(7, "0")}x`;
+    const stamp = (root: string): void => {
+      const path = join(root, "package.json");
+      const manifestPackage = JSON.parse(readFileSync(path, "utf-8")) as { version: string };
+      writeFileSync(path, `${JSON.stringify({ ...manifestPackage, version: stampedVersion }, null, 2)}\n`, "utf-8");
+    };
+    expect(stampedVersion).not.toBe(manifest.packageVersion);
+    const stamped = regenerateInto(scratchRoot(), stamp);
+    const stampedAgain = regenerateInto(scratchRoot(), stamp);
+
+    // Reproducible under the stamp...
+    expect(stampedAgain).toBe(stamped);
+    // ...and not blind to it: the stamped manifest genuinely differs from the unstamped one, so
+    // the invariance is a property of the RELATION, not of a gate that ignores the version.
+    expect(stamped).not.toBe(manifestRaw);
+    expect((JSON.parse(stamped) as RunnerManifest).packageVersion).toBe(stampedVersion);
+  });
+
+  it("REQ-CAP-06.1 [red-proof]: perturbing one closure file's bytes changes the regenerated manifest", () => {
+    // Exercises the DERIVATION, not the hash function: the previous red-proof asserted only
+    // `sha256(x + "\n") !== sha256(x)`, which is true of sha256 and says nothing about whether
+    // the generator reads the bytes it claims to.
+    const perturbedPath = `dist/${ENTRY_RELATIVE_PATH}`;
+    const perturbed = regenerateInto(scratchRoot(), (root) => {
+      appendFileSync(join(root, perturbedPath), "\n// perturbation\n", "utf-8");
+    });
+    expect(perturbed).not.toBe(manifestRaw);
+
+    const before = (JSON.parse(manifestRaw) as RunnerManifest).files.find((f) => f.path === perturbedPath);
+    const after = (JSON.parse(perturbed) as RunnerManifest).files.find((f) => f.path === perturbedPath);
+    expect(before?.sha256 === after?.sha256).toBe(false);
   });
 });
 
