@@ -187,19 +187,37 @@ function publishRunSteps(doc: WorkflowDoc): Array<{ kind: PublishStepKind; run: 
   return steps;
 }
 
+interface PublishStepIndices {
+  readonly steps: Array<{ kind: PublishStepKind; run: string }>;
+  readonly stampIndex: number;
+  readonly publishIndex: number;
+  readonly hasRebuildBetween: boolean;
+}
+
+// Shared by `checkExplicitRebuildStep` and `checkPublishOrdering` below — both re-derive the
+// stamp/publish step positions and whether a rebuild step sits between them; this is the ONE
+// computation both read from.
+function computePublishStepIndices(doc: WorkflowDoc): PublishStepIndices {
+  const steps = publishRunSteps(doc);
+  const stampIndex = steps.findIndex((s) => s.kind === "stamp");
+  const publishIndex = steps.findIndex((s) => s.kind === "publish");
+  const hasRebuildBetween =
+    stampIndex !== -1 &&
+    publishIndex !== -1 &&
+    steps.slice(stampIndex + 1, publishIndex).some((s) => s.kind === "build");
+  return { steps, stampIndex, publishIndex, hasRebuildBetween };
+}
+
 // REQ-PPI-02: an EXPLICIT rebuild step must be declared between the version stamp and the
 // publish step — a second, independent guarantee against manifest staleness that does not
 // rely on npm's implicit `prepublishOnly` lifecycle hook (see `checkPublishOrdering` above,
 // which already tolerates the implicit-only case and stays unchanged).
 function checkExplicitRebuildStep(doc: WorkflowDoc): { ok: boolean; reason?: string } {
-  const steps = publishRunSteps(doc);
-  const stampIndex = steps.findIndex((s) => s.kind === "stamp");
-  const publishIndex = steps.findIndex((s) => s.kind === "publish");
+  const { stampIndex, publishIndex, hasRebuildBetween } = computePublishStepIndices(doc);
   if (stampIndex === -1 || publishIndex === -1) {
     return { ok: false, reason: "stamp or publish step not found" };
   }
-  const hasExplicitRebuild = steps.slice(stampIndex + 1, publishIndex).some((s) => s.kind === "build");
-  if (!hasExplicitRebuild) {
+  if (!hasRebuildBetween) {
     return {
       ok: false,
       reason: "no explicit rebuild step declared between the version stamp and the publish step",
@@ -245,17 +263,12 @@ function checkPublishOrdering(
   doc: WorkflowDoc,
   scripts: Record<string, string>
 ): { ok: boolean; reason?: string } {
-  const steps = publishRunSteps(doc);
-  const stampIndex = steps.findIndex((s) => s.kind === "stamp");
-  const publishIndex = steps.findIndex((s) => s.kind === "publish");
+  const { steps, stampIndex, publishIndex, hasRebuildBetween } = computePublishStepIndices(doc);
   if (publishIndex === -1) return { ok: false, reason: "no publish step found" };
   if (stampIndex === -1) return { ok: true };
   if (stampIndex < steps.findIndex((s) => s.kind === "build")) return { ok: true };
 
-  const rebuildBetween = steps
-    .slice(stampIndex + 1, publishIndex)
-    .some((s) => s.kind === "build");
-  if (rebuildBetween) return { ok: true };
+  if (hasRebuildBetween) return { ok: true };
   if (prepublishRebuilds(steps[publishIndex]?.run ?? "", scripts)) return { ok: true };
 
   return {
