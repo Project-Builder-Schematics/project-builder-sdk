@@ -2,7 +2,7 @@
 // engine-client.ts is import-type-only and tsc erases it). The source-realm walker is
 // test/support/import-scan.ts (FIT-15/FIT-21); they are not interchangeable.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join, posix, sep } from "node:path";
 import { builtinModules } from "node:module";
 import {
@@ -13,6 +13,12 @@ import {
   type ImportDeclaration,
   type SourceFile,
 } from "ts-morph";
+import {
+  buildFileContext,
+  classifySurfaceNode,
+  enumerateCapabilitySurface,
+  resetAnchorExemptionLatch,
+} from "./capability-admission.ts";
 
 /**
  * The sanctioned factory-import site's file (CST-03.3), distRoot-relative. The sanction is
@@ -45,13 +51,19 @@ export interface ClosureEdge {
   readonly specifier: string;
 }
 
-/** The closed rule set. `ViolationRule` is derived from it so the two cannot drift. */
+// The closed rule set. `ViolationRule` is derived from it so the two cannot drift.
+// ADR-0079: `constraint-4-execution-primitive` (denyScan's single Constraint-4 rule) is
+// retired — the capability-admission property reports one of the two rules below instead,
+// distinguishing WHY the callee/origin was denied.
 export const VIOLATION_RULES = [
   "constraint-2-dynamic-import",
   "constraint-2-second-site",
   "constraint-3-bare-specifier",
   "constraint-3a-unprefixed-builtin",
-  "constraint-4-execution-primitive",
+  "constraint-4-undecidable-callee",
+  "constraint-4-inadmissible-origin",
+  "directory-specifier",
+  "manifest-version-invalid",
   "unclassifiable-construct",
   "unresolvable-specifier",
   "unreadable-file",
@@ -143,7 +155,39 @@ export function deriveRunnerClosure(distRoot: string, entryRelPath: string): Clo
     const sourceFile = project.createSourceFile(absolute, bytes.toString("utf-8"), {
       overwrite: true,
     });
-    violations.push(...denyScan(sourceFile, current));
+    violations.push(...constraint2Violations(sourceFile, current));
+
+    // ADR-0079: capability-admission property replaces denyScan. Every node of the file's
+    // capability surface classifies into exactly one of {admitted, violation,
+    // unclassifiable-construct} — default is violation/unclassifiable, never a silent pass.
+    resetAnchorExemptionLatch();
+    const fileContext = buildFileContext(sourceFile, {
+      file: current,
+      isAnchorFile: current === CREATE_REQUIRE_ANCHOR_FILE,
+    });
+    // REQ-CAP-02: the no-reassignment precondition is its OWN decidable check, distinct from
+    // callee-decidability/origin-admission (REQ-CAP-02.1's own wording) — reported as
+    // unclassifiable-construct, never as a mis-attributed capability-origin rule.
+    for (const { node, name } of fileContext.reassignmentViolations) {
+      violations.push({
+        rule: "unclassifiable-construct",
+        file: current,
+        line: node.getStartLineNumber(),
+        found: oneLine((node.getFirstAncestor(Node.isStatement) ?? node).getText()),
+        detail: `module-scope reassignment of "${name}"`,
+      });
+    }
+    for (const surfaceNode of enumerateCapabilitySurface(sourceFile)) {
+      const disposition = classifySurfaceNode(surfaceNode, fileContext);
+      if (disposition.kind === "admitted") continue;
+      violations.push({
+        rule: disposition.kind === "unclassifiable" ? "unclassifiable-construct" : disposition.rule,
+        file: current,
+        line: surfaceNode.line,
+        found: oneLine((surfaceNode.node.getFirstAncestor(Node.isStatement) ?? surfaceNode.node).getText()),
+        detail: disposition.detail,
+      });
+    }
 
     for (const site of staticSpecifierSites(sourceFile)) {
       const classification = classifySpecifier(site.value, current, root);
@@ -173,18 +217,41 @@ export function deriveRunnerClosure(distRoot: string, entryRelPath: string): Clo
   };
 }
 
-// An identifier scan is what makes ADR-04's outright ban DECIDABLE: it catches the import,
-// the direct call, the indirect-variable form and the namespace form alike, and JSDoc
-// occurrences are structurally absent from the descendant walk.
-const DENIED_IDENTIFIERS = new Set(["createRequire", "eval", "Function"]);
-const DENIED_MEMBER_EXPRESSIONS = new Set(["Bun.plugin", "process.binding"]);
+/**
+ * REQ-XPO-01.5: the createRequire exemption is a proof ON THE ANCHOR FILE — sound only if
+ * that file is genuinely a member of the derived closure. `isAnchorFile` (passed into
+ * `buildFileContext` per node, above) can only ever be true for a node the walk actually
+ * reached, so this can never fire from WITHIN a single real walk — it exists as an
+ * independent, POST-WALK invariant check for the one caller that cares (the real build:
+ * `generate-runner-manifest.ts`), never wired into `deriveRunnerClosure` itself, which
+ * synthetic test fixtures (naming an unrelated entry file) call constantly and would
+ * otherwise all spuriously fail this check. An exemption pointing at a file outside the
+ * walked closure is a dormant hole, not a pass — if the anchor were ever to drop out of the
+ * closure (e.g. a future refactor removes the import edge that reaches it), NOTHING would
+ * verify the exemption's own precondition without this explicit call.
+ */
+export function findAnchorDriftViolations(
+  derivedNodes: readonly ClosurePath[],
+  anchorFile: ClosurePath
+): Violation[] {
+  if (derivedNodes.includes(anchorFile)) return [];
+  return [
+    {
+      rule: "unclassifiable-construct",
+      file: anchorFile,
+      line: null,
+      found: anchorFile,
+      detail: `the createRequire exemption anchor "${anchorFile}" is not a member of the derived closure — an exemption pointing outside the walked closure is a dormant hole, not a pass`,
+    },
+  ];
+}
 
-function denyScan(sourceFile: SourceFile, file: ClosurePath): Violation[] {
+// Constraint 2 (the sanctioned dynamic import() site) is untouched by ADR-0079 — it is a
+// separate guard from Constraint 4's capability-admission property.
+function constraint2Violations(sourceFile: SourceFile, file: ClosurePath): Violation[] {
   const found: Violation[] = [];
-
-  const dynamicImports = dynamicImportCalls(sourceFile);
   const atSanctionedSite = file === SANCTIONED_DYNAMIC_IMPORT_FILE;
-  dynamicImports.forEach((call, index) => {
+  dynamicImportCalls(sourceFile).forEach((call, index) => {
     if (atSanctionedSite && index === 0) return;
     found.push({
       rule: atSanctionedSite ? "constraint-2-second-site" : "constraint-2-dynamic-import",
@@ -194,82 +261,7 @@ function denyScan(sourceFile: SourceFile, file: ClosurePath): Violation[] {
       detail: `sanctioned site: ${SANCTIONED_DYNAMIC_IMPORT_FILE}`,
     });
   });
-
-  const atCreateRequireAnchor = file === CREATE_REQUIRE_ANCHOR_FILE;
-  // The exemption is granted to a SHAPE the anchor must PROVE, never searched for among
-  // whatever the file happens to import: exactly one createRequire binding, unaliased. Any
-  // other arrangement forfeits it, and every binding name found becomes denied text — so no
-  // spelling of the primitive can be reached through a name the text ban below cannot see.
-  // Elsewhere the ban stays purely text-based on purpose: REQ-CST-04.4's synthetic fixtures
-  // use the bare identifier with no import at all and must still be caught.
-  const anchorBindings = atCreateRequireAnchor ? createRequireBindingsIn(sourceFile) : [];
-  const anchorExempt = anchorBindings.length === 1 && anchorBindings[0] === "createRequire";
-  const deniedHere = anchorExempt
-    ? DENIED_IDENTIFIERS
-    : new Set([...DENIED_IDENTIFIERS, ...anchorBindings]);
-  let anchorExemptionConsumed = false;
-
-  for (const identifier of sourceFile.getDescendantsOfKind(SyntaxKind.Identifier)) {
-    const name = identifier.getText();
-    if (!deniedHere.has(name)) continue;
-
-    if (anchorExempt && name === "createRequire") {
-      if (identifier.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) !== undefined) continue;
-      // The ONE exempt use must be resolution, never execution (judgment-day finding 1): the
-      // callee of a call whose result is immediately `.resolve(...)`d.
-      if (!anchorExemptionConsumed && isResolveOnlyCreateRequireUse(identifier)) {
-        anchorExemptionConsumed = true;
-        continue;
-      }
-    }
-
-    found.push(primitiveViolation(identifier, file, name));
-  }
-
-  for (const access of sourceFile.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)) {
-    const text = access.getText();
-    if (DENIED_MEMBER_EXPRESSIONS.has(text)) found.push(primitiveViolation(access, file, text));
-  }
-
   return found;
-}
-
-/** EVERY local name the file binds createRequire to — the count is itself the invariant. */
-function createRequireBindingsIn(sourceFile: SourceFile): string[] {
-  const bindings: string[] = [];
-  for (const declaration of sourceFile.getImportDeclarations()) {
-    if (declaration.getModuleSpecifierValue() !== "node:module") continue;
-    for (const specifier of declaration.getNamedImports()) {
-      if (specifier.getName() === "createRequire") {
-        bindings.push(specifier.getAliasNode()?.getText() ?? specifier.getName());
-      }
-    }
-  }
-  return bindings;
-}
-
-// ADR-04: resolution, never execution. True only for `X(...).resolve(...)` — the identifier
-// is the callee of a call, that call's result is a `.resolve` property access, and THAT
-// access is itself called. A bare `X(...)("./x.js")` or `X(...).resolve` (never invoked)
-// both fail this shape.
-function isResolveOnlyCreateRequireUse(identifier: Node): boolean {
-  const call = identifier.getParent();
-  if (!Node.isCallExpression(call) || call.getExpression() !== identifier) return false;
-  const access = call.getParent();
-  if (!Node.isPropertyAccessExpression(access) || access.getExpression() !== call) return false;
-  if (access.getName() !== "resolve") return false;
-  const outerCall = access.getParent();
-  return Node.isCallExpression(outerCall) && outerCall.getExpression() === access;
-}
-
-function primitiveViolation(node: Node, file: ClosurePath, primitive: string): Violation {
-  return {
-    rule: "constraint-4-execution-primitive",
-    file,
-    line: node.getStartLineNumber(),
-    found: oneLine((node.getFirstAncestor(Node.isStatement) ?? node).getText()),
-    detail: primitive,
-  };
 }
 
 interface SpecifierSite {
@@ -286,10 +278,20 @@ type Classification =
 // Total by construction: every static specifier lands in exactly one branch. A `return`
 // that merely skipped would be the silent-subset hole REQ-RCD-03.2 exists to forbid.
 function classifySpecifier(specifier: string, from: ClosurePath, root: string): Classification {
-  if (specifier === "node:vm") {
-    return { kind: "violation", rule: "constraint-4-execution-primitive", detail: specifier };
+  // R1-15: `node:`-prefixed no longer means "builtin" unconditionally — a fake/unrecognised
+  // module name must fail the build, not be silently treated as a valid builtin.
+  // `node:vm` is no longer a special case here (ADR-0079/B4) — it is a REAL builtin
+  // (`builtinModules` includes "vm"), so it classifies as `{kind: "builtin"}` exactly like
+  // any other real `node:` module; the capability-admission property (a SEPARATE walk, see
+  // `deriveRunnerClosure`'s main loop) denies it as an inadmissible origin via the
+  // DENIED_CAPABILITY_PRIMITIVES register instead.
+  if (specifier.startsWith("node:")) {
+    const moduleName = specifier.slice("node:".length);
+    if (!builtinModules.includes(moduleName)) {
+      return { kind: "violation", rule: "unclassifiable-construct", detail: specifier };
+    }
+    return { kind: "builtin" };
   }
-  if (specifier.startsWith("node:")) return { kind: "builtin" };
 
   if (isRelative(specifier)) {
     if (/[?#]/.test(specifier)) {
@@ -309,6 +311,15 @@ function classifySpecifier(specifier: string, from: ClosurePath, root: string): 
         kind: "violation",
         rule: "symlink-escape",
         detail: `"${specifier}" resolves outside ${root}`,
+      };
+    }
+    // R1-8/REQ-DGN-01.2: a specifier resolving to a DIRECTORY is its own diagnosed condition
+    // — never misdiagnosed as `unreadable-file` (that rule fires only on a read() failure).
+    if (statSync(absolute).isDirectory()) {
+      return {
+        kind: "violation",
+        rule: "directory-specifier",
+        detail: `"${specifier}" resolves to a directory, not a file`,
       };
     }
     return { kind: "edge", to };
@@ -411,17 +422,35 @@ const RULE_BODIES: Record<ViolationRule, (detail: string) => RuleBody> = {
     why: "src/transport/runner.ts:SANCTIONED-FACTORY-IMPORT is the author-code boundary; this is a different site, and it admits code no digest covers exactly as one anywhere else would.",
     fix: "remove this import(), or route the work through the sanctioned site. If the runner needs a second dynamic boundary, that is a contract change: docs/runner-integrity-invariants.md#constraint-2, agreed with the engine first.",
   }),
-  "constraint-4-execution-primitive": (detail) => ({
-    summary: "unhashed-code-execution primitive in the closure",
-    rule: `Constraint 4 — the closure may RESOLVE, never EXECUTE.\n         permitted: createRequire(...).resolve(...) at the anchored site\n         forbidden: every other createRequire reference, eval, new Function, node:vm, Bun.plugin, process.binding\n         forbidden primitive: ${detail}`,
-    why: "a createRequire reference outside the anchored site executes a CommonJS module with no import edge anywhere — it is invisible to the closure walk and covered by no digest. This precondition is not in the engine's original contract; we added it. See docs/runner-integrity-invariants.md#constraint-4.",
-    fix: "call .resolve(specifier) and load the result through a static import, or move the work outside the closure.",
+  "constraint-4-undecidable-callee": (detail) => ({
+    summary: "call target is not a statically resolvable binding",
+    rule: `Constraint 4 — the closure may RESOLVE, never EXECUTE.\n         every call/new callee must be a statically resolvable binding: a bare identifier, or a non-computed member chain rooted at one, this, super, a call/new result, or a literal.\n         undecidable callee: ${detail}`,
+    why: "a computed, string-built, or bare call-result-invoked-again callee hides which primitive actually executes — the SHAPE is denied, never a specific spelling. globalThis[\"ev\"+\"al\"](...) and (()=>{}).constructor(\"return 1\")() both defeat a name-matching guard this way.",
+    fix: "call the target through a directly-named, statically resolvable binding, or move the work outside the closure.",
+  }),
+  "constraint-4-inadmissible-origin": (detail) => ({
+    summary: "capability primitive or unadmitted origin in the closure",
+    rule: `Constraint 4 — the closure may RESOLVE, never EXECUTE.\n         admitted origins: local, a closure import of an admitted name, an admitted global, or an admitted builtin member path.\n         forbidden origin: ${detail}`,
+    why: "a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. See docs/runner-integrity-invariants.md#constraint-4.",
+    fix: "resolve the value through an admitted origin, or move the work outside the closure. If the primitive is genuinely needed, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-4 and agree it with the engine before regenerating any baseline.",
+  }),
+  "directory-specifier": (detail) => ({
+    summary: "closure specifier resolves to a directory, not a file",
+    rule: "Zero silent skips — a specifier resolving to a directory is a hole in the closure, never a subset, and never the same defect as an unreadable file.",
+    why: `${detail} — a directory has no bytes to hash, and reporting it as "unreadable" misattributes the defect to the wrong condition.`,
+    fix: "point the specifier at the actual file inside the directory.",
+  }),
+  "manifest-version-invalid": (detail) => ({
+    summary: "package.json#version is missing, non-string, or empty",
+    rule: "Zero silent skips — packageVersion must be a non-empty string, and a version failure is never misreported as an unreadable file: the file WAS read, its content is structurally invalid.",
+    why: `${detail} — the engine needs packageVersion to tell a version mismatch apart from an integrity mismatch (REQ-RME-07.1); a manifest missing it, or built from a version that was never genuinely there, would misattribute a future failure.`,
+    fix: 'set a non-empty "version" string in package.json.',
   }),
   "unclassifiable-construct": (detail) => ({
-    summary: "import construct could not be classified",
-    rule: "Zero silent skips — every import-like construct must classify as exactly one of { relative specifier, node:-prefixed builtin, the sanctioned factory-import site }.",
-    why: `an unclassifiable construct (${detail}) fails the build rather than being skipped, because a skipped edge is a hole in the closure that nothing downstream would notice.`,
-    fix: "write the specifier as a string literal. If the construct must stay, the walker has to learn it — that is a change to scripts/derive-runner-closure.ts AND to docs/runner-integrity-invariants.md, not a special case here.",
+    summary: "construct could not be classified",
+    rule: "Zero silent skips — every capability-surface node and import-like construct must classify as exactly one of { admitted, a named violation, unclassifiable-construct }.",
+    why: `an unclassifiable construct (${detail}) fails the build rather than being skipped, because a skipped node is a hole in the closure that nothing downstream would notice.`,
+    fix: "write the construct in a statically decidable shape. If the construct must stay, the walker has to learn it — that is a change to scripts/derive-runner-closure.ts or scripts/capability-admission.ts AND to docs/runner-integrity-invariants.md, not a special case here.",
   }),
   "unresolvable-specifier": (detail) => ({
     summary: `relative specifier resolves to no file (${detail})`,

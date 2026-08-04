@@ -173,3 +173,719 @@ coupling is ever introduced, not a defect today.
 Per `slices.md`'s Delivery mechanics: orchestrator opens the S-000 PR (house pattern); the
 mechanism branch (S-001..S-005) may base off this branch immediately, without waiting for
 merge.
+
+## Slice: S-001 — Capability-Admission Property, total classification on the real closure
+
+**Status**: substantially complete — 9 of 10 tasks done (S-001.1-.6, .8, .9, .10); S-001.7
+PARTIAL, see "Deferred work" below. Covers REQ-CAP-01..06, REQ-PRM-01, REQ-CST-04.2
+[MODIFIED], REQ-CST-04.3 [MODIFIED], REQ-CST-06.1 [MODIFIED, partial], REQ-DGN-01.2.
+
+### Mechanism summary
+
+`scripts/capability-admission.ts` (new): `enumerateCapabilitySurface` (what is present) +
+`classifySurfaceNode` (what is admitted) as two independently implemented functions over
+the closed 5-member `SurfaceNodeKind` union (`callee`, `value-reference`, `member-path`,
+`meta-property`, `module-specifier`). Three admission legs: callee decidability
+(`resolveChain` — a chain is decidable iff no `[...]` computed access appears anywhere in
+it; a `this`/`super`/call-result/literal-rooted chain is a "safe terminal", admitted
+unconditionally one level in), origin admission (`classifyOrigin` — local/tainted/
+admitted-global/closure-import dispatch, D-3's per-position tainted rule), positional
+decidability (`instanceof`/`typeof` operand exemption). `derive-runner-closure.ts`'s
+`denyScan` is deleted; `classifySpecifier` gains R1-15 `builtinModules` validation and the
+R1-8 directory-specifier check; `node:vm` is folded out of its own special case (B4).
+
+### Digest-provenance reconciliation (owner-facing, not silently resolved)
+
+`ADMITTED_GLOBALS` verified at **21** members (design.md's own probe: 22) and
+`ADMITTED_MEMBER_PATHS` at **30** (design.md: 28). Traced: `git diff e6dcde2 HEAD --
+src/core/context.ts src/core/wire.ts` shows exactly two JSDoc-comment-only edits (unrelated
+template-placeholder-syntax doc fixes) landed on `main` between design.md's probe (HEAD
+`e6dcde2`) and this branch's base — confirmed zero AST/identifier-surface change. The count
+discrepancy does not come from that drift; it comes from design.md's own hand-probe being
+imprecise on these two specific numbers (all other probe numbers — 423 call sites, 37
+computed accesses, 6 `node:` modules with exact matching names, the 3 named D-2
+reassignments — were independently re-verified and match exactly). Cross-checked the two
+divergent counts against direct `rg` scans of the real closure files (no `Math`, `TypeError`,
+`RangeError`, `WeakMap`, `BigInt` etc. appear in real, non-comment code for the globals
+count; exactly 8 distinct `process.*` paths are referenced for the member-paths count,
+matching this table's own `process.*` subset one for one). Pinned the VERIFIED counts
+(21/30), not the design-recorded ones — REQ-CAP-01.1's totality property must hold against
+the REAL tree, which is what the exact-membership assertions now do. **Flagged for the
+owner**: reconcile design.md §1/§3's "22"/"28" prose (a documentation-drift fix, not a
+re-plan) — `slices.md`'s Risks section DR-5/DR-2 ruling on widening a pinned table does not
+apply here (nothing was widened; the pinned tables were built from a fresh, correct probe on
+day one, not grown mid-build to make a red test pass).
+
+### Byte-neutrality (REQ-CAP-06)
+
+Confirmed via the B6 procedure (fresh `rm -rf dist && bun run build` → live closure walk →
+regenerate → sha256 compare) at every commit of this slice:
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` — byte-identical before
+and after S-001's entire diff (verified via the same fresh-build procedure against the
+S-000-complete HEAD before this slice's first commit, and again after the final commit).
+This does NOT match design.md §8's originally-recorded `bf6c983c…a530` (HEAD `e6dcde2`) —
+same root cause as the digest-provenance note above: the two JSDoc-comment-only edits move a
+per-file sha256 (REQ-RME-02 hashes raw bytes, not semantics) even though they carry zero
+capability-surface change, and therefore move the whole manifest's bytes. This is
+`slices.md`'s Risks section case (a) — the owner re-pins the digest; S-001's own diff is
+proven byte-neutral against this branch's real pre-slice state, which is the property this
+gate actually protects.
+
+### S-001.8 survival — the 8 CST-04.x-family red-proofs (B2's corrected enumeration: #10, #11, #12, #13, #14, #15, #16, #18)
+
+All 8 pass under the new mechanism. Rule identity changed uniformly (`constraint-4-execution-primitive` → `constraint-4-inadmissible-origin`, consistent with ADR-0079's retirement of the old rule) — read as "same rule identity" in the internally-consistent sense S-001.8 asks for (a single coherent new identity per defect class), not as "the literal old string survives," which the signed design explicitly forbids (ADR-0079/design.md §4 retire that rule name outright).
+
+| # | Test | Old count/rule | New count/rule | Note |
+|---|---|---|---|---|
+| #10 | "a createRequire call outside the anchored site is a Constraint-4 violation" | 2× `constraint-4-execution-primitive` | 1× `constraint-4-inadmissible-origin` | **Deliberate count change, not a regression.** The old count included denyScan's own text-match artefact: the import declaration's OWN "createRequire" binding-site token was flagged alongside the call site (denyScan's non-anchor branch never excluded declaration names). The new mechanism's E2 exclusion (design.md §1: "a binding site is not a reference") correctly excludes it — the call site alone is caught, exactly once. Same defect, same file fails, one spurious duplicate removed. |
+| #11 | "the indirect-variable form is caught" | 1× execution-primitive | 1× inadmissible-origin | rename only |
+| #12 | "the namespace form is caught" | 1× execution-primitive | 1× inadmissible-origin | rename only (this is where a real double-count BUG was caught and fixed mid-slice — see "Bugs found" below) |
+| #13 | "a second createRequire use inside the anchored file still fails" | 1× execution-primitive | 1× inadmissible-origin | rename only |
+| #14 | "an EXECUTING createRequire at the anchor is not exempt" | 1× execution-primitive | 1× inadmissible-origin | rename only |
+| #15 | "an ALIASED createRequire import forfeits the exemption" | ≥2× execution-primitive | ≥2× inadmissible-origin | rename only |
+| #16 | "an unaliased decoy does not buy the alias an exemption" | ≥1× execution-primitive | ≥1× inadmissible-origin | rename only |
+| #18 | "the closed primitive set... is denied" (5-fixture set) | 5× execution-primitive | 5× inadmissible-origin | rename only |
+
+Red evidence for all 8: ran unmodified against the NEW mechanism first — all 8 failed on the
+old rule-name literal (7 of 8 with an otherwise-identical array; #10 additionally failed on
+count). Green evidence: updated to the new rule name (and, for #10 only, the corrected
+count with an inline justifying comment) — all 8 pass.
+
+### Bugs found and fixed during this slice (each verified via a real build + real test run before/after)
+
+1. **Relative closure-imports were denied by default.** `classifyOrigin`'s closure-import
+   branch initially ran the `node:`-only `ADMITTED_NODE_SURFACES` per-name check for EVERY
+   import, including relative ones — `formatLocator`/`locateFirstJsonSyntaxError` (imported
+   from `./error-text.js`, a file already inside the walked closure) were flagged as
+   "unadmitted origin." Fixed: a non-`node:` closure-import is unconditionally admitted (the
+   imported file is already hashed and walked by this very function).
+2. **A safe-terminal-rooted initializer was mistaken for undecidable, tainting its
+   binding.** `taintReasonOf`'s PropertyAccessExpression handling required the chain root to
+   resolve to a plain `Identifier`; `const handles = this.#handles;` roots at `this`, which
+   isn't an Identifier, so the initializer was marked `undecidable-initializer` — flagging
+   `handles.map(...)` downstream. Fixed: `taintReasonOf` now reuses the SAME `resolveChain`
+   safe-terminal logic as callee/member-path admission.
+3. **A callee chain's root identifier could be double-enumerated.** `m.createRequire(...)`
+   used as a callee added the whole `m.createRequire` expression to `calleeExpressions`, but
+   never marked `m` itself consumed — the general identifier pass then ALSO enumerated `m`
+   as its own standalone value-reference, producing 2 violations for red-proof #12's fixture
+   instead of 1. Fixed: every link of a callee's own chain (root identifier included) is now
+   marked consumed at enumeration time.
+4. **`enumerateCapabilitySurface` double-reported a fake `node:` specifier.** A
+   node:-prefixed import naming a non-existent module (`node:nonexistent-module`) was
+   flagged BOTH by `classifySpecifier`'s R1-15 `builtinModules` validation (existing walk)
+   AND by capability-admission's own module-specifier classification (new walk) — same
+   defect, same rule, twice. Fixed: module-specifier surface nodes are enumerated only for
+   specifiers that ARE real builtins; a fake one is `classifySpecifier`'s concern alone.
+5. **The independent totality counter (test-only) over-consumed argument subtrees.**
+   `FIT-CAP-TOTALITY`'s independent count initially walked UP a node's full ancestor chain
+   to check "is this inside a callee," which incorrectly swallowed `anchorUrl` (an argument
+   to `createRequire(anchorUrl)`, itself nested inside the OUTER callee
+   `createRequire(anchorUrl).resolve`) as "already counted." Fixed: the independent counter
+   now tracks only the callee's own chain links, mirroring the production fix in (3) — this
+   is a test-only bug, never shipped in the production classifier.
+
+Each of the 5 was caught by running the REAL 23-file closure through the mechanism after
+every change and confirming zero violations (the closure has none), not by reasoning alone.
+
+### New scenario coverage landed this slice
+
+`FIT-CAP-TOTALITY` (independent-count comparison across all 23 real closure files + a
+mutation red-proof for the totality assertion itself), `FIT-MANIFEST-BYTE-NEUTRAL` (standing
+sha check + perturbation red-proof), exact-membership pins for `SurfaceNodeKind`, E1-E4,
+`DENIED_CAPABILITY_PRIMITIVES`, `ADMITTED_GLOBALS`, `ADMITTED_NODE_SURFACES`,
+`ADMITTED_MEMBER_PATHS` (each with a widening/narrowing red-proof), REQ-CAP-01.7 (RCD-03.3's
+day-one JSDoc fixtures, including the R1-16 `{@link X}` shape), REQ-CAP-02.1/.2
+(reassignment precondition + the real closure's 3 D-2 reassignments as a sibling positive),
+REQ-CAP-03.1/.2/.3 (the two confirmed live escapes + a local-function sibling positive),
+REQ-CAP-04.1/.2/.3/.5/.7/.8 (node:child_process, the admitted-builtin-baseline sibling
+positive, the R1-15 unrecognised-specifier red-proof, and both table-widening red-proofs),
+REQ-CAP-05.1/.2/.3 (instanceof/typeof exemptions + the R1-17/SC-2 sequencing-hazard
+red-proof), REQ-DGN-01.2 (directory-specifier), REQ-CST-04.3.2 (AST-vs-substring
+non-vacuity), REQ-PRM-01.1/.2 (register exact-membership + the real committed
+`deny-scan/`/`green/` fixture corpus with a readdir-based completeness check, replacing an
+earlier in-memory simulation once the corpus existed), and S-001.10 (fit-46's publish-gate
+red-proof re-run against a genuine `eval` denial via a real `deriveRunnerClosure` call, not
+an arbitrary planted assertion failure).
+
+### Deferred work (honest gaps, not silently dropped)
+
+- **S-001.7, partial.** Every NEW message assertion this slice added is whole-verbatim
+  (`toBe`, not `toContain`) by construction — no new `toContain` landed on a tripwire
+  message. The 3 pre-existing S-003-tier assertions this slice's OWN rule-rename directly
+  broke (`fit-42-*.negative.test.ts`'s "a direct createRequire call names Constraint 4...",
+  "the indirect-variable form is named...", "the namespace form is named...") were converted
+  to whole-verbatim rather than patched to a new substring. The BULK pre-existing
+  `toContain` inventory design.md §6(b) counts at 47 sites (most untouched by this slice's
+  own diff — they assert messages this slice did not change) remains unconverted, and the
+  standing anti-`toContain` scan over the fit-42/fit-23/fit-46 family is NOT yet added.
+  Recommend a dedicated follow-up pass (mechanical, low-risk, high line count) before S-003
+  starts touching the same shared files, per the Build Order note that this scan should be
+  live before S-003/S-004 land.
+- **`mutants/` fixture directory not created.** The widening/narrowing/mutation red-proofs
+  (CAP-01.2, CAP-01.6, CAP-04.5, CAP-04.8) landed as in-test simulated mutants (constructing
+  a widened/narrowed `Set` inline and asserting the exact-membership check rejects it) rather
+  than as committed mutant FILES under `test/fixtures/red/runner-tripwires/mutants/`. This
+  satisfies each scenario's own Given/When/Then text (which describes a mutant TABLE, not a
+  mutant FILE), but does not realise the ≤20-committed-mutants budget line item literally.
+  Flagged for the owner: accept the simulated form, or request the file-based realisation as
+  a follow-up.
+- **REQ-CAP-01.3** (unclassifiable-construct for "a computed member expression on a computed
+  base") has no dedicated test. The mechanism's 5-kind closed union has no slot for a
+  doubly-computed access used purely as a value (never a callee) — reaching `unclassifiable`
+  for that specific shape would need a 6th enumeration path the signed design's SurfaceNode
+  definition does not describe. Not fabricated to avoid an honest gap; flagged for design
+  clarification rather than force-fit.
+
+### Verification run at slice close
+
+`bun run typecheck`: clean. `bun test` (full suite): 2506 pass, 0 fail (run twice for
+stability after one flaky run showed 6 unrelated failures that did not reproduce — this
+suite spawns many real subprocesses/scratch dirs and has occasional resource-contention
+flakes in this sandbox, distinct from anything this slice touched). Fresh-build
+byte-neutrality: confirmed at slice close, matching the value recorded above.
+
+### Commits (chronological, first pass)
+
+1. `feat(capability-admission): replace deny-scan with default-deny admission property`
+2. `test(fitness): add FIT-CAP-TOTALITY, FIT-MANIFEST-BYTE-NEUTRAL, exact-membership pins`
+3. `test(fitness): add REQ-CAP-02/03/04/05, PRM-01.2, DGN-01.2, CST-04.3.2 red-proofs`
+4. `test(fit-46): re-run the publish-gate proof against a real Constraint-4 fixture`
+5. `test(fixtures): commit the deny-scan/green fixture corpus (S-001.6)`
+6. `docs(adr): add ADR-0079/0080; test(fitness): CAP-01.6/.7 red-proofs`
+
+## Completion pass (2026-08-04) — S-001.7 + doc-drift reconciliation + CAP-01.3 note
+
+Closes the three items the orchestrator routed back before S-003: S-001.7 (blocking),
+the doc-drift re-pin, and the REQ-CAP-01.3 clarification.
+
+### S-001.7 — whole-verbatim conversion + standing scan, now COMPLETE
+
+**Conversion count**: 50 pre-existing `toContain` call-sites (on a `rendered`/`stderr`/
+`.reason` message receiver) across the family, consolidated into ~19 whole-verbatim `toBe`
+assertions (several tests previously asserted 2-4 `toContain` fragments of ONE message; each
+collapsed to one exact-string comparison, which is strictly stronger — nothing between the
+asserted fragments can silently be wrong). Breakdown: 3 in
+`fit-42-runner-closure-integrity.test.ts` (the version-missing stderr, the real-tree bare-
+specifier stderr, the baseline-writer-failure stderr — all captured from REAL `runGenerator`/
+`regen-closure-baseline.ts` runs, not hand-guessed), ~15 tests / 38 call-sites in
+`fit-42-runner-closure-integrity.negative.test.ts` (synthetic-fixture `rendered` values,
+captured via a throwaway probe script reproducing each test's exact fixture, then deleted),
+3 in `fit-23-publish-workflow-guard.test.ts` (`.reason` fields from `checkRepoOwnerGuard`/
+`checkPublishOrdering`, two of which reference the file's own `OWNER_REPO` constant via
+template literal rather than a hardcoded string — matching the file's existing convention of
+deriving expected values from the same source the code under test reads, never weakened to
+partial matching). `fit-46-publish-sequence-integrity.test.ts` had zero pre-existing
+`toContain` sites — nothing to convert there.
+
+**No dynamic-segment exceptions needed.** Every converted message was either a fully
+deterministic string (fixture content is test-authored, not runtime-random) or, for the two
+fit-23 `.reason` assertions whose expected text embeds `OWNER_REPO`, resolved by referencing
+the SAME constant the assertion's own file already imports — the file's own established
+convention for composed/parameterised expected values (see e.g. the primitives-loop pattern
+already in `fit-42-*.negative.test.ts`), not a new pattern and not a weakening.
+
+**Remaining `toContain` sites (14, left alone, not tripwire messages)**: array-membership
+checks (`paths.toContain(...)`, `.nodes.not.toContain(...)`, `targets.map(...).toContain(...)`),
+raw source/manifest-content checks (`authoringError.toContain(...)`, `source.toContain(...)`,
+`manifestRaw.not.toContain(...)`), and one workflow-YAML command-line content check
+(`line.toContain("npm publish")`). None of these assert a rendered violation or guard-
+failure message — REQ-CST-06.1 governs message assertions, not membership/content checks —
+and the standing scan (below) is specifically built to leave them alone.
+
+**Standing scan**: `FIT-42N S-001 — REQ-CST-06.1: standing scan — no toContain on a tripwire
+message` (new describe block, end of `fit-42-runner-closure-integrity.negative.test.ts`).
+Regex-based over each scanned file's raw source text (`expect(RECEIVER).toContain(` /
+`.not.toContain(`), classifying RECEIVER as a "tripwire message" iff it matches
+`\b(rendered|stderr)\b|\.reason\b|\.message\b` — the family's own established naming
+convention for rendered/guard-failure text. One test per scanned file
+(`test/fitness/fit-42-runner-closure-integrity.{test,negative.test}.ts`,
+`fit-23-publish-workflow-guard.test.ts`, `fit-46-publish-sequence-integrity.test.ts`) — 4
+tests, all currently green (zero message-receiver `toContain` remains anywhere in the
+family). Plus a red-proof (`REQ-CST-06.1 [red-proof]: the scan itself catches a planted
+toContain on a message receiver`) proving the scan actually fires, and a false-positive
+guard (`the scan does NOT flag legitimate non-message toContain`) proving it leaves the 14
+array/content checks alone. **Self-scan gotcha found and fixed**: the scan's own red-proof
+and false-positive-guard tests originally spelled the literal banned syntax
+(`expect(rendered).toContain(...)`) as PLAIN STRING DATA inside their own fixture arrays —
+since the scan reads `fit-42-runner-closure-integrity.negative.test.ts`'s raw source text
+and that file is itself in `SCANNED_FILES`, it flagged its own test data as offending code.
+Fixed by building the banned token via string concatenation (`const CALL =
+["toCon","tain"].join("")`) in the fixture data, and by changing the offender-report string
+format to never spell `expect(` immediately followed by `.toContain(` as one literal
+substring — both are test-authoring devices to avoid self-matching, not a weakening of what
+the scan actually detects at runtime.
+
+### Doc-drift reconciliation — design.md re-pinned (owner-authorized, per slices.md Risks case (a))
+
+Added a dated reconciliation note in `design.md` §1 (right after the probe table) recording:
+`ADMITTED_GLOBALS` 22→21, `ADMITTED_MEMBER_PATHS` 28→30, both re-verified and root-caused to
+`git diff e6dcde2 HEAD -- src/core/context.ts src/core/wire.ts` showing exclusively
+JSDoc-comment-only edits (zero AST/surface change) — probe imprecision on these two specific
+numbers, not source drift (every other probe figure re-verified exact). Updated §3's Data
+Model code-comment counts (`22 today` → `21 today`, `28 today` → `30 today`) and §8's
+byte-neutrality gate value (`bf6c983c…a530` → `31cd5382…33fde`, with the supersession
+recorded, not the old value deleted) plus the Test Derivation table's citation (§6, REQ-CAP-06
+row). The re-pinned digest is the SAME value this slice's own `FIT-MANIFEST-BYTE-NEUTRAL` test
+already asserts (`scripts/capability-admission.ts`'s own commit); this pass makes design.md's
+prose agree with what already shipped, not the other way around. `specs/runner-integrity-
+manifest/spec.md`'s matching REQ-CAP-04.4/.6 scenario text still carries the stale 22/28 —
+flagged in the design.md note itself for the archive-time delta sync to correct.
+
+### REQ-CAP-01.3 clarification — recorded in design.md, judged at verify-final
+
+Added a dated note in `design.md` §1 (after the E1-E4 exclusion table) tracing why REQ-CAP-01.3
+("a computed member expression on a computed base... renders as unclassifiable-construct")
+has no dedicated test: the signed `SurfaceNodeKind` union (§3, pinned exact by REQ-CAP-01.4)
+has no slot for a bare computed-access node in VALUE position (never a callee) — `member-path`
+is explicitly non-computed by its own definition, `value-reference` requires a plain
+`Identifier`, and the other three kinds don't apply. The CALLEE-position variant of this shape
+(`a[b][c]()`) IS caught, but under REQ-CAP-03 (`constraint-4-undecidable-callee`), which is a
+different, already red-proven scenario (M2.1) — not REQ-CAP-01.3's own text, which is scoped
+to a construct no OTHER leg resolves. **Disposition given, not decided unilaterally**: NOT
+vacuously covered by totality (nothing is ever enumerated for this shape, so there is no
+present-but-unclassified case for `FIT-CAP-TOTALITY` to catch) — the scenario is
+unimplementable AS WRITTEN under the union this same design signed off on. Two ways to close
+it are named (a 6th `SurfaceNodeKind`, needing its own REQ-CAP-01.4 unfreeze; or retiring the
+scenario since D-1's own value-position-is-safe argument already covers the shape) — left for
+`sdd-verify --mode=final` to judge, not resolved silently here.
+
+### Gate re-confirmation at completion-pass close
+
+`bun run typecheck`: clean. Fresh `rm -rf dist && bun run build`:
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` (matches the re-pinned
+digest exactly). `bun test` (full suite): **2512 pass, 0 fail**, run twice for stability
+(the S-000-era note about occasional subprocess-contention flakiness in this sandbox still
+applies generically to the suite; both completion-pass runs were clean). Net new tests this
+pass: +6 (the standing-scan describe block: 4 per-file scans + 1 red-proof + 1
+false-positive-guard).
+
+### Commits (chronological, completion pass)
+
+7. `test(fitness): convert fit-42/fit-23 toContain message assertions to whole-verbatim`
+8. `test(fitness): add the standing scan forbidding toContain on tripwire messages`
+9. `docs(design): re-pin admitted-table counts and byte digest; add CAP-01.3 note`
+10. `docs(sdd): mark S-001.7 complete, record the completion pass`
+
+### Next recommended (superseded by the S-003 section below — S-001 passed verify in-loop)
+
+S-003 (`FIT-PATH-SPELLING-INVARIANCE`, `scripts/bundler-disjointness.ts`) per the Build Order
+— S-001 is now fully complete (10/10 tasks) and the standing anti-`toContain` scan is live on
+the shared `fit-42-*` files before S-003/S-004 touch them, as the Build Order requires.
+
+## Slice: S-003 — Resolution-Based Path Verdicts, bundler disjointness by resolved path
+
+**Status**: complete, 5/5 tasks. Covers REQ-PTH-01 (all 7 scenarios: .1-.5 red-proof, .6
+sibling positive, .7 red-proof). Lands on top of S-001's shape per the Build Order (batch 2,
+order 2b) — the standing anti-`toContain` scan (S-001.7) was already live on
+`fit-42-runner-closure-integrity.{test,negative.test}.ts` before this slice touched them;
+every new assertion below is whole-verbatim/structured-`toEqual` by construction, confirmed
+by re-running the scan (still 6/6 green, no new offenders).
+
+### Mechanism summary
+
+`scripts/bundler-disjointness.ts` (new): resolution-based disjointness, replacing
+`normaliseForComparison`'s string manipulation. Both the candidate bundler target and each
+closure path are resolved via `node:path`'s `posix.resolve` against a FIXED virtual anchor
+(`"/"`) — pure path algebra, no real filesystem access, anchor-invariant since both sides
+resolve against the same anchor. `--outdir` collides by directory-prefix containment;
+`-o`/`--outfile` collide by exact-path equality only. The flag/path grammar is a token-level
+classifier (`classifyToken`) trying every candidate reading of an ambiguous token: `--outdir`/
+`--outfile` with `=` or space separation, `-o` with space separation OR (new) zero-separator
+concatenation (`-oVALUE`) — the shape that let `-o` targets past the retired regex entirely.
+A recognised flag whose value contains `$` (shell-variable/undecidable), or an output-flag-
+shaped token (`-o`/`--out`-prefixed) that names no recognised spelling, is reported via the
+new `findUnclassifiableBundlerConstructs` — never silently treated as an ordinary string
+target, never silently ignored.
+
+`test/support/closure-integrity-checks.ts` re-exports from `scripts/bundler-disjointness.ts`
+(ADR-0081: placement, not timing — Constraint 1 still ships as a structural CI check,
+`fit-42`, never a loader-observed build tripwire; ADR-0075 untouched). `findBundlerTargets`/
+`findDisjointnessViolations`'s external signatures and return shapes are UNCHANGED from the
+retired implementation — every one of the 6 pre-existing tests exercising them
+(`REQ-BDI-01.1`'s extraction + 5 disjointness scenarios) passes unmodified against the new
+resolution-based internals, confirming the relocation preserved every already-correct verdict
+while additionally closing the 5 escapes.
+
+### Per-scenario red → green evidence
+
+| REQ-ID | Scenario | Fixture | Red evidence (genuineness) | Green evidence |
+|---|---|---|---|---|
+| PTH-01.1 [red-proof] | `--outdir .//dist/transport` still collides | `bundler-scripts/double-slash-dot.json` | Reproduced the RETIRED `normaliseForComparison`+`oldCollides` logic in a throwaway probe (deleted after use): for target `".//dist/transport"`, `oldCollides("--outdir", target, "dist/transport/runner.js")` → **false** — the retired mechanism's leading-`./`-strip does not touch a DOUBLE slash, so it never normalises this to the same string as a clean `dist/transport` target. Confirmed genuinely escaping. | `findDisjointnessViolations` reports exactly one violation, `colliding: "dist/transport/runner.js"` |
+| PTH-01.2 [red-proof] | `--outdir .` targets the total root | `bundler-scripts/total-root.json` | Same probe: `oldCollides("--outdir", ".", closurePath)` → **false** for both closure paths — the retired mechanism's length-1 trailing-slash-strip guard (`normalised.length > 1 &&...`) skips normalising `"."` itself, so it never resolves to the shared root prefix every closure path shares. | Resolves to `posix.resolve("/", ".")` = `"/"`; every closure path starts with `"/"` → 2 violations, one per closure path (both reported) |
+| PTH-01.3 [red-proof] | `-odist/transport/runner.js`, concatenated short form | `bundler-scripts/concatenated-short-form.json` | Ran the RETIRED extraction regex (`/(?:^|\s)(--outfile\|--outdir\|-o)[=\s]+(\S+)/g`, which requires a separator) against the fixture command directly: **0 targets extracted** — the flag was never even parsed, let alone compared. | New `classifyToken`'s `token.startsWith("-o") && token.length > 2` branch extracts `flag: "-o", target: "dist/transport/runner.js"`; `findDisjointnessViolations` reports the exact-match collision |
+| PTH-01.4 [red-proof] | `--outdir ../dist/transport`, relative-parent escape | `bundler-scripts/relative-parent.json` | Same probe: `oldCollides("--outdir", "../dist/transport", "dist/transport/runner.js")` → **false** — the retired mechanism never resolves `..` at all, so the literal string `"../dist/transport"` shares no prefix with `"dist/transport/runner.js"`. | `posix.resolve("/", "../dist/transport")` collapses the parent traversal (clamped at the virtual root) to `"/dist/transport"`, identical to a clean target — collision correctly reported |
+| PTH-01.5 [red-proof] | `--outdir=$VAR`, undecidable at build time | `bundler-scripts/undecidable-var.json` | The retired mechanism had no "unclassifiable" concept at all — the old regex would have extracted `target: "$VAR"` and silently compared it as an ordinary (always-non-colliding) string, never surfacing the undecidability. Confirmed via the same probe. | `findBundlerTargets` returns `[]` (never silently treated as a target); `findUnclassifiableBundlerConstructs` returns `[{script: "leak", token: "--outdir=$VAR"}]` |
+| PTH-01.6 | Real `package.json#scripts` + real closure — non-vacuity sibling | Real tree (`fit-42-runner-closure-integrity.test.ts`) | n/a (positive path) — pre-existing `REQ-BDI-01.1` test already covered this fixture; re-labelled `REQ-BDI-01.1 / REQ-PTH-01.6` and extended with an explicit `findUnclassifiableBundlerConstructs(scripts)` → `[]` assertion | Passes unmodified against the new mechanism; `dist/bin/pbuilder-codegen.js` still correctly judged outside the closure |
+| PTH-01.7 [red-proof] | `--out-dir ./dist/transport`, unrecognised output-flag-shaped token | `bundler-scripts/unrecognized-flag-shape.json` | No retired-mechanism equivalent exists (the concept is new). Genuineness argument instead: `findBundlerTargets` returns `[]` (never silently misread as `--outdir`), a companion test proves an ordinary non-output flag (`--minify`) is correctly left OUT of `findUnclassifiableBundlerConstructs` — proving the classifier discriminates shape, not merely flags every unrecognised token | `findUnclassifiableBundlerConstructs` returns `[{script: "leak", token: "--out-dir"}]` |
+| PTH-01 (FIT-PATH-SPELLING-INVARIANCE) | Cross-product enumerator agrees with an independent ground-truth oracle | Generated: 3 flags × 9 path spellings × 2 closure paths | Own-mutation red-proof: temporarily replaced `resolveAgainstAnchor`'s body with an identity function (`return path;`, bypassing `posix.resolve` entirely) — the fitness function immediately reported **8 concrete disagreements** naming the exact flag/target/closurePath triples where production and the independent `posix.relative`-based oracle diverged. Confirmed non-vacuous, then reverted (verified byte-identical to the pre-mutation file). | All 54 generated combinations agree; a companion test proves the oracle itself is discriminating (a non-colliding pair is correctly judged `false`, not vacuously `true`) |
+
+### Fixture corpus (S-003.4)
+
+`test/fixtures/red/runner-tripwires/bundler-scripts/` — 6 red fixtures (5 original + 1 for
+the PTH-01.7 iteration-1 amendment, which landed after S-003.4's task text was originally
+written — same pattern as S-001's own amendment-coverage additions) + 1 green sibling
+(`green-outside-closure.json`), each a committed `{scriptName: command}` JSON file.
+Readdir-enumerated completeness check asserts the on-disk set matches the declared 7-file
+class-ID list in both directions. `mutants/`-style budget line item not separately realised
+here either (same disposition as S-001.6's own note: the widening/mutation red-proof above
+used an in-code mutation, not a committed mutant file).
+
+### Byte-neutrality (REQ-CAP-06, carried forward)
+
+`scripts/bundler-disjointness.ts` and its test-file consumers touch no `src/**` file.
+Confirmed via the B6 procedure (fresh `rm -rf dist && bun run build`) at slice close:
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` — unchanged from S-001's
+close, exactly as expected for a slice with zero `src/` diff.
+
+### Gate re-confirmation at slice close
+
+`bun run typecheck`: clean. Fresh-build byte-neutrality: confirmed above. `bun test` (full
+suite): **2523 pass, 0 fail**, run twice for stability. Net new tests this slice: +11
+(5 escaping-spelling red-proofs, 1 unrecognised-flag-shape red-proof + 1 scope-limit sibling,
+1 corpus-completeness check, 1 PTH-01.6 non-vacuity assertion folded into the existing
+`REQ-BDI-01.1` test, 2 `FIT-PATH-SPELLING-INVARIANCE` tests). `fit-42-*` combined:
+188 → 199 tests.
+
+### Commits (chronological, S-003)
+
+11. `feat(bundler-disjointness): resolution-based verdicts replace string normalisation`
+12. `test(fitness): add REQ-PTH-01 red-proofs and the bundler-scripts fixture corpus`
+13. `test(fitness): add FIT-PATH-SPELLING-INVARIANCE fitness function`
+14. `docs(sdd): mark S-003 complete, record the S-003 apply-progress section`
+
+### Next recommended (superseded by the S-004 section below — S-003 passed verify in-loop)
+
+S-004 (`FIT-FAILCLOSED-BICONDITIONAL`, `generate-runner-manifest.ts`'s single fail-closed
+boundary + the DGN-01.3/.4 rule-identity totality check) per the Build Order — S-003 is
+complete and lands its own diff on top of S-001's shape in the shared `fit-42-*.test.ts`
+file, as batch 2's sequential ordering (2a→2b→2c) requires.
+
+## Slice: S-004 — Fail-Closed Generation & Diagnostic/Locale Honesty
+
+**Status**: complete, 8/8 tasks. Covers REQ-FCG-01 (all 5 scenarios), REQ-DGN-01 (.1, .3, .4),
+REQ-RMD-05.1 [MODIFIED], REQ-RMD-01.2 [MODIFIED]. Lands last within batch 2 (order 2c) — the
+standing anti-`toContain` scan and S-001/S-003's fixture corpora were already live before
+this slice's first commit; every new assertion below is whole-verbatim/structured-`toEqual`
+by construction, confirmed by re-running the scan (still green throughout).
+
+### Mechanism summary
+
+`scripts/generate-runner-manifest.ts` rewritten around ONE fail-closed boundary: the entire
+generation flow now runs inside a `generate()` function whose every throw — a deliberately-
+tagged `GenerationFailure`, an uncaught `JSON.parse` error on malformed `package.json`, or any
+unanticipated exception — propagates to a single outer `catch` that unconditionally removes
+both the final manifest path and a new `.tmp` write-path before exiting non-zero. This closes
+a REAL, confirmed bug (R2-4): the old code's cleanup was only reachable from explicitly
+enumerated call sites, so an uncaught `JSON.parse` throw on malformed `package.json` left a
+pre-existing stale manifest behind, plausible-looking, never proven false. The manifest write
+is now write-temp-then-rename (`writeFileSync` to `<path>.tmp`, then an atomic `renameSync`) —
+the real path is never observed partially written. A `package.json#version` failure now
+reports its own `manifest-version-invalid` `ViolationRule` (REQ-DGN-01.1) instead of the
+previous, false `unreadable-file` — the file WAS read; its content is structurally invalid.
+`VIOLATION_RULES` grows to 12 members.
+
+`REQ-RMD-05.1`'s username-path-segment check is extracted from an inline positive-file
+assertion into a reusable `findUsernamePathSegmentViolations`, giving it a negative-file
+red-proof for the first time. `REQ-RMD-01.2`'s retired `LC_ALL` child-process comparison
+(explicitly named as satisfied-in-intent-only in the signed spec — Bun's default collator
+resolves `en-US` regardless of locale env, so it could never fail its own mutation) is
+replaced with a structural source scan (`findLocaleSensitiveApiUsage`) over the generator's
+REAL transitive closure, discovered via `readSpecifiers`' own relative-import following
+rather than a hand-maintained file list.
+
+### Per-scenario red → green evidence
+
+| REQ-ID | Scenario | Red evidence (genuineness) | Green evidence |
+|---|---|---|---|
+| FCG-01.1 [red-proof] | Malformed `package.json` fails closed, removing a pre-existing manifest — R2-4 | Temporarily restored the pre-S-004 `generate-runner-manifest.ts` (from git history) and re-ran this exact test: **the stale pre-seeded manifest survived** (`existsSync` → `true` where the fix asserts `false`) — confirming R2-4 was a real, live bug, not a strawman | Fixed generator: `existsSync(manifestPathIn(root))` → `false`, `result.status !== 0` |
+| FCG-01.2 [red-proof] | Mid-derivation unreadable closure file leaves no manifest, atomically — R1-6 | This path was ALREADY correctly handled by `deriveRunnerClosure`'s own internal catch pre-S-004 (not a new fix); the NEW evidence this slice adds is the write-temp-then-rename atomicity guarantee, checked directly (`<manifest>.tmp` also does not survive) | Fails closed; both the final path and the temp path are absent |
+| FCG-01.3 [red-proof] | An unrouted throw still fails closed — R1-5 | Fixture: `package.json` set to the JSON value `null` — valid JSON (distinct from FCG-01.1's malformed-JSON fault; `JSON.parse` does not throw), but `.version` access on `null` throws `TypeError`, never explicitly named by any check. Same before/after comparison as FCG-01.1: the pre-S-004 generator left the pre-seeded manifest behind; the fix removes it | Fails closed; stderr's deterministic prefix confirms the unrouted-error branch fired |
+| FCG-01.4 [red-proof] | Fail-closed biconditional over ≥3 fault kinds, pre-seeded root, each asserted independently | Same 3 fixtures run in a loop against fresh pre-seeded copies, each assertion carrying its own descriptive failure message naming which fixture/kind failed if any did | All 3 independently confirmed: exit≠0, no manifest, in every case |
+| FCG-01.5 | Success yields a manifest — the biconditional's other direction | n/a (positive path) | `preSeededRoot()`'s own seeding step is exactly this scenario — manifest exists after a clean run |
+| DGN-01.1 [red-proof] | Version-validation failure gets its own rule — R2-3 | Pre-existing `REQ-RME-07.1` stderr test failed immediately after the rewrite landed (rule name changed, exactly as intended) — updated the whole-verbatim expectation to the new `manifest-version-invalid` rendering | Passes with the corrected rule name and rendered body |
+| RMD-05.1.1 | `runner.js` is not a false positive | n/a (positive path); pre-existing inline check extracted to a named function | `findUsernamePathSegmentViolations(["dist/bin/pbuilder-runner.js"], "runner")` → `[]` |
+| RMD-05.1.2 [red-proof] | A genuine `dist/runner/notes.js` segment is caught | New test against the extracted function, using the exact mutant path REQ-RMD-05.1.2 names | `findUsernamePathSegmentViolations([...], "runner")` → `["dist/runner/notes.js"]` |
+| RMD-01.2.1 | No locale-sensitive API in the generator + transitive helpers | Non-vacuity: asserted the transitive walk reaches exactly the 3 real files (`generate-runner-manifest.ts`, `derive-runner-closure.ts`, `capability-admission.ts`) before asserting zero findings — proving the scan isn't vacuously scanning nothing | `findLocaleSensitiveApiUsage(files)` → `[]` over the real transitive closure |
+| RMD-01.2.2 [red-proof] ×2 | A planted `.localeCompare()` / `Intl.Collator`/`toLocale{Upper,Lower}Case` call is caught | Planted each of the four named API spellings in synthetic source text | Each finding correctly named with file/line/api |
+| DGN-01.3 | Rule-identity totality over the fixture corpus | Standing check run against the real `deny-scan/` corpus (10 fixtures) + `fail-closed/`'s one violation-producing fault, via the REAL mechanism (not simulated) | Zero mismatches — every fixture's produced rule matches its declared rule |
+| DGN-01.4 [red-proof] ×2 | Rule-swap / misattribution mutant is caught | **Genuine defect found and fixed while building this check** — see below | Both mutation shapes (swap, single misattribution) correctly named after the fix |
+
+### Bug found and fixed while building DGN-01.3/.4 (verified, not assumed)
+
+The first implementation of `ruleIdentityTotalityMismatches` compared only the AGGREGATE
+rule-VALUE multiset (`declared.map(rule).sort()` vs `produced.map(rule).sort()`), discarding
+fixture identity — matching a literal reading of "exact multiset equality." Running the
+DGN-01.4(a) red-proof (a `RULE_BODIES`-renderer-swap shape: fixture A's and B's produced
+rules swapped with each other) against this version returned **zero mismatches** — a swap
+between two fixtures leaves each rule's aggregate COUNT unchanged, so a bare-value multiset
+comparison cannot see it at all. This is exactly the failure mode the requirement's own
+acceptance criterion ("naming the mismatched fixture and the declared-vs-produced pair") is
+designed to catch, so a check that provably cannot catch it does not satisfy the requirement,
+regardless of how literally it matches the word "multiset." Fixed by comparing `{fixture,
+rule}` PAIRS exhaustively over the whole corpus (never a per-fixture SAMPLE, which is the
+reading of "never a per-fixture spot check" that remains consistent with DGN-01.4(a)'s own
+acceptance bar) — re-ran both red-proofs after the fix and confirmed both now correctly name
+the mismatched fixture(s).
+
+### Fixture corpus (S-004.4)
+
+`test/fixtures/red/runner-tripwires/fail-closed/` — 3 committed fault-injection descriptors
+(JSON recipes: `packageJsonContent` override or `chmodClosureFile` name), readdir-enumerated,
+reused by both the individual FCG-01.1-.3 red-proofs and the FCG-01.4 biconditional loop.
+
+### Scope note: DGN-01.3/.4 excludes `bundler-scripts/`
+
+`bundler-scripts/`'s violations (`DisjointnessViolation`, `UnclassifiableBundlerConstruct`)
+are a structurally separate type from `Violation`/`ViolationRule` — Constraint 1 is a
+CI-only structural check (ADR-0081) that never runs inside `generate-runner-manifest.ts`'s
+own violation system, so it never carries a `ViolationRule` to begin with. Excluded from the
+rule-identity totality corpus by construction, not by oversight — documented inline in the
+test file.
+
+### Deleted, not silently: the retired `LC_ALL` test
+
+`test/fitness/fit-42-runner-closure-integrity.test.ts`'s old "runs under `LC_ALL=C` and
+`LC_ALL=tr_TR.UTF-8`" test is DELETED, not merely deprecated — its own comment already
+admitted it "could never fail its own mutation" (the exact retirement rationale the signed
+spec states verbatim, ruling 7). Keeping a test that even its own author's comment concedes
+is vacuous would be theatre; the replacement (`RMD-01.2.1`/`.2`) is a structural scan that
+demonstrably CAN fail, verified above.
+
+### Byte-neutrality (REQ-CAP-06, carried forward)
+
+`scripts/generate-runner-manifest.ts` is a build-tooling file, not `src/**` — the change is
+in-scope for this slice per REQ-FCG-01/DGN-01.1 and does not touch anything the manifest
+hashes. Confirmed via the B6 procedure (fresh `rm -rf dist && bun run build`) at slice close:
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` — unchanged from S-001/
+S-003's close.
+
+### Gate re-confirmation at slice close
+
+`bun run typecheck`: clean. Fresh-build byte-neutrality: confirmed above. `bun test` (full
+suite): **2536 pass, 0 fail**, run twice for stability. Net new tests this slice: +33 relative
+to S-003's close (`fit-42-*` combined: 199 → 212 includes S-003's own net; full delta from
+this slice's start: FCG-01 family ×9, RMD-05.1 ×2, RMD-01.2 ×3 (net, one old test deleted),
+DGN-01.3/.4 ×4, plus the DGN-01.1 rule-name update to an existing test).
+
+### Commits (chronological, S-004)
+
+15. `feat(generate-runner-manifest): single fail-closed boundary, write-temp-then-rename`
+16. `test(fitness): RMD-05.1 path-segment scan extraction + RMD-01.2 structural locale scan`
+17. `test(fitness): add FIT-FAILCLOSED-BICONDITIONAL and the fail-closed/ fixture corpus`
+18. `test(fitness): add the DGN-01.3/.4 standing rule-identity totality check`
+19. `docs(sdd): mark S-004 complete, record the S-004 apply-progress section`
+
+### S-004 verify-in-loop-5 carryover (non-blocking WARNING, folded in before S-002)
+
+verify-in-loop-5 (PASS, one non-blocking WARNING): the FCG-01.3 red-proof's unrouted-error
+stderr assertion pinned only the deterministic PREFIX (`startsWith`) around the inherently
+non-deterministic `error.stack` fragment; a deterministic SUFFIX (`"\n\nNo manifest was
+written; dist/runner-manifest.json does not exist.\n"`) was also assertable and had been left
+unpinned. Cheap to fold in immediately: added the matching `endsWith` check alongside the
+existing `startsWith` one. Commit `44c537f`.
+
+### Next recommended (superseded by the S-002 section below)
+
+Batch 2 (S-001→S-003→S-004) is now complete. Per the Build Order, S-002 (`REQ-XPO-01`,
+requires S-001's origin admission + register) is next — batch 3, the only remaining
+mechanism slice besides S-005 (docs, last per SC-4).
+
+## Slice: S-002 — Exemption Proof Obligation (createRequire anchor)
+
+**Status**: complete, 6/7 tasks (S-002.3 deliberately deferred to archive time — see below).
+Covers REQ-XPO-01 (.1 through .5). Lands last within the mechanism batches, requiring S-001's
+`closure-import` origin leg and the capability-admission register. The standing anti-
+`toContain` scan and all prior fixture corpora were already live; every new assertion in this
+slice is whole-verbatim/structured-`toEqual`/exact-equality by construction (re-run of the
+6-test standing scan, still green throughout).
+
+### Mechanism summary
+
+REQ-XPO-01 formalises "a proof ON THE FILE, forfeit on any other arrangement" — S-001 had
+ported only the minimal happy-path (single unaliased `createRequire` binding at the anchor,
+resolve-only use exempt). This slice closes the three arrangements S-001 left open, each a
+REAL, verified gap rather than a documentation-only addition:
+
+1. **Aliasing must forfeit the exemption entirely (XPO-01.3)** — S-001's `buildFileContext`
+   granted the exemption keyed on whatever LOCAL name the single `createRequire` binding used,
+   aliased or not, so a resolve-only-SHAPED use through an alias was silently admitted exactly
+   like the canonical name — contradicting this slice's own acceptance criterion. Fixed by
+   granting `exemption` only when the named-import form's local binding name is the literal
+   `createRequire`; an aliased name gets no `ExemptionProof` at all, so every use of it —
+   resolve-shaped or not — falls through to ordinary origin classification, which denies
+   `createRequire` unconditionally off `node:module` (its admitted-name set there is empty by
+   design). The namespace form has no canonical name to alias against and is unaffected.
+2. **Re-export laundering must not bypass the register (XPO-01.4/M1.12)** — `classifyOrigin`'s
+   closure-import branch admitted ANY non-`node:` relative specifier unconditionally (S-001's
+   own "closure-imports are inherently admitted" shortcut). `export { createRequire } from
+   "node:module"` re-exported through an intermediate closure file, then imported by a second
+   file and called, bypassed the entire register: the second file's origin was a RELATIVE
+   specifier, never itself `node:`-prefixed, so it was admitted before the register ever saw
+   `createRequire`. Fixed by denying a closure-import whose `importedName` is itself a
+   `DENIED_CAPABILITY_PRIMITIVES` member, regardless of the specifier's own `node:`-ness — the
+   exemption is a proof on the ANCHOR FILE specifically, never a predicate that follows a name
+   through however many re-exports launder it.
+3. **Anchor drift must be independently checked (XPO-01.5/M1.13)** — `isAnchorFile` can only
+   ever be `true` for a node the real walk actually reached, so an exemption whose anchor has
+   silently dropped OUT of the closure (e.g. a future refactor removing the import edge that
+   reaches it) can never be caught from WITHIN a single real walk — nothing would verify the
+   exemption's own precondition. Added `findAnchorDriftViolations` (new export,
+   `derive-runner-closure.ts`) as an independent, POST-WALK-only check, wired ONLY into
+   `generate-runner-manifest.ts`'s real `generate()` — never into `deriveRunnerClosure` itself,
+   which every synthetic fixture in both fit-42 test files calls with an unrelated entry file
+   and would otherwise spuriously fail this check on every single one of them.
+
+### Per-scenario red → green evidence
+
+| REQ-ID | Scenario | Red evidence (genuineness) | Green evidence |
+|---|---|---|---|
+| XPO-01.1 | Named-import anchor, resolve-only, exempt | n/a (positive path; S-001's existing mechanism, explicit REQ-XPO-01.1 citation added) | `classifiedAs(root, anchor)` → `[]` |
+| XPO-01.2 | Namespace-form anchor, resolve-only, now green — closes R2-5 | n/a (positive path; S-001's existing `isResolveOnlyUse` namespace branch + `createRequireBindingsIn`'s namespace collection, explicit REQ-XPO-01.2 citation added). Landed in the same commit as red-proof #12 (`"REQ-CST-04.4: the namespace form is caught"`, untouched, at its original location) staying green — the DR-6 hazard this slice's own S-002.4 task names | `classifiedAs(root, anchor)` → `[]`; #12 unchanged, still denies the non-anchor namespace-call shape |
+| XPO-01.3 [red-proof] | An aliased `createRequire` binding forfeits the exemption entirely — both a resolve-shaped and an execute-shaped use through the alias are denied | Ran red against S-001's code: 1 violation (only the execute-shaped use), not the expected 2 — the resolve-shaped use through the alias was silently admitted, confirming the gap named above | Fixed `buildFileContext`: exactly 2 violations, both `constraint-4-inadmissible-origin` |
+| XPO-01.4 [red-proof] | A `createRequire` re-exported through a closure file, then imported and called by a second file, is still denied (M1.12) | `git stash`-restored the pre-fix `capability-admission.ts` and re-ran this exact test: **0 violations where 1 was expected** — proving the laundering hole was real, not a strawman; restored the fix, re-ran, green | Fixed `classifyOrigin`: `[{ rule: "constraint-4-inadmissible-origin", file: "entry.js" }]` |
+| XPO-01.4 (sibling) | The re-exporting file itself, with an unused import binding, reports zero violations | n/a (sibling positive — a bare unused import is a value-reference, never a callee, D-1/D-3) | `classifiedAs(root)` → `[]` |
+| XPO-01.5 [red-proof] | A derived closure omitting the anchor file is flagged by name | New function (`findAnchorDriftViolations`) tested directly against a constructed node list; there is no "before" state to compare against since the function is new this slice | `findAnchorDriftViolations(nodesWithoutAnchor, anchor)` → one violation naming the anchor path |
+| XPO-01.5 (sibling) | A derived closure that DOES include the anchor reports zero drift | n/a (sibling positive) | `findAnchorDriftViolations(nodesWithAnchor, anchor)` → `[]` |
+| XPO-01.5 (non-vacuity) | The REAL runner closure includes the anchor file — the check has something genuine to verify, not just synthetic fixtures | Fresh `rm -rf dist && bun run build` after wiring `findAnchorDriftViolations` into `generate()`: build succeeded, proving the real anchor file is genuinely a member of the real derived closure | `deriveRunnerClosure`'s real-build nodes `toContain` the anchor; `findAnchorDriftViolations` on them → `[]` |
+
+### S-002.5: threshold-to-exact tightening
+
+Two pre-existing `toBeGreaterThanOrEqual` assertions (the S-001 aliasing/decoy forfeiture
+red-proofs, `"an ALIASED createRequire import... forfeits the exemption entirely"` and
+`"an unaliased decoy alongside an aliased import does not buy the alias an exemption"`) were
+threshold assertions on a fully deterministic count — tightened to `.toBe(2)` and `.toBe(1)`
+respectively, matching design.md's own exact-counts-never-thresholds rule (line 376).
+
+### S-002.6: behavioural-survival of the remaining 10 S-000-tier red-proofs
+
+Per the 2026-07-29 plan-verify final batch amendment's corrected count (7 specifier-
+classification-block items, untouched since S-000, + 3 deny-scan-remainder items — `REQ-CST-
+03.1`/`.2`, `REQ-CST-06.1` — not already claimed by S-001.8): all 10 verified still passing,
+unmodified, as part of the full 220-test fit-42 combined run at this slice's close. None of
+S-001/S-003/S-004/S-002's code changes touch the specifier-classification leg these red-proofs
+exercise.
+
+### S-002.3: anchor-site code comment — deferred to archive time, not skipped
+
+The task text ("an explicit code comment at the anchor site cross-referencing REQ-CST-04.4 and
+REQ-XPO-01.2") implies editing `src/transport/single-instance-probe.ts`. Verified via
+`tsconfig.build.json`/`tsconfig.json`: neither sets `removeComments` (TypeScript's own default
+is `false`, comments preserved in emit) — so any such edit changes
+`dist/transport/single-instance-probe.js`'s bytes, breaking this slice's own non-negotiable
+REQ-CAP-06 byte-neutrality gate. `design.md` line 427 independently and explicitly classifies
+this exact item as an "archive-time obligation, not a design blocker" (grouped alongside two
+other archive-deferred items: a tech-writer pass on REQ-CST-04.1's rationale and REQ-CAP-02.2's
+scenario title). Deferring here matches the design's own authoritative classification rather
+than silently skipping the task or breaking byte-neutrality to force it in. No code or test
+work is outstanding from this deferral.
+
+### Byte-neutrality (REQ-CAP-06, carried forward)
+
+`scripts/capability-admission.ts` and `scripts/derive-runner-closure.ts` are build-tooling
+files, not `src/**` — in-scope per REQ-XPO-01 and untouched by the manifest's own hashed
+contents. Confirmed via the established procedure (fresh `rm -rf dist && bun run build`) at
+slice close: `31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` — unchanged
+from S-001/S-003/S-004's close. The build succeeding is itself evidence for XPO-01.5's
+non-vacuity claim (above): the real anchor file survived `findAnchorDriftViolations`'s new
+check without the build needing to fail.
+
+### Gate re-confirmation at slice close
+
+`bun run typecheck`: clean. Fresh-build byte-neutrality: confirmed above. Standing anti-
+`toContain` scan: 6/6 pass. `bun test` (full suite): **2545 pass, 0 fail**, run twice for
+stability. `fit-42-*` combined: 212 (S-004 close) → 220 at this slice's close (net +8: XPO-01.1,
+.2, .3, .4×2, .5×3).
+
+### Commits (chronological, S-002)
+
+20. `test(fitness): strengthen the unrouted-error stderr assertion with a suffix pin` (S-004
+    verify-in-loop-5 carryover, `44c537f`, folded in before S-002 proper)
+21. `fix(capability-admission): close two REQ-XPO-01 exemption gaps` (aliasing forfeiture
+    XPO-01.3 + re-export laundering XPO-01.4)
+22. `feat(derive-runner-closure): add findAnchorDriftViolations for anchor-drift detection`
+    (XPO-01.5, wired into the real build)
+23. `test(fitness): add the REQ-XPO-01 exemption-proof-obligation scenarios` (XPO-01.1-.5
+    coverage + the S-002.5 exact-equality tightening)
+24. `docs(sdd): mark S-002 complete, record the S-002 apply-progress section`
+
+### Next recommended (superseded by the S-005 section below)
+
+Batch 3 (S-002) is now complete. Per the Build Order, S-005 (docs, SC-4) is the only remaining
+slice.
+
+## Slice: S-005 — Documentation Counts Derived From Live Derivation
+
+**Status**: complete, 3/3 tasks. Covers REQ-DLV-01 (.1, .2 [red-proof]) plus the non-REQ-tied
+S-005.3 doc-fidelity task. Last slice per the Build Order (SC-4: docs land after every
+enforcement slice). `test/docs/runner-integrity-docs.test.ts` is a pre-existing permanent
+fixture belonging to an already-archived change (`archive/2026-07-25-runner-integrity-manifest`,
+REQ-IID-01..08 + REQ-BDI-01.2) — this slice EXTENDS it with a new REQ-DLV-01 describe block and
+does not touch any of its 23 pre-existing tests, all of which re-ran green throughout.
+
+### Mechanism summary
+
+R1-11's defect: `docs/runner-integrity-invariants.md` states the manifest's closure/file counts
+(23 closure files, 24 total manifest entries including `package.json`) as PROSE, and nothing in
+the test suite bound those numbers to the real, live closure size — a doc that drifted (e.g. the
+closure growing to 24 files) would go stale silently, with every pre-existing frozen-string test
+still passing (they check that specific WORDS exist verbatim, never that the embedded NUMBER is
+still correct).
+
+Added `findStaleCountClaims(markdown, closureFileCount)` to the doc test: a set of frozen PROSE
+templates (mirroring this file's own established frozen-string convention, e.g. `SCOPE_PULL_QUOTE`)
+with the NUMBER supplied by `deriveRunnerClosure`'s live `nodes.length` at test-run time, never as
+a literal in the test. Two independent families — TOTAL_ENTRY_CLAIMS (closureFileCount + 1) and
+CLOSURE_FILE_CLAIMS (closureFileCount) — cover every count-bearing sentence in the doc (7 template
+renders total). A mismatch reports the claim's label and the live value it should have matched,
+per REQ-DLV-01.2's own acceptance wording ("naming the mismatched count and the live value").
+
+S-005.3 separately fixes a real fidelity gap in Constraint 4's own prose (not a count, but an
+enumeration promise): the old text ("The same scan covers `eval`, `new Function`, `node:vm`,
+`Bun.plugin` and `process.binding`") named only 5 of the register's 11 actual members and used
+deny-scan-list framing ("the same scan covers") left over from before S-001 replaced `denyScan`
+with capability admission. Replaced with a default-DENY capability-admission framing naming the
+full, current 11-member register and the S-002 exemption-forfeiture rules (aliasing, re-export
+laundering, anchor drift) — the doc's enforcement promise now matches what `capability-admission.ts`
+actually enforces, exactly.
+
+### Per-scenario red → green evidence
+
+| REQ-ID | Scenario | Red evidence (genuineness) | Green evidence |
+|---|---|---|---|
+| DLV-01.1 (non-vacuity) | The live derivation yields a non-zero closure file count | n/a (precondition guard — the checks below are meaningless against a zero-sized closure) | `closureFileCount` (23) `> 0` |
+| DLV-01.1 | Every count claim in the doc matches the live derivation | n/a (positive path) | `findStaleCountClaims(doc(), 23)` → `[]` |
+| DLV-01.2 [red-proof] | A mutant total-entry count (`entry #24 because` → `entry #25 because`) is caught | The SAME function (`findStaleCountClaims`) that returns `[]` on the real doc returns exactly ONE mismatch on this mutant — not zero (proving the function discriminates, not vacuous) and not more than one (proving the mutation didn't collaterally break an unrelated claim) | `[{ label: "\`entry #N because\` heading justification", liveValue: 24 }]` |
+| DLV-01.2 [red-proof] | A mutant closure-file count (`23 closure files plus` → `22 closure files plus`) is caught | Same discrimination proof, independently, for the CLOSURE_FILE_CLAIMS family — shows both template arrays are live, not just one | `[{ label: "\`N closure files plus package.json\` pull-quote", liveValue: 23 }]` |
+| S-005.3 (non-REQ) | Constraint 4's enumeration promise matches enforcement exactly | n/a (doc-fidelity fix, not a Given/When/Then scenario — spec's own Open Item 3 classifies register-disposition-completeness as a PM/archive-gate document property, and this task's own wording mirrors that framing) | Full 11-member register named; re-ran REQ-IID-01's structural heading/`enforced-by` parsing tests, all still pass |
+
+### Byte-neutrality (REQ-CAP-06, carried forward)
+
+This slice touches only `docs/**` and `test/docs/**` — neither is part of the closure
+`deriveRunnerClosure` walks nor build tooling that feeds `dist/runner-manifest.json`. Confirmed
+via the established procedure (fresh `rm -rf dist && bun run build`) at slice close:
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` — unchanged from every prior
+slice's close, as expected for a docs-only change.
+
+### Gate re-confirmation at slice close
+
+`bun run typecheck`: clean. Fresh-build byte-neutrality: confirmed above. `bun test` (full
+suite): **2548 pass, 0 fail**, run twice for stability. `test/docs/runner-integrity-docs.test.ts`:
+23 (pre-existing) → 27 at this slice's close (net +4: non-vacuity, DLV-01.1 real match, DLV-01.2
+×2 red-proofs).
+
+### Commits (chronological, S-005)
+
+25. `docs(runner-integrity): describe capability admission, name the full register in Constraint 4`
+26. `test(docs): bind runner-integrity-invariants.md's counts to the live derivation (REQ-DLV-01)`
+27. `docs(sdd): mark S-005 complete, record the S-005 apply-progress section`
+
+### Next recommended
+
+All five mechanism slices (S-000 through S-005) are now complete per the Build Order. Per the
+Build Order's delivery-shape ruling (`main` requires PR + green required status check): S-000
+already shipped as its own PR; S-001..S-005 ship together on this branch (`feat/tripwire-mechanism`)
+as ONE PR at cycle close — the orchestrator's responsibility, not this slice's. Nothing left open
+in this slice; S-002.3 (the anchor-site code comment) remains its own, separately-tracked,
+deliberate archive-time obligation (see the S-002 section above) — not part of S-005's own scope,
+and not resolved by this slice's docs work.

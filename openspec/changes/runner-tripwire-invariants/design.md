@@ -26,6 +26,10 @@ Three legs, all decidable from **syntax alone** (no ts-morph type checker, no mo
 | Computed member accesses | 37, incl. `globalThis[registryKey]` | Drives D-1 below |
 | Module-scope reassignments | **3** | Drives D-2 below |
 
+**Digest/count reconciliation (owner-authorized re-pin, 2026-08-04, `sdd-apply` S-001 close, slices.md Risks case (a))** — closes the byte-neutrality gate's finding at S-001's implementation. Re-verified against `scripts/capability-admission.ts` on the `runner-tripwire-invariants` mechanism branch: **21 distinct free identifiers** (not 22) and **30 distinct member paths** (not 28). Root-caused, not assumed: `git diff e6dcde2 HEAD -- src/core/context.ts src/core/wire.ts` (the only two closure files with ANY diff between this probe's HEAD and the mechanism branch's base) shows exclusively JSDoc-comment-only edits — an unrelated template-placeholder-syntax doc fix (`{{name}}` → `{= .name =}` inside `@example` blocks), zero AST/identifier/member-path surface change. The count drift is this probe's own imprecision on these two specific numbers, not source drift: every other probe row above (423 call sites, 6 `node:` modules with exact matching names, 37 computed accesses, the 3 named reassignments) was independently re-verified and matches exactly. Cross-checked the two revised counts against direct `rg` scans of the real closure (no `Math`/`TypeError`/`RangeError`/`WeakMap`/`BigInt` in real non-comment code for the 21; exactly 8 distinct `process.*` paths, matching `ADMITTED_MEMBER_PATHS`' own subset one for one, for the 30). `ADMITTED_GLOBALS`/`ADMITTED_MEMBER_PATHS` are pinned to the verified 21/30 in `scripts/capability-admission.ts`; this table's "22"/"28" cells are prose history, left as originally probed rather than silently rewritten — the corrected counts are authoritative wherever this design conflicts with the shipped code. `specs/runner-integrity-manifest/spec.md`'s REQ-CAP-04.4/.6 scenario text ("22-member list", "28-member list") carries the same stale figures and needs the identical correction at archive-time delta sync.
+
+**Byte digest re-pin (same authorization, same date)** — REQ-CAP-06.1's pinned digest `bf6c983c59281eaf91ceefcb363375b52436808bbe74ee5241818f47eccfa530` (recorded at HEAD `e6dcde2`, §8 below) is likewise stale, same root cause: `src/core/context.ts`/`src/core/wire.ts`'s JSDoc-comment bytes moved between the probe and the mechanism branch's base, and REQ-RME-02 hashes raw file bytes, not semantics — a comment-only edit still moves a per-file sha256 and therefore the whole manifest's bytes. Verified via the B6 procedure (fresh `dist/` build → live closure walk → regenerate → sha256 compare) at the mechanism branch's base (S-000-complete HEAD, before any S-001 diff) and again after S-001's full diff: both produce `31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde`, byte-identical to each other — proving S-001's own diff is byte-neutral, which is the property this gate protects. The re-pinned digest is `31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde`, effective from the `runner-tripwire-invariants` mechanism branch's base onward; §8's "recorded at HEAD `e6dcde2`" value is superseded, not deleted (history of what the parent cycle actually shipped). Every later mechanism slice's own per-slice byte-neutrality gate (S-002/S-003/S-004) compares against THIS re-pinned value, not the original.
+
 ### Three design findings that the spec's own text resolves
 
 **D-1 — computed access is judged by POSITION, not by base.** `core/context.js:71` contains `globalThis[registryKey]` — structurally the same shape as confirmed live escape M2.1, `globalThis["ev"+"al"]("1+1")`. A rule "computed access on a capability root ⇒ violation" would flag the real closure, and byte-neutrality (REQ-CAP-06) forbids changing `src/`. The discriminator the spec already dictates: REQ-CAP-03 denies a call whose **callee** is not a statically resolvable binding. `globalThis[registryKey]` is *read into a value*, never a callee → admitted. `globalThis["ev"+"al"](…)` *is* the callee → violation, reported under the callee-decidability rule, "never a claim that the specific primitive `eval` was identified by name" (REQ-CAP-03.1, verbatim). One rule, both outcomes, zero false positives.
@@ -58,6 +62,42 @@ The distinction the whole property rests on: an **exclusion from the surface** a
 | E2 | Declaration *name* nodes | A binding site is not a reference | `const eval = …` still denied via E2's own rule |
 | E3 | Non-computed property *name* nodes | Re-attributed, not dropped: the enclosing `PropertyAccessExpression` is itself the surface node (this is how `process.binding` is caught) | `process.binding` fires as a member path |
 | E4 | Type-position identifiers | Erased by emit | — |
+
+**REQ-CAP-01.3 clarification note (owner-authorized, 2026-08-04, `sdd-apply` S-001 close, flagged
+for verify-final judgment)** — REQ-CAP-01.3's scenario names a construct "no admission leg
+(REQ-CAP-03/04/05) can resolve," worked example "a computed member expression on a computed
+base," and asks for it to render as `unclassifiable-construct`. Verified against the shipped
+`SurfaceNodeKind` union (§3's Data Model: `callee | value-reference | member-path |
+meta-property | module-specifier`) that this design itself pins by exact membership
+(REQ-CAP-01.4): **the union has no slot for a bare computed-access node used purely in VALUE
+position** (never as a callee). Traced through each of the five kinds — `member-path` is
+explicitly "non-computed" by its own SurfaceNode definition (§3); `value-reference` is a free
+`Identifier`, and a doubly-computed expression like `a[b][c]` is not an `Identifier`; the other
+three kinds do not apply to this shape at all. A doubly-computed access used AS A CALLEE (e.g.
+`a[b][c]()`) IS caught — `constraint-4-undecidable-callee`, via `resolveChain`'s "no
+`[...]` anywhere in the chain" rule — but that is REQ-CAP-03's property (a different, already-
+red-proven scenario: M2.1's `globalThis["ev"+"al"]`), not REQ-CAP-01.3's, which is scoped
+explicitly to a construct no OTHER leg resolves.
+
+**Disposition**: this is not vacuously covered by the union's totality proof — `FIT-CAP-TOTALITY`
+proves classified-count equals present-count for whatever IS enumerated, and a bare
+value-position computed-access node is never enumerated as any of the five kinds (by
+construction, correctly — `enumerateCapabilitySurface` only creates a `member-path`/
+`value-reference` node for a non-computed chain or a plain `Identifier`), so there is no
+"present but misclassified" case for totality to catch, and no "silently admitted" case
+either (nothing is ever produced that could BE admitted). Rather, REQ-CAP-01.3 as scenario-
+text describes a shape the signed `SurfaceNodeKind` union (this same design's own §3, pinned
+by REQ-CAP-01.4) structurally cannot present to the classifier at all in value position — the
+scenario is unimplementable AS WRITTEN under the union this design signed off on, not merely
+untested. Closing it would require either (a) a 6th `SurfaceNodeKind` for computed-access-in-
+value-position (a scope change to REQ-CAP-01.4's pinned five-member set, needing its own
+owner-authorized unfreeze), or (b) accepting that D-1's own resolution (§1 above: computed
+access read into a value, never a callee, is safe by construction — `globalThis[registryKey]`
+is the worked example) already makes a bare doubly-computed value-position access
+NON-capability-yielding by the same argument, in which case REQ-CAP-01.3's premise ("a
+construct that yields a capability but which no leg can resolve") does not describe a real
+case and the scenario should be retired at the next spec touch, not implemented. Recorded here
+for `sdd-verify --mode=final`'s judgment — not decided unilaterally by the implementer.
 
 ## 1b. Pattern Check
 
@@ -121,7 +161,7 @@ Zero `deviates` rows. The `test/support/` → `scripts/` relocation is a move *w
 // scripts/capability-admission.ts
 
 /** Admitted global bindings — fully-qualified single names, never prefixes or wildcards. */
-export const ADMITTED_GLOBALS: ReadonlySet<string>;      // pinned by exact count (22 today)
+export const ADMITTED_GLOBALS: ReadonlySet<string>;      // pinned by exact count (21 today — re-verified 2026-08-04, §1's dated reconciliation note)
 
 /** Admitted `node:` module surfaces — per module, the admitted named exports. */
 export const ADMITTED_NODE_SURFACES: ReadonlyMap<string, ReadonlySet<string>>;  // 6 modules today
@@ -132,7 +172,7 @@ export const ADMITTED_NODE_SURFACES: ReadonlyMap<string, ReadonlySet<string>>;  
  * property" gap (plan-verify iteration-2, finding A; REQ-CAP-04.6-.8). A member path off an
  * admitted root that is NOT in this table (e.g. `process.dlopen`) is a violation by default.
  */
-export const ADMITTED_MEMBER_PATHS: ReadonlySet<string>;  // pinned by exact count (28 today, this file's §1 probe)
+export const ADMITTED_MEMBER_PATHS: ReadonlySet<string>;  // pinned by exact count (30 today — re-verified 2026-08-04, §1's dated reconciliation note; supersedes the original §1 probe's 28)
 // Depth ≥2 note (2026-07-29, plan-verify iteration-3 finding A2): entries are FULL recorded
 // paths at any depth (the real closure carries e.g. `process.stdout.write.bind`, depth 3);
 // admission is exact full-path membership, never prefix-inherited — "one level down" above
@@ -292,7 +332,7 @@ Every one of the 22 signed REQ-IDs appears; each row names its scenarios explici
 | REQ-CAP-03 | .1 [red] M2.1, .2 [red] M2.2, .3 (sibling +) | unit | `fit-42-*.negative.test.ts` + `fixtures/red/runner-tripwires/{deny-scan,green}/` | build |
 | REQ-CAP-04 | .1 [red] `node:child_process`, .2 (sibling +, six-member baseline), .3 [red] R1-15, .4 (admitted tables exact-membership), .5 [red] table widening, .6 (member-path table exact-membership, plan-verify iteration-2), .7 [red] `process.dlopen` (plan-verify iteration-2), .8 [red] member-path table widening (plan-verify iteration-2) | unit | `fit-42-*.negative.test.ts` + `deny-scan/` | build |
 | REQ-CAP-05 | .1 (`instanceof`, R1-17), .2 [red] `const F = Function` (SC-2), .3 (`typeof`) | unit | `fit-42-*.negative.test.ts` + `green/` | build |
-| REQ-CAP-06 | .1 [red] byte-identical manifest | architectural | `fit-42-*.test.ts` (FIT-MANIFEST-BYTE-NEUTRAL) + slice gate vs `bf6c983c…a530` | build |
+| REQ-CAP-06 | .1 [red] byte-identical manifest | architectural | `fit-42-*.test.ts` (FIT-MANIFEST-BYTE-NEUTRAL) + slice gate vs `31cd5382…33fde` (re-pinned 2026-08-04, §1's dated note — was `bf6c983c…a530`) | build |
 | REQ-PRM-01 | .1 (exact 11-member set), .2 [red] unfixtured member (M2.10/M6.2) | unit | `fit-42-*.test.ts` + corpus-completeness check over `mutants/` | build |
 | REQ-XPO-01 | .1 (named-import anchor), .2 (namespace form, R2-5), .3 [red] aliased, .4 [red] re-export laundering (M1.12), .5 [red] anchor drift (M1.13) | unit | `fit-42-*.negative.test.ts` + `{deny-scan,green}/` | build |
 | REQ-PTH-01 | .1–.5 [red] five escaping spellings, .6 (sibling +, `dist/bin/pbuilder-codegen.js`) | architectural | `fit-42-*.test.ts` (FIT-PATH-SPELLING-INVARIANCE) + `bundler-scripts/` | build |
@@ -356,7 +396,13 @@ Registered as followups with re-open triggers, **not built**: `FIT-CAP-ORACLE` (
 
 No data migration, no feature flag, no deployment ordering — the change ships **no runtime bytes**.
 
-**Byte-neutrality gate (blocking, per slice)**: `dist/runner-manifest.json` must hash to `bf6c983c59281eaf91ceefcb363375b52436808bbe74ee5241818f47eccfa530` (recorded at HEAD `e6dcde2`) after every mechanism slice. A mismatch means the change reached `src/` and became cross-repo — **halt before slicing continues**, do not warn.
+**Byte-neutrality gate (blocking, per slice)**: `dist/runner-manifest.json` must hash to
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` (re-pinned 2026-08-04 at
+S-001 close, `sdd-apply`, §1's dated reconciliation note — supersedes the originally-recorded
+`bf6c983c…a530` at HEAD `e6dcde2`, which went stale from unrelated JSDoc-comment-only edits
+landing on `main` between this design's authoring and the mechanism branch's base) after every
+mechanism slice. A mismatch means the change reached `src/` and became cross-repo — **halt
+before slicing continues**, do not warn.
 
 **Slice ordering** (SC-1..SC-4, binding on `sdd-slice`): S-000 is the publish-path slice (REQ-PPI-01..05 + the react-conformance timeout, one slice, independently mergeable, zero dependency on the mechanism); R1-17's `instanceof` relaxation (REQ-CAP-05.1) lands **with** callee decidability (REQ-CAP-03), never before; REQ-CAP-01's property and `FIT-CAP-TOTALITY` are one slice; the docs half (REQ-DLV-01) lands after the enforcement it describes.
 

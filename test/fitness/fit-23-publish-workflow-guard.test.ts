@@ -289,7 +289,9 @@ jobs:
 `) as WorkflowDoc;
     const result = checkRepoOwnerGuard(simulated, OWNER_REPO);
     expect(result.ok).toBe(false);
-    expect(result.reason).toContain("missing the repo-owner guard");
+    expect(result.reason).toBe(
+      `job "publish" is missing the repo-owner guard (expected if: github.repository == '${OWNER_REPO}')`
+    );
   });
 
   it("REQ-PPH-01.3: the trigger set is push-to-main only, no pull_request/workflow_dispatch", () => {
@@ -363,7 +365,9 @@ jobs:
 `) as WorkflowDoc;
     const result = checkRepoOwnerGuard(twoPrivilegedJobs, OWNER_REPO);
     expect(result.ok).toBe(false);
-    expect(result.reason).toContain('job "sneaky" is missing the repo-owner guard');
+    expect(result.reason).toBe(
+      `job "sneaky" is missing the repo-owner guard (expected if: github.repository == '${OWNER_REPO}')`
+    );
   });
 
   it("no fork-reachable/dispatchable trigger (pull_request, pull_request_target, workflow_dispatch) co-occurs with id-token: write, workflow or job level, in any .github/workflows/*.yml", () => {
@@ -439,7 +443,7 @@ jobs:
     ) as WorkflowDoc;
     const result = checkPublishOrdering(doc, scripts);
     expect(result.ok).toBe(false);
-    expect(result.reason).toContain("stamped after the build");
+    expect(result.reason).toBe("the version is stamped after the build with no rebuild before publish");
   });
 
   it("[red-proof] REQ-BPI-03.1: switching to `bun publish` breaks the property", () => {

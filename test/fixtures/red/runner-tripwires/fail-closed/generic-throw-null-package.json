@@ -1,0 +1,5 @@
+{
+  "kind": "generic-throw",
+  "packageJsonContent": "null",
+  "description": "REQ-FCG-01.3/R1-5: package.json is syntactically VALID JSON (the literal value null, so JSON.parse itself does not throw -- distinct from the malformed-json fault) but is not an object; `rootPackage.version` throws TypeError reading a property of null. No explicit check anywhere names this shape -- it reaches the single fail-closed boundary purely by construction, never by enumeration."
+}
