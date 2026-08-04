@@ -4,13 +4,21 @@
 **Mode**: final (Strict TDD)
 **Triage**: L (sensitivity override fired — `security (code execution)` + `deployment / build integrity`)
 **Spec version**: `runner-integrity-manifest` V3 (SIGNED) + `publish-pipeline-hardening` V4 (SIGNED)
-**Branch**: `feat/tripwire-evaluate` @ `1ade7d7` · base `f7428e8`
+**Branch**: `feat/tripwire-evaluate` · base `f7428e8`
 **Artifact store**: openspec (strict)
-**Date**: 2026-08-05
+**Iteration 1**: `1ade7d7` — verdict `fail` (2026-08-05)
+**Iteration 2**: `10fbc65` — verdict **`pass-with-followups`** (2026-08-05) — see
+[Remediation re-verify](#remediation-re-verify-iteration-2--2026-08-05) at the end of this
+document. All five gating findings are closed and independently re-proved; two new latent
+false positives and one elevated pre-existing flake are registered as followups.
+
+> **Reading order**: everything between here and the Remediation section is the **iteration-1
+> record, preserved unedited**. Where it says "fail" or describes a gating finding as open, that
+> is the state at `1ade7d7`. The iteration-2 section is authoritative for current state.
 
 ---
 
-### Verdict: **fail** — category `quality`
+### Verdict (iteration 1): **fail** — category `quality`
 
 Five gating findings. The headline: **the capability-admission classifier admits 15 distinct,
 independently reproduced, genuinely executable arbitrary-code-execution constructs inside the
@@ -1204,3 +1212,426 @@ clean typecheck, byte-neutrality independently reproduced across all 118 `dist/`
 fail-closed generator with a per-fault biconditional, complete whole-verbatim message assertions
 with a live standing scan, rule-identity totality over the fixture corpus, and zero behaviour drift
 across all 10 simplify-gate commits.
+
+---
+---
+
+# Remediation re-verify (iteration 2) — 2026-08-05
+
+**Range**: `6260a17..10fbc65` — 9 commits (`a492cbc` C-1, `bac9a6b` C-4, `b458a0f` C-3,
+`d325901` C-5, `ebd8405` C-2, `9d50d17` Amd A, `6854d54` Amd B, `5556116` ADR-0081,
+`10fbc65` bookkeeping).
+**Scope**: DELTA re-verify — confirm the five gating findings are genuinely closed and that
+closing them introduced nothing new. The full 77-scenario matrix was NOT re-derived from scratch;
+the delta's touched surface was re-run plus independent regression probing.
+
+### Verdict: **pass-with-followups**
+
+All five gating findings are closed. Closure was established by **direct adversarial probing
+against the production code path**, not by reading the builder's tests — including 18 laundering
+shapes authored by this gate that appear in neither the remediation corpus nor any prior probe.
+Two new *latent* false positives and one elevated pre-existing flake are registered; none is
+gating, because none can admit a capability and none breaks a signed scenario.
+
+---
+
+## Gates (all fresh)
+
+| Gate | Result |
+|---|---|
+| `bun test` run 1 | 2599 pass / **6 fail** — all 6 in `test/e2e/installed-consumer.e2e.test.ts` |
+| `bun test` run 2 | **2605 pass / 0 fail**, 7239 expects, 202 files, 83.38 s |
+| `bun test` run 3 | **2605 pass / 0 fail** (exit 0) |
+| `tsc --noEmit` | ✅ clean, exit 0 |
+| Fresh-build digest | ✅ `31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` |
+| Fresh-build file set | ✅ all **118** `dist/` files byte-identical to the iteration-1 baseline |
+| **Suite under `publish.yml`'s own version stamp** | ✅ **2605 pass / 0 fail**, exit 0 |
+| Worktree after all probing | ✅ `git status` clean; `package.json` restored to `0.2.3`; `dist/` restored |
+
+**The version-stamped run — C-2's whole point — was replicated end-to-end**, not taken on trust:
+`npm version 0.0.0-dev.abc1234 --no-git-tag-version` → `bun run build` → `bun test`, exactly
+`publish.yml:53-69`. The stamped rebuild reproduced `dec7aaf1d29fc1c281a34d24902bcc5f688952e324de059f46e022aea975aa06`
+— the very digest that previously failed the pin — and the suite was **green**. `REQ-PPI-03.3`
+now holds in the real workflow. `package.json` was restored via `git checkout` and `dist/`
+rebuilt; both verified back to baseline.
+
+> The builder reported 2598 pass under the stamp; this gate measures **2605**, the same total as
+> the unstamped run. The discrepancy is a count from an intermediate commit, not a disagreement:
+> the substantive claim (suite green under the stamp) is confirmed, and the *equal* totals
+> stamped-vs-unstamped are themselves the stronger result — the gate is version-invariant with
+> nothing skipped to achieve it.
+
+**The 6 failures in run 1 are a pre-existing flake, independently confirmed** — not a regression:
+`test/e2e/installed-consumer.e2e.test.ts` has **zero** matches in the entire change diff
+(`git diff --name-only f7428e8..HEAD`), holds 16 tests, and passes standalone in **3.74 s**. Its
+tarball leg exceeds Bun's 5000 ms default when a scratch `bun install` runs under load. Did not
+reproduce in runs 2 or 3. See finding **N-3** — its consequence is now materially worse than
+before this change.
+
+---
+
+## Per-finding closure table
+
+| # | Finding | Verdict | How it was proved closed (by this gate, independently) |
+|---|---|---|---|
+| **C-1** | 15 ACE constructs silently admitted | ✅ **CLOSED** | All 15 originals now DENIED through `deriveRunnerClosure`; **18 new shapes authored by this gate** also DENIED; real closure **0 violations**; 3 green controls still admitted |
+| **C-2** | Publish suite gate permanently red | ✅ **CLOSED** | Stamp → rebuild → `bun test` replicated: 2605 pass / 0 fail. Pinned literal removed; gate is now the design §7 relation; red-proof perturbs a real closure file |
+| **C-3** | R1-10 substring non-vacuity guard | ✅ **CLOSED** | Guard is `astIdentifierOccurrences(probe, "createRequire")` asserted `toBe(2)` — AST-counted, exact, no threshold. Ledger row corrected |
+| **C-4** | Bundler undecidability leak | ✅ **CLOSED** | Predicate inverted to a whitelist (`SAFE_PATH`); backtick, `$( )`, valueless flag and quoted-with-space all now `unclassifiable`; real scripts unaffected (1 target, 0 unclassifiable) |
+| **C-5** | FIT-CAP-TOTALITY non-vacuity tautology | ✅ **CLOSED** | New body mutates the **real enumerator** across **all five** `SurfaceNodeKind`s in turn, each with its own non-vacuity assertion. Cannot pass without production code |
+| **Amd A** | Anchor single-use latch mutant survived | ✅ CLOSED (shape verified) | Fixture added at `9d50d17`; the exemption family now asserts the execution-half finding, so the latch is load-bearing |
+| **Amd B** | Root skips over-broad | ✅ **CLOSED** | Skips reduced to **4** whole-subject unreadable-file tests. `REQ-DGN-01.3` totality **no longer skipped** under root — it filters to the 10 permission-independent fixtures and asserts the active count. Loudness via `warnIfPermissionChecksInactive` at 4 sites |
+| **W-1** | ADR-0081 never written | ✅ **CLOSED** | `openspec/decisions/0081-…md` present, 3904 bytes, full Context/Decision/Consequences/Alternatives; Status `Accepted`, consistent with 0079/0080 |
+
+---
+
+## (2) C-1 — are the new rules PROPERTIES or spelling enumerations?
+
+**Judgement: properties.** Success criterion 11 is satisfied. The three silent-pass paths were
+closed by inverting decision rules, not by listing shapes:
+
+1. `REQ-CAP-05` enforced at the **denied root's own occurrence** (any position bar
+   `instanceof`-RHS / `typeof`-operand) — closes the whole aliasing / object-carrier /
+   return-value / argument family with no dataflow.
+2. An **unresolvable free root is a violation in every position** (was `local` in value position).
+3. A **safe terminal is no longer an admission** — a prototype-graph segment off a non-identifier
+   base, and a call result invoked with no property name, name no origin.
+4. **Taint carried across binding copies**, plus bindings that ARE a member chain classified as
+   that chain.
+5. Computed chains **enumerated** rather than aborting enumeration → `unclassifiable-construct`
+   off a global root unless the key resolves to a Symbol. This is `REQ-CAP-01.3`'s realisation.
+
+**Independent adversarial probe — 18 shapes authored by this gate**, present in neither the
+26-row remediation corpus nor any earlier probe script. **All 18 DENIED**:
+
+| # | Shape | Rule reported |
+|---|---|---|
+| N1 | `[]["fill"]["constructor"]("return 1")()` | undecidable-callee |
+| N2 | `"".constructor["constructor"]("return 1")()` | undecidable-callee |
+| N3 | `[].flat.constructor("return 1")()` — escape segment not first | undecidable-callee + inadmissible-origin |
+| N4 | `({}).__proto__.constructor("return 1")()` | undecidable-callee + inadmissible-origin |
+| N5 | `new ("".constructor.constructor)("return 1")()` | undecidable-callee + inadmissible-origin |
+| N6 | `(()=>()=>1)()()` — curried IIFE | undecidable-callee |
+| N7 | `` `x`.constructor.constructor("return 1")() `` — template root | undecidable-callee + inadmissible-origin |
+| N8 | `const g = globalThis[k]; g("1+1")` — ElementAccess initializer | inadmissible-origin + **unclassifiable-construct** |
+| N9 | `const o = { get f(){ return Function; } }; o.f("return 1")` | inadmissible-origin |
+| N10 | `Reflect.apply(eval, null, ["1+1"])` | inadmissible-origin ×2 |
+| N11 | `globalThis.eval("1+1")` | inadmissible-origin |
+| N12 | `process.mainModule.require("child_process")` | inadmissible-origin |
+| N13 | `const a = [Function]; a[0]("return 1")()` | undecidable-callee ×2 + inadmissible-origin |
+| N14 | `function go(f = Function){ … }` — parameter default carrier | inadmissible-origin |
+| N15 | `class C { f = Function; } new C().f("return 1")` | inadmissible-origin |
+| N16 | `export { createRequire as mkReq } from "node:module"` — **aliased re-export** | undecidable-callee + inadmissible-origin |
+| N17 | `const k = Symbol.for("x"); const g = globalThis[k]; g("1+1")` | inadmissible-origin |
+| N18 | `""?.constructor?.constructor("return 1")()` — optional chain | undecidable-callee + inadmissible-origin |
+
+Green controls (`[1,2].map(…)`, `process.stdout.write.bind(process.stdout)`, an ordinary local
+call) remained admitted, so the denials are not indiscriminate.
+
+**Real-closure blast radius**: `deriveRunnerClosure("./dist", …)` reports **0 violations** —
+`REQ-CST-04.3.1` holds. The two enumeration corrections (item 7) were what made rule (2)
+enforceable without false-positiving the closure's 13 class-field names.
+
+**Residual, stated honestly**: `PROTOTYPE_ESCAPE_SEGMENTS = {constructor, __proto__, prototype}`
+is the one small enumeration in the fix. It is defensible — reaching the `Function` constructor
+from a non-identifier base requires one of those three property names, a computed access (caught,
+N1/N2) or a call (caught, N6) — and N3 confirms the scan is over the whole path, not just the
+first segment. But it is an enumeration, so it is registered as **FU-14** for the deferred
+`FIT-CAP-ORACLE` to subsume rather than left implicit.
+
+---
+
+## (3) C-2 — shape, and the second instance
+
+**Shape: correct, and it is the relation design §7 specified.** The standing gate now regenerates
+the manifest into a scratch root from the built snapshot and compares bytes — proving
+reproducibility of the **derivation** rather than equality to a recorded artefact. Verified: the
+pinned literal `PRE_AND_POST_S001_SHA256` is **gone**; version-invariance is itself asserted,
+*and* so is the fact that the relation is not blind to the version (a stamped tree reproduces its
+own, different bytes — which is why this is not a weakening). The red-proof no longer asserts
+`sha256(x + "\n") ≠ sha256(x)`; it perturbs a real closure file's bytes and asserts both the
+manifest and that file's own record digest diverge. This closes iteration-1's **W-4** and **W-7**
+as well as C-2.
+
+**The second instance (`REQ-MFB-02.1`, `test/docs/changelog-release-vehicle-guard.test.ts`):
+in-scope remediation, NOT scope creep.** Reasoning:
+
+- It is the **same defect class** as C-2 — a version-sensitive assertion inside the suite that now
+  gates publish. `REQ-MFB-02.1` asserted `package.json#version === CHANGELOG`'s topmost heading
+  unconditionally, which a dev stamp falsifies **by design**.
+- Leaving it would keep **`REQ-PPI-03.3` — a signed scenario — false in the real workflow**. C-2
+  would have been only half closed: the publish job would still be red, merely for a different
+  reason. Fixing it is therefore *required*, not optional polish.
+- It was surfaced by exactly the verification iteration 1 mandated (the version-stamped run).
+- **The remediation narrows rather than weakens**: the release-version invariant is preserved
+  verbatim for release versions; the dev-stamp branch **asserts the stamp shape** rather than
+  skipping; and a red-proof pins `topHeading === "0.2.3"`, shows a forgotten CHANGELOG bump still
+  fails, and shows the exemption is exactly the stamp's shape — `0.9.9` and `0.0.0-dev.notasha`
+  are both rejected. That is the correct shape for an exemption.
+- **Caveat → followup**: it modifies a guard for `REQ-MFB-02`, a REQ family this change never
+  signed, in a file outside design §2's table. Must be **disclosed at archive** (FU-16).
+
+---
+
+## (4) Mutant kills — C-3, C-5, Amd A
+
+- **C-3 killed.** The guard is now `astIdentifierOccurrences(probe, "createRequire")` asserted
+  `toBe(2)` — AST identifier nodes, exact equality, no threshold, via a shared helper in
+  `test/support/closure-integrity-checks.ts`. The mutant iteration 1 demonstrated (delete both
+  real-code references, keep all 8 comment mentions) yields 0 AST occurrences and now fails,
+  where the old substring guard passed on 8. The test's own comment records the numbers
+  (10 substring hits / 8 in comments / 2 identifier occurrences).
+- **C-5 killed, and more thoroughly than specified.** Iteration 1 asked for one dropped
+  `SurfaceNodeKind`; the fix loops over **all five**, against a fixture that genuinely exercises
+  each (module-specifier, meta-property, callee, member-path, value-reference), asserting per kind
+  that the fixture exercises it (`ofKind.length > 0` — non-vacuity of the mutation itself) and
+  that the mutant surface count falls by exactly that kind's population, with the independent
+  oracle (`independentSurfaceCount`) as the reference. It imports and calls real production
+  functions, so it cannot pass with zero production code — the defining property of the old body.
+- **Amd A**: the anchor-exemption family now asserts the execution-half finding (`2 ×
+  inadmissible-origin + 1 × undecidable-callee`, total exactly 3), which is what makes the
+  single-use latch load-bearing rather than unobserved. Shape verified against the signed
+  `REQ-XPO-01` scenarios; the latch-deletion mutation itself was not re-executed by this gate
+  (`unverified` on the execution, `verified` on the assertion shape).
+
+---
+
+## (5) Amd B — skip scoping and root loudness
+
+**Closed, and better than iteration 1 specified.** Iteration 1's FU-7 asked that the six root
+skips stop hiding a standing gate. Result:
+
+- Skips reduced from 6 to **4**, each on a test whose **subject IS an unreadable file** — there is
+  no permission-independent leg to keep (`fit-42n:270`, `:588`, `:1891`; `fit-42:470`).
+- **`REQ-DGN-01.3`'s standing rule-identity totality check is no longer skipped.** It filters its
+  fixture set — under root it drops only the one `fail-closed/` chmod-dependent entry, keeping all
+  10 `deny-scan/` entries — and asserts the active count explicitly
+  (`toBe(RUNNING_AS_ROOT ? 10 : 11)`, plus `deny-scan/` count `toBe(10)`).
+- Same treatment for `FIT-FAILCLOSED-BICONDITIONAL`: under root it runs 2 of 3 fault kinds rather
+  than dropping all three. The helper's header names this exact bug: *"Wrapping a loop over three
+  fault kinds dropped all three, two of them permission-INDEPENDENT."*
+- **Loudness is real**: `warnIfPermissionChecksInactive` writes a named stderr banner at 4 sites
+  ("*A green run here is strictly weaker than a green run as an unprivileged user*"), the
+  environment is asserted as a recorded fact, and the active-set sizes are pinned.
+
+---
+
+## (6) Expectation changes — the highest-risk item. All five judged STRICTLY STRONGER.
+
+| Change | Signed THEN clause | Judgement |
+|---|---|---|
+| **`REQ-CAP-05.2` 1 → 2 findings** | *"the build fails — proving the `instanceof` relaxation did not reopen the aliased-call escape"* — no count specified | ✅ **Strictly stronger.** Build still fails; now BOTH the denied root's own occurrence and the aliased call are reported. The second finding is exactly what REQ-CAP-05's normative "any other position is a violation" demands of an initializer. This is what closes C-1a. Still `toEqual` on an exact array — no threshold. |
+| **`REQ-CAP-03.2` 1 → 2 findings** | *"the build fails; **the reported rule is the callee-decidability rule**"* | ✅ **Strictly stronger.** Both findings are `constraint-4-undecidable-callee`, so the rule-identity clause holds for each. The added finding is the outer invocation of a call result — previously admitted on the argument "the inner is independently caught", which fails as soon as the inner callee IS admitted (`Reflect.get(globalThis,"eval")("1+1")`, this gate's N10-adjacent shape). Sound reasoning, real defect. |
+| **Four `createRequire`/deny-scan fixtures gain declared placeholders** (`bind()`) | REQ-CST-04.2 shared shape: *"stderr names the primitive verbatim and states 'Constraint 4'"* | ✅ **Neutral-to-stronger.** Rule (2) makes an undeclared placeholder argument (`payload`, `body`, `bytes`, `definition`) a violation in its own right; declaring them removes a finding unrelated to the property under test, so each fixture asserts *exactly* its primitive. The primitive references are untouched. `bind()` **appends** rather than prepends specifically to preserve the line numbers that whole-verbatim message assertions pin — careful, and it means those assertions still hold. |
+| **`web-assembly.js` detail `WebAssembly.instantiate` → `WebAssembly`** | *"stderr names the primitive **verbatim**"*; register member (REQ-PRM-01.1) is `WebAssembly` | ✅ **More spec-compliant than before.** The old detail was the fuller path, i.e. *not* the register member verbatim — iteration 1's matrix flagged this. Now it names the register entry itself, because the denial fires at the denied root's occurrence. Bonus: the `DENY_SCAN_EXPECTED_DETAIL` special-case map collapses to `= DENY_SCAN_FIXTURES`, making the bijection uniform. Less code, stronger property. |
+| **`REQ-XPO-01.4` premise replacement** — was *"the re-exporting file itself reports zero violations"*, now the re-exporting file carries the finding | Signed `REQ-XPO-01.4`: *"WHEN … analysis runs on the SECOND file THEN it is denied — the exemption does not launder through a re-export"* | ✅ **Strictly stronger, and the replaced assertion was NEVER SIGNED.** The signed THEN concerns the SECOND file, which still carries an `inadmissible-origin` finding. The retired assertion was an implementer-added sibling whose *argument* ("the danger is in the second file's use") holds only while the imported name matches the register — an **aliased** re-export (`as mkReq`) leaves no such name downstream and was admitted. Independently confirmed by this gate's **N16**: aliased re-export is now denied. Crucially the fix ships a **bounding sibling positive** — `export { existsSync } from "node:fs"` reports zero violations — so the new strictness is not indiscriminate. The strongest single item in the batch. |
+
+No expectation was relaxed to a threshold. Where counts are asserted per-rule
+(`filter(...).length).toBe(2)` + `.toBe(1)` + total `.toBe(3)`) that is rule-identity plus exact
+count, order-independent — equivalent rigour to an exact array, not a weakening.
+
+---
+
+## (7) The two enumeration corrections — legitimate, and empirically proved non-hiding
+
+| Correction | Judgement |
+|---|---|
+| **A class field's own name** (`PropertyDeclaration.getNameNode()`) added to `isPropertyNamePosition` | ✅ **Legitimate gap-closure.** `MethodDeclaration`, `GetAccessorDeclaration` and `SetAccessorDeclaration` name nodes were **already** excluded; a field's name is the same thing — a member declaration site, never a reference. It closes an inconsistency in an existing exclusion rather than inventing one. **Non-hiding proved**: this gate's **N15** (`class C { f = Function; }`) is DENIED, so field **initializers** are still fully surfaced. Necessary for rule (2): 13 such nodes in the real closure would otherwise surface as free roots bound to nothing. |
+| **`export { x } from "mod"` specifier name** added to `isDeclarationName` | ✅ **Legitimate, and the strengthened leg is verified.** The name refers to a member of *another* module, not to anything in this file's scope; the guard explicitly preserves LOCAL `export { x }` (no module specifier) as a genuine reference. The module-specifier leg now checks each named export's **original** name against the module's admitted-name set, as the import leg checks each binding. **Non-hiding proved**: this gate's **N16** (`export { createRequire as mkReq } from "node:module"`) is DENIED — the exclusion did not open a hole, the strengthened leg catches it. |
+
+Neither correction widens an E1–E4 exclusion in the DR-5/DR-2 sense (no admitted table grew); both
+correct which nodes are *references* at all. `REQ-CAP-01.5`'s four-member exclusion set is
+unchanged, so its exact-membership pin still passes.
+
+---
+
+## (8) `test/support/permission-dependent.ts` — acceptable
+
+17 lines. **Not a finding on its merits**, one bookkeeping note.
+
+It adds real behaviour, so it is not junk indirection: `RUNNING_AS_ROOT` is a single source for a
+predicate previously duplicated at six sites, and `warnIfPermissionChecksInactive` is genuinely
+new (the loudness requirement did not exist). Its header states the rule *and* the concrete bug it
+prevents. Proportionate to the amendment it serves.
+
+**Bookkeeping**: it is absent from design §2's File Changes table — the same class as
+iteration-1's W-8, now a four-file list (FU-16).
+
+---
+
+## (9) Deferred rulings — dispositions intact
+
+- ✅ **`S-002.3` is still `[ ]`** in `slices.md:251`, with its rationale unchanged. Ruling (b)
+  stands: not well-defined for archive to execute; the owner must choose disposition (i), (ii) or
+  (iii) — **(i) retarget the comment to a non-emitted location** remains recommended.
+- ✅ **`REQ-CAP-01.3` ruling (a) honoured exactly.** Retirement was rejected and the scenario was
+  *implemented* as one of C-1's red-proofs, at both levels ruling (a) point 4 required:
+  classification (`globalThis[k][k]` in value position → `unclassifiable-construct`,
+  `fit-42n:2477`) **and** the build boundary (exit ≠ 0, no manifest, `fit-42n:2484`). This gate's
+  **N8** independently confirms `unclassifiable-construct` fires. `REQ-CAP-01.3` moves from
+  ❌ UNTESTED to ✅ COMPLIANT.
+- ✅ **The `R1-10` ledger row was corrected**, as iteration 1 required before the disposition table
+  is written. `slices.md:455` now records the row as **premature**, names the substring guard that
+  survived, and points at the remediation that closed it. Honest, not quietly rewritten.
+
+---
+
+## New findings (iteration 2)
+
+None is gating: neither false positive can **admit** a capability (both fail in the safe,
+fail-closed direction), neither is reachable in the real closure, and no signed scenario breaks.
+
+### N-1 — `Bug` (latent) — labelled statements are false-positived
+
+```
+FALSE POSITIVE | outer: for (const k in o) { for (const v of [1,2]) { … break outer; } }
+     constraint-4-inadmissible-origin :: outer
+     constraint-4-inadmissible-origin :: outer
+```
+
+A statement label is a **separate JS namespace** with no value semantics and no capability reach.
+Rule (2) ("an unresolvable free root is a violation") enumerates both the `LabeledStatement` label
+and the `break outer` reference as `value-reference` nodes that resolve to no binding.
+
+*Latent, not live*: the real closure contains **0** labelled statements (measured), so
+`REQ-CST-04.3.1` still holds and the suite is green. But any future closure edge adding a labelled
+loop fails the build, reporting a label as an *inadmissible capability origin* — a rule that is not
+true of the finding, which is `REQ-DGN-01`'s own honesty concern. **Fix**: exclude
+`LabeledStatement.getLabel()` and `Break`/`ContinueStatement.getLabel()` — the same 2-line
+declaration-site family as the two corrections in item (7). Recommended to fix now.
+
+### N-2 — `MAJOR` (latent) — IIFEs are false-positived
+
+```
+FALSE POSITIVE | export const o = (()=>({ a: 1 }))();
+     constraint-4-undecidable-callee :: (()=>({ a: 1 }))
+```
+
+An immediately-invoked function expression is denied because its callee is not a *binding*.
+Literally, `REQ-CAP-03`'s text ("callee … not a statically resolvable binding MUST be a violation")
+supports this reading — but a directly visible function literal is maximally decidable, the
+pre-fix `safe-terminal` "value" arm existed precisely to admit it, and IIFE is a very common
+pattern. This gate's **N6** (`(()=>()=>1)()()`) is the same false positive, initially mis-scored
+here as a correct denial.
+
+*Latent, not live*: the real closure contains **0** IIFEs (measured). The 12 green siblings shipped
+with the fix are structural shadows of the laundering rows (aliases, destructuring) and cover
+neither IIFEs nor labels, which is why this went unnoticed.
+
+**This needs an explicit owner decision, not a silent state**: either (a) accept the strictness as
+intended and land a red/green fixture pair plus a documented note so the next contributor is not
+surprised by a build failure on an IIFE, or (b) admit a callee that is a directly visible function
+literal (distinct from a call *result*, which must stay denied — that distinction is what closes
+C-1c). Registered as **FU-15**.
+
+### N-3 — `WARNING` — the `installed-consumer.e2e` flake now gates publish
+
+Confirmed pre-existing and untouched (0 diff matches; 16 tests; 3.74 s standalone; 6 timeouts
+under load). It is **not** a regression — but its consequence changed materially in this change:
+`bun test` now gates `npm publish` (REQ-PPI-03), so a load-sensitive e2e can redden the publish job
+spuriously. That is verbatim the hazard `REQ-PPI-04` exists to prevent — *"a hang in the suite gate
+cannot itself become a reason to route around the gate"* (ruling 6) — applied to a file this change
+never inventoried. **Fix**: give it an explicit `setDefaultTimeout`, exactly as `REQ-PPI-04` did
+for `react-conformance.test.ts`. **FU-17.**
+
+### N-4 — `SUGGESTION` — `SAFE_PATH` excludes `@`
+
+`SAFE_PATH = /^[A-Za-z0-9._/-]+$/` renders a scoped-path outdir (`--outdir dist/@internal/x`)
+`unclassifiable`, failing the build. This is ADR-0081's sanctioned over-approximation direction and
+the real scripts are unaffected (verified: 1 target, 0 unclassifiable), but the exclusion of `@`
+deserves a line in the ADR so the failure is self-explaining. **FU-18.**
+
+### N-5 — nit — design §5 still lists ADRs 0079–0081 as `Status: Proposed`
+
+All three on disk read `Accepted` — self-consistent, so this is design-text staleness only. Fold
+into the archive delta sync. **FU-19.**
+
+---
+
+## Consolidated followups for `sdd-archive`
+
+**Closed by this batch** (drop from the register): **W-1** (ADR-0081 written), **W-4** (red-proof
+now perturbs a real closure file), **W-7** (pinned literal and its three-place re-pin ritual gone),
+**FU-7** (root-skip scoping — closed by Amd B), **FU-13** (quoted/whitespace bundler paths now
+`unclassifiable`), **FU-8**'s W-4 half.
+
+**Still open from iteration 1**: W-2 (three stale signed-spec figures + §8 rollback digest — the
+digest half is *more* important now that the standing test no longer carries the value), W-3
+(`ADMITTED_NODE_SURFACES` per-module value sets unpinned), W-5, W-6, W-8 (now a four-file list →
+folded into FU-16), W-9 (oracle faithfulness — note C-5 now leans on `independentSurfaceCount`
+harder, so this rose in importance), W-10, S-1, S-2, S-3, S-4, S-5, S-6, FU-1 (`FIT-CAP-ORACLE`),
+FU-2, FU-3, FU-4, FU-5 (49/49 tag device), FU-6 (commit test-first), FU-9 (`mutants/` corpus),
+FU-10, FU-11, FU-12.
+
+**New**:
+
+| ID | Item |
+|---|---|
+| FU-14 | `PROTOTYPE_ESCAPE_SEGMENTS` is the fix's one enumeration — subsume under `FIT-CAP-ORACLE` |
+| FU-15 | **N-2** — owner decision on IIFE strictness, then fixture + doc note |
+| FU-16 | Design §2 File Changes drift, now four files: `test/support/corpus-completeness.ts`, `test/support/shared-build.ts`, `test/support/permission-dependent.ts`, `test/docs/changelog-release-vehicle-guard.test.ts` — the last also touches `REQ-MFB-02`, a REQ family this change never signed, and must be **disclosed** at archive |
+| FU-17 | **N-3** — `setDefaultTimeout` for `installed-consumer.e2e.test.ts`; a flake in the publish gate is the ruling-6 hazard |
+| FU-18 | **N-4** — document `SAFE_PATH`'s `@` exclusion in ADR-0081 |
+| FU-19 | **N-5** — design §5 ADR statuses stale (`Proposed` vs `Accepted` on disk) |
+| FU-20 | **N-1** — exclude statement labels (recommended to fix before archive, 2 lines) |
+
+**Also for archive**: `S-002.3`'s owner decision; `REQ-CAP-01.3` now COMPLIANT (ruling (a)
+satisfied by implementation); the `R1-10` row correction is already landed and must be carried into
+`openspec/pending-changes.md` as corrected.
+
+---
+
+## Compliance delta
+
+| Scenario | Iteration 1 | Iteration 2 |
+|---|---|---|
+| REQ-CAP-01.2 | ❌ FAILING (tautology) | ✅ COMPLIANT — enumerator mutated across all 5 kinds |
+| REQ-CAP-01.3 | ❌ UNTESTED | ✅ COMPLIANT — classification + build boundary |
+| REQ-CST-04.3.1 | ❌ FAILING (substring guard) | ✅ COMPLIANT — AST-counted, exact |
+| REQ-CST-04.3.2 | ❌ FAILING (tautology) | ✅ COMPLIANT |
+| REQ-CAP-05.2 | ⚠️ PARTIAL (one hop only) | ✅ COMPLIANT — denied root caught at its occurrence |
+| REQ-PPI-03.3 | ⚠️ PARTIAL (scratch tree only) | ✅ COMPLIANT — verified under the real version stamp |
+| REQ-CAP-04.4 / .6 | ⚠️ PARTIAL | ⚠️ PARTIAL — unchanged; cardinality drift (W-2) + value sets (W-3) |
+| **Normative clauses** REQ-CAP-01/03/04/05, CST-04.2, PTH-01 | ❌ 6 breached | ✅ **all upheld** — 33 shapes denied, real closure clean |
+
+**Scenario tally: 76 / 77 fully compliant** (was 69), 1 ⚠️ PARTIAL family (REQ-CAP-04.4/.6,
+cardinality bookkeeping only), 0 FAILING, 0 UNTESTED.
+
+---
+
+## Envelope (iteration 2)
+
+- **verdict**: `pass-with-followups`
+- **adversarial_review**: **`required`** — unchanged, and for reasons independent of the
+  remediation: triage = L, plus two fired sensitive-area rows (`security (code execution)` by the
+  SUBJECT test, `deployment / build integrity`). The batch strengthens rather than removes the
+  case: iteration 1 found 15 escapes by adversarial probing that seven in-loop verifies missed, and
+  this iteration found 18 more shapes plus two false positives the remediation's own 12 green
+  siblings did not cover. `judgment-day` should run **blind** on the fixed diff before archive and
+  be treated as load-bearing. Acceptance bar per design §11 — *zero findings whose fix is "add
+  another spelling"* — is met by C-1 and C-4, whose fixes are rule inversions; FU-14 records the
+  single residual enumeration.
+- **architecture_impact**: **`additive`** — confirmed, and now fully substantiated: with ADR-0081
+  written (W-1 closed), all three declared decisions have records in `openspec/decisions/`, so the
+  pre-archive `arch_audit_gate` has the artefact it previously lacked. `src/**` remains untouched
+  across all 9 commits (verified: zero `src/` paths in `git diff --name-status f7428e8..HEAD`), the
+  BUILD/CI/ENGINE authority split is unchanged, and `dist/runner-manifest.json` is byte-identical
+  (118/118 files, digest `31cd5382…f333fde`). Zero `deviates` rows stands.
+- **next_recommended**: `judgment-day` (blind, on the fixed diff) → then `sdd-archive`, with FU-20
+  and W-1's sibling bookkeeping ideally folded in first.
+
+### Verdict
+
+**pass-with-followups.** All five gating findings are closed, each re-proved independently rather
+than accepted on the builder's evidence: 33 laundering shapes denied (15 originals + 18 authored by
+this gate), the real 23-file closure clean, the publish job's own stamp→rebuild→test sequence
+replicated green, the substring guard replaced by an exact AST count, the bundler predicate
+inverted to a whitelist, and `FIT-CAP-TOTALITY`'s non-vacuity driven through the real enumerator
+across all five node kinds. Every disclosed expectation change is strictly stronger and
+spec-compliant; the one that replaced a prior assertion replaced a false lemma that was never
+signed, and bounded the replacement with a sibling positive.
+
+Two latent false positives (statement labels, IIFEs) and one elevated pre-existing flake are
+registered. None gates: both false positives fail in the safe direction, neither is reachable in
+the real closure, and no signed scenario breaks. N-1 is a 2-line exclusion worth folding in before
+archive; N-2 needs an owner decision rather than a default.
