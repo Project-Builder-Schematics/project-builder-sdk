@@ -26,6 +26,7 @@ import { dirname, join } from "node:path";
 import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
 import { ensureTscBuild } from "../support/shared-build.ts";
 import { expectCorpusMatchesDeclared } from "../support/corpus-completeness.ts";
+import { RUNNING_AS_ROOT, warnIfPermissionChecksInactive } from "../support/permission-dependent.ts";
 import {
   CREATE_REQUIRE_ANCHOR_FILE,
   ENTRY_RELATIVE_PATH,
@@ -74,6 +75,23 @@ function plantTree(files: Record<string, string>): string {
   }
   return root;
 }
+
+describe("FIT-42N — permission-dependent surface is recorded, not silently skipped", () => {
+  // `chmod(0o000)` does not deny root, so these three checks cannot run as root. Naming them in
+  // an always-running assertion is what stops a root runner's pass count from quietly meaning
+  // less than an unprivileged runner's (verify-report Amendment B).
+  const CHMOD_DEPENDENT_TESTS = [
+    "REQ-RCD-03.5: an unreadable closure file fails the derivation instead of being skipped",
+    "REQ-RCD-03.5: an unreadable closure file names the path that could not be read",
+    "REQ-FCG-01.2 [red-proof]: a mid-derivation unreadable closure file leaves no manifest, atomically — R1-6",
+  ];
+
+  it("the chmod-dependent checks are enumerated, and their active/inactive state follows the real uid", () => {
+    warnIfPermissionChecksInactive(`${CHMOD_DEPENDENT_TESTS.length} whole-subject checks in fit-42n`);
+    expect(CHMOD_DEPENDENT_TESTS.length).toBe(3);
+    expect(RUNNING_AS_ROOT).toBe(process.getuid?.() === 0);
+  });
+});
 
 describe("FIT-42N S-000 — REQ-RCD-00 — the four exported symbols are callable, not merely defined", () => {
   // Every other Tier A case in this file already calls deriveRunnerClosure, comparePaths and
@@ -247,7 +265,9 @@ describe("FIT-42N S-000 — every static specifier classifies, none is silently 
     expect(classifiedAs(root)).toEqual([{ rule: "symlink-escape", file: "entry.js" }]);
   });
 
-  it.skipIf(process.getuid?.() === 0)(
+  // Permission-dependent by SUBJECT: the fixture IS an unreadable file, so there is no
+  // permission-independent leg to keep. The environment is recorded by the inventory test below.
+  it.skipIf(RUNNING_AS_ROOT)(
     "REQ-RCD-03.5: an unreadable closure file fails the derivation instead of being skipped",
     () => {
       const root = plantTree({ "entry.js": 'import "./locked.js";\n', "locked.js": "export const l = 1;\n" });
@@ -565,7 +585,7 @@ describe("FIT-42N S-002 — a failing classification names the facts the reader 
     );
   });
 
-  it.skipIf(process.getuid?.() === 0)(
+  it.skipIf(RUNNING_AS_ROOT)(
     "REQ-RCD-03.5: an unreadable closure file names the path that could not be read",
     () => {
       const root = plantTree({
@@ -1825,23 +1845,33 @@ describe("FIT-42N S-004 — REQ-FCG-01: the fail-closed/ corpus is complete, rea
 
 describe("FIT-42N S-004 — FIT-FAILCLOSED-BICONDITIONAL: exit != 0 iff no manifest, per fault", () => {
   const FIXTURE_FILES = ["malformed-json.json", "unreadable-closure-file.json", "generic-throw-null-package.json"];
+  // Only ONE of the three faults is chmod-dependent. Skipping the whole loop under root dropped
+  // all three, so the biconditional held for zero faults on a root runner while still reporting
+  // a pass.
+  const CHMOD_DEPENDENT = new Set(["unreadable-closure-file.json"]);
+  const activeFaults = FIXTURE_FILES.filter((file) => !(RUNNING_AS_ROOT && CHMOD_DEPENDENT.has(file)));
 
-  it.skipIf(process.getuid?.() === 0)(
-    "REQ-FCG-01.4 [red-proof]: each of 3 injected fault kinds independently fails closed against a pre-seeded root",
-    () => {
-      for (const file of FIXTURE_FILES) {
-        const fixture = readFailClosedFixture(file);
-        const root = preSeededRoot();
-        expect(existsSync(manifestPathIn(root)), `${file}: pre-seeding itself failed`).toBe(true);
+  it("REQ-FCG-01.4: the active fault set is a recorded fact of this environment, never an invisible skip", () => {
+    warnIfPermissionChecksInactive("FIT-FAILCLOSED-BICONDITIONAL");
+    expect(activeFaults).toEqual(
+      RUNNING_AS_ROOT ? ["malformed-json.json", "generic-throw-null-package.json"] : FIXTURE_FILES
+    );
+  });
 
-        applyFault(root, fixture);
-        const result = runGeneratorAt(root);
+  it("REQ-FCG-01.4 [red-proof]: each injected fault kind independently fails closed against a pre-seeded root", () => {
+    expect(activeFaults.length).toBe(RUNNING_AS_ROOT ? 2 : 3);
+    for (const file of activeFaults) {
+      const fixture = readFailClosedFixture(file);
+      const root = preSeededRoot();
+      expect(existsSync(manifestPathIn(root)), `${file}: pre-seeding itself failed`).toBe(true);
 
-        expect(result.status, `${file} (${fixture.kind}) should fail closed`).not.toBe(0);
-        expect(existsSync(manifestPathIn(root)), `${file} (${fixture.kind}) must leave no manifest`).toBe(false);
-      }
+      applyFault(root, fixture);
+      const result = runGeneratorAt(root);
+
+      expect(result.status, `${file} (${fixture.kind}) should fail closed`).not.toBe(0);
+      expect(existsSync(manifestPathIn(root)), `${file} (${fixture.kind}) must leave no manifest`).toBe(false);
     }
-  );
+  });
 
   it("REQ-FCG-01.5: success yields a manifest — the biconditional's other direction", () => {
     const root = preSeededRoot();
@@ -1858,7 +1888,7 @@ describe("FIT-42N S-004 — REQ-FCG-01: individual fault-kind red-proofs", () =>
     expect(existsSync(manifestPathIn(root))).toBe(false);
   });
 
-  it.skipIf(process.getuid?.() === 0)(
+  it.skipIf(RUNNING_AS_ROOT)(
     "REQ-FCG-01.2 [red-proof]: a mid-derivation unreadable closure file leaves no manifest, atomically — R1-6",
     () => {
       const root = preSeededRoot();
@@ -1973,16 +2003,26 @@ function ruleIdentityTotalityMismatches(
 }
 
 describe("FIT-42N S-004 — REQ-DGN-01.3/.4: rule-identity totality over the fixture corpus (standing)", () => {
-  it.skipIf(process.getuid?.() === 0)(
-    "REQ-DGN-01.3: the produced-rule multiset equals the declared-rule multiset, exact — never a per-fixture spot check",
-    () => {
-      const produced = RULE_IDENTITY_FIXTURES.map((entry) => ({
-        fixture: entry.fixture,
-        rule: produceRuleFor(entry),
-      }));
-      expect(ruleIdentityTotalityMismatches(RULE_IDENTITY_FIXTURES, produced)).toEqual([]);
-    }
+  // Exactly ONE of the 11 fixtures needs chmod (`fail-closed/unreadable-closure-file.json`);
+  // the 10 `deny-scan/` ones are permission-independent. Skipping the whole test under root
+  // dropped all 11 — the standing rule-identity check simply did not run on a root runner.
+  const activeRuleFixtures = RULE_IDENTITY_FIXTURES.filter(
+    (entry) => !(RUNNING_AS_ROOT && entry.fixture.startsWith("fail-closed/"))
   );
+
+  it("REQ-DGN-01.3: the active fixture set is a recorded fact of this environment, never an invisible skip", () => {
+    warnIfPermissionChecksInactive("REQ-DGN-01.3 rule-identity totality");
+    expect(activeRuleFixtures.length).toBe(RUNNING_AS_ROOT ? 10 : 11);
+    expect(activeRuleFixtures.filter((e) => e.fixture.startsWith("deny-scan/")).length).toBe(10);
+  });
+
+  it("REQ-DGN-01.3: the produced-rule multiset equals the declared-rule multiset, exact — never a per-fixture spot check", () => {
+    const produced = activeRuleFixtures.map((entry) => ({
+      fixture: entry.fixture,
+      rule: produceRuleFor(entry),
+    }));
+    expect(ruleIdentityTotalityMismatches(activeRuleFixtures, produced)).toEqual([]);
+  });
 
   it("REQ-DGN-01.4 [red-proof]: a rule-swap mutant is caught, naming the mismatched fixture and the declared-vs-produced pair", () => {
     // (a) RULE_BODIES-renderer-swap shape: two fixtures' PRODUCED rules end up swapped with

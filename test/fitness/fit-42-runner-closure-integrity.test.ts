@@ -42,6 +42,7 @@ import {
 import { homedir, tmpdir, userInfo } from "node:os";
 import { ensureRealClosureDerivation, ensureTscBuild } from "../support/shared-build.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { RUNNING_AS_ROOT, warnIfPermissionChecksInactive } from "../support/permission-dependent.ts";
 import { PROJECT_ROOT, hashFile } from "../support/scratch-consumer.ts";
 import {
   astIdentifierOccurrences,
@@ -459,7 +460,14 @@ describe("FIT-42 S-002 — the generator fails closed and leaves nothing behind"
     expect(existsSync(manifestIn(root))).toBe(false);
   });
 
-  it.skipIf(process.getuid?.() === 0)(
+  // Permission-dependent by SUBJECT (chmod(0o000) does not deny root), so there is no
+  // permission-independent leg to keep — but the state is recorded rather than silently skipped.
+  it("REQ-BPI-02.2: the unreadable-file check's active state follows the real uid, recorded not assumed", () => {
+    warnIfPermissionChecksInactive("REQ-BPI-02.2 unreadable closure file");
+    expect(RUNNING_AS_ROOT).toBe(process.getuid?.() === 0);
+  });
+
+  it.skipIf(RUNNING_AS_ROOT)(
     "REQ-BPI-02.2: an unreadable closure file leaves no file at all at the manifest path",
     () => {
       const root = copiedPackageRoot();
