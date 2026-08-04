@@ -26,7 +26,8 @@ const CI_YML_PATH = join(WORKFLOWS_DIR, "ci.yml");
 interface JobDef {
   permissions?: Record<string, string>;
   if?: string;
-  steps?: Array<{ uses?: string; run?: string; name?: string }>;
+  needs?: string | string[];
+  steps?: Array<{ uses?: string; run?: string; name?: string; "continue-on-error"?: boolean }>;
 }
 interface WorkflowDoc {
   on?: Record<string, unknown>;
@@ -144,14 +145,92 @@ function classifyPublishStep(run: string): PublishStepKind {
   return "other";
 }
 
+// REQ-PPI-05 (R1-13 fix): job order is EXECUTION order, driven by `needs:`, never the raw
+// object-key order YAML parsing preserves (which mirrors textual declaration order and can
+// diverge from it — see the R1-13 red-proof below).
+function needsOf(job: JobDef | undefined): string[] {
+  const needs = job?.needs;
+  if (needs === undefined) return [];
+  return Array.isArray(needs) ? needs : [needs];
+}
+
+function topologicalJobOrder(jobs: Record<string, JobDef>): string[] {
+  const order: string[] = [];
+  const visited = new Set<string>();
+
+  function visit(name: string, inProgress: Set<string>): void {
+    if (visited.has(name)) return;
+    if (inProgress.has(name)) {
+      throw new Error(`publishRunSteps: circular "needs:" dependency involving job "${name}"`);
+    }
+    inProgress.add(name);
+    for (const dependency of needsOf(jobs[name])) {
+      if (jobs[dependency] !== undefined) visit(dependency, inProgress);
+    }
+    inProgress.delete(name);
+    visited.add(name);
+    order.push(name);
+  }
+
+  for (const name of Object.keys(jobs)) visit(name, new Set());
+  return order;
+}
+
 function publishRunSteps(doc: WorkflowDoc): Array<{ kind: PublishStepKind; run: string }> {
+  const jobs = doc.jobs ?? {};
   const steps: Array<{ kind: PublishStepKind; run: string }> = [];
-  for (const job of Object.values(doc.jobs ?? {})) {
-    for (const step of job.steps ?? []) {
+  for (const name of topologicalJobOrder(jobs)) {
+    for (const step of jobs[name]?.steps ?? []) {
       if (step.run) steps.push({ kind: classifyPublishStep(step.run), run: step.run });
     }
   }
   return steps;
+}
+
+// REQ-PPI-02: an EXPLICIT rebuild step must be declared between the version stamp and the
+// publish step — a second, independent guarantee against manifest staleness that does not
+// rely on npm's implicit `prepublishOnly` lifecycle hook (see `checkPublishOrdering` above,
+// which already tolerates the implicit-only case and stays unchanged).
+function checkExplicitRebuildStep(doc: WorkflowDoc): { ok: boolean; reason?: string } {
+  const steps = publishRunSteps(doc);
+  const stampIndex = steps.findIndex((s) => s.kind === "stamp");
+  const publishIndex = steps.findIndex((s) => s.kind === "publish");
+  if (stampIndex === -1 || publishIndex === -1) {
+    return { ok: false, reason: "stamp or publish step not found" };
+  }
+  const hasExplicitRebuild = steps.slice(stampIndex + 1, publishIndex).some((s) => s.kind === "build");
+  if (!hasExplicitRebuild) {
+    return {
+      ok: false,
+      reason: "no explicit rebuild step declared between the version stamp and the publish step",
+    };
+  }
+  return { ok: true };
+}
+
+// REQ-PPI-03.1: the publish job's full-suite step must run strictly before the publish step,
+// and must never carry `continue-on-error` (a knowingly-flaky gate is a gate that gets routed
+// around, ruling 6). The behavioural proof that a FAILING suite actually blocks publish is
+// fit-46's own scratch-tree scenario (REQ-PPI-03.2/.3) — this is the structural half.
+function checkSuiteGate(doc: WorkflowDoc): { ok: boolean; reason?: string } {
+  for (const job of Object.values(doc.jobs ?? {})) {
+    const steps = job.steps ?? [];
+    const publishIndex = steps.findIndex((s) => s.run && classifyPublishStep(s.run) === "publish");
+    if (publishIndex === -1) continue;
+
+    const suiteIndex = steps.findIndex((s) => s.run && /(^|\s)bun test(\s|$)/m.test(s.run));
+    if (suiteIndex === -1) {
+      return { ok: false, reason: "no full-suite (bun test) step found before the publish step" };
+    }
+    if (suiteIndex > publishIndex) {
+      return { ok: false, reason: "the suite step runs after the publish step, not before" };
+    }
+    if (steps[suiteIndex]?.["continue-on-error"] === true) {
+      return { ok: false, reason: "the suite step declares continue-on-error: true" };
+    }
+    return { ok: true };
+  }
+  return { ok: false, reason: "no publish step found in any job" };
 }
 
 // The `prepublishOnly` leg counts ONLY while the publish command is `npm publish` without
@@ -395,5 +474,81 @@ jobs:
       - run: npm publish --tag dev --ignore-scripts
 `) as WorkflowDoc;
     expect(checkPublishOrdering(doc, scripts)).toEqual({ ok: true });
+  });
+});
+
+// runner-tripwire-invariants S-000 — REQ-PPI-02/03/04/05: publish-sequence hardening.
+describe("FIT-23 S-000 — publishRunSteps reads EXECUTION order, not declaration order (REQ-PPI-05)", () => {
+  it("REQ-PPI-05.1: an order-irrelevant step (no `run:`) interleaved among run steps does not disturb their relative order", () => {
+    const doc = YAML.parse(`
+jobs:
+  publish:
+    steps:
+      - uses: actions/checkout@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      - run: bun run build
+      - run: npm version "0.0.0-dev.abc" --no-git-tag-version
+      - run: npm publish --tag dev
+`) as WorkflowDoc;
+    expect(publishRunSteps(doc).map((s) => s.kind)).toEqual(["build", "stamp", "publish"]);
+  });
+
+  it("REQ-PPI-05.2 [red-proof]: a step reordered only in execution (via `needs:`), not text, is caught", () => {
+    // `rebuild-job` is declared TEXTUALLY FIRST, but `needs: publish-job` means it actually
+    // EXECUTES LAST — after publish. A declaration-order reading (the old bug, R1-13) would
+    // report [build, stamp, publish]; the execution-order reading must report [stamp,
+    // publish, build].
+    const doc = YAML.parse(`
+jobs:
+  rebuild-job:
+    needs: publish-job
+    steps:
+      - run: bun run build
+  publish-job:
+    steps:
+      - run: npm version "0.0.0-dev.abc" --no-git-tag-version
+      - run: npm publish --tag dev --ignore-scripts
+`) as WorkflowDoc;
+    expect(publishRunSteps(doc).map((s) => s.kind)).toEqual(["stamp", "publish", "build"]);
+  });
+});
+
+describe("FIT-23 S-000 — REQ-PPI-02: an explicit rebuild step is declared between stamp and publish", () => {
+  it("REQ-PPI-02.1: publish.yml declares an explicit rebuild step between the version stamp and the publish step", () => {
+    const doc = YAML.parse(readFileSync(PUBLISH_YML_PATH, "utf-8")) as WorkflowDoc;
+    const result = checkExplicitRebuildStep(doc);
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("REQ-PPI-02.2 [red-proof]: a simulated workflow with the stamp immediately followed by publish (no explicit rebuild) is caught", () => {
+    const doc = YAML.parse(`
+jobs:
+  publish:
+    steps:
+      - run: npm version "0.0.0-dev.abc" --no-git-tag-version
+      - run: npm publish --tag dev --ignore-scripts
+`) as WorkflowDoc;
+    const result = checkExplicitRebuildStep(doc);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe(
+      "no explicit rebuild step declared between the version stamp and the publish step"
+    );
+  });
+});
+
+describe("FIT-23 S-000 — REQ-PPI-03.1: the publish job runs a full-suite step, strictly before publish, no continue-on-error", () => {
+  it("REQ-PPI-03.1: publish.yml declares a `bun test` step strictly before the publish step, with no continue-on-error", () => {
+    const doc = YAML.parse(readFileSync(PUBLISH_YML_PATH, "utf-8")) as WorkflowDoc;
+    const result = checkSuiteGate(doc);
+    expect(result).toEqual({ ok: true });
+  });
+});
+
+describe("FIT-23 S-000 — REQ-PPI-04.1 (structural leg): react-conformance.test.ts declares an explicit per-file timeout", () => {
+  it("REQ-PPI-04.1: react-conformance.test.ts calls setDefaultTimeout with a value distinct from Bun's 5000ms default", () => {
+    const REACT_CONFORMANCE_PATH = join(PROJECT_ROOT, "test/conformance/react-conformance.test.ts");
+    const source = readFileSync(REACT_CONFORMANCE_PATH, "utf-8");
+    const match = source.match(/setDefaultTimeout\((\d+)\)/);
+    expect(match).not.toBeNull();
+    expect(Number(match?.[1])).not.toBe(5000);
   });
 });

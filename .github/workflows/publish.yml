@@ -55,6 +55,19 @@ jobs:
           SHORT_SHA="${GITHUB_SHA::7}"
           npm version "0.0.0-dev.${SHORT_SHA}" --no-git-tag-version
 
+      # REQ-PPI-02: an EXPLICIT rebuild, declared as its own step — a second, independent
+      # guarantee that dist/runner-manifest.json reflects the stamped version, alongside (not
+      # instead of) npm's own prepublishOnly hook. The two checks fail for different reasons
+      # if either regresses.
+      - name: Rebuild after version stamp
+        run: bun run build
+
+      # REQ-PPI-03: the full suite MUST gate publish — no continue-on-error, strictly before
+      # the publish step. A violating closure (e.g. a Constraint-4 admission failure) must
+      # never reach the publish step below.
+      - name: Run test suite
+        run: bun test
+
       # Publish dry-run with provenance assertion.
       #
       # WHY dry-run: npm trusted publishing (OIDC) is a registry-side precondition —

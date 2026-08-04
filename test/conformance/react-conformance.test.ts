@@ -11,7 +11,10 @@
  * exports `find`, so conformance re-assembles the same real `Dialect`/`OpPack` objects rather
  * than importing a mock.
  */
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, setDefaultTimeout } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
 import { parse, print } from "../../src/dialects/react/ast.ts";
@@ -19,6 +22,15 @@ import { setJsxProp, addImport } from "../../src/dialects/react/ops.ts";
 import { testDialect, testOpPack, type DialectFixture, type OpPackFixture } from "../../src/conformance/index.ts";
 import { golden } from "../support/golden.ts";
 
+// REQ-PPI-04: an explicit per-file timeout, distinct from Bun's 5000ms default — the
+// ~4 MiB JSX corpus sample (below) and the op-pack fidelity exercises are real parse/print
+// work, not a hang, but a genuine regression here must fail AT the declared boundary, never
+// by silently exceeding Bun's default and dragging the publish suite gate (REQ-PPI-03) with
+// it. See the [red-proof] test below for the behavioural proof that the boundary actually
+// terminates a non-resolving fixture, naming the file.
+setDefaultTimeout(20000);
+
+const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 const REACT_GOLDEN_DIR = new URL("../dialects/react/golden/", import.meta.url).pathname;
 
 function reactGolden(name: string): string {
