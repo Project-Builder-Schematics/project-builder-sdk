@@ -1421,10 +1421,8 @@ describe("FIT-42N S-001 — REQ-PRM-01: capability primitive register, fixture-c
 
   for (const [file, primitive] of Object.entries(DENY_SCAN_FIXTURES)) {
     it(`REQ-CST-04.2: deny-scan/${file} is denied, naming ${primitive}`, () => {
-      const root = scratchRoot();
       const content = readFileSync(join(DENY_SCAN_DIR, file), "utf-8");
-      mkdirSync(root, { recursive: true });
-      writeFileSync(join(root, "entry.js"), content, "utf-8");
+      const root = plantTree({ "entry.js": content });
       const violations = deriveRunnerClosure(root, "entry.js").violations;
       expect(violations.length).toBe(1);
       expect(violations[0]?.detail).toBe(DENY_SCAN_EXPECTED_DETAIL[file]);
@@ -1432,10 +1430,8 @@ describe("FIT-42N S-001 — REQ-PRM-01: capability primitive register, fixture-c
   }
 
   it("REQ-PRM-01: the mandatory green sibling produces zero violations — non-vacuity", () => {
-    const root = scratchRoot();
     const content = readFileSync(join(GREEN_DIR, "clean-admitted-surface.js"), "utf-8");
-    mkdirSync(root, { recursive: true });
-    writeFileSync(join(root, "entry.js"), content, "utf-8");
+    const root = plantTree({ "entry.js": content });
     expect(deriveRunnerClosure(root, "entry.js").violations).toEqual([]);
   });
 
@@ -1796,9 +1792,7 @@ function produceRuleFor(entry: RuleIdentityEntry): ViolationRule {
   if (entry.fixture.startsWith("deny-scan/")) {
     const file = entry.fixture.slice("deny-scan/".length);
     const content = readFileSync(join(DENY_SCAN_DIR, file), "utf-8");
-    const root = scratchRoot();
-    mkdirSync(root, { recursive: true });
-    writeFileSync(join(root, "entry.js"), content, "utf-8");
+    const root = plantTree({ "entry.js": content });
     const violations = deriveRunnerClosure(root, "entry.js").violations;
     return (violations[0] as { rule: ViolationRule }).rule;
   }
