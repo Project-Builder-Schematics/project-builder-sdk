@@ -271,20 +271,28 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
     ]);
   });
 
+  // S-001 (ADR-0079) behavioural-survival note (#10 of the 18 S-000-tier red-proofs, B2
+  // enumeration): the OLD denyScan flagged this fixture TWICE — once for the import
+  // specifier's own "createRequire" binding-site token (a pure identifier-text-match quirk:
+  // denyScan's non-anchor branch never excluded declaration-site identifiers) and once for
+  // the call. The NEW mechanism's E2 exclusion (design.md §1: "a binding site is not a
+  // reference") correctly never enumerates a declaration name as capability surface — the
+  // call site alone is now caught, exactly once. This is a precision IMPROVEMENT (the
+  // spurious double-count on a harmless import binding is gone), not a detection loss: the
+  // same file still fails the build, naming the same defect.
   it("REQ-CST-04.1: a createRequire call outside the anchored site is a Constraint-4 violation", () => {
     const root = plantTree({
       "entry.js": 'import { createRequire } from "node:module";\ncreateRequire(anchor)("./x.js");\n',
     });
     expect(classifiedAs(root)).toEqual([
-      { rule: "constraint-4-execution-primitive", file: "entry.js" },
-      { rule: "constraint-4-execution-primitive", file: "entry.js" },
+      { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
     ]);
   });
 
   it("REQ-CST-04.4: the indirect-variable form is caught, not just the direct call", () => {
     const root = plantTree({ "entry.js": "const req = createRequire(anchor);\nreq('./x.js');\n" });
     expect(classifiedAs(root)).toEqual([
-      { rule: "constraint-4-execution-primitive", file: "entry.js" },
+      { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
     ]);
   });
 
@@ -293,7 +301,7 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
       "entry.js": 'import * as m from "node:module";\nm.createRequire(anchor)("./x.js");\n',
     });
     expect(classifiedAs(root)).toEqual([
-      { rule: "constraint-4-execution-primitive", file: "entry.js" },
+      { rule: "constraint-4-inadmissible-origin", file: "entry.js" },
     ]);
   });
 
@@ -311,7 +319,7 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
         'import { createRequire } from "node:module";\ncreateRequire(a).resolve(s);\ncreateRequire(b)("./x.js");\n',
     });
     expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([
-      { rule: "constraint-4-execution-primitive", file: CREATE_REQUIRE_ANCHOR_FILE },
+      { rule: "constraint-4-inadmissible-origin", file: CREATE_REQUIRE_ANCHOR_FILE },
     ]);
   });
 
@@ -323,7 +331,7 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
         'import { createRequire } from "node:module";\ncreateRequire(anchor)("./x.js");\n',
     });
     expect(classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([
-      { rule: "constraint-4-execution-primitive", file: CREATE_REQUIRE_ANCHOR_FILE },
+      { rule: "constraint-4-inadmissible-origin", file: CREATE_REQUIRE_ANCHOR_FILE },
     ]);
   });
 
@@ -337,7 +345,7 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
     });
     const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
     expect(violations.length).toBeGreaterThanOrEqual(2);
-    expect(violations.every((v) => v.rule === "constraint-4-execution-primitive")).toBe(true);
+    expect(violations.every((v) => v.rule === "constraint-4-inadmissible-origin")).toBe(true);
   });
 
   // judgment-day Round 2: the alias check searched for THE binding and stopped at the first
@@ -355,7 +363,7 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
     });
     const violations = classifiedAs(root, CREATE_REQUIRE_ANCHOR_FILE);
     expect(violations.length).toBeGreaterThanOrEqual(1);
-    expect(violations.every((v) => v.rule === "constraint-4-execution-primitive")).toBe(true);
+    expect(violations.every((v) => v.rule === "constraint-4-inadmissible-origin")).toBe(true);
   });
 
   it("REQ-CST-06.1: a rendered violation names the src file to edit, the rule, and the no-manifest outcome", () => {
@@ -381,11 +389,11 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
       "p5.js": "process.binding('fs');\n",
     });
     expect(classifiedAs(root)).toEqual([
-      { rule: "constraint-4-execution-primitive", file: "p1.js" },
-      { rule: "constraint-4-execution-primitive", file: "p2.js" },
-      { rule: "constraint-4-execution-primitive", file: "p3.js" },
-      { rule: "constraint-4-execution-primitive", file: "p4.js" },
-      { rule: "constraint-4-execution-primitive", file: "p5.js" },
+      { rule: "constraint-4-inadmissible-origin", file: "p1.js" },
+      { rule: "constraint-4-inadmissible-origin", file: "p2.js" },
+      { rule: "constraint-4-inadmissible-origin", file: "p3.js" },
+      { rule: "constraint-4-inadmissible-origin", file: "p4.js" },
+      { rule: "constraint-4-inadmissible-origin", file: "p5.js" },
     ]);
   });
 });
@@ -673,14 +681,25 @@ describe("FIT-42N S-003 — Constraint 2: the sanction is per-SITE, not per-file
 });
 
 describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE", () => {
-  // RP-7.
+  // RP-7. REQ-CST-06.1: whole-verbatim, never toContain (S-001.7).
   it("REQ-CST-04.1: a direct createRequire call names Constraint 4 and the primitive", () => {
     const rendered = renderedFor(
       plantTree({ "entry.js": 'createRequire(anchorUrl)("./x.js");\n' })
     );
-    expect(rendered).toContain("unhashed-code-execution primitive in the closure");
-    expect(rendered).toContain("Constraint 4 — the closure may RESOLVE, never EXECUTE.");
-    expect(rendered).toContain("forbidden primitive: createRequire");
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/entry.ts — capability primitive or unadmitted origin in the closure.",
+        '  found: createRequire(anchorUrl)("./x.js");     (emitted: dist/entry.js:1)',
+        "  rule:  Constraint 4 — the closure may RESOLVE, never EXECUTE.",
+        "         admitted origins: local, a closure import of an admitted name, an admitted global, or an admitted builtin member path.",
+        "         forbidden origin: createRequire",
+        "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. See docs/runner-integrity-invariants.md#constraint-4.",
+        "  fix:   resolve the value through an admitted origin, or move the work outside the closure. If the primitive is genuinely needed, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-4 and agree it with the engine before regenerating any baseline.",
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 
   // RP-7b — the two forms a call-vs-.resolve() rule is defeated by.
@@ -688,16 +707,40 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
     const rendered = renderedFor(
       plantTree({ "entry.js": "const req = createRequire(anchorUrl);\nreq('./x.js');\n" })
     );
-    expect(rendered).toContain("found: const req = createRequire(anchorUrl);");
-    expect(rendered).toContain("forbidden primitive: createRequire");
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/entry.ts — capability primitive or unadmitted origin in the closure.",
+        "  found: const req = createRequire(anchorUrl);     (emitted: dist/entry.js:1)",
+        "  rule:  Constraint 4 — the closure may RESOLVE, never EXECUTE.",
+        "         admitted origins: local, a closure import of an admitted name, an admitted global, or an admitted builtin member path.",
+        "         forbidden origin: createRequire",
+        "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. See docs/runner-integrity-invariants.md#constraint-4.",
+        "  fix:   resolve the value through an admitted origin, or move the work outside the closure. If the primitive is genuinely needed, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-4 and agree it with the engine before regenerating any baseline.",
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 
   it("REQ-CST-04.4: the namespace form is named by the construct it found", () => {
     const rendered = renderedFor(
       plantTree({ "entry.js": 'import * as m from "node:module";\nm.createRequire(u)("./x.js");\n' })
     );
-    expect(rendered).toContain('found: m.createRequire(u)("./x.js");');
-    expect(rendered).toContain("forbidden primitive: createRequire");
+    expect(rendered).toBe(
+      [
+        "runner-manifest: src/entry.ts — capability primitive or unadmitted origin in the closure.",
+        '  found: m.createRequire(u)("./x.js");     (emitted: dist/entry.js:2)',
+        "  rule:  Constraint 4 — the closure may RESOLVE, never EXECUTE.",
+        "         admitted origins: local, a closure import of an admitted name, an admitted global, or an admitted builtin member path.",
+        "         forbidden origin: m.createRequire",
+        "  why:   a resolved binding whose origin is not one of the four admitted kinds may yield unhashed code execution — the admitted/denied sets are closed tables in scripts/capability-admission.ts, changed only by a PR that also changes the guard's tests. See docs/runner-integrity-invariants.md#constraint-4.",
+        "  fix:   resolve the value through an admitted origin, or move the work outside the closure. If the primitive is genuinely needed, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-4 and agree it with the engine before regenerating any baseline.",
+        "",
+        "No manifest was written; dist/runner-manifest.json does not exist.",
+        "",
+      ].join("\n")
+    );
   });
 
   // RP-7c — one file per primitive, each naming its own.
@@ -710,22 +753,26 @@ describe("FIT-42N S-003 — Constraint 4: the closure may RESOLVE, never EXECUTE
   ];
 
   for (const [primitive, file, source] of primitives) {
-    it(`REQ-CST-04.2: ${primitive} is denied and named as the forbidden primitive`, () => {
+    it(`REQ-CST-04.2: ${primitive} is denied and named as the forbidden origin`, () => {
       const rendered = renderedFor(plantTree({ [file]: source }), file);
-      expect(rendered).toContain(`forbidden primitive: ${primitive}`);
+      expect(rendered).toContain(`forbidden origin: ${primitive}`);
       expect(rendered).toContain("Constraint 4 — the closure may RESOLVE, never EXECUTE.");
     });
   }
 });
 
 describe("FIT-42N S-003 — every rule in the closed set renders a usable message", () => {
-  it("REQ-CST-06.1: the exported rule set is the nine-member closed set", () => {
+  // ADR-0079: `constraint-4-execution-primitive` (denyScan's one Constraint-4 rule) retires;
+  // capability-admission reports one of two rules instead, plus `directory-specifier` (R1-8).
+  it("REQ-CST-06.1: the exported rule set is the eleven-member closed set", () => {
     expect([...VIOLATION_RULES].sort()).toEqual([
       "constraint-2-dynamic-import",
       "constraint-2-second-site",
       "constraint-3-bare-specifier",
       "constraint-3a-unprefixed-builtin",
-      "constraint-4-execution-primitive",
+      "constraint-4-inadmissible-origin",
+      "constraint-4-undecidable-callee",
+      "directory-specifier",
       "symlink-escape",
       "unclassifiable-construct",
       "unreadable-file",
@@ -734,7 +781,7 @@ describe("FIT-42N S-003 — every rule in the closed set renders a usable messag
   });
 
   it("REQ-CST-06.1: every rule renders the full skeleton — found, rule, why, fix, epilogue", () => {
-    expect(VIOLATION_RULES.length).toBe(9);
+    expect(VIOLATION_RULES.length).toBe(11);
     const missing = [...VIOLATION_RULES].filter((rule) => {
       const rendered = renderViolations(
         [{ rule, file: "core/x.js", line: 7, found: "planted", detail: "planted-detail" }],
