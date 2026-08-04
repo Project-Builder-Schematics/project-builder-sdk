@@ -1634,6 +1634,64 @@ describe("FIT-42N S-003 — REQ-PTH-01.7: an unrecognised output-flag-shaped tok
     ]);
   });
 
+  // ADR-0081's Decision names command substitution explicitly, and a valueless recognised flag
+  // was dropped in silence. Both are the SAME defect: decidability was tested by looking for a
+  // known-bad marker (`$`) instead of by requiring a known-good value. Widening the marker set
+  // would close two spellings and leave the class open (success criterion 11), so the predicate
+  // is inverted: a value is decidable only if it matches the committed safe-path grammar.
+  it("REQ-PTH-01.5 [red-proof]: backtick command substitution is undecidable — ADR-0081 names it", () => {
+    const scripts = readScriptsFixture("undecidable-command-substitution.json");
+    expect(findBundlerTargets(scripts)).toEqual([]);
+    expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([
+      { script: "leak", token: "--outdir `pwd`/dist/transport" },
+    ]);
+  });
+
+  it("REQ-PTH-01.5 [red-proof]: a recognised output flag with no value at all is undecidable, never dropped", () => {
+    const scripts = readScriptsFixture("valueless-recognised-flag.json");
+    expect(findBundlerTargets(scripts)).toEqual([]);
+    expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([
+      { script: "leak", token: "--outdir" },
+    ]);
+  });
+
+  it("REQ-PTH-01.5: every spelling outside the safe-path grammar is undecidable — the class, not the spellings", () => {
+    // One row per undecidable KIND the grammar rejects. `$(…)` and `$VAR` were the only two the
+    // marker test caught; the rest were read as literal paths and silently checked as such.
+    const rejected = [
+      "$(pwd)/dist/transport",
+      "$OUT/dist",
+      "`pwd`/dist",
+      "${OUT}/dist",
+      "a;rm",
+      "a&&b",
+      "a|b",
+      "*/dist",
+      "~/dist",
+      "a\\dist",
+      '"dist"',
+    ];
+    for (const value of rejected) {
+      const scripts = { leak: `bun build z.ts --outdir ${value}` };
+      expect(findBundlerTargets(scripts)).toEqual([]);
+      expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([
+        { script: "leak", token: `--outdir ${value}` },
+      ]);
+    }
+  });
+
+  it("REQ-PTH-01.5: the safe-path grammar still admits every real spelling the five red-proofs use", () => {
+    // Non-vacuity of the inverted predicate: the grammar must not reject the decidable paths
+    // REQ-PTH-01.1-.4 depend on, or those red-proofs would stop proving resolution-based
+    // verdicts and start proving undecidability instead.
+    const accepted = [".//dist/transport", ".", "../dist/transport", "dist/bin/pbuilder-codegen.js", "_x-1.2/y"];
+    for (const value of accepted) {
+      const scripts = { leak: `bun build z.ts --outdir ${value}` };
+      expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([]);
+      expect(findBundlerTargets(scripts)).toEqual([{ script: "leak", flag: "--outdir", target: value }]);
+    }
+  });
+
   it("REQ-PTH-01.7: an ordinary non-output flag (--minify) is correctly left unclassified — scope-limit sentence", () => {
     const scripts = { ok: "bun build z.ts --minify --outfile dist/bin/codegen.js" };
     expect(findUnclassifiableBundlerConstructs(scripts)).toEqual([]);
@@ -1650,6 +1708,8 @@ describe("FIT-42N S-003 — REQ-PTH-01: the bundler-scripts/ corpus is complete,
     "concatenated-short-form.json",
     "relative-parent.json",
     "undecidable-var.json",
+    "undecidable-command-substitution.json",
+    "valueless-recognised-flag.json",
     "unrecognized-flag-shape.json",
   ];
   const DECLARED_GREEN = ["green-outside-closure.json"];
