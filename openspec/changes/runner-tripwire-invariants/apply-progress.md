@@ -1186,3 +1186,104 @@ One unrelated environment flake was observed intermittently across runs:
 `bun install` runs under load (6 failures, all in that one file, which this remediation does not
 touch; it passes standalone in 3.7s). Not introduced here and not in scope — noted so a future
 reader does not mistake it for a regression.
+
+## Judgment-day remediation and scope correction
+
+Blind judgment-day round 1: two independent judges demonstrated, with executed proof (real
+`execSync("id")`, real `eval`, a `Function` construction printing `v26.5.0`), that the
+capability-admission mechanism is bypassable. That is the **third** round on the same root cause —
+the original build, the verify-final remediation batch above, and now judgment day — each closing
+the spellings it was given while the next round found new ones.
+
+The owner ruling was: stop claiming soundness, deliver honest scope. So this pass does three
+things — closes the demonstrated repros (they genuinely raise the drift bar), fixes four unrelated
+real findings, and **retracts** the adversarial claims the code and docs were making. The promise
+that survives is the one `north-star.md` always stated: a drift control against honest mistakes and
+agent edits, not an adversary control.
+
+Every repro below was reproduced first (`0 violations` before the fix, in a planted mini-closure at
+a temp root) and is now pinned by a red-proof row. The 17 new capability rows were all observed
+failing with `Expected: 1 / Received: 0` — nothing was denied before the fix — and the three bundler
+rows failing on their token readings.
+
+### Part 1 — property-level fixes (demonstrated repro each)
+
+| # | Finding | Repro evidence (before) | Action | Residual |
+|---|---|---|---|---|
+| 1 | `classifyOrigin` returned `{admitted, via:"local"}` on a local/parameter/class/import root **without inspecting the path**, while global roots got `ADMITTED_MEMBER_PATHS` and safe terminals got the prototype-escape check | 7 executable shapes, 0 violations each: `h.constructor("return 1")`, `const C = fn.constructor`, `{ p: process }`→`w.p.binding`, `{ process }`→`w.process.binding`, `class Holder{static g=globalThis}`→`Holder.g.eval`, `f(g = globalThis)`→`g.eval` (parameter defaults got no initializer analysis), `go(x)`→`x.constructor` | FIXED. One predicate, `capabilityBearingSegment(path, fullPath?)`, applied to the PATH independently of the root's admission: a segment naming any dot-segment of a non-`node:` register member, or a prototype-graph escape, is a violation unless the full path is an exact `ADMITTED_MEMBER_PATHS` entry (`Object.prototype` stays admitted). Rows `d1`-`d7` + 5 green siblings | The predicate is a DENY list over an unbounded name space — a carrier property named anything else still launders its base (`w.go.Reflect.get(w.go,"eval")`, executed, still 0 findings). Registered: pending-changes JD-1/JD-2 + the `capability-admission-oracle` head row |
+| 2 | `classifySafeTerminal` rejected only `constructor`/`__proto__`/`prototype` plus bare `f()()`, and **admitted every other path** — a default-PASS on exactly the shape with no root to look up | 6 shapes, 0 violations each: `g().eval`, `g().Bun.plugin`, `g().WebAssembly.instantiate`, `g().binding`, `this.g.eval` (via `this.g = globalThis` in a constructor), `use(process)`→`p.binding` | FIXED. Same predicate, applied to the safe-terminal path (`PROTOTYPE_ESCAPE_SEGMENTS` ⊂ `CAPABILITY_BEARING_SEGMENTS`, so every pre-existing `c`-row detail is byte-unchanged). Rows `e1`-`e6` | Same as #1 — still a deny predicate. `classifySafeTerminal`'s own doc comment now says so |
+| 3 | `TaggedTemplateExpression` was **never enumerated as a call site** and `taintReasonOf` did not recognise it, so no leg ever ran on the tag | ``const C = "".constructor.constructor`return process.version`; C()`` → **0 violations**, prints `v26.5.0` when run. Also ``h.constructor`return 1` `` and ``x()`hi` `` | FIXED. `invocationCallees()` now yields call/`new` expressions **and** tagged-template tags; `resolveChain` treats a tagged template as a call-result terminal (it IS an invocation); `taintReasonOf` recognises the kind. FIT-CAP-TOTALITY's independent oracle mirrors the change. Rows `f1`-`f3` + a green sibling | Enumeration totality is relative to the enumerator — nothing structurally finds the NEXT unenumerated form. Registered: JD-3 |
+| 4 | The `origin === undefined` **default-deny had no fixture at all**: the judge replaced it with `{admitted, via:"local"}` against a mutated copy and the whole suite stayed green (2605/0) | Mutant verified reproducible here: 2605 pass / 0 fail with the branch flipped | FIXED. Three red-proofs (`Math.random()`, `new WeakMap()`, `new TypeError("x")`) + the green sibling (`Array.isArray([])`). **Mutant re-verified KILLED**: with the branch flipped, exactly those 3 fail and the sibling passes | None. This is the half of the property that survives, and it is now proven |
+| 5 | Cross-file laundering: a literal-rooted chain in **value** position was not enumerated at all (`maximalAccessRoot` returned a non-Identifier → `continue`), so the escape had no finding at its producing occurrence | `[lib.js] export const C = "".constructor.constructor;` + `[entry.js] import { C } from "./lib.js"; C("return process.version")()` → **0 violations** (the single-file equivalent WAS caught by taint) | FIXED structurally, as the judge recommended — decided at the PRODUCING occurrence, no cross-module dataflow: maximal member chains are enumerated whatever their root kind. `resolveChain` gained `MetaProperty` as a safe terminal (`import.meta.url` is such a chain in the real closure). Row `g1` + `import.meta`/literal green siblings | None for this shape. A chain whose root `resolveChain` cannot classify is now `unclassifiable-construct` — fail-closed, and zero such nodes exist in the real closure |
+| 6 | `-o`-prefixed single-dash flags mis-read; a flag accepted as a path; token shape matched case-sensitively | `-outdir dist/transport` → read as `-o` + `utdir`, target `"utdir"`, collides with nothing, **real path silently dropped**. `--outdir --minify dist/x` → target `"--minify"` (the safe-path grammar admits `-`). `--OUTDIR dist/transport` → matched nothing, silently ignored | FIXED. `classifyToken` folds the token for SHAPE decisions only (never the value); any single-dash `-out…` routes to `unclassifiable-shape` **before** the concatenated-short-form branch that mis-claimed it; `readValue` treats a leading `-` value as `undecidable`. 3 red-proof rows, one asserting the `--OUTDIR` collision is now REPORTED | None known for the token grammar |
+
+### Part 2 — four independent WARNING findings
+
+| # | Finding | Repro evidence | Action | Residual |
+|---|---|---|---|---|
+| 7 | `topologicalJobOrder` **invented a sequence** for jobs with no `needs:` relation — which GitHub Actions runs CONCURRENTLY — so REQ-PPI-02 and REQ-BPI-03.1 passed a workflow whose rebuild is not ordered against publish at all | A two-job fixture (`stamp-job` stamps + builds, `publish-job` publishes, no `needs:`) returned `{ok: true}` from both `checkExplicitRebuildStep` and `checkPublishOrdering` | FIXED. Every verdict now goes through `stepPrecedes(jobs, a, b)`: same job → step index; different jobs → a `needs:` ancestry check; otherwise **`undefined`, reported as a FAILURE** naming the unordered pair. The topological list survives only as an enumeration, and no verdict reads a position in it. 3 red-proofs + a `needs:`-linked sibling positive | `checkPublishOrdering`/`checkExplicitRebuildStep` still reason about the FIRST stamp and FIRST publish step, so two stamps or two publishes are decided by one pair. Registered: JD-8 |
+| 8 | `checkSuiteGate` and `findNpmPublishCommandLine` inspected only the **FIRST** publish-carrying job (`return` on first match), while their sibling `checkRepoOwnerGuard`'s own comment says "a partial guard is exactly as dangerous as no guard at all" | A second, ungated `sneaky` publish job passed `checkSuiteGate`; a second `npm publish` line without `--dry-run` was invisible to `findNpmPublishCommandLine` | FIXED. `checkSuiteGate` loops every publish step in every job, requiring a suite step that provably precedes it and carries no `continue-on-error`; `findNpmPublishCommandLines` returns them ALL and REQ-PPH-03.1 asserts `--dry-run` on every one. 2 red-proofs | **Reason strings changed**: the three `checkSuiteGate` failure reasons gained a `job "<name>": ` prefix, because a reason with no job name is ambiguous once several jobs carry publish steps. Pinned expectations updated in the same commit; registered as JD-7 so the change is discoverable |
+| 9 | The CHANGELOG↔version guard was **inert in exactly the publish run**: it early-returned on the `0.0.0-dev.<sha>` stamp shape that `publish.yml` applies before `bun test`, then asserted the shape of the value that had selected the branch. Its `[red-proof]` was a `toBe` tautology plus a hardcoded current release | Simulated the stamp in `package.json`: the guard passed while checking nothing about the CHANGELOG | FIXED. Under a dev stamp the invariant is asserted against the version the COMMIT declares, read via `git show HEAD:package.json` (a read failure throws loudly — never a silent pass). The invariant is extracted as `checkVersionHasChangelogHeading(version, topHeading)` and red-proofed on fixtures (mismatch, missing heading, match) with no live version hardcoded. **Non-vacuity verified**: with the stamp applied AND the CHANGELOG's top heading altered to `0.9.9`, the live test fails naming `version 0.2.3 does not match … 0.9.9`; with only the stamp applied, all 10 pass | None. The `git` dependency is real but `actions/checkout` already provides it, and its absence fails loudly |
+| 10 | The suite **destroys and rebuilds the real `dist/` mid-run** (`ensureTscBuild` shells `bun run build`, whose `prebuild` removes the tree), and this change added three new consumers of it. Two concurrent `bun test` runs fail non-deterministically | Judge measured 2599/6 concurrent vs 2605/0 serial, different failures each time | **LOUD GUARD, not isolation — and the reason is a property, not effort.** A per-process scratch dist would remove the collision *and* the value: FIT-42, the docs-count check and the installed-consumer e2e exist to verify the tree that actually SHIPS, and a scratch copy verifies a copy. So the tree stays shared and a pid-keyed owner lock (`.tmp-shared-build.lock`, gitignored) is acquired on the first `ensureTscBuild()` and held for the whole process — the destructive window is every later read of `dist/`, not only the delete. A second run gets one named error naming the holder pid instead of six mysterious failures. `EPERM` from `kill(pid, 0)` counts as ALIVE (a foreign-owned process exists); only `ESRCH` is stale. Verified: live holder refused, stale lock taken over, lock released on exit | Proper isolation (scratch `outDir` + scratch codegen outfile + scratch manifest path, and re-deciding what `fit-42` verifies) registered as JD-4 |
+
+### Part 3 — retractions (the load-bearing part)
+
+- **`docs/runner-integrity-invariants.md`** — Constraint 4 no longer claims "the default for
+  anything unrecognised is a violation, never a silent pass"; that sentence is explicitly retracted
+  in place, and the section now separates what IS default-deny (origin admission, red-proofed
+  against its mutant) from what is not (path admission where no table applies — a deny predicate;
+  enumeration totality — relative to the enumerator's own five kinds). It states the structural
+  reason it cannot be patched into soundness (dataflow), and states the real purpose in
+  `north-star.md`'s own words: a drift control, not an adversary control. *Why this exists* item 2
+  was softened in the same way ("no *named* unhashed-code-execution primitive"; drift value is real
+  and is not the same as preventing execution). A new **Known gaps** subsection records the three
+  demonstrated post-fix bypasses verbatim, alongside the list of what IS closed with a red-proof
+  each, and points at `FIT-CAP-ORACLE`/`capability-admission-oracle`.
+- **ADR-0079** — status becomes `Accepted (amended in implementation)`, a dated amendment banner is
+  added at the top, and an `## Amendment` section after Consequences splits the Decision's property
+  into retained (origin default-deny, now red-proofed and mutant-killed) and retracted ("the
+  admitted set is closed", "ambiguity is violation" as whole-mechanism properties), with the
+  dataflow reason and the drift-control purpose. Superseded text is preserved unedited.
+- **ADR-0080** — a dated scope-correction note: "would have prevented every Constraint-4 finding in
+  both judging rounds" is retracted (a third round found more), and the enumerator/classifier
+  split's real, narrower property is stated — it detects a classifier mutation on an
+  ALREADY-ENUMERATED node, and cannot see a construct the enumerator never reaches.
+- **Guard doc comments** — `capability-admission.ts`'s header no longer claims never-a-silent-pass
+  and now names both permissive halves; `resolveChain`'s "structurally incapable of naming an
+  externally-sourced capability" is corrected (a function returning `globalThis` refutes it);
+  `classifySafeTerminal` says its path check is a deny predicate; `CAPABILITY_BEARING_SEGMENTS`
+  says so at its own declaration. `derive-runner-closure.ts`'s two operator-facing `why:` texts no
+  longer tell the reader "the SHAPE is denied, never a specific spelling" without qualification —
+  both now name the deny-predicate boundary and point at Known gaps. The four pinned expectations
+  of the `constraint-4-inadmissible-origin` message were updated in the same commit.
+  - **On the judge's cited line range**: `capability-admission.ts` ~583-585 carries no comment
+    asserting `x()()` is undecidable, and `function x(){return ()=>1} x()()` IS caught — corpus row
+    `c14` pins it as one `constraint-4-undecidable-callee` and passes. Rather than invent a
+    retraction for a claim that is not there, the genuine adjacent over-claim (`resolveChain`'s) was
+    corrected and the discrepancy is recorded as JD-6 so the citation is not re-raised.
+- **Signed-spec count divergence LANDED** — `specs/runner-integrity-manifest/spec.md` REQ-CAP-04.4
+  now reads 21 (was 22) and REQ-CAP-04.6 reads 30 (was 28), the shipped machine-checked counts,
+  under a dated **Count reconciliation** note recording the provenance `design.md` §1 authorized for
+  archive-time sync. `slices.md`'s S-001 acceptance text is reconciled to match. Only the two
+  numbers changed; the pinning doctrine (exact membership, never a threshold) is untouched. No
+  signed scenario text is false at archive.
+- **Deferred soundness work registered** — `openspec/pending-changes.md` gains a
+  `capability-admission-oracle` head row (deliverable `FIT-CAP-ORACLE`, the three executed bypass
+  classes as motivating evidence, and the explicit note that a member-path allowlist cannot be made
+  sound without dataflow analysis), plus JD-1..JD-8 covering every non-fixed finding from this pass.
+
+### Gates
+
+- `bun test`: **2645 pass / 0 fail / 7371 expect() calls**, 202 files (baseline 2605; +40 new tests).
+- `tsc --noEmit`: clean.
+- Fresh full rebuild: `dist/runner-manifest.json` =
+  `31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde`, 118 dist files, every one
+  byte-identical to the pre-change tree (per-file sha256 diff, empty).
+- **Real 23-file closure: 0 violations**, 23 nodes — verified after every Part 1 fix. `Reflect.get`,
+  `Object.getPrototypeOf`, `Object.prototype` and `Object.defineProperty` all still classify as
+  admitted; `Object.defineProperty(globalThis, …)` and `Object.defineProperty(process, "stdout", …)`
+  (globals passed as call ARGUMENTS, 3 sites) are why a positional "a global may not escape into a
+  value" rule was rejected in favour of the path predicate.
+- Standing anti-`toContain` scan: green. Whole-verbatim reason strings byte-identical except the two
+  deliberate, recorded changes (the `constraint-4-*` `why:` texts, and `checkSuiteGate`'s job-name
+  prefix) — both with their pinned expectations updated in the same commit.

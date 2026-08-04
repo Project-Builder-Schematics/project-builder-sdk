@@ -166,11 +166,21 @@ primitive.
 symmetric to the denied register; closes the ADR-0079 "nothing to rubber-stamp"
 enforcement gap. Additive only — no existing REQ-CAP-04 scenario above is altered.
 
+**Count reconciliation (2026-08-05, owner-authorized delta sync)** — the two scenarios below
+originally read "22-member" (`ADMITTED_GLOBALS`) and "28-member" (`ADMITTED_MEMBER_PATHS`), taken
+from design.md §1's probe at HEAD `e6dcde2`. Re-verified against this branch's real 23-file closure,
+the true counts are **21** and **30**; `design.md` §1 records the divergence and its provenance (two
+JSDoc-comment-only edits landed on `main` after that probe — `git diff e6dcde2 HEAD` confirms zero
+AST/identifier-surface change) and authorized an archive-time delta sync. The sync is landed here so
+no signed scenario text is false at archive: the numbers below are the shipped, machine-checked ones
+(`fit-42-runner-closure-integrity.test.ts`, REQ-CAP-04.4/.6). Only the two counts changed — the
+pinning DOCTRINE (exact membership, never a threshold) is untouched.
+
 #### Scenario REQ-CAP-04.4: Admitted tables are pinned by exact membership
 
 - GIVEN the admitted tables in the guard source (`ADMITTED_GLOBALS`, `ADMITTED_NODE_SURFACES`)
 - WHEN the exact-count/exact-membership assertion runs
-- THEN `ADMITTED_GLOBALS` matches its pinned 22-member list exactly and `ADMITTED_NODE_SURFACES` matches its pinned 6-module list exactly — exact-set comparison, never a threshold (`.size > N`)
+- THEN `ADMITTED_GLOBALS` matches its pinned 21-member list exactly and `ADMITTED_NODE_SURFACES` matches its pinned 6-module list exactly — exact-set comparison, never a threshold (`.size > N`)
 
 #### Scenario REQ-CAP-04.5 [red-proof]: A silent widening of an admitted table is caught
 
@@ -193,7 +203,7 @@ existing REQ-CAP-04 scenario above is altered.
 
 - GIVEN the member-path table for admitted globals (`ADMITTED_MEMBER_PATHS`, `scripts/capability-admission.ts`)
 - WHEN the exact-membership assertion runs
-- THEN it matches the pinned 28-member list exactly (design.md §1's probe count) — exact-set comparison, never a threshold; a member path reached through an admitted-global root that is NOT in this table classifies as `violation` (default-deny one level down), symmetric with REQ-CAP-04.4's origin-level pinning
+- THEN it matches the pinned 30-member list exactly (this branch's re-verified probe count) — exact-set comparison, never a threshold; a member path reached through an admitted-global root that is NOT in this table classifies as `violation` (default-deny one level down), symmetric with REQ-CAP-04.4's origin-level pinning
 
 #### Scenario REQ-CAP-04.7 [red-proof]: `process.dlopen` is denied despite an admitted origin and an undenied root
 
