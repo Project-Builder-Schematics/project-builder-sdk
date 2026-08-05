@@ -4,6 +4,17 @@
 **Status**: SIGNED — Daniel Ramirez, 2026-07-29 (V1 signed as drafted; owner rulings 1-8 incorporated)
 **Change**: `runner-tripwire-invariants`
 
+> **Judgment-day scope correction (2026-08-05, owner ruling)**: the V2 → V3 summary below and
+> REQ-CAP-01/03's requirement prose asserted default-violation and total classification as
+> security PROPERTIES of the mechanism. A third adversarial round demonstrated executable
+> bypasses, and those claims are now **scoped, not restated** — default-deny holds on ORIGIN
+> (real, mutant-killed), PATH is a deny predicate over an unbounded name space, and totality is
+> relative to the ENUMERATOR. Superseded wording is preserved everywhere; each dated
+> `Judgment-day scope correction` block governs on divergence. **No scenario's Given/When/Then
+> changed** — every test still asserts what it asserted. Read REQ-CAP-01's block first;
+> `docs/runner-integrity-invariants.md#known-gaps` carries the demonstrated residuals and
+> `openspec/pending-changes.md` registers `capability-admission-oracle` for the soundness work.
+
 V2 → V3 (owner-authorized unfreeze batch, 2026-07-29, ruling 1 + PM finding + ruling 7):
 Constraint-4's guard replaces a text-matching deny-scan with a default-deny
 **capability-admission property** — every node of a closure file's capability surface
@@ -31,6 +42,53 @@ exactly one of `{admitted, violation, unclassifiable-construct}`. The default fo
 the classifier does not recognise MUST be `violation` or `unclassifiable-construct` —
 never a silent pass. For every closure file, classified-node count MUST equal
 present-node count, asserted as an exact structural equality, never a threshold.
+
+**Judgment-day scope correction (2026-08-05)** — the superseded text above is preserved, not
+deleted; this block governs on divergence. A third adversarial round (blind judgment-day, two
+independent judges) demonstrated **executable** bypasses after the two previous rounds had each
+closed the spellings they were shown. "The default for any node the classifier does not
+recognise MUST be violation — never a silent pass" is therefore **retracted as a
+whole-mechanism property**: it holds for one of the three halves and is false for the other
+two. What the mechanism guarantees, and what the tests actually assert, is:
+
+1. **ORIGIN admission is default-deny, and this is real.** A resolved root binding that is not
+   local, not a closure import of an admitted name, and not an `ADMITTED_GLOBALS` member MUST be
+   a violation in every position (REQ-CAP-04). This branch previously had no fixture at all —
+   replacing it with an admit left the entire suite green — and now carries red-proofs whose
+   mutant is verified killed.
+2. **PATH admission is a DENY PREDICATE where no table applies, NOT a closed set.**
+   `ADMITTED_MEMBER_PATHS` decides the path off an admitted GLOBAL by exact full-path identity
+   (REQ-CAP-04.6). Off a local, a parameter, a closure import, or a safe terminal (a literal,
+   `this`, a call result) there is no path to look up, so the path MUST be checked against a
+   predicate over property names derived from the REQ-PRM-01 register plus the prototype-graph
+   escapes. A predicate over an unbounded name space cannot be a closed set: **a carrier property
+   named anything the predicate does not name passes.** The requirement is the predicate's
+   application, never the absence of an unlisted name.
+3. **Totality is relative to the ENUMERATOR, and the enumerator's coverage is the boundary.**
+   `classified-node count == present-node count` is asserted against an independently implemented
+   raw count and remains exactly true — but both walkers range over the same closed
+   `SurfaceNodeKind` union (REQ-CAP-01.4). A construct neither walker reaches is **not**
+   `unclassifiable-construct`; it is invisible. Tagged templates were exactly such a construct
+   for two review rounds and are now enumerated; nothing structurally guarantees the next one is.
+
+This cannot be patched into soundness by further rounds, and the reason is structural rather
+than a matter of effort: deciding which values an aliasing/reflection graph can reach is
+dataflow analysis, and this mechanism is a syntax-only AST allowlist by deliberate choice
+(ADR-0079 rejected the ts-morph type checker so a fail-closed build gate's verdict would not
+depend on install state — a trade this correction does not reverse).
+
+**What this REQ is for**, stated so no downstream reader infers otherwise: a **drift control**
+against honest mistakes and agent edits that widen the runner's executed surface — the framing
+`north-star.md` used from the start — never an adversary control. A green `fit-42` is not
+evidence that the closure cannot execute unhashed code.
+
+The demonstrated post-fix bypasses are recorded verbatim in
+`docs/runner-integrity-invariants.md#known-gaps`; ADR-0079's Amendment and ADR-0080's
+scope-correction note carry the same retraction on the decision side; the soundness work is
+registered as its own future change, `capability-admission-oracle` (deliverable
+`FIT-CAP-ORACLE`, the differential oracle deferred in `design.md` §7), in
+`openspec/pending-changes.md`. **No scenario below is altered** — every Given/When/Then still
+holds and every test still asserts it. This is a correction to the requirement's CLAIM SCOPE.
 
 #### Scenario REQ-CAP-01.1: Totality holds on the real closure
 
@@ -84,6 +142,63 @@ tail migrates to the enumerator instead of closing. Additive only; CAP-01.1-.3 u
   narrowing the surface to keep totality trivially true is exactly as loud as widening an
   admitted table (REQ-CAP-04.5)
 
+**Exclusion red-proof amendment (2026-08-05, steward reckoning criterion 3)** — additive; no
+scenario above is altered. `north-star.md` success criterion 3 requires a red-proof for EACH of
+the four surface exclusions, or a named justification for why one is unfalsifiable, and records
+that the design's own table left E4's cell empty. Delivered state before this amendment: E1 had
+CAP-01.7; **E2, E3 and E4 had none.** CAP-01.4/.5/.6 pin the exclusion TABLE by exact membership,
+which proves the table was not edited and says nothing about what each predicate excludes — and
+an exclusion is a CLAIM that a node cannot yield a capability, so an unproven one is the cheapest
+place to reintroduce default-pass. That is this cycle's own lesson, so the gap is closed rather
+than argued away.
+
+E4 turned out to be **falsifiable**, so the "name why it is unfalsifiable" fallback is not used:
+a `.js` file can carry a `TypeReference` node (ts-morph parses TS annotation syntax leniently),
+so the excluded position and a value position fit in one fixture and can be told apart. Each
+scenario below places the SAME denied primitive in the excluded position and in a genuine
+reference position and asserts an exact count, so a widened predicate drops a finding and fails.
+Non-vacuity is verified by mutation: widening each predicate in `scripts/capability-admission.ts`
+makes exactly its own scenario fail and no other (apply-progress.md, Part 3c).
+
+#### Scenario REQ-CAP-01.8 [red-proof]: E2 excludes the binding SITE only, never a reference beside it
+
+- GIVEN a synthetic closure file whose variable name, parameter name and destructuring-binding
+  name each share their construct with a genuine reference to `eval` (`const holder = [eval]`,
+  `function make(cb = eval)`, `const { alias = eval } = {}`)
+- WHEN capability-admission classification runs
+- THEN exactly three `constraint-4-inadmissible-origin` violations naming `eval` are reported —
+  one per reference, none from the three binding sites; and the same file with the references
+  removed reports zero, so the exclusion is not merely unexercised
+
+#### Scenario REQ-CAP-01.9 [red-proof]: E3 excludes a property KEY only, never a value or a shorthand
+
+- GIVEN a synthetic closure file containing `{ eval: 1 }` (key), `{ k: eval }` (value) and
+  `{ eval }` (shorthand)
+- WHEN capability-admission classification runs
+- THEN exactly two violations naming `eval` are reported — the value and the shorthand, never the
+  key; a file containing only keys named after denied primitives reports zero. The shorthand leg
+  is this change's own narrowing of E3: a shorthand has no enclosing access to stand in as the
+  surface node, so E3's stated justification does not hold for it
+
+#### Scenario REQ-CAP-01.10 [red-proof]: E4 excludes the ANNOTATION only, never the value it annotates
+
+- GIVEN a synthetic closure file containing `let annotated: eval = [eval]` — both occurrences in
+  ONE declaration, because a widening that swallows "any identifier in a declaration carrying a
+  type annotation" is the realistic way E4 grows and a fixture spread across statements could not
+  tell it apart
+- WHEN capability-admission classification runs
+- THEN exactly one violation naming `eval` is reported — the initializer, never the annotation;
+  and `let annotated: eval = [1]` reports zero
+
+#### Scenario REQ-CAP-01.11: E4's scope over the emitted realm is measured, not assumed
+
+- GIVEN the real runner closure, over which the classifier actually runs
+- WHEN its files are scanned for `TypeReference` nodes
+- THEN there are zero — E4 governs nothing in the tree that ships, so it cannot be hiding anything
+  today. Pinned rather than reasoned about: if the walker is ever pointed at a realm where type
+  positions do exist, this fails and forces the question rather than letting E4 silently acquire
+  scope. REQ-CAP-01.10 keeps the predicate itself honest meanwhile
+
 #### Scenario REQ-CAP-01.7: RCD-03.3's day-one JSDoc fixtures stay non-flagged under the new admission mechanism, governed by exclusion E1
 
 - GIVEN `REQ-RCD-03.3`'s existing day-one JSDoc fixtures (a bare specifier and a resolvable
@@ -120,6 +235,24 @@ Every call or `new` expression whose callee is not a statically resolvable bindi
 a violation. This is the leg that kills indirection, aliasing, and computed access
 structurally, without spelling any of them out.
 
+**Judgment-day scope correction (2026-08-05)** — superseded text preserved above; this block
+governs on divergence. The first sentence stands and its coverage GREW: "call or `new`" MUST
+also include a **tagged template's tag**, which is an invocation (`` C`return process.version` ``
+executes exactly as `C("…")` does) and was outside the enumerated surface entirely for two
+review rounds. The second sentence is **retracted**: this leg does not kill aliasing
+structurally.
+
+- What it does kill structurally: a **computed** callee (`globalThis["ev"+"al"](…)`) and a call
+  result invoked with no property name (`f()()`), whatever they spell. Those are shapes, and the
+  scenarios below are their red-proofs.
+- What it does NOT kill: aliasing. Aliasing is denied by deciding a register primitive at its own
+  occurrence plus ONE hop of alias substitution — not by any property of the callee position. A
+  capability reached through a carrier property (`w.go.Reflect.get(w.go,"eval")`) has a perfectly
+  statically resolvable callee and is admitted; it is executable and demonstrated. See
+  REQ-CAP-01's scope correction (item 2) and `docs/runner-integrity-invariants.md#known-gaps`.
+
+No scenario below is altered.
+
 #### Scenario REQ-CAP-03.1 [red-proof]: `globalThis["ev"+"al"]("1+1")` — CONFIRMED LIVE ESCAPE (M2.1)
 
 - GIVEN a synthetic closure file containing `globalThis["ev"+"al"]("1+1")`
@@ -144,6 +277,16 @@ A resolved binding's origin MUST classify as exactly one of `{local, closure imp
 admitted global, admitted builtin surface}`. Any other origin is a violation naming the
 primitive.
 
+**Scope note (2026-08-05, judgment-day scope correction)** — no text above is superseded; this
+REQ is the half of the mechanism that survived the third adversarial round intact, and its
+default-deny branch is now red-proofed with the mutant verified killed (REQ-CAP-04.7's
+default-deny rows). The note exists to stop the requirement being read wider than it is: it
+governs the ORIGIN of the chain's ROOT and nothing else. What the chain does with that root —
+the member PATH — is decided by REQ-CAP-04.6's exact table off an admitted global, and by
+REQ-CAP-01's scope-correction item 2 (a deny predicate, not a closed set) off any other root
+kind. An admitted origin has never implied an admitted chain, and after this correction it does
+not imply a decidable one either.
+
 #### Scenario REQ-CAP-04.1 [red-proof]: `node:child_process` is not an admitted builtin surface — RULED-IN PRIMITIVE (ruling 3)
 
 - GIVEN a synthetic closure file importing from `node:child_process`
@@ -166,11 +309,21 @@ primitive.
 symmetric to the denied register; closes the ADR-0079 "nothing to rubber-stamp"
 enforcement gap. Additive only — no existing REQ-CAP-04 scenario above is altered.
 
+**Count reconciliation (2026-08-05, owner-authorized delta sync)** — the two scenarios below
+originally read "22-member" (`ADMITTED_GLOBALS`) and "28-member" (`ADMITTED_MEMBER_PATHS`), taken
+from design.md §1's probe at HEAD `e6dcde2`. Re-verified against this branch's real 23-file closure,
+the true counts are **21** and **30**; `design.md` §1 records the divergence and its provenance (two
+JSDoc-comment-only edits landed on `main` after that probe — `git diff e6dcde2 HEAD` confirms zero
+AST/identifier-surface change) and authorized an archive-time delta sync. The sync is landed here so
+no signed scenario text is false at archive: the numbers below are the shipped, machine-checked ones
+(`fit-42-runner-closure-integrity.test.ts`, REQ-CAP-04.4/.6). Only the two counts changed — the
+pinning DOCTRINE (exact membership, never a threshold) is untouched.
+
 #### Scenario REQ-CAP-04.4: Admitted tables are pinned by exact membership
 
 - GIVEN the admitted tables in the guard source (`ADMITTED_GLOBALS`, `ADMITTED_NODE_SURFACES`)
 - WHEN the exact-count/exact-membership assertion runs
-- THEN `ADMITTED_GLOBALS` matches its pinned 22-member list exactly and `ADMITTED_NODE_SURFACES` matches its pinned 6-module list exactly — exact-set comparison, never a threshold (`.size > N`)
+- THEN `ADMITTED_GLOBALS` matches its pinned 21-member list exactly and `ADMITTED_NODE_SURFACES` matches its pinned 6-module list exactly — exact-set comparison, never a threshold (`.size > N`)
 
 #### Scenario REQ-CAP-04.5 [red-proof]: A silent widening of an admitted table is caught
 
@@ -193,7 +346,7 @@ existing REQ-CAP-04 scenario above is altered.
 
 - GIVEN the member-path table for admitted globals (`ADMITTED_MEMBER_PATHS`, `scripts/capability-admission.ts`)
 - WHEN the exact-membership assertion runs
-- THEN it matches the pinned 28-member list exactly (design.md §1's probe count) — exact-set comparison, never a threshold; a member path reached through an admitted-global root that is NOT in this table classifies as `violation` (default-deny one level down), symmetric with REQ-CAP-04.4's origin-level pinning
+- THEN it matches the pinned 30-member list exactly (this branch's re-verified probe count) — exact-set comparison, never a threshold; a member path reached through an admitted-global root that is NOT in this table classifies as `violation` (default-deny one level down), symmetric with REQ-CAP-04.4's origin-level pinning
 
 #### Scenario REQ-CAP-04.7 [red-proof]: `process.dlopen` is denied despite an admitted origin and an undenied root
 
@@ -263,12 +416,26 @@ the change became cross-repo and MUST halt before slicing continues.
 way") is the normative anchor: the gate procedure is **fresh build of `dist/` → live
 closure walk over that fresh `dist/` → regenerate the manifest output from the walk →
 compare the regenerated output's sha256 against the pinned digest**
-`bf6c983c59281eaf91ceefcb363375b52436808bbe74ee5241818f47eccfa530` (recorded at HEAD
-`e6dcde2`, design.md §8, Migration/Rollout). Hashing an already-committed
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde`. Hashing an already-committed
 `dist/runner-manifest.json` without a preceding fresh build and regeneration proves
 nothing about whether the mechanism redesign perturbed the derivation that PRODUCES the
 bytes — a stale committed artefact cannot detect a defect in the code that generates it.
 Additive only; no existing REQ-CAP-06 scenario text is altered.
+
+**Digest reconciliation (2026-08-05, owner-authorized delta sync)** — this clarification
+originally pinned `bf6c983c59281eaf91ceefcb363375b52436808bbe74ee5241818f47eccfa530` (recorded at
+HEAD `e6dcde2`, design.md §8, Migration/Rollout). That value went stale before the mechanism
+branch even started, from JSDoc-comment-only edits to `src/core/context.ts`/`src/core/wire.ts`
+landed on `main`: REQ-RME-02 hashes raw file BYTES, so a comment-only edit moves a per-file
+sha256 and therefore the whole manifest's. `design.md` §1 records the re-pin and its
+verification (fresh build → live walk → regenerate → compare, run at the mechanism branch's
+base BEFORE any S-001 diff and again after the full diff — both produce the new value, which is
+what proves the mechanism diff is byte-neutral). The superseded value is preserved in this
+sentence rather than deleted, as design.md §8 preserves it, because it is the history of what
+the parent cycle shipped. The digest named above is the one every per-slice gate
+(S-001.5/S-002.7/S-003.5/S-004.7) and `FIT-MANIFEST-BYTE-NEUTRAL` actually enforce, re-verified
+at this commit. Landed with the same authorization as REQ-CAP-04.4/.6's count reconciliation, so
+no signed text names a superseded digest at archive.
 
 ### REQ-PRM-01: Capability Primitive Register
 
@@ -298,6 +465,15 @@ construction (a member path cannot be both a register primitive and admitted). E
 member path that is neither a register primitive (this REQ) nor in the admitted table
 (REQ-CAP-04.6) is a violation by default; REQ-CAP-04.6/.7/.8 make that default-deny
 property machine-checked rather than assumed.
+
+**Judgment-day scope correction (2026-08-05)** — superseded text preserved above; this block
+governs on divergence. "Every member path that is neither a register primitive nor in the
+admitted table is a violation by default" is true only for a path off an **admitted-global
+root**, which is the only case `ADMITTED_MEMBER_PATHS` can decide by exact identity. Off a
+local, a parameter, a closure import or a safe terminal there is no full path to look up, and
+the default there is a **deny predicate over segment names**, not a violation: an unlisted
+carrier property passes (REQ-CAP-01 scope correction, item 2). The two tables being disjoint
+stands; "default-deny over the whole member-path space" does not.
 
 ### REQ-XPO-01: Exemption Is a File-Level Proof Obligation
 
@@ -515,6 +691,16 @@ per owner ruling 1 — the enumeration moves to scenario examples below; the req
 text now demands the register property, REQ-PRM-01, instead. Four primitives added per
 ruling 3.)
 
+**Judgment-day scope correction (2026-08-05)** — no text above is superseded; a reading of it is.
+"Any closure-file REFERENCE to a denied capability primitive" means a **syntactic** reference —
+the primitive named as an identifier, as a member path, or as a module specifier, at its own
+occurrence, in any position bar REQ-CAP-05's two. That property holds and every scenario below
+red-proofs it. It is NOT a reachability claim: a closure file can reach a register primitive
+while referencing it nowhere, by indexing a carrier with a string
+(`function pick(o,k){return o[k]}; pick(globalThis,"eval")("…")` — executed, zero findings).
+Deciding reachability is dataflow analysis, which REQ-CAP-01's scope correction records as out of
+this mechanism's reach and `capability-admission-oracle` as the change that addresses it.
+
 #### Scenarios REQ-CST-04.2.1–9 [red-proof]: Denied primitives, named
 
 Shared shape: GIVEN a synthetic closure file referencing the primitive exactly as shown;
@@ -678,6 +864,25 @@ families land under existing REQ-IDs); this change's overall spec tally moves to
 REQ-IDs / 77 scenarios / 49 red-proofs**. `slices.md`'s coverage line, REQ-ID coverage
 table, and `design.md`'s Test Derivation table + Coverage line are updated to match (see
 those files' own amendment notes).
+
+## Tally reconciliation (2026-08-05, steward reckoning criterion 3)
+
+The exclusion red-proof amendment under REQ-CAP-01 adds **4 scenarios / 3 red-proofs**
+(`REQ-CAP-01.8/.9/.10` [red-proof] + `REQ-CAP-01.11`), all additive under an existing REQ-ID, so
+the REQ-ID count is unaffected. This change's spec tally moves from **22 REQ-IDs / 77 scenarios /
+49 red-proofs** to **22 REQ-IDs / 81 scenarios / 52 red-proofs**.
+
+**A pre-existing discrepancy surfaced while re-deriving this** and is recorded rather than
+quietly absorbed: `slices.md`'s "49/49 verification" defines the red-proof count as the number of
+`it()` titles matching `REQ-[\w.-]+\.\d+ \[red-proof\]:` across the named test vehicles, and
+that count measured **47, not 49**, at the pre-remediation commit `4337da5` — i.e. the documented
+tally was already two ahead of what its own rule finds, before any work in this remediation pass.
+It measures **54** now (+7 titles from this pass; one of the seven is a parameterised row that
+produces three runtime tests from a single source title, which the title-counting rule counts
+once). Nothing executes that verification — it is a manual procedure described in prose, which is
+why the divergence went unnoticed through three review rounds. Mechanising it is registered as a
+followup in `openspec/pending-changes.md` (row JD-9); the numbers above are the spec's own
+scenario/red-proof tally, which is what REQ coverage is judged against.
 
 ## Plan-verify iteration-1 amendments (2026-07-29) — tallies
 

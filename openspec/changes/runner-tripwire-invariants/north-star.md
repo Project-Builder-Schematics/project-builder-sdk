@@ -29,7 +29,7 @@ finding. R2-1 — the single fix that held across two rounds — worked by makin
 
 Inside `scripts/`, the build-integrity cluster. Every architecture touchpoint reads `aligns`,
 zero `deviates`; the change ships **no runtime bytes** and `dist/runner-manifest.json` is
-byte-identical by enforced gate (`bf6c983c…a530`). The one-derivation/three-consumers shape,
+byte-identical by enforced gate (`31cd5382…f333fde`, re-pinned 2026-08-05 from the superseded `bf6c983c…a530`). The one-derivation/three-consumers shape,
 the BUILD/CI/ENGINE authority split (ADR-0075), and the cross-repo manifest contract are all
 untouched. The mechanism adopted is not novel: `classifySpecifier` — total by construction,
 two functions away in the same file — produced **zero** findings across both judging rounds
@@ -188,7 +188,8 @@ against exactly these, and against the owner's ratified answers to CQ-1..CQ-4.
    count); assertions moved only *stricter*; zero deletions without the surviving test named in
    the commit message. Existing red-proof #12 stays green **in the same commit** that lands
    REQ-XPO-01.2.
-5. `dist/runner-manifest.json` byte-identical to `bf6c983c…a530`. A mismatch is a halt, not a
+5. `dist/runner-manifest.json` byte-identical to `31cd5382…f333fde` (re-pinned 2026-08-05 from
+   the superseded `bf6c983c…a530`). A mismatch is a halt, not a
    warning — it means the change became cross-repo.
 6. Fail-closed biconditional holds **per injected fault** over ≥3 faults against a **pre-seeded**
    scratch root.

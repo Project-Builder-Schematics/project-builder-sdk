@@ -5,7 +5,10 @@
 // `.` (total-root targeting the length-1 trailing-slash-strip skip missed), `-odist/...`
 // (the short flag concatenated with no separator — never parsed at all), `../dist/...`
 // (a relative-parent escape never resolved), `--outdir=$VAR` (undecidable at build time,
-// silently treated as an ordinary string target).
+// silently treated as an ordinary string target). Three more, probe-confirmed in judgment-day
+// round 1: `-outdir dist/x` (read as `-o` + the path segment "utdir", dropping the real path in
+// the next token), `--outdir --minify dist/x` (a flag accepted as a path — the safe-path grammar
+// admits `-`), and `--OUTDIR` (matched by no spelling and silently ignored).
 //
 // Every candidate flag token is resolved with `node:path`'s own `posix.resolve` against a
 // FIXED virtual anchor (`/`) — pure path algebra, no real filesystem access, deterministic
@@ -13,8 +16,9 @@
 // two paths resolved against the SAME anchor is anchor-invariant. Every candidate reading of
 // an ambiguous token is tried (short-flag concatenated vs space-separated, long-flag `=`
 // vs space-separated); a token shaped like an output-directing flag but not one of the
-// three recognised spellings, or a recognised flag's value that is undecidable at build
-// time (contains `$`), is `unclassifiable` — never silently skipped, never silently passed.
+// three recognised spellings, or a recognised flag whose value is not decidable under the
+// committed safe-path grammar below (including no value at all), is `unclassifiable` —
+// never silently skipped, never silently passed.
 import { posix } from "node:path";
 
 export type BundlerFlag = "--outfile" | "--outdir" | "-o";
@@ -38,6 +42,26 @@ export interface DisjointnessViolation {
 
 const RECOGNISED_LONG: readonly BundlerFlag[] = ["--outdir", "--outfile"];
 
+/**
+ * The committed safe-path grammar (ADR-0081): the characters a build-time-decidable output path
+ * is made of. Decidability is a WHITELIST, never a search for known-bad markers — testing for
+ * `$` caught exactly two spellings (`$VAR`, `$(…)`) and read backticks, `${…}`, globs, `~`,
+ * shell operators, quoting and embedded whitespace as literal paths, checking them as such.
+ * A false positive fails a build; a false negative voids the closure-sealing lemma.
+ */
+const SAFE_PATH = /^[A-Za-z0-9._/-]+$/;
+
+/** A recognised flag's value is a target only if the grammar can decide it; absent counts too. */
+function readValue(flag: BundlerFlag, value: string | undefined, token: string, consumed: number): TokenReading {
+  if (value === undefined) return { kind: "undecidable", token, consumed: 1 };
+  // The safe-path grammar admits `-`, so a FLAG standing where a value belongs (`--outdir
+  // --minify dist/x`) matched it and was accepted as an output path — silently moving the real
+  // target one token further along, where nothing classified it. A leading `-` decides nothing.
+  if (value.startsWith("-")) return { kind: "undecidable", token: consumed === 2 ? `${token} ${value}` : token, consumed };
+  if (!SAFE_PATH.test(value)) return { kind: "undecidable", token: consumed === 2 ? `${token} ${value}` : token, consumed };
+  return { kind: "target", flag, value, token, consumed };
+}
+
 interface TokenReading {
   readonly kind: "target" | "undecidable" | "unclassifiable-shape";
   readonly flag?: BundlerFlag;
@@ -57,41 +81,29 @@ interface TokenReading {
  */
 function classifyToken(tokens: readonly string[], index: number): TokenReading | undefined {
   const token = tokens[index] as string;
+  // SHAPE is decided case-insensitively (`--OUTDIR` was matched by nothing and silently
+  // ignored); the VALUE is never case-folded — a path's case is part of the path.
+  const shape = token.toLowerCase();
 
   for (const flag of RECOGNISED_LONG) {
-    if (token === flag) {
-      const value = tokens[index + 1];
-      if (value === undefined) return undefined;
-      return value.includes("$")
-        ? { kind: "undecidable", token: `${token} ${value}`, consumed: 2 }
-        : { kind: "target", flag, value, token, consumed: 2 };
-    }
-    if (token.startsWith(`${flag}=`)) {
-      const value = token.slice(flag.length + 1);
-      return value.includes("$")
-        ? { kind: "undecidable", token, consumed: 1 }
-        : { kind: "target", flag, value, token, consumed: 1 };
-    }
+    if (shape === flag) return readValue(flag, tokens[index + 1], token, 2);
+    if (shape.startsWith(`${flag}=`)) return readValue(flag, token.slice(flag.length + 1), token, 1);
   }
 
-  if (token === "-o") {
-    const value = tokens[index + 1];
-    if (value === undefined) return undefined;
-    return value.includes("$")
-      ? { kind: "undecidable", token: `-o ${value}`, consumed: 2 }
-      : { kind: "target", flag: "-o", value, token, consumed: 2 };
-  }
-  if (token.startsWith("-o") && token.length > 2) {
-    const value = token.slice(2);
-    return value.includes("$")
-      ? { kind: "undecidable", token, consumed: 1 }
-      : { kind: "target", flag: "-o", value, token, consumed: 1 };
-  }
+  if (shape === "-o") return readValue("-o", tokens[index + 1], token, 2);
+
+  // A SINGLE-dash `-out…` is an unrecognised output-flag spelling, NOT the concatenated short
+  // form: reading `-outdir dist/x` as `-o` + `utdir` produced a target of "utdir" (colliding
+  // with nothing) and dropped the real path in the next token. Checked before the concatenated
+  // form below, which is what mis-claimed it.
+  if (shape.startsWith("-out")) return { kind: "unclassifiable-shape", token, consumed: 1 };
+
+  if (shape.startsWith("-o") && token.length > 2) return readValue("-o", token.slice(2), token, 1);
 
   // Output-flag-SHAPED but not one of the three recognised spellings above — e.g.
   // `--out-dir`. Never confused with an ordinary non-output flag: those don't start with
   // `--out` or `-o` at all, and are correctly left unclassified (returns undefined below).
-  if (token.startsWith("--out") && !RECOGNISED_LONG.includes(token as BundlerFlag)) {
+  if (shape.startsWith("--out")) {
     return { kind: "unclassifiable-shape", token, consumed: 1 };
   }
 
@@ -102,23 +114,34 @@ function tokenize(command: string): string[] {
   return command.split(/\s+/).filter((token) => token.length > 0);
 }
 
-/** Every RECOGNISED (`--outfile`/`--outdir`/`-o`) target, decidable value only. */
-export function findBundlerTargets(scripts: Record<string, string>): BundlerTarget[] {
+interface ClassifiedBundlerConstructs {
+  readonly targets: BundlerTarget[];
+  readonly unclassifiable: UnclassifiableBundlerConstruct[];
+}
+
+/** ONE tokenize/classify walk producing both target and unclassifiable-construct lists. */
+function classifyBundlerConstructs(scripts: Record<string, string>): ClassifiedBundlerConstructs {
   const targets: BundlerTarget[] = [];
+  const unclassifiable: UnclassifiableBundlerConstruct[] = [];
   for (const [script, command] of Object.entries(scripts)) {
     const tokens = tokenize(command);
     for (let index = 0; index < tokens.length; index += 1) {
       const reading = classifyToken(tokens, index);
       if (reading?.kind === "target") {
-        targets.push({
-          script,
-          flag: reading.flag as BundlerFlag,
-          target: (reading.value as string).replace(/^["']|["']$/g, ""),
-        });
+        // No quote-stripping: a quoted value is outside the safe-path grammar and never reaches
+        // here as a target.
+        targets.push({ script, flag: reading.flag as BundlerFlag, target: reading.value as string });
+      } else if (reading?.kind === "undecidable" || reading?.kind === "unclassifiable-shape") {
+        unclassifiable.push({ script, token: reading.token });
       }
     }
   }
-  return targets;
+  return { targets, unclassifiable };
+}
+
+/** Every RECOGNISED (`--outfile`/`--outdir`/`-o`) target, decidable value only. */
+export function findBundlerTargets(scripts: Record<string, string>): BundlerTarget[] {
+  return classifyBundlerConstructs(scripts).targets;
 }
 
 /**
@@ -128,17 +151,7 @@ export function findBundlerTargets(scripts: Record<string, string>): BundlerTarg
 export function findUnclassifiableBundlerConstructs(
   scripts: Record<string, string>
 ): UnclassifiableBundlerConstruct[] {
-  const found: UnclassifiableBundlerConstruct[] = [];
-  for (const [script, command] of Object.entries(scripts)) {
-    const tokens = tokenize(command);
-    for (let index = 0; index < tokens.length; index += 1) {
-      const reading = classifyToken(tokens, index);
-      if (reading?.kind === "undecidable" || reading?.kind === "unclassifiable-shape") {
-        found.push({ script, token: reading.token });
-      }
-    }
-  }
-  return found;
+  return classifyBundlerConstructs(scripts).unclassifiable;
 }
 
 /** Resolution-based verdict: BOTH sides resolved against the same fixed virtual anchor. */

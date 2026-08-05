@@ -2,7 +2,7 @@
 
 **Triage**: L
 **Spec version**: runner-integrity-manifest V3 (SIGNED) + publish-pipeline-hardening V4 (SIGNED)
-**Total slices**: 6 (1 walking skeleton + 5 SPIDR) — 22/22 REQ-IDs, 77/77 scenarios, 49/49 red-proofs (plan-verify iteration-2 amendment, 2026-07-29: +5 scenarios / +3 red-proofs, `REQ-CAP-04.6-.8` + `REQ-DGN-01.3-.4`, see `specs/runner-integrity-manifest/spec.md`'s own tally note — REQ-ID count unchanged; iteration-1 amendment, 2026-07-29: +5 scenarios / +2 red-proofs, `REQ-CAP-01.4-.7` + `REQ-PTH-01.7`)
+**Total slices**: 6 (1 walking skeleton + 5 SPIDR) — 22/22 REQ-IDs, 81/81 scenarios, 52/52 red-proofs (**exclusion red-proof amendment, 2026-08-05**: +4 scenarios / +3 red-proofs, `REQ-CAP-01.8-.11`, closing steward criterion 3 — E2/E3/E4 had no red-proof; see the spec's own Tally reconciliation note, which also records that the prose-only "49/49 verification" measured 47 at `4337da5` and is not mechanised; plan-verify iteration-2 amendment, 2026-07-29: +5 scenarios / +3 red-proofs, `REQ-CAP-04.6-.8` + `REQ-DGN-01.3-.4`, see `specs/runner-integrity-manifest/spec.md`'s own tally note — REQ-ID count unchanged; iteration-1 amendment, 2026-07-29: +5 scenarios / +2 red-proofs, `REQ-CAP-01.4-.7` + `REQ-PTH-01.7`)
 
 **SC-1 override note**: per proposal/design binding sequencing, S-000 is NOT the mechanism skeleton — it is the publish-path slice (zero dependency on the mechanism, independently mergeable). S-001 carries the mechanism's own walking-skeleton role (enumerate/classify live on the real 23-file closure) under its SPIDR tag, because SC-3 binds it and `FIT-CAP-TOTALITY` into one inseparable slice.
 
@@ -102,7 +102,7 @@ coupling to REQ-PPI-*)
 **Acceptance**:
 - GIVEN the current runner closure (23 files, 423 sites) and the synthetic fixtures
 - WHEN `enumerateCapabilitySurface` + `classifySurfaceNode` run
-- THEN classified-count == present-count exactly (CAP-01.1); the `SurfaceNodeKind` union and the E1-E4 exclusions are each pinned by exact membership (CAP-01.4/.5, plan-verify iteration-1); both live escapes (`globalThis["ev"+"al"]`, IIFE-constructor) and `node:child_process` fail naming the callee/origin rule (CAP-03.1/.2, CAP-04.1); `x instanceof Function` is admitted while `const F = Function; F(...)` stays denied (CAP-05); admitted tables pin exactly 22/6 members (CAP-04.4/.5); member paths off an admitted root pin exactly 28 members and `process.dlopen` fails naming the member path (CAP-04.6/.7/.8, plan-verify iteration-2); `dist/runner-manifest.json` is byte-identical to `bf6c983c…a530` (CAP-06.1)
+- THEN classified-count == present-count exactly (CAP-01.1); the `SurfaceNodeKind` union and the E1-E4 exclusions are each pinned by exact membership (CAP-01.4/.5, plan-verify iteration-1); both live escapes (`globalThis["ev"+"al"]`, IIFE-constructor) and `node:child_process` fail naming the callee/origin rule (CAP-03.1/.2, CAP-04.1); `x instanceof Function` is admitted while `const F = Function; F(...)` stays denied (CAP-05); admitted tables pin exactly 21/6 members (CAP-04.4/.5 — reconciled 2026-08-05 from the signed 22, see the spec's own Count reconciliation note); member paths off an admitted root pin exactly 30 members (reconciled from the signed 28) and `process.dlopen` fails naming the member path (CAP-04.6/.7/.8, plan-verify iteration-2); `dist/runner-manifest.json` is byte-identical to `31cd5382…f333fde` (CAP-06.1 — **re-pinned 2026-08-05** from the superseded `bf6c983c…a530`, see the spec's Digest reconciliation note). **Claim scope corrected 2026-08-05 (judgment-day round 1)**: every assertion in this acceptance criterion still holds and every test still asserts it, but the REQ-CAP-01/03 PROSE it realises no longer claims default-violation or total classification as security properties — default-deny holds on ORIGIN (mutant-killed), PATH is a deny predicate over an unbounded name space, and totality is relative to the ENUMERATOR. See the spec's dated `Judgment-day scope correction` blocks and `docs/runner-integrity-invariants.md#known-gaps`
 
 **Checker-files/closure statement (plan-verify iteration-1 amendment, gap 8, 2026-07-29)**: the
 new `scripts/capability-admission.ts` and `scripts/bundler-disjointness.ts` files (and every other
@@ -225,7 +225,9 @@ tag must be live starting at this change's first red-proof commits (S-000.4/S-00
 byte-neutrality check thereafter (S-002.7, S-003.5, S-004.7), MUST run as: fresh build of
 `dist/` → live closure walk over that fresh `dist/` → regenerate the manifest output from the
 walk → compare the regenerated output's sha256 against the pinned digest
-`bf6c983c59281eaf91ceefcb363375b52436808bbe74ee5241818f47eccfa530`. Hashing the already-committed
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` (**re-pinned 2026-08-05** from the
+superseded `bf6c983c…a530`; see the spec's own Digest reconciliation note under REQ-CAP-06.1 and
+design.md §1). Hashing the already-committed
 `dist/runner-manifest.json` in place, without a preceding fresh build, proves nothing about
 whether the slice's own change perturbed the derivation — it is not a substitute for the
 regenerate-and-compare procedure.
@@ -417,7 +419,7 @@ commit), so there is nothing for the now-live scan to retroactively catch.
 | S-004 | FCG-01, DGN-01(.1, .3, .4 — .3/.4 plan-verify iteration-2), RMD-05.1, RMD-01.2 |
 | S-005 | DLV-01 |
 
-**Coverage: 22/22 REQ-IDs · 77/77 scenarios · 49/49 red-proofs** (plan-verify iteration-2
+**Coverage: 22/22 REQ-IDs · 81/81 scenarios · 52/52 red-proofs** (exclusion red-proof amendment 2026-08-05: +4/+3, `REQ-CAP-01.8-.11`; plan-verify iteration-2
 amendment, 2026-07-29: `REQ-CAP-04.6-.8` + `REQ-DGN-01.3-.4`, +5 scenarios/+3 red-proofs over
 the 72/46 iteration-1 baseline — see `specs/runner-integrity-manifest/spec.md`'s own tally
 note; iteration-1 amendment, 2026-07-29: `REQ-CAP-01.4-.7` + `REQ-PTH-01.7`, +5 scenarios/+2
@@ -442,7 +444,7 @@ baseline refresh`) is process-dependent on a post-verify hook outcome and is mar
 
 | Row | Disposition | Evidence |
 |---|---|---|
-| **Meta-finding** (Constraint 4 wants a structural invariant, not a shape scanner) | `CLOSED-BY-MECHANISM` | This change's entire raison d'être: ADR-0079 (design.md §5) replaces the deny-scan with the capability-admission property; slices S-001..S-004 realise it |
+| **Meta-finding** (Constraint 4 wants a structural invariant, not a shape scanner) | `RE-REGISTERED` — **was `CLOSED-BY-MECHANISM`; corrected 2026-08-05 after judgment-day round 1** | The mechanism redesign (ADR-0079, slices S-001..S-004) raised the bar substantially but did NOT close the class: a third adversarial round demonstrated executable bypasses, making three rounds that each closed the spellings they were shown. Claiming `CLOSED-BY-MECHANISM` here would restate exactly what ADR-0079's Amendment, ADR-0080's scope-correction note, REQ-CAP-01's scope correction and `docs/runner-integrity-invariants.md#known-gaps` now retract. Re-registered as its own future change `capability-admission-oracle` (deliverable `FIT-CAP-ORACLE`, the differential oracle deferred in design.md §7) in `openspec/pending-changes.md`, with the three executed bypass classes as motivating evidence and the explicit note that a member-path allowlist cannot be made sound without dataflow analysis |
 | **R2-3** (version-failure reuses `unreadable-file` rule) | `CLOSED-BY-FIX` | `REQ-DGN-01.1`, slice `S-004` (S-004.2) |
 | **R2-4** (malformed `package.json` fails OPEN, stale manifest) | `CLOSED-BY-FIX` | `REQ-FCG-01.1`, slice `S-004` (S-004.1) |
 | **R2-5** (false positive on `module.createRequire(u).resolve(s)`) | `CLOSED-BY-FIX` | `REQ-XPO-01.2`, slice `S-002` (S-002.1) |
@@ -452,7 +454,7 @@ baseline refresh`) is process-dependent on a post-verify hook outcome and is mar
 | **R1-7** (computed member access, `globalThis["eval"]`) | `CLOSED-BY-MECHANISM` — subsumed by REQ-CAP-03 | `REQ-CAP-03.1`'s exact fixture (`globalThis["ev"+"al"]("1+1")`) is D-1's worked example (design.md §1): the callee-decidability leg denies it as a callee, the SAME shape R1-7 names, regardless of whether the base is computed. Slice `S-001` |
 | **R1-8** (directory specifier misdiagnosed as `unreadable-file`) | `CLOSED-BY-FIX` | `REQ-DGN-01.2`, slice `S-001` (S-001.4) |
 | **R1-9** (BOM non-vacuity guard `> 0` vs `=== N`) | `OUT-WITH-REASON` — stays registered | Independent test-quality row on the BOM-specific non-vacuity guard (`fit-42-*` positive file); not touched by the Constraint-4 redesign (`REQ-CST-04.3.2` fixes a DIFFERENT non-vacuity guard's AST-vs-substring defect) and not in this change's REQ set. No REQ covers it; next `fit-42` touch per its own registered row |
-| **R1-10** (CST-04.3 non-vacuity counts substrings, incl. comments) | `CLOSED-BY-FIX` | `REQ-CST-04.3.2` [MODIFIED], slice `S-001` (AST-counted, not substring-counted) |
+| **R1-10** (CST-04.3 non-vacuity counts substrings, incl. comments) | `CLOSED-BY-FIX` | `REQ-CST-04.3.2` [MODIFIED], slice `S-001` (AST-counted, not substring-counted). Verify-final C-3 found this row **premature** — the shipped guard was still `probe.split("createRequire").length - 1 >= 2`, green with every real code reference deleted. Genuinely closed by the verify-final remediation pass (`astIdentifierOccurrences`, asserted `toBe(2)`); see `apply-progress.md` § Verify-final remediation → C-3. |
 | **R1-11** (docs hardcode 23/24 counts as prose) | `CLOSED-BY-FIX` | `REQ-DLV-01`, slice `S-005` |
 | **R1-12** (`BPI-04.1` mutates real `dist/` mid-suite) | `OUT-WITH-REASON` — stays registered | Test-isolation defect in an existing test's fixture strategy, orthogonal to the capability-admission/exemption/path/fail-closed/diagnostic REQ families this change ships. No REQ covers it; next `fit-42` touch per its own registered row |
 | **R1-13** (`publishRunSteps` treats declaration order as execution order) | `CLOSED-BY-FIX` | `REQ-PPI-05`, slice `S-000` (S-000.1) |
@@ -466,11 +468,14 @@ baseline refresh`) is process-dependent on a post-verify hook outcome and is mar
 | **`react-conformance.test.ts` declares no timeout** | `CLOSED-BY-FIX` | `REQ-PPI-04.1/.2`, slice `S-000` (S-000.3/S-000.4); pulled in-scope by ruling 6 (`triage.md` Scope Amendment finding F) |
 | **Two spec-wording deviations** (`REQ-RMD-05.1` username-substring, `REQ-RMD-01.2` locale scenario) | `CLOSED-BY-FIX` | `REQ-RMD-05.1` [MODIFIED] + `REQ-RMD-01.2` [MODIFIED], slice `S-004` (S-004.5/S-004.6) |
 
-Row-count check: 23 register rows in → 23 dispositions out — 5 `CLOSED-BY-MECHANISM` (meta-
-finding, R1-7, R1-16, R1-17, `node:vm` fold) + 13 `CLOSED-BY-FIX` (R2-3, R2-4, R2-5, R2-6, R1-5,
+Row-count check (**re-tallied 2026-08-05, judgment-day scope correction** — the meta-finding row
+moved from `CLOSED-BY-MECHANISM` to `RE-REGISTERED`; every other disposition is unchanged): 23
+register rows in → 23 dispositions out — 4 `CLOSED-BY-MECHANISM` (R1-7, R1-16, R1-17, `node:vm`
+fold) + 13 `CLOSED-BY-FIX` (R2-3, R2-4, R2-5, R2-6, R1-5,
 R1-6, R1-8, R1-10, R1-11, R1-13, R1-15, react-conformance timeout, two spec-wording deviations)
 + 4 `OUT-WITH-REASON` (R1-9, R1-12, R1-14, R1-18) + 1 `archive-verifies` (architecture baseline
-refresh) = 23, zero silently dropped, zero `RE-REGISTERED` this cycle — satisfies `triage.md`
+refresh) + 1 `RE-REGISTERED` (meta-finding → `capability-admission-oracle`) = 23, zero silently
+dropped — satisfies `triage.md`
 Scope Amendment (c)'s acceptance criterion ("row-count delta fully explained"). `sdd-archive`
 re-verifies each row against the actually-built/actually-merged code before writing this table
 into `openspec/pending-changes.md`'s next revision; it does not originate dispositions the plan

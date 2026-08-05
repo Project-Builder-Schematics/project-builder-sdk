@@ -1,6 +1,14 @@
 # ADR-0080: Tripwire Classifiers Are Total With a Fail-Closed Default
 
-**Status**: Accepted · **Date**: 2026-07-29 · **Change**: `runner-tripwire-invariants`
+**Status**: Accepted (scope corrected — see the note below) · **Date**: 2026-07-29 · **Change**: `runner-tripwire-invariants`
+
+> **Scope correction (2026-08-05)**: "Would have prevented every Constraint-4 finding in both
+> judging rounds" is retracted — a third round found more, and the enumerator/classifier split
+> cannot detect a construct the ENUMERATOR never reaches (tagged templates were such a construct
+> for two rounds). The split's real property is narrower and still worth having: it detects a
+> classifier mutation that routes an ALREADY-ENUMERATED node to a pass path. Totality is relative
+> to the enumerator's own closed union, never absolute. See ADR-0079's Amendment and
+> `docs/runner-integrity-invariants.md#known-gaps`.
 
 ## Context
 

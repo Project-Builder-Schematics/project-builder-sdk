@@ -48,11 +48,13 @@ them into one deterministic failure at the boundary, naming the file that disagr
 availability and compatibility control, and it is the value users will actually collect, most weeks.
 
 **2 — The closure-sealing tripwires.** The build-time rules — no bare specifier, no unprefixed
-builtin, exactly one sanctioned dynamic `import()`, no unhashed-code-execution primitive — are where
-the durable security value lives, and they are worth keeping even if the manifest itself were retired
-tomorrow. They hold the runner's executed surface small, static and reviewable, and they fail the
-build on the day someone widens it rather than on the day someone exploits it. They are enforced by
-`fit-42`; they do not depend on the manifest existing.
+builtin, exactly one sanctioned dynamic `import()`, no *named* unhashed-code-execution primitive —
+are worth keeping even if the manifest itself were retired tomorrow. They hold the runner's executed
+surface small, static and reviewable, and they fail the build on the day someone widens it rather
+than on the day someone exploits it. That is drift value, and it is real; it is not the same as
+preventing execution — the capability-admission rule in particular has demonstrated bypasses,
+recorded under *Known gaps*. They are enforced by `fit-42`; they do not depend on the manifest
+existing.
 
 **3 — An adversary the stated model excludes.** The threat model is drawn around the schematic
 author. The most common real-world npm attack is not that one: it is a compromised transitive
@@ -109,18 +111,49 @@ of builtin names: `"fs"` is an ordinary package name a `node_modules/fs` package
 
 - enforced-by: fit-42
 
-Every node of a closure file's capability surface — every callee, member path, value reference,
-meta-property and module specifier — classifies into exactly one of *admitted* or *violation*; the
-default for anything unrecognised is a violation, never a silent pass. This is a default-DENY
-classifier, not a deny-list text scan. `createRequire(anchor)("./x")` is the motivating case: it
-executes unhashed CommonJS with no import edge anywhere — invisible to the closure walk and covered
-by no digest. The full denied-primitives register is eleven members: `eval`, `Function`,
-`createRequire`, `Bun.plugin`, `process.binding`, `node:vm`, `node:child_process`,
-`node:worker_threads`, `WebAssembly`, `module.register` and `module.registerHooks`. `createRequire`
-alone carries a single anchored exemption, proven on `src/transport/single-instance-probe.ts`
-specifically: its one binding must be unaliased and used resolution-only, never executed, and never
-laundered through a re-export or an anchor that has drifted out of the closure — any other
-arrangement forfeits the exemption and denies every use of it.
+Every node of a closure file's capability surface that the enumerator reaches — callees, member
+paths, value references, meta-properties, module specifiers — classifies into exactly one of
+*admitted*, *violation* or *unclassifiable-construct*. `createRequire(anchor)("./x")` is the
+motivating case: it executes unhashed CommonJS with no import edge anywhere — invisible to the
+closure walk and covered by no digest. The full denied-primitives register is eleven members:
+`eval`, `Function`, `createRequire`, `Bun.plugin`, `process.binding`, `node:vm`,
+`node:child_process`, `node:worker_threads`, `WebAssembly`, `module.register` and
+`module.registerHooks`. `createRequire` alone carries a single anchored exemption, proven on
+`src/transport/single-instance-probe.ts` specifically: its one binding must be unaliased and used
+resolution-only, never executed, and never laundered through a re-export or an anchor that has
+drifted out of the closure — any other arrangement forfeits the exemption and denies every use of
+it.
+
+**What is default-deny, and what is not.** Read this before relying on the constraint for anything.
+Earlier revisions of this page said "the default for anything unrecognised is a violation, never a
+silent pass". That is retracted: it is true of one half of the decision and false of the other two,
+and three independent adversarial rounds each demonstrated executable bypasses after the previous
+round had closed the spellings it was shown.
+
+- **Origin admission IS default-deny.** A root binding that is not local, not a closure import of
+  an admitted name, and not an `ADMITTED_GLOBALS` member is a violation in every position. This is
+  the half that survives, and it is red-proofed against a mutant that flips it.
+- **Path admission is NOT default-deny where no table applies.** `ADMITTED_MEMBER_PATHS` decides
+  the path off an admitted *global* by exact full-path identity. Off a local, a parameter, a
+  closure import, or a "safe terminal" (a literal, `this`, or a call result), there is no path to
+  look up — so the path is checked against a *deny* predicate over property names derived from the
+  register. Anything that predicate does not name passes.
+- **Enumeration totality is relative to the enumerator.** A construct the enumerator does not
+  reach is not reported as unclassifiable; it is invisible. Tagged templates were exactly that for
+  two review rounds — ``"".constructor.constructor`return process.version` `` produced zero
+  findings and ran.
+
+The reason this cannot be patched into soundness is structural, not a matter of effort: deciding
+which values an aliasing/reflection graph can reach is dataflow analysis, and this mechanism is a
+syntax-only AST allowlist by deliberate choice (ADR-0079 rejected the type checker precisely so a
+fail-closed build gate's verdict would not depend on install state).
+
+**So what is Constraint 4 actually for?** A **drift control**, in the words of this change's own
+north star: it catches honest mistakes and agent edits that widen the runner's executed surface,
+and it fails the build on the day someone widens it rather than the day someone exploits it. It is
+*not* an adversary control, and the schematic author it would need to constrain is already outside
+this manifest's threat boundary (see *Why this exists*). Nothing downstream should treat a green
+`fit-42` as evidence that the closure cannot execute unhashed code.
 
 This one is **SDK-added**: it is broader than the engine's original wording, which is why the
 marker matters here. The engine adopted it into their own mirror check.
@@ -153,6 +186,42 @@ and the digests — so verification degrades to a build-consistency check: a wro
 and nothing more.
 
 ## Known gaps
+
+### Constraint 4 does not close the capability-laundering class
+
+Three adversarial rounds have now closed spellings against this classifier — the original build, a
+remediation batch, and a blind judgment-day pass — and each round found shapes the previous one had
+not. The following are **demonstrated**, not hypothetical: each was executed under `bun` and each
+produces **zero findings** from `fit-42` as it ships today.
+
+- **A capability reached through a carrier property the deny predicate does not name.**
+  `const w = { go: globalThis }; const bad = w.go.Reflect.get(w.go, "eval"); bad("process.version")`
+  — every node classifies as admitted (`w` is local; `go`, `Reflect`, `get` are not register
+  names), and it prints the Node version. The same shape works through a getter
+  (`{ get x() { return globalThis } }`) and through a class accessor.
+- **An indexer function laundering the key.**
+  `function pick(o, k) { return o[k] } const f = pick(globalThis, "eval"); f("process.version")` —
+  `o[k]` is a computed access off a *local* root, which is ordinary indexing (36 such sites exist
+  in the real closure and must stay admitted), and the returned value is an ordinary call result.
+- **Anything requiring inter-procedural reasoning about what a value IS.** The mechanism decides
+  escapes at the producing occurrence precisely because it cannot follow a value; the corollary is
+  that any laundering step it cannot see at that occurrence is not seen at all.
+
+What the current mechanism does close, with a red-proof each: register primitives at their own
+occurrence in any position; aliases, destructuring, re-exports and `??` fallbacks of those; the
+prototype-graph escapes (`constructor`/`__proto__`/`prototype`) off any root kind including
+literals and call results; register-named segments off locals, parameters, closure imports and safe
+terminals (`h.constructor`, `w.p.binding`, `Holder.g.eval`, `g().eval`, `this.g.eval`, `p.binding`);
+computed callees; call results invoked with no property name; tagged-template tags; and unadmitted
+free identifiers. Those are the drift shapes, and closing them is worth the guard's cost. They are
+not a closed set.
+
+The one mechanism that would have caught all three rounds is a **differential oracle**
+(`FIT-CAP-ORACLE`, deferred in this change's design §7): execute each corpus construct in a
+sandboxed realm and compare "did a capability actually become reachable" against the classifier's
+verdict, so the corpus is grown by the runtime rather than by whoever last reviewed it. It is
+registered as its own future change (`capability-admission-oracle`) in
+`openspec/pending-changes.md`. Until it lands, treat Constraint 4's verdict as drift evidence only.
 
 ### The `dist/package.json` residual
 

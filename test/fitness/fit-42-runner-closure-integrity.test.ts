@@ -18,6 +18,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -29,6 +30,7 @@ import {
   ENTRY_RELATIVE_PATH,
   MANIFEST_RELATIVE_PATH,
   SANCTIONED_DYNAMIC_IMPORT_FILE,
+  VIOLATION_RULES,
   comparePaths,
   deriveRunnerClosure,
   readSpecifiers,
@@ -38,10 +40,12 @@ import {
   type RunnerManifest,
 } from "../../scripts/derive-runner-closure.ts";
 import { homedir, tmpdir, userInfo } from "node:os";
-import { ensureTscBuild } from "../support/shared-build.ts";
+import { ensureRealClosureDerivation, ensureTscBuild } from "../support/shared-build.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { RUNNING_AS_ROOT, warnIfPermissionChecksInactive } from "../support/permission-dependent.ts";
 import { PROJECT_ROOT, hashFile } from "../support/scratch-consumer.ts";
 import {
+  astIdentifierOccurrences,
   diffClosureBaseline,
   findBomOffenders,
   findBundlerTargets,
@@ -122,7 +126,7 @@ function freezeDerivation(derivation: ClosureDerivation): ClosureDerivation {
 let distDirDerivation: ClosureDerivation | undefined;
 function derivedFromDistDir(): ClosureDerivation {
   if (distDirDerivation === undefined) {
-    distDirDerivation = freezeDerivation(deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH));
+    distDirDerivation = freezeDerivation(ensureRealClosureDerivation());
   }
   return distDirDerivation;
 }
@@ -346,14 +350,20 @@ describe("FIT-42 S-002 — the manifest's shape, exclusions, hygiene and orderin
 });
 
 describe("FIT-42 S-002 — the closure's own bytes are line-ending and BOM clean", () => {
+  // Memoized like derivedFromDistDir above: both call sites below read the same static,
+  // never-mutated file bytes, so one disk read replaces what used to be two.
+  let closureFileBytesCache: Array<{ path: string; bytes: Uint8Array }> | undefined;
   function closureFileBytes(): Array<{ path: string; bytes: Uint8Array }> {
-    const files: Array<{ path: string; bytes: Uint8Array }> = [];
-    for (const node of derivedFromDistDir().nodes) {
-      files.push({ path: `dist/${node}`, bytes: readFileSync(join(distDir, node)) });
-      const source = join(PROJECT_ROOT, "src", node.replace(/\.js$/, ".ts"));
-      if (existsSync(source)) files.push({ path: `src/${node}`, bytes: readFileSync(source) });
+    if (closureFileBytesCache === undefined) {
+      const files: Array<{ path: string; bytes: Uint8Array }> = [];
+      for (const node of derivedFromDistDir().nodes) {
+        files.push({ path: `dist/${node}`, bytes: readFileSync(join(distDir, node)) });
+        const source = join(PROJECT_ROOT, "src", node.replace(/\.js$/, ".ts"));
+        if (existsSync(source)) files.push({ path: `src/${node}`, bytes: readFileSync(source) });
+      }
+      closureFileBytesCache = files;
     }
-    return files;
+    return closureFileBytesCache;
   }
 
   it("REQ-RMD-03.2: no emitted closure file contains a CRLF pair", () => {
@@ -450,7 +460,14 @@ describe("FIT-42 S-002 — the generator fails closed and leaves nothing behind"
     expect(existsSync(manifestIn(root))).toBe(false);
   });
 
-  it.skipIf(process.getuid?.() === 0)(
+  // Permission-dependent by SUBJECT (chmod(0o000) does not deny root), so there is no
+  // permission-independent leg to keep — but the state is recorded rather than silently skipped.
+  it("REQ-BPI-02.2: the unreadable-file check's active state follows the real uid, recorded not assumed", () => {
+    warnIfPermissionChecksInactive("REQ-BPI-02.2 unreadable closure file");
+    expect(RUNNING_AS_ROOT).toBe(process.getuid?.() === 0);
+  });
+
+  it.skipIf(RUNNING_AS_ROOT)(
     "REQ-BPI-02.2: an unreadable closure file leaves no file at all at the manifest path",
     () => {
       const root = copiedPackageRoot();
@@ -573,15 +590,20 @@ describe("FIT-42 S-003 — the real tree honours Constraints 2, 4 and 5", () => 
     expect(source).toContain("SANCTIONED-FACTORY-IMPORT");
   });
 
-  it("REQ-CST-04.3: the deny-scan reports zero violations against the real closure", () => {
+  // Titled against the admission mechanism, not the retired text-matching deny-scan — the
+  // wording REQ-CST-04.3's MODIFIED block exists to stop (W-10b).
+  it("REQ-CST-04.3: capability-admission classification reports zero violations against the real closure", () => {
     expect([...derivedFromSnapshot().violations]).toEqual([]);
   });
 
-  // Non-vacuity: the anchored file really does hold createRequire references, so "no
-  // violations" above is an exemption working, not a file that happens to be clean.
+  // Non-vacuity: the anchored file really does hold createRequire references, so "no violations"
+  // above is an exemption working, not a file that happens to be clean. Counted by AST identifier
+  // occurrence and pinned EXACTLY (REQ-CST-04.3's own MODIFIED text; never a substring count,
+  // never a threshold — R1-10). The real anchor carries 10 substring hits, 8 of them inside
+  // comments, and exactly 2 identifier occurrences.
   it("REQ-CST-04.3: the anchored probe genuinely references createRequire and is not flagged", () => {
     const probe = readFileSync(join(snapshotDist(), CREATE_REQUIRE_ANCHOR_FILE), "utf-8");
-    expect(probe.split("createRequire").length - 1).toBeGreaterThanOrEqual(2);
+    expect(astIdentifierOccurrences(probe, "createRequire")).toBe(2);
     const flagged = derivedFromSnapshot().violations.filter(
       (violation) => violation.file === CREATE_REQUIRE_ANCHOR_FILE
     );
@@ -888,10 +910,13 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
     if (Node.isFunctionDeclaration(parent) && parent.getNameNode() === id) return true;
     if (Node.isClassDeclaration(parent) && parent.getNameNode() === id) return true;
     if (Node.isImportSpecifier(parent) || Node.isImportClause(parent) || Node.isNamespaceImport(parent)) return true;
+    if (Node.isExportSpecifier(parent) && parent.getExportDeclaration().getModuleSpecifier() !== undefined) return true;
     if (Node.isCatchClause(parent)) return true;
+    if (Node.isPropertyDeclaration(parent) && parent.getNameNode() === id) return true;
     if (Node.isPropertyAccessExpression(parent) && parent.getNameNode() === id) return true;
     if (Node.isPropertyAssignment(parent) && parent.getNameNode() === id) return true;
-    if (Node.isShorthandPropertyAssignment(parent) && parent.getNameNode() === id) return true;
+    // A SHORTHAND property name is NOT excluded: `{ process }` has no enclosing access to stand
+    // in as the surface node, so the name itself is the reference.
     if (Node.isPropertySignature(parent) && parent.getNameNode() === id) return true;
     if (Node.isMethodDeclaration(parent) && parent.getNameNode() === id) return true;
     if (Node.isMethodSignature(parent) && parent.getNameNode() === id) return true;
@@ -923,6 +948,10 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
       if (Node.isCallExpression(call) && call.getExpression().getKind() === SyntaxKind.ImportKeyword) continue;
       callees.add(call.getExpression());
     }
+    // A tagged template's TAG is a callee: `` C`return process.version` `` invokes C.
+    for (const tagged of sourceFile.getDescendantsOfKind(SyntaxKind.TaggedTemplateExpression)) {
+      callees.add(tagged.getTag());
+    }
     count += callees.size;
 
     // A node is "consumed by a callee" only if it is a LINK IN THE CALLEE'S OWN CHAIN — the
@@ -931,30 +960,38 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
     // reached by walking further up through an enclosing call — `createRequire(anchorUrl)`
     // nested inside the callee `createRequire(anchorUrl).resolve` must not swallow
     // `anchorUrl` (an argument, not part of the callee chain).
+    // A chain link is `a.b` OR `a[b]`: both are member accesses, so both are chain links for
+    // the purpose of "what is one surface node".
+    const linkBase = (node: Node): Node | undefined =>
+      Node.isPropertyAccessExpression(node) || Node.isElementAccessExpression(node) ? node.getExpression() : undefined;
+
     const consumedByCallee = new Set<Node>();
     for (const callee of callees) {
       let cur: Node = callee;
-      while (Node.isPropertyAccessExpression(cur)) {
+      for (let base = linkBase(cur); base !== undefined; base = linkBase(cur)) {
         consumedByCallee.add(cur);
-        cur = cur.getExpression();
+        cur = base;
       }
       consumedByCallee.add(cur);
     }
     const insideACallee = (node: Node): boolean => consumedByCallee.has(node);
 
-    // Every remaining maximal non-computed PropertyAccessExpression chain (member-path) or
-    // standalone Identifier (value-reference), rooted at a free OR local Identifier, counts
-    // once — found via the SAME "maximal access, not itself inside an already-counted
-    // callee" shape, but walked top-down over every access instead of bottom-up per callee.
+    // Every remaining maximal member chain (member-path) or standalone Identifier
+    // (value-reference) counts once — found via the SAME "maximal access, not itself inside an
+    // already-counted callee" shape, but walked top-down over every access instead of bottom-up
+    // per callee. The chain's ROOT need not be an identifier: `"".constructor.constructor` and
+    // `this.g.eval` are member paths whose base is a literal / `this`.
     const countedRoots = new Set<Node>();
-    for (const access of sourceFile.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)) {
+    for (const access of [
+      ...sourceFile.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression),
+      ...sourceFile.getDescendantsOfKind(SyntaxKind.ElementAccessExpression),
+    ]) {
       const parent = access.getParent();
-      if (parent && Node.isPropertyAccessExpression(parent) && parent.getExpression() === access) continue;
+      if (parent !== undefined && linkBase(parent) === access) continue;
       if (insideACallee(access)) continue;
       let root: Node = access;
-      while (Node.isPropertyAccessExpression(root)) root = root.getExpression();
-      if (!Node.isIdentifier(root)) continue;
-      countedRoots.add(root);
+      for (let base = linkBase(root); base !== undefined; base = linkBase(root)) root = base;
+      if (Node.isIdentifier(root)) countedRoots.add(root);
       count++;
     }
     for (const id of sourceFile.getDescendantsOfKind(SyntaxKind.Identifier)) {
@@ -966,59 +1003,174 @@ describe("FIT-42 S-001 — FIT-CAP-TOTALITY: classified-node count equals presen
     return count;
   }
 
+  const project = new Project({ compilerOptions: { allowJs: true }, skipAddingFilesFromTsConfig: true });
+  const parse = (path: string, source: string): SourceFile =>
+    project.createSourceFile(path, source, { overwrite: true });
+
+  const ADMITTED_VIA = ["local", "closure-import", "admitted-global", "admitted-builtin-surface", "exempt-anchor"];
+
+  /**
+   * The DISPOSITION half of totality: every surface node classifies into exactly one of
+   * `{admitted, violation, unclassifiable}` AND the record is well-formed. `classified.length ===
+   * surface.length` cannot express that — `Array.prototype.map` always returns an array of equal
+   * length, so it is structurally incapable of failing (ADR-0080 anticipated exactly this).
+   */
+  function assertTotalDispositions(sourceFile: SourceFile, file: ClosurePath, isAnchorFile: boolean): void {
+    resetAnchorExemptionLatch();
+    const ctx = buildFileContext(sourceFile, { file, isAnchorFile });
+    for (const node of enumerateCapabilitySurface(sourceFile)) {
+      const disposition = classifySurfaceNode(node, ctx);
+      if (disposition.kind === "admitted") {
+        expect(ADMITTED_VIA).toContain(disposition.via);
+      } else if (disposition.kind === "violation") {
+        expect(VIOLATION_RULES).toContain(disposition.rule);
+        expect(disposition.detail.length > 0).toBe(true);
+      } else {
+        expect(disposition.kind).toBe("unclassifiable");
+        expect(disposition.detail.length > 0).toBe(true);
+      }
+    }
+  }
+
   it("REQ-CAP-01.1: totality holds on the real closure — classified count equals an independent present count", () => {
-    const project = new Project({ compilerOptions: { allowJs: true }, skipAddingFilesFromTsConfig: true });
     for (const node of derivedFromDistDir().nodes) {
       const absolute = join(distDir, node);
-      const sourceFile = project.createSourceFile(absolute, readFileSync(absolute, "utf-8"), { overwrite: true });
-      const surface = enumerateCapabilitySurface(sourceFile);
-      expect(surface.length).toBe(independentSurfaceCount(sourceFile));
-
-      resetAnchorExemptionLatch();
-      const ctx = buildFileContext(sourceFile, { file: node, isAnchorFile: node === CREATE_REQUIRE_ANCHOR_FILE });
-      const classified = surface.map((n) => classifySurfaceNode(n, ctx));
-      expect(classified.length).toBe(surface.length);
+      const sourceFile = parse(absolute, readFileSync(absolute, "utf-8"));
+      expect(enumerateCapabilitySurface(sourceFile).length).toBe(independentSurfaceCount(sourceFile));
+      assertTotalDispositions(sourceFile, node, node === CREATE_REQUIRE_ANCHOR_FILE);
     }
   });
 
-  it("REQ-CAP-01.2 [red-proof]: a mutant classifier routing an unrecognised node kind to silent pass is caught", () => {
-    // Simulates the mutation directly against the totality ASSERTION itself (not the
-    // production classifier, which has no such branch to mutate): a present-count that
-    // exceeds a classified-count is exactly the divergence a routed-to-pass mutation would
-    // produce, and the assertion below is what FIT-CAP-TOTALITY's real invocation runs.
-    const presentCount = 5;
-    const classifiedCount = 4; // one synthetic node kind silently skipped by the mutant
-    expect(() => expect(classifiedCount).toBe(presentCount)).toThrow();
+  // Totality on CLEAN files alone can never catch a divergence that only a violating or
+  // unclassifiable node produces, and every one of the change's own red corpora is a file the
+  // pass never saw. `fail-closed/` is deliberately absent: its fixtures are JSON fault-injection
+  // recipes (a package.json override, a closure file to chmod), not JS source with a capability
+  // surface — the property they carry is FIT-FAILCLOSED-BICONDITIONAL's, over the real closure
+  // files this pass already covers.
+  it("REQ-CAP-01.1: totality holds over the committed deny-scan/ and green/ corpora too", () => {
+    const corpusDirs = [
+      join(PROJECT_ROOT, "test/fixtures/red/runner-tripwires/deny-scan"),
+      join(PROJECT_ROOT, "test/fixtures/red/runner-tripwires/green"),
+    ];
+    const files = corpusDirs.flatMap((dir) =>
+      readdirSync(dir)
+        .filter((name) => name.endsWith(".js"))
+        .map((name) => join(dir, name))
+    );
+    expect(files.length).toBe(11);
+    for (const absolute of files) {
+      const sourceFile = parse(absolute, readFileSync(absolute, "utf-8"));
+      expect(enumerateCapabilitySurface(sourceFile).length).toBe(independentSurfaceCount(sourceFile));
+      assertTotalDispositions(sourceFile, "entry.js", false);
+    }
+  });
+
+  it("REQ-CAP-01.2 [red-proof]: an ENUMERATOR that drops one SurfaceNodeKind is caught, naming the kind", () => {
+    // ADR-0080 chose the enumerator/classifier split precisely because the detectable mutation
+    // lives on the ENUMERATOR: a classifier mutation that routes a node to a pass path cannot
+    // move `classified.length`. So the mutant is a shim over the real enumerator that silently
+    // drops one kind — the exact shape of "an unrecognised node routed to silent pass" — and the
+    // independent oracle is what notices. Every one of the five kinds is mutated in turn, against
+    // a fixture that genuinely exercises it, so no kind is proven only by its siblings.
+    const fixture = parse(
+      "cap-0102-mutant-fixture.js",
+      [
+        'import { existsSync } from "node:fs";',    // module-specifier
+        "export const here = import.meta.url;",      // meta-property
+        "const local = 1;",
+        'export const found = existsSync(".");',     // callee
+        "export const out = process.stdout;",        // member-path
+        "export const copy = local;",                // value-reference
+      ].join("\n")
+    );
+    const present = independentSurfaceCount(fixture);
+    expect(enumerateCapabilitySurface(fixture).length).toBe(present);
+
+    for (const dropped of SURFACE_NODE_KINDS) {
+      const ofKind = enumerateCapabilitySurface(fixture).filter((node) => node.kind === dropped);
+      // Non-vacuity of the mutation: the fixture must actually exercise the kind being dropped,
+      // or "the count fell" would prove nothing about that kind.
+      expect(ofKind.length > 0).toBe(true);
+
+      const mutantSurface = enumerateCapabilitySurface(fixture).filter((node) => node.kind !== dropped);
+      expect(mutantSurface.length).toBe(present - ofKind.length);
+      // The failure names the dropped kind and the classified-vs-present counts, which is what
+      // REQ-CAP-01.2's THEN requires of it.
+      expect(() => {
+        expect(
+          mutantSurface.length,
+          `mutant enumerator dropped SurfaceNodeKind "${dropped}": classified ${mutantSurface.length} < present ${present}`
+        ).toBe(present);
+      }).toThrow(`mutant enumerator dropped SurfaceNodeKind "${dropped}"`);
+    }
   });
 });
 
 describe("FIT-42 S-001 — FIT-MANIFEST-BYTE-NEUTRAL", () => {
-  // B6 procedure: fresh build -> live closure walk over that fresh dist/ -> regenerate the
-  // manifest output -> compare sha256 against the pinned digest. `distDir`/`manifest` above
-  // are exactly that fresh-build result (ensureTscBuild() in this file's own beforeAll).
+  // The property is REPRODUCIBILITY OF THE DERIVATION, asserted as a RELATION between two
+  // regenerations of the same tree — never equality against a recorded digest constant.
   //
-  // Provenance note (owner-facing, not a silent re-pin): the digest below is THIS branch's
-  // own verified value, captured both before AND after the capability-admission slice
-  // landed (byte-identical either way — S-001 touches no `src/**` file). It differs from
-  // design.md §8's originally-recorded `bf6c983c…a530` (HEAD e6dcde2): `git diff e6dcde2
-  // HEAD -- src/core/context.ts src/core/wire.ts` shows two JSDoc-comment-only edits inside
-  // the runner closure (unrelated template-placeholder-syntax doc fixes, landed on `main`
-  // between the design probe and this branch's base) — a comment byte change still moves a
-  // per-file sha256 (REQ-RME-02 hashes raw bytes, not semantics), and therefore the whole
-  // manifest's bytes. This is `slices.md`'s Risks section case (a): the digest needs the
-  // owner's re-pin, not a rejection — S-001's own diff is proven byte-neutral against this
-  // branch's actual pre-slice state.
-  const PRE_AND_POST_S001_SHA256 = "31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde";
+  // A digest constant cannot express it. The manifest embeds `packageVersion` and package.json's
+  // own sha256, so ANY version change falsifies the constant while the derivation is provably
+  // unchanged. `publish.yml` stamps `0.0.0-dev.<sha>` and rebuilds BEFORE its suite gate, so a
+  // standing constant made the hardened publish job permanently red — REQ-PPI-03.3 false in the
+  // real workflow, the 0.1.0 release blocked, and the first person to hit it invited to add
+  // `continue-on-error`, which is the outcome ruling 6 exists to prevent. It also made every
+  // unrelated version bump pay a manual three-place re-pin (W-7). The relational form is what
+  // design.md §7 specifies for the STANDING gate ("byte-reproducible from a fresh derivation");
+  // the cross-tree sha comparison stays a one-shot SLICE gate, recorded in this change's
+  // apply-progress rather than asserted here.
+  function regenerateInto(root: string, mutate?: (root: string) => void): string {
+    cpSync(distDir, join(root, "dist"), { recursive: true });
+    cpSync(join(PROJECT_ROOT, "package.json"), join(root, "package.json"));
+    mutate?.(root);
+    const result = spawnSync("bun", ["scripts/generate-runner-manifest.ts", root], {
+      cwd: PROJECT_ROOT,
+      encoding: "utf-8",
+    });
+    expect(result.status).toBe(0);
+    return readFileSync(join(root, "dist", MANIFEST_RELATIVE_PATH), "utf-8");
+  }
 
-  it("REQ-CAP-06.1: the fresh-built manifest is byte-identical to the pinned digest (this branch's own pre/post-S-001 value)", () => {
-    expect(hashFile(manifestPath)).toBe(PRE_AND_POST_S001_SHA256);
+  it("REQ-CAP-06.1: regenerating from the built tree reproduces the manifest's bytes exactly", () => {
+    expect(regenerateInto(scratchRoot())).toBe(manifestRaw);
   });
 
-  it("REQ-CAP-06.1 [red-proof]: a byte-perturbed manifest fails the digest comparison", () => {
-    const perturbed = `${manifestRaw}\n`;
-    const { createHash } = require("node:crypto") as typeof import("node:crypto");
-    const perturbedSha = createHash("sha256").update(perturbed).digest("hex");
-    expect(perturbedSha).not.toBe(PRE_AND_POST_S001_SHA256);
+  it("REQ-CAP-06.1: the relation is version-INVARIANT — it holds under publish.yml's own version stamp", () => {
+    // publish.yml's real sequence: stamp `0.0.0-dev.<sha>`, rebuild, THEN gate on the suite. The
+    // stamp is derived from the LIVE version so it is distinct from it whatever that version is —
+    // including when the suite is itself running inside the publish job, already stamped.
+    const stampedVersion = `0.0.0-dev.${manifest.packageVersion.replace(/\W/g, "").slice(-7).padStart(7, "0")}x`;
+    const stamp = (root: string): void => {
+      const path = join(root, "package.json");
+      const manifestPackage = JSON.parse(readFileSync(path, "utf-8")) as { version: string };
+      writeFileSync(path, `${JSON.stringify({ ...manifestPackage, version: stampedVersion }, null, 2)}\n`, "utf-8");
+    };
+    expect(stampedVersion).not.toBe(manifest.packageVersion);
+    const stamped = regenerateInto(scratchRoot(), stamp);
+    const stampedAgain = regenerateInto(scratchRoot(), stamp);
+
+    // Reproducible under the stamp...
+    expect(stampedAgain).toBe(stamped);
+    // ...and not blind to it: the stamped manifest genuinely differs from the unstamped one, so
+    // the invariance is a property of the RELATION, not of a gate that ignores the version.
+    expect(stamped).not.toBe(manifestRaw);
+    expect((JSON.parse(stamped) as RunnerManifest).packageVersion).toBe(stampedVersion);
+  });
+
+  it("REQ-CAP-06.1 [red-proof]: perturbing one closure file's bytes changes the regenerated manifest", () => {
+    // Exercises the DERIVATION, not the hash function: the previous red-proof asserted only
+    // `sha256(x + "\n") !== sha256(x)`, which is true of sha256 and says nothing about whether
+    // the generator reads the bytes it claims to.
+    const perturbedPath = `dist/${ENTRY_RELATIVE_PATH}`;
+    const perturbed = regenerateInto(scratchRoot(), (root) => {
+      appendFileSync(join(root, perturbedPath), "\n// perturbation\n", "utf-8");
+    });
+    expect(perturbed).not.toBe(manifestRaw);
+
+    const before = (JSON.parse(manifestRaw) as RunnerManifest).files.find((f) => f.path === perturbedPath);
+    const after = (JSON.parse(perturbed) as RunnerManifest).files.find((f) => f.path === perturbedPath);
+    expect(before?.sha256 === after?.sha256).toBe(false);
   });
 });
 

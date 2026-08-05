@@ -22,12 +22,12 @@
  */
 import { describe, it, expect, setDefaultTimeout } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { sha256Bytes } from "../../scripts/derive-runner-closure.ts";
 import { ensureTscBuild } from "../support/shared-build.ts";
 import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
+import { scratchDirFactory } from "../support/scratch-dir.ts";
 
 // A real stamp -> rebuild -> pack sequence spawns several child processes per test (npm
 // version, the manifest regenerator, npm pack, tar); bounded but slower than a unit test —
@@ -36,16 +36,14 @@ import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
 // silently exceeding it (same device as REQ-PPI-04's react-conformance fix).
 setDefaultTimeout(30000);
 
+const scratchRoot = scratchDirFactory("fit-46-");
+
 interface ManifestFileRecord {
   path: string;
   sha256: string;
 }
 interface RunnerManifest {
   files: ManifestFileRecord[];
-}
-
-function sha256Bytes(bytes: Buffer): string {
-  return createHash("sha256").update(bytes).digest("hex");
 }
 
 /** Copies the real, already-built dist/ + package.json into a fresh scratch root — the real
@@ -130,25 +128,17 @@ function mismatchedDigests(packageDir: string, manifest: RunnerManifest): Manife
 
 describe("FIT-46 (S-000) — REQ-PPI-01: behavioural publish-sequence integrity", () => {
   it("REQ-PPI-01.1: packed digests match packed bytes after the real stamp -> rebuild -> pack sequence", () => {
-    const root = mkdtempSync(join(tmpdir(), "fit-46-"));
-    try {
-      const { packageDir, manifest } = runPublishSequence(root, { regenerateManifestAfterStamp: true });
-      expect(manifest.files.length).toBeGreaterThan(0);
-      expect(mismatchedDigests(packageDir, manifest)).toEqual([]);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+    const root = scratchRoot();
+    const { packageDir, manifest } = runPublishSequence(root, { regenerateManifestAfterStamp: true });
+    expect(manifest.files.length).toBeGreaterThan(0);
+    expect(mismatchedDigests(packageDir, manifest)).toEqual([]);
   });
 
   it("REQ-PPI-01.2 [red-proof]: skipping the rebuild after the stamp leaves the package.json digest stale, naming the field", () => {
-    const root = mkdtempSync(join(tmpdir(), "fit-46-"));
-    try {
-      const { packageDir, manifest } = runPublishSequence(root, { regenerateManifestAfterStamp: false });
-      const mismatched = mismatchedDigests(packageDir, manifest);
-      expect(mismatched.map((record) => record.path)).toEqual(["package.json"]);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+    const root = scratchRoot();
+    const { packageDir, manifest } = runPublishSequence(root, { regenerateManifestAfterStamp: false });
+    const mismatched = mismatchedDigests(packageDir, manifest);
+    expect(mismatched.map((record) => record.path)).toEqual(["package.json"]);
   });
 });
 
@@ -177,41 +167,33 @@ describe("FIT-46 (S-000) — REQ-PPI-03.2/.3: the gate mechanism blocks/allows p
   }
 
   it("REQ-PPI-03.2 [red-proof]: a failing suite check blocks the publish step — no publish-step log line ever appears", () => {
-    const root = mkdtempSync(join(tmpdir(), "fit-46-gate-"));
-    try {
-      writeFileSync(
-        join(root, "failing.test.ts"),
-        [
-          'import { test, expect } from "bun:test";',
-          'test("a planted suite failure", () => { expect(1).toBe(2); });',
-          "",
-        ].join("\n")
-      );
-      const { publishReached, log } = runSequenceAgainstSuiteResult(root);
-      expect(publishReached).toBe(false);
-      expect(log).toEqual([]);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+    const root = scratchRoot();
+    writeFileSync(
+      join(root, "failing.test.ts"),
+      [
+        'import { test, expect } from "bun:test";',
+        'test("a planted suite failure", () => { expect(1).toBe(2); });',
+        "",
+      ].join("\n")
+    );
+    const { publishReached, log } = runSequenceAgainstSuiteResult(root);
+    expect(publishReached).toBe(false);
+    expect(log).toEqual([]);
   });
 
   it("REQ-PPI-03.3: a clean closure reaches the publish step — sibling positive", () => {
-    const root = mkdtempSync(join(tmpdir(), "fit-46-gate-"));
-    try {
-      writeFileSync(
-        join(root, "passing.test.ts"),
-        [
-          'import { test, expect } from "bun:test";',
-          'test("a clean suite check", () => { expect(1).toBe(1); });',
-          "",
-        ].join("\n")
-      );
-      const { publishReached, log } = runSequenceAgainstSuiteResult(root);
-      expect(publishReached).toBe(true);
-      expect(log).toEqual(["publish-step: would run npm publish here"]);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+    const root = scratchRoot();
+    writeFileSync(
+      join(root, "passing.test.ts"),
+      [
+        'import { test, expect } from "bun:test";',
+        'test("a clean suite check", () => { expect(1).toBe(1); });',
+        "",
+      ].join("\n")
+    );
+    const { publishReached, log } = runSequenceAgainstSuiteResult(root);
+    expect(publishReached).toBe(true);
+    expect(log).toEqual(["publish-step: would run npm publish here"]);
   });
 
   // S-001.10 (plan-verify iteration-2 amendment, finding G's S-001 leg): re-runs the SAME
@@ -221,30 +203,26 @@ describe("FIT-46 (S-000) — REQ-PPI-03.2/.3: the gate mechanism blocks/allows p
   // publish); this proves the mechanism actually engages for a genuine Constraint-4 fixture,
   // now that CAP-01..06 exist.
   it("REQ-PPI-03.2 [red-proof]: a real Constraint-4 admission failure blocks the publish step", () => {
-    const root = mkdtempSync(join(tmpdir(), "fit-46-gate-cap-"));
-    try {
-      writeFileSync(
-        join(root, "constraint-4.test.ts"),
-        [
-          'import { test, expect } from "bun:test";',
-          'import { mkdtempSync, writeFileSync } from "node:fs";',
-          'import { tmpdir } from "node:os";',
-          'import { join } from "node:path";',
-          `import { deriveRunnerClosure } from ${JSON.stringify(join(PROJECT_ROOT, "scripts/derive-runner-closure.ts"))};`,
-          'test("REQ-CST-04.2: eval is denied by the real capability-admission mechanism", () => {',
-          '  const fixtureRoot = mkdtempSync(join(tmpdir(), "fit-46-cap-fixture-"));',
-          '  writeFileSync(join(fixtureRoot, "entry.js"), "eval(payload);\\n");',
-          '  const derivation = deriveRunnerClosure(fixtureRoot, "entry.js");',
-          "  expect(derivation.violations).toEqual([]);", // deliberately wrong: eval IS denied
-          "});",
-          "",
-        ].join("\n")
-      );
-      const { publishReached, log } = runSequenceAgainstSuiteResult(root);
-      expect(publishReached).toBe(false);
-      expect(log).toEqual([]);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+    const root = scratchRoot();
+    writeFileSync(
+      join(root, "constraint-4.test.ts"),
+      [
+        'import { test, expect } from "bun:test";',
+        'import { mkdtempSync, writeFileSync } from "node:fs";',
+        'import { tmpdir } from "node:os";',
+        'import { join } from "node:path";',
+        `import { deriveRunnerClosure } from ${JSON.stringify(join(PROJECT_ROOT, "scripts/derive-runner-closure.ts"))};`,
+        'test("REQ-CST-04.2: eval is denied by the real capability-admission mechanism", () => {',
+        '  const fixtureRoot = mkdtempSync(join(tmpdir(), "fit-46-cap-fixture-"));',
+        '  writeFileSync(join(fixtureRoot, "entry.js"), "eval(payload);\\n");',
+        '  const derivation = deriveRunnerClosure(fixtureRoot, "entry.js");',
+        "  expect(derivation.violations).toEqual([]);", // deliberately wrong: eval IS denied
+        "});",
+        "",
+      ].join("\n")
+    );
+    const { publishReached, log } = runSequenceAgainstSuiteResult(root);
+    expect(publishReached).toBe(false);
+    expect(log).toEqual([]);
   });
 });

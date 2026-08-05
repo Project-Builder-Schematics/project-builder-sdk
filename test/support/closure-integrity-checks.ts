@@ -1,11 +1,12 @@
 import { existsSync } from "node:fs";
 import { join, posix } from "node:path";
+import { Project, SyntaxKind } from "ts-morph";
 
 // Pure checkers shared by fit-42 (applies them to the real built tree) and
 // fit-42.negative (plants inputs that prove they fire). Same split as the FIT-40 pair:
 // the assertion and its red-proof must run the SAME code, or the red-proof proves nothing.
-// No repo imports by design (node builtins only), so this module adds nothing to the
-// module graph FIT-27 walks from test/support/**.
+// Repo imports are limited to the tripwire predicates this module CONSUMES (see the ADR-0081
+// note below) plus ts-morph, the tripwire TCB the predicates themselves parse with.
 //
 // ADR-0081: the bundler-output disjointness predicate lives in `scripts/bundler-
 // disjointness.ts` (every other tripwire predicate's home) — this module is a CONSUMER,
@@ -20,6 +21,29 @@ export {
   type DisjointnessViolation,
   type UnclassifiableBundlerConstruct,
 } from "../../scripts/bundler-disjointness.ts";
+
+/**
+ * REQ-CST-04.3: counts how many times `name` occurs as an AST Identifier in CODE — the
+ * non-vacuity guard's mandated counting mechanism, never a substring count of the source text
+ * (R1-10). Line comments and string literals produce no Identifier node at all; a `{@link name}`
+ * JSDoc tag DOES (R1-16's probe), so JSDoc-rooted identifiers are excluded here under the same
+ * exclusion E1 the classifier applies — otherwise prose could still satisfy the guard, which is
+ * the whole vacuity being closed. A file whose only remaining mentions are prose counts ZERO,
+ * so the guard can tell "the exemption is working" from "the file no longer uses the primitive
+ * at all" (the real anchor: 10 substring hits, 8 of them in comments, 2 code occurrences).
+ */
+export function astIdentifierOccurrences(source: string, name: string): number {
+  const project = new Project({ compilerOptions: { allowJs: true }, skipAddingFilesFromTsConfig: true });
+  const sourceFile = project.createSourceFile("__non-vacuity-probe.js", source, { overwrite: true });
+  return sourceFile
+    .getDescendantsOfKind(SyntaxKind.Identifier)
+    .filter(
+      (id) =>
+        id.getText() === name &&
+        id.getFirstAncestorByKind(SyntaxKind.JSDoc) === undefined &&
+        id.getFirstAncestorByKind(SyntaxKind.JSDocTag) === undefined
+    ).length;
+}
 
 /**
  * REQ-RMD-05.1: `username` bounded by PATH-SEGMENT delimiters, never a bare substring scan —
