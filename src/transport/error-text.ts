@@ -49,3 +49,11 @@ export function toProjectRelativePath(subjectPath: string, projectRoot: string =
 export function composeWithToken(prefix: string, token: string, suffix = ""): string {
   return boundMessage(`${prefix}${truncateToken(token)}${suffix}`);
 }
+
+// REQ-WPS-07.4/.6: scrubs absolute-path-shaped substrings embedded anywhere in a plain
+// Error's free-text message. Currently a pass-through — POSIX and Windows/UNC/WSL matching
+// is not implemented yet, so callers must not rely on this scrubbing anything.
+export function scrubAbsolutePaths(message: string, projectRoot?: string): string {
+  void projectRoot;
+  return message;
+}

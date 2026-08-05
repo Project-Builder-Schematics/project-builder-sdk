@@ -121,6 +121,7 @@ describe("REQ-EXC-01.2 — four failure classes map to four distinct exit codes"
     const host = spawnRunner(["--factory", CRASH_POINTER, "--input", "{}"]);
     const run = await serveSpawnedRunner(host, fake);
     expect(run.exitCode).toEqual(4);
+    expect(run.stderr).toContain("frame-runner crash fixture: author code throws mid-run");
   });
 });
 
