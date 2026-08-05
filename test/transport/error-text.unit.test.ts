@@ -130,7 +130,7 @@ describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
     });
 
     it("disclosure decision (REQ-WPS-07's own ../-relative mandate, pinned): a POSIX path outside a REALISTICALLY DEEP project root reveals its full ../ depth and filename tail — this is the spec's specified outcome, not an accidental leak", () => {
-      // S-002's own shallow case (`/repo` vs `/elsewhere/secret.json`) hides how long the
+      // The shallow case above (`/repo` vs `/elsewhere/secret.json`) hides how long the
       // chain gets with a project root nested several directories deep — a realistic shape
       // for e.g. a worktree checkout. Computed via the SAME `relative()` the production
       // code calls, so this assertion is self-verifying rather than a hand-counted guess.
@@ -142,7 +142,7 @@ describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
       const scrubbed = scrubAbsolutePaths(message, deepRoot);
 
       expect(scrubbed).toEqual(`ENOENT: no such file, open '${expectedRelative}'`);
-      // Depth survives: more than one "../" segment (not S-002's single-level case).
+      // Depth survives: more than one "../" segment, unlike the shallow case above.
       expect(expectedRelative.split("/").filter((seg) => seg === "..").length).toBeGreaterThan(1);
       // The tail below the common ancestor survives verbatim.
       expect(expectedRelative).toContain("secret-dir/app.module.ts");
@@ -150,7 +150,7 @@ describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
   });
 
   describe("Scenario REQ-WPS-07.5: secret-shaped non-path content passes through bounded, unscrubbed (documented residual)", () => {
-    it("secret-shaped content with no path-shaped substring is unchanged by scrubAbsolutePaths — a pin, not a new-behavior proof: an identity function satisfies this trivially too, same as the prose-survival cases above (S-002's own precedent)", () => {
+    it("secret-shaped content with no path-shaped substring is unchanged by scrubAbsolutePaths — a pin, not a new-behavior proof: an identity function satisfies this trivially too, same as the prose-survival cases above", () => {
       const message = "configuration rejected: DB_PASSWORD=hunter2 failed validation";
       expect(scrubAbsolutePaths(message, "/repo")).toEqual(message);
     });

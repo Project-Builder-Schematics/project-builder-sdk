@@ -300,7 +300,7 @@ describe("REQ-EXC-01.3 — handshake-time failures all classify as code 1 (trio:
   });
 });
 
-// REQ-WPS-07.4/.5/.6 (S-003) — disclosure rule holds, proven live over the REAL spawned
+// REQ-WPS-07.4/.5/.6 — disclosure rule holds, proven live over the REAL spawned
 // runner bin, for every platform shape the scrub claims to close. Windows/UNC/WSL route
 // unconditionally to `<outside-project>` (ADR-02) — NOTHING of the seeded canary survives,
 // proven below by strict non-containment. POSIX is DIFFERENT and deliberately so: it
