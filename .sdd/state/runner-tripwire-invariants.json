@@ -1,8 +1,8 @@
 {
   "change": "runner-tripwire-invariants",
   "triage": "L",
-  "sensitivity": "fired \u2014 tripwire mechanism is core subject",
-  "phase": "evaluate COMPLETE \u2014 steward outcome-gap OVERRIDDEN by owner 2026-08-05 (all 4 conscience questions answered; record: openspec/changes/runner-tripwire-invariants/outcome-override.md). Ready for archive. Evaluate output in PR #64 (open).",
+  "sensitivity": "fired — tripwire mechanism is core subject",
+  "phase": "ARCHIVED 2026-08-05 — specs synced (runner-integrity-manifest V3, publish-pipeline-hardening V4), folder moved to openspec/changes/archive/2026-08-05-runner-tripwire-invariants/, 6 lessons extracted, 3 ADRs promoted, 23-row register audited, S-002.3 deferred with evidence. Gates: 2652/0, tsc clean, digest byte-identical. Remaining: PR #64 merge (owner).",
   "spec_status": "signed",
   "slices": true,
   "plan_verify": "ready-owner-ruled",
@@ -10,5 +10,6 @@
   "arch_audit": "warnings",
   "outcome": "override",
   "viz_url": "https://claude.ai/code/artifact/1e3a1f6e-0925-475d-9dbc-55b168cc23cd",
-  "updated_at": "2026-08-05"
+  "updated_at": "2026-08-05",
+  "archived": true
 }
