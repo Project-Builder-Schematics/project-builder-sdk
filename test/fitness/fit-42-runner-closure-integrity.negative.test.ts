@@ -23,6 +23,7 @@ import {
 } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
+import { Project, SyntaxKind } from "ts-morph";
 import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
 import { ensureTscBuild } from "../support/shared-build.ts";
 import { expectCorpusMatchesDeclared } from "../support/corpus-completeness.ts";
@@ -1306,6 +1307,99 @@ describe("FIT-42N S-001 — REQ-CAP-01.7: RCD-03.3's day-one JSDoc fixtures stay
       "entry.js": ["/**", " * {@link eval} is mentioned here for documentation only.", " */", "export const noop = 1;"].join("\n"),
     });
     expect(classifiedAs(root)).toEqual([]);
+  });
+});
+
+// north-star.md success criterion 3 demands a red-proof for EACH of the four surface
+// exclusions, or a named justification for why one is unfalsifiable. E1 has had CAP-01.7 since
+// S-001; E2/E3/E4 had only the exact-membership TABLE pins (CAP-01.5/.6), which prove the table
+// was not edited and say nothing about what each predicate actually excludes. An exclusion is a
+// CLAIM that a node cannot yield a capability, so an unproven one is the cheapest place to
+// reintroduce default-pass — this cycle's whole lesson.
+//
+// Shape of each proof: one fixture placing the SAME denied primitive in the excluded position
+// and in a genuine reference position, asserting the exact count of findings. A widened
+// predicate drops a finding and the count fails. Verified non-vacuous by mutation: widening
+// each predicate in `capability-admission.ts` to swallow the reference makes exactly the
+// corresponding row below fail (see apply-progress.md, Part 3c).
+describe("FIT-42N S-001 — REQ-CAP-01.5: each surface exclusion is red-proofed, never merely pinned", () => {
+  it("REQ-CAP-01.5 [red-proof]: E2 declaration-name excludes the BINDING SITE only, never a reference beside it", () => {
+    // Three binding-site kinds the predicate names, each sharing its construct with a real
+    // reference to `eval`: a variable name, a parameter name, a destructuring binding name.
+    // None of the three names yields a capability; all three references must still be found.
+    const matching = denialsIn({
+      "entry.js": [
+        "const holder = [eval];",
+        "function make(cb = eval) { return cb; }",
+        "const { alias = eval } = {};",
+        "export const out = [holder, make, alias];",
+      ].join("\n"),
+    }).filter((v) => v.rule === "constraint-4-inadmissible-origin" && v.detail === "eval");
+    expect(matching.length).toBe(3);
+  });
+
+  it("REQ-CAP-01.5: E2's binding sites alone yield nothing — the exclusion's sibling positive", () => {
+    expect(
+      denialsIn({
+        "entry.js": "const holder = 1;\nfunction make(cb = 2) { return cb; }\nconst { alias = 3 } = {};\nexport const out = [holder, make, alias];\n",
+      })
+    ).toEqual([]);
+  });
+
+  it("REQ-CAP-01.5 [red-proof]: E3 property-name excludes a property KEY only, never a value or a shorthand", () => {
+    // `{ eval: 1 }` names a property and reaches nothing. `{ k: eval }` and `{ eval }` are both
+    // references. The shorthand leg is this cycle's own narrowing: E3 used to exclude it, on a
+    // justification ("the enclosing access is the surface node") that is false for shorthand.
+    const matching = denialsIn({
+      "entry.js": [
+        "const named = { eval: 1 };",
+        "const valued = { k: eval };",
+        "const shorthand = { eval };",
+        "export const out = [named, valued, shorthand];",
+      ].join("\n"),
+    }).filter((v) => v.rule === "constraint-4-inadmissible-origin" && v.detail === "eval");
+    expect(matching.length).toBe(2);
+  });
+
+  it("REQ-CAP-01.5: a property merely NAMED after a denied primitive yields nothing — E3's sibling positive", () => {
+    expect(denialsIn({ "entry.js": "export const named = { eval: 1, Function: 2 };\n" })).toEqual([]);
+  });
+
+  // E4 is falsifiable after all — the design table left its cell empty and north-star.md
+  // allowed "name why E4 is unfalsifiable" as the fallback, but the fallback is not needed: a
+  // `.js` file CAN carry a TypeReference node (ts-morph parses TS annotation syntax leniently),
+  // so the excluded position and a value position can be put in one fixture and told apart.
+  it("REQ-CAP-01.5 [red-proof]: E4 type-position excludes the ANNOTATION only, never the value it annotates", () => {
+    // Both occurrences sit in the SAME declaration deliberately: a widening that swallows "any
+    // identifier in a declaration carrying a type annotation" is the realistic way E4 grows, and
+    // a fixture that spread the two across separate statements could not tell it apart. The
+    // initializer is an array literal rather than a bare `eval` so no alias binding is created —
+    // otherwise alias resolution contributes a second, unrelated finding and blunts the count.
+    const matching = denialsIn({
+      "entry.js": "let annotated: eval = [eval];\nexport const out = annotated;\n",
+    }).filter((v) => v.rule === "constraint-4-inadmissible-origin" && v.detail === "eval");
+    expect(matching.length).toBe(1);
+  });
+
+  it("REQ-CAP-01.5: a denied primitive in type position ALONE yields nothing — E4's sibling positive", () => {
+    expect(denialsIn({ "entry.js": "let annotated: eval = [1];\nexport const out = annotated;\n" })).toEqual([]);
+  });
+
+  // E4's scope, measured rather than asserted: the classifier runs over the EMITTED `.js` realm,
+  // where type annotations no longer exist, so E4 governs nothing in the tree that actually
+  // ships. That is worth pinning — an exclusion that excludes nothing cannot be hiding anything
+  // today, and if the walker is ever pointed at a realm where it can, this fails and forces the
+  // question. The red-proof above keeps the predicate itself honest meanwhile.
+  it("REQ-CAP-01.5: E4 is inert over the real closure — zero type-position nodes exist in the emitted realm", () => {
+    const project = new Project({ compilerOptions: { allowJs: true }, skipAddingFilesFromTsConfig: true });
+    const distDir = ensureTscBuild();
+    const withTypeNodes: string[] = [];
+    for (const node of deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH).nodes) {
+      const absolute = join(distDir, node);
+      const sourceFile = project.createSourceFile(absolute, readFileSync(absolute, "utf-8"), { overwrite: true });
+      if (sourceFile.getDescendantsOfKind(SyntaxKind.TypeReference).length > 0) withTypeNodes.push(node);
+    }
+    expect(withTypeNodes).toEqual([]);
   });
 });
 

@@ -1330,3 +1330,103 @@ Gates re-confirmed after the spec amendment (documentation only, no code touched
 
 The docs, both ADRs, the signed spec and slices.md now say the same thing about what Constraint 4
 guarantees. That consistency is the archive precondition the judge was protecting.
+
+### Part 3c — steward reckoning mechanical items (2026-08-05)
+
+Four items from the steward's reckoning, none depending on the human's pending verdict. Context
+that raises the stakes: **PR #63 merged the mechanism to `main` WITHOUT this branch's remediation
+and retraction**, so `main` currently ships claims the bypasses disproved. This branch's
+correctness is load-bearing, not cosmetic.
+
+**1 — Superseded digest re-pinned; the sweep found THREE occurrences, not one.** REQ-CAP-06.1's
+finding-B6 clarification pinned `bf6c983c…a530` while the enforced and shipped value is
+`31cd5382…f333fde` — a live spec↔implementation divergence inside the section that exists to
+eliminate that class, and the one my Part 3b count re-pins missed. Sweeping rather than fixing
+only the named line turned up two more in normative artefacts: `slices.md`'s B6 byte-gate
+procedure, and `slices.md`'s S-001 acceptance criterion. `north-star.md` carried two more (the
+"how it fits" paragraph and success criterion 5) and was re-pinned on the same reasoning — a
+success criterion naming a superseded digest is the same defect. All five now name the enforced
+value, each with a dated supersession note; the old value is preserved inside those notes, never
+deleted. **Deliberately left alone**: `design.md` (already carries the authoritative dated re-pin
+and explicitly preserves §8's original as history), `verify-in-loop-3.md`, `verify-report.md`,
+`verify-plan-3.md`, `outcome-verdict.md` and this file's earlier sections — dated records that
+correctly quote what was true when written. Residual `bf6c983c` occurrences are all inside
+supersession notes; verified by re-grep.
+
+**2 — E2/E3/E4 exclusions now carry red-proofs (criterion 3 closed).** Delivered state was E1
+proven (CAP-01.7) and **E2, E3, E4 unproven** — CAP-01.4/.5/.6 pin the exclusion TABLE, which
+proves it was not edited and says nothing about what each predicate excludes. An exclusion is a
+CLAIM that a node cannot yield a capability, so an unproven one is the cheapest place to
+reintroduce default-pass; leaving it silent would have repeated this cycle's own mistake.
+
+`north-star.md` allowed "name why E4 is unfalsifiable" as a fallback. **The fallback was not
+needed: E4 is falsifiable.** A `.js` file can carry a `TypeReference` node (ts-morph parses TS
+annotation syntax leniently), so the excluded position and a value position fit in one fixture.
+Each proof places the same denied primitive in the excluded position and in a genuine reference
+position and asserts an exact count. Non-vacuity verified by mutation — each widened predicate
+fails **exactly its own row and no other**:
+
+| Exclusion | Fixture | Expected | Mutation applied | Result |
+|---|---|---|---|---|
+| E2 declaration-name | `const holder = [eval]`, `function make(cb = eval)`, `const { alias = eval } = {}` | 3 findings | exclude ANY id under a VariableDeclaration / Parameter / BindingElement | **killed** (6 pass / 1 fail) |
+| E3 property-name | `{ eval: 1 }`, `{ k: eval }`, `{ eval }` | 2 findings | exclude ANY id under a PropertyAssignment + restore the shorthand exclusion | **killed** (6 pass / 1 fail) |
+| E4 type-position | `let annotated: eval = [eval]` | 1 finding | exclude ANY id in a declaration carrying a type annotation | **killed** (6 pass / 1 fail) |
+
+The E4 fixture needed strengthening mid-work: my first version put the annotation and the value
+in SEPARATE declarations, and the mutant survived (6→7 pass) because a same-declaration widening
+cannot reach across statements. Both occurrences now sit in one declaration, with an array-literal
+initializer so no alias binding forms — a bare `= eval` creates an alias and contributes a second,
+unrelated finding that blunts the count. Recorded because the first fixture LOOKED like a proof
+and was not.
+
+Also added: **E4's scope is measured, not assumed** — the real closure carries zero
+`TypeReference` nodes, so E4 governs nothing in the tree that ships and cannot be hiding anything
+today. Pinned as an assertion so that if the walker is ever pointed at a realm where type
+positions exist, it fails and forces the question. Spec: 4 additive scenarios
+(`REQ-CAP-01.8/.9/.10` [red-proof] + `REQ-CAP-01.11`), no existing scenario altered.
+
+**Tally discrepancy surfaced and recorded, not absorbed.** Re-deriving the counts showed
+`slices.md`'s "49/49 verification" — the count of `it()` titles matching
+`REQ-[\w.-]+\.\d+ \[red-proof\]:` — measured **47** at the pre-remediation commit `4337da5`,
+i.e. the documented tally was already two ahead of its own rule before any work here. It measures
+**54** now (+7 titles from this pass; one is a parameterised row producing three runtime tests
+from one source title). Nothing executes that verification — it is prose, which is why it drifted
+through three review rounds. Spec/slices tallies moved to **81 scenarios / 52 red-proofs** and the
+un-mechanised device is registered as JD-9.
+
+**3 — The 23-row register re-audit is transcribed into `pending-changes.md`.** It was
+dispositioned in `slices.md` and would have stopped being findable the moment the change folder
+moved. Re-verified against the merged code rather than re-drafted; **one disposition changed** —
+the meta-finding is `RE-REGISTERED` (→ `capability-admission-oracle`), not `CLOSED-BY-MECHANISM`,
+because round 3 demonstrated bypasses of the mechanism that row claimed closed the class. R1-12
+and R1-13 gained new evidence from this pass. Row-count check re-derived: 4 + 13 + 4 + 1 + 1 = 23.
+
+The three owed registrations named in `slices.md`'s Deferred-to-archive list are landed:
+`0.1.0-must-ship-manifest` (hard-fail release-checklist row), the user-reachable
+integrity-mismatch diagnostic, and `M3.6` (bundler script-chaining). **Two of those three have
+been missing since the cycle BEFORE this one** — `triage.md` flagged them as a probable repeat of
+this repo's known archive-registration-skip pattern, which is precisely the failure a register
+exists to prevent. Landed alongside them, since they were owed by the same list and equally
+absent: R1-14's fresh dated row, the four deferred fitness functions with their re-open triggers
+(`FIT-NO-CHECKER-IN-BUILD`, `FIT-SINGLE-PREDICATE`, `FIT-RULE-REACHABILITY`,
+`FIT-BASELINE-NOT-SELF-HEALING`), S-002.3 (the change's one unchecked slice task — it can only
+land in a change allowed to move manifest bytes), and verify-final's FU-6/7/9/10/11.
+
+**4 — CQ-R4: the engine has not been told Constraint 4 was scoped down.** The steward's new
+finding, and the one with real blast radius: `docs/runner-integrity-invariants.md` states in its
+own words that Constraint 4 is SDK-added and "the engine adopted it into their own mirror check",
+and that their closure-sealing lemma "holds only while all five of the properties below hold".
+The retraction landed in five SDK-side places and in zero cross-repo ones — `pending-changes.md`
+is this repo's register of record for cross-repo obligations and uses an explicit engine-flag
+convention throughout, and it had no row. Added one, following that convention
+(`**engine repo, cross-repo flag (with PC-PROTO-01)**`), naming: what was retracted, which
+engine-side artefacts believed the original claim (their mirror check; any statement of the lemma
+citing Constraint 4 as a holding property), and the three things the engine owner must
+re-evaluate. It also records that the notification should follow this branch landing, since `main`
+currently ships the disproved claims. No SDK code change is implied — but an unwritten
+notification does not happen, which is the whole reason the row exists.
+
+**Gates** (documentation plus three test files; no production code touched): `bun test`
+**2652 pass / 0 fail** (2645 + 7 new exclusion tests), `tsc --noEmit` clean,
+`dist/runner-manifest.json` still `31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde`
+with 118 files byte-identical.

@@ -2,7 +2,7 @@
 
 **Triage**: L
 **Spec version**: runner-integrity-manifest V3 (SIGNED) + publish-pipeline-hardening V4 (SIGNED)
-**Total slices**: 6 (1 walking skeleton + 5 SPIDR) — 22/22 REQ-IDs, 77/77 scenarios, 49/49 red-proofs (plan-verify iteration-2 amendment, 2026-07-29: +5 scenarios / +3 red-proofs, `REQ-CAP-04.6-.8` + `REQ-DGN-01.3-.4`, see `specs/runner-integrity-manifest/spec.md`'s own tally note — REQ-ID count unchanged; iteration-1 amendment, 2026-07-29: +5 scenarios / +2 red-proofs, `REQ-CAP-01.4-.7` + `REQ-PTH-01.7`)
+**Total slices**: 6 (1 walking skeleton + 5 SPIDR) — 22/22 REQ-IDs, 81/81 scenarios, 52/52 red-proofs (**exclusion red-proof amendment, 2026-08-05**: +4 scenarios / +3 red-proofs, `REQ-CAP-01.8-.11`, closing steward criterion 3 — E2/E3/E4 had no red-proof; see the spec's own Tally reconciliation note, which also records that the prose-only "49/49 verification" measured 47 at `4337da5` and is not mechanised; plan-verify iteration-2 amendment, 2026-07-29: +5 scenarios / +3 red-proofs, `REQ-CAP-04.6-.8` + `REQ-DGN-01.3-.4`, see `specs/runner-integrity-manifest/spec.md`'s own tally note — REQ-ID count unchanged; iteration-1 amendment, 2026-07-29: +5 scenarios / +2 red-proofs, `REQ-CAP-01.4-.7` + `REQ-PTH-01.7`)
 
 **SC-1 override note**: per proposal/design binding sequencing, S-000 is NOT the mechanism skeleton — it is the publish-path slice (zero dependency on the mechanism, independently mergeable). S-001 carries the mechanism's own walking-skeleton role (enumerate/classify live on the real 23-file closure) under its SPIDR tag, because SC-3 binds it and `FIT-CAP-TOTALITY` into one inseparable slice.
 
@@ -102,7 +102,7 @@ coupling to REQ-PPI-*)
 **Acceptance**:
 - GIVEN the current runner closure (23 files, 423 sites) and the synthetic fixtures
 - WHEN `enumerateCapabilitySurface` + `classifySurfaceNode` run
-- THEN classified-count == present-count exactly (CAP-01.1); the `SurfaceNodeKind` union and the E1-E4 exclusions are each pinned by exact membership (CAP-01.4/.5, plan-verify iteration-1); both live escapes (`globalThis["ev"+"al"]`, IIFE-constructor) and `node:child_process` fail naming the callee/origin rule (CAP-03.1/.2, CAP-04.1); `x instanceof Function` is admitted while `const F = Function; F(...)` stays denied (CAP-05); admitted tables pin exactly 21/6 members (CAP-04.4/.5 — reconciled 2026-08-05 from the signed 22, see the spec's own Count reconciliation note); member paths off an admitted root pin exactly 30 members (reconciled from the signed 28) and `process.dlopen` fails naming the member path (CAP-04.6/.7/.8, plan-verify iteration-2); `dist/runner-manifest.json` is byte-identical to `bf6c983c…a530` (CAP-06.1). **Claim scope corrected 2026-08-05 (judgment-day round 1)**: every assertion in this acceptance criterion still holds and every test still asserts it, but the REQ-CAP-01/03 PROSE it realises no longer claims default-violation or total classification as security properties — default-deny holds on ORIGIN (mutant-killed), PATH is a deny predicate over an unbounded name space, and totality is relative to the ENUMERATOR. See the spec's dated `Judgment-day scope correction` blocks and `docs/runner-integrity-invariants.md#known-gaps`
+- THEN classified-count == present-count exactly (CAP-01.1); the `SurfaceNodeKind` union and the E1-E4 exclusions are each pinned by exact membership (CAP-01.4/.5, plan-verify iteration-1); both live escapes (`globalThis["ev"+"al"]`, IIFE-constructor) and `node:child_process` fail naming the callee/origin rule (CAP-03.1/.2, CAP-04.1); `x instanceof Function` is admitted while `const F = Function; F(...)` stays denied (CAP-05); admitted tables pin exactly 21/6 members (CAP-04.4/.5 — reconciled 2026-08-05 from the signed 22, see the spec's own Count reconciliation note); member paths off an admitted root pin exactly 30 members (reconciled from the signed 28) and `process.dlopen` fails naming the member path (CAP-04.6/.7/.8, plan-verify iteration-2); `dist/runner-manifest.json` is byte-identical to `31cd5382…f333fde` (CAP-06.1 — **re-pinned 2026-08-05** from the superseded `bf6c983c…a530`, see the spec's Digest reconciliation note). **Claim scope corrected 2026-08-05 (judgment-day round 1)**: every assertion in this acceptance criterion still holds and every test still asserts it, but the REQ-CAP-01/03 PROSE it realises no longer claims default-violation or total classification as security properties — default-deny holds on ORIGIN (mutant-killed), PATH is a deny predicate over an unbounded name space, and totality is relative to the ENUMERATOR. See the spec's dated `Judgment-day scope correction` blocks and `docs/runner-integrity-invariants.md#known-gaps`
 
 **Checker-files/closure statement (plan-verify iteration-1 amendment, gap 8, 2026-07-29)**: the
 new `scripts/capability-admission.ts` and `scripts/bundler-disjointness.ts` files (and every other
@@ -225,7 +225,9 @@ tag must be live starting at this change's first red-proof commits (S-000.4/S-00
 byte-neutrality check thereafter (S-002.7, S-003.5, S-004.7), MUST run as: fresh build of
 `dist/` → live closure walk over that fresh `dist/` → regenerate the manifest output from the
 walk → compare the regenerated output's sha256 against the pinned digest
-`bf6c983c59281eaf91ceefcb363375b52436808bbe74ee5241818f47eccfa530`. Hashing the already-committed
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde` (**re-pinned 2026-08-05** from the
+superseded `bf6c983c…a530`; see the spec's own Digest reconciliation note under REQ-CAP-06.1 and
+design.md §1). Hashing the already-committed
 `dist/runner-manifest.json` in place, without a preceding fresh build, proves nothing about
 whether the slice's own change perturbed the derivation — it is not a substitute for the
 regenerate-and-compare procedure.
@@ -417,7 +419,7 @@ commit), so there is nothing for the now-live scan to retroactively catch.
 | S-004 | FCG-01, DGN-01(.1, .3, .4 — .3/.4 plan-verify iteration-2), RMD-05.1, RMD-01.2 |
 | S-005 | DLV-01 |
 
-**Coverage: 22/22 REQ-IDs · 77/77 scenarios · 49/49 red-proofs** (plan-verify iteration-2
+**Coverage: 22/22 REQ-IDs · 81/81 scenarios · 52/52 red-proofs** (exclusion red-proof amendment 2026-08-05: +4/+3, `REQ-CAP-01.8-.11`; plan-verify iteration-2
 amendment, 2026-07-29: `REQ-CAP-04.6-.8` + `REQ-DGN-01.3-.4`, +5 scenarios/+3 red-proofs over
 the 72/46 iteration-1 baseline — see `specs/runner-integrity-manifest/spec.md`'s own tally
 note; iteration-1 amendment, 2026-07-29: `REQ-CAP-01.4-.7` + `REQ-PTH-01.7`, +5 scenarios/+2

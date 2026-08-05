@@ -142,6 +142,63 @@ tail migrates to the enumerator instead of closing. Additive only; CAP-01.1-.3 u
   narrowing the surface to keep totality trivially true is exactly as loud as widening an
   admitted table (REQ-CAP-04.5)
 
+**Exclusion red-proof amendment (2026-08-05, steward reckoning criterion 3)** — additive; no
+scenario above is altered. `north-star.md` success criterion 3 requires a red-proof for EACH of
+the four surface exclusions, or a named justification for why one is unfalsifiable, and records
+that the design's own table left E4's cell empty. Delivered state before this amendment: E1 had
+CAP-01.7; **E2, E3 and E4 had none.** CAP-01.4/.5/.6 pin the exclusion TABLE by exact membership,
+which proves the table was not edited and says nothing about what each predicate excludes — and
+an exclusion is a CLAIM that a node cannot yield a capability, so an unproven one is the cheapest
+place to reintroduce default-pass. That is this cycle's own lesson, so the gap is closed rather
+than argued away.
+
+E4 turned out to be **falsifiable**, so the "name why it is unfalsifiable" fallback is not used:
+a `.js` file can carry a `TypeReference` node (ts-morph parses TS annotation syntax leniently),
+so the excluded position and a value position fit in one fixture and can be told apart. Each
+scenario below places the SAME denied primitive in the excluded position and in a genuine
+reference position and asserts an exact count, so a widened predicate drops a finding and fails.
+Non-vacuity is verified by mutation: widening each predicate in `scripts/capability-admission.ts`
+makes exactly its own scenario fail and no other (apply-progress.md, Part 3c).
+
+#### Scenario REQ-CAP-01.8 [red-proof]: E2 excludes the binding SITE only, never a reference beside it
+
+- GIVEN a synthetic closure file whose variable name, parameter name and destructuring-binding
+  name each share their construct with a genuine reference to `eval` (`const holder = [eval]`,
+  `function make(cb = eval)`, `const { alias = eval } = {}`)
+- WHEN capability-admission classification runs
+- THEN exactly three `constraint-4-inadmissible-origin` violations naming `eval` are reported —
+  one per reference, none from the three binding sites; and the same file with the references
+  removed reports zero, so the exclusion is not merely unexercised
+
+#### Scenario REQ-CAP-01.9 [red-proof]: E3 excludes a property KEY only, never a value or a shorthand
+
+- GIVEN a synthetic closure file containing `{ eval: 1 }` (key), `{ k: eval }` (value) and
+  `{ eval }` (shorthand)
+- WHEN capability-admission classification runs
+- THEN exactly two violations naming `eval` are reported — the value and the shorthand, never the
+  key; a file containing only keys named after denied primitives reports zero. The shorthand leg
+  is this change's own narrowing of E3: a shorthand has no enclosing access to stand in as the
+  surface node, so E3's stated justification does not hold for it
+
+#### Scenario REQ-CAP-01.10 [red-proof]: E4 excludes the ANNOTATION only, never the value it annotates
+
+- GIVEN a synthetic closure file containing `let annotated: eval = [eval]` — both occurrences in
+  ONE declaration, because a widening that swallows "any identifier in a declaration carrying a
+  type annotation" is the realistic way E4 grows and a fixture spread across statements could not
+  tell it apart
+- WHEN capability-admission classification runs
+- THEN exactly one violation naming `eval` is reported — the initializer, never the annotation;
+  and `let annotated: eval = [1]` reports zero
+
+#### Scenario REQ-CAP-01.11: E4's scope over the emitted realm is measured, not assumed
+
+- GIVEN the real runner closure, over which the classifier actually runs
+- WHEN its files are scanned for `TypeReference` nodes
+- THEN there are zero — E4 governs nothing in the tree that ships, so it cannot be hiding anything
+  today. Pinned rather than reasoned about: if the walker is ever pointed at a realm where type
+  positions do exist, this fails and forces the question rather than letting E4 silently acquire
+  scope. REQ-CAP-01.10 keeps the predicate itself honest meanwhile
+
 #### Scenario REQ-CAP-01.7: RCD-03.3's day-one JSDoc fixtures stay non-flagged under the new admission mechanism, governed by exclusion E1
 
 - GIVEN `REQ-RCD-03.3`'s existing day-one JSDoc fixtures (a bare specifier and a resolvable
@@ -359,12 +416,26 @@ the change became cross-repo and MUST halt before slicing continues.
 way") is the normative anchor: the gate procedure is **fresh build of `dist/` → live
 closure walk over that fresh `dist/` → regenerate the manifest output from the walk →
 compare the regenerated output's sha256 against the pinned digest**
-`bf6c983c59281eaf91ceefcb363375b52436808bbe74ee5241818f47eccfa530` (recorded at HEAD
-`e6dcde2`, design.md §8, Migration/Rollout). Hashing an already-committed
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde`. Hashing an already-committed
 `dist/runner-manifest.json` without a preceding fresh build and regeneration proves
 nothing about whether the mechanism redesign perturbed the derivation that PRODUCES the
 bytes — a stale committed artefact cannot detect a defect in the code that generates it.
 Additive only; no existing REQ-CAP-06 scenario text is altered.
+
+**Digest reconciliation (2026-08-05, owner-authorized delta sync)** — this clarification
+originally pinned `bf6c983c59281eaf91ceefcb363375b52436808bbe74ee5241818f47eccfa530` (recorded at
+HEAD `e6dcde2`, design.md §8, Migration/Rollout). That value went stale before the mechanism
+branch even started, from JSDoc-comment-only edits to `src/core/context.ts`/`src/core/wire.ts`
+landed on `main`: REQ-RME-02 hashes raw file BYTES, so a comment-only edit moves a per-file
+sha256 and therefore the whole manifest's. `design.md` §1 records the re-pin and its
+verification (fresh build → live walk → regenerate → compare, run at the mechanism branch's
+base BEFORE any S-001 diff and again after the full diff — both produce the new value, which is
+what proves the mechanism diff is byte-neutral). The superseded value is preserved in this
+sentence rather than deleted, as design.md §8 preserves it, because it is the history of what
+the parent cycle shipped. The digest named above is the one every per-slice gate
+(S-001.5/S-002.7/S-003.5/S-004.7) and `FIT-MANIFEST-BYTE-NEUTRAL` actually enforce, re-verified
+at this commit. Landed with the same authorization as REQ-CAP-04.4/.6's count reconciliation, so
+no signed text names a superseded digest at archive.
 
 ### REQ-PRM-01: Capability Primitive Register
 
@@ -793,6 +864,25 @@ families land under existing REQ-IDs); this change's overall spec tally moves to
 REQ-IDs / 77 scenarios / 49 red-proofs**. `slices.md`'s coverage line, REQ-ID coverage
 table, and `design.md`'s Test Derivation table + Coverage line are updated to match (see
 those files' own amendment notes).
+
+## Tally reconciliation (2026-08-05, steward reckoning criterion 3)
+
+The exclusion red-proof amendment under REQ-CAP-01 adds **4 scenarios / 3 red-proofs**
+(`REQ-CAP-01.8/.9/.10` [red-proof] + `REQ-CAP-01.11`), all additive under an existing REQ-ID, so
+the REQ-ID count is unaffected. This change's spec tally moves from **22 REQ-IDs / 77 scenarios /
+49 red-proofs** to **22 REQ-IDs / 81 scenarios / 52 red-proofs**.
+
+**A pre-existing discrepancy surfaced while re-deriving this** and is recorded rather than
+quietly absorbed: `slices.md`'s "49/49 verification" defines the red-proof count as the number of
+`it()` titles matching `REQ-[\w.-]+\.\d+ \[red-proof\]:` across the named test vehicles, and
+that count measured **47, not 49**, at the pre-remediation commit `4337da5` — i.e. the documented
+tally was already two ahead of what its own rule finds, before any work in this remediation pass.
+It measures **54** now (+7 titles from this pass; one of the seven is a parameterised row that
+produces three runtime tests from a single source title, which the title-counting rule counts
+once). Nothing executes that verification — it is a manual procedure described in prose, which is
+why the divergence went unnoticed through three review rounds. Mechanising it is registered as a
+followup in `openspec/pending-changes.md` (row JD-9); the numbers above are the spec's own
+scenario/red-proof tally, which is what REQ coverage is judged against.
 
 ## Plan-verify iteration-1 amendments (2026-07-29) — tallies
 

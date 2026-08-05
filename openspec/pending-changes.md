@@ -668,3 +668,76 @@ Source: change `runner-tripwire-invariants`, judgment-day round 1 remediation + 
 (2026-08-05). Repro evidence per finding: `apply-progress.md` §"Judgment-day remediation and scope
 correction". Retractions: ADR-0079 Amendment, ADR-0080 scope-correction note,
 `docs/runner-integrity-invariants.md` (Constraint 4 + Known gaps).
+
+## From `runner-tripwire-invariants` archive re-audit (2026-08-05) — the 23-row register disposition, transcribed
+
+`slices.md`'s Excluded Ledger dispositioned all 23 rows of the `runner-integrity-manifest`
+archive register, and `sdd-archive` is supposed to re-verify that table against the built code
+and **write it here** — because the change folder is about to be archived and a disposition that
+lives only inside it stops being findable the moment it moves. This is that transcription,
+re-verified against the merged code rather than re-drafted (steward reckoning criterion 7).
+
+**One disposition changed on re-verification** and it is the important one: the meta-finding is
+`RE-REGISTERED`, not `CLOSED-BY-MECHANISM`. Judgment-day round 1 demonstrated executable bypasses
+of the very mechanism that row claimed closed the class. Everything else re-verified as planned.
+
+| Register row | Disposition | Evidence / where it went |
+|---|---|---|
+| **Meta-finding** — Constraint 4 wants a structural invariant, not a shape scanner | `RE-REGISTERED` (was `CLOSED-BY-MECHANISM`) | Round 3 proved the class open. → `capability-admission-oracle`, registered in the judgment-day section above |
+| **R2-3** version-failure reused the `unreadable-file` rule | `CLOSED-BY-FIX` | `REQ-DGN-01.1`, S-004.2 |
+| **R2-4** malformed `package.json` failed OPEN, stale manifest | `CLOSED-BY-FIX` | `REQ-FCG-01.1`, S-004.1 |
+| **R2-5** false positive on `module.createRequire(u).resolve(s)` | `CLOSED-BY-FIX` | `REQ-XPO-01.2`, S-002.1 |
+| **R2-6** path-spelling disjointness escapes | `CLOSED-BY-FIX` — the five confirmed spellings M3.1-M3.5 ONLY | `REQ-PTH-01.1-.7`, S-003. M3.6 is a distinct surface and is registered separately below. Three MORE spellings were found in judgment-day round 1 and closed in the same pass (`-outdir`, a flag accepted as a path, `--OUTDIR`) — evidence that this token grammar, like the capability one, closes what it is shown |
+| **R1-5** post-derivation throw left a stale manifest | `CLOSED-BY-FIX` | `REQ-FCG-01.3`, S-004.1 |
+| **R1-6** `writeFileSync` not atomic | `CLOSED-BY-FIX` | `REQ-FCG-01.2`, S-004.1 (write-temp-then-rename) |
+| **R1-7** computed member access (`globalThis["eval"]`) | `CLOSED-BY-MECHANISM` | `REQ-CAP-03.1`; re-verified 2026-08-05 — a computed callee is denied off a carrier and a destructured binding too, not only off `globalThis` |
+| **R1-8** directory specifier misdiagnosed as `unreadable-file` | `CLOSED-BY-FIX` | `REQ-DGN-01.2`, S-001.4 |
+| **R1-9** BOM non-vacuity guard `> 0` vs `=== N` | `OUT-WITH-REASON` — stays registered | Independent test-quality row, no REQ covers it; its own row in the 2026-07-25 section stands. Next `fit-42` touch |
+| **R1-10** CST-04.3 non-vacuity counted substrings | `CLOSED-BY-FIX` | `REQ-CST-04.3.2`, closed by the verify-final remediation (`astIdentifierOccurrences`), not by the original slice |
+| **R1-11** docs hardcode the 23/24 counts as prose | `CLOSED-BY-FIX` | `REQ-DLV-01`, S-005 |
+| **R1-12** `BPI-04.1` mutates the real `dist/` mid-suite | `OUT-WITH-REASON` — stays registered, **with new evidence** | Judgment-day measured the concurrent-run damage (2599/6 vs 2605/0) and this pass made it fail LOUDLY via a pid-keyed owner lock rather than isolating it — see JD-4. Full isolation still owed |
+| **R1-13** `publishRunSteps` read declaration order as execution order | `CLOSED-BY-FIX`, **then re-opened and closed again** | `REQ-PPI-05`, S-000.1 closed the declaration-order half; judgment-day found the fix still INVENTED an order between jobs with no `needs:` relation (which Actions runs concurrently) and that is now a reported failure — see the fit-23 commit |
+| **R1-14** symlink-escape not applied to the entry file | `OUT-WITH-REASON` — **re-registered fresh below** | Explicitly out of scope; no REQ touches entry-file symlink containment |
+| **R1-15** `node:` specifiers not validated against `builtinModules` | `CLOSED-BY-FIX` | `REQ-CAP-04.3`, S-001.4 |
+| **R1-16** JSDoc identifiers included in the descendant walk | `CLOSED-BY-MECHANISM` | `REQ-CAP-01.7` (exclusion E1), S-001.4 |
+| **R1-17** bare `Function` ban rejected ordinary JS | `CLOSED-BY-MECHANISM` | `REQ-CAP-05.1/.2/.3`, S-001.2 |
+| **R1-18** `srcPathFor`/`srcOf` extension rewrite lowercase-only | `OUT-WITH-REASON` — stays registered | No REQ touches either function; its own row stands. Next touch of either |
+| **Architecture baseline refresh** (`ts-morph` third importer) | `archive-verifies` | `architecture_impact: additive` — prompts, does not mandate. Its own row in the 2026-07-25 section stands |
+| **`node:vm` altitude fold** | `CLOSED-BY-MECHANISM` | S-001.4's fold: governed by generic origin admission, still a register member with its own fixture |
+| **`react-conformance.test.ts` declares no timeout** | `CLOSED-BY-FIX` | `REQ-PPI-04.1/.2`, S-000.3/.4 |
+| **Two spec-wording deviations** (`REQ-RMD-05.1`, `REQ-RMD-01.2`) | `CLOSED-BY-FIX` | Both `[MODIFIED]`, S-004.5/.6 |
+
+Row-count check: 23 in → 23 out — 4 `CLOSED-BY-MECHANISM` + 13 `CLOSED-BY-FIX` + 4
+`OUT-WITH-REASON` + 1 `archive-verifies` + 1 `RE-REGISTERED`. Zero silently dropped.
+
+### The registrations this change owed, now landed
+
+`slices.md`'s Deferred-to-archive list names three owed registrations plus R1-14's fresh row;
+`verify-report.md`'s FU-1..FU-11 name the rest. None of them existed here until now — two of them
+have been missing since the PRIOR cycle, which `triage.md` flagged as a probable repeat of this
+repo's known archive-registration-skip pattern. That is exactly the failure a register exists to
+prevent, so they are landed rather than re-noted.
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| **0.1.0 MUST ship `dist/runner-manifest.json`** — a hard-fail row on the go-live release checklist. Carried forward as a `carry_to_archive` item from the cycle BEFORE `runner-tripwire-invariants` and never registered here under any searchable phrasing (`triage.md` "Registry gap found during triage"). The manifest exists and is correct today; this row is about the RELEASE not shipping without it | other | XS | **Gating for 0.1.0 go-live** | **0.1.0 release checklist** |
+| **User-reachable integrity-mismatch diagnostic** — when the engine's verification fails on a user's machine, the user currently gets the engine's raw mismatch, not an actionable SDK-side message naming the file that disagrees and what to do (reinstall / version skew / stale `bun link`). The second never-registered `carry_to_archive` item from the prior cycle. Explicitly out of scope for `runner-tripwire-invariants` (`proposal.md` non-goals) | feature | S | Pre-live | **before 0.1.0 go-live** |
+| **M3.6 — bundler script-chaining / indirection through a second `package.json#scripts` entry.** A DISTINCT disjointness surface from the five R2-6 spellings this change closed: a script that invokes another script which runs the bundler is not reached by a single-token grammar over one command line. Owner-ruled OUT of scope at ruling 3 (`triage.md` finding H is the authoritative clarification — wherever an artefact says "closes R2-6", it means M3.1-M3.5 only) | security | M | — | **next `bundler-disjointness.ts` touch** |
+| **R1-14 — the symlink-escape check is not applied to the ENTRY file**, only to walked descendants, so the closure's own root can resolve outside the package root unchecked. Re-registered fresh (its 2026-07-25 row carries the original finding; this row is the dated re-registration `slices.md`'s Deferred-to-archive list owes). Explicitly out of scope for this change — the static-denial vs loader-observation line, `triage.md` Scope Amendment finding E | security | S | — | **next `derive-runner-closure.ts` touch** |
+| **Four deferred fitness functions, registered with their re-open triggers, not built** (budget gate, `design.md` §7): `FIT-NO-CHECKER-IN-BUILD` (assert no ts-morph type checker / module resolution runs inside the fail-closed gate — currently a convention, not a check), `FIT-SINGLE-PREDICATE` (one register enforced at one site — currently held by review), `FIT-RULE-REACHABILITY` (every `ViolationRule` is reachable from some fixture), `FIT-BASELINE-NOT-SELF-HEALING` (the closure-graph baseline cannot be regenerated by the same run that fails against it). `FIT-CAP-ORACLE`, the fifth, is the head row of `capability-admission-oracle` above and is NOT a budget deferral any more — round 3 is its re-open trigger firing | test-coverage | M | — | **with `capability-admission-oracle`, or next `fit-42` touch** |
+| **JD-9 — the "49/49 red-proof" verification is prose, not a check** (`verify-report.md` FU-5). `slices.md` defines the count as `it()` titles matching `REQ-[\w.-]+\.\d+ \[red-proof\]:` across named vehicles and requires it to equal the signed specs' tally. Nothing executes it: measured **47** at `4337da5` against a documented 49 — already two off before this remediation pass, undetected through three review rounds — and **54** now. Either mechanise the count as a fitness function or drop the device and stop citing a number nothing checks | test-coverage | S | — | **next `fit-42` touch** |
+| **S-002.3 — the anchor-site code comment** cross-referencing `REQ-CST-04.4` and `REQ-XPO-01.2`, the change's one unchecked slice task. Deferred, not skipped: `removeComments` is unset in both tsconfigs, so editing `src/transport/single-instance-probe.ts` moves `dist/transport/single-instance-probe.js`'s bytes and breaks the REQ-CAP-06 byte-neutrality gate the same slice enforces. `design.md` classifies it as an archive-time obligation. It can only land in a change that is ALLOWED to move manifest bytes | docs | XS | — | **next change that legitimately re-pins the manifest digest** |
+| **FU-9 — the `mutants/` corpus (≤20-mutant budget) was replaced by inline simulated mutants** without `design.md` §2/§6's REQ-PRM-01 test-vehicle cell being amended to say so. Either build the corpus or correct the design's own record of what ships | docs | XS | — | **next `fit-42` touch** |
+| **FU-7 — six `skipIf(getuid() === 0)` proofs skip silently under root CI.** `fit-42n` already records the active/inactive state as a fact rather than skipping invisibly, but the six proofs themselves still do not FAIL loudly (or drop privileges) when they cannot run | test-coverage | S | — | **next `fit-42` touch** |
+| **FU-6 / FU-8 / FU-10 — verify-final's remaining improvement rows**: commit test-first so TDD discipline is mechanically verifiable (FU-6); W-4 byte-neutrality red-proof + W-9 oracle faithfulness (FU-8); W-5 frozen shared singleton + W-6 standing-scan file set (FU-10) | test-coverage | M | — | **next `fit-42` touch** |
+| **FU-11 — tech-writer pass**: `REQ-CST-04.1`'s rationale sentence and `REQ-CAP-02.2`'s scenario title (rationale prose, not normative — spec Open Item 1) | docs | XS | — | **next spec touch** |
+
+### CQ-R4 — the engine must be told Constraint 4 was scoped down (cross-repo notification)
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| **The engine adopted Constraint 4 into their own mirror check, and this cycle scoped that constraint's guarantee DOWN — nobody has told them.** `docs/runner-integrity-invariants.md` states both halves of the exposure in its own words: Constraint 4 "is **SDK-added** … The engine adopted it into their own mirror check", and the engine's closure-sealing lemma — their argument that verifying 24 digests is equivalent to hashing the executed tree — "holds only while all five of the properties below hold". **What was retracted**: that capability admission is default-deny end-to-end. It is default-deny on ORIGIN only; the member PATH off a local/parameter/import/safe-terminal root is a deny predicate over an unbounded name space, and enumeration totality is relative to the enumerator (tagged templates were invisible for two rounds). Executable bypasses are demonstrated and recorded in that page's Known gaps. **Which engine-side artefacts believed the original claim**: their mirror of Constraint 4, and any statement of the closure-sealing lemma that lists Constraint 4 as a holding property. **What the engine owner must re-evaluate**: (a) whether their mirror check inherits the same three gaps — it will, if it mirrors the SDK's AST-allowlist shape; (b) whether the lemma should still cite Constraint 4 as a *security* property or restate it as the drift control it is; (c) whether Constraint 4 remains SDK-owned given a member-path allowlist cannot be made sound without dataflow analysis (`capability-admission-oracle` is the SDK's answer, unbuilt). **No SDK code change is implied — this is a notification obligation**, and it is written here because this register is where cross-repo obligations become real. Note also that PR #63 merged the mechanism to `main` WITHOUT this branch's retraction, so `main` currently ships the claims the bypasses disproved: the notification should follow this branch landing, not precede it | security | S | **Blocking nothing in the SDK; blocks the engine's ability to reason about their own lemma** | **engine repo, cross-repo flag (with PC-PROTO-01)** |
+
+Source: change `runner-tripwire-invariants`, steward reckoning + archive re-audit (2026-08-05).
+Dispositions re-verified against the merged code, not re-drafted. The judgment-day section above
+carries JD-1..JD-8 and the `capability-admission-oracle` head row.
