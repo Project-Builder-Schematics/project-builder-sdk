@@ -2,6 +2,26 @@
 
 Forward-looking advice curated from archived changes. Newest first.
 
+## From `sdk-plain-error-note` (2026-08-06)
+
+### Test corpus blindness: when all test inputs share one shape, parallel judges find in minutes what sighted passes missed
+**What**: Every bypass in both adversarial rounds (a whitespace-terminated path scrub, a single-segment path scrub) passed 100% of the suite because all test inputs were multi-segment, space-free, URL-free paths. Four separate sighted review passes (in-loop verify, simplify, final verify, orchestrator spot-check) missed both shapes; two blind judges working independently found both in minutes.
+**Why**: The corpus itself — not any individual reviewer — was the blind spot. When diverse perspectives all reason from the same artifact, they inherit the same coverage gap. Blind judges bring their own test intuitions unconditioned by the existing corpus.
+**Where**: Any M/L change with disclosure-control or path-manipulation sensitivity (`scrubAbsolutePaths`, path normalization, secret redaction); any test suite heavy on multi-segment path fixtures but light on edge-case shapes (single segments, spaces, special chars).
+**Learned**: When a fix targets shape-matching or path normalization, expand the test corpus BEFORE verify, not after judgment-day finds gaps — and bias test inputs toward edge cases (single segments, boundary chars, special formats) rather than representative shapes. If all your fixtures are multi-segment paths, a single-segment bypass will pass your suite while failing the operator's first real use.
+
+### Fix attribution requires controlled comparison, not narrative confidence
+**What**: This change's fix (re-engineered regexes for path scrubbing) closed two shapes (spaces, single segments) but opened a third (paths with no separator before them, like `` `Cannot resolve module${path}` ``). Measured comparison (running each finding against the pre-fix and post-fix regexes separately) proved the regression was INTRODUCED BY the fix, not pre-existing. Narrative confidence alone ("the fix is better") would have masked this tradeoff.
+**Why**: When a change is both mitigation and risk, the temptation is to defend the whole thing as net-positive without measuring where the risk came from. The lookbehind that enables single-segment matching is the SAME lookbehind that now blocks the path-with-no-separator case — this is a genuine tradeoff, not a flaw in the fix.
+**Where**: Any change introducing or modifying a regex, matcher, or guard that claims to close a bypass. Applies especially when the fix has multiple moving parts (negated assertions, lookarounds, quantifiers).
+**Learned**: Before shipping a fix to a shape-matching bug, measure its impact on the SAME test corpus used to find the bug: run each finding against both pre-fix and post-fix versions to establish whether it closes the finding or moves it. Attribution is cheap and is load-bearing for honest disclosure of residuals.
+
+### Shipped binary reachability is not operator reachability
+**What**: The outcome-verdict initially stated "delivered" because the SDK binary now surfaces error messages and end-to-end tests prove this works. Reachability check against the actual downstream repos (engine and CLI) revealed the operator still sees nothing: the CLI pins an engine version that predates this change, so the `RunnerNote` field is never rendered. The work was correct; the impact was deferred.
+**Why**: A binary's test can only verify the binary works. It cannot verify downstream consumers have updated to use it. Outcome-check must trace through the entire chain of dependencies and integrations, not just the ship point.
+**Where**: Any M/L change that is part of a cross-repo contract (CLI/engine, SDK/consumer) and whose value depends on downstream adoption.
+**Learned**: Before declaring an outcome "delivered", verify against consumer repos' `origin/main` (or equivalent) — not against the change's own build-passing tests. Specifically: check that the consumer actually references the artifact (via grep), check that the consumer's pinned versions include a version that knows about this change. If both checks fail, the outcome is "delivered-pending-activation" with explicit deferred criteria, not "delivered".
+
 ## From `conformance-corpus` (2026-07-19)
 
 ### A fixture corpus can catch a real shipped bug on its very first live contact

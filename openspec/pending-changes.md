@@ -6,6 +6,14 @@ Followups registered from archived changes. Visible to future `/plan` grooming.
 > Every row carries a **Stage** tag from that plan (or an explicit "not now"). The stage item is
 > now the unit of scheduling; this file remains the debt ledger of record.
 
+## From `sdk-plain-error-note` (2026-08-06) — archived with outcome delivered-pending-activation
+
+| Description | Type | Size | Gating? | Stage | Cross-repo? |
+|---|---|---|---|---|---|
+| **outcome-check followup (steward deferred-activation duty)**: CLI `cli-runner-note-rendering` S-000..S-002 lands in `project-builder-cli` (check: `git grep RunnerNote origin/main -- internal/` returns matches) AND the CLI's engine pin advances past `project-builder-engine` #195 (commit `4f67b9a`) — reachability verified against both repos' `origin/main`. Outcome closes as delivered when both conditions met | outcome-check | S | — | — | **✓ engine + cli repos** |
+
+> **Outcome registration**: outcome-verdict recorded as `delivered-pending-activation` (2026-08-06, owner ratified). The error message now surfaces to the SDK binary; the operator sees it only when CLI renders it. Deferred until downstream repos land. Archive commit SHA: minted when archive lands on main.
+
 ## From `positive-create-conformance` (2026-07-29) — archived with outcome delivered-pending-activation
 
 | Description | Type | Size | Gating? | Stage | Cross-repo? |
