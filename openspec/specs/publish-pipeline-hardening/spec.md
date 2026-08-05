@@ -1,175 +1,161 @@
-# Publish Pipeline Hardening Specification
+# Delta for Publish Pipeline Hardening
 
-**Spec version**: V3
-**Status**: signed (owner, 2026-07-12 — V3; placeholder deferred per steward CQ2)
-**Change**: `stage-6-release-shape`
+**Spec version**: V4
+**Status**: SIGNED — Daniel Ramirez, 2026-07-29 (V1 signed as drafted; owner rulings 1-8 incorporated)
+**Change**: `runner-tripwire-invariants`
 
-## Purpose
+V3 → V4 (2026-07-29, ruling 2 + ruling 5 + ruling 6): a fourth surface — the publish
+path — runs zero tests today (`main` carries no branch protection, confirmed live by the
+orchestrator), and `publish.yml`'s implicit dependency on `prepublishOnly` regenerating the
+manifest after the version stamp is never DECLARED anywhere the workflow can be checked.
+Ruling 5 withdrew the initial emergency framing (W1) after both propose lenses and the
+orchestrator independently verified `prepublishOnly: "bun run build"` already regenerates
+the manifest post-stamp, `npm` 11.12.1 gates `prepublishOnly` on `!ignoreScripts` (not
+`dryRun`), and signed `REQ-BPI-03.1` already records exactly this — so this batch adds
+proof and explicit declaration, it does not fix a live break. Five REQs are ADDED, all in
+the `publish-path-integrity` (PPI) family; none of `runner-integrity-manifest`'s
+`REQ-BPI-03.1` is touched (it "explicitly not requiring unfreeze" — the declaration
+assertion below is new REQ surface, never a MODIFIED block on a REQ the owner ruled
+unaffected).
 
-`publish.yml` carries `id-token: write` with no repo-owner guard and pins only
-`oven-sh/setup-bun` — a fork with its own `main` can reach the OIDC-token-minting step
-today (verified live). This domain hardens the EXISTING publish surface and never fires
-it live.
+## ADDED Requirements
 
-**Out of scope (scope fences)**: NO registry write of any kind happens in this change —
-"nothing fires" is literal. The npm placeholder publish (name reservation for
-`@pbuilder/sdk`), formerly the one deliberate exception, is DEFERRED to the
-public-package plan by owner ruling at steward foresight (2026-07-12, CQ2 — the
-`@pbuilder` scope is already owner-controlled, so a placeholder buys no security today).
-No GitHub Packages channel either (→ public-package plan, own /plan cycle, mentioned here
-only as a forward pointer).
+### REQ-PPI-01: Behavioural Publish-Sequence Integrity
 
-## Requirements
+Publish-sequence integrity MUST be proven BEHAVIOURALLY — a real publish sequence run
+against a scratch target, comparing packed digests against packed bytes — and MUST NOT
+depend on an implicit npm lifecycle behaviour `publish.yml` never declares (ruling 5's
+reshaped deliverable).
 
-### REQ-PPH-01: W3 Repo-Owner Guard
+#### Scenario REQ-PPI-01.1: Packed digests match packed bytes after the real sequence
 
-The `publish.yml` job carrying `id-token: write` MUST be gated by a repo-owner condition
-(`if: github.repository == '<owner>/<repo>'`). Rationale: a fork's push runs under the
-FORK's own OIDC identity, which npm trusted publishing does not trust for `@pbuilder/sdk`,
-and `--dry-run` already ships nothing — this guard is defense-in-depth stopping OIDC token
-minting inside forks, not a live-publish hole.
+- GIVEN a scratch target and the real publish sequence (version stamp → `prepublishOnly` rebuild → pack)
+- WHEN the packed tarball's `dist/runner-manifest.json` digests are recomputed against the packed tarball's own bytes
+- THEN every digest matches, including the stamped `package.json#version` entry
 
-#### Scenario REQ-PPH-01.1: Guard present and correctly scoped
+#### Scenario REQ-PPI-01.2 [red-proof]: `--ignore-scripts` breaks the implicit dependency, caught
 
-- GIVEN `publish.yml`'s job definition
-- WHEN the job carrying `id-token: write` is inspected
-- THEN it has an `if:` condition comparing `github.repository` to the configured owner/repo
+- GIVEN the same scratch sequence run with `--ignore-scripts` (skips `prepublishOnly`, so the manifest is NOT regenerated after the version stamp)
+- WHEN digests are recomputed against packed bytes
+- THEN the `package.json` digest mismatches, naming the field — the behavioural proof of what an undeclared implicit-lifecycle dependency actually risks, and why REQ-PPI-02 exists
 
-#### Scenario REQ-PPH-01.2 [red-proof]: Guard absence is detected
+### REQ-PPI-02: Explicit Rebuild Step Declared
 
-- GIVEN a simulated `publish.yml` job definition with `id-token: write` and no `if:` guard
-- WHEN the guard-shape check runs against it
-- THEN it fails, naming the missing guard
+`publish.yml` MUST declare an explicit rebuild step between the version-stamp step and
+`npm publish`, rather than relying solely on `prepublishOnly` running implicitly (W1′, XS).
 
-#### Scenario REQ-PPH-01.3: Trigger set is push-to-main only
+#### Scenario REQ-PPI-02.1: Rebuild step present and positioned after the stamp
 
-- GIVEN `publish.yml`'s trigger (`on:`) block
-- WHEN inspected
-- THEN it contains ONLY `push: branches: [main]` — no `pull_request`,
-  `pull_request_target`, or `workflow_dispatch` trigger (any of these would re-open a
-  fork or manual path to the privileged job the repo-owner guard defends)
+- GIVEN `publish.yml` parsed structurally
+- WHEN the step sequence between the version-stamp step and the publish step is inspected
+- THEN an explicit rebuild step (e.g. `bun run build`) is present between them
 
-### REQ-PPH-02: SHA-Pinned Actions in `publish.yml`
+#### Scenario REQ-PPI-02.2 [red-proof]: Absence is caught
 
-Every `uses:` step in `publish.yml` MUST be pinned to a commit SHA — `actions/checkout` and
-`actions/setup-node` join the already-pinned `oven-sh/setup-bun`.
+- GIVEN a simulated `publish.yml` with the stamp step immediately followed by the publish step (no explicit rebuild)
+- WHEN the sequence check runs
+- THEN it fails, naming the missing step
 
-#### Scenario REQ-PPH-02.1: Every `uses:` line is SHA-pinned
+### REQ-PPI-03: Suite Gate
 
-- GIVEN every `uses:` line in `publish.yml`
-- WHEN each is inspected
-- THEN each pins a 40-character commit SHA, not a floating tag (e.g. `@v4`)
+The publish job in `publish.yml` MUST run the full test suite, and MUST fail the job
+(never merely warn) if the suite fails, strictly BEFORE any publish step executes (W2;
+ships with REQ-PPI-04 in the same slice per ruling 6 — a knowingly-flaky gate is a gate
+that gets routed around).
 
-#### Scenario REQ-PPH-02.2 [red-proof]: Today's unpinned actions fail this assertion
+#### Scenario REQ-PPI-03.1: Suite runs and gates publish
 
-- GIVEN the CURRENT (pre-implementation) `publish.yml`, which pins only `setup-bun`
-- WHEN the SHA-pin check runs against it
-- THEN it fails on `actions/checkout@v4` and `actions/setup-node@v4`
+- GIVEN `publish.yml`'s publish job
+- WHEN its step sequence is inspected
+- THEN a full-suite step (`bun test`) exists strictly before the `npm publish` step, with no `continue-on-error`
 
-### REQ-PPH-03: `--dry-run` Flag Pinned
+#### Scenario REQ-PPI-03.2 [red-proof]: A violating closure never reaches a publish step (S9)
 
-The `npm publish` step in `publish.yml` MUST retain `--dry-run` as long as no live-publish
-gate has been ratified — the structural form of "the publish button stays untouched."
+- GIVEN a scratch tree whose closure fails a Constraint-4 admission check (`runner-integrity-manifest` REQ-CAP-01..06)
+- WHEN the publish job's sequence runs against it
+- THEN the job fails at the suite step and the publish step never executes — asserted by the absence of any publish-step log output
 
-#### Scenario REQ-PPH-03.1: `--dry-run` present in the publish command
+**Plan-verify iteration-2 amendment (2026-07-29, findings G/B1)** — closes gap G of
+`verify-plan-2.md`. REQ-PPI-03.2's GIVEN names a Constraint-4 admission failure
+(`runner-integrity-manifest` REQ-CAP-01..06), but S-000 (this slice's home) ships and
+merges FIRST, independently of the mechanism slices (S-001..S-004) that implement
+CAP-01..06 — at S-000 build time, no Constraint-4-violating fixture exists to construct
+this scenario against. This note does not change the scenario's text; it schedules its
+realisation in two legs, both required for REQ-PPI-03.2 to be fully proven:
+- **S-000 leg (proves the gate MECHANISM)**: the scratch fixture that fails the suite
+  step is ANY existing suite check the S-000-era tree can fail (e.g. a planted failing
+  unit test), never specifically a Constraint-4 admission check — this proves "a failing
+  suite blocks publish" as a structural property of `publish.yml`'s step sequence,
+  independent of which check fails.
+- **S-001 leg (proves the ADMISSION-specific case REQ-PPI-03.2 names verbatim)**: once
+  CAP-01..06 land (S-001), `fit-46`'s gate scenario is RE-RUN with a Constraint-4-
+  violating fixture and re-verified against the now-real mechanism — see `slices.md`'s
+  S-001 task list for the citation-bearing task this note schedules.
 
-- GIVEN `publish.yml`'s `npm publish` step
-- WHEN its command line is inspected
-- THEN `--dry-run` is present
+#### Scenario REQ-PPI-03.3: A clean closure reaches the publish step — sibling positive
 
-#### Scenario REQ-PPH-03.2 [red-proof]: A simulated removal is caught
+- GIVEN a scratch tree whose closure passes every Constraint-4 admission check
+- WHEN the publish job's sequence runs against it
+- THEN the suite step passes and the publish step executes — pairing REQ-PPI-03.2's absence proof with the presence case
 
-- GIVEN a simulated `npm publish` command line with `--dry-run` stripped
-- WHEN the guard check runs against it
-- THEN it fails, naming the missing flag
+### REQ-PPI-04: React-Conformance Per-File Timeout
 
-### REQ-PPH-04: Prebuild Clean
+`test/conformance/react-conformance.test.ts` MUST declare an explicit per-file timeout, so
+a hang in the suite gate (REQ-PPI-03) cannot itself become a reason to route around the
+gate (ruling 6).
 
-A `prebuild` script MUST remove `dist/` before `build` runs, so a local build cannot ship
-stale artifacts.
+#### Scenario REQ-PPI-04.1: Per-file timeout is declared
 
-#### Scenario REQ-PPH-04.1: `prebuild` removes `dist/` before `tsc` runs
+- GIVEN `test/conformance/react-conformance.test.ts`
+- WHEN its test declaration is inspected
+- THEN an explicit per-file timeout value is set, distinct from the runner's global default
 
-- GIVEN `package.json#scripts`
-- WHEN `bun run build` is invoked (which runs `prebuild` first per npm lifecycle convention)
-- THEN any pre-existing `dist/` content is removed before the `tsc` step begins
+#### Scenario REQ-PPI-04.2 [red-proof]: A file exceeding the declared timeout fails fast, not by hanging the job
 
-### REQ-PPH-05: `declarationMap` Disabled
+- GIVEN a mutant fixture that never resolves within the declared per-file timeout
+- WHEN the conformance suite runs against it
+- THEN that file fails at the declared timeout boundary, naming the file — the suite gate (REQ-PPI-03) terminates instead of hanging
 
-`tsconfig.build.json#compilerOptions.declarationMap` MUST be `false`.
+### REQ-PPI-05: Execution Order, Not Declaration Order
 
-#### Scenario REQ-PPH-05.1: `declarationMap` is `false`
+The publish-workflow guard MUST assert step ORDER by the workflow's actual execution
+semantics (job/step dependency and sequential position within a job), never by the YAML's
+raw declaration order, which can diverge from execution order — R1-13's real weakness,
+pulled in-scope by ruling 5.
 
-- GIVEN `tsconfig.build.json`
-- WHEN `compilerOptions.declarationMap` is read
-- THEN it is `false`
+#### Scenario REQ-PPI-05.1: Execution order is read, not textual position
 
-#### Scenario REQ-PPH-05.2: No `.d.ts.map` file ships in the tarball
+- GIVEN a `publish.yml` job whose rebuild step is declared textually after an order-irrelevant step but still executes immediately before publish
+- WHEN `publishRunSteps` reads step order
+- THEN it reports the actual execution sequence (rebuild immediately before publish), not the raw line-number order of the YAML
 
-- GIVEN a fresh build and `bun pm pack --dry-run`'s file listing
-- WHEN the listing is scanned for `.d.ts.map` extensions
-- THEN none are present
+#### Scenario REQ-PPI-05.2 [red-proof]: A step reordered only in execution, not text, is caught
 
-### REQ-PPH-06: Sequencing — Prebuild-Clean and `declarationMap` Land Before FIT-14 Baseline Regen
-
-The `prebuild` clean script and `declarationMap: false` MUST land, and be reflected in a
-fresh build, BEFORE `test/fitness/pkg-surface-baseline.json` is regenerated for this
-change. Regenerating the baseline against a stale build (declarationMap still `true`, or
-leftover `.d.ts.map` files from a dirty `dist/`) would poison the committed baseline with
-entries the final shape does not have — the current baseline has 34 such entries today.
-
-#### Scenario REQ-PPH-06.1: Regenerated baseline contains zero `.d.ts.map` entries
-
-- GIVEN the FIT-14 baseline regenerated for this change
-- WHEN its `tarball` entry list is scanned for `.d.ts.map`
-- THEN zero matches are found
-
-### REQ-PPH-07: Placeholder Publish Content Fence — DEFERRED
-
-DEFERRED to the public-package plan by owner ruling at steward foresight, 2026-07-12 —
-see pending-changes "Public-package plan" row; the V2 text travels with that plan.
-
-~~#### Scenario REQ-PPH-07.1: Stub package.json has no exports map and no dist payload~~
-
-~~#### Scenario REQ-PPH-07.2: Stub's `main` entry does not resolve to real code~~
-
-~~#### Scenario REQ-PPH-07.3: `publish.yml` never fires the placeholder automatically~~
-
-~~#### Scenario REQ-PPH-07.4: Deprecation is a documented step in the owner runbook~~
-
-~~#### Scenario REQ-PPH-07.5: Stub has no lifecycle scripts~~
-
-~~#### Scenario REQ-PPH-07.6: Stub has zero dependencies~~
-
-~~#### Scenario REQ-PPH-07.7: Stub ships a "NOT A RELEASE" README warning~~
-
-~~#### Scenario REQ-PPH-07.8: Stub manifest is committed in-repo and auditable~~
-
-~~#### Scenario REQ-PPH-07.9 [red-proof]: CI inertness test asserts the full stub contract~~
-
-~~#### Scenario REQ-PPH-07.10 [red-proof]: Dry-run rehearsal success is not proof of inertness~~
-
-### REQ-PPH-08: Placeholder Semver Floor Constraint — DEFERRED
-
-DEFERRED to the public-package plan by owner ruling at steward foresight, 2026-07-12 —
-see pending-changes "Public-package plan" row; the V2 text travels with that plan.
-
-~~#### Scenario REQ-PPH-08.1: Chosen placeholder version sorts above `0.0.0-dev.*`~~
+- GIVEN a simulated workflow where a step's textual position and its `needs:`-derived execution position diverge (rebuild declared textually first, but gated by `needs:` to actually run last, after publish)
+- WHEN the guard evaluates order
+- THEN it fails, because the EXECUTION order violates REQ-PPI-02, even though the TEXTUAL declaration order alone would have passed the prior declaration-order check — proving the fix, not merely restating it
 
 ## Sensitive Areas Coverage
 
 | Area | REQ IDs | Flagged at triage? |
 |---|---|---|
-| deployment (`.github/workflows/publish.yml`, OIDC) | REQ-PPH-01, REQ-PPH-02, REQ-PPH-03 | Yes |
-| security (supply-chain — published package surface) | REQ-PPH-07, REQ-PPH-08 (DEFERRED — see public-package plan) | Yes |
+| deployment (`.github/workflows/publish.yml`, OIDC, publish sequencing) | REQ-PPI-01, REQ-PPI-02, REQ-PPI-03, REQ-PPI-05 | Yes — pre-existing `deployment` sensitive-area row (`openspec/sensitive-areas.md`); this batch hardens the existing surface, fires no new registry write |
+| security (code execution — suite gate as the publish-time enforcement point) | REQ-PPI-03 | Yes — same override as `runner-integrity-manifest`; the suite gate is what makes Constraint-4 (REQ-CAP-*) load-bearing at publish time, not just at PR time |
 
-## Open Flags for Design
+## Open Items for Owner / Design
 
-- ~~Exact placeholder version value (must satisfy REQ-PPH-08's sort-above constraint) — ADR.~~ Moot — REQ-PPH-08 deferred.
-- SHA-pin scope for `ci.yml` (open question from explore, no publish credentials there) —
-  design decides whether to extend REQ-PPH-02's pattern to `ci.yml` or leave it out of scope.
-- Workflow-guard assertions (REQ-PPH-01, REQ-PPH-03) should be YAML-parsed or job-anchored
-  rather than string/regex matched — a commented-out `if:` line or a stray substring match
-  would let a mutation survive a naive text check.
-- Consider scoping `id-token: write` to the publish job rather than declaring it at
-  workflow level (least privilege) — design decision, not yet a REQ.
+1. **Branch protection on `main` is explicitly out of this REQ set.** REQ-PPI-03 makes the
+   publish JOB itself run the suite (bypass requires editing `publish.yml`), but does not
+   make `main` protected — W2 is "satisfied in the letter" without it, per the BA lens's
+   own named failure mode. This is a registered followup with owner action
+   (`openspec/pending-changes.md`), not something a spec REQ against SDK-side files can
+   close; flagging here so `sdd-design`/archive do not treat REQ-PPI-03 as a substitute for
+   the branch-protection action item.
+2. **`REQ-PPI-01`/`REQ-PPI-02` vs the existing `REQ-PMF-02.2`** (`runner-integrity-manifest`,
+   unchanged) both exercise a packed-digest-vs-packed-bytes proof at slightly different
+   seams (PMF-02.2 is the `--ignore-scripts` red-proof for BPI-03 already signed; PPI-01/02
+   are the full real-sequence behavioural proof plus the explicit-declaration requirement
+   ruling 5 added). `sdd-design` should confirm the two are complementary, not duplicated —
+   PMF-02.2 stays a `runner-integrity-manifest`-owned unit-level red-proof; PPI-01/02 are
+   the `publish.yml`-owned workflow-level proof and declaration. No REQ text conflict
+   exists; this is a test-plan sequencing note for design, not a spec ambiguity.
