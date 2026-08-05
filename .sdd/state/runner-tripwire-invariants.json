@@ -2,13 +2,14 @@
   "change": "runner-tripwire-invariants",
   "triage": "L",
   "sensitivity": "fired — tripwire mechanism is core subject",
-  "phase": "plan-complete — owner-ruled READY (verify-plan-3 addendum 2026-07-29); final mechanical batch APPLIED (8/8, A2 orchestrator-resolved); artefacts uncommitted, commit on a BRANCH (main protected); /build awaits owner",
+  "phase": "ARCHIVED 2026-08-05 — specs synced (runner-integrity-manifest V3, publish-pipeline-hardening V4), folder moved to openspec/changes/archive/2026-08-05-runner-tripwire-invariants/, 6 lessons extracted, 3 ADRs promoted, 23-row register audited, S-002.3 deferred with evidence. Gates: 2652/0, tsc clean, digest byte-identical. Remaining: PR #64 merge (owner).",
   "spec_status": "signed",
   "slices": true,
   "plan_verify": "ready-owner-ruled",
-  "verify_final": "none",
-  "arch_audit": "none",
-  "outcome": "none",
+  "verify_final": "pass-with-followups",
+  "arch_audit": "warnings",
+  "outcome": "override",
   "viz_url": "https://claude.ai/code/artifact/1e3a1f6e-0925-475d-9dbc-55b168cc23cd",
-  "updated_at": "2026-07-29T19:30:00Z"
+  "updated_at": "2026-08-05",
+  "archived": true
 }

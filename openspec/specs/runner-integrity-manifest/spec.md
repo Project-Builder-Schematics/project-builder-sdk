@@ -1,315 +1,898 @@
-# Spec V2: Runner Integrity Manifest (runner-integrity-manifest)
+# Delta for Runner Integrity Manifest
 
-**Status**: **SIGNED** — Daniel Ramirez, 2026-07-25. Frozen; changes require `unfreeze=true`.
-**Triage**: L | **Capabilities**: 8 | **REQs**: 42 (65 scenarios, 9 REQs scenario-less) | **Red-proofs**: 18 | **ADR budget**: 4
+**Spec version**: V3
+**Status**: SIGNED — Daniel Ramirez, 2026-07-29 (V1 signed as drafted; owner rulings 1-8 incorporated)
+**Change**: `runner-tripwire-invariants`
 
-> *Header count corrected 2026-07-25 (was "58 REQ-IDs" — a figure matching neither the REQ nor the
-> scenario count). Metadata only; no requirement text changed, so the signature stands.*
+> **Judgment-day scope correction (2026-08-05, owner ruling)**: the V2 → V3 summary below and
+> REQ-CAP-01/03's requirement prose asserted default-violation and total classification as
+> security PROPERTIES of the mechanism. A third adversarial round demonstrated executable
+> bypasses, and those claims are now **scoped, not restated** — default-deny holds on ORIGIN
+> (real, mutant-killed), PATH is a deny predicate over an unbounded name space, and totality is
+> relative to the ENUMERATOR. Superseded wording is preserved everywhere; each dated
+> `Judgment-day scope correction` block governs on divergence. **No scenario's Given/When/Then
+> changed** — every test still asserts what it asserted. Read REQ-CAP-01's block first;
+> `docs/runner-integrity-invariants.md#known-gaps` carries the demonstrated residuals and
+> `openspec/pending-changes.md` registers `capability-admission-oracle` for the soundness work.
 
-**V2 changes**: QA adversarial review (11 mutation escapes closed), tech-writer review (Capability 8
-was unverifiable — no REQ named the file), and the engine's round-2 reply (all four corrections
-accepted; `packageVersion` now welcomed; **Bun confirmed** as the production runtime).
+V2 → V3 (owner-authorized unfreeze batch, 2026-07-29, ruling 1 + PM finding + ruling 7):
+Constraint-4's guard replaces a text-matching deny-scan with a default-deny
+**capability-admission property** — every node of a closure file's capability surface
+classifies into exactly one of `{admitted, violation, unclassifiable-construct}`; default
+is violation; ambiguity is violation. Five REQs are unfrozen (`CST-04.2`, `CST-04.3`,
+`CST-06.1`, `RMD-05.1`, `RMD-01.2`) because their signed text encodes the OLD mechanism or
+is independently false as written. Twelve REQs are ADDED, one property per capability
+family (CAP/PRM/XPO/PTH/FCG/DGN/DLV), each syntax-only decidable — no ts-morph type
+checker or module resolution runs inside the fail-closed build gate.
 
-> Every scenario names a **concrete observable**. Terminology is pinned in § Terminology — in
-> particular `entry` (the JSON field) and **file record** (a member of `files`) are different things.
+**Explicitly NOT touched by this unfreeze batch** (verified against the signed text,
+survive unmodified): `REQ-CST-04.1` (ruling 1 — the outright `createRequire` ban itself is
+unchanged; the mechanism realizing REQ-XPO-01 below now proves its exemption differently,
+but the requirement text was never mechanism-specific). `REQ-RCD-03` (R1-15's fix makes the
+signed "zero silent skips" text TRUE — the code changes, the spec does not). `REQ-RCD-04.1`,
+`REQ-BPI-03.1` (unaffected; BPI-03.1 gains a sibling REQ in the `publish-pipeline-hardening`
+delta rather than a touch here, per the "explicit rebuild step keeps it green" note).
 
----
+## ADDED Requirements
 
-## Contract Ambiguities — resolved for signature
+### REQ-CAP-01: Capability-Surface Totality
 
-| # | Ambiguity | RESOLUTION |
+The classifier MUST classify every node of a closure file's capability surface into
+exactly one of `{admitted, violation, unclassifiable-construct}`. The default for any node
+the classifier does not recognise MUST be `violation` or `unclassifiable-construct` —
+never a silent pass. For every closure file, classified-node count MUST equal
+present-node count, asserted as an exact structural equality, never a threshold.
+
+**Judgment-day scope correction (2026-08-05)** — the superseded text above is preserved, not
+deleted; this block governs on divergence. A third adversarial round (blind judgment-day, two
+independent judges) demonstrated **executable** bypasses after the two previous rounds had each
+closed the spellings they were shown. "The default for any node the classifier does not
+recognise MUST be violation — never a silent pass" is therefore **retracted as a
+whole-mechanism property**: it holds for one of the three halves and is false for the other
+two. What the mechanism guarantees, and what the tests actually assert, is:
+
+1. **ORIGIN admission is default-deny, and this is real.** A resolved root binding that is not
+   local, not a closure import of an admitted name, and not an `ADMITTED_GLOBALS` member MUST be
+   a violation in every position (REQ-CAP-04). This branch previously had no fixture at all —
+   replacing it with an admit left the entire suite green — and now carries red-proofs whose
+   mutant is verified killed.
+2. **PATH admission is a DENY PREDICATE where no table applies, NOT a closed set.**
+   `ADMITTED_MEMBER_PATHS` decides the path off an admitted GLOBAL by exact full-path identity
+   (REQ-CAP-04.6). Off a local, a parameter, a closure import, or a safe terminal (a literal,
+   `this`, a call result) there is no path to look up, so the path MUST be checked against a
+   predicate over property names derived from the REQ-PRM-01 register plus the prototype-graph
+   escapes. A predicate over an unbounded name space cannot be a closed set: **a carrier property
+   named anything the predicate does not name passes.** The requirement is the predicate's
+   application, never the absence of an unlisted name.
+3. **Totality is relative to the ENUMERATOR, and the enumerator's coverage is the boundary.**
+   `classified-node count == present-node count` is asserted against an independently implemented
+   raw count and remains exactly true — but both walkers range over the same closed
+   `SurfaceNodeKind` union (REQ-CAP-01.4). A construct neither walker reaches is **not**
+   `unclassifiable-construct`; it is invisible. Tagged templates were exactly such a construct
+   for two review rounds and are now enumerated; nothing structurally guarantees the next one is.
+
+This cannot be patched into soundness by further rounds, and the reason is structural rather
+than a matter of effort: deciding which values an aliasing/reflection graph can reach is
+dataflow analysis, and this mechanism is a syntax-only AST allowlist by deliberate choice
+(ADR-0079 rejected the ts-morph type checker so a fail-closed build gate's verdict would not
+depend on install state — a trade this correction does not reverse).
+
+**What this REQ is for**, stated so no downstream reader infers otherwise: a **drift control**
+against honest mistakes and agent edits that widen the runner's executed surface — the framing
+`north-star.md` used from the start — never an adversary control. A green `fit-42` is not
+evidence that the closure cannot execute unhashed code.
+
+The demonstrated post-fix bypasses are recorded verbatim in
+`docs/runner-integrity-invariants.md#known-gaps`; ADR-0079's Amendment and ADR-0080's
+scope-correction note carry the same retraction on the decision side; the soundness work is
+registered as its own future change, `capability-admission-oracle` (deliverable
+`FIT-CAP-ORACLE`, the differential oracle deferred in `design.md` §7), in
+`openspec/pending-changes.md`. **No scenario below is altered** — every Given/When/Then still
+holds and every test still asserts it. This is a correction to the requirement's CLAIM SCOPE.
+
+#### Scenario REQ-CAP-01.1: Totality holds on the real closure
+
+- GIVEN the current runner closure
+- WHEN every capability-surface node (call/`new` callee, identifier reference, `node:`-prefixed specifier) is classified
+- THEN classified-node count equals present-node count exactly
+
+#### Scenario REQ-CAP-01.2 [red-proof]: A mutation routing an unrecognised node to a pass path is caught
+
+- GIVEN a mutant classifier where one synthetic capability-surface node kind (not in `{admitted, violation, unclassifiable}`) is routed to silent pass
+- WHEN the totality check runs against a fixture exercising that node kind
+- THEN it fails, naming the node kind and that classified-count < present-count — this is FIT-CAP-TOTALITY's own mutation, proving it is not vacuous
+
+#### Scenario REQ-CAP-01.3 [red-proof]: Unclassifiable is fail-closed, never a third pass path
+
+- GIVEN a synthetic closure file containing a construct no admission leg (REQ-CAP-03/04/05) can resolve (a computed member expression on a computed base)
+- WHEN classification runs
+- THEN the build exits non-zero, no manifest exists, and stderr names the construct as `unclassifiable-construct`
+
+**Plan-verify iteration-1 amendments (2026-07-29)** — closes gaps 5 and 7 of
+`verify-plan-1.md`. Totality (CAP-01.1-.3) was pinned against the classifier's *output*
+(classified == present) but the surface *inputs* — the `SurfaceNodeKind` union and the E1-E4
+exclusions — carried no exact-membership pin or widening red-proof, symmetric with the gap
+CQ-1 already closed on the admitted side (REQ-CAP-04.4/.5). A silent narrowing of the union or
+widening of an exclusion keeps `classified.length === enumerated.length` trivially true — the
+tail migrates to the enumerator instead of closing. Additive only; CAP-01.1-.3 unmodified.
+
+#### Scenario REQ-CAP-01.4: The `SurfaceNodeKind` union is a closed set, pinned by exact membership
+
+- GIVEN the `SurfaceNodeKind` union declared in `scripts/capability-admission.ts`
+- WHEN the exact-membership assertion runs
+- THEN it matches the pinned five-member set exactly (`callee`, `value-reference`,
+  `member-path`, `meta-property`, `module-specifier`) — exact-set comparison, never a count
+  threshold
+
+#### Scenario REQ-CAP-01.5: The surface exclusions (E1-E4) are a closed set, pinned by exact membership
+
+- GIVEN the exclusion table (E1 JSDoc-rooted nodes, E2 declaration-name nodes, E3 non-computed
+  property-name nodes, E4 type-position identifiers)
+- WHEN the exact-membership assertion runs
+- THEN it matches the pinned four-member set exactly, each named — exact-set comparison, never
+  a count threshold
+
+#### Scenario REQ-CAP-01.6 [red-proof]: Silently narrowing the union or widening an exclusion is caught
+
+- GIVEN two mutants: (a) a `SurfaceNodeKind` union with one member silently removed (narrowing
+  the surface so totality stays trivially true), (b) an exclusion table with a fifth,
+  unauthorised entry silently added
+- WHEN the exact-membership assertions (CAP-01.4/.5) run
+- THEN both fail, naming the removed union member or the unpinned exclusion respectively —
+  narrowing the surface to keep totality trivially true is exactly as loud as widening an
+  admitted table (REQ-CAP-04.5)
+
+**Exclusion red-proof amendment (2026-08-05, steward reckoning criterion 3)** — additive; no
+scenario above is altered. `north-star.md` success criterion 3 requires a red-proof for EACH of
+the four surface exclusions, or a named justification for why one is unfalsifiable, and records
+that the design's own table left E4's cell empty. Delivered state before this amendment: E1 had
+CAP-01.7; **E2, E3 and E4 had none.** CAP-01.4/.5/.6 pin the exclusion TABLE by exact membership,
+which proves the table was not edited and says nothing about what each predicate excludes — and
+an exclusion is a CLAIM that a node cannot yield a capability, so an unproven one is the cheapest
+place to reintroduce default-pass. That is this cycle's own lesson, so the gap is closed rather
+than argued away.
+
+E4 turned out to be **falsifiable**, so the "name why it is unfalsifiable" fallback is not used:
+a `.js` file can carry a `TypeReference` node (ts-morph parses TS annotation syntax leniently),
+so the excluded position and a value position fit in one fixture and can be told apart. Each
+scenario below places the SAME denied primitive in the excluded position and in a genuine
+reference position and asserts an exact count, so a widened predicate drops a finding and fails.
+Non-vacuity is verified by mutation: widening each predicate in `scripts/capability-admission.ts`
+makes exactly its own scenario fail and no other (apply-progress.md, Part 3c).
+
+#### Scenario REQ-CAP-01.8 [red-proof]: E2 excludes the binding SITE only, never a reference beside it
+
+- GIVEN a synthetic closure file whose variable name, parameter name and destructuring-binding
+  name each share their construct with a genuine reference to `eval` (`const holder = [eval]`,
+  `function make(cb = eval)`, `const { alias = eval } = {}`)
+- WHEN capability-admission classification runs
+- THEN exactly three `constraint-4-inadmissible-origin` violations naming `eval` are reported —
+  one per reference, none from the three binding sites; and the same file with the references
+  removed reports zero, so the exclusion is not merely unexercised
+
+#### Scenario REQ-CAP-01.9 [red-proof]: E3 excludes a property KEY only, never a value or a shorthand
+
+- GIVEN a synthetic closure file containing `{ eval: 1 }` (key), `{ k: eval }` (value) and
+  `{ eval }` (shorthand)
+- WHEN capability-admission classification runs
+- THEN exactly two violations naming `eval` are reported — the value and the shorthand, never the
+  key; a file containing only keys named after denied primitives reports zero. The shorthand leg
+  is this change's own narrowing of E3: a shorthand has no enclosing access to stand in as the
+  surface node, so E3's stated justification does not hold for it
+
+#### Scenario REQ-CAP-01.10 [red-proof]: E4 excludes the ANNOTATION only, never the value it annotates
+
+- GIVEN a synthetic closure file containing `let annotated: eval = [eval]` — both occurrences in
+  ONE declaration, because a widening that swallows "any identifier in a declaration carrying a
+  type annotation" is the realistic way E4 grows and a fixture spread across statements could not
+  tell it apart
+- WHEN capability-admission classification runs
+- THEN exactly one violation naming `eval` is reported — the initializer, never the annotation;
+  and `let annotated: eval = [1]` reports zero
+
+#### Scenario REQ-CAP-01.11: E4's scope over the emitted realm is measured, not assumed
+
+- GIVEN the real runner closure, over which the classifier actually runs
+- WHEN its files are scanned for `TypeReference` nodes
+- THEN there are zero — E4 governs nothing in the tree that ships, so it cannot be hiding anything
+  today. Pinned rather than reasoned about: if the walker is ever pointed at a realm where type
+  positions do exist, this fails and forces the question rather than letting E4 silently acquire
+  scope. REQ-CAP-01.10 keeps the predicate itself honest meanwhile
+
+#### Scenario REQ-CAP-01.7: RCD-03.3's day-one JSDoc fixtures stay non-flagged under the new admission mechanism, governed by exclusion E1
+
+- GIVEN `REQ-RCD-03.3`'s existing day-one JSDoc fixtures (a bare specifier and a resolvable
+  relative specifier, both JSDoc-quoted) — signed under the retired `denyScan` mechanism
+- WHEN capability-admission classification runs against the same fixtures
+- THEN zero violations are reported, and the disposition trace names exclusion E1 (JSDoc-rooted
+  nodes) as the reason — not CAP-01.2's mutation-catching red-proof, which asserts a different
+  property (E1 is falsifiable, not merely unexercised); this is the Open-Item-5 scenario spec
+  Open Item 5 recommended, and is what S-001.4's E1 task cites as its acceptance criterion
+
+### REQ-CAP-02: No-Module-Scope-Reassignment Precondition
+
+Before relying on callee decidability (REQ-CAP-03) or origin admission (REQ-CAP-04), the
+system MUST prove, as its own decidable check, that no closure file reassigns a
+module-scope binding. This precondition is load-bearing: a permissive precondition makes
+both legs decidable-if-you-squint, and a permissive REQ-CAP-02 is a WORSE false negative
+than the guard it replaces.
+
+#### Scenario REQ-CAP-02.1 [red-proof]: Reassignment of a module-scope binding is a violation
+
+- GIVEN a synthetic closure file that imports `createRequire` and later reassigns it (`createRequire = something`) at module scope
+- WHEN the precondition check runs
+- THEN the build fails, naming the reassigned binding and the file, distinct from any callee-decidability or origin-admission violation
+
+#### Scenario REQ-CAP-02.2: The real closure has zero reassignments — sibling positive
+
+- GIVEN the current runner closure
+- WHEN the precondition check runs
+- THEN it reports zero violations — proving REQ-CAP-02.1's fixture is not unconditionally true of every file
+
+### REQ-CAP-03: Callee Decidability
+
+Every call or `new` expression whose callee is not a statically resolvable binding MUST be
+a violation. This is the leg that kills indirection, aliasing, and computed access
+structurally, without spelling any of them out.
+
+**Judgment-day scope correction (2026-08-05)** — superseded text preserved above; this block
+governs on divergence. The first sentence stands and its coverage GREW: "call or `new`" MUST
+also include a **tagged template's tag**, which is an invocation (`` C`return process.version` ``
+executes exactly as `C("…")` does) and was outside the enumerated surface entirely for two
+review rounds. The second sentence is **retracted**: this leg does not kill aliasing
+structurally.
+
+- What it does kill structurally: a **computed** callee (`globalThis["ev"+"al"](…)`) and a call
+  result invoked with no property name (`f()()`), whatever they spell. Those are shapes, and the
+  scenarios below are their red-proofs.
+- What it does NOT kill: aliasing. Aliasing is denied by deciding a register primitive at its own
+  occurrence plus ONE hop of alias substitution — not by any property of the callee position. A
+  capability reached through a carrier property (`w.go.Reflect.get(w.go,"eval")`) has a perfectly
+  statically resolvable callee and is admitted; it is executable and demonstrated. See
+  REQ-CAP-01's scope correction (item 2) and `docs/runner-integrity-invariants.md#known-gaps`.
+
+No scenario below is altered.
+
+#### Scenario REQ-CAP-03.1 [red-proof]: `globalThis["ev"+"al"]("1+1")` — CONFIRMED LIVE ESCAPE (M2.1)
+
+- GIVEN a synthetic closure file containing `globalThis["ev"+"al"]("1+1")`
+- WHEN capability-admission classification runs
+- THEN the build fails; the reported rule is the callee-decidability rule — never a claim that the specific primitive `eval` was identified by name, since the property catches the SHAPE, not the spelling (S1) — and the message names the file and line
+
+#### Scenario REQ-CAP-03.2 [red-proof]: `(()=>{}).constructor("return 1")()` — CONFIRMED LIVE ESCAPE (M2.2)
+
+- GIVEN a synthetic closure file containing `(()=>{}).constructor("return 1")()`
+- WHEN capability-admission classification runs
+- THEN the build fails; the reported rule is the callee-decidability rule, and the message names the file and line
+
+#### Scenario REQ-CAP-03.3: A statically resolvable callee is admitted — sibling positive
+
+- GIVEN a synthetic closure file calling a locally declared function through its bound identifier
+- WHEN classification runs
+- THEN zero violations are reported for that call
+
+### REQ-CAP-04: Origin Admission
+
+A resolved binding's origin MUST classify as exactly one of `{local, closure import,
+admitted global, admitted builtin surface}`. Any other origin is a violation naming the
+primitive.
+
+**Scope note (2026-08-05, judgment-day scope correction)** — no text above is superseded; this
+REQ is the half of the mechanism that survived the third adversarial round intact, and its
+default-deny branch is now red-proofed with the mutant verified killed (REQ-CAP-04.7's
+default-deny rows). The note exists to stop the requirement being read wider than it is: it
+governs the ORIGIN of the chain's ROOT and nothing else. What the chain does with that root —
+the member PATH — is decided by REQ-CAP-04.6's exact table off an admitted global, and by
+REQ-CAP-01's scope-correction item 2 (a deny predicate, not a closed set) off any other root
+kind. An admitted origin has never implied an admitted chain, and after this correction it does
+not imply a decidable one either.
+
+#### Scenario REQ-CAP-04.1 [red-proof]: `node:child_process` is not an admitted builtin surface — RULED-IN PRIMITIVE (ruling 3)
+
+- GIVEN a synthetic closure file importing from `node:child_process`
+- WHEN origin admission runs
+- THEN the build fails, naming `node:child_process` as the violating primitive — never classified as an ordinary admitted builtin (M2.9: spawning `node -e` is the arbitrary-code-execution bypass Constraint 4 names)
+
+#### Scenario REQ-CAP-04.2: The admitted builtin baseline is unaffected — sibling positive
+
+- GIVEN the current runner closure's existing admitted builtin imports (the six-member baseline builtin row, REQ-RCD-04.1)
+- WHEN origin admission runs
+- THEN zero violations are reported for those imports
+
+#### Scenario REQ-CAP-04.3 [red-proof]: A `node:`-prefixed specifier absent from `builtinModules` AND the primitive register is unclassifiable, never silently builtin — closes R1-15
+
+- GIVEN a synthetic closure file importing `node:nonexistent-module`
+- WHEN origin admission runs
+- THEN the build fails, naming it `unclassifiable-construct` (REQ-RCD-03 applies) — never silently treated as an ordinary builtin, making REQ-RCD-03's signed "zero silent skips" text true rather than amending it
+
+**Foresight CQ-1 amendment (2026-07-29, owner-authorized)** — pins the admitted side
+symmetric to the denied register; closes the ADR-0079 "nothing to rubber-stamp"
+enforcement gap. Additive only — no existing REQ-CAP-04 scenario above is altered.
+
+**Count reconciliation (2026-08-05, owner-authorized delta sync)** — the two scenarios below
+originally read "22-member" (`ADMITTED_GLOBALS`) and "28-member" (`ADMITTED_MEMBER_PATHS`), taken
+from design.md §1's probe at HEAD `e6dcde2`. Re-verified against this branch's real 23-file closure,
+the true counts are **21** and **30**; `design.md` §1 records the divergence and its provenance (two
+JSDoc-comment-only edits landed on `main` after that probe — `git diff e6dcde2 HEAD` confirms zero
+AST/identifier-surface change) and authorized an archive-time delta sync. The sync is landed here so
+no signed scenario text is false at archive: the numbers below are the shipped, machine-checked ones
+(`fit-42-runner-closure-integrity.test.ts`, REQ-CAP-04.4/.6). Only the two counts changed — the
+pinning DOCTRINE (exact membership, never a threshold) is untouched.
+
+#### Scenario REQ-CAP-04.4: Admitted tables are pinned by exact membership
+
+- GIVEN the admitted tables in the guard source (`ADMITTED_GLOBALS`, `ADMITTED_NODE_SURFACES`)
+- WHEN the exact-count/exact-membership assertion runs
+- THEN `ADMITTED_GLOBALS` matches its pinned 21-member list exactly and `ADMITTED_NODE_SURFACES` matches its pinned 6-module list exactly — exact-set comparison, never a threshold (`.size > N`)
+
+#### Scenario REQ-CAP-04.5 [red-proof]: A silent widening of an admitted table is caught
+
+- GIVEN a mutant `ADMITTED_GLOBALS` (or `ADMITTED_NODE_SURFACES`) with one extra entry added and no matching test change
+- WHEN the exact-membership assertion (REQ-CAP-04.4) runs
+- THEN it fails, naming the unpinned addition — the admitted side now carries the same three-layer pinning as the denied register (exact-set assertion here; per-member fixture via REQ-PRM-01/CST-04.2's table; widening red-proof via REQ-PRM-01.2 on the denied side, this scenario on the admitted side)
+
+**Plan-verify iteration-2 amendment (2026-07-29, finding A)** — closes gap A of
+`verify-plan-2.md`. REQ-CAP-04.4/.5 pin the two ORIGIN tables (`ADMITTED_GLOBALS`,
+`ADMITTED_NODE_SURFACES`) by exact membership, but a member path reached THROUGH an
+admitted global (e.g. `process.dlopen` — `process` is an `ADMITTED_GLOBALS` member,
+`dlopen` is neither a `DENIED_CAPABILITY_PRIMITIVES` root nor pinned anywhere) was never
+itself closed — design.md §1 probe-measured 28 distinct static member paths off free
+roots, none denied, but nothing machine-checks that set; a member's admission today
+follows silently from its ROOT's admission alone. `process.dlopen` is the 12th-spelling
+gap Judge A named: admitted origin, undenied root, unlisted member. Additive only — no
+existing REQ-CAP-04 scenario above is altered.
+
+#### Scenario REQ-CAP-04.6: Member paths off an admitted global are pinned by exact membership, one level down
+
+- GIVEN the member-path table for admitted globals (`ADMITTED_MEMBER_PATHS`, `scripts/capability-admission.ts`)
+- WHEN the exact-membership assertion runs
+- THEN it matches the pinned 30-member list exactly (this branch's re-verified probe count) — exact-set comparison, never a threshold; a member path reached through an admitted-global root that is NOT in this table classifies as `violation` (default-deny one level down), symmetric with REQ-CAP-04.4's origin-level pinning
+
+#### Scenario REQ-CAP-04.7 [red-proof]: `process.dlopen` is denied despite an admitted origin and an undenied root
+
+- GIVEN a synthetic closure file containing `process.dlopen(path)` — `process` is an `ADMITTED_GLOBALS` member (admitted origin), `dlopen` is not a `DENIED_CAPABILITY_PRIMITIVES` member (not a denied root), and `dlopen` is not in `ADMITTED_MEMBER_PATHS` (unlisted member)
+- WHEN member-path admission (REQ-CAP-04.6) runs
+- THEN the build fails, naming `process.dlopen` as the violating member path — proving member-path admission is closed under the same default-deny doctrine as origin admission, never inherited from the root's admission alone
+
+#### Scenario REQ-CAP-04.8 [red-proof]: A silent widening of the member-path table is caught
+
+- GIVEN a mutant `ADMITTED_MEMBER_PATHS` with one extra entry added and no matching test change
+- WHEN the exact-membership assertion (REQ-CAP-04.6) runs
+- THEN it fails, naming the unpinned addition — symmetric with REQ-CAP-04.4/.5's origin-table pinning; per `slices.md`'s Risks section (the DR-5/DR-2 growth-protocol ruling), a red test fixable only by widening a pinned table is a HALT surfaced to the owner, never a build-time auto-widen
+
+**Depth ≥2 clarification (2026-07-29, plan-verify iteration-3 finding A2)** — additive; no
+scenario above is altered. `ADMITTED_MEMBER_PATHS` entries are the closure's FULL recorded
+member paths at whatever depth they occur (the §1 probe recorded the real closure's paths —
+e.g. `process.stdout.write.bind` in `dist/transport/framing.js:69` is depth 3), and
+admission is exact-membership of the full path: a chain is admitted only if the complete
+dotted path is itself a table entry. Admission NEVER flows down from an admitted prefix —
+"one level down" in REQ-CAP-04.6 describes the admission step (each path stands alone,
+symmetric with REQ-CAP-04.7's no-inheritance-from-root), not a depth cap on table entries.
+This is the only reading consistent with REQ-PRM-01's doctrine paragraph ("EVERY member
+path that is neither a register primitive nor in the admitted table is a violation by
+default") and it is load-bearing for the change's own goal: prefix inheritance under an
+admitted path (e.g. subtree admission below `process.stdout`) would admit
+`process.stdout.constructor.constructor("...")` and reopen the probe-confirmed
+Function-constructor escape this change exists to close.
+
+### REQ-CAP-05: Positional Decidability for Denied Roots
+
+A denied root identifier MUST be permitted to appear ONLY in a closed list of
+non-capability-yielding positions: `instanceof` right operand, `typeof` operand. Any other
+position is a violation. This is what makes R1-17's relaxation of bare `Function` safe.
+
+#### Scenario REQ-CAP-05.1: `x instanceof Function` is admitted — R1-17 relaxation
+
+- GIVEN a synthetic closure file containing `x instanceof Function`
+- WHEN positional classification runs
+- THEN zero violations are reported for that occurrence
+
+#### Scenario REQ-CAP-05.2 [red-proof]: `const F = Function; F("...")` stays denied — the R1-17 sequencing hazard, closed (SC-2)
+
+- GIVEN a synthetic closure file containing `const F = Function; F("return 1")`
+- WHEN positional classification AND callee decidability (REQ-CAP-03) run together
+- THEN the build fails — proving the `instanceof` relaxation (REQ-CAP-05.1) did not reopen the aliased-call escape
+
+#### Scenario REQ-CAP-05.3: `typeof Function` is admitted — sibling positive
+
+- GIVEN a synthetic closure file containing `typeof Function === "function"`
+- WHEN positional classification runs
+- THEN zero violations are reported
+
+### REQ-CAP-06: Manifest Byte-Neutrality
+
+The Constraint-4 redesign MUST NOT change a single byte of `dist/runner-manifest.json` for
+an otherwise-unchanged tree. This is build-tooling and test surface only; a mismatch means
+the change became cross-repo and MUST halt before slicing continues.
+
+#### Scenario REQ-CAP-06.1 [red-proof]: The manifest is byte-identical pre- and post-change
+
+- GIVEN a clean build of the pre-change tree and its recorded `dist/runner-manifest.json` sha256
+- WHEN the post-change tree is built the same way
+- THEN the two manifests are byte-identical (matching sha256) — any mismatch is a build-time halt, not a warning
+
+**Plan-verify final batch clarification (2026-07-29, finding B6)** — closes gap B6 of
+`verify-plan-3.md`. REQ-CAP-06.1's WHEN clause ("the post-change tree is built the same
+way") is the normative anchor: the gate procedure is **fresh build of `dist/` → live
+closure walk over that fresh `dist/` → regenerate the manifest output from the walk →
+compare the regenerated output's sha256 against the pinned digest**
+`31cd5382a411f145178eb0bc3ae74a0672cadca600e7d957da33a9792f333fde`. Hashing an already-committed
+`dist/runner-manifest.json` without a preceding fresh build and regeneration proves
+nothing about whether the mechanism redesign perturbed the derivation that PRODUCES the
+bytes — a stale committed artefact cannot detect a defect in the code that generates it.
+Additive only; no existing REQ-CAP-06 scenario text is altered.
+
+**Digest reconciliation (2026-08-05, owner-authorized delta sync)** — this clarification
+originally pinned `bf6c983c59281eaf91ceefcb363375b52436808bbe74ee5241818f47eccfa530` (recorded at
+HEAD `e6dcde2`, design.md §8, Migration/Rollout). That value went stale before the mechanism
+branch even started, from JSDoc-comment-only edits to `src/core/context.ts`/`src/core/wire.ts`
+landed on `main`: REQ-RME-02 hashes raw file BYTES, so a comment-only edit moves a per-file
+sha256 and therefore the whole manifest's. `design.md` §1 records the re-pin and its
+verification (fresh build → live walk → regenerate → compare, run at the mechanism branch's
+base BEFORE any S-001 diff and again after the full diff — both produce the new value, which is
+what proves the mechanism diff is byte-neutral). The superseded value is preserved in this
+sentence rather than deleted, as design.md §8 preserves it, because it is the history of what
+the parent cycle shipped. The digest named above is the one every per-slice gate
+(S-001.5/S-002.7/S-003.5/S-004.7) and `FIT-MANIFEST-BYTE-NEUTRAL` actually enforce, re-verified
+at this commit. Landed with the same authorization as REQ-CAP-04.4/.6's count reconciliation, so
+no signed text names a superseded digest at archive.
+
+### REQ-PRM-01: Capability Primitive Register
+
+The system MUST maintain exactly ONE register of denied capability primitives, enforced at
+exactly ONE site (folding `node:vm`'s separate `classifySpecifier` case into it). Every
+register member MUST have a producing fixture; a member with no fixture is itself a
+violation of this REQ.
+
+#### Scenario REQ-PRM-01.1: Register membership is an exact set
+
+- GIVEN the capability primitive register
+- WHEN its members are enumerated
+- THEN the set is exactly `{eval, Function, createRequire, Bun.plugin, process.binding, node:vm, node:child_process, node:worker_threads, WebAssembly, module.register, module.registerHooks}` — an exact set comparison, never `.length > N`
+
+#### Scenario REQ-PRM-01.2 [red-proof]: A register member with no producing fixture is a violation (M2.10/M6.2)
+
+- GIVEN a mutant register with an eleventh member added and no corresponding fixture directory entry
+- WHEN the fixture-corpus-completeness check runs (corpus discovered by `readdir`, declared class-ID list committed, both directions asserted)
+- THEN it fails, naming the unfixtured member
+
+**Plan-verify iteration-2 amendment (2026-07-29, finding A cross-reference)** —
+REQ-PRM-01.1's 11-member register includes four member-path-shaped (dotted) primitives:
+`Bun.plugin`, `process.binding`, `module.register`, `module.registerHooks`. These are the
+**DENIED subset** of the member-path space that REQ-CAP-04.6's `ADMITTED_MEMBER_PATHS`
+table enumerates the **admitted** subset of — the two tables are disjoint by
+construction (a member path cannot be both a register primitive and admitted). Every
+member path that is neither a register primitive (this REQ) nor in the admitted table
+(REQ-CAP-04.6) is a violation by default; REQ-CAP-04.6/.7/.8 make that default-deny
+property machine-checked rather than assumed.
+
+**Judgment-day scope correction (2026-08-05)** — superseded text preserved above; this block
+governs on divergence. "Every member path that is neither a register primitive nor in the
+admitted table is a violation by default" is true only for a path off an **admitted-global
+root**, which is the only case `ADMITTED_MEMBER_PATHS` can decide by exact identity. Off a
+local, a parameter, a closure import or a safe terminal there is no full path to look up, and
+the default there is a **deny predicate over segment names**, not a violation: an unlisted
+carrier property passes (REQ-CAP-01 scope correction, item 2). The two tables being disjoint
+stands; "default-deny over the whole member-path space" does not.
+
+### REQ-XPO-01: Exemption Is a File-Level Proof Obligation
+
+An exemption from Constraint-4 MUST be a proof ON THE FILE — exactly one unaliased binding
+of the exempted primitive, forfeit on any other arrangement — never a predicate on an
+individual occurrence. This covers both the `createRequire` anchor and, by the same model,
+the sanctioned dynamic-`import()` site already governed by REQ-CST-03.
+
+#### Scenario REQ-XPO-01.1: Anchor happy path — named-import form
+
+- GIVEN `single-instance-probe.ts`'s anchored site with exactly one unaliased `createRequire` named-import binding used resolve-only
+- WHEN the exemption proof runs
+- THEN the site is exempt and zero violations are reported
+
+#### Scenario REQ-XPO-01.2: Namespace form is now green — closes R2-5
+
+- GIVEN a synthetic anchor file using `module.createRequire(u).resolve(s)` (the namespace form the anchor file's own header documents)
+- WHEN the exemption proof runs
+- THEN zero violations are reported — the false positive R2-5 named is closed, scoped to a SYNTHETIC closure file per REQ-CST-04.4 (the real anchor file's namespace-form use does not contradict CST-04.4's synthetic-fixture scoping)
+
+#### Scenario REQ-XPO-01.3 [red-proof]: Forfeit on any other arrangement
+
+- GIVEN a synthetic anchor file with an ALIASED `createRequire` binding (`const cr = createRequire`)
+- WHEN the exemption proof runs
+- THEN the exemption forfeits and every bound name in the file is denied
+
+#### Scenario REQ-XPO-01.4 [red-proof]: Re-export laundering closed (M1.12)
+
+- GIVEN a synthetic closure file that re-exports the anchor's `createRequire` binding, and a second closure file that imports and calls it through the re-export
+- WHEN `createRequireBindingsIn`-equivalent analysis runs on the SECOND file
+- THEN it is denied — the exemption does not launder through a re-export, because the second file's binding origin is not the anchor's own proof
+
+#### Scenario REQ-XPO-01.5 [red-proof]: Anchor drift is caught (M1.13)
+
+- GIVEN a mutant derived closure that omits `single-instance-probe.ts` from its node set while an exemption still references that path
+- WHEN the exemption proof runs
+- THEN the build fails, naming the drift — an exemption pointing at a file outside the walked closure is a dormant hole, not a pass
+
+### REQ-PTH-01: Resolution-Based Path Verdicts
+
+Bundler-output disjointness verdicts MUST be computed by resolving BOTH the closure path
+and the candidate bundler target and testing resolved-prefix containment — never by string
+normalisation. Every candidate reading of an ambiguous flag token MUST be tried, including
+the `-o` short form. An undecidable target MUST be an explicit `unclassifiable-construct`
+violation, never a pass. Closes R2-6 and the five confirmed escaping spellings (M3.1-M3.5).
+
+#### Scenarios REQ-PTH-01.1–5 [red-proof]: Five confirmed escaping spellings, closed
+
+Shared shape: GIVEN a `package.json#scripts` entry using the fixture form below; WHEN
+resolution-based disjointness runs; THEN it violates, naming the script and the resolved
+target — except `.5`, which names it `unclassifiable-construct`.
+
+| Scenario | Fixture form | Prior escape mode |
 |---|---|---|
-| **A** | Is "23" a contract constant or derived? | **Regenerable baseline.** Assert *derived == committed baseline* (23 today). A legitimate closure change is a deliberate baseline edit, not a cross-repo breaking event. Engine confirmed their mirror does not hard-code it. |
-| B | Sort scope | **All 24 file records sorted together**, byte-wise ascending. |
-| C | Key order / whitespace | **Pinned via a round-trip identity** (RME-06.1) — not prose. |
-| **D** | Factory-import site: file- or site-scoped? | **Site-scoped.** A second dynamic `import()` inside `runner.ts` itself must also fail. |
-| E | "Mutating any closure file changes exactly that file's digest" | **Exactly that file record changes and no other.** |
-| F | Is `entry` also a file record? | **Yes** — 24 = 23 closure + `package.json`; `entry` names one of the 23 and appears exactly once in `files`. |
-| G | Manifest excludes itself | **Yes**, asserted explicitly (RME-03.1). |
-| H | "Rebuilding an unchanged tree" | **Any machine.** |
-| **I** | `bun link` scope | **In scope, guarantee stated honestly**: same build produces both bytes and digests → verification degrades to a **build-consistency check** (IID-06). Engine agreed: "useful there as a wrong-artefact detector and nothing more." |
-| **J** *(new — found by QA + tech-writer)* | Which realm do specifier-KIND checks scan, and which path do errors name? | **Set from emitted `dist/**.js`; kind checks on `dist` via AST; errors name the `src/**` path the reader must EDIT** (emitted counterpart named second). BDI-02 already asserts the `dist → src` map is injective, so this costs nothing. Reporting a `dist` line to someone who must edit `src` fails at the one job the message has. |
-
-**Engine round-2 outcomes folded in**: all four SDK corrections accepted; the fourth precondition
-adopted into the engine's own mirror check; the fifth stated as an explicit loader-injection control
-on their side; entry #24 re-justified on `"type": "module"`; verifier-dispatched fields pinned
-engine-side; **omissions rejected as firmly as extras**; `packageVersion` **welcomed** (Q4);
-**Bun is the production runtime, definitively** (Q1); verification runs **before every spawn** (Q2);
-the no-intermediate-`package.json` rule is adopted **engine-side** rather than as a manifest field (Q3).
-
----
-
-## Design Rulings (owner, 2026-07-25)
-
-- **R1 — AST, not regex.** Derivation and kind checks parse with **ts-morph** (already a project
-  dependency; the generator lives in unshipped `scripts/`). *Forced by a verified day-one failure:
-  `removeComments` is unset, so JSDoc survives into `dist`; `src/core/authoring-error.ts:229` carries
-  `import { AuthoringError } from "@pbuilder/sdk/commons"` inside an `@example` (a bare specifier →
-  false Constraint-3 alarm) and `src/core/context.ts:352` carries `import type { Input } from
-  "./schema.generated.ts"` (relative → **phantom closure node**). Both files are in the 23.*
-- **R2 — Realm split** per ambiguity J.
-- **R3 — Constraint 4 is an outright ban on `createRequire` in the closure**, with the single
-  legitimate site exempted by the same anchor idiom as CST-03. The call-vs-`.resolve()` rule is
-  evadable by one variable (`const req = createRequire(u); req("./x")`) and by the namespace form.
-- **R4 — Constraint 1 ships structural** (owner, after Bun was confirmed): injective correspondence +
-  closure-graph baseline + bundler-output disjointness. Loader observation is a followup.
-
----
-
-## Capability 1 — `runner-closure-derivation` (RCD)
-
-**REQ-RCD-00 — Root-parameterised and unit-addressable.** `scripts/derive-runner-closure.ts` exports
-`deriveRunnerClosure(distRoot, entryRelPath)`, `comparePaths`, `serialiseManifest` and `sha256File`.
-*Rationale: without this, every red-proof, RMD-04 and RMD-02's cheap form are unimplementable.*
-
-**REQ-RCD-01 — Transitive static walk.**
-- **RCD-01.1** — *Given* a clean build, *when* the closure is derived from `dist/bin/pbuilder-runner.js`, *then* the result equals the committed closure-graph baseline **as a set of paths**.
-- **RCD-01.2 — THE ANTI-TAUTOLOGY SCENARIO.** *Given* a synthetic tree at a temp root (entry imports A and B; A imports C; D present but unimported), *when* `deriveRunnerClosure(root, entry)` runs, *then* the result is exactly `{entry, A, B, C}` and **D is absent, asserted by name**. *Every other RCD scenario is satisfiable by a generator that merely reads the committed baseline; this one is not.*
-- **RCD-01.3** — *Given* a synthetic tree with a cycle (A↔B), *when* derivation runs, *then* it terminates and yields `{entry, A, B}`.
-- **RCD-01.4** — *Given* an entry with zero imports, *then* the closure is exactly 1 file.
-
-**REQ-RCD-02 — Emitted realm only.**
-- **RCD-02.1** — *Given* `src/core/engine-client.ts` is reachable only via `import type`, *then* `dist/core/engine-client.js` is **absent**, asserted by name.
-- **RCD-02.2** — *Given* the derived closure, *then* its size is 23 — the count a source walk gets wrong (it yields 24).
-- **RCD-02.3** — The closure set is **not** filtered by `.js`: a specifier resolving to `.mjs`/`.cjs` is followed. *(`module: NodeNext` can emit `.mjs`; an `endsWith(".js")` filter silently loses a subtree.)*
-
-**REQ-RCD-03 — Zero silent skips, parser-grade (R1).**
-- **RCD-03.1** — *Given* an unclassifiable construct (non-literal `import(expr)`, computed `export * from`), *then* the build exits non-zero, **no manifest exists**, and stderr names the **`src` path**, the line and the construct.
-- **RCD-03.2** — *Given* a relative specifier resolving to a nonexistent path, *then* the build fails naming importer, specifier and attempted path. **No silent subset** — never `catch { continue }`.
-- **RCD-03.3 — THE DAY-ONE SCENARIO.** *Given* `dist/core/authoring-error.js` (JSDoc `@example` quoting `@pbuilder/sdk/commons`) and `dist/core/context.js` (JSDoc quoting `./schema.generated.ts`), *when* derivation runs, *then* **neither is treated as an edge and neither reports a violation** — asserted against those two files **by name**, so it can never be "fixed" by deleting the examples.
-- **RCD-03.4** — *Given* a specifier carrying a query or fragment (`./x.js?v=1`), *then* it is an explicit classification failure, never a silent skip.
-- **RCD-03.5** — *Given* an unreadable closure file (mode 000), *then* the build fails naming the path. *Test skips under uid 0, else it false-passes in containers.*
-
-**REQ-RCD-04 — `node:` builtins excluded without failing.**
-- **RCD-04.1** — *Given* the current closure, *then* the observed builtin set equals the **baseline's** builtin row (six today), not a literal in-test list. *A literal turns a legitimate future `node:buffer` into a red build — against the spec's permissive bias.*
+| .1 | `--outdir .//dist/transport` | leading-`./`-strip left an absolute-rooted path |
+| .2 | `--outdir .` | length-1 trailing-slash-strip skip missed total-root targeting |
+| .3 | `-odist/...` (short form, unextracted) | flag never parsed at all |
+| .4 | `--outdir ../<pkg>/dist/...` | relative-parent escape never resolved |
+| .5 | `--outdir=$VAR` | undecidable at build time — MUST be `unclassifiable-construct`, never a pass |
+
+#### Scenario REQ-PTH-01.6: `dist/bin/pbuilder-codegen.js` correctly judged outside — sibling positive (non-vacuity)
+
+- GIVEN the real `package.json#scripts` and the closure path set
+- WHEN resolution-based disjointness runs
+- THEN `dist/bin/pbuilder-codegen.js` (present, legitimately outside the closure) reports zero violations — proving the check is non-vacuous, per REQ-BDI-01.1's existing non-vacuity clause
+
+**Plan-verify iteration-1 amendment (2026-07-29)** — closes gap 6 of `verify-plan-1.md`.
+REQ-PTH-01.1-.6 pin five known escaping spellings plus a non-vacuity sibling, all against a
+**recognised** output-directing flag shape (`--outdir`, `-o`, `--outfile`). The mechanism
+(ADR-0081, design §6 TD-9) is a deterministic cross-product enumerator over a **committed
+flag/path grammar** — it tries every candidate reading of a token it recognises as
+output-directing, it does not classify every token in a `package.json#scripts` line. Read
+against that mechanism, full unparsed-token default-deny is NOT what REQ-PTH-01 can support
+without inventing a second, unrelated classifier for ordinary non-output flags (`--minify`,
+`--sourcemap`, `--target`, …), which would misclassify those as violations. The scenario below
+is therefore scoped to tokens matching the grammar's own output-flag SHAPE (a leading `-o` or
+`--out`-prefixed flag token) that are not one of the grammar's recognised spellings — the same
+default-deny doctrine as CAP-01, applied at the grammar's actual decidability boundary, stated
+honestly rather than oversold.
+
+#### Scenario REQ-PTH-01.7 [red-proof]: An unrecognised output-flag-shaped token yields an explicit `unclassifiable` violation, never silence
+
+- GIVEN a `package.json#scripts` entry containing a token shaped like an output-directing flag
+  but not one of the grammar's recognised spellings (fixture: `--out-dir ./dist/transport`, a
+  plausible but unregistered spelling — distinct from an ordinary non-output flag like
+  `--minify`, which this scenario does not touch)
+- WHEN resolution-based disjointness runs
+- THEN the build fails, naming the token an `unclassifiable-construct` violation — never
+  silently ignored — because an output-flag-shaped token the grammar cannot resolve is exactly
+  as undecidable as `--outdir=$VAR` (PTH-01.5), and undecidable MUST NOT be a pass
+- **Scope-limit sentence (honest, not silent)**: this scenario governs tokens matching the
+  output-flag SHAPE grammar only; an ordinary flag with no output-directing shape (`--minify`,
+  `--sourcemap`) is out of REQ-PTH-01's scope by design — REQ-PTH-01 verifies bundler-output
+  *disjointness*, not general `package.json#scripts` token classification, and does not claim
+  otherwise
+
+**Plan-verify iteration-2 amendment (2026-07-29, finding H)** — clarifies, not modifies,
+REQ-PTH-01's normative sentence above ("Closes R2-6 and the five confirmed escaping
+spellings (M3.1-M3.5)"): **R2-6 is closed in full by M3.1-M3.5** (REQ-PTH-01.1-.5), the
+five confirmed spelling escapes. **M3.6** (script-chaining/indirection through a second
+`package.json#scripts` entry) is a DISTINCT surface, a sibling of M3.1-M3.5 but not one
+of the five R2-6 named — owner-ruled OUT of scope (ruling 3), registered as a fresh
+debt row at archive (see `slices.md`'s Deferred-to-archive list and this change's
+`triage.md` Scope Amendment). Wherever this change's artefacts say "closes R2-6," the
+scope is the five confirmed spellings only; M3.6 is never implied.
 
-**REQ-RCD-05 — Symlinks do not escape the package.**
-- **RCD-05.1** — *Given* a closure specifier resolving through a symlink whose target lies outside the package root, *then* the build fails rather than hashing foreign bytes under an in-package path. *(`bun link` makes this non-academic.)*
-
-## Capability 2 — `manifest-emission` (RME)
+### REQ-FCG-01: Fail-Closed Generation Totality
+
+Every failure path in `generate-runner-manifest.ts` MUST route through exactly ONE
+fail-closed boundary such that `exit code ≠ 0` if and only if no manifest file exists at
+`dist/runner-manifest.json`. The only write path MUST be write-temp-then-rename (or
+equivalent hash-all-then-write-once atomicity). One property, absorbing R2-4, R1-5, and
+R1-6 (ruling 3).
+
+#### Scenario REQ-FCG-01.1 [red-proof]: Malformed `package.json` fails closed — R2-4
+
+- GIVEN a prepared root with a malformed `package.json` (unparseable JSON) and a pre-existing manifest
+- WHEN the generator runs directly against that root (not through `bun run build`, so `prebuild` cannot mask the assertion)
+- THEN exit ≠ 0 and no manifest remains — not the stale byte-identical manifest R2-4 confirmed today
+
+#### Scenario REQ-FCG-01.2 [red-proof]: Mid-derivation unreadable file leaves no manifest, atomically — R1-6
+
+- GIVEN a file that becomes unreadable mid-derivation
+- WHEN the generator runs
+- THEN exit ≠ 0 and there is no file at all at `dist/runner-manifest.json` — never a truncated one, proven by write-temp-then-rename being the only write path
+
+#### Scenario REQ-FCG-01.3 [red-proof]: An unrouted throw still fails closed — R1-5
+
+- GIVEN a fault injected at a point in the generator NOT already covered by the malformed-package.json or unreadable-file paths (a generic thrown error)
+- WHEN the generator runs
+- THEN it still routes through the single fail-closed boundary — exit ≠ 0, no manifest — proving no failure path bypasses the boundary by construction, not by enumeration
+
+#### Scenario REQ-FCG-01.4 [red-proof]: Fail-closed biconditional over ≥3 injected faults, pre-seeded scratch root
+
+- GIVEN a scratch root PRE-SEEDED with a valid prior manifest (so a fail-open bug would leave a plausible-looking stale artefact, not an absence)
+- WHEN each of ≥3 distinct fault kinds (malformed JSON, unreadable file, generic throw) is injected in turn and the generator runs
+- THEN in every case exit ≠ 0 and no manifest exists — the biconditional holds per fault, not just in aggregate
+
+#### Scenario REQ-FCG-01.5: Success yields a manifest — biconditional's other direction
+
+- GIVEN a clean root with no injected fault
+- WHEN the generator runs
+- THEN exit = 0 and a manifest exists — pairing REQ-FCG-01.1-01.4's absence proofs with the presence case
+
+### REQ-DGN-01: Diagnostic Rule-Identity Honesty
+
+The `ViolationRule` reported for a violation MUST be true of that violation. A rule name
+that does not describe the actual defect is itself a defect (R2-3 shipped 4/5 false
+message lines under a rule that was never true of a version failure).
+
+#### Scenario REQ-DGN-01.1 [red-proof]: Version-validation failure gets its own rule — R2-3
+
+- GIVEN a `package.json` with an invalid `version` field
+- WHEN the generator reports the failure
+- THEN the reported `ViolationRule` is a version-specific rule, never `unreadable-file`, and every line of the whole message (REQ-CST-06.1) is true of a version failure
 
-**REQ-RME-01 — Shape.**
-- **RME-01.1** — `manifestVersion === 1`, `algorithm === "sha256"`, `files.length === 24`, `entry === "dist/bin/pbuilder-runner.js"`, and `entry` appears exactly once among the file records.
-- **RME-01.2** — Exactly one file record has `path === "package.json"`; the other 23 start with `dist/`.
-- **RME-01.3** — The top-level key set is **exactly** `{manifestVersion, algorithm, entry, packageVersion, files}` and every file record's key set is **exactly** `{path, sha256}`. *Closes the "a `generatedAt` field slips past everything" escape.*
-
-**REQ-RME-02 — Digests.**
-- **RME-02.1** — Each digest recomputed over the bytes at `path` matches, and matches `/^[0-9a-f]{64}$/`.
-- **RME-02.2 — Known-answer.** *Given* a zero-byte file and a file containing exactly `\n`, *then* `sha256File` returns `e3b0c442…b855` and `01ba4719…0b`. *An external oracle — RME-02.1 alone is `f(x) === f(x)` if the test imports the generator's own hasher.*
+#### Scenario REQ-DGN-01.2 [red-proof]: Directory specifier gets its own rule — R1-8, spec-honesty bundle (ruling 7)
 
-**REQ-RME-03 — Exclusions.**
-- **RME-03.1** — No file record matches `*.d.ts`, `dist/dialects/**`, `dist/commons/**`, `dist/conformance/**`, `dist/testing/**`, `node_modules/**`, or `dist/runner-manifest.json` itself.
+- GIVEN a closure specifier that resolves to a directory, not a file
+- WHEN classification reports the failure
+- THEN the reported `ViolationRule` names the directory-specifier condition distinctly — never misdiagnosed as `unreadable-file`
 
-**REQ-RME-04 — Path hygiene.**
-- **RME-04.1** — Every `path` uses `/`, no leading `./`, not absolute, no `..` segment, no duplicates.
+**Plan-verify iteration-2 amendment (2026-07-29, finding B)** — closes gap B of
+`verify-plan-2.md`. REQ-DGN-01's normative text states a UNIVERSAL property ("the
+reported `ViolationRule` MUST be true of that violation") but was pinned by only two
+instance scenarios (DGN-01.1/.2 — R2-3 and R1-8 by name); no totality device makes a
+third mis-attributed rule fail loudly. The property was asserted by example, not by the
+exact-equality pattern REQ-CAP-01 already applies to classifier totality and
+REQ-CAP-04.4/.5/.6 apply to the admitted/denied tables. Additive only — no existing
+REQ-DGN-01 scenario above is altered.
 
-**REQ-RME-05 — Byte-wise ordering.**
-- **RME-05.1** — Consecutive paths compare strictly ascending under `Buffer.compare`.
-- **RME-05.2** — *Given* the discriminating pairs `dist/Z.js` vs `dist/a.js` (byte: `Z`=0x5A < `a`=0x61; ICU: `a` first) **and** `dist/a-b.js` vs `dist/aB.js` (ICU ignores punctuation), *when* the exported `comparePaths` sorts them, *then* the result matches byte order. *Kills `localeCompare`.*
+#### Scenario REQ-DGN-01.3: Rule-identity totality over the fixture corpus
 
-**REQ-RME-06 — Serialisation pinned by identity, not prose.**
-- **RME-06.1** — *Given* the manifest's raw text, *then* `raw === JSON.stringify(JSON.parse(raw), null, 2) + "\n"`. *One assertion kills 4-space, tabs, CRLF, missing trailing newline and key reordering.*
+- GIVEN every violation-producing fixture in `test/fixtures/red/runner-tripwires/**`, each declaring its expected `ViolationRule`
+- WHEN the full corpus runs and produces its violations
+- THEN the produced-rule multiset equals the declared-rule multiset over the whole corpus run — exact multiset equality, never a per-fixture spot check — the CAP-01 totality pattern applied to diagnostics
 
-**REQ-RME-07 — `packageVersion` (engine Q4: accepted and welcomed).**
-- **RME-07.1** — The manifest carries a top-level `packageVersion` equal to the root `package.json`'s `version`. *Lets the engine report **version-mismatch** distinctly from **integrity-mismatch** — version skew will vastly outnumber genuine tampering, and collapsing them manufactures alarm fatigue against the one signal that must never be routine.*
+#### Scenario REQ-DGN-01.4 [red-proof]: A rule-renderer swap or misattribution is caught without enumerating rules
 
-## Capability 3 — `manifest-determinism` (RMD)
+- GIVEN a mutant that either (a) swaps the `RULE_BODIES` renderers of two distinct `ViolationRule`s, or (b) mints rule X for a violation whose fixture declares rule Y
+- WHEN the rule-identity totality check (REQ-DGN-01.3) runs
+- THEN it fails, naming the mismatched fixture and the declared-vs-produced rule pair — proving a THIRD mis-attributed rule (beyond R2-3 and R1-8's own two instances) fails loudly by property, not by enumerating every rule by hand
 
-**REQ-RMD-01 — Reproducible.**
-- **RMD-01.1** — Two consecutive builds of an unchanged tree yield byte-identical manifests.
-- **RMD-01.2 — Locale.** *Given* the same tree, *when* the generator runs in a **child process** under `LC_ALL=C` and again under `LC_ALL=tr_TR.UTF-8`, *then* the bytes are identical. *Never mutate `process.env` in-test.*
+### REQ-DLV-01: Documentation Counts Derived From Derivation
 
-**REQ-RMD-02 — Path-independent.**
-- **RMD-02.1** — *Given* the built `dist/` + `package.json` copied to a temp root whose absolute path contains **both a non-ASCII segment and a space**, *when* only the generator is re-run there, *then* the bytes are identical to the canonical run. *The cheap form is sufficient because `declarationMap: false` and no source maps mean tsc output cannot carry a path — the generator is the only component that can leak one. Recorded so the limitation is explicit.*
+`docs/runner-integrity-invariants.md`'s numeric claims about closure/file counts MUST be
+asserted against the LIVE derivation output, never a frozen literal committed in the doc
+test (R1-11).
 
-**REQ-RMD-03 — Line endings and BOM.**
-- **RMD-03.1** — `tsconfig.build.json` sets `newLine: "lf"`.
-- **RMD-03.2** — No emitted closure file contains `\r\n`; proven against a **test-time-generated** CRLF fixture (a committed one is normalised by `.gitattributes` on the next `git add`).
-- **RMD-03.3** — `.gitattributes` normalises `src/**` to LF with no `-text` exception covering it. *This is the real cross-machine guard: `newLine` governs only tsc-emitted terminators, while newlines inside template literals pass through verbatim from source.*
-- **RMD-03.4** — No closure source or emitted file begins with `EF BB BF`.
+#### Scenario REQ-DLV-01.1: Doc counts match the live derivation
 
-**REQ-RMD-04 — Tamper localisation, on a copied root.**
-- **RMD-04.1** — *Given* a **copy** of the built tree at a temp root, *when* one byte is appended to its `dist/core/session.js` and the manifest is regenerated there, *then* exactly one file record's digest differs, the other 23 are identical, and length and order are unchanged. *Must not touch the real `dist/` — `ensureTscBuild()` is memoized and FIT-04/FIT-14/the dist-runner e2e all read that tree afterwards.*
+- GIVEN `docs/runner-integrity-invariants.md`'s stated closure/file counts
+- WHEN `test/docs/runner-integrity-docs.test.ts` runs
+- THEN each stated count is compared against `deriveRunnerClosure`'s live output, not a hardcoded literal in the test itself
 
-**REQ-RMD-05 — No machine-identifying content.**
-- **RMD-05.1** — The manifest's bytes contain neither `process.cwd()` nor `os.userInfo().username`, and the exact-key-set assertion (RME-01.3) structurally excludes a timestamp field. *`os.homedir()` is deliberately NOT scanned: on GitHub runners the checkout lives under `/home/runner`, so a homedir substring scan fires on any legitimate relative path.*
+#### Scenario REQ-DLV-01.2 [red-proof]: A stale doc count is caught
 
-## Capability 4 — `build-pipeline-integration` (BPI)
+- GIVEN a mutant doc with one count changed to a value that no longer matches the live derivation
+- WHEN the doc test runs
+- THEN it fails, naming the mismatched count and the live value
 
-**REQ-BPI-01 — Produced by the build.**
-- **BPI-01.1** — *Given* `package.json#scripts.build` parsed structurally, *then* it contains the `build:manifest` step and no other script is required to produce the manifest. *(Observable — "no additional command invoked" is not.)*
-- **BPI-01.2** — The generator is the **last** step in the chain. *Otherwise a later failing `build:codegen` leaves a valid-looking manifest on a broken tree until the next `prebuild`.*
+## MODIFIED Requirements
 
-**REQ-BPI-02 — Fail-closed and atomic.**
-- **BPI-02.1** — *Given* the generator invoked **directly against a prepared root that already contains a manifest**, *when* derivation fails, *then* exit ≠ 0 and no manifest remains. *Must not go through `bun run build` — `prebuild: rm -rf dist` would make the assertion vacuous.*
-- **BPI-02.2 — Atomicity.** *Given* a file that becomes unreadable mid-derivation, *then* exit ≠ 0 and **no file at all** at `dist/runner-manifest.json` — never a truncated one. Implementation: hash-all-then-write-once, or write-then-rename.
+### REQ-CST-04.2: Denied Capability Primitives — Property, Not Enumeration
 
-**REQ-BPI-03 — Publish-ordering property (mechanism out of scope).**
-- **BPI-03.1** — *Given* `publish.yml` parsed structurally, *then* either the version stamp precedes the build, or a rebuild occurs between stamp and publish. Green today via `prepublishOnly`; red the instant `--ignore-scripts`, `bun publish` or `bun pm pack` enters the workflow.
+The system MUST fail the build for any closure-file reference to a denied capability
+primitive (REQ-PRM-01's register), naming the offending primitive. This requirement
+demands the PROPERTY — every register member is denied; the primitives below are
+scenario-level EXAMPLES exercising that property, never an enumeration the requirement
+text itself depends on (ruling 1).
 
-**REQ-BPI-04 — Manifest identity printed (pinned form).**
-- **BPI-04.1** — *Given* a successful build, *then* stdout contains exactly two lines: `runner-manifest: 24 files -> dist/runner-manifest.json` and `runner-manifest-sha256: <64 lowercase hex>`. *The key must contain `manifest` — the failure mode is a release note pasting one of the 24 file digests instead of the digest **of** the manifest. Check for collision with FIT-30 (stdout-sacred).*
+(Previously: enumerated `eval, new Function, node:vm, Bun.plugin, process.binding`
+directly in the requirement text, evaluated by the old text-matching deny-scan. Updated
+per owner ruling 1 — the enumeration moves to scenario examples below; the requirement
+text now demands the register property, REQ-PRM-01, instead. Four primitives added per
+ruling 3.)
 
-## Capability 5 — `closure-sealing-tripwires` (CST)
+**Judgment-day scope correction (2026-08-05)** — no text above is superseded; a reading of it is.
+"Any closure-file REFERENCE to a denied capability primitive" means a **syntactic** reference —
+the primitive named as an identifier, as a member path, or as a module specifier, at its own
+occurrence, in any position bar REQ-CAP-05's two. That property holds and every scenario below
+red-proofs it. It is NOT a reachability claim: a closure file can reach a register primitive
+while referencing it nowhere, by indexing a carrier with a string
+(`function pick(o,k){return o[k]}; pick(globalThis,"eval")("…")` — executed, zero findings).
+Deciding reachability is dataflow analysis, which REQ-CAP-01's scope correction records as out of
+this mechanism's reach and `capability-admission-oracle` as the change that addresses it.
 
-Realm per ambiguity J: kind checks on `dist` via AST; **errors name the `src` path**. Message prefix
-`runner-manifest:`; every message states rule, why, and **fix**. Project-relative paths always; no
-character ceiling (REQ-WPS-07's wire budget does not govern build tooling) — cap by offender count
-(`… and N more`).
+#### Scenarios REQ-CST-04.2.1–9 [red-proof]: Denied primitives, named
 
-**REQ-CST-01 — No bare specifier.**
-- **CST-01.1** — A third-party import in a closure file fails the build, emits no manifest, and names the `src` path, line, specifier and "Constraint 3".
+Shared shape: GIVEN a synthetic closure file referencing the primitive exactly as shown;
+WHEN capability classification runs; THEN the build fails, stderr names the primitive
+verbatim and states "Constraint 4".
 
-**REQ-CST-02 — Builtins literally `node:`-prefixed.**
-- **CST-02.1** — `import { readFileSync } from "fs"` **fails**. The rule is on the PREFIX, never a builtin-name allowlist, and the message says so — *the wrong repair (adding `"fs"` to an allowlist) is more likely than the right one.*
-
-**REQ-CST-03 — Exactly one sanctioned dynamic `import()`, site-scoped.**
-- **CST-03.1** — A dynamic `import()` in any closure file other than `runner.ts` fails, naming "Constraint 2".
-- **CST-03.2** — A **second** dynamic `import()` inside `runner.ts` **also** fails, and the message names the sanctioned site and states the sanction is **per-SITE, not per-file**.
-- **CST-03.3 — Anchor defined.** The invariant is: the count of dynamic `import()` in `dist/transport/runner.js` is **exactly 1**, and in every other closure file **exactly 0**; the sanctioned site carries the source marker `SANCTIONED-FACTORY-IMPORT`. *(CST-03.2 falls out of the count.)*
-
-**REQ-CST-04 — Constraint 4: outright ban (R3).**
-- **CST-04.1** — Any `createRequire` reference in a closure file fails the build, **except** at the single anchored site in `single-instance-probe.ts`. *A call-vs-`.resolve()` rule is evaded by `const req = createRequire(u); req("./x")` and by the namespace form.*
-- **CST-04.2** — `eval`, `new Function`, `node:vm`, `Bun.plugin`, `process.binding` in a closure file fail, naming which primitive.
-- **CST-04.3** — *Given* the current tree, *then* the deny-scan reports zero violations and the anchored `single-instance-probe.ts` site is **not** flagged.
-- **CST-04.4** — *Given* a **synthetic** closure file with the indirect form and another with the namespace form, *then* both fail. *(CST-04.3 alone only proves the check does not fire on the one real file that happens to be shaped right.)*
-
-**REQ-CST-05 — No `package.json` between entry and package root (SDK-side hygiene).**
-- **CST-05.1** — Neither `dist/package.json` nor `dist/bin/package.json` exists. *The engine adopted this as an engine-side rule (their Q3), keeping the manifest a pure inclusion list; this half stops the SDK being the source of the file.*
-
-**REQ-CST-06 — Failure quality asserted.**
-- **CST-06.1** — Every tripwire message is asserted **by substring**, so "it fails" is never accepted as "it fails usefully".
-
-## Capability 6 — `bundler-disjointness-invariant` (BDI)
-
-**REQ-BDI-01 — Bundler outputs disjoint from the closure.**
-- **BDI-01.1** — Every `--outfile`, `--outdir` (by **directory containment**) and `-o` target in `package.json#scripts` is outside the closure path set — proven non-vacuous by `dist/bin/pbuilder-codegen.js` being present and correctly judged outside.
-- **BDI-01.2** — Non-`scripts` invocation surfaces (workflow steps, `Bun.build({outdir})`, `scripts/*.ts` calls) are **explicitly out of scope**, stated so the requirement does not read stronger than it is.
-
-**REQ-BDI-02 — Graph-preserving emit.**
-- **BDI-02.1** — For each closure `.js`, its relative-specifier **multiset** equals its `.ts` source's, after `.ts→.js` rewriting and **modulo type-only erasure**. *Replaces the near-vacuous "exactly one source exists" check — this goes red the instant a module is inlined.*
-- **BDI-02.2** — *Given* a source with a type-only import (`session.ts`, `stdio-engine-client.ts`), *then* it is **not** flagged.
-- **BDI-02.3** — The reverse (`src → dist`) is NOT asserted: `dist/core/engine-client.js` legitimately exists outside the closure.
-
-**REQ-BDI-03 — Closure-graph baseline (nodes AND edges).**
-- **BDI-03.1** — *Given* the committed `runner-closure-graph-baseline.json` (`{nodes, edges}`), *when* a node is added or removed, *or an edge is redirected with the node set unchanged*, *then* the fitness test fails naming the added/removed/redirected node or edge.
-
-## Capability 7 — `packaged-manifest-fidelity` (PMF)
-
-**Normative packer: `npm pack`** (what `publish.yml` uses). FIT-14 continues to use `bun pm pack` for
-its own listing; PMF assertions are `npm`. The `package/` tarball prefix is stripped explicitly.
-
-**REQ-PMF-01** — `npm pack`'s file list contains `dist/runner-manifest.json`.
-
-**REQ-PMF-02 — Verified against packed and installed bytes.**
-- **PMF-02.1** — All 24 digests recomputed against the **extracted tarball's** bytes match.
-- **PMF-02.2 — Red-proof for BPI-03.** *Given* a build, *when* `package.json#version` is rewritten and `npm pack --ignore-scripts` runs, *then* entry #24's digest **MISMATCHES**, naming the field. *This is the actual behavioural proof of the publish-ordering property. The V1 form of this scenario could not fail: with `--ignore-scripts` the packed `package.json` IS the one the manifest hashed.*
-- **PMF-02.3 — Registry-install round trip.** *Given* `npm pack` then `npm install ./<tarball>` into a temp project, *when* entry #24 is recomputed against `node_modules/@pbuilder/sdk/package.json`, *then* it matches. *`npm-normalize-package-bin` is a known rewriter and this package HAS a `bin` field; the release target makes registry install the production path. Being wrong here fails closed on 100% of users.*
-
-**REQ-PMF-03** — `test/fitness/pkg-surface-baseline.json` is deliberately updated to include the manifest, so FIT-14 passes.
-
-> **Verified 2026-07-25, not assumed**: `npm pack` and `bun pm pack` both preserve `package.json`
-> byte-for-byte at **pack** time (identical SHA-256 across working tree and both tarballs). PMF-02.1
-> and PMF-02.3 remain requirements because this must **stay** true, and because pack-time identity
-> says nothing about the **install** boundary.
-
-## Capability 8 — `integrity-invariants-documentation` (IID)
-
-**Home**: `docs/runner-integrity-invariants.md`, linked from `docs/README.md` (*Contributor notes*),
-matching the `docs/engine-sdk-wire-spec.md` cross-repo-normative precedent. Guarded by
-`test/docs/runner-integrity-docs.test.ts` (precedent: `test/docs/security-authoring-guard.test.ts` —
-frozen strings are copied from `design.md`, which wins on divergence). Freeze 1–3 sentences per REQ,
-never whole passages. Plus a three-sentence `SECURITY.md` subsection that **subtracts** (scope-limits)
-rather than announces.
-
-**REQ-IID-01 — Five Constraints, structurally enforced.**
-- **IID-01.1** — *Given* `docs/runner-integrity-invariants.md`, *then* it lists five Constraints, each with an `enforced-by:` field naming **either a FIT id that exists as a file on disk, or the literal `engine-owned`**. *A prose-only assertion passes against a document that says the right words while the code does something else; this one cannot.*
-- **IID-01.2** — Constraint 2 is stated in its **resolved site-scoped form**, not the engine's original "no dynamic import on an infrastructure path". *That looser wording contradicts ambiguity D and would ship a document our own build enforces more strictly than it describes.*
-- **IID-01.3** — Constraints 4 and 5 are marked **SDK-added** and **engine-owned** respectively on first use, and no Constraint is cited by bare number. *Guards against silent cross-repo numbering divergence.*
-
-**REQ-IID-02 — Honest scope.**
-- **IID-02.1** — The document states that the manifest **covers** the pre-factory bootstrap only, and that the engine's verification therefore attests only to those bytes — listing `dist/commons/**`, `dist/dialects/**`, `dist/conformance/**`, `dist/testing/**` and `node_modules/**` as loading into the same process at the same privilege moments later. *(“The manifest verifies X” is itself the error the paragraph exists to prevent: a JSON file verifies nothing; the engine verifies.)*
-- **IID-02.2** — A single supplied pull-quote sentence exists, so paraphrases are controlled rather than invented.
-
-**REQ-IID-03** — The justification states the real value (wrong-artefact detection; the tripwires, which are independent of the manifest; the install-script adversary the engine's model excludes) rather than "stops a malicious schematic author".
-
-**REQ-IID-04** — Records "one manifest per published package, no per-platform map", with evidence.
-
-**REQ-IID-05** — Entry #24 is justified by `"type": "module"` governing parse mode of all 23 files — **not** `packageRootFor()`.
-
-**REQ-IID-06** — States that on `bun link` installs verification degrades to a **build-consistency check**.
-
-**REQ-IID-07** — Records the C2 residual (a planted `dist/package.json` redirects `packageRootFor` and reinterprets parse mode with zero digest change) and notes the engine closed it engine-side (their Q3).
-
-**REQ-IID-08** — `src/transport/single-instance-probe.ts`'s header gains one sentence converting its eleven-line convention argument into a pointer: Constraint 4 is **enforced** (naming `fit-42`), not conventional.
-
----
-
-## Red-Proofs (18)
-
-Tier A = synthetic mini-closure at a temp root (unit, milliseconds). Tier B = one real-tree negative
-(copied `dist/`, generator as subprocess). Tier C = packaging.
-
-| # | Tier | Planted | Must fail as | Must name |
-|---|---|---|---|---|
-| RP-1 | A | byte appended to a closure file | exactly one file record differs | path, expected, observed |
-| RP-2 | A | a 24th closure file, imported | baseline diff | added node **and the edge that admitted it** |
-| RP-2b | A | closure file / import removed | baseline diff | removed node/edge |
-| **RP-2c** | A | **edge redirected, node set constant** | baseline diff | the redirected edge — *the real closure-sealing case* |
-| RP-3 | A | dynamic `import()` outside `runner.ts` | build fails, no manifest | src path, line, specifier, Constraint 2 |
-| RP-3b | A | second dynamic `import()` **inside** `runner.ts` | build fails | sanctioned site; per-SITE clause |
-| RP-4 | A+B | bare third-party specifier | build fails, no manifest | src path, line, specifier, Constraint 3 |
-| RP-5 | A | `"fs"` **and** `"node:fs"` in one fixture | exactly ONE violation | only `"fs"` — *a name allowlist would wrongly pass* |
-| RP-6 | A | `dist/package.json` planted | fitness fails | path; that it redirects with **no digest change** |
-| RP-7 | A | `createRequire` direct call | build fails | src path, line, Constraint 4 |
-| **RP-7b** | A | `createRequire` **indirect variable** + **namespace import** forms | build fails | which form |
-| RP-7c | A | `eval` / `new Function` / `node:vm` / `Bun.plugin` / `process.binding` | build fails | which primitive |
-| RP-8 | A | `--outdir dist/transport` **and** `-o` short form | disjointness fails | script, target, colliding file |
-| RP-9 | A | CRLF (generated at test time) | line-ending check fails | path, offset |
-| RP-10 | A | the two discriminating path pairs | ordering fails under `localeCompare` | both orderings |
-| RP-11 | A | duplicate / absolute / `..` path | shape validation fails | which rule, which record |
-| **RP-12** | A | JSDoc `@example` quoting a bare specifier **and** a relative one | **must NOT fail and must NOT add a node** | *inverse red-proof — the day-one false alarm* |
-| RP-13 | A | unresolvable relative specifier | build fails | importer, specifier, attempted path |
-
----
-
-## Out of Scope
-
-Editing `publish.yml` (property pinned, mechanism owned by the go-live batch); loader observation for
-Constraint 1 (followup — Bun is confirmed, so it is now feasible, but structural ships per R4); the
-fifth precondition's enforcement (engine-owned); any `src/**` behaviour change beyond IID-08's header
-sentence — **do not refactor `single-instance-probe.ts`'s logic**; gap A.
-
-## Release Checklist (engine round-2, item 2)
-
-**`0.1.0` MUST ship `dist/runner-manifest.json`** — a `0.1.0` published without it cannot be executed
-by a production engine; it fails closed by design. Same owner owns both, so this is a
-release-checklist line, not a cross-team dependency — but a **hard-fail** one. Registered in
-`openspec/pending-changes.md` alongside the go-live batch.
-
-## Terminology
-
-`entry` (code font) = the JSON field. **File record** = a member of `files` — never "entry" for these.
-**Runner closure** = the 23 emitted `.js`. **Pre-factory bootstrap** = the 23 + `package.json` as
-executed code. **Constraint N — `<name>`** = always named and numbered. **Tripwire** = the build check;
-**Constraint** = the rule. **The sanctioned factory-import site** = one canonical phrase, matching the
-`SANCTIONED-FACTORY-IMPORT` marker. **Covers / attests** — the engine verifies; the manifest covers.
-
-## Signature Block
-
-Owner assent given on all eight:
-
-| Item | Ruling | Assented |
+| Scenario | Primitive | Fixture form |
 |---|---|---|
-| **A** | "23" is a **regenerable baseline**, not a contract constant | ✅ 2026-07-25 |
-| **D** | Factory-import site is **site-scoped** — a second `import()` inside `runner.ts` also fails | ✅ 2026-07-25 |
-| **I** | `bun link` in scope; verification stated as a **build-consistency check** | ✅ 2026-07-25 |
-| **J** | Set from `dist`, kind checks on `dist` via AST, **errors name `src`** | ✅ 2026-07-25 |
-| **R1** | Parse with **ts-morph**, not regex | ✅ 2026-07-25 |
-| **R3** | Constraint 4 is an **outright ban** on `createRequire`, legitimate site anchored | ✅ 2026-07-25 |
-| **R4** | Constraint 1 ships **structural**; loader observation is a followup | ✅ 2026-07-25 |
-| — | **Five Constraints**, not the contract's three (engine accepted in round 2) | ✅ 2026-07-25 |
+| .1 | `eval` | `eval("1+1")` |
+| .2 | `Function` (direct construction) | `new Function("return 1")()` |
+| .3 | `node:vm` | `import { Script } from "node:vm"` |
+| .4 | `Bun.plugin` | `Bun.plugin({ setup() {} })` |
+| .5 | `process.binding` | `process.binding("fs")` |
+| .6 | `node:child_process` — RULED-IN (ruling 3) | `import { spawn } from "node:child_process"` |
+| .7 | `node:worker_threads` — RULED-IN (ruling 3) | `import { Worker } from "node:worker_threads"` |
+| .8 | `WebAssembly` — RULED-IN (ruling 3) | `WebAssembly.instantiate(bytes)` |
+| .9 | `module.register`/`registerHooks` — RULED-IN (ruling 3) | `module.register("./loader.js", import.meta.url)` |
 
-- [x] **SIGNED** — owner: **Daniel Ramirez** — date: **2026-07-25**
+### REQ-CST-04.3: Non-Vacuity, Re-Derived Under the Admission Mechanism
 
-Frozen. Any change requires `sdd-spec unfreeze=true` and re-signature.
+Given the current tree, the capability-admission scan MUST report zero violations, and the
+anchored `single-instance-probe.ts` site MUST NOT be flagged. The non-vacuity guard MUST
+count via AST identifier occurrences, never a substring count of the source text (R1-10).
+
+(Previously: "the deny-scan reports zero violations" — worded against the retired
+text-matching mechanism; non-vacuity was asserted by substring count. Updated to name the
+admission mechanism and to require an AST-counted, not substring-counted, guard.)
+
+#### Scenario REQ-CST-04.3.1: Non-vacuity on the real tree
+
+- GIVEN the current runner closure
+- WHEN capability-admission classification runs
+- THEN it reports zero Constraint-4 violations, and the anchored `single-instance-probe.ts` site is not flagged
+
+#### Scenario REQ-CST-04.3.2 [red-proof]: Non-vacuity guard counts by AST, not substring — R1-10
+
+- GIVEN a mutant admission register that admits one extra, unauthorised primitive (widened by one entry)
+- WHEN the non-vacuity guard counts violations via AST identifier occurrences
+- THEN it fails, naming the widened register entry — a substring-only guard would have missed this because the widened entry never appears as denied text anywhere in the real tree
+
+### REQ-CST-06.1: Failure Quality — Whole-Message Assertion
+
+Every tripwire message MUST be asserted WHOLE, verbatim — never by substring — so "it
+fails" is never accepted as "it fails usefully."
+
+(Previously: "asserted by substring." Directly contradicted C6/whole-message assertions —
+R2-3 shipped 4/5 false message lines under a green substring assertion. Updated per PM
+finding, same unfreeze batch as ruling 1.)
+
+#### Scenario REQ-CST-06.1.1: Every tripwire message is asserted whole
+
+- GIVEN any tripwire violation fixture
+- WHEN its test asserts the message
+- THEN the ENTIRE message string is compared verbatim (never `toContain`/substring matching) — a message with 4 true lines and 1 false line cannot pass
+
+#### Scenario REQ-CST-06.1.2 [red-proof]: A substring-passing, whole-message-failing message is caught — R2-3
+
+- GIVEN the pre-fix version-validation diagnostic (reuses the `unreadable-file` rule body — 4 of 5 lines false for a version failure)
+- WHEN the whole-message assertion runs against it
+- THEN it fails — proving the substring assertion it replaces was itself the defect, not merely a weaker test of the same message
+
+### REQ-RMD-05.1: No Username PATH SEGMENT
+
+The manifest's bytes MUST contain neither `process.cwd()` nor `os.userInfo().username` as
+a PATH SEGMENT, and the exact-key-set assertion (REQ-RME-01.3) structurally excludes a
+timestamp field. `os.homedir()` remains deliberately NOT scanned (unchanged rationale: on
+GitHub runners the checkout lives under `/home/runner`, so a homedir substring scan fires
+on any legitimate relative path).
+
+(Previously: "no username" as a bare substring scan — false as written, because CI's own
+user is literally `runner`, which legitimately appears inside real closure paths such as
+`dist/transport/runner.js`. Updated to scope the check to a path-segment boundary, per
+ruling 7.)
+
+#### Scenario REQ-RMD-05.1.1: No username path segment, distinguished from a legitimate substring
+
+- GIVEN the manifest built under CI, where `os.userInfo().username === "runner"` — a substring that legitimately appears inside `dist/transport/runner.js`
+- WHEN the manifest's bytes are scanned for the username
+- THEN no bytes match the username bounded by path-segment delimiters (`/` or path start/end) — the scan does not false-positive on `runner.js`
+
+#### Scenario REQ-RMD-05.1.2 [red-proof]: A genuine username path segment is caught
+
+- GIVEN a mutant manifest containing a file record path like `dist/runner/notes.js` where `runner` is an actual path SEGMENT (not embedded in a longer identifier)
+- WHEN the scan runs
+- THEN it fails, naming the offending path
+
+### REQ-RMD-01.2: Locale Independence — Structural, Not Behavioural
+
+The generator's source (`scripts/generate-runner-manifest.ts` and its transitive helpers)
+MUST NOT call any locale-sensitive API (`.localeCompare(`, `Intl.Collator`,
+`.toLocaleUpperCase(`, `.toLocaleLowerCase(`). This is a structural, non-flaky proof that
+generation cannot vary by locale.
+
+(Previously: ran the generator in a child process under `LC_ALL=C` and again under
+`LC_ALL=tr_TR.UTF-8`, asserting byte-identical output. Retired per ruling 7 — Bun's default
+collator resolves `en-US` regardless of `LC_ALL`, so the scenario could never fail its own
+mutation; it was satisfied-in-intent only. Updated to a source-scan the mutation below CAN
+fail.)
+
+#### Scenario REQ-RMD-01.2.1: No locale-sensitive API in the generator's source
+
+- GIVEN `scripts/generate-runner-manifest.ts` and its transitive helper modules
+- WHEN scanned for `.localeCompare(`, `Intl.Collator`, `.toLocaleUpperCase(`, `.toLocaleLowerCase(`
+- THEN none are present
+
+#### Scenario REQ-RMD-01.2.2 [red-proof]: A planted locale-sensitive call is caught
+
+- GIVEN a mutant copy of the generator with one sort comparator changed to `.localeCompare()`
+- WHEN the source scan runs
+- THEN it fails, naming the file and line of the locale-sensitive call
+
+## Sensitive Areas Coverage
+
+| Area | REQ IDs | Flagged at triage? |
+|---|---|---|
+| security (code execution) | REQ-CAP-01..06, REQ-PRM-01, REQ-XPO-01, REQ-CST-04.2, REQ-CST-04.3 | Yes — sensitivity override fired at triage (SUBJECT test: the Constraint-4 guard IS the change's core subject) |
+| deployment / build integrity | REQ-PTH-01, REQ-FCG-01, REQ-DGN-01, REQ-CST-06.1, REQ-RMD-05.1, REQ-RMD-01.2, REQ-DLV-01 | Yes — same override; build-tooling that gates the closure-sealing lemma |
+
+## Open Items for Owner / Design
+
+1. **REQ-CST-04.1's inline rationale sentence** ("*A call-vs-`.resolve()` rule is evaded
+   by...*") documents the FIRST rejected mechanism, not the shipped exactly-one-unaliased-
+   binding invariant. Ruling 1 confirms REQ-CST-04.1 itself survives unmodified — the
+   sentence is rationale prose, not a normative obligation, and does not assert anything
+   false about current behaviour. Recommend a tech-writer pass at archive to update the
+   rationale sentence for accuracy; not a spec-level change.
+2. **REQ-CST-04.4's synthetic-file scoping** is already textually correct ("a synthetic
+   closure file") and does not contradict REQ-XPO-01.2's green namespace form on the REAL
+   anchor file — no REQ change needed. Recommend `sdd-design` add an explicit code comment
+   at the anchor site cross-referencing both REQs, so the distinction is not left implicit
+   for the next reader (per the proposal's own watch-item framing).
+3. **Register-disposition-completeness** (every one of the 23 pending-changes rows carries
+   exactly one evidenced disposition; row-count delta fully explained) is a
+   `pending-changes.md` document property, not a code-behaviour REQ — no Given/When/Then
+   scenario can test it without theatre. Recommend this stays a PM/archive-gate mechanical
+   check (as ruling 8 and the PM lens both already frame it), not a spec REQ.
+4. **Fitness-function budget mapping** (owner-ratified ≤4): REQ-CAP-01 → FIT-CAP-TOTALITY;
+   REQ-PTH-01 → FIT-PATH-SPELLING-INVARIANCE; REQ-FCG-01 → FIT-FAILCLOSED-BICONDITIONAL;
+   REQ-CAP-06 → FIT-MANIFEST-BYTE-NEUTRAL. Every other REQ above is provable by unit/
+   red-proof tests against `fit-42-*` and its fixture corpus — `sdd-design` should not
+   introduce a fifth fitness function without a budget re-open.
+5. **R1-16 (JSDoc identifiers scanned)** is not covered by a dedicated REQ above — explore
+   flagged it as a hypothesis ("likely dissolved by the redesign") needing a red-proof, not
+   a code change. Recommend `sdd-design`/`sdd-slice` add a scenario under REQ-CAP-01 or
+   REQ-CAP-03 asserting `RCD-03.3`'s day-one JSDoc fixtures remain non-flagged under the
+   NEW admission mechanism (not just under R2-1's narrower fix) — this is a red-proof-only
+   closure, and this spec does not manufacture a REQ for a hypothesis still awaiting proof.
+   **RESOLVED 2026-07-29 (plan-verify iteration-1, gap 7)**: `REQ-CAP-01.7` (added above)
+   is that scenario — governed by exclusion E1, distinct from `REQ-CAP-01.2`'s widening
+   red-proof. `S-001.4`'s E1 task cites `REQ-CAP-01.7`, not `REQ-CAP-01.2`.
+
+## Plan-verify iteration-2 amendments (2026-07-29) — tallies
+
+Closes gaps A and B of `verify-plan-2.md` (Judge A findings, `problem-fit` category).
+Five scenarios added, all additive, zero existing REQ text modified: `REQ-CAP-04.6`,
+`REQ-CAP-04.7` [red-proof], `REQ-CAP-04.8` [red-proof] (REQ-CAP-04 family: 5 → 8
+scenarios, 2 → 4 red-proofs), `REQ-DGN-01.3`, `REQ-DGN-01.4` [red-proof] (REQ-DGN-01
+family: 2 → 4 scenarios, 2 → 3 red-proofs). Baseline is the iteration-1 tally directly
+below (22 REQ-IDs / 72 scenarios / 46 red-proofs). REQ-ID count is unaffected (both
+families land under existing REQ-IDs); this change's overall spec tally moves to **22
+REQ-IDs / 77 scenarios / 49 red-proofs**. `slices.md`'s coverage line, REQ-ID coverage
+table, and `design.md`'s Test Derivation table + Coverage line are updated to match (see
+those files' own amendment notes).
+
+## Tally reconciliation (2026-08-05, steward reckoning criterion 3)
+
+The exclusion red-proof amendment under REQ-CAP-01 adds **4 scenarios / 3 red-proofs**
+(`REQ-CAP-01.8/.9/.10` [red-proof] + `REQ-CAP-01.11`), all additive under an existing REQ-ID, so
+the REQ-ID count is unaffected. This change's spec tally moves from **22 REQ-IDs / 77 scenarios /
+49 red-proofs** to **22 REQ-IDs / 81 scenarios / 52 red-proofs**.
+
+**A pre-existing discrepancy surfaced while re-deriving this** and is recorded rather than
+quietly absorbed: `slices.md`'s "49/49 verification" defines the red-proof count as the number of
+`it()` titles matching `REQ-[\w.-]+\.\d+ \[red-proof\]:` across the named test vehicles, and
+that count measured **47, not 49**, at the pre-remediation commit `4337da5` — i.e. the documented
+tally was already two ahead of what its own rule finds, before any work in this remediation pass.
+It measures **54** now (+7 titles from this pass; one of the seven is a parameterised row that
+produces three runtime tests from a single source title, which the title-counting rule counts
+once). Nothing executes that verification — it is a manual procedure described in prose, which is
+why the divergence went unnoticed through three review rounds. Mechanising it is registered as a
+followup in `openspec/pending-changes.md` (row JD-9); the numbers above are the spec's own
+scenario/red-proof tally, which is what REQ coverage is judged against.
+
+## Plan-verify iteration-1 amendments (2026-07-29) — tallies
+
+Closes gaps 5, 6, 7 of `verify-plan-1.md` (Judge A findings, `problem-fit`/`scope`
+categories). Five scenarios added, all additive, zero existing REQ text modified:
+`REQ-CAP-01.4`, `REQ-CAP-01.5`, `REQ-CAP-01.6` [red-proof], `REQ-CAP-01.7` (REQ-CAP-01
+family: 3 → 7 scenarios, 2 → 3 red-proofs), `REQ-PTH-01.7` [red-proof] (REQ-PTH-01
+family: 7 → 8 scenarios, 5 → 6 red-proofs). Baseline is `slices.md`'s current tally
+(22 REQ-IDs / 67 scenarios / 44 red-proofs — already includes the post-foresight CQ-1
+amendment on REQ-CAP-04). REQ-ID count is unaffected (all five scenarios land under
+existing REQ-IDs); this change's overall spec tally moves to **22 REQ-IDs / 72
+scenarios / 46 red-proofs**. `slices.md`'s coverage line and REQ-ID coverage table are
+updated to match (see that file's own amendment note).
