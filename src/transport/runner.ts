@@ -29,7 +29,7 @@ import {
   OverlappingRunError,
   type FrameChannel,
 } from "./stdio-engine-client.ts";
-import { boundMessage, composeWithToken, toProjectRelativePath } from "./error-text.ts";
+import { boundMessage, composeWithToken, scrubAbsolutePaths, toProjectRelativePath } from "./error-text.ts";
 import { parseFactoryPointer, validateFactoryUrl, resolveFactoryExport } from "./factory-pointer.ts";
 import { probeSingleInstance } from "./single-instance-probe.ts";
 import { classifyExitCode } from "./exit-codes.ts";
@@ -340,7 +340,9 @@ async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
     const label =
       err instanceof AuthoringError || err instanceof TransportFault || err instanceof IntentRejectedError
         ? err.message
-        : "run failed";
+        : err instanceof Error
+          ? scrubAbsolutePaths(err.message)
+          : "run failed";
     note(io, `pbuilder-runner: ${label}`);
     return classifyExitCode(err);
   }

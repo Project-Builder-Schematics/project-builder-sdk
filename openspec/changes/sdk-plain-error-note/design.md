@@ -77,7 +77,7 @@ export function scrubAbsolutePaths(message: string, projectRoot?: string): strin
 Illustrative (not final) matching shape — sdd-apply pins exact behavior via Strict TDD:
 
 ```
-WINDOWS_UNC_ABS_PATH = /(?:[A-Za-z]:[\\/]|\\\\)[^\s'"<>]*/g   // drive-letter OR UNC/WSL backslash-prefix — replaced FIRST, always → OUTSIDE_PROJECT_TOKEN
+WINDOWS_UNC_ABS_PATH = /(?:(?<![A-Za-z0-9_])[A-Za-z]:[\\/]|\\\\)[^\s'"<>]*/g   // drive-letter OR UNC/WSL backslash-prefix — replaced FIRST, always → OUTSIDE_PROJECT_TOKEN
 POSIX_ABS_PATH        = /\/(?:[^\s'"<>]+\/)+[^\s'"<>]*/g       // replaced SECOND, via toProjectRelativePath per match
 ```
 
@@ -86,7 +86,17 @@ lone slash inside prose (`and/or`, `24/7`) is never mistaken for a path root —
 deliberate under-match, consistent with "best-effort, not a security boundary." The
 `WINDOWS_UNC_ABS_PATH` alternation's second branch (`\\`) matches the literal double-backslash
 prefix shared by UNC (`\\server\share\...`) and WSL-interop (`\\wsl.localhost\...`, `\\wsl$\...`)
-paths — never a single escaped backslash inside prose. Both branches route unconditionally to
+paths — never a single escaped backslash inside prose.
+
+The drive-letter branch carries a negative lookbehind because a bare `[A-Za-z]:[\\/]` also matches
+the `e:/` inside `file:///home/user/x.json`, which would consume the whole URL and mangle the message
+to `fil<outside-project>`. That URL's embedded absolute segment belongs to `POSIX_ABS_PATH`; the
+lookbehind requires the drive letter not to be preceded by a word character, so the two passes keep
+the ownership boundary stated below. It applies to the drive-letter branch only — a UNC prefix has no
+such ambiguity. Cost: a drive-letter path glued directly to a preceding word character with no
+delimiter (`abcC:/x`) is not matched; no REQ-WPS-07 scenario requires that shape.
+
+Both branches route unconditionally to
 `OUTSIDE_PROJECT_TOKEN` for the same reason: `node:path`'s POSIX-default `isAbsolute`/`relative`
 cannot correctly classify a drive-letter- or backslash-prefixed path on this SDK's POSIX hosts,
 so computing a relative form would risk silently misclassifying it instead of failing safe

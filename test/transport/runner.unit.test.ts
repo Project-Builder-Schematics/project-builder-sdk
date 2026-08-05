@@ -11,12 +11,20 @@ import { encodeFrame } from "../../src/transport/framing.ts";
 import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
 import { runRunner, type RunnerIo } from "../../src/transport/runner.ts";
 import { OverlappingRunError } from "../../src/transport/stdio-engine-client.ts";
+import { MESSAGE_CEILING_CHARS } from "../../src/transport/error-text.ts";
 import { makeInProcessHost } from "../support/in-process-host.ts";
 
 const HAPPY_FIXTURE_DIR = new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname;
 const HAPPY_POINTER = `file://${HAPPY_FIXTURE_DIR}factory.ts`;
 const IMPORT_CRASH_POINTER = `file://${new URL("../fixtures/frame-runner/import-crash/", import.meta.url).pathname}factory.ts`;
 const SYNTAX_ERROR_POINTER = `file://${new URL("../fixtures/red/frame-runner-syntax-error/", import.meta.url).pathname}factory.ts`;
+const PLAIN_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/plain-error/", import.meta.url).pathname}factory.ts`;
+const THROW_NON_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/throw-non-error/", import.meta.url).pathname}factory.ts`;
+const CURATED_AUTHORING_POINTER = `file://${new URL("../fixtures/frame-runner/curated-authoring/", import.meta.url).pathname}factory.ts`;
+const CURATED_TRANSPORT_POINTER = `file://${new URL("../fixtures/frame-runner/curated-transport/", import.meta.url).pathname}factory.ts`;
+const CURATED_INTENT_POINTER = `file://${new URL("../fixtures/frame-runner/curated-intent/", import.meta.url).pathname}factory.ts`;
+const LONG_PLAIN_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/long-plain-error/", import.meta.url).pathname}factory.ts`;
+const SECRET_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/secret-error/", import.meta.url).pathname}factory.ts`;
 
 // Stub io whose `writeFrame` always throws `guard`: every gate under test must reject
 // before the runner ever writes a frame.
@@ -281,5 +289,82 @@ describe("REQ-SEC-02 — single in-flight run, sequential fail-loud on overlap",
     const secondExitCode = await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], second.io);
     expect(secondExitCode).toEqual(0);
     expect(second.fake.committedTree().get("out.txt")).toEqual("read:sec-02-clears-again");
+  });
+});
+
+describe("REQ-RUN-09 — terminal catch routes every thrown-value shape to its correct note branch", () => {
+  it("Scenario REQ-RUN-09.1: a plain Error's message reaches the note verbatim, exit 4", async () => {
+    const host = makeInProcessHost({});
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", PLAIN_ERROR_POINTER, "--input", "{}"], host.io);
+
+    expect(exitCode).toEqual(4);
+    expect(host.stderrText()).toEqual(
+      "pbuilder-runner: Could not locate the imports array closing in src/app.module.ts\n"
+    );
+  });
+
+  it("Scenario REQ-RUN-09.2: a non-Error thrown value keeps the fixed fallback literal, never a stringified coercion", async () => {
+    const host = makeInProcessHost({});
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", THROW_NON_ERROR_POINTER, "--input", "{}"], host.io);
+
+    expect(exitCode).toEqual(4);
+    expect(host.stderrText()).toEqual("pbuilder-runner: run failed\n");
+  });
+
+  it("Scenario REQ-RUN-09.3: an AuthoringError note stays byte-identical to err.message, unscrubbed", async () => {
+    const host = makeInProcessHost({});
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", CURATED_AUTHORING_POINTER, "--input", "{}"], host.io);
+
+    expect(host.stderrText()).toEqual("pbuilder-runner: curated-authoring fixture: known AuthoringError message\n");
+    expect(exitCode).toEqual(1);
+  });
+
+  it("Scenario REQ-RUN-09.3: a TransportFault note stays byte-identical to err.message, unscrubbed", async () => {
+    const host = makeInProcessHost({});
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", CURATED_TRANSPORT_POINTER, "--input", "{}"], host.io);
+
+    expect(host.stderrText()).toEqual("pbuilder-runner: curated-transport fixture: known TransportFault message\n");
+    expect(exitCode).toEqual(3);
+  });
+
+  it("Scenario REQ-RUN-09.3: an IntentRejectedError note stays byte-identical to err.message, unscrubbed", async () => {
+    const host = makeInProcessHost({});
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", CURATED_INTENT_POINTER, "--input", "{}"], host.io);
+
+    expect(host.stderrText()).toEqual("pbuilder-runner: curated-intent fixture: known IntentRejectedError message\n");
+    expect(exitCode).toEqual(2);
+  });
+
+  it("Scenario REQ-RUN-09.4: cap discipline applies to the whole composed note for an uncurated Error", async () => {
+    const host = makeInProcessHost({});
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", LONG_PLAIN_ERROR_POINTER, "--input", "{}"], host.io);
+
+    expect(exitCode).toEqual(4);
+    // Bounded text (MESSAGE_CEILING_CHARS) + the trailing "\n" note() always appends.
+    expect(host.stderrText().length).toEqual(MESSAGE_CEILING_CHARS + 1);
+  });
+
+  it("Scenario REQ-WPS-07.5 (in-process pin): a plain Error's secret-shaped, non-path content reaches the note verbatim — the documented residual, not a regression", async () => {
+    const host = makeInProcessHost({});
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", SECRET_ERROR_POINTER, "--input", "{}"], host.io);
+
+    expect(exitCode).toEqual(4);
+    expect(host.stderrText()).toEqual(
+      "pbuilder-runner: configuration rejected: DB_PASSWORD=hunter2 failed validation\n"
+    );
   });
 });
