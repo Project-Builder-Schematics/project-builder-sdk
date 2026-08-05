@@ -114,6 +114,51 @@ describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
       expect(scrubAbsolutePaths(message, "/repo")).toEqual(`ENOENT: no such file, open '${OUTSIDE_PROJECT_TOKEN}'`);
     });
 
+    it("a single-segment POSIX absolute path ('/root', no second '/'-delimited segment) is still recognized as absolute", () => {
+      const message = "mkdir '/root': permission denied";
+      const expectedRelative = relative("/repo", "/root");
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual(`mkdir '${expectedRelative}': permission denied`);
+    });
+
+    it("a second single-segment POSIX absolute path ('/etc') is also recognized — not a one-off pin on '/root'", () => {
+      const message = "cat '/etc': is a directory";
+      const expectedRelative = relative("/repo", "/etc");
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual(`cat '${expectedRelative}': is a directory`);
+    });
+
+    it("a space inside a POSIX directory segment does not end the match — the whole path, tail included, is scrubbed as one unit", () => {
+      const absolutePath = "/home/alice/Application Support/CANARY/file.ts";
+      const message = `ENOENT: no such file, open '${absolutePath}'`;
+      const expectedRelative = relative("/repo", absolutePath);
+      const scrubbed = scrubAbsolutePaths(message, "/repo");
+      expect(scrubbed).toEqual(`ENOENT: no such file, open '${expectedRelative}'`);
+      // The raw absolute form (leading slash, space intact) never appears un-relativized.
+      expect(scrubbed).not.toContain(`'${absolutePath}'`);
+    });
+
+    it("a space in the FIRST path segment, with the filename directly after the space, is still recognized — no leading complete segment exists for a partial match to latch onto, so the old shape either total-bypasses or misses this differently than the mid-path case above", () => {
+      const absolutePath = "/Shared Files/report.pdf";
+      const message = `ENOENT: no such file, open '${absolutePath}'`;
+      const expectedRelative = relative("/repo", absolutePath);
+      const scrubbed = scrubAbsolutePaths(message, "/repo");
+      expect(scrubbed).toEqual(`ENOENT: no such file, open '${expectedRelative}'`);
+      expect(scrubbed).not.toContain(`'${absolutePath}'`);
+    });
+
+    it("a Windows drive-letter path with a space in a directory segment ('Program Files'-style) resolves unconditionally to the outside-project placeholder — nothing past the space survives", () => {
+      const message = "ENOENT: no such file, open 'C:\\Users\\dev\\Program Files\\CANARY\\file.ts'";
+      const scrubbed = scrubAbsolutePaths(message, "/repo");
+      expect(scrubbed).toEqual(`ENOENT: no such file, open '${OUTSIDE_PROJECT_TOKEN}'`);
+      expect(scrubbed).not.toContain("CANARY");
+    });
+
+    it("a UNC path with a space in a share-name segment ('Shared Drive'-style) resolves unconditionally to the outside-project placeholder — nothing past the space survives", () => {
+      const message = "EACCES: permission denied, open '\\\\server\\Shared Drive\\CANARY\\x.ts'";
+      const scrubbed = scrubAbsolutePaths(message, "/repo");
+      expect(scrubbed).toEqual(`EACCES: permission denied, open '${OUTSIDE_PROJECT_TOKEN}'`);
+      expect(scrubbed).not.toContain("CANARY");
+    });
+
     it("a file://-embedded absolute path is scrubbed via the existing POSIX pass — the embedded segment never survives", () => {
       const message = "config resolved from file:///home/user/project/x.json";
       expect(scrubAbsolutePaths(message, "/home/user/project")).not.toContain("/home/user/project/x.json");

@@ -741,3 +741,9 @@ prevent, so they are landed rather than re-noted.
 Source: change `runner-tripwire-invariants`, steward reckoning + archive re-audit (2026-08-05).
 Dispositions re-verified against the merged code, not re-drafted. The judgment-day section above
 carries JD-1..JD-8 and the `capability-admission-oracle` head row.
+
+## From `sdk-plain-error-note` (2026-08-06) — deferred mechanism change, registered at final apply
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| **`error-text-prefix-anchored-scrub`** — replace `scrubAbsolutePaths`'s shape-guessing regexes with anchoring on KNOWN absolute prefixes (project root, `os.homedir()`, `os.tmpdir()`, SDK root) — exact strings, not an unbounded space of path shapes to keep enumerating — keeping the existing shape pass as defense in depth, not a replacement. Motivation: this pass fixed two demonstrated bypasses (whitespace ends the match; a single-segment POSIX path has no second `/` to require) in a matcher whose failure mode is "closes the shapes it was shown, not the shapes it wasn't" — the same class already cost this repo three rounds in `runner-tripwire-invariants`, registered there as `capability-admission-oracle`. Constraint: REQ-WPS-07.2 mandates the `../`-relative disclosure form for paths outside the project root, so this is a spec amendment, not just an implementation swap | architecture | L | — | — |

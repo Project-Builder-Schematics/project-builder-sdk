@@ -798,3 +798,80 @@ Ran 2676 tests across 202 files. [89.06s]
 slices' full-suite runs (2652 → 2658 → 2668 → 2676).
 
 `bunx tsc --noEmit`: clean (no diagnostics) at every slice, including this one.
+
+---
+
+## Follow-up (post-archive-adjacent) — two confirmed `scrubAbsolutePaths` bypasses closed
+
+Two independent blind judges each demonstrated an executable bypass of `scrubAbsolutePaths`
+(`src/transport/error-text.ts`), both reproduced directly against the shipped S-002 matcher
+before any fix landed:
+
+1. **Whitespace ended the match.** `POSIX_ABS_PATH`/`WINDOWS_UNC_ABS_PATH`'s `[^\s'"<>]`
+   character class treated a literal space as a path terminator, so a path with a space in a
+   directory segment (macOS `Application Support`, Windows `Program Files` — default OS
+   shapes, not exotic input) was scrubbed only up to the space, and the tail reached stderr
+   verbatim (or, for the multi-segment POSIX case, got independently re-matched and
+   re-relativized a second time, producing a garbled double-`../`).
+2. **A single-segment POSIX path never matched at all.** `POSIX_ABS_PATH`'s
+   `(?:[^\s'"<>]+\/)+` required at least one COMPLETE `segment/` pair, so a bare `/root`,
+   `/etc`, `/tmp` had no second slash to satisfy it and passed through completely untouched —
+   an asymmetry with the Windows/UNC branch, which already handled its single-segment case
+   correctly via `*` instead of `+`.
+
+**Fix**: both regexes now consume a space only when a lookahead proves the path continues (more
+non-terminator characters followed by a separator), and `POSIX_ABS_PATH` gained the same
+negative lookbehind boundary check the Windows branch already had, which is what lets the
+segment requirement drop from `+` to a bare match without `and/or`/`24/7`-style prose fractions
+becoming false positives. Full mechanism rationale is in the updated doc comments above each
+regex in `error-text.ts`.
+
+**Red proof** (new cases run against the pre-fix matcher — 6 new `error-text.unit.test.ts`
+cases plus 2 new live e2e cases in `exit-matrix.e2e.test.ts`; the unit failures below are the
+actual observed output):
+
+```
+a single-segment POSIX absolute path ('/root', ...): Expected "mkdir '../root': permission denied" / Received "mkdir '/root': permission denied"
+a second single-segment POSIX absolute path ('/etc'): Expected "cat '../etc': is a directory" / Received "cat '/etc': is a directory"
+a space inside a POSIX directory segment ...: Expected "...Application Support/CANARY/file.ts'" / Received "...Application Support../CANARY/file.ts'"
+a space in the FIRST path segment ...: Expected "...open '../Shared Files/report.pdf'" / Received "...open '/Shared Files/report.pdf'"
+a Windows drive-letter path with a space ...: Expected "...open '<outside-project>'" / Received "...open '<outside-project> Files\CANARY\file.ts'"
+a UNC path with a space ...: Expected "...open '<outside-project>'" / Received "...open '<outside-project> Drive\CANARY\x.ts'"
+21 pass / 6 fail (pre-fix)
+```
+
+**Green proof**: all 27 `error-text.unit.test.ts` cases pass post-fix; all 18
+`exit-matrix.e2e.test.ts` cases pass, including the two new live-spawned canary cases with a
+space in a path segment (`windows-space`, `posix-space` styles added to
+`test/fixtures/frame-runner/canary-path-leak/factory.ts`) — the existing canary generator
+(`canaryToken()`) emits only `[a-z0-9]`, so it structurally cannot produce a space on its own;
+these two fixtures seed the canary AFTER a literal space-bearing segment so a truncated match
+would have leaked the canary raw.
+
+### What the fixed matcher still does NOT catch (residual, observed — not carried forward from S-002's list above, which predates this fix and is left untouched)
+
+- **A space in a POSIX path's FINAL segment with no separator after it** (e.g.
+  `open '/home/u/My File.ts'`) — OBSERVED: the regex match itself still stops right before the
+  space (`"/home/u/My"` is the actual match; `" File.ts"` is untouched trailing text — confirmed
+  by matching the live regex against this exact string). In practice this does NOT leak anything
+  extra: `toProjectRelativePath`'s transform only rewrites the leading portion up to the
+  matched boundary, and because the truncation point falls inside what `path.relative()` treats
+  as the final path segment anyway, the composed output is byte-identical to what a full-path
+  match would have produced — verified against both a shallow (`/repo`) and a deeply-nested
+  9-level project root. So for the POSIX branch this shape is a matching-boundary quirk, not an
+  actual disclosure gap.
+- **The same shape on the Windows/UNC branch DOES leak.** `open 'C:\Users\dev\project\My
+  File.ts'` scrubs to `'<outside-project> File.ts'` — OBSERVED directly. Unlike the POSIX branch,
+  `WINDOWS_UNC_ABS_PATH`'s replacement is an unconditional literal substitution, not a
+  relative-path computation, so the untouched trailing text after the last space the lookahead
+  couldn't clear past is exposed verbatim on stderr. The directory structure and host path
+  before that final space are still fully swallowed into `<outside-project>` — only the bare
+  filename tail (e.g. `File.ts`) survives — but this is a real, demonstrable, NOT-closed
+  residual of the same whitespace-lookahead mechanism.
+- All gaps already carried forward from S-002's "Known Gaps" section above (non-path secret
+  content, exotic path shapes, no-delimiter drive-letter concatenation, this scrub is not a
+  security boundary) are unaffected by this fix and remain as documented there.
+
+The deferred structural fix for this whole class — anchoring on KNOWN absolute prefixes
+(project root, `os.homedir()`, `os.tmpdir()`, SDK root) instead of guessing path shapes — is
+registered in `openspec/pending-changes.md` as `error-text-prefix-anchored-scrub`.
