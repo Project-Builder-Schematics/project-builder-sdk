@@ -12,6 +12,7 @@ import {
   toProjectRelativePath,
   formatRelativeCandidate,
   composeWithToken,
+  scrubAbsolutePaths,
 } from "../../src/transport/error-text.ts";
 
 describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
@@ -69,6 +70,62 @@ describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
       expect(composed.length).toBeLessThanOrEqual(MESSAGE_CEILING_CHARS);
       // The token portion embedded in the composed message is itself capped.
       expect(composed).not.toContain(longToken);
+    });
+  });
+
+  describe("Scenario REQ-WPS-07.4/.6: scrubAbsolutePaths recognizes real absolute-path shapes across platforms", () => {
+    it("a POSIX absolute path inside the project root resolves via toProjectRelativePath", () => {
+      const message = "ENOENT: no such file, open '/repo/src/missing.json'";
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual("ENOENT: no such file, open 'src/missing.json'");
+    });
+
+    it("a POSIX absolute path outside the project root resolves to a ../-relative form, never absolute", () => {
+      const message = "ENOENT: no such file, open '/elsewhere/secret.json'";
+      const scrubbed = scrubAbsolutePaths(message, "/repo");
+      expect(scrubbed).toEqual("ENOENT: no such file, open '../elsewhere/secret.json'");
+      expect(scrubbed).not.toContain("open '/elsewhere");
+    });
+
+    it("a Windows drive-letter path with backslashes resolves unconditionally to the outside-project placeholder", () => {
+      const message = "ENOENT: no such file, open 'C:\\Users\\dev\\project\\missing.json'";
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual(`ENOENT: no such file, open '${OUTSIDE_PROJECT_TOKEN}'`);
+    });
+
+    it("a Windows drive-letter path with forward slashes resolves unconditionally to the outside-project placeholder, not a computed relative form (ordering proof)", () => {
+      const message = "ENOENT: no such file, open 'C:/Users/dev/project/missing.json'";
+      const scrubbed = scrubAbsolutePaths(message, "/repo");
+      expect(scrubbed).toEqual(`ENOENT: no such file, open '${OUTSIDE_PROJECT_TOKEN}'`);
+      expect(scrubbed).not.toContain("Users/dev/project/missing.json");
+    });
+
+    it("a UNC path resolves unconditionally to the outside-project placeholder", () => {
+      const message = "EACCES: permission denied, open '\\\\server\\share\\project\\config.json'";
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual(`EACCES: permission denied, open '${OUTSIDE_PROJECT_TOKEN}'`);
+    });
+
+    it("a wsl.localhost WSL-interop path resolves unconditionally to the outside-project placeholder", () => {
+      const message = "ENOENT: no such file, open '\\\\wsl.localhost\\Ubuntu\\home\\user\\project\\file.ts'";
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual(`ENOENT: no such file, open '${OUTSIDE_PROJECT_TOKEN}'`);
+    });
+
+    it("a wsl$ WSL-interop path resolves unconditionally to the outside-project placeholder", () => {
+      const message = "ENOENT: no such file, open '\\\\wsl$\\Ubuntu\\home\\user\\project\\file.ts'";
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual(`ENOENT: no such file, open '${OUTSIDE_PROJECT_TOKEN}'`);
+    });
+
+    it("a file://-embedded absolute path is scrubbed via the existing POSIX pass — the embedded segment never survives", () => {
+      const message = "config resolved from file:///home/user/project/x.json";
+      expect(scrubAbsolutePaths(message, "/home/user/project")).not.toContain("/home/user/project/x.json");
+    });
+
+    it("ordinary prose with a single slash is never mistaken for a path root", () => {
+      const message = "retry with strict mode and/or increase the timeout; support runs 24/7";
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual(message);
+    });
+
+    it("a message with no path-shaped content passes through unchanged", () => {
+      const message = "Could not locate the imports array closing in src/app.module.ts";
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual(message);
     });
   });
 });
