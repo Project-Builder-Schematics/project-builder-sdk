@@ -3,6 +3,7 @@
 // host/engine internals verbatim, and expresses paths project-relative — never absolute.
 
 import { describe, it, expect } from "bun:test";
+import { relative } from "node:path";
 import {
   MESSAGE_CEILING_CHARS,
   TOKEN_CEILING_CHARS,
@@ -125,6 +126,32 @@ describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
 
     it("a message with no path-shaped content passes through unchanged", () => {
       const message = "Could not locate the imports array closing in src/app.module.ts";
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual(message);
+    });
+
+    it("disclosure decision (REQ-WPS-07's own ../-relative mandate, pinned): a POSIX path outside a REALISTICALLY DEEP project root reveals its full ../ depth and filename tail — this is the spec's specified outcome, not an accidental leak", () => {
+      // S-002's own shallow case (`/repo` vs `/elsewhere/secret.json`) hides how long the
+      // chain gets with a project root nested several directories deep — a realistic shape
+      // for e.g. a worktree checkout. Computed via the SAME `relative()` the production
+      // code calls, so this assertion is self-verifying rather than a hand-counted guess.
+      const deepRoot = "/home/dev/workspaces/org/monorepo/packages/sdk/.claude/worktrees/build-1";
+      const outsidePath = "/home/dev/secret-dir/app.module.ts";
+      const message = `ENOENT: no such file, open '${outsidePath}'`;
+      const expectedRelative = relative(deepRoot, outsidePath);
+
+      const scrubbed = scrubAbsolutePaths(message, deepRoot);
+
+      expect(scrubbed).toEqual(`ENOENT: no such file, open '${expectedRelative}'`);
+      // Depth survives: more than one "../" segment (not S-002's single-level case).
+      expect(expectedRelative.split("/").filter((seg) => seg === "..").length).toBeGreaterThan(1);
+      // The tail below the common ancestor survives verbatim.
+      expect(expectedRelative).toContain("secret-dir/app.module.ts");
+    });
+  });
+
+  describe("Scenario REQ-WPS-07.5: secret-shaped non-path content passes through bounded, unscrubbed (documented residual)", () => {
+    it("secret-shaped content with no path-shaped substring is unchanged by scrubAbsolutePaths — a pin, not a new-behavior proof: an identity function satisfies this trivially too, same as the prose-survival cases above (S-002's own precedent)", () => {
+      const message = "configuration rejected: DB_PASSWORD=hunter2 failed validation";
       expect(scrubAbsolutePaths(message, "/repo")).toEqual(message);
     });
   });

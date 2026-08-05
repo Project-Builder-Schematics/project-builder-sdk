@@ -488,3 +488,313 @@ Ran 2668 tests across 202 files. [113.02s]
 
 2668 = the 2658 baseline (after S-001) + this slice's 10 new `REQ-WPS-07.4/.6` cases. No
 regression.
+
+---
+
+## S-003 — Disclosure rule holds: secrets pass, paths never leak, proven live
+
+**Covers**: REQ-WPS-07.5, REQ-WPS-07.4 (e2e), REQ-WPS-07.6 (e2e)
+**Status**: complete — no `src/` change; S-002's implementation already satisfies REQ-WPS-07.5/.4/.6 end to end
+
+### Tasks
+
+- [x] **S-003.1 RED** — secret-passthrough case in `error-text.unit.test.ts` (pure-function
+      pin, see Decisions) + `secret-error` fixture wired through `runner.unit.test.ts`
+      (asserts `hunter2` present, genuinely red-derivable — see Red proof).
+- [x] **S-003.2 RED** — `canary-path-leak` and `unc-path-leak` fixtures added; new
+      canary-seeded describe block in `exit-matrix.e2e.test.ts` using
+      `test/support/canary.ts`'s `canaryToken`, covering Windows/UNC/WSL leak-absence,
+      the REQ-WPS-07.5 secret-residual e2e pin, and a dedicated live proof of the
+      disclosure-decision question below.
+- [x] **S-003.3 GREEN** — confirmed all pass against S-002's scrub, no further `src/`
+      change (`git status --short src/` empty — see Green proof).
+- [x] **S-003.4 Verify** — `bun test test/fake/exit-matrix.e2e.test.ts
+      test/transport/error-text.unit.test.ts test/transport/runner.unit.test.ts` green;
+      `tsc --noEmit` clean.
+
+### The open disclosure question (settled, not inherited)
+
+**Question**: S-002 landed the real `scrubAbsolutePaths` matcher. Its own unit test proved
+a POSIX path outside the project root resolves to a `../`-relative chain (not the
+`<outside-project>` placeholder) — verified live in the orchestrator's own check:
+`/home/barri/secret-dir/app.module.ts` → `../../../../../../secret-dir/app.module.ts`. The
+`../` count discloses how deep the project root sits, and the tail below the common
+ancestor (`secret-dir/app.module.ts`) survives verbatim. S-002's own unit test only pinned
+a SHALLOW one-level case (`/repo` vs `/elsewhere/secret.json` → one `..`), which hides how
+long the chain gets with a realistically deep project root (e.g. a nested worktree
+checkout). Nobody had decided whether this satisfies the disclosure rule — S-003 is the
+slice that had to.
+
+**Verdict: satisfied — decided by the spec's own text, not by me.** REQ-WPS-07's main body
+(`specs/wire-protocol-spec/spec.md:21-25`) is explicit and predates this change (it is
+REQ-WPS-07.2's pre-existing rule, carried from an earlier change — "Previously: ... no rule
+for paths outside the project root — M2, B4"):
+
+> "When the subject path lies outside the project root ... the project-relative form MUST
+> be expressed as a `../`-relative path, or — when no relative form can be constructed
+> (e.g. a different filesystem root) — the documented placeholder token `<outside-project>`
+> MUST be substituted; the runner MUST NEVER fall back to printing the absolute path."
+
+This is a REQUIREMENT, not an incidental description — it explicitly mandates the
+`../`-relative chain (including its depth and its tail) as the compliant outcome for
+outside-project POSIX paths, precisely because on this SDK's POSIX hosts `node:path`'s
+`relative()` can always express SOME `../`-relative form (there is no real "different
+filesystem root" case on POSIX — `formatRelativeCandidate`'s own doc comment says this).
+REQ-WPS-07.4's own scenario text echoes the same acceptance: "it is scrubbed to
+project-relative form **or** the `<outside-project>` placeholder" — naming the relative
+form as a valid, successful scrub outcome, not a residual failure. This change's
+"uncurated content class addendum" paragraph explicitly REUSES this same, already-decided
+posture for the new content class ("mirroring `toProjectRelativePath`'s fallback rule") —
+design's ADR-01 makes the same choice deliberately, reusing `toProjectRelativePath` instead
+of inventing a stricter rule for the new call site. Nothing in this slice's scope
+(REQ-WPS-07.5, which governs a DIFFERENT content class — non-path-shaped secrets) revisits
+or narrows it.
+
+**Not papered over**: rather than a weak "no leading `/`" assertion, two live/pinned
+assertions prove the depth and tail survive HONESTLY:
+- `error-text.unit.test.ts` — a pure-function case with a realistically deep synthetic
+  project root, asserting the FULL exact composed string (computed via the same
+  `relative()` the production code calls, not hand-counted), plus explicit assertions that
+  the `../` count exceeds 1 and the tail is present.
+- `exit-matrix.e2e.test.ts` — "disclosure decision, pinned live": spawns the REAL runner
+  bin from this actual (deeply-nested worktree) `cwd`, seeds a canary-bearing POSIX path
+  outside it, and asserts the exact composed stderr note against the SAME `relative()`
+  computation — proving the depth/tail survive in the real spawned process, not just in a
+  synthetic unit case, while the original absolute path never appears.
+
+### A fixture-design correction made mid-slice
+
+The initial `canary-path-leak` "posix" sub-case asserted the raw canary token was NEVER
+present in stderr for `style: "posix"` (mirroring the Windows/UNC/WSL sub-cases). It failed
+— not from a production bug, but because the canary was seeded as part of the path's
+DIRECTORY NAME, which (per the disclosure decision above) is exactly the tail that
+`../`-relative scrubbing is SPECIFIED to preserve. A canary embedded anywhere in a POSIX
+path's unique portion beyond the common ancestor with the project root cannot be asserted
+absent without contradicting REQ-WPS-07's own text — `node:path`'s `relative()` always
+retains the full divergent tail, never eliding part of it. This sub-case was removed (not
+weakened) in favor of the dedicated "disclosure decision, pinned live" case, which asserts
+the correct, stronger property for POSIX: the exact `../`-relative form (tail included) and
+the absence of the ORIGINAL ABSOLUTE path — the one guarantee POSIX scrubbing actually
+makes (REQ-WPS-07.2, "never falls back to absolute"). The Windows/UNC/WSL sub-cases keep
+the strict "canary entirely absent" assertion, because those shapes genuinely route
+unconditionally to `<outside-project>` with zero survival (ADR-02, unaffected by this
+correction).
+
+### Red proof
+
+Two distinct classes of new-behavior proof needed two distinct revert targets, honestly
+separated (same discipline as S-001/S-002's own sections):
+
+**Class 1 — new in S-000** (the terminal-catch routes an uncurated `Error`'s message
+through at all): the in-process `REQ-WPS-07.5` pin and the e2e `REQ-WPS-07.5` case. Derived
+by restoring BOTH `src/transport/runner.ts` and `src/transport/error-text.ts` to
+`abd9736^` (pre-S-000), same technique as S-001:
+
+```
+$ git show abd9736^:src/transport/runner.ts > /tmp/pre-s000-runner.ts
+$ git show abd9736^:src/transport/error-text.ts > /tmp/pre-s000-error-text.ts
+$ cp src/transport/runner.ts /tmp/current-runner.ts   # save current (S-002) content first
+$ cp src/transport/error-text.ts /tmp/current-error-text.ts
+$ cp /tmp/pre-s000-runner.ts src/transport/runner.ts
+$ cp /tmp/pre-s000-error-text.ts src/transport/error-text.ts
+$ bun test test/transport/runner.unit.test.ts test/fake/exit-matrix.e2e.test.ts
+```
+
+```
+error: expect(received).toEqual(expected)
+- "pbuilder-runner: configuration rejected: DB_PASSWORD=hunter2 failed validation
++ "pbuilder-runner: run failed
+(fail) ... > Scenario REQ-WPS-07.5 (in-process pin): a plain Error's secret-shaped, non-path
+content reaches the note verbatim — the documented residual, not a regression
+
+error: expect(received).toContain(expected)
+Expected to contain: "pbuilder-runner: configuration rejected: DB_PASSWORD=hunter2 failed validation\n"
+Received: "...\npbuilder-runner: run failed\n"
+(fail) ... > REQ-WPS-07.5 (e2e): secret-shaped, non-path content in a real spawned run
+reaches stderr verbatim — documented residual, proven live
+
+ 32 pass
+ 6 fail
+ 97 expect() calls
+```
+
+(The other 4 failures in that run are pre-existing REQ-RUN-09.1/.4, case (d), and the
+POSIX "disclosure decision, pinned live" e2e case — all correctly regressing too, since
+this revert removes S-000/S-001/S-002 wholesale; expected, not part of this slice's new
+proofs.)
+
+**Why this is the right reason**: both received values are literally the pre-S-000 fixed
+fallback `"run failed"` — the absence of the routing this whole change exists to add, not a
+typo or fixture bug.
+
+**Class 2 — new in S-002** (the scrub actually recognizes real path shapes): the deep-root
+unit case and the e2e Windows/UNC/WSL leak-absence + "disclosure decision, pinned live"
+cases. Derived by restoring ONLY `src/transport/error-text.ts` to `c78eb5b^` (S-000's
+identity stub; `runner.ts` stays current so routing is still in place):
+
+```
+$ git show c78eb5b^:src/transport/error-text.ts > /tmp/pre-s002-error-text.ts
+$ cp /tmp/pre-s002-error-text.ts src/transport/error-text.ts
+$ bun test test/transport/error-text.unit.test.ts test/fake/exit-matrix.e2e.test.ts
+```
+
+```
+error: expect(received).not.toContain(expected)
+Expected to not contain: "CANARY-windows-leak-..."
+Received: "...\npbuilder-runner: ENOENT: no such file, open 'C:\Users\dev\CANARY-windows-leak-...-project\app.module.ts'\n"
+(fail) ... > windows: a canary-seeded Windows drive-letter path never reaches stderr raw
+
+error: expect(received).not.toContain(expected)
+(fail) ... > unc: a canary-seeded UNC path never reaches stderr raw
+
+error: expect(received).not.toContain(expected)
+(fail) ... > wsl: a canary-seeded WSL-interop path never reaches stderr raw
+
+error: expect(received).toContain(expected)
+Expected to contain: "pbuilder-runner: ENOENT: no such file, open '../../../../../../CANARY-depth-proof-...-secret-dir/app.module.ts'\n"
+Received: "...\npbuilder-runner: ENOENT: no such file, open '/home/barri/CANARY-depth-proof-...-secret-dir/app.module.ts'\n"
+(fail) ... > disclosure decision, pinned live: ... (RAW absolute path, not the relative chain)
+
+error: expect(received).toEqual(expected)
+Expected: "ENOENT: no such file, open '../../../../../../../../secret-dir/app.module.ts'"
+Received: "ENOENT: no such file, open '/home/dev/secret-dir/app.module.ts'"
+(fail) ... > disclosure decision (REQ-WPS-07's own ../-relative mandate, pinned): ...
+
+ 24 pass
+ 13 fail
+ 62 expect() calls
+```
+
+(The remaining 8 failures are pre-existing S-002 `REQ-WPS-07.4/.6` cases, correctly
+regressing against the identity stub — expected, not new proofs of this slice.)
+
+**Why this is the right reason**: every new failure is the identity-stub scrub returning
+the input unchanged — the raw canary/absolute path is received verbatim where a scrubbed
+or relative form was expected. Absence of the production behavior, not a setup error.
+
+**Not red-derivable — a pin, not new behavior**: the pure-function secret-passthrough case
+in `error-text.unit.test.ts` (`DB_PASSWORD=hunter2`, no path-shaped content) passes
+trivially against BOTH the identity stub (Class 2 revert) AND the real S-002 matcher — an
+identity function and a correctly-scoped path-only matcher both leave non-path content
+untouched. Same category and same honesty standard as S-002's own two prose-survival
+cases; not forced into an artificial red.
+
+### Green proof
+
+```
+$ cp /tmp/current-runner.ts src/transport/runner.ts        # after Class 1 revert
+$ cp /tmp/current-error-text.ts src/transport/error-text.ts
+$ diff /tmp/current-runner.ts src/transport/runner.ts       # (no output)
+$ diff /tmp/current-error-text.ts src/transport/error-text.ts   # (no output, before Class 2 revert)
+$ cp /tmp/current-error-text.ts src/transport/error-text.ts # after Class 2 revert
+$ diff /tmp/current-error-text.ts src/transport/error-text.ts   # (no output — byte-identical restoration)
+
+$ bunx tsc --noEmit
+(no diagnostics, exit 0)
+
+$ bun test test/transport/error-text.unit.test.ts test/transport/runner.unit.test.ts test/fake/exit-matrix.e2e.test.ts
+ 59 pass
+ 0 fail
+ 128 expect() calls
+Ran 59 tests across 3 files. [940.00ms]
+
+$ git status --short src/
+(no output — src/ untouched by this slice, as S-003.3 anticipated: S-002's scrub already
+satisfies REQ-WPS-07.5/.4/.6 end to end)
+```
+
+### Files touched
+
+| File | Change |
+|---|---|
+| `test/fixtures/frame-runner/secret-error/factory.ts` | new — REQ-WPS-07.5 fixture, `throw new Error("...DB_PASSWORD=hunter2...")` |
+| `test/fixtures/frame-runner/canary-path-leak/factory.ts` | new — REQ-WPS-07.4 e2e fixture, canary-seeded POSIX/Windows path; exports its path-builders so the e2e test can independently compute the expected scrub outcome |
+| `test/fixtures/frame-runner/unc-path-leak/factory.ts` | new — REQ-WPS-07.6 e2e fixture, canary-seeded UNC/WSL path; same export pattern |
+| `test/transport/error-text.unit.test.ts` | +2 cases: deep-root disclosure-decision pin (REQ-WPS-07.2/.4), secret-passthrough pin (REQ-WPS-07.5) |
+| `test/transport/runner.unit.test.ts` | +1 case: REQ-WPS-07.5 in-process pin via `SECRET_ERROR_POINTER` |
+| `test/fake/exit-matrix.e2e.test.ts` | +5 cases: Windows/UNC/WSL canary-leak-absence, REQ-WPS-07.5 e2e residual pin, disclosure-decision-pinned-live |
+
+No `src/` file touched.
+
+### Decisions the plan did not specify
+
+- **The disclosure-decision question is resolved by REQ-WPS-07's pre-existing main-body
+  text, not by REQ-WPS-07.5.** REQ-WPS-07.5 governs a different content class entirely
+  (non-path-shaped secrets); the `../`-chain depth-disclosure question is a REQ-WPS-07.2/.4
+  question. Reported precisely rather than force-fit into the REQ-ID the open question
+  named, per the "halt over heuristic, never silently improvise" instruction — this is
+  disambiguation, not scope creep: the underlying question ("does the disclosure rule
+  accept this?") is answered either way; only which REQ-ID's text answers it changed.
+- **`canary-path-leak`'s "posix" leak sub-case was removed, not merely weakened** — see "A
+  fixture-design correction made mid-slice" above. Documented rather than silently dropped.
+- **Path-builder functions exported from the fixture files** (`posixCanaryPath`,
+  `windowsCanaryPath`, `uncCanaryPath`, `wslCanaryPath`) so the e2e test computes its
+  expectations from the SAME template the factory throws, instead of duplicating the
+  string or hand-deriving the expected `../` chain — avoids two divergent sources of truth
+  for what path each style constructs.
+- **`secret-error`'s fixture directory name collided with GateGuard's `secret` sensitive-path
+  substring match** (false positive — same class of collision as S-001's
+  `curated-authoring`/`auth` collision). Cleared by stating importers (none yet — this
+  fixture and both its consumers were added together in this slice), public surface (none —
+  a test-only default export, no production code), and the motivating slices.md task text,
+  then retrying the write, which the hook allowed.
+- **`.toContain`, not `.toEqual`, for the e2e secret/disclosure-decision assertions**: a
+  real spawned run also prints `defineFactory`'s "no schema.json found" warning straight to
+  the child's stderr via `console.warn` — bypassing the runner's own `io.writeStderr`
+  abstraction entirely, so the in-process unit tests (which use a mock `io`) never see it
+  while the e2e tests (which capture the real OS stderr stream) always do. Pre-existing
+  behavior, unrelated to this slice; the existing case (d) test already uses `.toContain`
+  for the same reason. The contained string in each case is still the FULL composed note,
+  so this stays an exact-form proof, not a weakened substring check.
+
+### Deviations from `slices.md`
+
+- **The `canary-path-leak` fixture's "posix" leak sub-case, implied by S-003.2's task text
+  ("style: posix" alongside "style: windows"), was replaced by the stronger
+  "disclosure decision, pinned live" case rather than kept as a bare non-containment
+  assertion** — see "A fixture-design correction made mid-slice" above. The fixture and
+  both styles still exist and are still exercised; only the ASSERTION for the posix style
+  changed, because the original assertion shape was incompatible with the disclosure
+  decision this same slice had to settle.
+
+### Known gaps
+
+None new. All gaps carried forward from S-002 (`apply-progress.md`'s S-002 section) are
+unaffected by this slice — no `src/` change occurred.
+
+---
+
+## Build summary
+
+All 4 slices of `sdk-plain-error-note` complete.
+
+| Slice | Covers | Commit | `src/` change |
+|---|---|---|---|
+| S-000 (walking skeleton) | REQ-RUN-09 (branch exists), REQ-RUN-09.1 (e2e proof) | `abd9736` | ternary widened 3→4 branches; `scrubAbsolutePaths` identity stub |
+| S-001 | REQ-RUN-09.1-.4 | `9e2584c` | none — routing pinned against S-000's ternary |
+| S-002 | REQ-WPS-07.4, REQ-WPS-07.6 | `c78eb5b` | `scrubAbsolutePaths` real matcher (`WINDOWS_UNC_ABS_PATH` + `POSIX_ABS_PATH`) |
+| S-003 | REQ-WPS-07.5, REQ-WPS-07.4 (e2e), REQ-WPS-07.6 (e2e) | *(this commit — see `git log -1`)* | none — S-002's matcher already satisfies the disclosure rule end to end |
+
+**Disclosure-decision question, settled by S-003**: a POSIX path outside the project root
+renders as a `../`-relative chain (depth and tail both survive) rather than the
+`<outside-project>` placeholder — decided compliant by REQ-WPS-07's own pre-existing text
+("the project-relative form MUST be expressed as a `../`-relative path"), not a gap this
+change introduced or needed to close. Windows/UNC/WSL shapes remain fully opaque
+(`<outside-project>`, zero survival), per ADR-02.
+
+**Final full-suite result** (once, alone, per the operational lock-file discipline recorded
+in S-000's section):
+
+```
+$ bun test
+ 2676 pass
+ 0 fail
+ 7434 expect() calls
+Ran 2676 tests across 202 files. [89.06s]
+```
+
+2676 = 2668 (S-002 baseline) + 8 new S-003 cases (2 in `error-text.unit.test.ts`, 1 in
+`runner.unit.test.ts`, 5 in `exit-matrix.e2e.test.ts`). No regression across any of the 4
+slices' full-suite runs (2652 → 2658 → 2668 → 2676).
+
+`bunx tsc --noEmit`: clean (no diagnostics) at every slice, including this one.

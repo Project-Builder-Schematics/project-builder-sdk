@@ -24,6 +24,7 @@ const CURATED_AUTHORING_POINTER = `file://${new URL("../fixtures/frame-runner/cu
 const CURATED_TRANSPORT_POINTER = `file://${new URL("../fixtures/frame-runner/curated-transport/", import.meta.url).pathname}factory.ts`;
 const CURATED_INTENT_POINTER = `file://${new URL("../fixtures/frame-runner/curated-intent/", import.meta.url).pathname}factory.ts`;
 const LONG_PLAIN_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/long-plain-error/", import.meta.url).pathname}factory.ts`;
+const SECRET_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/secret-error/", import.meta.url).pathname}factory.ts`;
 
 // Stub io whose `writeFrame` always throws `guard`: every gate under test must reject
 // before the runner ever writes a frame.
@@ -353,5 +354,17 @@ describe("REQ-RUN-09 — terminal catch routes every thrown-value shape to its c
     expect(exitCode).toEqual(4);
     // Bounded text (MESSAGE_CEILING_CHARS) + the trailing "\n" note() always appends.
     expect(host.stderrText().length).toEqual(MESSAGE_CEILING_CHARS + 1);
+  });
+
+  it("Scenario REQ-WPS-07.5 (in-process pin): a plain Error's secret-shaped, non-path content reaches the note verbatim — the documented residual, not a regression", async () => {
+    const host = makeInProcessHost({});
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", SECRET_ERROR_POINTER, "--input", "{}"], host.io);
+
+    expect(exitCode).toEqual(4);
+    expect(host.stderrText()).toEqual(
+      "pbuilder-runner: configuration rejected: DB_PASSWORD=hunter2 failed validation\n"
+    );
   });
 });

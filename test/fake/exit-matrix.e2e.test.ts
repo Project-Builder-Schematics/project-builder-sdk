@@ -13,13 +13,15 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { frameHostFactory } from "../support/frame-host.ts";
 import { serveSpawnedRunner } from "./fake-engine-harness.ts";
 import { ContractFake } from "../../src/testing/contract-fake.ts";
 import { encodeFrame } from "../../src/transport/framing.ts";
 import { FrameReader } from "../../src/transport/frame-reader.ts";
 import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../src/transport/wire-protocol.ts";
+import { canaryToken } from "../support/canary.ts";
+import { posixCanaryPath } from "../fixtures/frame-runner/canary-path-leak/factory.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const RUNNER_BIN = new URL("../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;
@@ -27,6 +29,9 @@ const BRIDGE_STUB = new URL("../fixtures/bridge-bootstrap-stub.ts", import.meta.
 const HAPPY_POINTER = `file://${new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;
 const COLLIDE_POINTER = `file://${new URL("../fixtures/frame-runner/collide/", import.meta.url).pathname}factory.ts`;
 const CRASH_POINTER = `file://${new URL("../fixtures/frame-runner/crash/", import.meta.url).pathname}factory.ts`;
+const SECRET_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/secret-error/", import.meta.url).pathname}factory.ts`;
+const CANARY_PATH_LEAK_POINTER = `file://${new URL("../fixtures/frame-runner/canary-path-leak/", import.meta.url).pathname}factory.ts`;
+const UNC_PATH_LEAK_POINTER = `file://${new URL("../fixtures/frame-runner/unc-path-leak/", import.meta.url).pathname}factory.ts`;
 
 const spawnFrameHost = frameHostFactory();
 
@@ -292,5 +297,86 @@ describe("REQ-EXC-01.3 — handshake-time failures all classify as code 1 (trio:
     expect(host.stderrText()).toContain(String(mismatchedVersion));
     expect(host.stderrText()).toContain(String(BRIDGE_CONTRACT_VERSION));
     expect(host.stderrText()).not.toContain("frame-runner crash fixture");
+  });
+});
+
+// REQ-WPS-07.4/.5/.6 (S-003) — disclosure rule holds, proven live over the REAL spawned
+// runner bin, for every platform shape the scrub claims to close. Windows/UNC/WSL route
+// unconditionally to `<outside-project>` (ADR-02) — NOTHING of the seeded canary survives,
+// proven below by strict non-containment. POSIX is DIFFERENT and deliberately so: it
+// renders as a `../`-relative chain per REQ-WPS-07's own text ("the project-relative form
+// MUST be expressed as a ../-relative path"), and that chain's tail — everything below the
+// common ancestor of the project root and the outside path — survives verbatim BY DESIGN
+// (it is the diagnostic signal, same rationale as REQ-WPS-07.5's secret-content residual).
+// A canary seeded INTO that tail therefore cannot be asserted absent without contradicting
+// the spec's own decided behavior; the dedicated "disclosure decision" case below proves
+// the POSIX shape honestly instead — the exact ../-relative form, tail and depth included,
+// and the absence of the ORIGINAL ABSOLUTE path (the one property POSIX scrubbing DOES
+// guarantee: REQ-WPS-07.2, "never falls back to absolute").
+describe("REQ-WPS-07.4/.5/.6 (e2e, canary-seeded) — the disclosure rule holds over a real spawned run", () => {
+  it("windows: a canary-seeded Windows drive-letter path never reaches stderr raw", async () => {
+    const canary = canaryToken("windows-leak");
+    const fake = new ContractFake({ seed: {} });
+    const host = spawnRunner(["--factory", CANARY_PATH_LEAK_POINTER, "--input", JSON.stringify({ canary, style: "windows" })]);
+    const run = await serveSpawnedRunner(host, fake);
+
+    expect(run.exitCode).toEqual(4);
+    expect(run.stderr).not.toContain(canary);
+  });
+
+  it("unc: a canary-seeded UNC path never reaches stderr raw", async () => {
+    const canary = canaryToken("unc-leak");
+    const fake = new ContractFake({ seed: {} });
+    const host = spawnRunner(["--factory", UNC_PATH_LEAK_POINTER, "--input", JSON.stringify({ canary, style: "unc" })]);
+    const run = await serveSpawnedRunner(host, fake);
+
+    expect(run.exitCode).toEqual(4);
+    expect(run.stderr).not.toContain(canary);
+  });
+
+  it("wsl: a canary-seeded WSL-interop path never reaches stderr raw", async () => {
+    const canary = canaryToken("wsl-leak");
+    const fake = new ContractFake({ seed: {} });
+    const host = spawnRunner(["--factory", UNC_PATH_LEAK_POINTER, "--input", JSON.stringify({ canary, style: "wsl" })]);
+    const run = await serveSpawnedRunner(host, fake);
+
+    expect(run.exitCode).toEqual(4);
+    expect(run.stderr).not.toContain(canary);
+  });
+
+  it("REQ-WPS-07.5 (e2e): secret-shaped, non-path content in a real spawned run reaches stderr verbatim — documented residual, proven live", async () => {
+    const fake = new ContractFake({ seed: {} });
+    const host = spawnRunner(["--factory", SECRET_ERROR_POINTER, "--input", "{}"]);
+    const run = await serveSpawnedRunner(host, fake);
+
+    expect(run.exitCode).toEqual(4);
+    // .toContain, not .toEqual: a real spawned run also prints defineFactory's own
+    // "no schema.json found" warning straight to the child's stderr (console.warn,
+    // bypassing the runner's `io` abstraction — unrelated noise, not this slice's concern).
+    expect(run.stderr).toContain("pbuilder-runner: configuration rejected: DB_PASSWORD=hunter2 failed validation\n");
+  });
+
+  it("disclosure decision, pinned live: a POSIX path outside this real (deeply-nested worktree) project root renders the FULL ../-relative chain — depth and tail both survive, exactly as REQ-WPS-07's own ../-relative mandate specifies, not a weaker 'no leading slash' check that would let the depth/tail leak silently", async () => {
+    const canary = canaryToken("depth-proof");
+    const absolutePath = posixCanaryPath(canary);
+    // Computed via the SAME `relative()` the production scrub calls (against this test's
+    // own PROJECT_ROOT, which is the literal `cwd` the runner is spawned with below) — a
+    // self-verifying expectation, not a hand-counted guess at how many "../" segments a
+    // real, deeply-nested worktree checkout produces.
+    const expectedRelative = relative(PROJECT_ROOT, absolutePath);
+
+    const fake = new ContractFake({ seed: {} });
+    const host = spawnRunner(["--factory", CANARY_PATH_LEAK_POINTER, "--input", JSON.stringify({ canary, style: "posix" })]);
+    const run = await serveSpawnedRunner(host, fake);
+
+    expect(run.exitCode).toEqual(4);
+    // .toContain (not .toEqual) for the same schema-warning-noise reason as above — but the
+    // contained string is the FULL composed note, so this is still an exact-form proof: the
+    // depth (../ count) and the tail (secret-dir/app.module.ts, canary included) both
+    // survive verbatim, and the ORIGINAL ABSOLUTE canary path never appears anywhere.
+    expect(run.stderr).toContain(`pbuilder-runner: ENOENT: no such file, open '${expectedRelative}'\n`);
+    expect(expectedRelative.split("/").filter((seg) => seg === "..").length).toBeGreaterThan(1);
+    expect(expectedRelative).toContain(`${canary}-secret-dir/app.module.ts`);
+    expect(run.stderr).not.toContain(absolutePath);
   });
 });
