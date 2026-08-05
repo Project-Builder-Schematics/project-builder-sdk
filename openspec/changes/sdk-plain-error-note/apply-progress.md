@@ -773,7 +773,7 @@ All 4 slices of `sdk-plain-error-note` complete.
 | S-000 (walking skeleton) | REQ-RUN-09 (branch exists), REQ-RUN-09.1 (e2e proof) | `abd9736` | ternary widened 3→4 branches; `scrubAbsolutePaths` identity stub |
 | S-001 | REQ-RUN-09.1-.4 | `9e2584c` | none — routing pinned against S-000's ternary |
 | S-002 | REQ-WPS-07.4, REQ-WPS-07.6 | `c78eb5b` | `scrubAbsolutePaths` real matcher (`WINDOWS_UNC_ABS_PATH` + `POSIX_ABS_PATH`) |
-| S-003 | REQ-WPS-07.5, REQ-WPS-07.4 (e2e), REQ-WPS-07.6 (e2e) | *(this commit — see `git log -1`)* | none — S-002's matcher already satisfies the disclosure rule end to end |
+| S-003 | REQ-WPS-07.5, REQ-WPS-07.4 (e2e), REQ-WPS-07.6 (e2e) | `d2339bc` | none — S-002's matcher already satisfies the disclosure rule end to end |
 
 **Disclosure-decision question, settled by S-003**: a POSIX path outside the project root
 renders as a `../`-relative chain (depth and tail both survive) rather than the
