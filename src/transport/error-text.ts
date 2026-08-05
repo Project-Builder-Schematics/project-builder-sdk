@@ -56,13 +56,25 @@ export function composeWithToken(prefix: string, token: string, suffix = ""): st
 // drive-letter branch's negative lookbehind keeps it from firing on a letter-colon-slash
 // that isn't a path boundary (e.g. the "e:/" inside "file:///..." must NOT be read as a
 // drive letter — that segment belongs to POSIX_ABS_PATH instead).
-const WINDOWS_UNC_ABS_PATH = /(?:(?<![A-Za-z0-9_])[A-Za-z]:[\\/]|\\\\)[^\s'"<>]*/g;
+//
+// A literal space does not end the match: it's consumed via the second alternative ONLY
+// when a lookahead proves the path keeps going — more non-terminator characters followed by
+// a separator (e.g. "Program Files\x"). A space with no further separator ahead (the path
+// ends, or a quote/space terminates the token first) is NOT consumed, so prose is never
+// swallowed past the actual path boundary.
+const WINDOWS_UNC_ABS_PATH = /(?:(?<![A-Za-z0-9_])[A-Za-z]:[\\/]|\\\\)(?:[^\s'"<>]|[ ](?=[^\s'"<>]*[\\/]))*/g;
 
-// REQ-WPS-07.4: a POSIX absolute path — leading "/" plus at least one more "/"-delimited
-// segment, so a lone slash inside prose ("and/or", "24/7") is never mistaken for a path
-// root. Runs SECOND, after WINDOWS_UNC_ABS_PATH has already consumed any Windows/UNC/WSL
-// match in full, so a forward-slash Windows path is never partially re-matched here.
-const POSIX_ABS_PATH = /\/(?:[^\s'"<>]+\/)+[^\s'"<>]*/g;
+// REQ-WPS-07.4: a POSIX absolute path. The leading "/" carries a negative lookbehind — the
+// same boundary check the Windows drive-letter branch above already relies on — so a slash
+// preceded by a word character (prose like "and/or", "24/7") is never mistaken for a path
+// root, while a slash preceded by a real boundary (start of string, space, quote, paren, "=",
+// ":") is. That boundary check is what lets a SINGLE segment ("/root", "/etc" — no second
+// "/" to require) count as absolute without also matching prose fractions.
+//
+// Same space-survives-via-lookahead mechanism as WINDOWS_UNC_ABS_PATH above, for the same
+// reason (a directory name with a space, e.g. "Application Support/x", must not truncate the
+// match at the space).
+const POSIX_ABS_PATH = /(?<![A-Za-z0-9_])\/(?:[^\s'"<>]|[ ](?=[^\s'"<>]*\/))+/g;
 
 // REQ-WPS-07.4/.6: scrubs absolute-path-shaped substrings embedded anywhere in a plain
 // Error's free-text message — Windows/UNC/WSL shapes to the outside-project placeholder

@@ -1,7 +1,7 @@
 # Delta for pbuilder-runner-bin
 
 **Spec version**: V1
-**Status**: draft — awaiting single-signature confirmation
+**Status**: signed — 2026-08-01
 **Change**: `sdk-plain-error-note`
 
 ## ADDED Requirements

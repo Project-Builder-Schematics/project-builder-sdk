@@ -21,7 +21,7 @@ import { encodeFrame } from "../../src/transport/framing.ts";
 import { FrameReader } from "../../src/transport/frame-reader.ts";
 import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../src/transport/wire-protocol.ts";
 import { canaryToken } from "../support/canary.ts";
-import { posixCanaryPath } from "../fixtures/frame-runner/canary-path-leak/factory.ts";
+import { posixCanaryPath, posixSpaceCanaryPath } from "../fixtures/frame-runner/canary-path-leak/factory.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const RUNNER_BIN = new URL("../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;
@@ -322,6 +322,51 @@ describe("REQ-WPS-07.4/.5/.6 (e2e, canary-seeded) — the disclosure rule holds 
 
     expect(run.exitCode).toEqual(4);
     expect(run.stderr).not.toContain(canary);
+  });
+
+  // The existing canary-seeded cases above never exercise the whitespace-in-a-path-segment
+  // bypass: `canaryToken()` is `[a-z0-9]`-only, so the canary itself can never contain a
+  // space, and every fixture path here was previously space-free too — a real gap, since a
+  // space mid-path (macOS "Application Support", Windows "Program Files") is a default OS
+  // shape, not an exotic one. These two seed the canary AFTER a literal space-bearing
+  // segment, live over the real spawned bin, so a truncated match would leak the canary raw.
+  it("windows: a canary-seeded Windows drive-letter path with a space in a directory segment ('Program Files'-style) never reaches stderr raw", async () => {
+    const canary = canaryToken("windows-space-leak");
+    const fake = new ContractFake({ seed: {} });
+    const host = spawnRunner([
+      "--factory",
+      CANARY_PATH_LEAK_POINTER,
+      "--input",
+      JSON.stringify({ canary, style: "windows-space" }),
+    ]);
+    const run = await serveSpawnedRunner(host, fake);
+
+    expect(run.exitCode).toEqual(4);
+    expect(run.stderr).not.toContain(canary);
+  });
+
+  it("posix: a canary-seeded path with a space in a directory segment ('Application Support'-style) is scrubbed in full — the space never truncates the match, proven by the same depth/tail self-verification as the plain disclosure-decision case below", async () => {
+    const canary = canaryToken("posix-space-leak");
+    const absolutePath = posixSpaceCanaryPath(canary);
+    const expectedRelative = relative(PROJECT_ROOT, absolutePath);
+    const fake = new ContractFake({ seed: {} });
+    const host = spawnRunner([
+      "--factory",
+      CANARY_PATH_LEAK_POINTER,
+      "--input",
+      JSON.stringify({ canary, style: "posix-space" }),
+    ]);
+    const run = await serveSpawnedRunner(host, fake);
+
+    expect(run.exitCode).toEqual(4);
+    // POSIX intentionally discloses the ../-relative tail (REQ-WPS-07.2) — the canary
+    // legitimately survives IN that tail, same disclosure decision as the plain case below.
+    // What this proves instead: the space did not truncate the match into two independently
+    // re-relativized fragments (the exact bug this fix closes) — the ORIGINAL ABSOLUTE path
+    // is what must never survive, and the composed note must match the single coherent
+    // ../-relative form byte-for-byte, not a garbled "Support../<canary>" split.
+    expect(run.stderr).toContain(`pbuilder-runner: ENOENT: no such file, open '${expectedRelative}'\n`);
+    expect(run.stderr).not.toContain(absolutePath);
   });
 
   it("unc: a canary-seeded UNC path never reaches stderr raw", async () => {

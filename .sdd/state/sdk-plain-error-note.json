@@ -1,0 +1,33 @@
+{
+  "change": "sdk-plain-error-note",
+  "program": "error-observability",
+  "repo": "project-builder-sdk",
+  "triage": "M",
+  "sensitivity": "fired — disclosure-control override (uncurated text reaches stderr)",
+  "phase": "evaluate — steward reckoning RESOLVED. Next: archive",
+  "spec_status": "signed",
+  "slices": true,
+  "slice_count": 4,
+  "plan_verify": "n/a — M with spec_source=internal and write_mode=sync, gate does not fire",
+  "verify_final": "pass-with-followups",
+  "arch_audit": null,
+  "outcome": "delivered-pending-activation",
+  "iteration": 1,
+  "branch": "feat/sdk-plain-error-note",
+  "pr_policy": "one PR at build end, a second for /evaluate (owner ruling)",
+  "updated_at": "2026-08-05",
+  "slices_done": [
+    "S-000",
+    "S-001",
+    "S-002",
+    "S-003"
+  ],
+  "open_question": "RESOLVED: the ../-chain IS the spec-mandated compliant form (wire-protocol-spec REQ-WPS-07.2/.4, verified verbatim by the orchestrator). Not a residual leak.",
+  "verify_in_loop": "pass (iteration 1, no blockers, 2 followups applied in 8df124a)",
+  "suite": "2676 pass / 0 fail, tsc clean",
+  "build_pr": 68,
+  "adversarial_review": "required — 2 rounds run, resolved by owner ruling (keep fix, defer mechanism)",
+  "evaluate_branch": "feat/sc1-evaluate",
+  "outcome_ratified_by": "owner, 2026-08-06 — all three conscience questions answered",
+  "outcome_deferred_until": "cli-runner-note-rendering S-000..S-002 land AND the CLI go.mod engine pin advances past project-builder-engine #195"
+}

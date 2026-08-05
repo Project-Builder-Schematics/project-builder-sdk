@@ -133,10 +133,12 @@ function findArchivedChangeDir(changeName: string): string {
   return join(archiveRoot, match.name);
 }
 
-// REQ-FEH-05: the maintained expected REQ-ID count (V4 signed spec.md, 2026-07-15 — V4 is a
-// content-only amendment, count unchanged from V3) — a spec edit that adds/removes a REQ
-// without updating this constant fails FEH-05.2 loudly.
-const EXPECTED_REQ_COUNT = 41;
+// REQ-FEH-05: the maintained REQ-ID count across THIS_SPEC_DOMAIN_DIRS as they stand in the
+// LIVE openspec/specs tree — a spec edit that adds or removes a REQ without updating this
+// constant fails FEH-05.2 loudly. It tracks the evolving specs, NOT the frozen content of any
+// sealed archive: the archive-rehearsal test above compares the resolver's output against the
+// archived markdown it was given, which is self-verifying and must not be pinned to this number.
+const EXPECTED_REQ_COUNT = 42;
 
 // S-005 shrunk this to empty (shrink-only, never grow — see S-004's Discoveries for the
 // original build-ordering rationale). All four were S-004-time gaps because their exercising
@@ -403,7 +405,6 @@ describe("REQ-FEH-03 — spec-derived harness (anti-tautology)", () => {
       const missingPreArchive = join(dir, "changes", "stdio-engine-client", "spec.md");
       const { reqIds } = resolveSpecReqIds(missingPreArchive, simulatedSpecsDir);
 
-      expect(reqIds.length).toEqual(EXPECTED_REQ_COUNT);
       expect([...new Set(reqIds)].sort()).toEqual([...new Set(parseReqIds(specMarkdown))].sort());
     } finally {
       rmSync(dir, { recursive: true, force: true });

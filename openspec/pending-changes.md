@@ -6,6 +6,14 @@ Followups registered from archived changes. Visible to future `/plan` grooming.
 > Every row carries a **Stage** tag from that plan (or an explicit "not now"). The stage item is
 > now the unit of scheduling; this file remains the debt ledger of record.
 
+## From `sdk-plain-error-note` (2026-08-06) — archived with outcome delivered-pending-activation
+
+| Description | Type | Size | Gating? | Stage | Cross-repo? |
+|---|---|---|---|---|---|
+| **outcome-check followup (steward deferred-activation duty)**: CLI `cli-runner-note-rendering` S-000..S-002 lands in `project-builder-cli` (check: `git grep RunnerNote origin/main -- internal/` returns matches) AND the CLI's engine pin advances past `project-builder-engine` #195 (commit `4f67b9a`) — reachability verified against both repos' `origin/main`. Outcome closes as delivered when both conditions met | outcome-check | S | — | — | **✓ engine + cli repos** |
+
+> **Outcome registration**: outcome-verdict recorded as `delivered-pending-activation` (2026-08-06, owner ratified). The error message now surfaces to the SDK binary; the operator sees it only when CLI renders it. Deferred until downstream repos land. Archive commit SHA: minted when archive lands on main.
+
 ## From `positive-create-conformance` (2026-07-29) — archived with outcome delivered-pending-activation
 
 | Description | Type | Size | Gating? | Stage | Cross-repo? |
@@ -741,3 +749,10 @@ prevent, so they are landed rather than re-noted.
 Source: change `runner-tripwire-invariants`, steward reckoning + archive re-audit (2026-08-05).
 Dispositions re-verified against the merged code, not re-drafted. The judgment-day section above
 carries JD-1..JD-8 and the `capability-admission-oracle` head row.
+
+## From `sdk-plain-error-note` (2026-08-06) — deferred mechanism change, registered at final apply
+
+| Description | Type | Size | Gating? | Stage |
+|---|---|---|---|---|
+| **`error-text-prefix-anchored-scrub`** — replace `scrubAbsolutePaths`'s shape-guessing regexes with anchoring on KNOWN absolute prefixes (project root, `os.homedir()`, `os.tmpdir()`, SDK root) — exact strings, not an unbounded space of path shapes to keep enumerating — keeping the existing shape pass as defense in depth, not a replacement. Motivation: this pass fixed two demonstrated bypasses (whitespace ends the match; a single-segment POSIX path has no second `/` to require) in a matcher whose failure mode is "closes the shapes it was shown, not the shapes it wasn't" — the same class already cost this repo three rounds in `runner-tripwire-invariants`, registered there as `capability-admission-oracle`. Constraint: REQ-WPS-07.2 mandates the `../`-relative disclosure form for paths outside the project root, so this is a spec amendment, not just an implementation swap. **Tracked as [#69](https://github.com/Project-Builder-Schematics/project-builder-sdk/issues/69)**; the four concrete residuals that motivate it — including a **regression the round-1 fix introduced** (an absolute path with no separator before it stopped being scrubbed, which the pre-fix code caught) — are enumerated with executed evidence in [#70](https://github.com/Project-Builder-Schematics/project-builder-sdk/issues/70). A candidate repair for that regression was prototyped and **fails**: splitting the rule so only the single-segment branch carries the lookbehind lets the space-tolerance lookahead match `/or, 24/7` and mangle prose. Three independent attempts at this matcher have now each closed some shapes and opened others — the non-convergence is demonstrated, not argued | architecture | L | — | **before any further `scrubAbsolutePaths` shape work** |
+| **`error-text-e2e-assertion-strength`** — four e2e canary cases in `test/fake/exit-matrix.e2e.test.ts` (`windows-leak`, `windows-space-leak`, `unc-leak`, `wsl-leak`) assert only `exitCode === 4` and `not.toContain(canary)`, which passes just as well if the scrub regressed to returning `""` or over-matching the whole message away. Their siblings in the same file (`posix-space-leak`, the disclosure-decision case) assert full `.toEqual` — bring these four up to that bar. **This is the finding that explains the others**: every bypass in both adversarial rounds passed 100% of the suite, because four review passes all used multi-segment, space-free, URL-free inputs. Detail in [#70](https://github.com/Project-Builder-Schematics/project-builder-sdk/issues/70) §4 | test-coverage | S | — | **next `exit-matrix.e2e.test.ts` touch, or with `error-text-prefix-anchored-scrub`** |
