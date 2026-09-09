@@ -1,12 +1,12 @@
-// REQ-RUN-01 (argv XOR), REQ-RUN-04 (input-file size-cap-only + line/col parse),
+// REQ-RUN-01 (argv XOR), REQ-RUN-04 (input-file size cap + line/col parse),
 // REQ-RUN-07 (import-failure classification split 1-vs-4): the runner's pre-run gates,
 // driven through the public `runRunner` entry with a minimal injectable io — no subprocess
 // (spawn-dependent legs are S-002.6's e2e matrix).
 
 import { describe, it, expect, afterEach } from "bun:test";
-import { mkdtempSync, writeFileSync, truncateSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, truncateSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { encodeFrame } from "../../src/transport/framing.ts";
 import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
 import { runRunner, type RunnerIo } from "../../src/transport/runner.ts";
@@ -124,6 +124,7 @@ describe("REQ-RUN-04 — input-file size cap + fail-closed parse", () => {
     const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input-file", path], io);
 
     expect(exitCode).toEqual(1);
+    expect(io.stderrText()).toEqual("pbuilder-runner: --input-file exceeds the 10485760-byte cap\n");
     expect(io.stderrText()).not.toContain("line");
     expect(io.stderrText()).not.toContain("column");
   });
@@ -142,13 +143,33 @@ describe("REQ-RUN-04 — input-file size cap + fail-closed parse", () => {
     const io = unreachedIo();
     const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input-file", path], io);
 
-    // Not rejected by the SIZE gate: it proceeds far enough to await the greeting, which
-    // unreachedIo's empty input starves — runRunner treats that as an invalid/absent
-    // greeting (exit 1), but for a DIFFERENT reason than the size cap (proven by the
-    // absence of any input-file wording in stderr).
     expect(exitCode).toEqual(1);
-    expect(io.stderrText()).not.toContain("input-file");
-    expect(io.stderrText()).not.toContain("cap");
+    expect(io.stderrText()).toEqual('pbuilder-runner: invalid greeting — expected {method:"ready", protocolVersion:<integer>}\n');
+  });
+
+  for (const mode of ["absolute", "relative", "outside-cwd symlink"] as const) {
+    it(`accepts valid regular input through an ${mode} path and commits`, async () => {
+      const target = scratchFile("input.json");
+      writeFileSync(target, "{}");
+      let path = mode === "relative" ? relative(process.cwd(), target) : target;
+      if (mode === "outside-cwd symlink") {
+        path = scratchFile("input-link.json");
+        symlinkSync(target, path, "file");
+      }
+      const host = makeInProcessHost({ seed: { "seed.txt": "regular-input" } });
+      host.sendReady();
+      expect(await runRunner(["--factory", HAPPY_POINTER, "--input-file", path], host.io)).toEqual(0);
+      expect(host.fake.committedTree().get("out.txt")).toEqual("read:regular-input");
+    });
+  }
+
+  it("rejects a directory as unreadable before validating the factory URL", async () => {
+    const path = dirname(scratchFile("unused"));
+    const io = unreachedIo();
+    expect(await runRunner(["--factory", "https://invalid.example/factory.ts", "--input-file", path], io)).toEqual(1);
+    expect(io.stderrText()).toEqual(
+      `pbuilder-runner: --input-file could not be read — ${relative(process.cwd(), path)} is not a readable file\n`
+    );
   });
 
   it("REQ-WPS-07 (judgment-day F9): a missing --input-file never leaks the raw OS error or an absolute path to stderr", async () => {
@@ -164,7 +185,8 @@ describe("REQ-RUN-04 — input-file size cap + fail-closed parse", () => {
     // never with a bare leading "/" (the probe test's own assertion idiom).
     expect(io.stderrText()).not.toMatch(/— \//);
     expect(io.stderrText()).not.toMatch(/'\//);
-    expect(io.stderrText()).toContain("--input-file");
+    expect(io.stderrText()).toContain("--input-file could not be read — ");
+    expect(io.stderrText()).toContain(" is not a readable file\n");
   });
 
   it("Scenario REQ-RUN-04.2: malformed JSON in an under-cap input-file fails closed, reporting ONLY line/column — never the raw content", async () => {
