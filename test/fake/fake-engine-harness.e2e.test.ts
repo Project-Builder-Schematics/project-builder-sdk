@@ -4,6 +4,10 @@
 // advisory ir.commit acks -> exit 0. The adversarial matrix grows here in later slices.
 
 import { describe, it, expect } from "bun:test";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
 import { frameHostFactory } from "../support/frame-host.ts";
 import { serveSpawnedRunner } from "./fake-engine-harness.ts";
 import { ContractFake } from "../../src/testing/contract-fake.ts";
@@ -16,6 +20,50 @@ const HAPPY_POINTER = `file://${new URL("../fixtures/frame-runner/happy/", impor
 const SABOTAGE_POINTER = `file://${new URL("../fixtures/frame-runner/sabotage/", import.meta.url).pathname}factory.ts`;
 
 const spawnFrameHost = frameHostFactory();
+
+describe("input-file admission before greeting", () => {
+  for (const mode of ["FIFO", "symlink-to-FIFO", "conflicting FIFO"] as const) {
+    it.skipIf(process.platform === "win32" || Bun.which("mkfifo") === null)(
+      `rejects ${mode} without waiting for a writer or importing the factory`,
+      async () => {
+        const dir = mkdtempSync(join(tmpdir(), "runner-fifo-"));
+        try {
+          const fifo = join(dir, "input.fifo");
+          execFileSync("mkfifo", [fifo], { timeout: 2000 });
+          const path = mode === "symlink-to-FIFO" ? join(dir, "input-link") : fifo;
+          if (path !== fifo) symlinkSync(fifo, path);
+          const pointer = new URL("../fixtures/frame-runner/import-crash/factory.ts", import.meta.url).href;
+          const args = ["run", RUNNER_BIN, "--factory", pointer, "--input-file", path];
+          if (mode === "conflicting FIFO") args.push("--input", "{}");
+          const host = spawnFrameHost("bun", args, { cwd: PROJECT_ROOT });
+          let drainTimer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            // No ready frame: admission must finish without any host cooperation.
+            expect(await host.waitExit(2000)).toEqual({ code: 1, signal: null });
+            const stderr = mode === "conflicting FIFO"
+              ? "pbuilder-runner: --input and --input-file are mutually exclusive — pass exactly one\n"
+              : `pbuilder-runner: --input-file could not be read — ${relative(PROJECT_ROOT, path)} is not a readable file\n`;
+            await expect(Promise.race([
+              host.next(),
+              new Promise<never>((_, reject) => {
+                drainTimer = setTimeout(() => reject(new Error("stdout drain timed out")), 2000);
+              }),
+            ])).rejects.toThrow(`frame-host: stdout ended before a frame arrived (stderr: ${stderr})`);
+            expect(host.stderrText()).toEqual(stderr);
+          } finally {
+            clearTimeout(drainTimer);
+            host.kill();
+            const exit = await host.waitExit(2000);
+            expect(exit.code !== null || exit.signal !== null).toBe(true);
+          }
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      },
+      10000
+    );
+  }
+});
 
 function spawnRunner(input: unknown) {
   return spawnFrameHost(

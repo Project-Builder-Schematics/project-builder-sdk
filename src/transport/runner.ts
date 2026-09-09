@@ -113,7 +113,9 @@ function resolveInput(input: ParsedInput): ResolvedInput {
 
   let size: number;
   try {
-    size = statSync(input.path).size;
+    const stat = statSync(input.path);
+    if (!stat.isFile()) return unreadable();
+    size = stat.size;
   } catch {
     return unreadable();
   }
