@@ -78,14 +78,15 @@
     "regen:closure-baseline": "bun scripts/regen-closure-baseline.ts",
     "prepublishOnly": "bun run build",
     "publish:dry": "npm publish --dry-run",
-    "registry:up": "bunx verdaccio --config tools/verdaccio/config.yaml --listen 4873",
+    "registry:up": "verdaccio --config tools/verdaccio/config.yaml --listen 4873",
     "publish:local": "npm publish --registry http://localhost:4873 --tag local",
     "link:sdk": "bun run build && bun link"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
     "expect-type": "^1.3.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "verdaccio": "6.10.3"
   },
   "dependencies": {
     "ts-morph": "28.0.0"
