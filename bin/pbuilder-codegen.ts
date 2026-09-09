@@ -8,7 +8,10 @@
 // Lives OUTSIDE src/ (FIT-15: bin->core only, never core->bin) and imports the shared
 // schema cluster.
 
-import { readFileSync, writeFileSync, existsSync, realpathSync } from "node:fs";
+import {
+  readFileSync, writeFileSync, existsSync, realpathSync, lstatSync,
+  openSync, fstatSync, ftruncateSync, closeSync, constants,
+} from "node:fs";
 import { join, dirname, basename, resolve, sep } from "node:path";
 import { parseSchema, SchemaParseFailure, formatLocator } from "../src/core/schema/schema-parse.ts";
 import { computeSchemaDigest } from "../src/core/schema/schema-digest.ts";
@@ -44,6 +47,31 @@ export class SchemaSufficiencyFailure extends Error {
   }
 }
 
+class OutputWriteFailure extends Error {
+  constructor(outputPath: string, cause: unknown, reason?: string) {
+    const code = isErrnoException(cause) ? cause.code : undefined;
+    super(`pbuilder-codegen: ${outputPath}: ${reason ?? (
+      code === "ELOOP" ? "refusing symbolic-link output" : `cannot write output (${code ?? "unknown"})`
+    )}`, { cause });
+    this.name = "OutputWriteFailure";
+  }
+}
+
+function assertOutputLeaf(outputPath: string): void {
+  try {
+    const leaf = lstatSync(outputPath);
+    if (leaf.isSymbolicLink()) {
+      throw new OutputWriteFailure(outputPath, undefined, "refusing symbolic-link output");
+    }
+    if (!leaf.isFile()) {
+      throw new OutputWriteFailure(outputPath, undefined, "output is not a regular file");
+    }
+  } catch (err) {
+    if (isErrnoException(err) && err.code === "ENOENT") return;
+    throw err instanceof OutputWriteFailure ? err : new OutputWriteFailure(outputPath, err);
+  }
+}
+
 /**
  * Reads `<packageDir>/schema.json`, parses it, and writes `<packageDir>/schema.generated.ts`
  * — the bin's fixed, non-configurable output location (REQ-TFO-05.1/FPS-01).
@@ -59,7 +87,37 @@ export function generateSchema(packageDir: string): GenerateResult {
   const digest = computeSchemaDigest(raw);
   const output = emitInputType(schema, digest);
   const outputPath = join(packageDir, GENERATED_FILENAME);
-  writeFileSync(outputPath, output, "utf-8");
+  try {
+    if (process.platform === "linux" || process.platform === "darwin") {
+      assertOutputLeaf(outputPath);
+      if (!constants.O_NOFOLLOW || !constants.O_NONBLOCK) {
+        throw new OutputWriteFailure(outputPath, undefined, "safe output opening is unavailable");
+      }
+      // Bind mutation to the checked descriptor; pathname validation alone races with leaf substitution.
+      const fd = openSync(outputPath, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | constants.O_NONBLOCK, 0o666);
+      let failed = false;
+      try {
+        if (!fstatSync(fd).isFile()) {
+          throw new OutputWriteFailure(outputPath, undefined, "output is not a regular file");
+        }
+        ftruncateSync(fd, 0);
+        writeFileSync(fd, output, "utf-8");
+      } catch (err) {
+        failed = true;
+        throw err;
+      } finally {
+        try {
+          closeSync(fd);
+        } catch (err) {
+          if (!failed) throw err;
+        }
+      }
+    } else {
+      writeFileSync(outputPath, output, "utf-8");
+    }
+  } catch (err) {
+    throw err instanceof OutputWriteFailure ? err : new OutputWriteFailure(outputPath, err);
+  }
   return { outputPath, digest };
 }
 
@@ -112,6 +170,7 @@ function isWithin(anchor: string, target: string): boolean {
 function assertWriteContained(packageDirArg: string, outputPath: string): void {
   const anchor = realpathSync(findProjectRoot(process.cwd()));
   const resolvedPackageDir = realpathNearestExisting(resolve(packageDirArg));
+  if (process.platform === "linux" || process.platform === "darwin") assertOutputLeaf(outputPath);
   const resolvedOutputPath = realpathNearestExisting(resolve(outputPath));
   if (!isWithin(anchor, resolvedPackageDir) || !isWithin(anchor, resolvedOutputPath)) {
     throw new WriteContainmentRefusal(
@@ -187,6 +246,10 @@ export function runCli(argv: string[]): number {
   try {
     generateSchema(packageDir);
   } catch (err) {
+    if (err instanceof OutputWriteFailure) {
+      console.error(err.message);
+      return 1;
+    }
     if (err instanceof SchemaParseFailure) {
       console.error(formatParseError(schemaPath, err));
       return 1;
