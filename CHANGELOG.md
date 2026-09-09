@@ -6,6 +6,16 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.2.4
+
+### Diagnostics
+
+- **Changed**: `pbuilder-runner` now reports plain `Error` messages on stderr instead of
+  the generic `run failed`, with best-effort absolute-path scrubbing and the existing
+  message-length limit. Exit codes and the fallback for non-`Error` thrown values are
+  unchanged. Scrubbing is not a security boundary; authors must keep secrets out of error
+  messages.
+
 ## 0.2.3
 
 ### Documentation
