@@ -6,6 +6,54 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.3.0
+
+### Dialect AST libraries
+
+- **Added**: `@pbuilder/sdk/typescript` and `@pbuilder/sdk/react` export their complete
+  AST library as `astLibrary` at the existing dialect entrypoints, including runtime
+  helpers and upstream types. Use each namespace with its own dialect's AST; no
+  cross-dialect or cross-installation identity is guaranteed. Application `.modify()`
+  callbacks still receive only the AST; `find`, named ops, and inference are unchanged.
+- **Changed (breaking)**: Every dialect must expose its complete own library as
+  `astLibrary`. `DialectFixture` / `testDialect` now require `module`,
+  `expectedAstLibrary`, and `libraryExercise` in addition to `dialect` and `samples`.
+  **Migration**: pass the actual imported dialect entrypoint, independently resolved
+  adapter-library evidence, and a byte-exact editing exercise. Export the library with
+  native namespace forwarding, not a curated object or type-only export. See
+  [fixture migration](./docs/authoring-a-dialect.md#mandatory-module-export-and-fixture-migration)
+  for a complete example. `testOpPack` and application callbacks need no migration.
+
+### Project-wide type generation
+
+- **Added**: `pbuilder-codegen` with no arguments discovers the nearest
+  `project-builder.json` upward from the current directory. `--project <directory>`
+  selects that directory explicitly. Both process all registered collections; the
+  existing positional single-directory mode remains available.
+- Direct schematic directories and collection manifests are supported without importing
+  or executing factories. Canonical directory aliases are deduplicated. Destinations
+  outside the selected project root and symbolic-link outputs are refused.
+- Independent entries continue after failures, with warnings on stderr and a
+  generated/failed/duplicates summary on stdout. Any failure yields exit status `1`;
+  successful writes remain in place. See
+  [project-wide type generation](./README.md#project-wide-type-generation) for registration
+  formats, discovery rules, and write-boundary limitations.
+
+### File handling
+
+- **Fixed**: On Linux and macOS, codegen refuses symbolic-link and nonregular outputs
+  and checks the opened file before truncating or writing. Ordinary creation and
+  overwrite behavior are preserved. This is not a universal filesystem sandbox or
+  equivalent Windows writer hardening.
+- **Fixed**: `pbuilder-runner --input-file` rejects nonregular inputs before reading.
+  Regular files, including symlinks to regular files, retain their existing behavior.
+
+### Dependencies and tooling
+
+- Updated the locked `brace-expansion` dependency from `5.0.7` to `5.0.9`.
+- Pinned local Verdaccio to `6.10.3` and switched `registry:up` to the installed binary.
+  CI and publish-workflow Bun versions are pinned to `1.3.14`.
+
 ## 0.2.4
 
 ### Diagnostics
