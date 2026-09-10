@@ -1,19 +1,24 @@
-import type { Dialect, OpPack } from "../core/define-dialect.ts";
-/**
- * Fixture passed to `testDialect` to drive the conformance suite.
- * The fixture supplies the dialect under test plus representative source samples.
- *
- * @example
- * const fixture: DialectFixture = {
- *   dialect: myTypeScriptDialect,
- *   samples: ["const x = 1;", "export default {};"],
- * };
- */
-export interface DialectFixture {
+import type { Dialect, Handle, OpPack } from "../core/define-dialect.ts";
+/** Runtime module contract; native namespace exports also preserve upstream types. */
+export interface DialectModule<Library extends object = object> {
+    readonly find: (path: string) => Handle<"found", unknown, {}>;
+    readonly astLibrary: Library;
+}
+/** Actual entrypoint, independent adapter-library evidence, and a byte-exact editing exercise. */
+export interface DialectFixture<Library extends object = object> {
     /** The dialect instance to exercise. */
     dialect: Dialect;
     /** Representative source strings the dialect's parse/print round-trip must survive byte-exact. */
     samples: string[];
+    module: DialectModule<Library>;
+    /** Independent evidence from the adapter's library dependency, not the tested export. */
+    expectedAstLibrary: Library;
+    libraryExercise: {
+        path: string;
+        seed: string;
+        expect: string;
+        modify: (ast: unknown, library: Library) => void;
+    };
 }
 /**
  * One op-invocation recipe `testOpPack` applies to a seeded target: seed the file, run the
@@ -81,13 +86,10 @@ export interface OpPackFixture {
  * `parse` returning `null`/`undefined`, or the input string unchanged, fails BEFORE the
  * round-trip assertion could vacuously pass.
  *
- * @example
- * await testDialect({
- *   dialect: myTypeScriptDialect,
- *   samples: ["const x = 1;"],
- * });
+ * Requires runtime library exports matching independent adapter evidence, then exercises
+ * the actual module's `find().modify()` through a real run with byte-exact emitted output.
  */
-export declare function testDialect(fixture: DialectFixture): Promise<void>;
+export declare function testDialect<Library extends object>(fixture: DialectFixture<Library>): Promise<void>;
 /**
  * Runs the conformance suite for an op-pack against a REAL base dialect (never a mock,
  * ADR-0012): for each of `fixture.exercises`, asserts single-op fidelity +

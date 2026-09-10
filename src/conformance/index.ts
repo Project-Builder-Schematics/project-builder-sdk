@@ -15,27 +15,33 @@
 // imported for INTERNAL use only, never re-exported (FIT-08 bans re-export of kit symbols
 // from this path, not internal use of them).
 
-import type { Dialect, OpPack } from "../core/define-dialect.ts";
+import type { Dialect, Handle, OpPack } from "../core/define-dialect.ts";
 import type { Directive } from "../core/wire.ts";
 import { defineFactory } from "../core/context.ts";
 import { deepEqual } from "../core/deep-equal.ts";
 import { createRunVehicle } from "./run-vehicle.ts";
 
-/**
- * Fixture passed to `testDialect` to drive the conformance suite.
- * The fixture supplies the dialect under test plus representative source samples.
- *
- * @example
- * const fixture: DialectFixture = {
- *   dialect: myTypeScriptDialect,
- *   samples: ["const x = 1;", "export default {};"],
- * };
- */
-export interface DialectFixture {
+/** Runtime module contract; native namespace exports also preserve upstream types. */
+export interface DialectModule<Library extends object = object> {
+  readonly find: (path: string) => Handle<"found", unknown, {}>;
+  readonly astLibrary: Library;
+}
+
+/** Actual entrypoint, independent adapter-library evidence, and a byte-exact editing exercise. */
+export interface DialectFixture<Library extends object = object> {
   /** The dialect instance to exercise. */
   dialect: Dialect;
   /** Representative source strings the dialect's parse/print round-trip must survive byte-exact. */
   samples: string[];
+  module: DialectModule<Library>;
+  /** Independent evidence from the adapter's library dependency, not the tested export. */
+  expectedAstLibrary: Library;
+  libraryExercise: {
+    path: string;
+    seed: string;
+    expect: string;
+    modify: (ast: unknown, library: Library) => void;
+  };
 }
 
 /**
@@ -216,15 +222,40 @@ function runRoundTripProbe(
  * `parse` returning `null`/`undefined`, or the input string unchanged, fails BEFORE the
  * round-trip assertion could vacuously pass.
  *
- * @example
- * await testDialect({
- *   dialect: myTypeScriptDialect,
- *   samples: ["const x = 1;"],
- * });
+ * Requires runtime library exports matching independent adapter evidence, then exercises
+ * the actual module's `find().modify()` through a real run with byte-exact emitted output.
  */
-export async function testDialect(fixture: DialectFixture): Promise<void> {
+export async function testDialect<Library extends object>(fixture: DialectFixture<Library>): Promise<void> {
+  const module = fixture.module;
+  if (!module || typeof module.find !== "function") {
+    throw new Error("testDialect: module must expose callable find");
+  }
+  if (!module.astLibrary || typeof module.astLibrary !== "object") {
+    throw new Error("testDialect: module must expose runtime astLibrary");
+  }
+  const expected = fixture.expectedAstLibrary;
+  if (!expected || typeof expected !== "object") {
+    throw new Error("testDialect: independent expectedAstLibrary evidence is required");
+  }
+  const keys = Object.keys(expected);
+  if (keys.length === 0 || keys.length !== Object.keys(module.astLibrary).length ||
+      keys.some((key) => !Object.hasOwn(module.astLibrary, key) ||
+        !Object.is(Reflect.get(module.astLibrary, key), Reflect.get(expected, key)))) {
+    throw new Error("testDialect: astLibrary runtime library mismatch with adapter evidence");
+  }
   const samples = [...fixture.samples, ...MANDATORY_ADVERSARIAL_SAMPLES];
   runRoundTripProbe(fixture.dialect.ast, samples, "testDialect");
+
+  const exercise = fixture.libraryExercise;
+  const { client, emitted } = createRunVehicle({ [exercise.path]: exercise.seed });
+  const run = defineFactory<void>(async () => {
+    await module.find(exercise.path).modify((ast: unknown) => exercise.modify(ast, module.astLibrary));
+  });
+  await run(undefined, { client });
+  const directives = emitted.flatMap((batch) => batch.instructions);
+  if (!deepEqual(directives, [{ op: "modify", modify: { path: exercise.path, content: exercise.expect } }])) {
+    throw new Error("testDialect: library exercise did not emit the expected byte-exact modify");
+  }
 }
 
 /**

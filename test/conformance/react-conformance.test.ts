@@ -7,8 +7,8 @@
  * Per ADR-0012 (mirrored from `test/conformance/typescript-conformance.test.ts`): the fixture
  * dialect below is assembled from the SAME real production building blocks
  * `src/dialects/react/index.ts` composes internally (`defineDialect`/`defineOpPack`/`withOps`
- * over the real `ast.ts` parse/print pair and the real `ops.ts` ops) — `index.ts` itself only
- * exports `find`, so conformance re-assembles the same real `Dialect`/`OpPack` objects rather
+ * over the real `ast.ts` parse/print pair and the real `ops.ts` ops) — `index.ts` exports
+ * `find` and its library, so conformance re-assembles the same real `Dialect`/`OpPack` objects rather
  * than importing a mock.
  */
 import { describe, it, expect, setDefaultTimeout } from "bun:test";
@@ -19,7 +19,8 @@ import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
 import { parse, print } from "../../src/dialects/react/ast.ts";
 import { setJsxProp, addImport } from "../../src/dialects/react/ops.ts";
-import { testDialect, testOpPack, type DialectFixture, type OpPackFixture } from "../../src/conformance/index.ts";
+import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
+import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 import { golden } from "../support/golden.ts";
 
 // REQ-PPI-04: an explicit per-file timeout, distinct from Bun's 5000ms default — the
@@ -157,7 +158,7 @@ const CORPUS_SAMPLES: string[] = [
 describe("REQ-RXD-08.1 — 20-sample JSX adversarial corpus round-trips byte-exact via testDialect", () => {
   it("all 19 round-trip corpus classes plus the 6 kit-mandatory samples round-trip byte-exact", async () => {
     expect(CORPUS_SAMPLES.length).toBe(19);
-    const fixture: DialectFixture = { dialect: realReactDialect, samples: CORPUS_SAMPLES };
+    const fixture = { ...DIALECT_MODULES[1], dialect: realReactDialect, samples: CORPUS_SAMPLES };
     await expect(testDialect(fixture)).resolves.toBeUndefined();
   });
 

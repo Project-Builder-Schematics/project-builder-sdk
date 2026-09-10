@@ -111,6 +111,45 @@ function assertWriteOnlyCommit(scratchDir: string): void {
   expect(tree).toEqual({ [GOLDEN_PATH]: GOLDEN_CONTENT });
 }
 
+function assertNativeLibraries(scratchDir: string): void {
+  for (const name of ["typescript", "react"]) {
+    const path = `source.${name === "react" ? "tsx" : "ts"}`;
+    const file = `ast-library-${name}.ts`;
+    const stdout = runScratchScript(scratchDir, file, `
+import { find, astLibrary } from "@pbuilder/sdk/${name}";
+import type { astLibrary as Library } from "@pbuilder/sdk/${name}";
+import { runFactoryForTest } from "@pbuilder/sdk/testing";
+const result = await runFactoryForTest(async () => {
+  await find(${JSON.stringify(path)}).addImport("join", "node:path").modify(function (ast) {
+    if (arguments.length !== 1) throw new Error("callback arity changed");
+    const source: Library.SourceFile = ast;
+    if (!(source instanceof astLibrary.SourceFile) || !astLibrary.Node.isSourceFile(source)) throw new Error("wrong library");
+    const statement: Library.VariableStatementStructure = {
+      kind: astLibrary.StructureKind.VariableStatement,
+      declarationKind: astLibrary.VariableDeclarationKind.Const,
+      declarations: [{ name: "answer", initializer: "42" }],
+    };
+    source.addVariableStatement(statement);
+  });
+}, undefined, { seed: { [${JSON.stringify(path)}]: "// keep\\n" } });
+if (result.error !== undefined) throw result.error;
+console.log(JSON.stringify([...result.tree]));
+`);
+    expect(parseLastJsonLine(stdout)).toEqual([[path, 'import { join } from "node:path";\n\n// keep\nconst answer = 42;\n']]);
+    const config = join(scratchDir, "ast-library-tsconfig.json");
+    writeFileSync(config, JSON.stringify({
+      compilerOptions: {
+        target: "ESNext", module: "Preserve", moduleResolution: "bundler", strict: true,
+        noEmit: true, skipLibCheck: true, allowImportingTsExtensions: true,
+        types: ["node"], typeRoots: [join(PROJECT_ROOT, "node_modules/@types")],
+      },
+      files: [file],
+    }));
+    const compiled = spawnCapture(join(PROJECT_ROOT, "node_modules/.bin/tsc"), ["--noEmit", "-p", config], { cwd: scratchDir });
+    expect({ status: compiled.status, stdout: compiled.stdout, stderr: compiled.stderr }).toEqual({ status: 0, stdout: "", stderr: "" });
+  }
+}
+
 function assertAllOrNothingRejection(scratchDir: string): void {
   const stdout = runScratchScript(
     scratchDir,
@@ -234,6 +273,10 @@ afterAll(() => {
 });
 
 describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-06/08, ADR-0036)", () => {
+  it("dialect library values and upstream types work from the installed package", async () => {
+    await ensurePackedConsumer(PACK_SCRATCH_DIR);
+    assertNativeLibraries(PACK_SCRATCH_DIR);
+  });
   it("REQ-TES-06.1/REQ-TES-08.1/REQ-LC-03.1: defineFactory is unreachable via ./testing; ./commons resolves without it; ./typescript and ./react resolve; ./core stays unresolvable", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
 
@@ -320,6 +363,10 @@ describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-06/08, ADR-00
 });
 
 describe("e2e — installed-consumer-vantage, bun-link leg (S-000/S-001, REQ-LC-01/02/04/05, ADR-0041)", () => {
+  it("dialect library values and upstream types work from the linked package", async () => {
+    await ensureLinkedConsumer(LINK_SCRATCH_DIR);
+    assertNativeLibraries(LINK_SCRATCH_DIR);
+  });
   it("REQ-LC-01.1/REQ-LC-01.2: all six subpaths resolve via bun link; ./core stays unresolvable", async () => {
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
 
@@ -395,6 +442,7 @@ describe("e2e — installed-consumer-vantage, bun-link leg (S-000/S-001, REQ-LC-
 // every one of them, plus exactly one leg-specific subpath-resolution scenario each — so this
 // scans THIS file's own source rather than asserting a second copy of the scenario list.
 const SHARED_SCENARIO_HELPERS = [
+  "assertNativeLibraries",
   "assertWriteOnlyCommit",
   "assertAllOrNothingRejection",
   "assertCodegenBinRuns",

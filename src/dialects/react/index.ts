@@ -12,6 +12,8 @@ import { dialectError } from "../../core/dialect-error.ts";
 import { parse, print } from "./ast.ts";
 import { addImport, setJsxProp } from "./ops.ts";
 
+export * as astLibrary from "ts-morph";
+
 // S-002 completes the op-pack: `setJsxProp` (S-001) + `addImport` (S-002) — the exact,
 // closed two-op vocabulary (REQ-RXD-01.1).
 type ReactOps = {

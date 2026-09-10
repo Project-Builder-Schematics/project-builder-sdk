@@ -6,7 +6,7 @@
  * The dialect fixture below is assembled from the SAME real production building blocks
  * `src/dialects/typescript/index.ts` composes internally (`defineDialect`/`defineOpPack`/
  * `withOps` over the real `ast.ts` parse/print pair and the real `ops.ts` addImport op) —
- * `index.ts` itself only exports `find` (REQ-DG-04.1/FIT-08), so conformance re-assembles
+ * `index.ts` exports `find` and its library, not the instance, so conformance re-assembles
  * the same real `Dialect` object rather than importing a mock (ADR-0012, REQ-TSD-07).
  *
  * REQ-DC-01..05 (round-trip, single-op fidelity, coalescing-to-one, seam-serializability,
@@ -19,7 +19,8 @@ import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dial
 import { parse, print } from "../../src/dialects/typescript/ast.ts";
 import { addImport } from "../../src/dialects/typescript/ops.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
-import { testDialect, testOpPack, type DialectFixture, type OpPackFixture } from "../../src/conformance/index.ts";
+import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
+import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { golden } from "../support/golden.ts";
@@ -40,7 +41,8 @@ const realTypescriptDialect = withOps(baseDialect, addImportPack);
 
 describe("REQ-DC-01 — byte-exact round-trip fidelity (real TypeScript dialect)", () => {
   it("REQ-DC-01.1: print(parse(sample)) is string-identical for every representative sample", async () => {
-    const fixture: DialectFixture = {
+    const fixture = {
+      ...DIALECT_MODULES[0],
       dialect: realTypescriptDialect,
       samples: [
         "const x = 1;\n",
@@ -175,7 +177,7 @@ describe("REQ-DC-06 — mandatory adversarial samples (contributor cannot opt ou
         print: realTypescriptDialect.ast.print,
       },
     };
-    const fixture: DialectFixture = { dialect: spiedDialect, samples: [] };
+    const fixture = { ...DIALECT_MODULES[0], dialect: spiedDialect, samples: [] };
 
     await expect(testDialect(fixture)).resolves.toBeUndefined();
     expect(parseCalls).toBe(6);

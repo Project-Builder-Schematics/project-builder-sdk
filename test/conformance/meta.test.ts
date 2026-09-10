@@ -10,6 +10,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import * as conformance from "../../src/conformance/index.ts";
+import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 
 describe("conformance — meta-test: public surface is intact", () => {
   it("exports testDialect as a function", () => {
@@ -24,12 +25,10 @@ describe("conformance — meta-test: public surface is intact", () => {
 
   // testDialect/testOpPack are `async (...): Promise<void>` (ADR-0012 amendment, rev 3 Q3)
   // — calling either returns a Promise, never a synchronous result.
-  it("testDialect returns a Promise", () => {
-    const result = conformance.testDialect({ dialect: { extensions: [], ast: { parse: (s: string) => s, print: (s: string) => s }, ops: {}, find: () => { throw new Error("not used"); } }, samples: [] });
+  it("testDialect returns a Promise", async () => {
+    const result = conformance.testDialect({ ...DIALECT_MODULES[0], samples: [] });
     expect(result).toBeInstanceOf(Promise);
-    // Swallow — this fixture's `find` is never called for an empty `samples` array; the
-    // resulting promise resolves cleanly (no samples to fail round-trip on).
-    void result.catch(() => {});
+    await result;
   });
 
   // Red-proof: delete testDialect from a copy of the real conformance surface →

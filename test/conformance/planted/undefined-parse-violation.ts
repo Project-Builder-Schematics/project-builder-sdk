@@ -5,7 +5,7 @@
 // `ast === null` branch: this exercises the THIRD, remaining half of the real-base probe's
 // 3-way OR independently (verify-in-loop-4 Finding #2, triangulation gap).
 import { defineDialect } from "../../../src/core/define-dialect.ts";
-import type { DialectFixture } from "../../../src/conformance/index.ts";
+import { DIALECT_MODULES } from "../../support/dialect-modules.ts";
 
 export const undefinedParseViolationDialect = defineDialect<undefined, Record<string, never>>({
   extensions: [".undefined-parse"],
@@ -17,7 +17,8 @@ export const undefinedParseViolationDialect = defineDialect<undefined, Record<st
   ops: {},
 });
 
-export const undefinedParseViolationFixture: DialectFixture = {
+export const undefinedParseViolationFixture = {
+  ...DIALECT_MODULES[0],
   dialect: undefinedParseViolationDialect,
   samples: ["const x = 1;\n"],
 };

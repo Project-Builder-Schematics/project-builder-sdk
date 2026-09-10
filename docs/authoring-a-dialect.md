@@ -213,6 +213,35 @@ could do, `.modify()` can do too, without waiting for a structured op to exist.
 `.modify()` executes your callback with full process privilege — it is not a sandbox. Read
 [SECURITY.md](../SECURITY.md) before importing any third-party dialect or op-pack that uses it.
 
+### Use the dialect's own AST library
+
+The full `astLibrary` namespace supplies runtime helpers, classes, constants, and upstream
+types without a separate AST-library dependency in your schematic:
+
+```ts
+import { find, astLibrary } from "@pbuilder/sdk/typescript";
+import type { astLibrary as ReactAst } from "@pbuilder/sdk/react";
+
+// Inside your existing factory:
+await find("src/config.ts").modify((ast) => {
+  const statement: astLibrary.VariableStatementStructure = {
+    kind: astLibrary.StructureKind.VariableStatement,
+    declarationKind: astLibrary.VariableDeclarationKind.Const,
+    declarations: [{ name: "answer", initializer: "42" }],
+  };
+  ast.addVariableStatement(statement);
+});
+
+type ReactFile = ReactAst.SourceFile;
+```
+
+Runtime `astLibrary` is also available from `@pbuilder/sdk/react`; use each library with its
+own dialect's callback AST. Each dialect owns its library origin and version independently.
+Equal package names or versions do not guarantee identity across installations or realms.
+There is no singleton, cross-dialect identity, or universal cross-realm guarantee. The callback
+still receives **only the AST**; existing `find`, named ops, and inference do not migrate.
+Using this namespace avoids choosing a separate dependency subject to the warning below.
+
 ### Two ts-morph realms
 
 Two ts-morph realms: if your schematic already depends on ts-morph directly, that is a separate realm from the SDK's internal ts-morph used inside `.modify(ast => …)`. A `Node`/`SourceFile` from your realm is not interchangeable with the AST the SDK hands your `.modify()` callback — even when both realms resolve the identical ts-morph version. Never pass ts-morph objects across the boundary; operate only on the `ast` the callback receives.
@@ -265,7 +294,7 @@ inside the op or callback itself.
 `async` — they drive a real coalescing run and return a rejected promise on failure, never a
 sync throw.
 
-- `testDialect({ dialect, samples })` asserts your dialect's `parse`/`print` pair round-trips
+- `testDialect({ dialect, samples, module, expectedAstLibrary, libraryExercise })` asserts your dialect's `parse`/`print` pair round-trips
   every sample byte-exact. `testDialect` also injects six mandatory adversarial samples on
   every run — empty, comment-only, a 4 MiB file, CRLF line endings, a UTF-8 BOM, and two
   imports sharing one module — that your dialect's `parse`/`print` must round-trip byte-exact.
@@ -276,6 +305,60 @@ sync throw.
   chain, and the expected byte-exact output) against the real coalescing pipeline, asserting
   per-op fidelity, coalescing-to-one, and seam-serializability. It runs those same six
   mandatory samples against your `baseDialect` too, after your exercises pass.
+
+### Mandatory module export and fixture migration
+
+Every existing and future dialect must export its **complete own library** at its existing
+dialect entrypoint. For a ts-morph adapter, use native forwarding:
+
+```ts
+export * as astLibrary from "ts-morph";
+```
+
+Use your adapter's actual library specifier, not a centralized SDK library. A curated object,
+plain wildcard barrel, renamed namespace, or type-only export does not satisfy this obligation.
+`DialectModule<Library>` is exported from `@pbuilder/sdk/conformance`; it describes the runtime
+module without adding descriptor/instance fields or a new public subpath. Native forwarding
+and consumer type tests additionally prove erased upstream types remain available.
+
+Contributors must migrate old `{ dialect, samples }` fixtures to **actual imported entrypoints**.
+For example, a test in this repository's `test/conformance/` directory can use its existing adapter:
+
+```ts
+import * as module from "../../src/dialects/typescript/index.ts";
+import * as expectedAstLibrary from "ts-morph";
+import { parse, print } from "../../src/dialects/typescript/ast.ts";
+import { defineDialect } from "../../src/core/define-dialect.ts";
+import { testDialect } from "../../src/conformance/index.ts";
+
+await testDialect({
+  dialect: defineDialect({ extensions: [".ts"], ast: { parse, print }, ops: {} }),
+  samples: ["const x = 1;\n"],
+  module,
+  expectedAstLibrary,
+  libraryExercise: {
+    path: "example.ts", seed: "let answer = 1;\n", expect: "const answer = 1;\n",
+    modify(ast, library) {
+      if (!(ast instanceof library.SourceFile) || !library.Node.isSourceFile(ast)) {
+        throw new Error("incompatible adapter library");
+      }
+      ast.getVariableStatements()[0]!.setDeclarationKind(library.VariableDeclarationKind.Const);
+    },
+  },
+});
+```
+
+Resolve expected evidence from the adapter's own dependency location, independently of the
+tested export. Comparing `module.astLibrary` against itself proves nothing. The kit compares
+runtime export names/member identities, not namespace-object identity, and drives the actual
+`module.find().modify()` through a seeded run. The exercise must emit exactly the expected
+modified bytes. Each library is checked against its own adapter, never another dialect's library.
+This is declared compatibility evidence, not a universal provenance or dishonest-fixture detector.
+
+This required fixture migration is **source-breaking** for conformance callers; `testOpPack`
+and application callbacks are unchanged. Full native exposure makes incompatible upstream API
+changes SDK breaking changes too. Before 1.0, ship this migration in the next minor release,
+not a patch; each dialect continues to own its dependency version. No release is implied here.
 
 Passing the conformance kit (`@pbuilder/sdk/conformance`) is not a security attestation: it proves a dialect keeps the seam serializable and its ops faithful, not that the dialect's `.modify()` code is safe to execute.
 
