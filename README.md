@@ -150,6 +150,11 @@ bunx pbuilder-codegen schematics/hello
 This rewrites `schema.generated.ts` with an `Input` type derived from your schema — your
 factory is typed against the schema, never against a hand-written shape.
 
+To regenerate every registered schematic instead, run `bunx pbuilder-codegen` from the
+workspace or a descendant, or `bunx pbuilder-codegen --project ./workspace` from any
+directory. See [Project-wide type generation](#project-wide-type-generation) for the
+accepted registrations and failure behavior.
+
 **5. Write the factory** (`schematics/hello/factory.ts`):
 
 ```ts
@@ -211,6 +216,80 @@ From here: [Authoring verbs](./docs/authoring-verbs.md) is the full reference fo
 everything you can do inside a factory, and the
 [quickstart](./docs/quickstart.md) covers the standalone-package setup (tsconfig
 included) in more depth.
+
+## Project-wide type generation
+
+```sh
+bunx pbuilder-codegen                         # nearest project-builder.json, walking upward
+bunx pbuilder-codegen --project ./workspace   # exactly this directory's project-builder.json
+bunx pbuilder-codegen ./schematics/hello      # existing single-directory mode
+```
+
+Project mode processes **all collections**, not only `default`. The first marker found
+owns discovery: malformed, unreadable, directory-shaped, or dangling markers fail without
+falling back to a parent. Missing configuration or malformed top-level configuration fails
+before generation. Absent or empty `collections` succeeds with zero work. A configuration
+symlink does not transfer write authority to its target's directory.
+
+Two registration forms are supported:
+
+```json
+{
+  "collections": {
+    "local": { "hello": { "path": "./schematics/hello" } },
+    "shared": { "path": "./schematics/collection.json" }
+  }
+}
+```
+
+Both `path` values are relative to the selected project root (absolute filesystem paths
+are also accepted, subject to write containment). A direct directory must contain exactly
+one regular `factory.ts` or `factory.js`. The collection manifest uses:
+
+```json
+{
+  "schematics": {
+    "widget": { "factory": "./dist/widget.js#createWidget" }
+  }
+}
+```
+
+Manifest module paths are relative to the manifest's directory. An explicit export is
+required: split at the **last `#`**, with a nonempty module path and an identifier-shaped
+export (`default` is valid). Factories are never imported or executed, and exports are
+not inspected. Compiled pointers use `schema.json` beside the actual compiled module,
+not an inferred source directory. JSON configuration and manifests tolerate a leading BOM.
+Inline-input registrations have no file target and fail individually; conflicting direct
+and inline names also fail. Package lookup, extension inference, inheritance, URL decoding,
+and recursive discovery of unregistered schematics are not supported.
+
+Each authorized destination receives the existing fixed `schema.generated.ts`. Canonical
+directory aliases are deduplicated, including failed generation attempts; distinct hardlinked
+filenames are not. Output links are refused, not treated as aliases. Both the canonical
+directory and output must stay inside the selected canonical project root. Positional mode
+retains its existing cwd/package-root authorization and messages.
+
+Independent entries continue after failures. Warnings go to stderr; stdout reports:
+
+```text
+pbuilder-codegen: generated 3, failed 1, duplicates 2
+```
+
+Exit status is `1` if any entry failed, otherwise `0` (including zero work). Unresolved or
+refused registrations count individually; a duplicate of an attempted destination only
+increments `duplicates`. Validation failures preserve prior generated output. This is not
+a transaction: successful files remain changed if another entry fails.
+
+New JSON reads reject static nonregular inputs. Linux/macOS retain descriptor-bound output
+leaf checks; other platforms retain the existing writer after project-mode leaf validation.
+These checks do not promise protection against parent-directory substitution races or a
+universal filesystem sandbox. Native Windows and packaged-distribution verification remain
+separate from source-test evidence.
+
+Registration fixtures follow the observed CLI **v0.9.5** contract at
+`e1280b4486d24ca0eb458471f26b0226523ae774`. That access-controlled compatibility evidence
+is not a public configuration specification or a guarantee about future CLI versions;
+older optional-export pointer examples do not describe this project-mode contract.
 
 ## The seven mutations
 

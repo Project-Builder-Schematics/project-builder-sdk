@@ -35,7 +35,7 @@
  * which remains the release-shape verification vehicle.
  */
 import { describe, it, expect, afterAll } from "bun:test";
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   PROJECT_ROOT,
@@ -49,6 +49,9 @@ import {
   repoLockfileHashAtPackTime,
 } from "../support/scratch-consumer.ts";
 import { spawnCapture } from "../support/canary.ts";
+import { emitInputType } from "../../bin/emit-type.ts";
+import { parseSchema } from "../../src/core/schema/schema-parse.ts";
+import { computeSchemaDigest } from "../../src/core/schema/schema-digest.ts";
 
 // REQ-LC-04: a structural bin-executability check, shared by both legs' bin-exec scenarios
 // AND REQ-LC-04.3's red-proof — never a bare "spawn and check exit code", so a missing bin
@@ -212,6 +215,21 @@ function assertCodegenBinRuns(scratchDir: string): void {
 
   const generated = readFileSync(join(scratchDir, "schema.generated.ts"), "utf-8");
   expect(generated).toContain("port: number;");
+
+  const project = join(scratchDir, "registered-project");
+  const factory = join(project, "widget");
+  mkdirSync(factory, { recursive: true });
+  const raw = JSON.stringify({ properties: { port: { type: "number", label: "Port" } } });
+  const sentinel = join(project, "executed");
+  writeFileSync(join(factory, "schema.json"), raw);
+  writeFileSync(join(factory, "factory.ts"), `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(sentinel)}, 'executed'); throw new Error('unexpected execution');`);
+  writeFileSync(join(project, "project-builder.json"), JSON.stringify({ collections: { all: { widget: { path: "./widget" } } } }));
+  for (const explicit of [false, true]) {
+    const batch = spawnCapture(binPath, explicit ? ["--project", project] : [], { cwd: explicit ? scratchDir : factory });
+    expect({ status: batch.status, stdout: batch.stdout, stderr: batch.stderr }).toEqual({ status: 0, stdout: "pbuilder-codegen: generated 1, failed 0, duplicates 0\n", stderr: "" });
+    expect(readFileSync(join(factory, "schema.generated.ts"), "utf8")).toBe(emitInputType(parseSchema(raw), computeSchemaDigest(raw)));
+    expect(existsSync(sentinel)).toBe(false);
+  }
 }
 
 function assertDryRunNonEmpty(scratchDir: string): void {
