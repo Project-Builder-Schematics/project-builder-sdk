@@ -5,7 +5,7 @@
 // independently, closing the triangulation gap verify-in-loop-4 flagged (only the identity
 // branch had a dedicated fixture before this).
 import { defineDialect } from "../../../src/core/define-dialect.ts";
-import type { DialectFixture } from "../../../src/conformance/index.ts";
+import { DIALECT_MODULES } from "../../support/dialect-modules.ts";
 
 export const nullParseViolationDialect = defineDialect<null, Record<string, never>>({
   extensions: [".null-parse"],
@@ -17,7 +17,8 @@ export const nullParseViolationDialect = defineDialect<null, Record<string, neve
   ops: {},
 });
 
-export const nullParseViolationFixture: DialectFixture = {
+export const nullParseViolationFixture = {
+  ...DIALECT_MODULES[0],
   dialect: nullParseViolationDialect,
   samples: ["const x = 1;\n"],
 };

@@ -4,7 +4,7 @@
 // no-op. Uses the real `defineDialect` factory (no reason to hand-roll a fake Dialect
 // object — only `ast.print` needs to be broken).
 import { defineDialect } from "../../../src/core/define-dialect.ts";
-import type { DialectFixture } from "../../../src/conformance/index.ts";
+import { DIALECT_MODULES } from "../../support/dialect-modules.ts";
 
 type BrokenAst = { text: string };
 
@@ -18,7 +18,8 @@ export const roundTripViolationDialect = defineDialect<BrokenAst, Record<string,
   ops: {},
 });
 
-export const roundTripViolationFixture: DialectFixture = {
+export const roundTripViolationFixture = {
+  ...DIALECT_MODULES[0],
   dialect: roundTripViolationDialect,
   samples: ["const x = 1;\n", "export const y = 2;\n"],
 };

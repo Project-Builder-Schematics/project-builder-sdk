@@ -6,7 +6,7 @@
 // it before the round-trip assertion ever runs: `parse(sample)` returns the input string
 // unchanged, never a distinct AST object.
 import { defineDialect } from "../../../src/core/define-dialect.ts";
-import type { DialectFixture } from "../../../src/conformance/index.ts";
+import { DIALECT_MODULES } from "../../support/dialect-modules.ts";
 
 export const identityFixtureViolationDialect = defineDialect<string, Record<string, never>>({
   extensions: [".identity"],
@@ -18,7 +18,8 @@ export const identityFixtureViolationDialect = defineDialect<string, Record<stri
   ops: {},
 });
 
-export const identityFixtureViolationFixture: DialectFixture = {
+export const identityFixtureViolationFixture = {
+  ...DIALECT_MODULES[0],
   dialect: identityFixtureViolationDialect,
   samples: ["const x = 1;\n"],
 };

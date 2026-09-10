@@ -15,11 +15,11 @@
  * Wildcard ban by form (SEC-M1, design rev 4/GAP-4): ANY `export *`/`export * as ns`
  * statement on any scanned path is a violation BY FORM regardless of specifier — allowlisted
  * paths enumerate names exhaustively, so a wildcard can never be validated against one — with
- * EXACTLY ONE specifier-exact grandfathered exemption: `src/index.ts`'s pre-existing
- * `export * from "./commons/index.ts"` umbrella re-export.
+ * the root's exact commons umbrella and each registered dialect's own native runtime
+ * `astLibrary` namespace as the only exemptions.
  *
  * Strategy: per scanned path, scan for (a) any wildcard re-export statement (banned by form,
- * minus the one exemption) and (b) any named export brace list containing a KIT_SYMBOL_NAMES
+ * minus the exact exemptions) and (b) any named export brace list containing a KIT_SYMBOL_NAMES
  * entry not present in that path's allow list for its export form (value vs type-only).
  *
  * Red-proof: a fixture re-exporting a non-allowlisted kit symbol, or `ContractFake` in either
@@ -28,6 +28,8 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { DIALECT_MODULES } from "../support/dialect-modules.ts";
+import pkg from "../../package.json";
 
 const ROOT = new URL("../../src", import.meta.url).pathname;
 
@@ -49,10 +51,7 @@ const SCANNED: ScannedPath[] = [
     valueAllow: ["runFactoryForTest"],
     typeAllow: ["Batch", "Directive"],
   },
-  // REQ-DG-04.1 (stage-5-first-dialect): the new ./typescript dialect subpath is a full-ban
-  // path, same as commons/index/conformance — it imports ONLY defineDialect/defineOpPack/
-  // withOps (already sanctioned, not re-exported from here) + its own AST library.
-  { path: join(ROOT, "dialects/typescript/index.ts"), valueAllow: [], typeAllow: [] },
+  ...DIALECT_MODULES.map((entry) => ({ path: join(ROOT, "..", entry.entrypoint), valueAllow: [], typeAllow: [] })),
 ];
 
 const UMBRELLA_PATH = join(ROOT, "index.ts");
@@ -76,22 +75,18 @@ const KIT_SYMBOL_NAMES = [
   "WritableHandleRef",
 ];
 
-const WILDCARD_PATTERN = /export\s+\*(?:\s+as\s+\w+)?\s+from\s+['"]([^'"]+)['"]/g;
+const WILDCARD_PATTERN = /export\s+(type\s+)?\*(?:\s+as\s+(\S+))?\s+from\s+['"]([^'"]+)['"]/g;
 const NAMED_EXPORT_PATTERN = /export\s+(type\s+)?\{([^}]+)\}/g;
 
-/**
- * Wildcard-ban-by-form (SEC-M1): any `export *`/`export * as ns` statement on a scanned
- * path is a violation regardless of specifier — allowlisted paths enumerate their export
- * names exhaustively, so a wildcard can never be validated against one. The ONE
- * specifier-exact grandfathered exemption: `src/index.ts` re-exporting from EXACTLY
- * `./commons/index.ts` (GAP-4).
- */
+// Exemptions match path, source and export form; kit-symbol allowances never permit barrels.
 function findWildcardViolations(source: string, filePath: string): string[] {
   const violations: string[] = [];
   for (const match of source.matchAll(WILDCARD_PATTERN)) {
-    const specifier = match[1] ?? "";
-    const isUmbrellaExemption = filePath === UMBRELLA_PATH && specifier === UMBRELLA_EXEMPT_SPECIFIER;
-    if (!isUmbrellaExemption) {
+    const [, typeOnly, alias, specifier] = match;
+    const isUmbrellaExemption = !typeOnly && !alias && filePath === UMBRELLA_PATH && specifier === UMBRELLA_EXEMPT_SPECIFIER;
+    const isLibraryExemption = !typeOnly && alias === "astLibrary" && DIALECT_MODULES.some((entry) =>
+      filePath === join(ROOT, "..", entry.entrypoint) && specifier === entry.specifier);
+    if (!isUmbrellaExemption && !isLibraryExemption) {
       violations.push(`wildcard re-export banned by form: ${match[0].trim()}`);
     }
   }
@@ -128,6 +123,35 @@ function scanPath(source: string, entry: ScannedPath): string[] {
 }
 
 describe("FIT-08 — no author subpath re-exports a kit symbol beyond its allowlist (ADR-0009)", () => {
+  it("the nonempty inventory covers exactly the published dialect entrypoints and all are scanned", () => {
+    const published = Object.values(pkg.exports).map((entry) => entry.import)
+      .filter((path) => path.startsWith("./dist/dialects/"))
+      .map((path) => path.replace("./dist/", "src/").replace(/\.js$/, ".ts"));
+    expect(DIALECT_MODULES.length).toBeGreaterThan(0);
+    expect(DIALECT_MODULES.map((entry): string => entry.entrypoint).sort()).toEqual(published.sort());
+    for (const entry of DIALECT_MODULES) expect(SCANNED.map((item) => item.path)).toContain(join(ROOT, "..", entry.entrypoint));
+  });
+
+  for (const entry of DIALECT_MODULES) {
+    it(`${entry.entrypoint} permits only its own native runtime astLibrary namespace`, () => {
+      const path = join(ROOT, "..", entry.entrypoint);
+      expect(findWildcardViolations(`export * as astLibrary from "${entry.specifier}";`, path)).toEqual([]);
+      for (const source of [
+        `export * as other from "${entry.specifier}";`,
+        `export * as $other from "${entry.specifier}";`,
+        'export * as astLibrary from "wrong-library";',
+        `export * from "${entry.specifier}";`,
+        `export type * as astLibrary from "${entry.specifier}";`,
+      ]) expect(findWildcardViolations(source, path)).toHaveLength(1);
+      expect(findWildcardViolations(`export * as astLibrary from "${entry.specifier}";`, join(ROOT, "commons/index.ts"))).toHaveLength(1);
+    });
+  }
+
+  it("the root exemption does not permit namespace or type-only variants", () => {
+    expect(findWildcardViolations('export * as astLibrary from "./commons/index.ts";', UMBRELLA_PATH)).toHaveLength(1);
+    expect(findWildcardViolations('export type * from "./commons/index.ts";', UMBRELLA_PATH)).toHaveLength(1);
+  });
+
   for (const entry of SCANNED) {
     it(`${entry.path.replace(ROOT, "src")} exports only its allowlist`, () => {
       const source = readFileSync(entry.path, "utf-8");

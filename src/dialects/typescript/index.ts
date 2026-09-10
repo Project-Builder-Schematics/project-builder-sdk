@@ -11,6 +11,8 @@ import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/de
 import { parse, print } from "./ast.ts";
 import { addImport, addFunction, addVariable, addClass, removeImport } from "./ops.ts";
 
+export * as astLibrary from "ts-morph";
+
 // S-003: the finalized shipped op-set (REQ-TSD-01 V5) — addImport (S-002)/addFunction
 // (S-001)/removeImport (S-002) plus addVariable/addClass (this slice), completing the
 // exact five-op allow-list `ops-exact-set.test.ts` gates.
