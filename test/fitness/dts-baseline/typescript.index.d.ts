@@ -30,4 +30,3 @@ type TypeScriptOps = {
  * };
  */
 export declare function find(path: string): Handle<"found", SourceFile, TypeScriptOps>;
-export {};

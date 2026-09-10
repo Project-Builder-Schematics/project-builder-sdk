@@ -1,10 +1,50 @@
 import type { Dialect, Handle, OpPack } from "../core/define-dialect.ts";
-/** Runtime module contract; native namespace exports also preserve upstream types. */
+/**
+ * Runtime module contract; native namespace exports also preserve upstream types.
+ *
+ * @example
+ * import type { DialectModule } from "@pbuilder/sdk/conformance";
+ * import * as typescript from "@pbuilder/sdk/typescript";
+ *
+ * const module: DialectModule<typeof typescript.astLibrary> = typescript;
+ * const project = new module.astLibrary.Project({ useInMemoryFileSystem: true });
+ * const ast = project.createSourceFile("example.ts", "const answer = 1;\n");
+ * console.assert(module.astLibrary.Node.isSourceFile(ast));
+ */
 export interface DialectModule<Library extends object = object> {
     readonly find: (path: string) => Handle<"found", unknown, {}>;
     readonly astLibrary: Library;
 }
-/** Actual entrypoint, independent adapter-library evidence, and a byte-exact editing exercise. */
+/**
+ * Actual entrypoint, independent adapter-library evidence, and a byte-exact editing exercise.
+ * The library exercise receives two arguments; public handle callbacks still receive only the AST.
+ *
+ * @example
+ * // In this repository's test/conformance/ directory:
+ * import { testDialect, type DialectFixture } from "@pbuilder/sdk/conformance";
+ * import * as module from "@pbuilder/sdk/typescript";
+ * import * as expectedAstLibrary from "ts-morph";
+ * import { defineDialect } from "../../src/core/define-dialect.ts";
+ * import { parse, print } from "../../src/dialects/typescript/ast.ts";
+ *
+ * const exerciseLibrary: DialectFixture<typeof expectedAstLibrary>["libraryExercise"]["modify"] = (ast, library) => {
+ *   if (!(ast instanceof library.SourceFile) || !library.Node.isSourceFile(ast)) {
+ *     throw new Error("incompatible adapter library");
+ *   }
+ *   ast.getVariableStatements()[0]!.setDeclarationKind(library.VariableDeclarationKind.Const);
+ * };
+ * const fixture: DialectFixture<typeof expectedAstLibrary> = {
+ *   dialect: defineDialect({ extensions: [".ts"], ast: { parse, print }, ops: {} }),
+ *   samples: ["const x = 1;\n"],
+ *   module,
+ *   expectedAstLibrary,
+ *   libraryExercise: {
+ *     path: "example.ts", seed: "let answer = 1;\n", expect: "const answer = 1;\n",
+ *     modify: exerciseLibrary,
+ *   },
+ * };
+ * await testDialect(fixture);
+ */
 export interface DialectFixture<Library extends object = object> {
     /** The dialect instance to exercise. */
     dialect: Dialect;

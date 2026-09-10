@@ -37,4 +37,3 @@ type ReactOps = {
  * // -> const el = <Button onClick={handleClick} />;
  */
 export declare function find(path: string): Handle<"found", SourceFile, ReactOps>;
-export {};

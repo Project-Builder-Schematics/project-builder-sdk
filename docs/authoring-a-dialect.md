@@ -329,7 +329,14 @@ import * as module from "../../src/dialects/typescript/index.ts";
 import * as expectedAstLibrary from "ts-morph";
 import { parse, print } from "../../src/dialects/typescript/ast.ts";
 import { defineDialect } from "../../src/core/define-dialect.ts";
-import { testDialect } from "../../src/conformance/index.ts";
+import { testDialect, type DialectFixture } from "../../src/conformance/index.ts";
+
+const exerciseLibrary: DialectFixture<typeof expectedAstLibrary>["libraryExercise"]["modify"] = (ast, library) => {
+  if (!(ast instanceof library.SourceFile) || !library.Node.isSourceFile(ast)) {
+    throw new Error("incompatible adapter library");
+  }
+  ast.getVariableStatements()[0]!.setDeclarationKind(library.VariableDeclarationKind.Const);
+};
 
 await testDialect({
   dialect: defineDialect({ extensions: [".ts"], ast: { parse, print }, ops: {} }),
@@ -338,15 +345,13 @@ await testDialect({
   expectedAstLibrary,
   libraryExercise: {
     path: "example.ts", seed: "let answer = 1;\n", expect: "const answer = 1;\n",
-    modify(ast, library) {
-      if (!(ast instanceof library.SourceFile) || !library.Node.isSourceFile(ast)) {
-        throw new Error("incompatible adapter library");
-      }
-      ast.getVariableStatements()[0]!.setDeclarationKind(library.VariableDeclarationKind.Const);
-    },
+    modify: exerciseLibrary,
   },
 });
 ```
+
+`exerciseLibrary` is the conformance fixture's two-argument compatibility probe, not a public
+handle callback. Application `.modify()` callbacks still receive only the AST.
 
 Resolve expected evidence from the adapter's own dependency location, independently of the
 tested export. Comparing `module.astLibrary` against itself proves nothing. The kit compares
