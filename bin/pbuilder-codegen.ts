@@ -9,7 +9,7 @@
 // schema cluster.
 
 import {
-  readFileSync, writeFileSync, existsSync, realpathSync, lstatSync,
+  readFileSync, writeFileSync, existsSync, realpathSync, lstatSync, statSync,
   openSync, fstatSync, ftruncateSync, closeSync, constants,
 } from "node:fs";
 import { join, dirname, basename, resolve, sep } from "node:path";
@@ -19,6 +19,7 @@ import { schemaPathFor } from "../src/core/schema/schema-discovery.ts";
 import { checkSufficiency, type SufficiencyFinding } from "../src/core/schema/schema-sufficiency.ts";
 import { isErrnoException } from "../src/core/fs-errors.ts";
 import { emitInputType, UnrecognizedPropertyTypeError } from "./emit-type.ts";
+import { discoverProject } from "./project-codegen.ts";
 
 export const GENERATED_FILENAME = "schema.generated.ts";
 export const SUCCESS_LINE = "pbuilder-codegen: wrote schema.generated.ts";
@@ -161,16 +162,16 @@ function realpathNearestExisting(p: string): string {
 }
 
 function isWithin(anchor: string, target: string): boolean {
-  return target === anchor || target.startsWith(anchor + sep);
+  return target === anchor || target.startsWith(anchor.endsWith(sep) ? anchor : anchor + sep);
 }
 
 // SEC-4/REQ-TFO-05: refuses BEFORE any read/write when either the resolved package dir or
 // the resolved output path escapes the invoking process's project root. Schema content is
 // never consulted here — the output path is structurally fixed (TFO-05.3), never templated.
-function assertWriteContained(packageDirArg: string, outputPath: string): void {
-  const anchor = realpathSync(findProjectRoot(process.cwd()));
+function assertWriteContained(packageDirArg: string, outputPath: string, selectedRoot?: string): void {
+  const anchor = selectedRoot ?? realpathSync(findProjectRoot(process.cwd()));
   const resolvedPackageDir = realpathNearestExisting(resolve(packageDirArg));
-  if (process.platform === "linux" || process.platform === "darwin") assertOutputLeaf(outputPath);
+  if (selectedRoot !== undefined || process.platform === "linux" || process.platform === "darwin") assertOutputLeaf(outputPath);
   const resolvedOutputPath = realpathNearestExisting(resolve(outputPath));
   if (!isWithin(anchor, resolvedPackageDir) || !isWithin(anchor, resolvedOutputPath)) {
     throw new WriteContainmentRefusal(
@@ -219,9 +220,12 @@ function formatSufficiencyError(schemaPath: string, err: SchemaSufficiencyFailur
 export function runCli(argv: string[]): number {
   const [first] = argv;
 
-  if (first === undefined) {
-    console.error(USAGE);
-    return 1;
+  if (first === undefined || first === "--project") {
+    if (first === "--project" && (!argv[1] || argv[1].startsWith("-") || argv.length !== 2)) {
+      console.error(USAGE);
+      return 1;
+    }
+    return runProject(argv[1]);
   }
   if (first === "--help" || first === "-h") {
     console.log(USAGE);
@@ -274,6 +278,45 @@ export function runCli(argv: string[]): number {
 
   console.log(SUCCESS_LINE);
   return 0;
+}
+
+function runProject(directory?: string): number {
+  const project = discoverProject(directory);
+  if (!project.ok) {
+    console.error(`pbuilder-codegen: ${project.diagnostic}`);
+    return 1;
+  }
+  const seen = new Set<string>();
+  let generated = 0;
+  let failed = 0;
+  let duplicates = 0;
+  for (const entry of project.entries) {
+    if (entry.kind === "failure") {
+      failed++;
+      console.error(`pbuilder-codegen: ${JSON.stringify(entry.label)}: ${entry.diagnostic}`);
+      continue;
+    }
+    const output = join(entry.directory, GENERATED_FILENAME);
+    const schemaPath = schemaPathFor(entry.directory);
+    try {
+      assertWriteContained(entry.directory, output, project.root);
+      if (seen.has(output)) { duplicates++; continue; }
+      seen.add(output);
+      if (!statSync(schemaPath).isFile()) throw new Error("nonregular schema");
+      generateSchema(entry.directory);
+      generated++;
+    } catch (error) {
+      failed++;
+      const diagnostic = error instanceof SchemaParseFailure ? formatParseError(schemaPath, error)
+        : error instanceof SchemaSufficiencyFailure ? formatSufficiencyError(schemaPath, error)
+        : error instanceof WriteContainmentRefusal ? "refusing to write outside the selected project root"
+        : error instanceof OutputWriteFailure ? "cannot write a regular, non-symbolic-link output"
+        : "cannot read or generate schema.json";
+      console.error(`pbuilder-codegen: ${JSON.stringify(entry.label)} (${JSON.stringify(entry.directory)}): ${JSON.stringify(diagnostic)}`);
+    }
+  }
+  console.log(`pbuilder-codegen: generated ${generated}, failed ${failed}, duplicates ${duplicates}`);
+  return failed > 0 ? 1 : 0;
 }
 
 if (import.meta.main) {

@@ -11,12 +11,15 @@
  * external build-then-test protocol.
  */
 import { describe, it, expect, beforeAll, afterEach } from "bun:test";
-import { readFileSync, existsSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { spawnCapture, seedSchema } from "../support/canary.ts";
 import { USAGE, SUCCESS_LINE, GENERATED_FILENAME } from "../../bin/pbuilder-codegen.ts";
+import { emitInputType } from "../../bin/emit-type.ts";
+import { parseSchema } from "../../src/core/schema/schema-parse.ts";
+import { computeSchemaDigest } from "../../src/core/schema/schema-digest.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DIST_BIN = join(PROJECT_ROOT, "dist/bin/pbuilder-codegen.js");
@@ -53,12 +56,14 @@ afterEach(() => {
 const VALID_SCHEMA = { properties: { port: { type: "number", label: "Server port", required: true } } };
 
 describe("pbuilder-codegen CLI — usage discipline (FPS-05.1)", () => {
-  it("no arguments: usage on STDERR, non-zero exit, STDOUT empty", () => {
-    const result = runBin([]);
+  it("no arguments without a project marker: discovery error without output", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "codegen-no-project-"));
+    tempDirs.push(cwd);
+    const result = runBin([], cwd);
 
     expect(result.status).not.toEqual(0);
     expect(result.stdout).toEqual("");
-    expect(result.stderr).toContain("pbuilder-codegen <package-dir>");
+    expect(result.stderr).toBe("pbuilder-codegen: project-builder.json not found\n");
   });
 
   it("unrecognized flag: usage on STDERR, non-zero exit", () => {
@@ -101,6 +106,21 @@ describe("pbuilder-codegen CLI — bin invocation discipline (TFO-03.1/.2)", () 
 });
 
 describe("pbuilder-codegen CLI — success + discovery (FPS-01.1, TFO-04.2)", () => {
+  for (const explicit of [false, true]) {
+    it(`generates registered project work through the bundled CLI (${explicit ? "explicit" : "automatic"})`, () => {
+      const project = scratchDir();
+      const dir = join(project, "widget");
+      seedSchema(dir, VALID_SCHEMA);
+      const sentinel = join(project, "executed");
+      writeFileSync(join(dir, "factory.ts"), `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(sentinel)}, 'executed'); throw new Error('unexpected execution');`);
+      writeFileSync(join(project, "project-builder.json"), JSON.stringify({ collections: { all: { first: { path: "./widget" }, duplicate: { path: "./widget" } } } }));
+      const result = runBin(explicit ? ["--project", project] : [], explicit ? PROJECT_ROOT : dir);
+      expect({ status: result.status, stdout: result.stdout, stderr: result.stderr }).toEqual({ status: 0, stdout: "pbuilder-codegen: generated 1, failed 0, duplicates 1\n", stderr: "" });
+      const raw = readFileSync(join(dir, "schema.json"), "utf8");
+      expect(readFileSync(join(dir, GENERATED_FILENAME), "utf8")).toBe(emitInputType(parseSchema(raw), computeSchemaDigest(raw)));
+      expect(existsSync(sentinel)).toBe(false);
+    });
+  }
   it("discovers schema.json without a path argument and prints the fixed success line", () => {
     const dir = scratchDir();
     seedSchema(dir, VALID_SCHEMA);
