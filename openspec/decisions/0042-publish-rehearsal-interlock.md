@@ -5,7 +5,28 @@
 - Change: `stage-6-release-shape`
 - Relates to: REQ-PPH-01, REQ-PPH-02, REQ-PPH-03, REQ-AOD-09.6
 
-## Context
+## Amendment: manual stable publication
+
+As of 2026-09-11, this amendment supersedes the historical push-only trigger,
+repository-only eligibility and dry-run pin below. `publish.yml` accepts only
+`workflow_dispatch` from the canonical repository on `refs/heads/main`, checks out
+the immutable dispatch SHA, and publishes the unchanged stable package version to
+public npmjs `latest` with provenance. SHA-pinned actions and job-only OIDC remain;
+the `npm` environment's required-reviewer approval remains mandatory.
+
+Frozen install, explicit build, full tests, typecheck and read-only release preflight
+must succeed before the single bounded publish command. Package concurrency never
+cancels an in-progress run. No stamping, token fallback, provenance downgrade or
+automatic retry is allowed. Lifecycle rebuilding remains enabled and does not
+establish tested-versus-final byte identity.
+
+The owner separately authorizes first live activation after merge and confirms the
+registry version, latest target and provenance source SHA/run. An attempted command
+with a failed or uncertain result requires registry inspection, not an assumption
+that nothing was published. See [the release runbook](../../CONTRIBUTING.md#publishing-a-release).
+Fixture tests cannot establish external reviewer enforcement or live OIDC trust.
+
+## Historical context (2026-07)
 
 `publish.yml` carries `id-token: write` with no repo-owner guard and pins only `setup-bun` — a fork
 with its own `main` can reach the OIDC-token-minting step today (verified live). Stage 6 hardens this
