@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { YAML } from "bun";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +9,7 @@ import { validateRelease } from "../../scripts/validate-release.ts";
 
 const ROOT = new URL("../../", import.meta.url).pathname;
 const PUBLISH = "npm publish --registry=https://registry.npmjs.org --tag=latest --access=public --provenance --fetch-retries=0 --fetch-timeout=30000";
+const LOCAL_PUBLISH = "npm publish --userconfig tools/verdaccio/npmrc --registry http://localhost:4873 --tag local";
 const ATTEMPT = `printf 'outcome=attempted\\n' >> "$GITHUB_OUTPUT"\n${PUBLISH}\nprintf 'outcome=command succeeded\\n' >> "$GITHUB_OUTPUT"`;
 const SUMMARY = `printf 'Package: @pbuilder/sdk\\nVersion: %s\\nSHA: %s\\nRegistry: https://registry.npmjs.org\\nChannel: latest\\nOutcome: %s\\nRegistry confirmation: owner verification pending\\n' "$RELEASE_VERSION" "$GITHUB_SHA" "$PUBLISH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"`;
 const ALLOWED = new Set([
@@ -90,8 +92,8 @@ type Document = { jobs: { publish: { steps: Step[] } } };
 
 // This is a closed command vocabulary, not a shell sandbox or an Actions emulator.
 // Reject the entire batch before executing even its first command.
-function runBodies(bodies: string[], fail = "", version: string = SOURCE_PACKAGE.version): { attempts: string[]; status: number; summary: string; output?: string; uploads?: number } {
-  if (bodies.some((body) => !ALLOWED.has(body.trim()))) return { attempts: [], status: 125, summary: "unsupported command" };
+function runBodies(bodies: string[], fail = "", version: string = SOURCE_PACKAGE.version, npmrc?: string): { attempts: string[]; status: number; summary: string; output?: string; uploads?: number; lookups?: number } {
+  if (bodies.some((body) => !ALLOWED.has(body.trim()) && !(fail === "local" && body === LOCAL_PUBLISH))) return { attempts: [], status: 125, summary: "unsupported command" };
   const root = mkdtempSync(join(tmpdir(), "manual-publish-"));
   try {
     const bin = join(root, "bin");
@@ -99,11 +101,19 @@ function runBodies(bodies: string[], fail = "", version: string = SOURCE_PACKAGE
     mkdirSync(join(root, "scripts"));
     writeFileSync(join(root, "package.json"), JSON.stringify({ ...SOURCE_PACKAGE, version }));
     writeFileSync(join(root, "CHANGELOG.md"), `## ${version}\n`);
+    if (npmrc !== undefined || existsSync(join(ROOT, ".npmrc"))) writeFileSync(join(root, ".npmrc"), npmrc ?? readFileSync(join(ROOT, ".npmrc")));
+    const projectConfig = (existsSync(join(root, ".npmrc")) ? readFileSync(join(root, ".npmrc"), "utf8") : "").split("\n")
+      .filter((line) => !/^\s*[;#]/.test(line) && line.includes("="))
+      .map((line) => line.replace(/\s*=\s*/, " = ")).join("\n");
+    if (existsSync(join(ROOT, "tools/verdaccio/npmrc"))) {
+      mkdirSync(join(root, "tools/verdaccio"), { recursive: true });
+      writeFileSync(join(root, "tools/verdaccio/npmrc"), readFileSync(join(ROOT, "tools/verdaccio/npmrc")));
+    }
     const validator = join(ROOT, "scripts/validate-release.ts");
     if (existsSync(validator)) writeFileSync(join(root, "scripts/validate-release.ts"), readFileSync(validator));
     // npm exact-version 404 shape observed 2026-09-11; config/failures below are
     // synthetic boundary fixtures, never evidence of live publication trust.
-    writeFileSync(join(root, "preload.ts"), `globalThis.fetch = (async () => { if (process.env.FAIL === "registry") throw new Error("network blocked"); return new Response(JSON.stringify(${JSON.stringify(`version not found: ${version}`)}), {status: 404}); }) as typeof fetch;`);
+    writeFileSync(join(root, "preload.ts"), `import { appendFileSync } from "node:fs"; globalThis.fetch = (async () => { appendFileSync("lookups", "lookup\\n"); if (process.env.FAIL === "registry") throw new Error("network blocked"); return new Response(JSON.stringify(${JSON.stringify(`version not found: ${version}`)}), {status: 404}); }) as typeof fetch;`);
     writeFileSync(join(bin, "bun"), `#!/bin/sh
 if [ "$*" = "$FAIL" ]; then exit 1; fi
 case "$*" in
@@ -115,15 +125,16 @@ esac
     writeFileSync(join(bin, "npm"), `#!/bin/sh
 case "$*" in
   "--version") if [ "$FAIL" = runtime ]; then printf '11.4.0\\n'; else printf '11.19.0\\n'; fi ;;
-  "config list --json") if [ "$FAIL" = config ]; then exit 1; fi; printf '{"registry":"https://registry.npmjs.org/","tag":"latest","access":null,"provenance":false,"dry-run":false,"ignore-scripts":false}\\n' ;;
+  "config list --json") if [ "$FAIL" = config ]; then exit 1; fi; exec "$BUN_EXE" -e 'console.log(JSON.stringify({registry:"https://registry.npmjs.org/",tag:"latest",access:null,provenance:false,"dry-run":false,"ignore-scripts":false,...Object.fromEntries(process.env.NPM_PROJECT_CONFIG.split("\\n").filter(Boolean).map(line => line.split(" = ")))}))' ;;
   "config list --json=false --long=false")
     case "$FAIL" in
       protected-token) printf '//registry.npmjs.org/:_authToken = (protected)\\n' ;;
       explicit-provenance) printf 'provenance = false\\n' ;;
       explicit-provenance-enabled) printf 'provenance = true\\n' ;;
-      *) printf '; no nondefault settings\\n' ;;
+      *) printf '%s\\n' "$NPM_PROJECT_CONFIG" ;;
     esac ;;
   "${PUBLISH.slice(4)}") printf '%s\\n' "$*" >> "$ATTEMPTS"; if [ "$FAIL" = lifecycle ]; then exit 1; fi; printf 'upload\\n' >> "$UPLOADS"; if [ "$FAIL" = publish ]; then exit 1; fi ;;
+  "${LOCAL_PUBLISH.slice(4)}") [ "$FAIL" = local ] && [ -f tools/verdaccio/npmrc ] || exit 125; printf '%s\\n' "$*" >> "$ATTEMPTS" ;;
   *) exit 125 ;;
 esac
 `, { mode: 0o700 });
@@ -132,6 +143,7 @@ esac
     const attempts = join(root, "attempts");
     const env = {
       PATH: bin, HOME: root, BUN_EXE: process.execPath, FAIL: fail,
+      NPM_PROJECT_CONFIG: projectConfig,
       GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: summary, ATTEMPTS: attempts, UPLOADS: join(root, "uploads"),
       GITHUB_SHA: "a".repeat(40), RELEASE_VERSION: "unavailable", PUBLISH_OUTCOME: "blocked",
     };
@@ -152,6 +164,7 @@ esac
       status, summary: existsSync(summary) ? readFileSync(summary, "utf8") : "",
       output: existsSync(output) ? readFileSync(output, "utf8") : "",
       uploads: existsSync(env.UPLOADS) ? readFileSync(env.UPLOADS, "utf8").trim().split("\n").length : 0,
+      lookups: existsSync(join(root, "lookups")) ? readFileSync(join(root, "lookups"), "utf8").trim().split("\n").length : 0,
     };
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -159,6 +172,39 @@ esac
 }
 
 describe("manual publisher command isolation", () => {
+  it("selects development config only through the exact local entrypoint", () => {
+    const result = runBodies([SOURCE_PACKAGE.scripts["publish:local"]], "local");
+    expect(result.status).toBe(0);
+    expect(result.attempts).toEqual([LOCAL_PUBLISH.slice(4)]);
+    expect(runBodies([LOCAL_PUBLISH]).status).toBe(125);
+    for (const command of [LOCAL_PUBLISH.replace("tools/verdaccio/npmrc", ".npmrc"), LOCAL_PUBLISH.replace("http://localhost:4873", "https://registry.npmjs.org")]) {
+      expect(runBodies([command], "local").status).toBe(125);
+    }
+  });
+  it("relocates only development configuration and preserves package and lock bytes", () => {
+    const files = [
+      ["tools/verdaccio/npmrc", "21e9b6de05d118b986f3d9f149dcfbdce5d430f4"],
+      ["package.json", "23edcb3a3bcb408767e59cce866e61b8c72080ac"],
+      ["bun.lock", "3885ae91f0b9c4948ba2ecbbb37f1b3d7f390d93"],
+    ];
+    for (const [path, hash] of files) {
+      let bytes = readFileSync(join(ROOT, path!));
+      if (path === "package.json") bytes = Buffer.from(bytes.toString().replace(LOCAL_PUBLISH, "npm publish --registry http://localhost:4873 --tag local"));
+      expect(createHash("sha1").update(`blob ${bytes.length}\0`).update(bytes).digest("hex")).toBe(hash!);
+    }
+    expect(existsSync(join(ROOT, ".npmrc")) ? readFileSync(join(ROOT, ".npmrc"), "utf8") : "").toBe("");
+  });
+  it.each(["//localhost:4873/:_authToken=unsafe", "//registry.npmjs.org/:_authToken=unsafe", "_auth=unsafe", "registry=https://example.com", "@pbuilder:registry=https://example.com", "provenance=false"])("retains and rejects injected project setting %s before lookup or publish", (config) => {
+    const result = runBodies(["bun scripts/validate-release.ts", ATTEMPT], "", SOURCE_PACKAGE.version, config);
+    expect(result.status).toBe(1);
+    expect(result.lookups).toBe(0);
+    expect(result.attempts).toEqual([]);
+  });
+  it("retains unrelated project settings without selecting development auth", () => {
+    const result = runBodies(["bun scripts/validate-release.ts", ATTEMPT], "", SOURCE_PACKAGE.version, "fund=false\n");
+    expect(result.status).toBe(0);
+    expect(result.attempts).toEqual([PUBLISH.slice(4)]);
+  });
   it("rejects escape routes before invoking any command", () => {
     for (const escape of ["/usr/bin/npm publish", "bunx npm publish", "npm exec -- npm publish", "bun run build; npm publish", "$(npm publish)", "PATH=/usr/bin npm publish"]) {
       expect(runBodies([ATTEMPT, escape])).toEqual({ attempts: [], status: 125, summary: "unsupported command" });
