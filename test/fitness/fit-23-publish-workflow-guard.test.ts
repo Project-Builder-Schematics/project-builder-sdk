@@ -29,7 +29,7 @@ interface JobDef {
   permissions?: Record<string, string>;
   if?: string;
   needs?: string | string[];
-  steps?: Array<{ uses?: string; run?: string; name?: string; if?: string; with?: Record<string, unknown>; "continue-on-error"?: boolean }>;
+  steps?: Array<{ uses?: string; run?: string; name?: string; id?: string; if?: string; env?: Record<string, string>; with?: Record<string, unknown>; "continue-on-error"?: boolean }>;
 }
 interface WorkflowDoc {
   on?: Record<string, unknown>;
@@ -86,6 +86,15 @@ function checkRepoOwnerGuard(doc: WorkflowDoc, ownerRepo: string): { ok: boolean
     if (runs.length !== 7 || gates.some((gate, index) => runs[index]?.run?.trim() !== gate)) return { ok: false, reason: `job "${name}" has missing, unordered or extra execution steps` };
     if (runs.slice(0, 6).some((step) => step.if !== undefined || (step["continue-on-error"] !== undefined && step["continue-on-error"] !== false))) return { ok: false, reason: `job "${name}" bypasses a failure or conditionally skips a gate` };
     if (runs[6]?.if !== "always()") return { ok: false, reason: `job "${name}" omits the failure outcome summary` };
+    if (runs[4]?.id !== "release" || runs[5]?.id !== "publication" ||
+      ["release", "publication"].some((id) => job.steps?.filter((step) => step.id === id).length !== 1)) {
+      return { ok: false, reason: `job "${name}" has missing, mismatched or duplicate summary producer IDs` };
+    }
+    const summaryEnv = runs[6]?.env;
+    if (summaryEnv?.RELEASE_VERSION !== "${{ steps.release.outputs.version || 'unavailable' }}" ||
+      summaryEnv.PUBLISH_OUTCOME !== "${{ steps.publication.outputs.outcome || 'blocked' }}" || Object.keys(summaryEnv).length !== 2) {
+      return { ok: false, reason: `job "${name}" has incorrect summary bindings or fallbacks` };
+    }
   }
   for (const [name, job] of Object.entries(doc.jobs ?? {})) {
     if (job.permissions?.["id-token"] === "write") continue;
@@ -411,6 +420,28 @@ describe("FIT-23 — publish workflow guard (REQ-PPH-01/02/03, ADR-0042)", () =>
   ];
 
   it.each(protectionMutations)("rejects protection mutation: %s", (_name, mutate) => {
+    const doc = structuredClone(publishDoc);
+    mutate(doc);
+    expect(checkRepoOwnerGuard(doc, OWNER_REPO).ok).toBe(false);
+  });
+
+  const summaryMutations: Array<[string, (doc: WorkflowDoc) => void]> = [
+    ["wrong release ID", (doc) => { doc.jobs!.publish!.steps!.find((step) => step.run === "bun scripts/validate-release.ts")!.id = "other"; }],
+    ["missing release ID", (doc) => { delete doc.jobs!.publish!.steps!.find((step) => step.run === "bun scripts/validate-release.ts")!.id; }],
+    ["wrong publication ID", (doc) => { doc.jobs!.publish!.steps!.find((step) => step.run?.includes("npm publish"))!.id = "other"; }],
+    ["missing publication ID", (doc) => { delete doc.jobs!.publish!.steps!.find((step) => step.run?.includes("npm publish"))!.id; }],
+    ["duplicate release ID", (doc) => { doc.jobs!.publish!.steps![0]!.id = "release"; }],
+    ["duplicate publication ID", (doc) => { doc.jobs!.publish!.steps![0]!.id = "publication"; }],
+    ["wrong version binding", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.RELEASE_VERSION = "${{ steps.other.outputs.version || 'unavailable' }}"; }],
+    ["wrong outcome binding", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.PUBLISH_OUTCOME = "${{ steps.other.outputs.outcome || 'blocked' }}"; }],
+    ["missing unavailable fallback", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.RELEASE_VERSION = "${{ steps.release.outputs.version }}"; }],
+    ["missing blocked fallback", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.PUBLISH_OUTCOME = "${{ steps.publication.outputs.outcome }}"; }],
+    ["premature success fallback", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.PUBLISH_OUTCOME = "${{ steps.publication.outputs.outcome || 'command succeeded' }}"; }],
+    ["overridden SHA", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.GITHUB_SHA = "main"; }],
+    ["missing summary environment", (doc) => { delete doc.jobs!.publish!.steps!.at(-1)!.env; }],
+  ];
+
+  it.each(summaryMutations)("rejects summary wiring mutation: %s", (_name, mutate) => {
     const doc = structuredClone(publishDoc);
     mutate(doc);
     expect(checkRepoOwnerGuard(doc, OWNER_REPO).ok).toBe(false);

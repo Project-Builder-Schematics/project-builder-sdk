@@ -101,6 +101,8 @@ function runBodies(bodies: string[], fail = "", version: string = SOURCE_PACKAGE
     writeFileSync(join(root, "CHANGELOG.md"), `## ${version}\n`);
     const validator = join(ROOT, "scripts/validate-release.ts");
     if (existsSync(validator)) writeFileSync(join(root, "scripts/validate-release.ts"), readFileSync(validator));
+    // npm exact-version 404 shape observed 2026-09-11; config/failures below are
+    // synthetic boundary fixtures, never evidence of live publication trust.
     writeFileSync(join(root, "preload.ts"), `globalThis.fetch = (async () => { if (process.env.FAIL === "registry") throw new Error("network blocked"); return new Response(JSON.stringify(${JSON.stringify(`version not found: ${version}`)}), {status: 404}); }) as typeof fetch;`);
     writeFileSync(join(bin, "bun"), `#!/bin/sh
 if [ "$*" = "$FAIL" ]; then exit 1; fi
@@ -131,13 +133,16 @@ esac
     const env = {
       PATH: bin, HOME: root, BUN_EXE: process.execPath, FAIL: fail,
       GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: summary, ATTEMPTS: attempts, UPLOADS: join(root, "uploads"),
-      GITHUB_SHA: "a".repeat(40), RELEASE_VERSION: version, PUBLISH_OUTCOME: "blocked",
+      GITHUB_SHA: "a".repeat(40), RELEASE_VERSION: "unavailable", PUBLISH_OUTCOME: "blocked",
     };
     let status = 0;
     for (const body of bodies) {
       if (status !== 0 && body.trim() !== SUMMARY) continue;
-      if (body.trim() === SUMMARY && existsSync(output)) {
-        env.PUBLISH_OUTCOME = readFileSync(output, "utf8").match(/outcome=(.*)/g)?.at(-1)?.slice(8) ?? "blocked";
+      if (body.trim() === SUMMARY) {
+        // FIT-23 checks the exact YAML bindings; no Actions expression evaluation here.
+        const emitted = existsSync(output) ? readFileSync(output, "utf8") : "";
+        env.RELEASE_VERSION = /^version=(.*)$/m.exec(emitted)?.[1] || "unavailable";
+        env.PUBLISH_OUTCOME = emitted.match(/^outcome=(.*)$/gm)?.at(-1)?.slice(8) || "blocked";
       }
       const result = spawnSync("/bin/bash", ["--noprofile", "--norc", "-e", "-o", "pipefail", "-c", body], { cwd: root, env, encoding: "utf8" });
       if (result.status !== 0) status = result.status ?? 1;
@@ -168,6 +173,7 @@ describe("manual publisher outer loop", () => {
     expect(result.attempts).toEqual([PUBLISH.slice(4)]);
     expect(result.status).toBe(0);
     expect(result.output).toContain(`version=${SOURCE_PACKAGE.version}\n`);
+    expect(result.summary).toBe(`Package: @pbuilder/sdk\nVersion: ${SOURCE_PACKAGE.version}\nSHA: ${"a".repeat(40)}\nRegistry: https://registry.npmjs.org\nChannel: latest\nOutcome: command succeeded\nRegistry confirmation: owner verification pending\n`);
   });
   it.each(["install --frozen-lockfile", "run build", "test", "run typecheck", "scripts/validate-release.ts"])("blocks publication when gate %s fails", (failure) => {
     const doc = YAML.parse(readFileSync(join(ROOT, ".github/workflows/publish.yml"), "utf8")) as Document;
@@ -183,6 +189,7 @@ describe("manual publisher outer loop", () => {
     expect(result.status).toBe(1);
     expect(result.summary).toContain("Outcome: attempted");
     expect(result.summary).toContain("owner verification pending");
+    expect(result.summary).toBe(`Package: @pbuilder/sdk\nVersion: ${SOURCE_PACKAGE.version}\nSHA: ${"a".repeat(40)}\nRegistry: https://registry.npmjs.org\nChannel: latest\nOutcome: attempted\nRegistry confirmation: owner verification pending\n`);
   });
   it("distinguishes command invocation from a simulated lifecycle failure before upload", () => {
     const doc = YAML.parse(readFileSync(join(ROOT, ".github/workflows/publish.yml"), "utf8")) as Document;
@@ -191,6 +198,14 @@ describe("manual publisher outer loop", () => {
     expect(result.uploads).toBe(0);
     expect(result.status).toBe(1);
     expect(result.summary).toContain("Outcome: attempted");
+  });
+
+  it("reports unavailable identity and blocked outcome when release output is absent", () => {
+    const doc = YAML.parse(readFileSync(join(ROOT, ".github/workflows/publish.yml"), "utf8")) as Document;
+    const result = runBodies(doc.jobs.publish.steps.flatMap((step) => step.run ? [step.run.trim()] : []), "scripts/validate-release.ts");
+    expect(result.summary).toBe(`Package: @pbuilder/sdk\nVersion: unavailable\nSHA: ${"a".repeat(40)}\nRegistry: https://registry.npmjs.org\nChannel: latest\nOutcome: blocked\nRegistry confirmation: owner verification pending\n`);
+    expect(result.attempts).toEqual([]);
+    expect(result.output).toBe("");
   });
 });
 
