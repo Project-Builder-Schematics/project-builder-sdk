@@ -17,7 +17,8 @@ const ALLOWED = new Set([
 
 const SOURCE_PACKAGE = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
 const PACKAGE = { ...SOURCE_PACKAGE, version: "0.3.0" };
-const ABSENT = (async () => new Response(JSON.stringify("version not found: 0.3.0"), { status: 404 })) as typeof fetch;
+const preconnect: typeof fetch.preconnect = () => { throw new Error("Unexpected preconnect in release fixture"); };
+const ABSENT: typeof fetch = Object.assign(async () => new Response(JSON.stringify("version not found: 0.3.0"), { status: 404 }), { preconnect });
 
 describe("release validator", () => {
   it("accepts a stable unchanged release with an absent registry version", async () => {
@@ -38,12 +39,12 @@ describe("release validator", () => {
     ["null metadata", null, "## 0.3.0"],
   ])("rejects %s before registry access", async (_name, pkg, changelog) => {
     let calls = 0;
-    const lookup = (async () => { calls++; return ABSENT(""); }) as typeof fetch;
+    const lookup: typeof fetch = Object.assign(async () => { calls++; return ABSENT(""); }, { preconnect });
     expect(await validateRelease(pkg, changelog as string, {}, lookup).then(() => "accepted", () => "blocked")).toBe("blocked");
     expect(calls).toBe(0);
   });
   it("accepts another canonical stable version rather than pinning the current release", async () => {
-    const lookup = (async () => new Response(JSON.stringify("version not found: 12.34.56"), { status: 404 })) as typeof fetch;
+    const lookup: typeof fetch = Object.assign(async () => new Response(JSON.stringify("version not found: 12.34.56"), { status: 404 }), { preconnect });
     expect(await validateRelease({ ...PACKAGE, version: "12.34.56" }, "## 12.34.56", {}, lookup)).toBe("12.34.56");
   });
   it.each([
@@ -60,25 +61,25 @@ describe("release validator", () => {
     expect(await validateRelease({ ...PACKAGE, publishConfig: { [key as string]: value } }, "## 0.3.0", {}, ABSENT).then(() => "accepted", () => "blocked")).toBe("blocked");
   });
   it.each([200, 301, 401, 403, 429, 500])("blocks registry status %s", async (status) => {
-    const lookup = (async () => new Response(JSON.stringify("version not found: 0.3.0"), { status })) as typeof fetch;
+    const lookup: typeof fetch = Object.assign(async () => new Response(JSON.stringify("version not found: 0.3.0"), { status }), { preconnect });
     expect(await validateRelease(PACKAGE, "## 0.3.0", {}, lookup).then(() => "accepted", () => "blocked")).toBe("blocked");
   });
   it.each(["not json", JSON.stringify("Not found"), JSON.stringify("version not found: 0.2.0"), JSON.stringify({ error: "version not found: 0.3.0" })])("blocks uncertain 404 payload %s", async (body) => {
-    const lookup = (async () => new Response(body, { status: 404 })) as typeof fetch;
+    const lookup: typeof fetch = Object.assign(async () => new Response(body, { status: 404 }), { preconnect });
     expect(await validateRelease(PACKAGE, "## 0.3.0", {}, lookup).then(() => "accepted", () => "blocked")).toBe("blocked");
   });
   it.each(["network", "timeout"])("blocks %s failure without retry", async (message) => {
     let calls = 0;
-    const lookup = (async () => { calls++; throw new Error(message); }) as typeof fetch;
+    const lookup: typeof fetch = Object.assign(async () => { calls++; throw new Error(message); }, { preconnect });
     expect(await validateRelease(PACKAGE, "## 0.3.0", {}, lookup).then(() => "accepted", () => "blocked")).toBe("blocked");
     expect(calls).toBe(1);
   });
   it("looks up only the exact fixed npmjs version without redirects", async () => {
     const requests: unknown[] = [];
-    const lookup = (async (url: unknown, options: RequestInit) => {
-      requests.push([url, options.method, options.redirect, options.signal instanceof AbortSignal]);
+    const lookup: typeof fetch = Object.assign(async (url: Parameters<typeof fetch>[0], options?: Parameters<typeof fetch>[1]) => {
+      requests.push([url, options?.method, options?.redirect, options?.signal instanceof AbortSignal]);
       return ABSENT("");
-    }) as typeof fetch;
+    }, { preconnect });
     await validateRelease(PACKAGE, "## 0.3.0", {}, lookup);
     expect(requests).toEqual([["https://registry.npmjs.org/@pbuilder%2fsdk/0.3.0", "GET", "error", true]]);
   });
