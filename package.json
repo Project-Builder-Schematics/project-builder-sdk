@@ -79,7 +79,7 @@
     "prepublishOnly": "bun run build",
     "publish:dry": "npm publish --dry-run",
     "registry:up": "verdaccio --config tools/verdaccio/config.yaml --listen 4873",
-    "publish:local": "npm publish --registry http://localhost:4873 --tag local",
+    "publish:local": "npm publish --userconfig tools/verdaccio/npmrc --registry http://localhost:4873 --tag local",
     "link:sdk": "bun run build && bun link"
   },
   "devDependencies": {
