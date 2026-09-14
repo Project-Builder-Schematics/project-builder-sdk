@@ -2,11 +2,11 @@
  * FIT-46 (S-000) — publish-sequence integrity (REQ-PPI-01, plus the REQ-PPI-03.2/.3 S-000
  * leg per `specs/publish-pipeline-hardening/spec.md`'s dated note).
  *
- * Runs the REAL stamp -> rebuild -> pack sequence against a scratch copy of the ALREADY-BUILT
+ * Runs the stable manifest-regeneration -> pack sequence against a scratch copy of the ALREADY-BUILT
  * tree (`dist/` + `package.json` only — same shape as fit-42's own `pristineRoot`, never the
- * full source tree, so this never re-runs `tsc`). The "rebuild" leg this file proves is the
+ * full source tree; seeding may build once via ensureTscBuild). The "rebuild" leg this file proves is the
  * part of `bun run build` that actually determines REQ-PPI-01's outcome: the manifest
- * regenerating against the now-stamped `package.json` (`bun run build`'s own last step,
+ * regenerating against the unchanged `package.json` (`bun run build`'s own last step,
  * `bun scripts/generate-runner-manifest.ts`). It is invoked with `cwd: PROJECT_ROOT` and the
  * scratch path as its explicit argument — the SAME safe pattern fit-42's own `runGenerator`
  * already uses (`fit-42-runner-closure-integrity.test.ts:375-381`): the process needs
@@ -16,9 +16,8 @@
  * and mutating the real `dist/` mid-suite, confirmed live in the current suite) — the real
  * tree here is read exactly once, to seed the copy, and never written.
  *
- * `npm version`/`npm pack` genuinely need `cwd: <scratchRoot>` (they operate on "the current
- * directory's package.json"; there is no CLI argument to redirect them elsewhere), so those
- * two calls run there directly, against the scratch copy only.
+ * The negative mutates scratch metadata after generation and packs with scripts ignored.
+ * Neither path invokes publication. `ensureTscBuild` makes this file build-dependent.
  */
 import { describe, it, expect, setDefaultTimeout } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -29,8 +28,8 @@ import { ensureTscBuild } from "../support/shared-build.ts";
 import { PROJECT_ROOT } from "../support/scratch-consumer.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 
-// A real stamp -> rebuild -> pack sequence spawns several child processes per test (npm
-// version, the manifest regenerator, npm pack, tar); bounded but slower than a unit test —
+// Manifest regeneration and packing spawn several child processes per test (the
+// manifest regenerator, npm pack, tar); bounded but slower than a unit test —
 // comparable to this suite's other scratch-root integration tests. Explicit and distinct
 // from Bun's 5000ms default so a genuine regression fails naming the timeout, not by
 // silently exceeding it (same device as REQ-PPI-04's react-conformance fix).
@@ -54,20 +53,10 @@ function seedScratchTarget(root: string): void {
   cpSync(join(PROJECT_ROOT, "package.json"), join(root, "package.json"));
 }
 
-function stampVersion(root: string, version: string): void {
-  const result = spawnSync("npm", ["version", version, "--no-git-tag-version"], {
-    cwd: root,
-    encoding: "utf-8",
-  });
-  if (result.status !== 0) {
-    throw new Error(`npm version failed:\n${result.stdout}\n${result.stderr}`);
-  }
-}
-
 /** The behavioural stand-in for `prepublishOnly` (== "bun run build"): the scratch target
  * carries no src/, so a real tsc rebuild cannot run there. The part of the build that
  * actually determines REQ-PPI-01's outcome — the manifest regenerating against the
- * now-stamped package.json — is exercised directly, via the exact script `bun run build`
+ * unchanged package.json — is exercised directly, via the exact script `bun run build`
  * itself chains as its last step (`scripts/generate-runner-manifest.ts`). */
 function regenerateManifest(root: string): void {
   const result = spawnSync("bun", ["scripts/generate-runner-manifest.ts", root], {
@@ -79,8 +68,8 @@ function regenerateManifest(root: string): void {
   }
 }
 
-function packTarball(root: string): string {
-  const result = spawnSync("npm", ["pack", "--pack-destination", root], {
+function packTarball(root: string, ignoreScripts: boolean): string {
+  const result = spawnSync("npm", ["pack", "--pack-destination", root, ...(ignoreScripts ? ["--ignore-scripts"] : [])], {
     cwd: root,
     encoding: "utf-8",
   });
@@ -99,16 +88,21 @@ function extractTarball(tarballPath: string, destDir: string): void {
   }
 }
 
-/** Runs the real stamp -> [rebuild] -> pack sequence, extracts the tarball, and returns the
+/** Runs regeneration -> [metadata mutation] -> pack, extracts the tarball, and returns the
  * extracted `package/` dir plus the manifest it shipped. */
 function runPublishSequence(
   root: string,
-  opts: { regenerateManifestAfterStamp: boolean }
+  opts: { mutateAfterGeneration: boolean }
 ): { packageDir: string; manifest: RunnerManifest } {
   seedScratchTarget(root);
-  stampVersion(root, "0.0.0-dev.fit46test");
-  if (opts.regenerateManifestAfterStamp) regenerateManifest(root);
-  const tarballPath = packTarball(root);
+  regenerateManifest(root);
+  if (opts.mutateAfterGeneration) {
+    const path = join(root, "package.json");
+    const metadata = JSON.parse(readFileSync(path, "utf8"));
+    metadata.description = "Changed after manifest generation";
+    writeFileSync(path, JSON.stringify(metadata));
+  }
+  const tarballPath = packTarball(root, opts.mutateAfterGeneration);
   const extractedDir = join(root, "extracted");
   extractTarball(tarballPath, extractedDir);
   const packageDir = join(extractedDir, "package");
@@ -127,16 +121,17 @@ function mismatchedDigests(packageDir: string, manifest: RunnerManifest): Manife
 }
 
 describe("FIT-46 (S-000) — REQ-PPI-01: behavioural publish-sequence integrity", () => {
-  it("REQ-PPI-01.1: packed digests match packed bytes after the real stamp -> rebuild -> pack sequence", () => {
+  it("REQ-PPI-01.1: packed digests match unchanged stable metadata and packed bytes", () => {
     const root = scratchRoot();
-    const { packageDir, manifest } = runPublishSequence(root, { regenerateManifestAfterStamp: true });
+    const { packageDir, manifest } = runPublishSequence(root, { mutateAfterGeneration: false });
+    expect(readFileSync(join(packageDir, "package.json"), "utf8")).toBe(readFileSync(join(PROJECT_ROOT, "package.json"), "utf8"));
     expect(manifest.files.length).toBeGreaterThan(0);
     expect(mismatchedDigests(packageDir, manifest)).toEqual([]);
   });
 
-  it("REQ-PPI-01.2 [red-proof]: skipping the rebuild after the stamp leaves the package.json digest stale, naming the field", () => {
+  it("REQ-PPI-01.2 [red-proof]: metadata mutation followed by ignored regeneration names the stale package.json digest", () => {
     const root = scratchRoot();
-    const { packageDir, manifest } = runPublishSequence(root, { regenerateManifestAfterStamp: false });
+    const { packageDir, manifest } = runPublishSequence(root, { mutateAfterGeneration: true });
     const mismatched = mismatchedDigests(packageDir, manifest);
     expect(mismatched.map((record) => record.path)).toEqual(["package.json"]);
   });
@@ -187,7 +182,11 @@ describe("FIT-46 (S-000) — REQ-PPI-03.2/.3: the gate mechanism blocks/allows p
       join(root, "passing.test.ts"),
       [
         'import { test, expect } from "bun:test";',
-        'test("a clean suite check", () => { expect(1).toBe(1); });',
+        `import { deriveRunnerClosure } from ${JSON.stringify(join(PROJECT_ROOT, "scripts/derive-runner-closure.ts"))};`,
+        'import { writeFileSync } from "node:fs";',
+        `const root = ${JSON.stringify(root)};`,
+        'writeFileSync(root + "/entry.js", "export const value = 1;\\n");',
+        'test("a clean Constraint-4 closure", () => { expect(deriveRunnerClosure(root, "entry.js").violations).toEqual([]); });',
         "",
       ].join("\n")
     );

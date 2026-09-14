@@ -24,10 +24,12 @@ const PUBLISH_YML_PATH = join(WORKFLOWS_DIR, "publish.yml");
 const CI_YML_PATH = join(WORKFLOWS_DIR, "ci.yml");
 
 interface JobDef {
+  environment?: string;
+  concurrency?: { group?: string; "cancel-in-progress"?: boolean };
   permissions?: Record<string, string>;
   if?: string;
   needs?: string | string[];
-  steps?: Array<{ uses?: string; run?: string; name?: string; "continue-on-error"?: boolean }>;
+  steps?: Array<{ uses?: string; run?: string; name?: string; id?: string; if?: string; env?: Record<string, string>; with?: Record<string, unknown>; "continue-on-error"?: boolean }>;
 }
 interface WorkflowDoc {
   on?: Record<string, unknown>;
@@ -62,7 +64,7 @@ function checkRepoOwnerGuard(doc: WorkflowDoc, ownerRepo: string): { ok: boolean
   if (found.length === 0) {
     return { ok: false, reason: "no job declares id-token: write in its own permissions block" };
   }
-  const expected = `github.repository == '${ownerRepo}'`;
+  const expected = `github.repository == '${ownerRepo}' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'`;
   for (const { name, job } of found) {
     if (job.if !== expected) {
       return {
@@ -71,13 +73,43 @@ function checkRepoOwnerGuard(doc: WorkflowDoc, ownerRepo: string): { ok: boolean
       };
     }
   }
+  if (doc.permissions?.["id-token"] === "write") return { ok: false, reason: "workflow-level OIDC is forbidden" };
+  if (found.length !== 1) return { ok: false, reason: "exactly one protected publisher is required" };
+  for (const { name, job } of found) {
+    if (job.environment !== "npm") return { ok: false, reason: `job "${name}" is missing npm approval` };
+    if (job.permissions?.contents !== "read" || Object.keys(job.permissions).length !== 2) return { ok: false, reason: `job "${name}" has excess or missing permissions` };
+    if (job.concurrency?.group !== "publish-pbuilder-sdk" || job.concurrency["cancel-in-progress"] !== false) return { ok: false, reason: `job "${name}" has unsafe concurrency` };
+    const checkout = job.steps?.find((step) => step.uses?.startsWith("actions/checkout@"));
+    if (checkout?.with?.ref !== "${{ github.sha }}" || checkout.with["persist-credentials"] !== false) return { ok: false, reason: `job "${name}" has mutable checkout or persisted credentials` };
+    const runs = job.steps?.filter((step) => step.run !== undefined) ?? [];
+    const gates = ["bun install --frozen-lockfile", "bun run build", "bun test", "bun run typecheck", "bun scripts/validate-release.ts"];
+    if (runs.length !== 7 || gates.some((gate, index) => runs[index]?.run?.trim() !== gate)) return { ok: false, reason: `job "${name}" has missing, unordered or extra execution steps` };
+    if (runs.slice(0, 6).some((step) => step.if !== undefined || (step["continue-on-error"] !== undefined && step["continue-on-error"] !== false))) return { ok: false, reason: `job "${name}" bypasses a failure or conditionally skips a gate` };
+    if (runs[6]?.if !== "always()") return { ok: false, reason: `job "${name}" omits the failure outcome summary` };
+    if (runs[4]?.id !== "release" || runs[5]?.id !== "publication" ||
+      ["release", "publication"].some((id) => job.steps?.filter((step) => step.id === id).length !== 1)) {
+      return { ok: false, reason: `job "${name}" has missing, mismatched or duplicate summary producer IDs` };
+    }
+    const summaryEnv = runs[6]?.env;
+    if (summaryEnv?.RELEASE_VERSION !== "${{ steps.release.outputs.version || 'unavailable' }}" ||
+      summaryEnv.PUBLISH_OUTCOME !== "${{ steps.publication.outputs.outcome || 'blocked' }}" || Object.keys(summaryEnv).length !== 2) {
+      return { ok: false, reason: `job "${name}" has incorrect summary bindings or fallbacks` };
+    }
+  }
+  for (const [name, job] of Object.entries(doc.jobs ?? {})) {
+    if (job.permissions?.["id-token"] === "write") continue;
+    if (job.if !== `\${{ !(${expected}) }}` || Object.keys(job.permissions ?? { missing: true }).length !== 0 ||
+      job.steps?.length !== 1 || job.steps[0]?.uses || job.steps[0]?.run !== 'printf "Publication requires manual dispatch from the canonical repository on main.\\n"\nexit 1\n') {
+      return { ok: false, reason: `job "${name}" is an alternate execution path, not the unprivileged refusal` };
+    }
+  }
   return { ok: true };
 }
 
-// Triggers a fork PR or a manual dispatch can reach: a workflow armed with one of these must
+// Triggers a fork PR can reach: a workflow armed with one of these must
 // never also carry id-token: write, at workflow OR job level (workflow-level permissions
 // apply to every job that doesn't override them, so both levels count).
-const FORK_REACHABLE_TRIGGERS = ["pull_request", "pull_request_target", "workflow_dispatch"];
+const FORK_REACHABLE_TRIGGERS = ["pull_request", "pull_request_target"];
 
 function hasForkReachableTrigger(doc: WorkflowDoc): boolean {
   return Object.keys(doc.on ?? {}).some((key) => FORK_REACHABLE_TRIGGERS.includes(key));
@@ -87,16 +119,12 @@ function declaresIdTokenWriteAnywhere(doc: WorkflowDoc): boolean {
   return doc.permissions?.["id-token"] === "write" || findJobsWithIdTokenWrite(doc).length > 0;
 }
 
-function checkTriggerIsPushToMainOnly(doc: WorkflowDoc): { ok: boolean; reason?: string } {
+function checkTriggerIsManualOnly(doc: WorkflowDoc): { ok: boolean; reason?: string } {
   const onKeys = Object.keys(doc.on ?? {});
-  if (onKeys.length !== 1 || onKeys[0] !== "push") {
-    return { ok: false, reason: `trigger set is [${onKeys.join(", ")}], expected only "push"` };
+  if (onKeys.length !== 1 || onKeys[0] !== "workflow_dispatch") {
+    return { ok: false, reason: `trigger set is [${onKeys.join(", ")}], expected only "workflow_dispatch"` };
   }
-  const push = (doc.on as { push?: { branches?: unknown } }).push;
-  const branches = push?.branches;
-  if (!Array.isArray(branches) || branches.length !== 1 || branches[0] !== "main") {
-    return { ok: false, reason: `push.branches is ${JSON.stringify(branches)}, expected ["main"]` };
-  }
+  if (Object.keys(doc.on?.workflow_dispatch ?? {}).length !== 0) return { ok: false, reason: "dispatch inputs are forbidden" };
   return { ok: true };
 }
 
@@ -133,8 +161,8 @@ function findNpmPublishCommandLines(doc: WorkflowDoc): string[] {
   return lines;
 }
 
-function dryRunPresent(commandLine: string): boolean {
-  return /(^|\s)--dry-run(\s|$)/.test(commandLine);
+function fixedPublication(commandLine: string): boolean {
+  return commandLine === "npm publish --registry=https://registry.npmjs.org --tag=latest --access=public --provenance --fetch-retries=0 --fetch-timeout=30000";
 }
 
 // runner-integrity-manifest S-002, REQ-BPI-03.1. The manifest hashes package.json, so a
@@ -271,6 +299,13 @@ function computePublishStepOrder(doc: WorkflowDoc): PublishStepOrder {
 // which already tolerates the implicit-only case and stays unchanged).
 function checkExplicitRebuildStep(doc: WorkflowDoc): { ok: boolean; reason?: string } {
   const { stamp, publish, unordered, hasRebuildBetween } = computePublishStepOrder(doc);
+  if (stamp === undefined && publish !== undefined) {
+    const jobs = doc.jobs ?? {};
+    const steps = publishRunSteps(doc);
+    return steps.filter((step) => step.kind === "publish").every((target) =>
+      steps.some((step) => step.kind === "build" && stepPrecedes(jobs, step, target) === true)
+    ) ? { ok: true } : { ok: false, reason: "no explicit build before every publication" };
+  }
   if (stamp === undefined || publish === undefined) {
     return { ok: false, reason: "stamp or publish step not found" };
   }
@@ -354,9 +389,111 @@ describe("FIT-23 — publish workflow guard (REQ-PPH-01/02/03, ADR-0042)", () =>
     ciDoc = YAML.parse(readFileSync(CI_YML_PATH, "utf-8")) as WorkflowDoc;
   });
 
+  const protectionMutations: Array<[string, (doc: WorkflowDoc) => void]> = [
+    ["missing approval", (doc) => { delete doc.jobs!.publish!.environment; }],
+    ["wrong approval environment", (doc) => { doc.jobs!.publish!.environment = "unprotected"; }],
+    ["workflow OIDC", (doc) => { doc.permissions!["id-token"] = "write"; }],
+    ["extra privilege", (doc) => { doc.jobs!.publish!.permissions!.contents = "write"; }],
+    ["missing concurrency", (doc) => { delete doc.jobs!.publish!.concurrency; }],
+    ["cancelling concurrency", (doc) => { doc.jobs!.publish!.concurrency!["cancel-in-progress"] = true; }],
+    ["mutable checkout", (doc) => { doc.jobs!.publish!.steps![0]!.with!.ref = "main"; }],
+    ["persisted credentials", (doc) => { doc.jobs!.publish!.steps![0]!.with!["persist-credentials"] = true; }],
+    ["second privileged path without approval", (doc) => {
+      doc.jobs!.second = structuredClone(doc.jobs!.publish!);
+      delete doc.jobs!.second.environment;
+    }],
+    ["unprivileged alternative publish", (doc) => { doc.jobs!.second = { steps: [{ run: "npm publish" }] }; }],
+    ["script-routed alternative publish", (doc) => { doc.jobs!.second = { steps: [{ run: "bun run publish:local" }] }; }],
+    ["ignored build failure", (doc) => { doc.jobs!.publish!.steps!.find((step) => step.run === "bun run build")!["continue-on-error"] = true; }],
+    ["conditional suite bypass", (doc) => { doc.jobs!.publish!.steps!.find((step) => step.run === "bun test")!.if = "false"; }],
+    ["missing preflight", (doc) => { doc.jobs!.publish!.steps = doc.jobs!.publish!.steps!.filter((step) => step.run !== "bun scripts/validate-release.ts"); }],
+    ["unordered gates", (doc) => {
+      const steps = doc.jobs!.publish!.steps!;
+      const build = steps.find((step) => step.run === "bun run build")!;
+      steps.splice(steps.indexOf(build), 1);
+      steps.push(build);
+    }],
+    ["second publish in same job", (doc) => { doc.jobs!.publish!.steps!.push({ run: "npm publish" }); }],
+    ["always publish bypass", (doc) => { doc.jobs!.publish!.steps!.find((step) => step.run?.includes("npm publish"))!.if = "always()"; }],
+    ["second fully protected publisher", (doc) => { doc.jobs!.second = structuredClone(doc.jobs!.publish!); }],
+    ["summary skipped on failure", (doc) => { delete doc.jobs!.publish!.steps!.at(-1)!.if; }],
+  ];
+
+  it.each(protectionMutations)("rejects protection mutation: %s", (_name, mutate) => {
+    const doc = structuredClone(publishDoc);
+    mutate(doc);
+    expect(checkRepoOwnerGuard(doc, OWNER_REPO).ok).toBe(false);
+  });
+
+  const summaryMutations: Array<[string, (doc: WorkflowDoc) => void]> = [
+    ["wrong release ID", (doc) => { doc.jobs!.publish!.steps!.find((step) => step.run === "bun scripts/validate-release.ts")!.id = "other"; }],
+    ["missing release ID", (doc) => { delete doc.jobs!.publish!.steps!.find((step) => step.run === "bun scripts/validate-release.ts")!.id; }],
+    ["wrong publication ID", (doc) => { doc.jobs!.publish!.steps!.find((step) => step.run?.includes("npm publish"))!.id = "other"; }],
+    ["missing publication ID", (doc) => { delete doc.jobs!.publish!.steps!.find((step) => step.run?.includes("npm publish"))!.id; }],
+    ["duplicate release ID", (doc) => { doc.jobs!.publish!.steps![0]!.id = "release"; }],
+    ["duplicate publication ID", (doc) => { doc.jobs!.publish!.steps![0]!.id = "publication"; }],
+    ["wrong version binding", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.RELEASE_VERSION = "${{ steps.other.outputs.version || 'unavailable' }}"; }],
+    ["wrong outcome binding", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.PUBLISH_OUTCOME = "${{ steps.other.outputs.outcome || 'blocked' }}"; }],
+    ["missing unavailable fallback", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.RELEASE_VERSION = "${{ steps.release.outputs.version }}"; }],
+    ["missing blocked fallback", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.PUBLISH_OUTCOME = "${{ steps.publication.outputs.outcome }}"; }],
+    ["premature success fallback", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.PUBLISH_OUTCOME = "${{ steps.publication.outputs.outcome || 'command succeeded' }}"; }],
+    ["overridden SHA", (doc) => { doc.jobs!.publish!.steps!.at(-1)!.env!.GITHUB_SHA = "main"; }],
+    ["missing summary environment", (doc) => { delete doc.jobs!.publish!.steps!.at(-1)!.env; }],
+  ];
+
+  it.each(summaryMutations)("rejects summary wiring mutation: %s", (_name, mutate) => {
+    const doc = structuredClone(publishDoc);
+    mutate(doc);
+    expect(checkRepoOwnerGuard(doc, OWNER_REPO).ok).toBe(false);
+  });
+
+  it("associates every privileged publication with npm approval and noncancelling package serialization", () => {
+    for (const { job } of findJobsWithIdTokenWrite(publishDoc)) {
+      expect(job.environment).toBe("npm");
+      expect(job.concurrency).toEqual({ group: "publish-pbuilder-sdk", "cancel-in-progress": false });
+    }
+  });
+
+  it("checks out the immutable dispatch SHA without persisted credentials", () => {
+    const job = findJobsWithIdTokenWrite(publishDoc)[0]!.job;
+    expect(job.steps?.find((step) => step.uses?.startsWith("actions/checkout@"))?.with).toEqual({ ref: "${{ github.sha }}", "persist-credentials": false });
+  });
+
+  it("pins Node 25.9.0 without setup-node token configuration", () => {
+    const job = findJobsWithIdTokenWrite(publishDoc)[0]!.job;
+    expect(job.steps?.find((step) => step.uses?.startsWith("actions/setup-node@"))?.with).toEqual({ "node-version": "25.9.0" });
+  });
+
+  it("refuses ineligible requests in a complementary unprivileged job", () => {
+    const refusal = publishDoc.jobs?.refuse;
+    expect(refusal?.if).toBe(`\${{ !(github.repository == '${OWNER_REPO}' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}`);
+    expect(refusal?.permissions).toEqual({});
+    expect(refusal?.steps).toEqual([{ run: 'printf "Publication requires manual dispatch from the canonical repository on main.\\n"\nexit 1\n' }]);
+  });
+
+  it("requires typecheck and release preflight before the fixed publish command", () => {
+    const runs = findJobsWithIdTokenWrite(publishDoc)[0]!.job.steps?.flatMap((step) => step.run ? [step.run.trim()] : []) ?? [];
+    const publish = runs.findIndex((run) => run.includes("npm publish"));
+    for (const gate of ["bun install --frozen-lockfile", "bun run build", "bun test", "bun run typecheck", "bun scripts/validate-release.ts"]) {
+      expect(runs.indexOf(gate)).toBeGreaterThanOrEqual(0);
+      expect(runs.indexOf(gate)).toBeLessThan(publish);
+    }
+  });
+
   it("REQ-PPH-01.1: the job carrying id-token: write has a correctly-scoped repo-owner guard", () => {
     const result = checkRepoOwnerGuard(publishDoc, OWNER_REPO);
     expect(result).toEqual({ ok: true });
+    const clauses = [...publishDoc.jobs!.publish!.if!.matchAll(/github\.(repository|event_name|ref) == '([^']+)'/g)];
+    const admitted: string[][] = [];
+    for (const repository of [OWNER_REPO, "fork/project-builder-sdk"]) {
+      for (const event_name of ["workflow_dispatch", "push", "pull_request"]) {
+        for (const ref of ["refs/heads/main", "refs/heads/feature", "refs/tags/v0.3.0"]) {
+          const context: Record<string, string> = { repository, event_name, ref };
+          if (clauses.every((clause) => context[clause[1]!] === clause[2])) admitted.push([repository, event_name, ref]);
+        }
+      }
+    }
+    expect(admitted).toEqual([[OWNER_REPO, "workflow_dispatch", "refs/heads/main"]]);
   });
 
   it("[red-proof] REQ-PPH-01.2: a job with id-token: write and a commented-out if: guard fails the check", () => {
@@ -371,13 +508,25 @@ jobs:
     const result = checkRepoOwnerGuard(simulated, OWNER_REPO);
     expect(result.ok).toBe(false);
     expect(result.reason).toBe(
-      `job "publish" is missing the repo-owner guard (expected if: github.repository == '${OWNER_REPO}')`
+      `job "publish" is missing the repo-owner guard (expected if: github.repository == '${OWNER_REPO}' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')`
     );
+    const clauses = publishDoc.jobs!.publish!.if!.split(" && ");
+    for (let omitted = 0; omitted < clauses.length; omitted++) {
+      const weakened = structuredClone(publishDoc);
+      weakened.jobs!.publish!.if = clauses.filter((_, index) => index !== omitted).join(" && ");
+      expect(checkRepoOwnerGuard(weakened, OWNER_REPO).ok).toBe(false);
+    }
   });
 
-  it("REQ-PPH-01.3: the trigger set is push-to-main only, no pull_request/workflow_dispatch", () => {
-    const result = checkTriggerIsPushToMainOnly(publishDoc);
+  it("REQ-PPH-01.3: the trigger set is manual only", () => {
+    const result = checkTriggerIsManualOnly(publishDoc);
     expect(result).toEqual({ ok: true });
+  });
+
+  it("rejects dispatch inputs that make the release target configurable", () => {
+    const doc = structuredClone(publishDoc);
+    doc.on = { workflow_dispatch: { inputs: { registry: { type: "string" } } } };
+    expect(checkTriggerIsManualOnly(doc).ok).toBe(false);
   });
 
   it("REQ-PPH-02.1: every uses: line in publish.yml and ci.yml is SHA-pinned", () => {
@@ -401,15 +550,15 @@ jobs:
     expect(result.unpinned).toEqual(["actions/checkout@v4", "actions/setup-node@v4"]);
   });
 
-  it("REQ-PPH-03.1: EVERY npm publish command line retains --dry-run", () => {
+  it("REQ-PPH-03.1: exactly one fixed live publication command is declared", () => {
     const lines = findNpmPublishCommandLines(publishDoc);
-    expect(lines.length).toBeGreaterThan(0);
-    expect(lines.filter((line) => !dryRunPresent(line))).toEqual([]);
+    expect(lines.length).toBe(1);
+    expect(lines.filter((line) => !fixedPublication(line))).toEqual([]);
   });
 
-  it("[red-proof] REQ-PPH-03.2: a simulated command line with --dry-run stripped is caught", () => {
+  it("[red-proof] REQ-PPH-03.2: a command without the fixed target and bounded retry policy is caught", () => {
     const stripped = "npm publish --tag dev --provenance --access public";
-    expect(dryRunPresent(stripped)).toBe(false);
+    expect(fixedPublication(stripped)).toBe(false);
   });
 
   // RED-PROOF: collectUsesValues must find every `uses:` across every job/step, not just the first.
@@ -437,7 +586,7 @@ jobs:
   publish:
     permissions:
       id-token: write
-    if: github.repository == '${OWNER_REPO}'
+    if: github.repository == '${OWNER_REPO}' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     steps: []
   sneaky:
     permissions:
@@ -447,11 +596,11 @@ jobs:
     const result = checkRepoOwnerGuard(twoPrivilegedJobs, OWNER_REPO);
     expect(result.ok).toBe(false);
     expect(result.reason).toBe(
-      `job "sneaky" is missing the repo-owner guard (expected if: github.repository == '${OWNER_REPO}')`
+      `job "sneaky" is missing the repo-owner guard (expected if: github.repository == '${OWNER_REPO}' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')`
     );
   });
 
-  it("no fork-reachable/dispatchable trigger (pull_request, pull_request_target, workflow_dispatch) co-occurs with id-token: write, workflow or job level, in any .github/workflows/*.yml", () => {
+  it("no pull-request trigger co-occurs with id-token: write in any workflow", () => {
     const workflowFiles = readdirSync(WORKFLOWS_DIR).filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
     expect(workflowFiles.length).toBeGreaterThan(0);
 
@@ -463,7 +612,7 @@ jobs:
     }
 
     // Sanity check on the fixtures this repo actually ships today: ci.yml carries
-    // pull_request and must have no id-token: write anywhere; publish.yml is push-only so it
+    // pull_request and must have no id-token: write anywhere; publish.yml is manual-only so it
     // is exempt from this check even though it legitimately carries id-token: write.
     expect(hasForkReachableTrigger(ciDoc)).toBe(true);
     expect(declaresIdTokenWriteAnywhere(ciDoc)).toBe(false);
@@ -472,10 +621,10 @@ jobs:
 
   // RED-PROOF: a simulated workflow with a fork-reachable trigger AND id-token: write
   // (workflow-level) must be caught.
-  it("[red-proof] a workflow_dispatch-triggered workflow with workflow-level id-token: write is caught", () => {
+  it("[red-proof] a pull_request-triggered workflow with workflow-level id-token: write is caught", () => {
     const simulated = YAML.parse(`
 on:
-  workflow_dispatch: {}
+  pull_request: {}
 permissions:
   id-token: write
 jobs:
@@ -500,12 +649,11 @@ describe("FIT-23 S-002 — publish ordering keeps the manifest true of what ship
     expect(checkPublishOrdering(doc, scripts)).toEqual({ ok: true });
   });
 
-  it("REQ-BPI-03.1: today it holds via prepublishOnly, not via step order", () => {
+  it("REQ-BPI-03.1: stable publication retains explicit build and lifecycle without stamping", () => {
     const doc = YAML.parse(readFileSync(PUBLISH_YML_PATH, "utf-8")) as WorkflowDoc;
     const steps = publishRunSteps(doc);
-    expect(steps.findIndex((s) => s.kind === "stamp")).toBeGreaterThan(
-      steps.findIndex((s) => s.kind === "build")
-    );
+    expect(steps.filter((s) => s.kind === "stamp")).toEqual([]);
+    expect(checkExplicitRebuildStep(doc)).toEqual({ ok: true });
     expect(scripts.prepublishOnly).toBe("bun run build");
   });
 
@@ -686,7 +834,7 @@ jobs:
     );
   });
 
-  it("[red-proof] REQ-PPH-03.1: a SECOND publish command line without --dry-run is caught", () => {
+  it("[red-proof] REQ-PPH-03.1: alternate publication commands in a SECOND job are caught", () => {
     const doc = YAML.parse(`
 jobs:
   publish:
@@ -698,7 +846,7 @@ jobs:
 `) as WorkflowDoc;
     const lines = findNpmPublishCommandLines(doc);
     expect(lines).toEqual(["npm publish --tag dev --dry-run", "npm publish --tag latest"]);
-    expect(lines.filter((line) => !dryRunPresent(line))).toEqual(["npm publish --tag latest"]);
+    expect(lines.filter((line) => !fixedPublication(line))).toEqual(lines);
   });
 });
 

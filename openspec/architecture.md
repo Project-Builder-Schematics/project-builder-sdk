@@ -106,6 +106,22 @@ Note 5 (**NEW — trust-boundary relocation, ADR-0077**): the SDK no longer hold
   Handle types:   commons/index.ts ──► core/handle-state.ts ──► core/base-handle.ts
 
 ## Build / Deploy
+
+### Manual publication amendment (2026-09-11)
+
+The current deployment path supersedes the historical push/dev/dry-run description
+below: manual canonical-repository/main dispatch → required `npm` environment approval
+→ immutable SHA checkout → frozen install → explicit build → full suite → typecheck
+→ `scripts/validate-release.ts` → one public npmjs/latest publish with provenance
+→ outcome summary. No source metadata rewriting or public SDK API change is involved.
+The validator is maintainer tooling outside the shipped `src` surface. Job-only OIDC,
+SHA action pins and noncancelling package concurrency protect the publication path.
+Lifecycle rebuilding remains enabled, without a tested/final-byte identity promise.
+External trust and first-live registry confirmation remain owner obligations, not
+claims established by fixture tests. See the amended [ADR-0042](decisions/0042-publish-rehearsal-interlock.md)
+and [release runbook](../CONTRIBUTING.md#publishing-a-release).
+
+### Historical baseline (2026-07-29)
 npm package (`@pbuilder/sdk`, public, subpath exports), **version `0.2.0`** (bumped from `0.1.0` by `inline-collection-marker` for the `AuthoringReason` narrowing — pre-release, unpublished, but NOT zero-consumer: the engine repo and the conformance corpus consume this contract today, so `CHANGELOG.md`'s `0.2.0` entries carry migration text for them). **THREE-STEP `build`**: `tsc -p tsconfig.build.json` (src → dist) THEN `bun run build:codegen` (`bun build bin/pbuilder-codegen.ts --outfile dist/bin/pbuilder-codegen.js --target node --banner "#!/usr/bin/env node"`) THEN **`bun run build:manifest`** (`bun scripts/generate-runner-manifest.ts` — chained LAST by design, ADR-0074/rim: it derives the runner's static import closure from the EMITTED `dist/**` realm, so it can only run after both emitters; fail-closed, removes a stale manifest and exits ≠ 0 on any constraint violation). `prebuild` cleans `dist/` first. `package.json#bin: { "pbuilder-codegen": "dist/bin/pbuilder-codegen.js" }` ONLY — `pbuilder-runner` has NO `#bin` entry (ADR-0058). `#files: ["dist"]` ships the whole `dist/` tree, now including `dist/runner-manifest.json`. `dependencies: { "ts-morph": "28.0.0" }` — the sole runtime dependency (exact-pinned), committed `bun.lock`. `devDependencies`: `@types/bun` `^1.3.14`, `expect-type` `^1.3.0`, `typescript` `^7.0.2`. `engines: { bun: "1.3.14", node: ">=25.9.0" }`. Maintainer script `regen:closure-baseline`. CI: GitHub Actions — `ci.yml` (build + `bun test` + strict typecheck) on non-main/PR; `publish.yml` on push to `main` (dev prerelease `0.0.0-dev.<sha>`, npm trusted publishing via OIDC + provenance, currently `--dry-run`; W3 owner guard, least-privilege `id-token: write` on the publish job only, all `uses:` 40-hex SHA-pinned — ADR-0042).
 
 ## Public API
