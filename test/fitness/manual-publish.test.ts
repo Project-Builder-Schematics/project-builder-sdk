@@ -11,6 +11,24 @@ const ROOT = new URL("../../", import.meta.url).pathname;
 const PUBLISH = "npm publish --registry=https://registry.npmjs.org --tag=latest --access=public --provenance --fetch-retries=0 --fetch-timeout=30000";
 const LOCAL_PUBLISH = "npm publish --userconfig tools/verdaccio/npmrc --registry http://localhost:4873 --tag local";
 const ATTEMPT = `printf 'outcome=attempted\\n' >> "$GITHUB_OUTPUT"\n${PUBLISH}\nprintf 'outcome=command succeeded\\n' >> "$GITHUB_OUTPUT"`;
+const UNSAFE_JS_CHAR_MAP: Record<string, string> = {
+  "<": "\\u003C",
+  ">": "\\u003E",
+  "/": "\\u002F",
+  "\\": "\\\\",
+  "\b": "\\b",
+  "\f": "\\f",
+  "\n": "\\n",
+  "\r": "\\r",
+  "\t": "\\t",
+  "\0": "\\0",
+  "\u2028": "\\u2028",
+  "\u2029": "\\u2029",
+};
+
+function escapeUnsafeChars(str: string): string {
+  return str.replace(/[<>\/\\\b\f\n\r\t\0\u2028\u2029]/g, (ch) => UNSAFE_JS_CHAR_MAP[ch] ?? ch);
+}
 const SUMMARY = `printf 'Package: @pbuilder/sdk\\nVersion: %s\\nSHA: %s\\nRegistry: https://registry.npmjs.org\\nChannel: latest\\nOutcome: %s\\nRegistry confirmation: owner verification pending\\n' "$RELEASE_VERSION" "$GITHUB_SHA" "$PUBLISH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"`;
 const ALLOWED = new Set([
   "bun install --frozen-lockfile", "bun run build", "bun test", "bun run typecheck",
@@ -113,7 +131,7 @@ function runBodies(bodies: string[], fail = "", version: string = SOURCE_PACKAGE
     if (existsSync(validator)) writeFileSync(join(root, "scripts/validate-release.ts"), readFileSync(validator));
     // npm exact-version 404 shape observed 2026-09-11; config/failures below are
     // synthetic boundary fixtures, never evidence of live publication trust.
-    writeFileSync(join(root, "preload.ts"), `import { appendFileSync } from "node:fs"; globalThis.fetch = (async () => { appendFileSync("lookups", "lookup\\n"); if (process.env.FAIL === "registry") throw new Error("network blocked"); return new Response(JSON.stringify(${JSON.stringify(`version not found: ${version}`)}), {status: 404}); }) as typeof fetch;`);
+    writeFileSync(join(root, "preload.ts"), `import { appendFileSync } from "node:fs"; globalThis.fetch = (async () => { appendFileSync("lookups", "lookup\\n"); if (process.env.FAIL === "registry") throw new Error("network blocked"); return new Response(JSON.stringify(${escapeUnsafeChars(JSON.stringify(`version not found: ${version}`))}), {status: 404}); }) as typeof fetch;`);
     writeFileSync(join(bin, "bun"), `#!/bin/sh
 if [ "$*" = "$FAIL" ]; then exit 1; fi
 case "$*" in
