@@ -31,6 +31,7 @@ const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const BASELINE_PATH = join(PROJECT_ROOT, "test/fitness/pkg-surface-baseline.json");
 
 interface PkgSurfaceBaseline {
+  main: string;
   exports: Record<string, { types: string; import: string }>;
   dependencies: Record<string, string>;
   files: string[];
@@ -88,6 +89,7 @@ function scanForSecrets(paths: string[]): string[] {
 describe("FIT-14 — package surface guard (baseline diff)", () => {
   const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as PkgSurfaceBaseline;
   const pkgJson = JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
+    main?: string;
     exports: PkgSurfaceBaseline["exports"];
     files: string[];
     bin: Record<string, string>;
@@ -109,6 +111,14 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
 
   it("exports map is unchanged from the committed baseline (REQ-FPS-02.1)", () => {
     expect(pkgJson.exports).toEqual(baseline.exports);
+  });
+
+  // SDK #91: `main` is the ONLY field Bun's NODE_PATH leg consults, so an external
+  // factory's ability to resolve this package rides on it. It is baselined here because
+  // its ABSENCE is what broke, and an absent field is exactly what a surface guard that
+  // only diffs present fields would let back in silently. FIT-47 proves the behaviour.
+  it("main is unchanged from the committed baseline (SDK #91)", () => {
+    expect(pkgJson.main).toEqual(baseline.main);
   });
 
   it("REQ-FPS-02.1: exports map is EXACTLY the six authorized entries, no more, no less", () => {
