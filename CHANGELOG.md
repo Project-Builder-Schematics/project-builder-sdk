@@ -6,6 +6,24 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.3.1
+
+### Package resolution
+
+- **Fixed**: `package.json` declares `main` alongside the existing `exports` map. Bun's
+  `NODE_PATH` resolution leg does not consult `exports`, so a factory located outside the
+  workspace could not resolve `@pbuilder/sdk` on either leg the runner depends on — neither
+  its own ESM bare-specifier `import`, nor the `createRequire(anchorUrl).resolve()` that
+  `probeSingleInstance` performs before it. This blocked engine ADR-0064
+  (`external-factory-node-path`) and schematic collections living outside the workspace.
+  **Migration**: none. `exports` still takes precedence wherever it is honoured, and `main`
+  points at the same umbrella entry as `exports["."]`; only the legacy `NODE_PATH` leg,
+  which ignores `exports` today, newly resolves.
+- Consumers who saw the split-module-graph diagnostic *"split module graph breaks the
+  single-instance ALS pin"* from an external factory were most likely hitting this: with no
+  resolution through `NODE_PATH`, Bun's auto-install silently supplied a second copy from
+  its global cache and the probe correctly failed closed on the wrong symptom.
+
 ## 0.3.0
 
 ### Dialect AST libraries
