@@ -192,12 +192,15 @@ export function create(path: string, opts: CreateOptions): WritableHandle;
 export function create(path: string, opts: CreateFromTemplateFileOptions): WritableHandle;
 export function create(path: string, opts: CreateOptions | CreateFromTemplateFileOptions): WritableHandle {
   const { session, factory } = currentContext();
+  // The wire requires `options`, and an omitted bag (untyped callers) would vanish in JSON and
+  // fail the batch's round-trip check as unrepresentable content.
+  const options = opts.options === undefined ? {} : opts.options;
   const template =
-    "templateFile" in opts ? readTemplateFile(opts.templateFile, path, opts.options, opts.force) : opts.template;
+    "templateFile" in opts ? readTemplateFile(opts.templateFile, path, options, opts.force) : opts.template;
   session.buffer(factory.create({
     pathTemplate: path,
     template,
-    options: opts.options,
+    options,
     ...forceEntry(opts.force),
   }));
   return buildWritableHandle(path);
