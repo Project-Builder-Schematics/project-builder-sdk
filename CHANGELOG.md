@@ -6,6 +6,44 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.6.0
+
+### TypeScript dialect: `addArrayElement`
+
+- **Added**: `addArrayElement(locator, element)` on `@pbuilder/sdk/typescript`, inherited by
+  `@pbuilder/sdk/nestjs`, appends an element to an array literal nested inside the file — a
+  `providers` list in an Angular `appConfig`, the second argument of `bootstrapApplication`, a
+  route's `providers`, or `@NgModule` metadata. The `locator` is a root plus a `path`:
+  - the root is `{ variable }` (the initializer of that top-level variable),
+    `{ call, argument }` (that argument of the only call to the callee), or `{ decorator }` (the
+    argument of the only decorator with that name);
+  - each `path` segment is an object key, or a `{ key: "value" }` match that selects the only
+    array element whose `key` property is that string. There are no numeric indices. Every step
+    looks through `as`, `satisfies`, `<T>`, `!`, and parentheses.
+
+  ```ts
+  await ts
+    .find("src/app/app.config.ts")
+    .addArrayElement({ variable: "appConfig", path: ["providers"] }, { expression: "provideHttpClient()" });
+  ```
+
+  The root and every match must select exactly one node. Missing keys are created, and so is the
+  next missing call or decorator argument; a missing root, a match that selects nothing, an
+  argument past the next one, and a missing key that a spread, a computed key, or an accessor may
+  already supply all reject, leaving the file unchanged. The new element follows the list's
+  layout. An element already listed is a no-op, compared token by token so spacing, comments, and
+  trailing commas do not count. `element` is an identifier, validated like every op's `name`, or
+  `{ expression }` for code, which must parse as exactly one expression and is otherwise
+  author-trusted, like `addFunction`'s `source`. The op adds no import; pair it with `addImport`.
+  Guide: `docs/authoring-a-dialect.md`.
+
+### Fixed
+
+- The NestJS `@Module` ops (`addProvider`, `addController`, `addModuleImport`, `addExport`) no
+  longer misplace the new entry when the last entry is followed by a comment containing a comma:
+  `[A /* x, y */]` put the entry inside the comment, and `A // a, b` on the last line produced
+  invalid TypeScript. Lists without such a comment are edited exactly as before.
+
 ## 0.5.1
 
 ### NestJS dialect
