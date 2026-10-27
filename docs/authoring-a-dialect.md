@@ -299,10 +299,13 @@ inside the op or callback itself.
 sync throw.
 
 - `testDialect({ dialect, samples, module, expectedAstLibrary, libraryExercise })` asserts your dialect's `parse`/`print` pair round-trips
-  every sample byte-exact. `testDialect` also injects six mandatory adversarial samples on
-  every run — empty, comment-only, a 4 MiB file, CRLF line endings, a UTF-8 BOM, and two
-  imports sharing one module — that your dialect's `parse`/`print` must round-trip byte-exact.
-  There is no opt-out: the fixture type carries no field to disable them. Before each
+  every sample byte-exact. `testDialect` and `testOpPack` also inject four mandatory
+  adversarial samples on every run — an empty file, and CRLF, UTF-8 BOM, and 4 MiB variants
+  of a source your dialect already declares valid (the `libraryExercise` seed for
+  `testDialect`, the first exercise's seed for `testOpPack`) — that your dialect's
+  `parse`/`print` must round-trip byte-exact. They are format-neutral; put samples specific to
+  your language's syntax in `samples`. There is no opt-out: the fixture type carries no field
+  to disable them. Before each
   round-trip it rejects a stub/identity `parse` (one that returns nothing or hands back the
   input string), so an identity dialect cannot pass vacuously. It also fails a dialect whose
   published `find` accepts a path with an extension the dialect does not declare.

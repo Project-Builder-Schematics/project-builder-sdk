@@ -5,6 +5,13 @@ import { defineDialect } from "../../src/core/define-dialect.ts";
 import * as typescriptAst from "../../src/dialects/typescript/ast.ts";
 import * as reactAst from "../../src/dialects/react/ast.ts";
 
+// TypeScript-syntax adversarial samples: the kit's mandatory set is format-neutral, so these
+// stay covered here for both ts-morph dialects.
+const TS_SYNTAX_SAMPLES = [
+  "// just a comment, no statements\n",
+  'import { a } from "m";\nimport { b } from "m";\n',
+];
+
 const libraryExercise = {
   seed: "let answer = 1;\n",
   expect: "const answer = 1;\n",
@@ -22,13 +29,14 @@ export const DIALECT_MODULES = [
     adapter: new URL("../../src/dialects/typescript/ast.ts", import.meta.url),
     module: typescript, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".ts"], ast: typescriptAst, ops: {} }),
-    samples: ["const x = 1;\n"], libraryExercise: { ...libraryExercise, path: "library.ts" },
+    samples: ["const x = 1;\n", ...TS_SYNTAX_SAMPLES, `/*${"a".repeat(4 * 1024 * 1024)}*/\nconst x = 1;\n`],
+    libraryExercise: { ...libraryExercise, path: "library.ts" },
   },
   {
     entrypoint: "src/dialects/react/index.ts", specifier: "ts-morph",
     adapter: new URL("../../src/dialects/react/ast.ts", import.meta.url),
     module: react, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".tsx"], ast: reactAst, ops: {} }),
-    samples: ["const el = <Button />;\n"], libraryExercise: { ...libraryExercise, path: "library.tsx" },
+    samples: ["const el = <Button />;\n", ...TS_SYNTAX_SAMPLES], libraryExercise: { ...libraryExercise, path: "library.tsx" },
   },
 ] as const;
