@@ -30,7 +30,8 @@
     "access": "public"
   },
   "files": [
-    "dist"
+    "dist",
+    "schemas"
   ],
   "bin": {
     "pbuilder-codegen": "dist/bin/pbuilder-codegen.js"

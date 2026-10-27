@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Project-Builder-Schematics/project-builder-sdk/schemas/project-builder.schema.json",
+  "title": "project-builder.json",
+  "description": "Workspace configuration read and written by the project-builder CLI.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path or URL of this schema."
+    },
+    "version": {
+      "type": "string",
+      "description": "Config format version.",
+      "examples": ["1"]
+    },
+    "collections": {
+      "type": "object",
+      "description": "Collections by name. An entry either points at a collection.json or holds schematics by name.",
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/$defs/collectionPointer" },
+          { "$ref": "#/$defs/schematicContainer" }
+        ]
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "Package names mapped to semver ranges.",
+      "additionalProperties": { "type": "string" }
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "autoInstall": { "type": "boolean", "default": true },
+        "conflictPolicy": {
+          "type": "string",
+          "default": "child-wins",
+          "description": "Documented values: child-wins, strict."
+        },
+        "depValidation": {
+          "type": "string",
+          "default": "dev",
+          "description": "Documented values: dev, strict."
+        },
+        "schematicCollections": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["default"],
+          "description": "Ordered collections searched for a bare schematic name."
+        }
+      }
+    },
+    "skill": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "path": { "type": "string" }
+      }
+    },
+    "sdk": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Minimum @pbuilder/sdk version, used when package.json declares none.",
+          "examples": ["0.2.4"]
+        },
+        "root": {
+          "type": "string",
+          "description": "Absolute or config-relative path to an external @pbuilder/sdk package directory."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "collectionPointer": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Workspace-relative path to a collection.json."
+        }
+      }
+    },
+    "schematicContainer": {
+      "type": "object",
+      "not": { "required": ["path"] },
+      "properties": {
+        "schematics": {
+          "type": "object",
+          "description": "Inline schematic registrations.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": { "factory": { "type": "string" } }
+          }
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Workspace-relative path to a schematic directory."
+          }
+        }
+      }
+    }
+  }
+}

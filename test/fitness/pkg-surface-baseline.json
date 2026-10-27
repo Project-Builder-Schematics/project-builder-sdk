@@ -36,7 +36,8 @@
     "ts-morph": "28.0.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "schemas"
   ],
   "bin": {
     "pbuilder-codegen": "dist/bin/pbuilder-codegen.js"
@@ -163,6 +164,7 @@
     "dist/transport/stdio-engine-client.js",
     "dist/transport/wire-protocol.d.ts",
     "dist/transport/wire-protocol.js",
-    "package.json"
+    "package.json",
+    "schemas/project-builder.schema.json"
   ]
 }
