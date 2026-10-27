@@ -86,7 +86,7 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
         case "path-not-found":
         case "unrepresentable-content":
         case "changes-too-large":
-        case "outside-run":
+        case "outside-session":
         case "unknown":
         case "invalid-input":
         case "reserved-name":

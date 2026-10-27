@@ -134,18 +134,18 @@ contract must be ratified before attribution over them freezes).
 
 ## Stage 3 — Dry-run exposure (O2; renderer EXISTS — the work is EXPOSURE)
 
-`src/dry-run/plan.ts` is done and pure; nothing exports it publicly and no author-facing API
+`src/pending-directives/render.ts` is done and pure; nothing exports it publicly and no author-facing API
 feeds it.
 
 - **3.1 ★ DECISION D3 — exposure shape + vocabulary** [O2] — owner ratifies (a) where authors
   touch dry-run (in-factory verb vs runner-level mode vs `./dry-run` subpath utility) and
-  (b) plan vocabulary: `dryRunPlan` today emits wire tag `"delete"` while the author verb is
+  (b) plan vocabulary: `renderPendingDirectives` today emits wire tag `"delete"` while the author verb is
   `remove` — ratify author-vocabulary rendering. ADR-recorded; sits before 3.2.
 - **3.2 Session snapshot → author-facing plan wiring** [O2] — a read-only pending-directives
-  snapshot from `Session` reaches `dryRunPlan`, exposed per D3. *Exists when* an author can
+  snapshot from `Session` reaches `renderPendingDirectives`, exposed per D3. *Exists when* an author can
   obtain the plan of buffered directives before flush, tested plan == buffered directives.
 - **3.3 Exports + fitness update** [O2] — `package.json#exports` gains the ratified entry (or
-  folds into `./commons`); FIT-09 and `test/dry-run/no-import.test.ts` updated.
+  folds into `./commons`); FIT-09 and `test/pending-directives/no-import.test.ts` updated.
 
 ## Stage 4 — Typed options: schema.json as the source (O2; the promised differentiator)
 
@@ -335,7 +335,7 @@ frozen, documented, and exhaustively pinned — integration becomes the engine's
 problem, not a renegotiation of the SDK.
 
 **The demo moment:** a ~10-line typed factory that creates a file from a schema option, calls
-`dryRun()` to show its coalesced-IR plan in the author's own vocabulary BEFORE opening a dialect
+`pendingDirectives()` to show its coalesced-IR plan in the author's own vocabulary BEFORE opening a dialect
 handle or reading anything, then opens `app.module.ts` via the dialect handle and adds an import,
 and emits one clean batch — IR generation (O1) and the authoring experience (O2), both real, no
 engine required.

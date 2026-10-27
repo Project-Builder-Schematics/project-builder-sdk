@@ -54,7 +54,7 @@ export function handlePathFor(ast: object): string {
 
 // A getter-backed modify directive: `content` resolves lazily, exactly once, memoized — at
 // whichever flush first `JSON.stringify`s the batch (ADR-0006's "serialize once at flush").
-// `dryRun()` never triggers this: `dryRunPlan` reads only `verb`/`path` (REQ-MC-05).
+// `pendingDirectives()` never triggers this: `renderPendingDirectives` reads only `verb`/`path` (REQ-MC-05).
 //
 // Row-145: `resolve` is nulled out immediately after its one use (rather than a separate
 // `resolved` boolean) — the memoized getter's closure retained the ts-morph `Project` (via
@@ -121,22 +121,22 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // `#tail` already skips `guardedStep` via ordinary promise-chain semantics, no flag
   // needed. The flag exists for the CROSS-handle case: a different handle's `#tail` is
   // independent, so without this check its step WOULD run (mutate/buffer) even though
-  // nothing ever commits. `ctx.runFailure` is consulted at step entry (never attempted as a
-  // fresh operation) and set FIRST-WINS on catch (the earliest rejection in the run is the
+  // nothing ever commits. `ctx.sessionFailure` is consulted at step entry (never attempted as a
+  // fresh operation) and set FIRST-WINS on catch (the earliest rejection in the Session is the
   // one every later op/read surfaces, unchanged).
   #chain<T>(step: () => T | Promise<T>): Promise<T> {
     const guardedStep = async (): Promise<T> => {
       const ctx = currentContext();
-      if (ctx.runFailure !== undefined) {
-        throw ctx.runFailure.reason;
+      if (ctx.sessionFailure !== undefined) {
+        throw ctx.sessionFailure.reason;
       }
       try {
         return await step();
       } catch (err) {
-        if (ctx.runFailure === undefined) {
-          ctx.runFailure = { reason: err };
+        if (ctx.sessionFailure === undefined) {
+          ctx.sessionFailure = { reason: err };
         }
-        throw ctx.runFailure.reason;
+        throw ctx.sessionFailure.reason;
       }
     };
     const result = this.#tail.then(guardedStep);

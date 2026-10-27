@@ -92,11 +92,11 @@ function buildFixture(options: { withMain: boolean }): string {
   // Resolution-only test: the entry point never needs the real implementation, but it must
   // live at the path the shipped `main`/`exports` point to, or the resolver is being asked
   // a different question than production asks.
-  writeFileSync(join(pkgRoot, "dist/index.js"), "export const create = () => {};\nexport const dryRun = () => {};\n");
+  writeFileSync(join(pkgRoot, "dist/index.js"), "export const create = () => {};\nexport const pendingDirectives = () => {};\n");
 
   writeFileSync(
     join(root, "external/foo/factory.mjs"),
-    'import { create, dryRun } from "@pbuilder/sdk";\nexport default () => `${typeof create},${typeof dryRun}`;\n'
+    'import { create, pendingDirectives } from "@pbuilder/sdk";\nexport default () => `${typeof create},${typeof pendingDirectives}`;\n'
   );
 
   // Runs from INSIDE the workspace SDK copy, as the real runner does, and exercises both

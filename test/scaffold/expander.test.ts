@@ -21,7 +21,7 @@ import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { scaffold, dryRun, AuthoringError } from "../../src/commons/index.ts";
+import { scaffold, pendingDirectives, AuthoringError } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 import { expectAuthoringReason, expectReason } from "../support/expect-reason.ts";
@@ -59,7 +59,7 @@ describe("REQ-FSC-04 — zero-files-after-filter vs empty-source-folder are dist
 
     const run = defineFactory<void>(() => {
       scaffold({ from: "empty", to: "out" });
-      expect(dryRun()).toEqual([]);
+      expect(pendingDirectives()).toEqual([]);
     }, { packageDir: dir });
 
     await run(undefined, { client: fake });
@@ -318,9 +318,9 @@ describe("judgment-day round 3 (F1) — scaffold include/exclude are shape-valid
   });
 });
 
-describe("judgment-day round 3 (F4) — scaffold's destination guard runs AFTER context resolution: outside-run wins over invalid-input", () => {
-  it("F4: scaffold called with NO active run and an escaping `to` rejects outside-run, never invalid-input", () => {
-    expectReason(() => scaffold({ from: "files", to: "../escape" }), "outside-run");
+describe("judgment-day round 3 (F4) — scaffold's destination guard runs AFTER context resolution: outside-session wins over invalid-input", () => {
+  it("F4: scaffold called with NO active run and an escaping `to` rejects outside-session, never invalid-input", () => {
+    expectReason(() => scaffold({ from: "files", to: "../escape" }), "outside-session");
   });
 });
 

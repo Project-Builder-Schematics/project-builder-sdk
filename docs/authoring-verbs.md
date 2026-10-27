@@ -1,8 +1,8 @@
 # Authoring verbs
 
 Every author verb lives on `@pbuilder/sdk/commons` — the same entry every schematic imports
-from. Each verb schedules a directive; nothing touches disk until the run flushes (on the
-next `read()`, or at run end).
+from. Each verb schedules a directive; nothing is staged until the Session drains its buffer (on
+the next `read()`, or when the factory returns).
 
 ## The seven verbs
 
@@ -15,7 +15,7 @@ out into `create`/`copyIn` directives per entry rather than carrying its own lab
 ## Package-local reads: the boundary
 
 `create({ templateFile })`, `copyIn`, and `scaffold` each read a source that lives on the
-package's own disk, resolved against the run's `packageDir`. The author rule:
+package's own disk, resolved against the Session's `packageDir`. The author rule:
 
 > the SDK rejects lexical `../` or absolute source paths, always; everything a schematic
 > reads lives inside its package — symlinks are followed without target verification (see
@@ -49,7 +49,7 @@ function create(
 ```
 
 Schedules a file-creation directive and returns a `WritableHandle` for chaining — nothing
-touches disk until the run flushes (on the next `read()`, or at run end). `path` and
+is staged until the Session drains its buffer (on the next `read()`, or when the factory returns). `path` and
 `template` are both **template strings**, rendered independently against the same `options`;
 the full template mini-language (delimiters, the 7 pipes, loops, conditionals) lives in
 [Authoring `create` templates](./create-templates.md) — this page only covers the call
@@ -57,7 +57,7 @@ itself. The generic `S` overload narrows `options` to a schema's keys at the typ
 the runtime behavior is identical to the plain `CreateOptions` overload.
 
 The third overload swaps the inline `template` string for `templateFile` — a package-local
-path (resolved against the run's `packageDir`), read at emission time; its content becomes
+path (resolved against the Session's `packageDir`), read at emission time; its content becomes
 the same `template` field the engine renders. `templateFile`'s own VALUE is read verbatim by
 content — it does **not** go through `scaffold`'s rename → token-translation → `.template`-strip
 filename pipeline (below); this is an explicit request to render one named file, not a
@@ -84,7 +84,7 @@ create("src/index.ts", {
 
 - An existing target path rejects unless `{ force: true }` is passed (fail-closed on
   overwrite) — `AuthoringError` with `verb: "create"`, `reason: "path-collision"`.
-- `templateFile` is only usable inside a run started with `packageDir` — there is no
+- `templateFile` is only usable inside a Session started with `packageDir` — there is no
   resolution anchor otherwise (`reason: "invalid-input"`, never a silent cwd fallback).
 - A `templateFile` that is binary (a null byte or invalid UTF-8 anywhere in the file) or
   larger than the 4 MiB inline-render limit fails loud with `reason: "invalid-input"` — it
@@ -187,7 +187,7 @@ copy("src/template.ts", "src/generated/output.ts");
 function copyIn(from: string, to: string, opts?: { force?: boolean }): void;
 ```
 
-Copies ONE package-local file (`from`, resolved against the run's `packageDir`) into the
+Copies ONE package-local file (`from`, resolved against the Session's `packageDir`) into the
 tree, always by-reference — never classified or rendered, even when the source is plain
 text containing template-like sequences. This is `copy`'s sibling for package-local sources;
 contrast with `create({ templateFile })`, which explicitly RENDERS a package-local source
@@ -209,7 +209,7 @@ copyIn("assets/logo.svg", "src/generated/logo.svg");
 
 - `from`/`to` are mandatory — a missing one rejects `reason: "invalid-input"` before any
   emission.
-- Only usable inside a run started with `packageDir` — otherwise `reason: "invalid-input"`,
+- Only usable inside a Session started with `packageDir` — otherwise `reason: "invalid-input"`,
   never a cwd fallback.
 - The source is screened lexically (`../`/absolute rejects `reason: "invalid-input"`
   pre-read, see the author rule below), then validated for existence and
@@ -239,7 +239,7 @@ interface ScaffoldOptions {
 function scaffold(args: ScaffoldOptions): void;
 ```
 
-Walks a package-local folder (`from`, resolved against the run's `packageDir`) and mirrors
+Walks a package-local folder (`from`, resolved against the Session's `packageDir`) and mirrors
 every entry into `to`, emitting one `create` or `copyIn` directive per entry — `scaffold` is
 not itself in the `AuthoringVerb` label union above; a rejection it triggers surfaces under
 whichever underlying verb (`create`/`copyIn`) or `invalid-input` reason applies. `from`/`to`
@@ -300,7 +300,7 @@ scaffold({
   the whole package.
 - The walk is capped at 10,000 enumerated entries per call; exceeding it rejects fail-loud,
   naming the bound.
-- Only usable inside a run started with `packageDir` — otherwise `reason: "invalid-input"`,
+- Only usable inside a Session started with `packageDir` — otherwise `reason: "invalid-input"`,
   never a cwd fallback.
 - A per-entry package-local read failure surfaces `reason: "source-not-found" |
   "source-not-regular-file" | "source-unreadable"` — the same three reasons `copyIn` and
@@ -364,6 +364,6 @@ switch (classifyContent(content)) {
 
 - [Error contract](./authoring-errors.md) — what `AuthoringError` looks like and how to
   assert against it.
-- [Dry-run](./dry-run.md) — preview a factory's planned changes before anything commits.
+- [Pending Directives](./pending-directives.md) — preview a factory's pending changes before anything is staged.
 - [Authoring a dialect](./authoring-a-dialect.md) — structured, AST-aware mutation for one
   file type (e.g. `@pbuilder/sdk/typescript`), built on top of these same verbs.

@@ -90,7 +90,7 @@ export function defineOpPack<Ast, Ops extends OpPack<Ast>>(ops: Ops): Ops {
 
 /**
  * Assembles a `Dialect` from its frozen descriptor (extensions, an AST parse/print pair,
- * and an op-pack). `find` is the dialect's ONLY entry verb into a run (REQ-DG-01.2) — it
+ * and an op-pack). `find` is the dialect's ONLY entry verb into a Session (REQ-DG-01.2) — it
  * returns an open, coalescing `Handle`.
  *
  * @example

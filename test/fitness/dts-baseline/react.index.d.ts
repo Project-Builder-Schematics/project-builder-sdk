@@ -6,7 +6,7 @@ type ReactOps = {
     addImport: (ast: SourceFile, name: string, from: string) => void;
 };
 /**
- * Opens a `.tsx` file for React-dialect-aware editing — the dialect's entry verb into a run
+ * Opens a `.tsx` file for React-dialect-aware editing — the dialect's entry verb into a Session
  * (REQ-DG-01.2). `path` MUST end in `.tsx`: the gate below runs SYNCHRONOUSLY, before any op
  * is chained and before any run flush, so a rejected path throws on the bare `find()` call
  * itself. `.ts` files are TypeScript, not this dialect — use `@pbuilder/sdk/typescript`.

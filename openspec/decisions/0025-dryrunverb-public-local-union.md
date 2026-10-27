@@ -1,6 +1,7 @@
 # ADR-0025: Narrow `DryRunEntry.verb` to a public LOCAL `DryRunVerb` union
 
-- Status: Accepted
+- Status: Superseded — `DryRunVerb` was removed; `PendingDirective.verb` is typed by the
+  single `AuthoringVerb` (type-only import), closing the single-source followup below.
 - Date: 2026-07-07
 - Deciders: Daniel (Hyperxq)
 - Builds on: ADR-0024 (frozen six-row wire→author map — the runtime guarantee this type

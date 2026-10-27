@@ -64,7 +64,7 @@ const KIT_SYMBOL_NAMES = [
   "Session",
   "DirectiveFactory",
   "ContractFake",
-  "RunContext",
+  "SessionContext",
   "defineFactory",
   "currentContext",
   "defineDialect",

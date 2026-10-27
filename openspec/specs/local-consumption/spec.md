@@ -109,28 +109,28 @@ quickstart's codegen step is real.
 - WHEN the bin-executability check runs against it
 - THEN it fails, naming the missing bin or broken shebang
 
-### REQ-LC-05: Dry-Run Invocation Parity Across Both Legs
+### REQ-LC-05: pendingDirectives() Invocation Parity Across Both Legs
 
-BOTH the `bun link` and tarball legs MUST INVOKE `dryRun()` through the installed/linked
+BOTH the `bun link` and tarball legs MUST INVOKE `pendingDirectives()` through the installed/linked
 `./commons` entry and assert a non-empty returned plan — key-presence checks on the
 `./commons` export are too weak; the guarantee is that calling the function actually
 works end-to-end through the installed package boundary.
 
-#### Scenario REQ-LC-05.1: `bun link` leg invokes `dryRun()` via `./commons` with a non-empty plan
+#### Scenario REQ-LC-05.1: `bun link` leg invokes `pendingDirectives()` via `./commons` with a non-empty plan
 
 - GIVEN a `bun link`-installed consumer running a factory through `./commons`
-- WHEN `dryRun()` is called before any directive is emitted
-- THEN it returns a non-empty `DryRunEntry[]` plan
+- WHEN `pendingDirectives()` is called before any directive is emitted
+- THEN it returns a non-empty `PendingDirective[]` plan
 
-#### Scenario REQ-LC-05.2: Tarball leg invokes `dryRun()` via `./commons` with a non-empty plan
+#### Scenario REQ-LC-05.2: Tarball leg invokes `pendingDirectives()` via `./commons` with a non-empty plan
 
 - GIVEN a tarball-installed consumer running a factory through `./commons`
-- WHEN `dryRun()` is called before any directive is emitted
-- THEN it returns a non-empty `DryRunEntry[]` plan
+- WHEN `pendingDirectives()` is called before any directive is emitted
+- THEN it returns a non-empty `PendingDirective[]` plan
 
 #### Scenario REQ-LC-05.3 [red-proof]: Key-presence-only assertion is insufficient
 
-- GIVEN a simulated check that only asserts `dryRun` is a key present on the `./commons`
+- GIVEN a simulated check that only asserts `pendingDirectives` is a key present on the `./commons`
   module namespace, without calling it
 - WHEN compared against this requirement
 - THEN it fails to satisfy REQ-LC-05 — the requirement demands invocation with a

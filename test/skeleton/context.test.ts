@@ -1,5 +1,5 @@
 /**
- * KIT-05: defineFactory + RunContext isolation.
+ * KIT-05: defineFactory + SessionContext isolation.
  * Verifies ALS injection, context outside run throws, fake is used (no global).
  */
 import { describe, it, expect } from "bun:test";
@@ -7,12 +7,12 @@ import { defineFactory, currentContext } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, find, AuthoringError } from "../../src/commons/index.ts";
 
-describe("defineFactory / RunContext", () => {
+describe("defineFactory / SessionContext", () => {
   it("throws when currentContext() is called outside a run", () => {
     expect(() => currentContext()).toThrow("can only be used while a schematic is running");
   });
 
-  it("REQ-AEC-02.1 — the outside-run throw is an AuthoringError{origin:authoring-rejected,reason:outside-run}", () => {
+  it("REQ-AEC-02.1 — the outside-session throw is an AuthoringError{origin:authoring-rejected,reason:outside-session}", () => {
     let caught: unknown;
     try {
       currentContext();
@@ -23,7 +23,7 @@ describe("defineFactory / RunContext", () => {
     expect(caught).toBeInstanceOf(AuthoringError);
     const authoringError = caught as AuthoringError;
     expect(authoringError.origin).toEqual("authoring-rejected");
-    expect(authoringError.reason).toEqual("outside-run");
+    expect(authoringError.reason).toEqual("outside-session");
   });
 
   it("provides session and factory inside the run", async () => {

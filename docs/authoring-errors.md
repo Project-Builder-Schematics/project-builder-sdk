@@ -52,7 +52,7 @@ error if a value is missed:
 | `path-not-found` | The target path does not exist. |
 | `unrepresentable-content` | The content could not be represented in the engine's format. |
 | `changes-too-large` | The run's total change size exceeds the engine's cap. |
-| `outside-run` | An authoring verb was called outside an active run. |
+| `outside-session` | An authoring verb was called outside an active Session. |
 | `unknown` | The rejection could not be classified. |
 | `invalid-input` | The SDK rejected a call's arguments before any engine round-trip. |
 | `reserved-name` | The call used a name reserved by the SDK or engine. |
@@ -78,7 +78,7 @@ switch (err.reason) {
   case "path-not-found":
   case "unrepresentable-content":
   case "changes-too-large":
-  case "outside-run":
+  case "outside-session":
   case "unknown":
   case "invalid-input":
   case "reserved-name":
@@ -93,4 +93,4 @@ switch (err.reason) {
 ## Next steps
 
 - [Authoring verbs](./authoring-verbs.md) — the seven authoring verbs and the read-trichotomy rule.
-- [Dry-run](./dry-run.md) — preview a factory's planned changes before anything commits.
+- [Pending Directives](./pending-directives.md) — preview a factory's pending changes before anything is staged.

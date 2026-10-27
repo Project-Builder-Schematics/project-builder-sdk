@@ -1,10 +1,10 @@
 /**
- * S-002 — `removeImport` structured op (REQ-TSD-08.1/08.2/08.3/08.5, design §4.4).
+ * S-002 — `removeImport` named op (REQ-TSD-08.1/08.2/08.3/08.5, design §4.4).
  * Every content assertion is byte-exact against a committed golden (constraint 7).
  */
 import { describe, it, expect } from "bun:test";
 import * as ts from "../../../src/dialects/typescript/index.ts";
-import { dryRun } from "../../../src/commons/index.ts";
+import { pendingDirectives } from "../../../src/commons/index.ts";
 import { makeSpyClient, collectModifies } from "../../support/spy-client.ts";
 import { golden } from "../../support/golden.ts";
 import { defineFactory } from "../../../src/core/context.ts";
@@ -50,13 +50,13 @@ describe("removeImport — REQ-TSD-08", () => {
     expect(modifies[0]?.modify.content).toBe("");
   });
 
-  it("REQ-TSD-08.5: dryRun() previews the planned modify for a destructive op before commit", async () => {
+  it("REQ-TSD-08.5: pendingDirectives() previews the planned modify for a destructive op before commit", async () => {
     const { client } = makeSpyClient({ "a.ts": golden("add-import-after.txt") });
 
     const run = defineFactory<void>(async () => {
       const handle = ts.find("a.ts").removeImport("readFileSync", "node:fs");
       await handle;
-      expect(dryRun()).toEqual([{ verb: "modify", path: "a.ts" }]);
+      expect(pendingDirectives()).toEqual([{ verb: "modify", path: "a.ts" }]);
     });
     await run(undefined, { client });
   });

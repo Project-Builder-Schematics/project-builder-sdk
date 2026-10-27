@@ -1,6 +1,6 @@
 // src/scaffold/expander.ts (ADR-0044): the SINGLE owner of the scaffold fan-out — drives
 // `walk.ts` → `filename-pipeline.ts` → `classify-transport.ts` → emits `factory.create(...)`/
-// `factory.copyIn(...)` directives via the run's session (Executor Context §18).
+// `factory.copyIn(...)` directives via the Session (Executor Context §18).
 // `classify-transport.ts` stays a PURE per-file decision; a by-reference VERDICT is handled
 // HERE, not there. S-003: the by-reference verdict now emits a real `copyIn` directive
 // (`from` package-relative, REQ-BRC-07) instead of S-001/S-002's fail-loud placeholder throw.
@@ -153,7 +153,7 @@ export function runScaffold(args: ScaffoldArgs): void {
   // function, ABOVE `currentContext()`, so an escaping `to` called OUTSIDE any run reported
   // `invalid-input` where `copyIn` (whose own version of this same guard already runs
   // AFTER its `currentContext()`/`requirePackageAnchors` calls, see `index.ts`'s
-  // `runCopyIn`) reports `outside-run` — the two package-local verbs disagreed on which
+  // `runCopyIn`) reports `outside-session` — the two package-local verbs disagreed on which
   // failure wins when BOTH apply. `runScaffold` now mirrors `runCopyIn`'s exact ordering:
   // ctx → packageDir → destination guard → (new F7/F1 screens below) → source guard. The
   // existing post-rename/post-token-translation validation of the FINAL `destPath` inside
@@ -198,7 +198,7 @@ export function runScaffold(args: ScaffoldArgs): void {
   // and maintained incrementally. Byte-identical to re-serializing the whole batch per
   // append: JSON array bytes are additive — each extra element contributes exactly its own
   // `JSON.stringify` bytes plus one comma when it is not the first.
-  const seedPending = session.pendingSnapshot();
+  const seedPending = session.pendingDirectives();
   let pendingCount = seedPending.length;
   let pendingSize = serializedBatchSize(seedPending);
 

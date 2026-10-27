@@ -1,6 +1,6 @@
 /**
  * FIT-21 (F2 guard, ADR-0037 amendment): dependency-direction guard for the poison flag.
- * `RunContext.runFailure` (src/core/context.ts) is read/written by dialect-handle.ts via
+ * `SessionContext.sessionFailure` (src/core/context.ts) is read/written by dialect-handle.ts via
  * `currentContext()` — the one-way edge (dialect-handle.ts -> context.ts) must never
  * reverse. A static import-scan asserts context.ts takes NO import from dialect-handle.ts.
  *

@@ -8,7 +8,7 @@
  * render by-value).
  *
  * Uses `runFactoryForTest` (not a bare `ContractFake`) so `result.emitted` exposes the
- * exact wire `Batch`/`Directive` shapes — `dryRun()`'s `DryRunEntry` deliberately strips
+ * exact wire `Batch`/`Directive` shapes — `pendingDirectives()`'s `PendingDirective` deliberately strips
  * content/force, insufficient for BRC-01.2's "scan the full serialized directive"
  * assertion.
  */

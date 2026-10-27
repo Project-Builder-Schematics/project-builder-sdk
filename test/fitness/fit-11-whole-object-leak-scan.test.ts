@@ -172,7 +172,7 @@ describe("REQ-AEC-05.1 — no leak across any rejection family", () => {
       build: () =>
         batchLevelRejection("cap", `${CONTRACT_FAKE_PREFIX} batch ${EXCEEDS_SIZE_CAP} — 999 bytes serialized, cap is 500 bytes`),
     },
-    { label: "outside-run", build: outsideRunRejection },
+    { label: "outside-session", build: outsideRunRejection },
     { label: "unknown", build: () => toAuthoringError("a bare string rejection", batchOf()) },
     { label: "invalid-input", build: invalidInputRejection },
     { label: "reserved-name", build: reservedNameRejection },

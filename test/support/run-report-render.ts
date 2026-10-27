@@ -1,11 +1,11 @@
 // R-D: renders a human-readable, gitignored per-run report from an ALREADY-captured
-// transcript — the report's entry lines derive via `dryRunPlan(rawDirectives)` (the SAME
-// mechanism `dryRun()` uses), NEVER from `record.normative.directives` and NEVER a
+// transcript — the report's entry lines derive via `renderPendingDirectives(rawDirectives)` (the SAME
+// mechanism `pendingDirectives()` uses), NEVER from `record.normative.directives` and NEVER a
 // parallel hand-rolled op->kind map (RPT-01, FIT-26's no-parallel-map scan). This module
 // does not itself capture anything — it takes the capture's output as input, so it never
 // imports `ir-transcript.ts` (FIT-25 scope).
 import type { Directive } from "../../src/core/wire.ts";
-import { dryRunPlan } from "../../src/dry-run/plan.ts";
+import { renderPendingDirectives } from "../../src/pending-directives/render.ts";
 import type { TranscriptRecord } from "./corpus-format.ts";
 
 export const REPORTS_DIR = "test/e2e/author-emulation/reports";
@@ -30,7 +30,7 @@ function renderHeader(record: TranscriptRecord): string {
 
 function renderEntryLine(entry: { verb: string; path: string; kind?: "rendered" | "copied" }): string {
   // `kind` is absent for the non-package-local-read verbs (modify/remove/rename/move/
-  // copy) `dryRunPlan` also serves — never reachable here, since `ir-transcript.ts`
+  // copy) `renderPendingDirectives` also serves — never reachable here, since `ir-transcript.ts`
   // normalizes only create/copyIn (ITC-05). Rendered defensively rather than assumed.
   const kindSuffix = entry.kind !== undefined ? ` (${entry.kind})` : "";
   return `- ${entry.verb} ${entry.path}${kindSuffix}`;
@@ -39,7 +39,7 @@ function renderEntryLine(entry: { verb: string; path: string; kind?: "rendered" 
 /**
  * Renders one of three templates — success (committed, ≥1 entry), rejection, or empty
  * (committed, zero entries, REQ-ITC-01.2/M-14) — from an already-captured transcript.
- * Entry lines derive from `dryRunPlan(rawDirectives)` (R-D): NEVER from
+ * Entry lines derive from `renderPendingDirectives(rawDirectives)` (R-D): NEVER from
  * `record.normative.directives`, NEVER a parallel op→kind map (RPT-01).
  */
 export function renderReport(record: TranscriptRecord, rawDirectives: readonly Directive[]): string {
@@ -56,7 +56,7 @@ export function renderReport(record: TranscriptRecord, rawDirectives: readonly D
     );
   }
 
-  const entries = dryRunPlan(rawDirectives);
+  const entries = renderPendingDirectives(rawDirectives);
   if (entries.length === 0) {
     return `${header}\n## Outcome: committed (empty)\n\nNo directives emitted.\n`;
   }

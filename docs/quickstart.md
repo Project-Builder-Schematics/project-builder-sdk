@@ -213,6 +213,6 @@ Every mutation lives on `@pbuilder/sdk/commons`, detailed in
 
 - [Error contract](./authoring-errors.md) — what `AuthoringError` looks like and how to
   assert against it.
-- [Dry-run](./dry-run.md) — preview a factory's planned changes before anything commits.
+- [Pending Directives](./pending-directives.md) — preview a factory's pending changes before anything is staged.
 - [Authoring a dialect](./authoring-a-dialect.md) — using or building a dialect
   (e.g. `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`) for structured file mutation.

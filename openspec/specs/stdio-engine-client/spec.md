@@ -155,7 +155,7 @@ resolution-only/before-import ordering — B4, M6.)
 #### Scenario REQ-SEC-07.2: Split SDK copies fail the greeting, naming both paths project-relative
 - GIVEN the runner's SDK copy and the factory's resolved SDK copy realpath-resolve to two DIFFERENT files (e.g. a nested `node_modules` shadowing the hoisted copy)
 - WHEN the probe runs
-- THEN the greeting fails, the error names both paths in PROJECT-RELATIVE form (WPS-07, including the `<outside-project>` fallback if either path falls outside the root), the runner exits 1 (validation-failure, EXC-01), and no factory code executes (prevents the `outside-run` failure mode the module-level ALS split would otherwise cause on first verb)
+- THEN the greeting fails, the error names both paths in PROJECT-RELATIVE form (WPS-07, including the `<outside-project>` fallback if either path falls outside the root), the runner exits 1 (validation-failure, EXC-01), and no factory code executes (prevents the `outside-session` failure mode the module-level ALS split would otherwise cause on first verb)
 
 #### Scenario REQ-SEC-07.3: Probe is resolution-only and completes before factory import (M6)
 - GIVEN the probe runs at handshake time

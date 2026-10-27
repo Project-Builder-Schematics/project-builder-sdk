@@ -1,7 +1,7 @@
 /**
  * S-000 — Session.isPending(directive) (row-141 kept-half). A direct identity membership
  * test against the pending buffer, replacing the dialect handle's own
- * `pendingSnapshot().includes(...)` copy-then-scan for its orphan-guard check
+ * `pendingDirectives().includes(...)` copy-then-scan for its orphan-guard check
  * (src/core/dialect-handle.ts#ensureOpen).
  */
 import { describe, it, expect } from "bun:test";

@@ -126,10 +126,10 @@ failures, not source-access families:
 - AND the compile-time union pin still counts exactly eleven members — none of these
   modes mints a new reason
 
-### REQ-AEC-13: `AuthoringVerb`/`DryRunVerb` KEEP the label `"modify"` — wire-mutation vocabulary, deliberately unrenamed
+### REQ-AEC-13: `AuthoringVerb`/`AuthoringVerb` KEEP the label `"modify"` — wire-mutation vocabulary, deliberately unrenamed
 
 `AuthoringVerb` (the closed set of verb labels attributed to a rejected write, REQ-AEC-04) and
-`DryRunVerb` (the equivalent label surfaced by `dryRun()`'s plan) MUST both KEEP the literal
+`AuthoringVerb` (the equivalent label surfaced by `pendingDirectives()`'s plan) MUST both KEEP the literal
 value `"modify"` to label ANY write-directive-level mutation — regardless of which AUTHOR-facing
 call produced it. Both `.replaceContent(content)` (wholesale-replace) and `.modify(fn)`
 (AST-fn escape hatch, chained form — the importable calling convention is DEFERRED, see
@@ -138,7 +138,7 @@ call produced it. Both `.replaceContent(content)` (wholesale-replace) and `.modi
 DELIBERATE PIN, owner-ratified (engram #2117): the vocabulary labels the WIRE mutation, not the
 author method name — "modify" is honest at THAT altitude, even though no author-callable verb
 is literally spelled `.modify(...)` when the string-replace form is used. No `AuthoringVerb`/
-`DryRunVerb` member renames to `"replaceContent"`; the closed set gains no new member from this
+`AuthoringVerb` member renames to `"replaceContent"`; the closed set gains no new member from this
 change. This PIN exists so a future refactor does not "fix" what looks like a stale label —
 the mismatch between the author call name and the wire-level `AuthoringVerb` label is
 intentional and permanent absent a separate, explicitly-authorized amendment.
@@ -148,8 +148,8 @@ in V1, and the two author-facing docs describing `verb`/vocabulary weren't updat
 - `docs/authoring-errors.md` (the `verb` field's description, line ~28) MUST ALSO state that
   `verb` labels the WIRE MUTATION — i.e. that BOTH `.replaceContent()` and `.modify(fn)` surface
   as `verb: "modify"` — not merely list `"modify"` as one of the closed set's literal values.
-- `docs/dry-run.md` (the "author vocabulary" claim, line ~14) MUST likewise state that the
-  `verb` field on a `DryRunEntry` labels the wire mutation, not the author-facing call name, for
+- `docs/pending-directives.md` (the "author vocabulary" claim, line ~14) MUST likewise state that the
+  `verb` field on a `PendingDirective` labels the wire mutation, not the author-facing call name, for
   the SAME reason.
 - The rationale breadcrumb (WHY the label is deliberately unrenamed) goes in the AUTHOR-facing
   doc — `docs/authoring-verbs.md`'s `replaceContent` entry — not ONLY in JSDoc; JSDoc alone is
@@ -157,7 +157,7 @@ in V1, and the two author-facing docs describing `verb`/vocabulary weren't updat
 
 (V2 also fixes: the inducer for REQ-AEC-13.1 was previously left generic ("e.g. a
 `path-collision`/`path-not-found` family rejection") — narrowed to a concrete, reproducible
-case; and REQ-AEC-13.2 now names the concrete field carrying the verb in `dryRun()`'s plan
+case; and REQ-AEC-13.2 now names the concrete field carrying the verb in `pendingDirectives()`'s plan
 entry shape.)
 
 #### Scenario REQ-AEC-13.1: a failed `.replaceContent()` on a never-created path reports `verb: "modify"`
@@ -170,19 +170,19 @@ entry shape.)
   `.replaceContent()` and `.modify(fn)` produce is `{op:"modify"}`; the label reflects the wire
   mutation, not the author-facing call name
 
-#### Scenario REQ-AEC-13.2: `dryRun()` over a pending `.replaceContent()` reports the SAME `"modify"` verb, on the `DryRunEntry.verb` field
+#### Scenario REQ-AEC-13.2: `pendingDirectives()` over a pending `.replaceContent()` reports the SAME `"modify"` verb, on the `PendingDirective.verb` field
 
 - GIVEN a chain with an uncommitted `.replaceContent(content)` directive
-- WHEN `dryRun()` is called mid-chain (`modify-coalescing` REQ-MC-05's plan-exposure contract)
-- THEN the returned `DryRunEntry`'s `verb` field (the concrete plan-entry field this REQ pins,
-  cross-referencing `foundations-skeleton`'s `dryRun()` shape) reads `"modify"` — the SAME label
+- WHEN `pendingDirectives()` is called mid-chain (`modify-coalescing` REQ-MC-05's plan-exposure contract)
+- THEN the returned `PendingDirective`'s `verb` field (the concrete plan-entry field this REQ pins,
+  cross-referencing `foundations-skeleton`'s `pendingDirectives()` shape) reads `"modify"` — the SAME label
   used for a `.modify(fn)`-produced directive's plan entry, since both are, at the wire level,
   the identical mutation kind
 
 #### Scenario REQ-AEC-13.3: the pin is documented as deliberate, not a stale label — in JSDoc AND the author-facing docs
 
 - GIVEN `AuthoringVerb`'s JSDoc, `docs/authoring-errors.md`'s `verb` field description, and
-  `docs/dry-run.md`'s "author vocabulary" claim
+  `docs/pending-directives.md`'s "author vocabulary" claim
 - WHEN each is inspected
 - THEN ALL THREE state explicitly that `"modify"` labels the WIRE mutation shared by BOTH
   `.replaceContent()` and `.modify(fn)`, and that this is intentional — guarding against a
@@ -194,4 +194,4 @@ entry shape.)
 | Area | REQ IDs | Flagged at triage? |
 |---|---|---|
 | public-api (contract) — closed `AuthoringReason` union, MAJOR narrowing | REQ-AEC-10, REQ-AEC-11, REQ-AEC-12 | Yes — closed-union MAJOR narrowing |
-| public-api (contract) — `AuthoringVerb`/`DryRunVerb` closed-set membership unchanged, deliberate label pin | REQ-AEC-13 | Yes |
+| public-api (contract) — `AuthoringVerb`/`AuthoringVerb` closed-set membership unchanged, deliberate label pin | REQ-AEC-13 | Yes |

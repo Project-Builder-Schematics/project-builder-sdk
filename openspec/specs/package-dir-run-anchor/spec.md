@@ -8,7 +8,7 @@
 reckoning)**: two further behaviour changes landed after V3.4 signed — the degenerate
 `from` rejection (`folder-scaffold` REQ-FSC-11, owner ruling 17) and the round-3
 error-handling hardening batch (rename `..` pre-join rejection, include/exclude shape
-validation, outside-run reporting parity with `copyIn`, normalized-path collision
+validation, outside-session reporting parity with `copyIn`, normalized-path collision
 detection, and the walk bound counting every enumerated dirent) — neither had a
 CHANGELOG entry: the `## 0.2.0` section carried only the FOUR entries V3.4 pinned.
 REQ-MFB-02 below now requires SIX entries: a FIFTH (ruling 17) and a SIXTH (round-3
@@ -84,7 +84,7 @@ that no longer has a legitimate reason to exist.
 
 ### REQ-MFB-01: `packageDir` Is the Sole Run Anchor — No Ancestor Marker Walk
 
-`RunContext.packageAnchors` MUST collapse to `{ packageDir: string }` — the
+`SessionContext.packageAnchors` MUST collapse to `{ packageDir: string }` — the
 `packageRoot` field and the `resolvePackageRoot()` ancestor walk for `collection.json`
 (the retired containment family's own anchor/ceiling requirements) are DELETED. No read verb
 (`scaffold`, `copyIn`, `create({templateFile})`) may resolve or require a containment
@@ -129,12 +129,12 @@ reads, in a PINNED ORDER — reserved-name checking, THEN schema validation
 
 #### Scenario REQ-MFB-01.3: `packageAnchors` carries only `packageDir`, pinned at runtime AND in the `.d.ts` baseline [red-today]
 
-- GIVEN a `RunContext` constructed by `defineFactory({ packageDir })`
+- GIVEN a `SessionContext` constructed by `defineFactory({ packageDir })`
 - WHEN `packageAnchors` is inspected
 - THEN `Object.keys(packageAnchors)` deep-equals exactly `["packageDir"]` — never
   asserted via `packageAnchors.packageRoot === undefined` (`toBeUndefined()`), which
   would pass even if a differently-named ceiling-shaped field regrew
-- AND the FIT-04 `.d.ts` baseline for `RunContext` reflects the same single-field shape
+- AND the FIT-04 `.d.ts` baseline for `SessionContext` reflects the same single-field shape
   in the SAME commit
 
 ### REQ-MFB-02: CHANGELOG Documents the Six Behaviour-Change Entries Against v0.2.0 (owner rulings 9/12; ruling 16 follow-through, 2026-07-29; ruling-17 follow-through + round-3 hardening coverage, 2026-07-29, owner-ratified at reckoning)
@@ -157,7 +157,7 @@ subfolder explicitly); (f) **[round-3 hardening, 2026-07-29]** ONE grouped `Fixe
 covering the round-3 error-handling hardenings — rename values containing `..` now
 reject pre-join instead of silently relocating outside `to` (`folder-scaffold`
 REQ-FSC-02), `include`/`exclude` must be arrays of strings, a `scaffold` call outside a
-run now reports `outside-run`, destination collisions are detected on normalized paths,
+run now reports `outside-session`, destination collisions are detected on normalized paths,
 and the 10,000-entry walk bound counts every enumerated dirent. The existing preamble's
 premise ("pre-release, `0.0.0`, zero live consumers … nothing here requires a migration
 guide") MUST be amended to name the REAL audience — the engine repo and the conformance

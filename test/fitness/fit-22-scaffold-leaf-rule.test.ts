@@ -5,12 +5,12 @@
  * closes that gap. Mirrors FIT-15's resolved-path idiom (never a textual substring check)
  * and FIT-02/FIT-21's leaf-rule shape, two directions:
  *
- *  1. No reverse dependency: no file under `src/core/**` or `src/dry-run/**` may import
+ *  1. No reverse dependency: no file under `src/core/**` or `src/pending-directives/**` may import
  *     `src/scaffold/` — the dependency edge is one-way, scaffold -> core, never back.
  *  2. Allow-list: every file under `src/scaffold/**` may import only (a) another file
  *     within `src/scaffold/**` itself (intra-leaf, e.g. `expander.ts` -> `./walk.ts`),
  *     (b) a file under `src/core/**`, or (c) a `node:` builtin — never `../commons`,
- *     `../dry-run`, `../dialects`, `../testing`, `../conformance`, or a bare external
+ *     `../pending-directives`, `../dialects`, `../testing`, `../conformance`, or a bare external
  *     package.
  *
  * Red-proof: fixtures simulating a reverse import and an out-of-allow-list scaffold
@@ -72,17 +72,17 @@ function outOfAllowListImports(source: string, fromDir: string): string[] {
 }
 
 describe("FIT-22 — src/scaffold/ leaf-rule (no reverse dep; scaffold imports only core + node:)", () => {
-  describe("direction 1 — no file under src/core/** or src/dry-run/** imports src/scaffold/", () => {
+  describe("direction 1 — no file under src/core/** or src/pending-directives/** imports src/scaffold/", () => {
     const coreFiles = collectTs(CORE_DIR);
-    const dryRunDir = join(SRC_DIR, "dry-run");
-    const dryRunFiles = collectTs(dryRunDir);
+    const pendingDirectivesDir = join(SRC_DIR, "pending-directives");
+    const pendingDirectivesFiles = collectTs(pendingDirectivesDir);
 
     it("the recursive walk reaches real files (sanity)", () => {
       expect(coreFiles.length).toBeGreaterThan(0);
-      expect(dryRunFiles.length).toBeGreaterThan(0);
+      expect(pendingDirectivesFiles.length).toBeGreaterThan(0);
     });
 
-    for (const filePath of [...coreFiles, ...dryRunFiles]) {
+    for (const filePath of [...coreFiles, ...pendingDirectivesFiles]) {
       it(`${filePath.replace(SRC_DIR, "src")} does not import src/scaffold/`, () => {
         const source = readFileSync(filePath, "utf-8");
         const offenders = specifiersResolvingInto(source, dirname(filePath), SCAFFOLD_DIR);

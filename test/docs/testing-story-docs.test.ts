@@ -115,27 +115,27 @@ describe("REQ-TSD-03 — README qualifying-line revert (sequence-gated)", () => 
 });
 
 describe("REQ-TSD-05 — author-facing reference docs reflect the bare contract (bare-factory-migration)", () => {
-  const DRY_RUN_PATH = join(PROJECT_ROOT, "docs/dry-run.md");
+  const PENDING_DIRECTIVES_PATH = join(PROJECT_ROOT, "docs/pending-directives.md");
   const AUTHORING_VERBS_PATH = join(PROJECT_ROOT, "docs/authoring-verbs.md");
   const AUTHORING_ERRORS_PATH = join(PROJECT_ROOT, "docs/authoring-errors.md");
 
   it("REQ-TSD-05.3 [red-proof]: zero defineFactory tokens across the 3 doc files", () => {
-    for (const path of [DRY_RUN_PATH, AUTHORING_VERBS_PATH, AUTHORING_ERRORS_PATH]) {
+    for (const path of [PENDING_DIRECTIVES_PATH, AUTHORING_VERBS_PATH, AUTHORING_ERRORS_PATH]) {
       expect(readFileSync(path, "utf-8")).not.toContain("defineFactory");
     }
   });
 
-  it("REQ-TSD-05.2: the 3 prose sites still state the run-scoped guarantee, reworded without naming defineFactory", () => {
-    expect(readFileSync(DRY_RUN_PATH, "utf-8")).toContain("can only be called inside an active run");
+  it("REQ-TSD-05.2: the 3 prose sites still state the Session-scoped guarantee, reworded without naming defineFactory", () => {
+    expect(readFileSync(PENDING_DIRECTIVES_PATH, "utf-8")).toContain("can only be called inside an active Session");
     expect(readFileSync(AUTHORING_ERRORS_PATH, "utf-8")).toContain(
-      "An authoring verb was called outside an active run."
+      "An authoring verb was called outside an active Session."
     );
-    expect(readFileSync(AUTHORING_VERBS_PATH, "utf-8")).toContain("Only usable inside a run");
+    expect(readFileSync(AUTHORING_VERBS_PATH, "utf-8")).toContain("Only usable inside a Session");
   });
 
-  it("REQ-TSD-05.1: dry-run.md's code fence is bare and fence-compiles against runFactoryForTest's current signature", () => {
-    const doc = readFileSync(DRY_RUN_PATH, "utf-8");
-    // dry-run.md has 2 ```ts fences: a 1-line import snippet, and the runnable example this
+  it("REQ-TSD-05.1: pending-directives.md's code fence is bare and fence-compiles against runFactoryForTest's current signature", () => {
+    const doc = readFileSync(PENDING_DIRECTIVES_PATH, "utf-8");
+    // pending-directives.md has 2 ```ts fences: a 1-line import snippet, and the runnable example this
     // scenario targets — identified by name, not position, since fence ORDER is prose, not contract.
     const fences = extractTsCodeBlocks(doc);
     const fence = fences.find((f) => f.includes("runFactoryForTest"));
@@ -143,7 +143,7 @@ describe("REQ-TSD-05 — author-facing reference docs reflect the bare contract 
     expect(fence).not.toContain("defineFactory");
     expect(fence).toMatch(/const run = \(\)\s*=>/);
 
-    const scratchDir = join(PROJECT_ROOT, ".tmp-dry-run-fence-compile");
+    const scratchDir = join(PROJECT_ROOT, ".tmp-pending-directives-fence-compile");
     mkdirSync(scratchDir, { recursive: true });
     try {
       writeFileSync(join(scratchDir, "fence.ts"), withRelativeImports(fence ?? ""));
@@ -157,7 +157,7 @@ describe("REQ-TSD-05 — author-facing reference docs reflect the bare contract 
       });
       if (result.status !== 0) {
         throw new Error(
-          `docs/dry-run.md's code fence did not fence-compile:\n${result.stdout}\n${result.stderr}`
+          `docs/pending-directives.md's code fence did not fence-compile:\n${result.stdout}\n${result.stderr}`
         );
       }
     } finally {

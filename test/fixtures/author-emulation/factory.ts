@@ -147,7 +147,7 @@ export const runM06 = (input: Input): void => {
  * Bare-factory-migration (S-004) recorded decision: this does NOT nest a second call to
  * the core wrap primitive (`src/core/context.ts`'s exported factory-defining function; see
  * slices.md §10's open question + ruling R-3). `Session`'s client is a truly private field
- * (`src/core/session.ts`'s `#client`, no accessor anywhere on `RunContext`) — a nested call
+ * (`src/core/session.ts`'s `#client`, no accessor anywhere on `SessionContext`) — a nested call
  * to that primitive would need to build its OWN independent client/fake, and its
  * directives would land THERE, never in the OUTER `runFactoryForTest` wrap's
  * `result.tree`/`emitted` the corpus actually captures. Instead, this reuses the SAME
@@ -156,7 +156,7 @@ export const runM06 = (input: Input): void => {
  * run anchor — no separate ceiling to resolve), replicates the SAME wrap primitive's own
  * reserved-name check via the SAME exported utilities it calls (`findReservedSibling` +
  * `rejectionForReservedName` — never a private reimplementation), then temporarily installs
- * those anchors on the CURRENT `RunContext` for the duration of `body`'s execution,
+ * those anchors on the CURRENT `SessionContext` for the duration of `body`'s execution,
  * restoring the previous value (`undefined` for every caller today, since these scenarios
  * are never given a static `ScenarioEntry.packageDir`) in a `finally`. The schema-boundary
  * check the wrap primitive itself runs is NOT replicated here — it is unexported, and every

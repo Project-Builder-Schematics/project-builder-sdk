@@ -6,14 +6,14 @@
  * Coalescing orphan guard: a dialect handle whose open directive is drained by a mid-chain
  * (or cross-path — the flush trigger is GLOBAL, ADR-0015) read MUST re-register a FRESH
  * directive — no edit lost, no double-buffer. This is `dialect-handle.ts#ensureOpen()`'s
- * identity check against `Session.pendingSnapshot()`.
+ * identity check against `Session.pendingDirectives()`.
  *
  * [permanent-fixture]: stays in the suite forever, independent of REQ-MC-02's own test file
  * (test/core/dialect-handle.test.ts) — belt-and-suspenders coverage tied to the ADR-0037
  * mechanism itself, not just the REQ text.
  *
  * Red-proof (verified during development, not re-toggled at runtime): commenting out
- * `ensureOpen()`'s `session.pendingSnapshot().includes(this.#openDirective)` re-registration
+ * `ensureOpen()`'s `session.pendingDirectives().includes(this.#openDirective)` re-registration
  * guard — i.e. reusing the drained directive reference unconditionally — makes this handle
  * keep accumulating into a directive object no longer in `#pending`; the flush this test
  * observes then emits only ONE `modify` (the pre-read state) and the post-read edit is

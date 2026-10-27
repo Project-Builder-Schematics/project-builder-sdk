@@ -194,7 +194,7 @@ describe("REQ-RXD-09.5 — explicit-.tsx-extension requirement documented (find 
 
 // F-01 (verify-final, MAJOR): find()'s @example is the ONLY worked example on the shipped
 // public .d.ts surface (`setJsxProp`/`addImport`'s own JSDoc does not reach the .d.ts — the
-// `OpMethods` mapped type strips it). It previously read "structured ops arrive in later
+// `OpMethods` mapped type strips it). It previously read "named ops arrive in later
 // slices; .modify() is the escape hatch today" — S-000 skeleton wording that survived both
 // ops shipping in S-001/S-002. Neither fit-04 (exempts @example edits, by design) nor this
 // file's own README/doc-index checks (which only grep .md files) caught it — this guard closes
@@ -206,7 +206,7 @@ describe("F-01 guard — find()'s @example demonstrates the shipped ops, not sta
     expect(source).toContain(".setJsxProp(");
   });
 
-  it("no longer claims structured ops arrive later or that .modify() is the only escape hatch today", () => {
+  it("no longer claims named ops arrive later or that .modify() is the only escape hatch today", () => {
     const source = readFileSync(REACT_INDEX_PATH, "utf-8");
     expect(source).not.toContain("arrive in later slices");
     expect(source).not.toContain("is the escape hatch today");

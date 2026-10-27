@@ -232,18 +232,18 @@ function assertCodegenBinRuns(scratchDir: string): void {
   }
 }
 
-function assertDryRunNonEmpty(scratchDir: string): void {
+function assertPendingDirectivesNonEmpty(scratchDir: string): void {
   const stdout = runScratchScript(
     scratchDir,
-    "check-dry-run.mjs",
+    "check-pending-directives.mjs",
     [
       'import { runFactoryForTest } from "@pbuilder/sdk/testing";',
-      'import { create, dryRun } from "@pbuilder/sdk/commons";',
+      'import { create, pendingDirectives } from "@pbuilder/sdk/commons";',
       "",
       "let planLength;",
       "const run = () => {",
-      '  create("plan-probe.ts", { template: "export const x = 1;", options: {} });',
-      "  planLength = dryRun().length;",
+      '  create("pending-probe.ts", { template: "export const x = 1;", options: {} });',
+      "  planLength = pendingDirectives().length;",
       "};",
       "",
       "await runFactoryForTest(run, undefined);",
@@ -254,7 +254,7 @@ function assertDryRunNonEmpty(scratchDir: string): void {
 
   const { planLength } = parseLastJsonLine(stdout) as { planLength: number };
 
-  // Non-empty-plan assertion, not mere key presence (the red-proof group below fences the
+  // Non-empty-list assertion, not mere key presence (the red-proof group below fences the
   // weaker, key-presence-only check).
   expect(planLength).toBeGreaterThan(0);
 }
@@ -369,9 +369,9 @@ describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-06/08, ADR-00
     assertCodegenBinRuns(PACK_SCRATCH_DIR);
   });
 
-  it("REQ-LC-05.2: tarball leg invokes dryRun() via ./commons and returns a non-empty plan", async () => {
+  it("REQ-LC-05.2: tarball leg invokes pendingDirectives() via ./commons and returns a non-empty list", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
-    assertDryRunNonEmpty(PACK_SCRATCH_DIR);
+    assertPendingDirectivesNonEmpty(PACK_SCRATCH_DIR);
   });
 
   it("REQ-TES-06.4: a stale defineFactory import fails to resolve through the published entry", async () => {
@@ -433,9 +433,9 @@ describe("e2e — installed-consumer-vantage, bun-link leg (S-000/S-001, REQ-LC-
     assertCodegenBinRuns(LINK_SCRATCH_DIR);
   });
 
-  it("REQ-LC-05.1: bun-link leg invokes dryRun() via ./commons and returns a non-empty plan", async () => {
+  it("REQ-LC-05.1: bun-link leg invokes pendingDirectives() via ./commons and returns a non-empty list", async () => {
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
-    assertDryRunNonEmpty(LINK_SCRATCH_DIR);
+    assertPendingDirectivesNonEmpty(LINK_SCRATCH_DIR);
   });
 
   it("REQ-LC-02.1: a write-only factory commits to a golden tree through the bun-link-installed entry (founding bug parity)", async () => {
@@ -464,7 +464,7 @@ const SHARED_SCENARIO_HELPERS = [
   "assertWriteOnlyCommit",
   "assertAllOrNothingRejection",
   "assertCodegenBinRuns",
-  "assertDryRunNonEmpty",
+  "assertPendingDirectivesNonEmpty",
   "assertDefineFactoryImportFailsToResolve",
 ] as const;
 
@@ -533,14 +533,14 @@ describe("e2e — installed-consumer-vantage, cross-leg red-proofs (REQ-LC-02.3/
   });
 
   // RED-PROOF (REQ-LC-05.3): a key-presence-only assertion is insufficient — it would pass
-  // even against a broken dryRun() that returns an empty plan, which is exactly what
-  // REQ-LC-05.1/.2's real-invocation, non-empty-plan assertions above are designed to catch.
-  it("[red-proof] REQ-LC-05.3: a key-presence-only check does not catch a broken (empty-plan) dryRun()", () => {
-    const keyPresenceOnly = (namespaceKeys: string[]): boolean => namespaceKeys.includes("dryRun");
-    const brokenNamespaceKeys = ["dryRun"]; // the key is present...
-    const brokenPlan: unknown[] = []; // ...but calling it actually returns an empty plan.
+  // even against a broken pendingDirectives() that returns an empty list, which is exactly what
+  // REQ-LC-05.1/.2's real-invocation, non-empty-pending assertions above are designed to catch.
+  it("[red-proof] REQ-LC-05.3: a key-presence-only check does not catch a broken (empty-list) pendingDirectives()", () => {
+    const keyPresenceOnly = (namespaceKeys: string[]): boolean => namespaceKeys.includes("pendingDirectives");
+    const brokenNamespaceKeys = ["pendingDirectives"]; // the key is present...
+    const brokenPending: unknown[] = []; // ...but calling it actually returns an empty list.
 
     expect(keyPresenceOnly(brokenNamespaceKeys)).toBe(true); // fooled — key-presence is too weak
-    expect(brokenPlan.length).toBe(0); // the actual broken behavior a real invocation would surface
+    expect(brokenPending.length).toBe(0); // the actual broken behavior a real invocation would surface
   });
 });

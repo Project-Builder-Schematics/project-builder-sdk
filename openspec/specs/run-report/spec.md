@@ -4,10 +4,10 @@
 **Status**: signed (owner, 2026-07-13)
 **Change**: `author-emulation-e2e-scaffold`
 
-V1 → V2 (council fixes applied): REQ-RPT-01 re-grounded — `DryRunEntry.kind` VERIFIED
+V1 → V2 (council fixes applied): REQ-RPT-01 re-grounded — `PendingDirective.kind` VERIFIED
 as an upstream-ADDED field landed on `origin/feat/schematic-local-files`
-(`src/dry-run/plan.ts`, REQ-DRE-05; same merge gate as every scaffold scenario), and
-the labels must derive from the SAME mechanism `dryRun()` uses, never a parallel map
+(`src/pending-directives/render.ts`, REQ-DRE-05; same merge gate as every scaffold scenario), and
+the labels must derive from the SAME mechanism `pendingDirectives()` uses, never a parallel map
 (TW-B1 as downgraded + QA parallel-map-drift flag); REQ-RPT-03 pins the concrete
 report path pattern (TW-B2); REQ-RPT-05 added (report content contract + seam
 disclaimer + gap notice, TW-M-4). All V1 REQ-IDs preserved.
@@ -20,25 +20,25 @@ committed golden corpus.
 
 ## Requirements
 
-### REQ-RPT-01: Report Kind Labels Derive From the Upstream `DryRunEntry` Mechanism
+### REQ-RPT-01: Report Kind Labels Derive From the Upstream `PendingDirective` Mechanism
 
-The report MUST label each entry's classification with the `DryRunEntry.kind`
+The report MUST label each entry's classification with the `PendingDirective.kind`
 vocabulary — `"rendered"` | `"copied"` — an UPSTREAM-ADDED field landed by
-`schematic-local-files` (`src/dry-run/plan.ts`, REQ-DRE-05; on
+`schematic-local-files` (`src/pending-directives/render.ts`, REQ-DRE-05; on
 `origin/feat/schematic-local-files`, same merge gate as all scaffold scenarios). The
-report's kind derivation MUST reuse the same mechanism `dryRun()` uses (the frozen
-wire-op→verb/kind mapping of `dryRunPlan`/`WIRE_TO_AUTHOR_VERB`) — NEVER a parallel,
+report's kind derivation MUST reuse the same mechanism `pendingDirectives()` uses (the frozen
+wire-op→verb/kind mapping of `renderPendingDirectives`/`WIRE_TO_AUTHOR_VERB`) — NEVER a parallel,
 hand-rolled op→kind map that can drift from it. Vocabulary note: `rendered`/`copied`
 are the AUTHOR-FACING strings; `by-value`/`by-reference` are transport jargon that
 stays in spec/ADR prose, never on the report ([OWNER] ruling, upstream
-`dry-run-plan-exposure` V3 header).
+`pending-directives-exposure` V3 header).
 
 #### Scenario REQ-RPT-01.1: Report entries use rendered/copied, derived not duplicated [SDK]
 
 - GIVEN a captured transcript with mixed by-value and by-reference entries
 - WHEN the report is rendered
 - THEN each entry's classification is exactly `"rendered"` or `"copied"`, produced via
-  the same wire-op mapping `dryRun()` uses — and no second op→kind lookup table exists
+  the same wire-op mapping `pendingDirectives()` uses — and no second op→kind lookup table exists
   in the report renderer's source
 
 ### REQ-RPT-02: Output Is Gitignored (R1, Owner-Stated)

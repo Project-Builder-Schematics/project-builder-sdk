@@ -2,7 +2,7 @@
  * REQ-FSC-01 (S-001, design §Test Derivation): `scaffold`'s mandatory/optional argument
  * shape — `from`/`to` are mandatory and reject fail-loud BEFORE any directory read; every
  * other field defaults per REQ-FSC-01. Exercised through `commons.scaffold` inside a real
- * `defineFactory` run (this leaf's entrypoint needs the active RunContext).
+ * `defineFactory` run (this leaf's entrypoint needs the active SessionContext).
  *
  * REQ-FEH-03/04 (S-003, design §Test Derivation): `copyIn`'s always-by-reference,
  * no-classification posture and its mandatory-arg/rejection/void-return contract —
@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { scaffold, copyIn, create, dryRun } from "../../src/commons/index.ts";
+import { scaffold, copyIn, create, pendingDirectives } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 import { expectAuthoringReason } from "../support/expect-reason.ts";
@@ -63,8 +63,8 @@ describe("REQ-FSC-01.2 — optional args default correctly", () => {
 
     const run = defineFactory<void>(() => {
       scaffold({ from: "files", to: "out" });
-      const plan = dryRun();
-      expect(plan.map((e) => e.path).sort()).toEqual(["out/a.ts", "out/b.ts"]);
+      const pending = pendingDirectives();
+      expect(pending.map((e) => e.path).sort()).toEqual(["out/a.ts", "out/b.ts"]);
     }, { packageDir: dir });
 
     await run(undefined, { client: fake });
@@ -87,8 +87,8 @@ describe("REQ-FEH-03.1 — copyIn on a text file still copies verbatim, unrender
     const run = defineFactory<void>(() => {
       copyIn("literal.txt", "dest/literal.txt");
 
-      const plan = dryRun();
-      expect(plan).toEqual([{ verb: "copyIn", path: "literal.txt", kind: "copied" }]);
+      const pending = pendingDirectives();
+      expect(pending).toEqual([{ verb: "copyIn", path: "literal.txt", kind: "copied" }]);
     }, { packageDir: dir });
 
     await run(undefined, { client: fake });

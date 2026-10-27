@@ -1,6 +1,6 @@
 /**
- * S-002.2 — dryRunPlan: all-ops mapping, primary-path extraction, write-only-chain equality.
- * Unit: ops → DryRunEntry; Integration: snapshot from real Session equals buffered directives.
+ * S-002.2 — renderPendingDirectives: all-ops mapping, primary-path extraction, write-only-chain equality.
+ * Unit: ops → PendingDirective; Integration: snapshot from real Session equals buffered directives.
  *
  * Wire→author verb mapping (frozen, seven rows — identity for six ops, one translation):
  *   create  → create
@@ -20,7 +20,7 @@
  *   copy    → copy.from
  *   copyIn  → copyIn.from
  *
- * verb = author vocabulary (create/modify/remove/rename/move/copy/copyIn) — dryRunPlan
+ * verb = author vocabulary (create/modify/remove/rename/move/copy/copyIn) — renderPendingDirectives
  * never emits the wire op tag "delete"; the frozen map above renders it as "remove".
  *
  * S-003 (REQ-DRE-05/06): `copyIn` is ALWAYS tagged `kind: "copied"` — never classified,
@@ -29,8 +29,8 @@
  * (REQ-DRE-06, wire-encoding agnostic).
  */
 import { describe, it, expect } from "bun:test";
-import { dryRunPlan } from "../../src/dry-run/index.ts";
-import type { DryRunEntry } from "../../src/dry-run/index.ts";
+import { renderPendingDirectives } from "../../src/pending-directives/index.ts";
+import type { PendingDirective } from "../../src/pending-directives/index.ts";
 import { Session } from "../../src/core/session.ts";
 import { DirectiveFactory } from "../../src/core/directive-factory.ts";
 import type { EngineClient } from "../../src/core/engine-client.ts";
@@ -45,18 +45,18 @@ function makeNoopClient(): EngineClient {
   };
 }
 
-describe("dryRunPlan — unit: op mapping (REQ-04.1, REQ-04.2)", () => {
+describe("renderPendingDirectives — unit: op mapping (REQ-04.1, REQ-04.2)", () => {
   it("REQ-04.1 — create op maps to {verb:'create', path:'src/foo.ts'}", () => {
     const directive: Directive = {
       op: "create",
       create: { pathTemplate: "src/foo.ts", template: "t", options: {} },
     };
 
-    const result = dryRunPlan([directive]);
+    const result = renderPendingDirectives([directive]);
 
     expect(result).toEqual([
       { verb: "create", path: "src/foo.ts", kind: "rendered" },
-    ] satisfies DryRunEntry[]);
+    ] satisfies PendingDirective[]);
   });
 
   it("REQ-04.2 — all seven ops map correctly with their primary path", () => {
@@ -70,7 +70,7 @@ describe("dryRunPlan — unit: op mapping (REQ-04.1, REQ-04.2)", () => {
       { op: "copyIn", copyIn: { from: "src/h.ts", to: "src/i.ts" } },
     ];
 
-    const result = dryRunPlan(directives);
+    const result = renderPendingDirectives(directives);
 
     expect(result).toEqual([
       { verb: "create", path: "src/a.ts", kind: "rendered" },
@@ -80,17 +80,17 @@ describe("dryRunPlan — unit: op mapping (REQ-04.1, REQ-04.2)", () => {
       { verb: "move",   path: "src/e.ts" },
       { verb: "copy",   path: "src/f.ts" },
       { verb: "copyIn", path: "src/h.ts", kind: "copied" },
-    ] satisfies DryRunEntry[]);
+    ] satisfies PendingDirective[]);
   });
 
   it("REQ-DRE-05.2 — a copyIn entry is always tagged 'copied', never 'rendered'", () => {
     const directive: Directive = { op: "copyIn", copyIn: { from: "assets/logo.svg", to: "dest/logo.svg" } };
 
-    const result = dryRunPlan([directive]);
+    const result = renderPendingDirectives([directive]);
 
     expect(result).toEqual([
       { verb: "copyIn", path: "assets/logo.svg", kind: "copied" },
-    ] satisfies DryRunEntry[]);
+    ] satisfies PendingDirective[]);
   });
 
   it("REQ-DRE-05.1 — a mixed batch shows both 'rendered' and 'copied' tags", () => {
@@ -99,18 +99,18 @@ describe("dryRunPlan — unit: op mapping (REQ-04.1, REQ-04.2)", () => {
       { op: "copyIn", copyIn: { from: "files/binary.png", to: "out/binary.png" } },
     ];
 
-    const result = dryRunPlan(directives);
+    const result = renderPendingDirectives(directives);
 
     expect(result).toEqual([
       { verb: "create", path: "out/text.ts", kind: "rendered" },
       { verb: "copyIn", path: "files/binary.png", kind: "copied" },
-    ] satisfies DryRunEntry[]);
+    ] satisfies PendingDirective[]);
   });
 
   it("REQ-04.4 — delete op never emits the wire tag [decoy]", () => {
     const directive: Directive = { op: "delete", delete: { path: "src/gone.ts" } };
 
-    const result = dryRunPlan([directive]);
+    const result = renderPendingDirectives([directive]);
     const verb: string = result[0]?.verb ?? "";
 
     expect(verb).toBe("remove");
@@ -118,26 +118,26 @@ describe("dryRunPlan — unit: op mapping (REQ-04.1, REQ-04.2)", () => {
   });
 });
 
-describe("dryRunPlan — integration: snapshot from real Session (REQ-04.3)", () => {
-  it("REQ-04.3 — plan equals buffered directives for a write-only chain", () => {
+describe("renderPendingDirectives — integration: snapshot from real Session (REQ-04.3)", () => {
+  it("REQ-04.3 — rendered list equals buffered directives for a write-only chain", () => {
     const session = new Session(makeNoopClient());
     const factory = new DirectiveFactory();
 
     session.buffer(factory.create({ pathTemplate: "src/x.ts", template: "content-x", options: {} }));
     session.buffer(factory.modify({ path: "src/y.ts", content: "content-y" }));
 
-    const snapshot = session.pendingSnapshot();
-    const plan = dryRunPlan(snapshot);
+    const snapshot = session.pendingDirectives();
+    const rendered = renderPendingDirectives(snapshot);
 
-    expect(plan).toEqual([
+    expect(rendered).toEqual([
       { verb: "create", path: "src/x.ts", kind: "rendered" },
       { verb: "modify", path: "src/y.ts" },
-    ] satisfies DryRunEntry[]);
+    ] satisfies PendingDirective[]);
   });
 });
 
-describe("dryRunPlan — REQ-TOE-08.1 (S-003, typed-options-feeder): composite options never surface [characterization]", () => {
-  it("a create directive carrying encoded composite options produces a DryRunEntry with only verb/path/kind — no options field, encoded or native", () => {
+describe("renderPendingDirectives — REQ-TOE-08.1 (S-003, typed-options-feeder): composite options never surface [characterization]", () => {
+  it("a create directive carrying encoded composite options produces a PendingDirective with only verb/path/kind — no options field, encoded or native", () => {
     const factory = new DirectiveFactory();
     const directive = factory.create({
       pathTemplate: "src/widget.ts",
@@ -149,9 +149,9 @@ describe("dryRunPlan — REQ-TOE-08.1 (S-003, typed-options-feeder): composite o
     if (directive.op !== "create") throw new Error("fixture invariant broken: expected a create directive");
     expect(directive.create.options).toEqual({ methods: '[{"name":"load"}]' });
 
-    const [entry] = dryRunPlan([directive]);
+    const [entry] = renderPendingDirectives([directive]);
 
-    expect(entry).toEqual({ verb: "create", path: "src/widget.ts", kind: "rendered" } satisfies DryRunEntry);
+    expect(entry).toEqual({ verb: "create", path: "src/widget.ts", kind: "rendered" } satisfies PendingDirective);
     expect(Object.keys(entry as object).sort()).toEqual(["kind", "path", "verb"]);
   });
 });

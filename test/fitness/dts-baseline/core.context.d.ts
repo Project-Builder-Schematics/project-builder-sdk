@@ -8,26 +8,26 @@ export interface DialectRegistry {
     }): void;
     drain(): Promise<void>;
 }
-export interface RunContext {
+export interface SessionContext {
     session: Session;
     factory: DirectiveFactory;
     dialects: DialectRegistry;
-    runFailure?: {
+    sessionFailure?: {
         reason: unknown;
     };
     packageAnchors?: {
         packageDir: string;
     };
 }
-export declare const RUN_ALS_REGISTRY_KEY = "@pbuilder/sdk:core/context#run-als";
-export declare function resolveRunAls(slotValue: unknown): AsyncLocalStorage<RunContext>;
+export declare const SESSION_ALS_REGISTRY_KEY = "@pbuilder/sdk:core/context#session-als";
+export declare function resolveSessionAls(slotValue: unknown): AsyncLocalStorage<SessionContext>;
 export declare function isDefineFactoryWrapped(value: unknown): boolean;
-export declare function currentContext(): RunContext;
+export declare function currentContext(): SessionContext;
 export declare function requirePackageAnchors(missingAnchorMessage: string): {
     packageDir: string;
 };
 /**
- * Builds a run-context and runs the factory inside it, flushing buffered
+ * Builds a SessionContext and runs the factory inside it, flushing buffered
  * directives at run end (REQ-KIT-05) — a write-only factory still emits.
  *
  * All-or-nothing contract (ADR-01): on success the full directive batch is committed;
@@ -68,7 +68,7 @@ export declare function requirePackageAnchors(missingAnchorMessage: string): {
  * // 2. Internal: wrap a bare author fn into a client-driven runner:
  * const bareFactory = (input: Input) => {
  *   create("server.config.ts", {
- *     template: "export const port = {{port}};",
+ *     template: "export const port = {= .port =};",
  *     options: { port: input.port },
  *   });
  * };

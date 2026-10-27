@@ -45,7 +45,7 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *   case "path-not-found":
  *   case "unrepresentable-content":
  *   case "changes-too-large":
- *   case "outside-run":
+ *   case "outside-session":
  *   case "unknown":
  *   case "invalid-input":
  *   case "reserved-name":
@@ -56,7 +56,7 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *     break;
  * }
  */
-export type AuthoringReason = "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-run" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable";
+export type AuthoringReason = "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-session" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable";
 /**
  * Distinguishes an engine-refused write from an SDK-side misuse (2.4, ADR-0021) —
  * DERIVED from `reason`, never producer-set.
@@ -95,7 +95,7 @@ export declare class AuthoringError extends Error {
     readonly origin: AuthoringOrigin;
     /**
      * Counts directives applied within the failing flush before the offender — a
-     * diagnostic for locating progress, NOT a persistence promise (a rejected run
+     * diagnostic for locating progress, NOT a persistence promise (a rejected Session
      * discards everything, ADR-0015).
      */
     readonly appliedCount: number;

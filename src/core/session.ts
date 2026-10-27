@@ -24,9 +24,9 @@ export class Session {
     this.#pending.push(directive);
   }
 
-  // SEAM-02 (REQ-03): a defensive copy of the pending buffer for the dry-run renderer.
+  // SEAM-02 (REQ-03): a defensive copy of the pending buffer for the pending Directives renderer.
   // Later mutations to #pending must NOT affect a snapshot taken earlier.
-  pendingSnapshot(): readonly Directive[] {
+  pendingDirectives(): readonly Directive[] {
     return this.#pending.slice();
   }
 

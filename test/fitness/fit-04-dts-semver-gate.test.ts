@@ -146,7 +146,7 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
   },
 ];
 
-// Kit-internal baseline set (ADR-0077 §J, REQ-MFB-01.3 / REQ-FTG-06(c)): `RunContext` is
+// Kit-internal baseline set (ADR-0077 §J, REQ-MFB-01.3 / REQ-FTG-06(c)): `SessionContext` is
 // UNMAPPED — no subpath export, no public symbol (baseline §Public API) — so its `.d.ts`
 // is pinned by the SAME FIT-04 removal-only mechanism, in a SEPARATE, separately-labelled
 // set, never folded into the public `DTS_PAIRS` list above. Folding it in would promote a

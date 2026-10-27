@@ -97,7 +97,7 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
     });
   });
 
-  describe("clause (c) — RunContext.packageAnchors's type literal EQUALS { packageDir: string } (Q8, positive shape)", () => {
+  describe("clause (c) — SessionContext.packageAnchors's type literal EQUALS { packageDir: string } (Q8, positive shape)", () => {
     it("the kit-internal core.context.d.ts baseline pins exactly one field", async () => {
       const content = await Bun.file(CORE_CONTEXT_DTS_PATH).text();
       const fields = packageAnchorsFields(content);
