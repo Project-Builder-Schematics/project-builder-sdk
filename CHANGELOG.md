@@ -6,6 +6,28 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.4.0
+
+### Ubiquitous language (breaking)
+
+The author surface now uses the Authoring vocabulary: a Dry Run and a Plan belong to the
+engine's execution, and the per-factory-invocation aggregate is the Session, not a run.
+
+- **Breaking**: `dryRun()` is renamed `pendingDirectives()`, with no alias. Its entry type
+  `DryRunEntry` is renamed `PendingDirective`, and `DryRunVerb` is removed in favour of the
+  identical `AuthoringVerb`. All three were exported from `.` and `./commons`.
+  **Migration**: `import { pendingDirectives, type PendingDirective, type AuthoringVerb } from "@pbuilder/sdk/commons";`
+  and replace each call to `dryRun()` with `pendingDirectives()`. The returned entries keep
+  the same `{ verb, path, kind? }` shape.
+- **Breaking**: the `AuthoringReason` value `"outside-run"` is now `"outside-session"`.
+  **Migration**: rename the `case "outside-run":` arm of an exhaustive `switch` over
+  `error.reason`; the message and `origin` are unchanged.
+- **Breaking**: the cross-realm registry key that pins the single ambient context changed
+  from `@pbuilder/sdk:core/context#run-als` to `@pbuilder/sdk:core/context#session-als`.
+  **Migration**: every copy of the SDK loaded into one process must be on 0.4.0; a 0.3.x
+  copy beside it no longer shares the ambient context.
+- Docs: `docs/dry-run.md` is now `docs/pending-directives.md`.
+
 ## 0.3.1
 
 ### Package resolution
