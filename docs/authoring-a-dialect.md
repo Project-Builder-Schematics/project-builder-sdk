@@ -81,13 +81,14 @@ a `providers` list. The `locator` starts at one of three roots and then follows 
 
 | Root | Starts at |
 |---|---|
-| `{ variable: "appConfig", path }` | The initializer of the top-level variable, looking through `as`, `satisfies`, and parentheses |
+| `{ variable: "appConfig", path }` | The initializer of the top-level variable |
 | `{ call: "bootstrapApplication", argument: 1, path }` | That argument of the only call to `bootstrapApplication` |
 | `{ decorator: "NgModule", path }` | The argument of the only `@NgModule(...)` decorator |
 
 Each `path` segment is either an object key (`"providers"`) or a match, `{ path: "admin" }`, that
 selects the only array element whose `path` property is that string. There are no numeric
-indices: an index silently points at the wrong element once the array is reordered.
+indices: an index silently points at the wrong element once the array is reordered. At every
+step the op looks through `as`, `satisfies`, `<T>` assertions, non-null `!`, and parentheses.
 
 ```ts
 await ts
@@ -106,7 +107,9 @@ await ts
 - Missing keys are created (`{}` becomes `{ providers: [X] }`), and so is the next missing call
   or decorator argument (`bootstrapApplication(App)` becomes
   `bootstrapApplication(App, { providers: [X] })`). A missing root, an argument past the next
-  one, or a match that selects nothing rejects: the op never invents them.
+  one, or a match that selects nothing rejects: the op never invents them. A missing key in an
+  object with a spread (`{ ...base }`) or a computed key also rejects, because a created key could
+  silently shadow one the object already gets; so does a key defined by a getter or setter.
 - The root and every match must select exactly one node; zero or several reject.
 - An element already in the array is a no-op. Elements are compared token by token, so spacing,
   line breaks, comments, and trailing commas do not count.

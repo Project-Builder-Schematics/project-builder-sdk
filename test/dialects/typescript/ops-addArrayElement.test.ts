@@ -245,6 +245,30 @@ describe("addArrayElement — path segments and missing levels", () => {
     expect(message).toContain('path[0] "routes" is missing and cannot be created before a match segment');
   });
 
+  for (const [label, seed] of [
+    ["a spread", "export const appConfig = { ...base };\n"],
+    ["a computed key", 'export const appConfig = { ["providers"]: [A] };\n'],
+  ] as const) {
+    it(`rejects creating a key the object may already get from ${label}`, async () => {
+      const message = await expectReject(seed, APP_CONFIG, "X");
+      expect(message).toBe(
+        locationMessage(APP_CONFIG_ECHO, 'path[0] "providers" may already come from a spread or a computed key, so it cannot be created')
+      );
+    });
+  }
+
+  it("rejects a key defined by an accessor", async () => {
+    const message = await expectReject("export const appConfig = { get providers() { return []; } };\n", APP_CONFIG, "X");
+    expect(message).toBe(locationMessage(APP_CONFIG_ECHO, 'path[0] "providers" is not a plain property assignment'));
+  });
+
+  it("names the missing call argument when it cannot be created before a match segment", async () => {
+    const message = await expectReject("f();\n", { call: "f", argument: 0, path: ["routes", { path: "a" }] }, "X");
+    expect(message).toBe(
+      locationMessage('{"call":"f","argument":0,"path":["routes",{"path":"a"}]}', "argument 0 is missing and cannot be created before a match segment")
+    );
+  });
+
   it("rejects a target that is not an array literal", async () => {
     const message = await expectReject("export const appConfig = { providers: base };\n", APP_CONFIG, "X");
     expect(message).toBe(locationMessage(APP_CONFIG_ECHO, "the target is not an array literal"));

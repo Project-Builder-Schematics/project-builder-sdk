@@ -167,7 +167,13 @@ function unwrap(node: Expression): Expression {
 }
 
 function propertyKey(member: Node): string | undefined {
-  if (!Node.isPropertyAssignment(member) && !Node.isShorthandPropertyAssignment(member) && !Node.isMethodDeclaration(member)) {
+  if (
+    !Node.isPropertyAssignment(member) &&
+    !Node.isShorthandPropertyAssignment(member) &&
+    !Node.isMethodDeclaration(member) &&
+    !Node.isGetAccessorDeclaration(member) &&
+    !Node.isSetAccessorDeclaration(member)
+  ) {
     return undefined;
   }
   const name = member.getNameNode();
@@ -218,24 +224,20 @@ function locateRoot(ast: SourceFile, locator: ArrayLocator, fail: (reason: strin
   if (argument < args.length) return { kind: "node", node: args[argument]! };
   const name = "call" in locator ? elementNameEcho(locator.call) : `@${elementNameEcho(locator.decorator)}`;
   if (argument > args.length) fail(`"${name}" is called with ${args.length} arguments; only argument ${args.length} can be created`);
-  return missingLevels(locator.path, 0, fail, (keys) => ({ kind: "addArgument", owner, keys }));
+  return missingLevels(locator.path, 0, `argument ${argument}`, fail, (keys) => ({ kind: "addArgument", owner, keys }));
 }
 
 // Only keys can be created: a match segment names an element that does not exist yet.
 function missingLevels(
   path: readonly PathSegment[],
   from: number,
+  missing: string,
   fail: (reason: string) => never,
   placement: (keys: string[]) => Placement
 ): Placement {
   const keys = path.slice(from);
   if (keys.every((segment) => typeof segment === "string")) return placement(keys);
-  const missing = path[from];
-  fail(
-    typeof missing === "string"
-      ? `path[${from}] "${elementNameEcho(missing)}" is missing and cannot be created before a match segment`
-      : "the argument is missing and cannot be created before a match segment"
-  );
+  fail(`${missing} is missing and cannot be created before a match segment`);
 }
 
 function locate(ast: SourceFile, locator: ArrayLocator, item: Node, fail: (reason: string) => never): Placement {
@@ -247,7 +249,15 @@ function locate(ast: SourceFile, locator: ArrayLocator, item: Node, fail: (reaso
       if (!Node.isObjectLiteralExpression(node)) fail(`path[${index}] "${elementNameEcho(segment)}" expects an object literal`);
       const object = node;
       const members = object.getProperties().filter((member) => propertyKey(member) === segment);
-      if (members.length === 0) return missingLevels(locator.path, index, fail, (keys) => ({ kind: "addProperty", object, keys }));
+      if (members.length === 0) {
+        // A spread or a computed key may already supply the key; a created one would shadow it.
+        const opaque = object
+          .getProperties()
+          .some((member) => Node.isSpreadAssignment(member) || (Node.hasName(member) && Node.isComputedPropertyName(member.getNameNode())));
+        if (opaque) fail(`path[${index}] "${elementNameEcho(segment)}" may already come from a spread or a computed key, so it cannot be created`);
+        const missing = `path[${index}] "${elementNameEcho(segment)}"`;
+        return missingLevels(locator.path, index, missing, fail, (keys) => ({ kind: "addProperty", object, keys }));
+      }
       if (members.length > 1) fail(`path[${index}] "${elementNameEcho(segment)}" is assigned ${members.length} times`);
       const member = members[0]!;
       if (!Node.isPropertyAssignment(member)) fail(`path[${index}] "${elementNameEcho(segment)}" is not a plain property assignment`);
