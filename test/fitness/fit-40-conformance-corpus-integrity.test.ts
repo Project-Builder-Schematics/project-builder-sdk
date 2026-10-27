@@ -598,10 +598,19 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(composite).not.toBeUndefined();
       const c = composite as Case;
       expect(c.factory).toEqual({ module: "factory.ts", export: "createComposite" });
-      expect(c.outcome).toEqual({ exitCode: 0, emitRejectionCode: null, failedIndex: null, writtenPaths: ["create-composite.txt"] });
+      // The fixture-level schematic lowering stages generated.txt for EVERY case, so it is
+      // committed here too (REQ-CFX-12) and belongs in both writtenPaths and the workspace.
+      expect(c.outcome).toEqual({
+        exitCode: 0,
+        emitRejectionCode: null,
+        failedIndex: null,
+        writtenPaths: ["create-composite.txt", "generated.txt"],
+      });
       expect(c.transcript).toEqual({ callbacks: ["ir.emit", "ir.commit"], singleCommit: true, forbidDiscard: true, emitBeforeCommit: true });
       expect(c.expected).toBe("expected-composite");
       expect(readFileSync(join(f.dir, "expected-composite", "create-composite.txt"), "utf8")).toBe("composite: [x][y]");
+      expect(readFileSync(join(f.dir, "expected-composite", "generated.txt"), "utf8")).toBe("generated");
+      expect(readFileSync(join(f.dir, "expected-composite", "existing.txt"), "utf8")).toBe("orig");
     });
 
     it("REQ-CFX-09.5: wire-create-reject-twin's factory call carries force: true, staying a valid rejection under the engine's new create semantics (ADR-0078)", () => {
