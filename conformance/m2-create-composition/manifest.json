@@ -36,7 +36,7 @@
       "seed": "seed",
       "expected": "expected-composite",
       "factory": { "module": "factory.ts", "export": "createComposite" },
-      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["create-composite.txt"] },
+      "outcome": { "exitCode": 0, "emitRejectionCode": null, "failedIndex": null, "writtenPaths": ["create-composite.txt", "generated.txt"] },
       "transcript": {
         "callbacks": ["ir.emit", "ir.commit"],
         "singleCommit": true,
