@@ -152,7 +152,12 @@ function sameTokens(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((token, index) => token === b[index]);
 }
 
-function unwrap(node: Expression): Expression {
+/** True when `node` and the validated `element` are the same code, compared token by token. */
+export function isSameElement(node: Node, element: unknown): boolean {
+  return sameTokens(tokensOf(node), tokensOf(elementNode(element)));
+}
+
+export function unwrap(node: Expression): Expression {
   let current = node;
   while (
     Node.isAsExpression(current) ||

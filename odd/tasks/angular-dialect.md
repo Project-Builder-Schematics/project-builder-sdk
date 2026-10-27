@@ -35,9 +35,9 @@ S10 — Packaging: `./angular` export, author guide `docs/angular-dialect.md`, R
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S1-S4, S9 | inline | done — RED (module missing) → GREEN 13 pass; TS + NestJS 510 still pass after extracting `appendArrayElement` | 488234e |
-| T2 | S1, S5-S9 | inline | done — RED 13 fail → GREEN 27 pass (angular); typecheck clean | 488234e |
-| T3 | S10 | inline | done — `./angular` export, guide, README, FIT-02/04/09/14 + package hash repinned; full suite 3636 pass, 7 fail = the same 7 that fail on main 864ed17 | 6ac159c |
+| T1 | S1-S4, S9 | inline | done — RED (module missing) → GREEN 13 pass; TS + NestJS 510 still pass after extracting `appendArrayElement` | d135392 (PR 1) |
+| T2 | S1, S5-S9 | inline | done — RED 13 fail → GREEN 27 pass (angular); typecheck clean | PR 2 (feat/angular-dialect-02-routes) |
+| T3 | S10 | inline | done — `./angular` export, guide, README, FIT-02/04/09/14 + package hash repinned; full suite 3636 pass, 7 fail = the same 7 that fail on main 864ed17 | d135392 (PR 1; route docs + d.ts baseline in PR 2) |
 
 Route evidence: one behavior chain on one branch, each unit under ~400 lines and dependent on the previous one, so no writer trigger fires; all inline.
 
@@ -51,3 +51,5 @@ L5 (2026-10-28): `addArrayElement` (`src/dialects/typescript/array-element.ts`) 
 L6 (2026-10-28): Engram mirror pending — `mem_current_project` is ambiguous for this directory; waiting for the owner to pick a project.
 L7 (2026-10-28): native assess over 864ed17..6ac159c (untracked `.mcp.json`/`.atl` cache excluded) → risk medium (`configuration_change` package.json), review_due false (`under_budget`). Risk line: item 3 — `appendArrayElement` was extracted from `addArrayElement`, shared with existing behavior; independent verifier launched over S1-S10 with a differential check against 864ed17.
 L8 (2026-10-28, user, verbatim): "Si porfa como PRs encadenados" — stacked-to-main. Slices: PR 1 = `appendArrayElement` extraction + component/root-provider ops + `./angular` publish (FIT-08 requires every dialect entrypoint published, so the dialect cannot land unpublished); PR 2 = route ops + their guide section + d.ts baseline. Commits get rebuilt along these slices after the verifier reports.
+L9 (2026-10-28): independent verifier — S1-S10 PASS, no blockers; `addArrayElement` differential vs 864ed17 over 13 inputs IDENTICAL. Advisories applied: normalized the `./angular` export block in package.json and the pkg baseline (hash repinned), split the docs index sentence, documented that quote style decides route equality. Left as is: the wildcard insertion copies the `**` line's indent; an import conflict surfaces the `addImport` message; `Readonly<Routes>` is not recognized.
+L10 (2026-10-28): history rebuilt into the stacked slices (the branch was never pushed): PR 1 `feat/angular-dialect-01-core` → main (756 changed lines, size:exception — FIT-08 requires the dialect to ship published, so ops, export, baselines and guide land together); PR 2 `feat/angular-dialect-02-routes` → PR 1.

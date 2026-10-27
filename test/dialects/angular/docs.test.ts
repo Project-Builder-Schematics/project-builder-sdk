@@ -11,6 +11,8 @@ const SIGNATURES = [
   "addComponentImport(element, imports?)",
   "addComponentProvider(element, imports?)",
   "addRootProvider(element, imports?)",
+  "addRoute({ path, component, from })",
+  "addLazyRoute({ path, loadComponent | loadChildren, export? })",
 ];
 
 describe("docs/angular-dialect.md — author guide", () => {
@@ -18,8 +20,9 @@ describe("docs/angular-dialect.md — author guide", () => {
     expect(() => extractSection(doc, `### \`${signature}\``)).not.toThrow();
   });
 
-  it("documents the inherited TypeScript ops, format preservation, rejections, and the escape hatch", () => {
+  it("documents the inherited TypeScript ops, route ordering, format preservation, rejections, and the escape hatch", () => {
     expect(doc).toContain("@pbuilder/sdk/typescript");
+    expect(extractSection(doc, "## Routes")).toContain('{ path: "**" }');
     expect(extractSection(doc, "## Format preservation")).toContain("byte-identical");
     expect(extractSection(doc, "## Rejections")).toContain("the file is left unchanged");
     const hatch = extractSection(doc, "## The escape hatch");

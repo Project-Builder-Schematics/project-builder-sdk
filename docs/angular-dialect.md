@@ -5,7 +5,7 @@ op of [`@pbuilder/sdk/typescript`](./authoring-a-dialect.md) (`addImport`, `addD
 `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`, `addExportAll`,
 `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`, `removeExportAll`,
 `addArrayElement`, and any op the TypeScript dialect gains later) plus ops for standalone
-components and the application's root providers. All ops chain on one handle and the
+components, the application's root providers, and routes. All ops chain on one handle and the
 file is written once.
 
 The ops find their target by its shape, never by file name, so they work with both the
@@ -83,6 +83,42 @@ Appends to the application's root `providers`:
 When `bootstrapApplication` receives a config by name, such as an `appConfig` imported from
 `./app/app.config`, the op rejects and names that module: run the op on that file instead.
 
+## Routes
+
+Both route ops add to the file's only top-level variable typed `Routes` or `Route[]`, by
+annotation or `satisfies`. Angular uses the first route that matches, so a new route goes
+before a top-level `{ path: "**" }` route when there is one, and at the end otherwise.
+
+An equal route is left as it is. A different route with the same `path` rejects, so a
+schematic run twice with other inputs never adds a second one. Routes are compared token by
+token, and the ops write double quotes: a route written as `{ path: 'about', component: About }`
+is not equal to the one `addRoute` writes, so adding it again rejects instead of doing nothing.
+
+### `addRoute({ path, component, from })`
+
+Imports `component` from `from` and adds an eager route.
+
+```ts
+await angular.find("src/app/app.routes.ts").addRoute({ path: "about", component: "About", from: "./about/about" });
+// -> import { About } from "./about/about";
+// -> { path: "about", component: About },
+```
+
+### `addLazyRoute({ path, loadComponent | loadChildren, export? })`
+
+Adds a lazy route that loads the module named by `loadComponent` or `loadChildren` (exactly one
+of them). With `export`, the route reads that named export; without it, the module's default
+export. No import is added.
+
+```ts
+await angular
+  .find("src/app/app.routes.ts")
+  .addLazyRoute({ path: "settings", loadComponent: "./settings/settings", export: "Settings" })
+  .addLazyRoute({ path: "admin", loadChildren: "./admin/admin.routes" });
+// -> { path: "settings", loadComponent: () => import("./settings/settings").then((m) => m.Settings) },
+// -> { path: "admin", loadChildren: () => import("./admin/admin.routes") },
+```
+
 ## Format preservation
 
 A new entry follows the layout of the list it joins: a one-line list stays on one line, a
@@ -93,18 +129,19 @@ stays trailing. Everything outside the inserted text is byte-identical.
 
 An op rejects, and the file is left unchanged, when:
 
-- the file has no `@Component`, `ApplicationConfig` variable, or `bootstrapApplication` call
-  for the op, or more than one;
-- the metadata or config is not a literal (for example `providers: PROVIDERS`);
+- the file has no `@Component`, `ApplicationConfig` variable, `bootstrapApplication` call, or
+  `Routes` variable for the op, or more than one;
+- the metadata, config, or route list is not a literal (for example `providers: PROVIDERS`);
 - `bootstrapApplication` receives its config by name;
-- an `element` or an import `name` is not valid.
+- a route `path` starts with `/`, or a different route already uses the `path`;
+- an `element`, an import `name`, a `component`, or an `export` is not valid.
 
 `find(path)` accepts any `.ts` path, like the TypeScript dialect; a file without the target only
 fails when one of these ops runs.
 
 ## The escape hatch
 
-Edits these ops do not cover, such as a route or an NgModule, and the files these ops
+Edits these ops do not cover, such as a child route or an NgModule, and the files these ops
 reject, are made with `.modify(fn)`. The callback receives the live ts-morph `SourceFile`, and
 the module's `astLibrary` export is ts-morph itself:
 

@@ -2,14 +2,16 @@ import type { SourceFile } from "ts-morph";
 import { type Handle } from "../../core/define-dialect.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import type { ArrayElement } from "../typescript/array-element.ts";
-import { type NamedImport } from "./ops.ts";
+import { type LazyRouteSpec, type NamedImport, type RouteSpec } from "./ops.ts";
 export * as astLibrary from "ts-morph";
-export type { NamedImport };
+export type { LazyRouteSpec, NamedImport, RouteSpec };
 type InsertOp = (ast: SourceFile, element: ArrayElement, imports?: readonly NamedImport[]) => void;
 type AngularOps = {
     addComponentImport: InsertOp;
     addComponentProvider: InsertOp;
     addRootProvider: InsertOp;
+    addRoute: (ast: SourceFile, route: RouteSpec) => void;
+    addLazyRoute: (ast: SourceFile, route: LazyRouteSpec) => void;
 };
 /**
  * Opens a `.ts` file of an Angular project for editing. The handle carries every
@@ -24,7 +26,12 @@ type AngularOps = {
  * - `addComponentImport` / `addComponentProvider` append to `imports` / `providers` of the
  *   file's only `@Component`, creating the metadata object or the array when missing.
  * - `addRootProvider` appends to the root `providers` of the file's only variable typed
- *   `ApplicationConfig`, or of the only `bootstrapApplication(...)` config object. *
+ *   `ApplicationConfig`, or of the only `bootstrapApplication(...)` config object.
+ * - `addRoute({ path, component, from })` imports `component` and adds an eager route;
+ *   `addLazyRoute({ path, loadComponent | loadChildren, export? })` adds a lazy one. Both go
+ *   to the file's only variable typed `Routes` or `Route[]`, before a `**` route when there is
+ *   one, since the first matching route wins. A different route with the same `path` rejects.
+ *
  * They reject, leaving the file unchanged, when the target is missing, ambiguous, or not a
  * literal. Use `.modify(fn)` for those files.
  *

@@ -688,8 +688,8 @@ exposes ts-morph. See [the NestJS dialect guide](./docs/nestjs-dialect.md).
 
 ### `@pbuilder/sdk/angular`
 
-Every `@pbuilder/sdk/typescript` op, plus ops for standalone components and the application's
-root providers. Each op adds the imports its code needs.
+Every `@pbuilder/sdk/typescript` op, plus ops for standalone components, the application's root
+providers, and routes. Each op adds the imports its code needs.
 
 ```ts
 import * as angular from "@pbuilder/sdk/angular";
@@ -698,10 +698,11 @@ await angular.find("src/app/app.config.ts").addRootProvider({ expression: "provi
   { name: "provideHttpClient", from: "@angular/common/http" },
   { name: "withFetch", from: "@angular/common/http" },
 ]);
+await angular.find("src/app/app.routes.ts").addLazyRoute({ path: "admin", loadChildren: "./admin/admin.routes" });
 ```
 
-Extra named ops: `addComponentImport`, `addComponentProvider`, `addRootProvider`. `.modify(fn)`
-exposes ts-morph. See
+Extra named ops: `addComponentImport`, `addComponentProvider`, `addRootProvider`, `addRoute`,
+`addLazyRoute`. `.modify(fn)` exposes ts-morph. See
 [the Angular dialect guide](./docs/angular-dialect.md).
 
 ### `.modify()` — the universal escape hatch
