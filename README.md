@@ -590,6 +590,7 @@ await ts.find("src/index.ts")
 | `removeImport(name, from)` | Removes the named binding; deletes the whole statement when it was the last one. Idempotent on an absent binding. |
 | `removeExport(name, from)` | Removes a named re-export; deletes the statement when it was the last one. Idempotent on an absent one. |
 | `removeExportAll(from, { as? })` | Removes `export * from "from"` (or the `as` form). Idempotent on an absent one. |
+| `addArrayElement(locator, element)` | Appends to the array literal `locator` points at (a variable, a call argument, or a decorator argument, then a `path` of keys and `{ key: "value" }` matches), keeping its layout. Creates missing keys; a no-op when the element is already listed. `element` is an identifier, or `{ expression }` for code. |
 | `addFunction(name, source, opts?)` | Appends a top-level function. `source` **includes** the braces (`"(): void {}"`). |
 | `addVariable(name, initializer, opts?)` | Appends a top-level variable (`kind` defaults to `const`). |
 | `addClass(name, source, opts?)` | Appends a top-level class. `source` **excludes** the braces — the op adds them. |

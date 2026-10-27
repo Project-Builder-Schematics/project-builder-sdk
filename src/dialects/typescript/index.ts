@@ -8,6 +8,7 @@
 
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
+import type { ArrayElement, ArrayLocator } from "./array-element.ts";
 import { parse, print } from "./ast.ts";
 import { typescriptOps } from "./pack.ts";
 
@@ -33,6 +34,7 @@ type TypeScriptOps = {
   removeImport: (ast: SourceFile, name: string, from: string) => void;
   removeExport: (ast: SourceFile, name: string, from: string) => void;
   removeExportAll: (ast: SourceFile, from: string, options?: { as?: string }) => void;
+  addArrayElement: (ast: SourceFile, locator: ArrayLocator, element: ArrayElement) => void;
 };
 
 const opsPack = defineOpPack<SourceFile, TypeScriptOps>(typescriptOps);
@@ -50,7 +52,8 @@ const typescriptDialect = withOps(baseDialect, opsPack);
  * (REQ-DG-01.2). Returns an awaitable, chainable `Handle` exposing the universal `.modify()`
  * escape hatch plus the dialect's named ops (`addImport`, `addDefaultImport`,
  * `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`, `addExportAll`,
- * `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`, `removeExportAll`). Reads route through `Session.read` only (REQ-MC-03); edits
+ * `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`, `removeExportAll`,
+ * `addArrayElement`). Reads route through `Session.read` only (REQ-MC-03); edits
  * coalesce into a single `modify` at flush (REQ-MC-01/02).
  *
  * @example

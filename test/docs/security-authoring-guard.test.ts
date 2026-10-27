@@ -96,6 +96,7 @@ describe("REQ-DAS-01.1 — authoring doc names exactly the shipped API", () => {
       "addExportAll",
       "removeExport",
       "removeExportAll",
+      "addArrayElement",
     ]) {
       expect(content).toContain(name);
     }
