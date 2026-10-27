@@ -78,6 +78,11 @@
       "import": "./dist/dialects/nestjs/index.js",
       "default": "./dist/dialects/nestjs/index.js"
     },
+    "./angular": {
+      "types": "./dist/dialects/angular/index.d.ts",
+      "import": "./dist/dialects/angular/index.js",
+      "default": "./dist/dialects/angular/index.js"
+    },
     "./yaml": {
       "types": "./dist/dialects/yaml/index.d.ts",
       "import": "./dist/dialects/yaml/index.js",

@@ -152,7 +152,12 @@ function sameTokens(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((token, index) => token === b[index]);
 }
 
-function unwrap(node: Expression): Expression {
+/** True when `node` and the validated `element` are the same code, compared token by token. */
+export function isSameElement(node: Node, element: unknown): boolean {
+  return sameTokens(tokensOf(node), tokensOf(elementNode(element)));
+}
+
+export function unwrap(node: Expression): Expression {
   let current = node;
   while (
     Node.isAsExpression(current) ||
@@ -310,10 +315,23 @@ function locatorEcho(locator: ArrayLocator): string {
  */
 export function addArrayElement(ast: SourceFile, locator: ArrayLocator, element: ArrayElement): void {
   assertLocator(locator);
+  appendArrayElement(ast, locator, element, `addArrayElement(${locatorEcho(locator)})`);
+}
+
+/** The validated source text of `element`; rejects like `addArrayElement` does. */
+export function elementText(element: unknown): string {
+  return elementNode(element).getText();
+}
+
+/**
+ * `addArrayElement` for a dialect that builds `locator` itself: `label` heads the reject
+ * tail in place of `addArrayElement(<locator>)`.
+ */
+export function appendArrayElement(ast: SourceFile, locator: ArrayLocator, element: unknown, label: string): void {
   const node = elementNode(element);
   const item = node.getText();
   const fail = (reason: string): never => {
-    throw dialectError(`addArrayElement(${locatorEcho(locator)}) on "${handlePathFor(ast)}" — ${reason}. Edit it with .modify().`);
+    throw dialectError(`${label} on "${handlePathFor(ast)}" — ${reason}. Edit it with .modify().`);
   };
   const placement = locate(ast, locator, node, fail);
   switch (placement.kind) {

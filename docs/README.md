@@ -18,7 +18,7 @@ quickstart; the rest is reference, read in whatever order you need it.
 6. **[Authoring a dialect](./authoring-a-dialect.md)** — structured, AST-aware mutation for
    one file type (e.g. `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`), for when the verbs
    above aren't enough. The [JSON](./json-dialect.md) and [YAML](./yaml-dialect.md) guides
-   cover the path-based dialects, and the [NestJS](./nestjs-dialect.md) guide covers `@Module` ops. This SDK ships that content only once — this index links it rather
+   cover the path-based dialects, and the [NestJS](./nestjs-dialect.md) guide covers `@Module` ops. The [Angular](./angular-dialect.md) guide covers component, root-provider, and route ops. This SDK ships that content only once — this index links it rather
    than repeating it.
 
 ## Contributor notes

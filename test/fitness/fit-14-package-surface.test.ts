@@ -121,9 +121,9 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     expect(pkgJson.main).toEqual(baseline.main);
   });
 
-  it("REQ-FPS-02.1: exports map is EXACTLY the nine authorized entries, no more, no less", () => {
+  it("REQ-FPS-02.1: exports map is EXACTLY the ten authorized entries, no more, no less", () => {
     expect(Object.keys(pkgJson.exports).sort()).toEqual(
-      [".", "./commons", "./conformance", "./testing", "./typescript", "./react", "./json", "./nestjs", "./yaml"].sort()
+      [".", "./commons", "./conformance", "./testing", "./typescript", "./react", "./json", "./nestjs", "./angular", "./yaml"].sort()
     );
   });
 

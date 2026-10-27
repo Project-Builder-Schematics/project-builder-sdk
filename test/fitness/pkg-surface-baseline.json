@@ -41,6 +41,11 @@
       "import": "./dist/dialects/nestjs/index.js",
       "default": "./dist/dialects/nestjs/index.js"
     },
+    "./angular": {
+      "types": "./dist/dialects/angular/index.d.ts",
+      "import": "./dist/dialects/angular/index.js",
+      "default": "./dist/dialects/angular/index.js"
+    },
     "./yaml": {
       "types": "./dist/dialects/yaml/index.d.ts",
       "import": "./dist/dialects/yaml/index.js",
@@ -126,6 +131,10 @@
     "dist/core/session.js",
     "dist/core/wire.d.ts",
     "dist/core/wire.js",
+    "dist/dialects/angular/index.d.ts",
+    "dist/dialects/angular/index.js",
+    "dist/dialects/angular/ops.d.ts",
+    "dist/dialects/angular/ops.js",
     "dist/dialects/json/ast.d.ts",
     "dist/dialects/json/ast.js",
     "dist/dialects/json/index.d.ts",
