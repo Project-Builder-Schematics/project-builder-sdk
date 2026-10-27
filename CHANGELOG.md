@@ -6,6 +6,63 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.7.0
+
+### New subpath: `@pbuilder/sdk/angular`
+
+- **Added**: the Angular dialect. It edits the `.ts` files of an Angular project, extends
+  `@pbuilder/sdk/typescript` the same way `@pbuilder/sdk/nestjs` does, and finds its targets by
+  shape, never by file name, so it works with both the `app.ts` and `app.component.ts` naming
+  styles. Every op that inserts code takes the imports that code needs as `{ name, from }`, adds
+  them with `addImport`'s rules, and is a no-op when the same code is already there. Guide:
+  `docs/angular-dialect.md`.
+  - **Components**: `addComponentImport(element, imports?)` and
+    `addComponentProvider(element, imports?)` append to `imports` / `providers` of the file's
+    only `@Component`, creating the metadata or the array when missing.
+  - **Root providers**: `addRootProvider(element, imports?)` appends to the `providers` of the
+    file's only variable typed `ApplicationConfig`, whatever its name, or else of the
+    `bootstrapApplication(...)` config object, which is created when missing. A config passed by
+    name rejects and names the module to edit.
+
+    ```ts
+    await angular.find("src/app/app.config.ts").addRootProvider({ expression: "provideHttpClient(withFetch())" }, [
+      { name: "provideHttpClient", from: "@angular/common/http" },
+      { name: "withFetch", from: "@angular/common/http" },
+    ]);
+    ```
+
+  - **Routes**: `addRoute({ path, component, from })` adds an eager route, and
+    `addLazyRoute({ path, loadComponent | loadChildren, export? })` adds a lazy one. Both target
+    the file's only variable typed `Routes` or `Route[]`. A new route goes before a `**` route,
+    because Angular uses the first route that matches. A different route with the same `path`
+    rejects, and so does a `path` starting with `/`. Routes are compared token by token, so a
+    single-quoted route is not equal to the double-quoted one the ops write.
+  - **Class members**: `addInjection(name, token, options?)` adds
+    `private readonly name = inject(token)` to the only `@Component`, `@Directive`, `@Pipe`,
+    `@Injectable` or `@Service` class. `addInput`, `addModel` and `addOutput` add
+    `readonly name = input<T>(initial)` / `input.required<T>()`, `model(...)` and `output<T>()`.
+    `addSignal` and `addComputed` add `protected readonly name = signal<T>(initial)` and
+    `computed(() => expression)`. These five need a `@Component` or `@Directive` class. Modifiers
+    follow the Angular style guide, and each op imports its function from `@angular/core`.
+
+    ```ts
+    await angular
+      .find("src/app/user-card.ts")
+      .addInput("user", { type: "User", required: true, imports: [{ name: "User", from: "./user" }] })
+      .addInjection("http", "HttpClient", { imports: [{ name: "HttpClient", from: "@angular/common/http" }] });
+    ```
+
+### TypeScript dialect: `addClassProperty`
+
+- **Added**: `addClassProperty(className, name, initializer, options?)` on
+  `@pbuilder/sdk/typescript`, inherited by `@pbuilder/sdk/nestjs` and `@pbuilder/sdk/angular`,
+  adds `{scope }{readonly }name = initializer;` to the only class named `className`. `options` is
+  `{ scope?: "public" | "protected" | "private"; readonly?: boolean }`. The property goes after the
+  class's last property, keeping the members' indentation, so properties stay above the
+  constructor and the methods. A property with the same declaration is a no-op, and any other
+  member with that name rejects. `initializer` must parse as exactly one expression and is
+  otherwise author-trusted. Guide: `docs/authoring-a-dialect.md`.
+
 ## 0.6.0
 
 ### TypeScript dialect: `addArrayElement`
