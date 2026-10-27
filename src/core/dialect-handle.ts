@@ -175,7 +175,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     try {
       this.#live = this.#dialectAst.parse(content);
     } catch {
-      throw dialectError(`could not parse "${this.#path}" as TypeScript`);
+      throw dialectError(`could not parse "${this.#path}"`);
     }
     astHandlePaths.set(this.#live as object, this.#path);
     this.#lastEmittedText = content;

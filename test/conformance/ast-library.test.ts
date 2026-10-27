@@ -1,13 +1,17 @@
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { createRequire } from "node:module";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import type { Dialect } from "../../src/core/define-dialect.ts";
-import type { DialectModule } from "../../src/conformance/index.ts";
+import type { DialectFixture, DialectModule } from "../../src/conformance/index.ts";
 import { testDialect } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
+
+// Each entry runs the kit's 4 MiB mandatory sample through its own parser; the yaml parser
+// alone takes several seconds on it, past Bun's 5000ms default.
+setDefaultTimeout(20000);
 
 const fixture = { ...DIALECT_MODULES[0], samples: [...DIALECT_MODULES[0].samples] };
 const scratch = scratchDirFactory("dialect-module-");
@@ -88,11 +92,14 @@ for (const entry of DIALECT_MODULES) {
   test(`${entry.entrypoint} works with its independently resolved adapter library`, async () => {
     expect(createRequire(entry.adapter).resolve(entry.specifier)).toBe(
       createRequire(new URL("../support/dialect-modules.ts", import.meta.url)).resolve(entry.specifier));
+    // Each entry pairs its own library with its own exercise; a union of entries is not a
+    // fixture over the union of libraries, so widen one entry at a time.
+    const fixture = entry as unknown as DialectFixture<object>;
     let exercised = false;
-    await testDialect({ ...entry, samples: [...entry.samples], libraryExercise: {
-      ...entry.libraryExercise,
-      modify(ast: unknown, library: typeof entry.expectedAstLibrary) {
-        entry.libraryExercise.modify(ast, library);
+    await testDialect({ ...fixture, samples: [...fixture.samples], libraryExercise: {
+      ...fixture.libraryExercise,
+      modify(ast: unknown, library: object) {
+        fixture.libraryExercise.modify(ast, library);
         exercised = true;
       },
     } });

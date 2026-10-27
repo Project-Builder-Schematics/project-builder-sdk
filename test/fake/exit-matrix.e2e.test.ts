@@ -20,8 +20,9 @@ import { ContractFake } from "../../src/testing/contract-fake.ts";
 import { encodeFrame } from "../../src/transport/framing.ts";
 import { FrameReader } from "../../src/transport/frame-reader.ts";
 import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../src/transport/wire-protocol.ts";
+import { OUTSIDE_PROJECT_TOKEN } from "../../src/transport/error-text.ts";
 import { canaryToken } from "../support/canary.ts";
-import { posixCanaryPath, posixSpaceCanaryPath } from "../fixtures/frame-runner/canary-path-leak/factory.ts";
+import { posixCanaryPath, posixSpaceCanaryPath, projectGluedMessage } from "../fixtures/frame-runner/canary-path-leak/factory.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const RUNNER_BIN = new URL("../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;
@@ -321,6 +322,7 @@ describe("REQ-WPS-07.4/.5/.6 (e2e, canary-seeded) — the disclosure rule holds 
     const run = await serveSpawnedRunner(host, fake);
 
     expect(run.exitCode).toEqual(4);
+    expect(run.stderr).toContain(`pbuilder-runner: ENOENT: no such file, open '${OUTSIDE_PROJECT_TOKEN}'\n`);
     expect(run.stderr).not.toContain(canary);
   });
 
@@ -342,6 +344,7 @@ describe("REQ-WPS-07.4/.5/.6 (e2e, canary-seeded) — the disclosure rule holds 
     const run = await serveSpawnedRunner(host, fake);
 
     expect(run.exitCode).toEqual(4);
+    expect(run.stderr).toContain(`pbuilder-runner: ENOENT: no such file, open '${OUTSIDE_PROJECT_TOKEN}'\n`);
     expect(run.stderr).not.toContain(canary);
   });
 
@@ -376,6 +379,7 @@ describe("REQ-WPS-07.4/.5/.6 (e2e, canary-seeded) — the disclosure rule holds 
     const run = await serveSpawnedRunner(host, fake);
 
     expect(run.exitCode).toEqual(4);
+    expect(run.stderr).toContain(`pbuilder-runner: EACCES: permission denied, open '${OUTSIDE_PROJECT_TOKEN}'\n`);
     expect(run.stderr).not.toContain(canary);
   });
 
@@ -386,7 +390,19 @@ describe("REQ-WPS-07.4/.5/.6 (e2e, canary-seeded) — the disclosure rule holds 
     const run = await serveSpawnedRunner(host, fake);
 
     expect(run.exitCode).toEqual(4);
+    expect(run.stderr).toContain(`pbuilder-runner: EACCES: permission denied, open '${OUTSIDE_PROJECT_TOKEN}'\n`);
     expect(run.stderr).not.toContain(canary);
+  });
+
+  it("project-glued: an absolute project path with no separator before it is anchored to <project-root> live", async () => {
+    const canary = canaryToken("project-glued");
+    const fake = new ContractFake({ seed: {} });
+    const host = spawnRunner(["--factory", CANARY_PATH_LEAK_POINTER, "--input", JSON.stringify({ canary, style: "project-glued" })]);
+    const run = await serveSpawnedRunner(host, fake);
+
+    expect(run.exitCode).toEqual(4);
+    expect(run.stderr).toContain(`pbuilder-runner: Cannot resolve module<project-root>/${canary}/secret.json\n`);
+    expect(run.stderr).not.toContain(projectGluedMessage(canary, PROJECT_ROOT.replace(/\/$/, "")));
   });
 
   it("REQ-WPS-07.5 (e2e): secret-shaped, non-path content in a real spawned run reaches stderr verbatim — documented residual, proven live", async () => {

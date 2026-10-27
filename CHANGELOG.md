@@ -6,6 +6,74 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.5.0
+
+### JSON and YAML dialects
+
+- **Added**: `@pbuilder/sdk/json` edits `.json` and `.jsonc` files by path through fifteen
+  named ops: `setValue`, `addKey`, `removeKey`, `renameKey`, `insertItem`, `appendItem`,
+  `removeItem`, `removeValue`, `replaceItem`, `moveItem`, `merge`, `updateValue`,
+  `moveValue`, `copyValue`, and `sortKeys`, with `before`/`after` placement for new keys.
+  Edits touch only the bytes they change: comments, indentation, key order, line endings,
+  and the BOM survive, and a line comment travels with its member. `astLibrary` is
+  `jsonc-parser`. Guide: `docs/json-dialect.md`.
+- **Added**: `@pbuilder/sdk/yaml` edits `.yaml` and `.yml` files with the same structural ops
+  plus `setComment`, `removeComment`, `setAnchor`, `removeAnchor`, `setAlias`,
+  `addMergeKey`, `setStyle`, `setTag`, `addDocument`, and `removeDocument`; every op takes a
+  `{ document }` option for multi-document files. A document no op touched prints
+  byte-identical; a touched document is re-serialized by the `yaml` library, whose known
+  normalizations are listed in `docs/yaml-dialect.md`. `astLibrary` is `yaml`.
+- Values passed to either dialect are typed `JsonValue`/`YamlValue` and validated at
+  runtime; `undefined`, functions, non-finite numbers, class instances, and cycles reject
+  before the file changes.
+- **Dependencies**: `jsonc-parser@3.3.1` and `yaml@2.9.1` join `ts-morph` as exact-pinned
+  runtime dependencies. Neither has transitive dependencies or install scripts.
+
+### Dialect extensions (breaking)
+
+- **Breaking**: every dialect's `find` now rejects a path whose basename does not end in an
+  extension the dialect declares, throwing synchronously with
+  `dialect operation failed: find("<path>") — the file's extension is not one this dialect declares (<extensions>).`
+  The check lives in `defineDialect` and `withOps`, so it applies to every dialect built with
+  the kit. `@pbuilder/sdk/typescript` therefore rejects `a.js` and `a.tsx`; the React
+  dialect keeps its own messages. Several dialects may still declare the same extension.
+  **Migration**: open `.tsx` files with `@pbuilder/sdk/react`, and edit files of other types
+  through `@pbuilder/sdk/commons` (`find` + `replaceContent`). A contributor dialect must
+  declare every extension it intends to open.
+- **Breaking**: `testDialect` fails a dialect whose published `find` accepts an undeclared
+  extension.
+
+### Conformance fixture (breaking)
+
+- **Breaking**: the mandatory adversarial samples that `testDialect` and `testOpPack` inject
+  are now format-neutral. Instead of six fixed TypeScript sources, the kit derives four from a
+  source the dialect declares valid (`libraryExercise.seed` for `testDialect`,
+  `exercises[0].seed` for `testOpPack`): the empty file, and CRLF, UTF-8 BOM, and 4 MiB
+  variants of that seed. Non-TypeScript dialects can now pass the fixture.
+  **Migration**: a TypeScript-family dialect that relied on the removed samples
+  (comment-only file, two imports from one module, 4 MiB block comment) should add them to
+  its own `samples`. A dialect must also round-trip the empty file.
+- **Breaking**: the shared parse-failure message is now `could not parse "<path>"`, without
+  `as TypeScript`. **Migration**: update assertions that matched the old text.
+
+### Package
+
+- **Added**: the package ships `schemas/project-builder.schema.json`, the path
+  `builder init` writes into `project-builder.json`'s `$schema`, so editors validate and
+  autocomplete the file once `@pbuilder/sdk` is installed.
+
+### Fixed
+
+- `create(path, { template | templateFile })` called without `options` (plain JavaScript, or
+  TypeScript run without a typecheck) sends `{}` instead of `undefined`. The batch was
+  previously rejected with `reason: "unrepresentable-content"`. Typed callers are unaffected.
+- The error text an operator sees when a factory throws a plain `Error` scrubs paths by
+  anchoring on the project root and the SDK package root (each also under its realpath),
+  shown as `<project-root>` and `<sdk>`. A path glued to the previous word no longer leaks,
+  non-`file:` URLs pass through unchanged, `file://` URLs keep their scheme, and a lone `\\`
+  in prose is left alone. Other POSIX paths keep the `../` form; Windows and UNC paths still
+  become `<outside-project>`.
+
 ## 0.4.0
 
 ### Ubiquitous language (breaking)

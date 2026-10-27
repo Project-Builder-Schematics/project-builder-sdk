@@ -559,8 +559,9 @@ conformance-tests a *dialect or op-pack* implementation — not the same audienc
 
 When string-level mutation isn't enough — "add an import to this module", "set a prop on
 this JSX element" — **dialects** provide structured, AST-aware operations for one file
-type: see [authoring a dialect](./docs/authoring-a-dialect.md) for the full story. Two
-ship today: `@pbuilder/sdk/typescript` and `@pbuilder/sdk/react`.
+type: see [authoring a dialect](./docs/authoring-a-dialect.md) for the full story. Four
+ship today: `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`, `@pbuilder/sdk/json`, and
+`@pbuilder/sdk/yaml`.
 
 A dialect's entry point is its own `find(path)`: it opens a **coalescing, awaitable
 handle**. Every op you chain mutates the same live AST, and the handle serializes to
@@ -619,6 +620,45 @@ await react
 `setJsxProp`'s `value` is emitted verbatim into executable code — same trust boundary as
 the TypeScript `source` strings. One React-specific subtlety: an inserted prop lands after
 a trailing `{...spread}`, so it **wins** at runtime under React's later-position precedence.
+
+### `@pbuilder/sdk/json`
+
+Mutates `.json` and `.jsonc` files by path, editing only the bytes it changes: comments,
+indentation, key order, and line endings survive. Paths are arrays (`["scripts", "build"]`,
+`["plugins", 0]`).
+
+```ts
+import * as json from "@pbuilder/sdk/json";
+
+await json
+  .find("package.json")
+  .setValue(["scripts", "build"], "tsc")
+  .appendItem(["keywords"], "schematics", { unique: true });
+```
+
+Named ops: `setValue`, `addKey`, `removeKey`, `renameKey`, `insertItem`, `appendItem`,
+`removeItem`, `removeValue`, `replaceItem`, `moveItem`, `merge`, `updateValue`, `moveValue`,
+`copyValue`, `sortKeys`. `.modify(fn)` exposes [jsonc-parser](https://github.com/microsoft/node-jsonc-parser).
+See [the JSON dialect guide](./docs/json-dialect.md).
+
+### `@pbuilder/sdk/yaml`
+
+Mutates `.yaml` and `.yml` files with the same path-based ops as the JSON dialect, plus
+comments, anchors and aliases, merge keys, styles, tags, and multi-document files. A
+document no op touched prints byte-identical.
+
+```ts
+import * as yaml from "@pbuilder/sdk/yaml";
+
+await yaml
+  .find("docker-compose.yml")
+  .setValue(["services", "web", "image"], "node:22")
+  .setComment(["services", "web"], "Public entrypoint");
+```
+
+Extra named ops: `setComment`, `removeComment`, `setAnchor`, `removeAnchor`, `setAlias`,
+`addMergeKey`, `setStyle`, `setTag`, `addDocument`, `removeDocument`. `.modify(fn)` exposes
+[yaml](https://eemeli.org/yaml/). See [the YAML dialect guide](./docs/yaml-dialect.md).
 
 ### `.modify()` — the universal escape hatch
 

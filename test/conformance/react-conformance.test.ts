@@ -1,6 +1,6 @@
 /**
  * S-003 — REQ-RXD-08: the JSX adversarial corpus (required capability, not optional). The
- * kit's own 6 mandatory samples (injected automatically by `testDialect`/`testOpPack`) are
+ * kit's own 4 mandatory samples (injected automatically by `testDialect`/`testOpPack`) are
  * JSX-blind and prove nothing about this dialect's actual syntax surface — this file's
  * 20-sample corpus is what does.
  *

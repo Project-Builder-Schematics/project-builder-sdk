@@ -79,8 +79,15 @@ describe("REQ-PKG-01 — package.json#exports resolution contract", () => {
     expect(pkgJson.exports["./core"]).toBeUndefined();
   });
 
-  it("the only exported subpaths are ., ./commons, ./conformance, ./testing, ./typescript, and ./react (REQ-TES-01.1, REQ-PKG-01)", () => {
+  it.each(["json", "yaml"])('exports "./%s" with correct types and import fields', (name) => {
+    const entry = pkgJson.exports[`./${name}`] ?? null;
+    expect(entry).not.toBeNull();
+    expect(entry!.types).toBe(`./dist/dialects/${name}/index.d.ts`);
+    expect(entry!.import).toBe(`./dist/dialects/${name}/index.js`);
+  });
+
+  it("the only exported subpaths are ., ./commons, ./conformance, ./testing, ./typescript, ./react, ./json, and ./yaml (REQ-TES-01.1, REQ-PKG-01)", () => {
     const keys = Object.keys(pkgJson.exports).sort();
-    expect(keys).toEqual([".", "./commons", "./conformance", "./react", "./testing", "./typescript"]);
+    expect(keys).toEqual([".", "./commons", "./conformance", "./json", "./react", "./testing", "./typescript", "./yaml"]);
   });
 });
