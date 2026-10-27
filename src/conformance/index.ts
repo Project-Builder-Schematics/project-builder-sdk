@@ -220,6 +220,8 @@ const MANDATORY_ADVERSARIAL_SAMPLES: readonly string[] = [
   'import { a } from "m";\nimport { b } from "m";\n', // duplicate-target: two import statements sharing one module specifier
 ];
 
+const UNDECLARED_EXTENSION = ".pbuilder-undeclared";
+
 // Shared by `testDialect` and `testOpPack` (verify-in-loop-4 Finding #1): the round-trip +
 // real-base-probe loop is ONE mechanism, run against whichever dialect reference the caller
 // holds (`fixture.dialect` for testDialect, `fixture.baseDialect` for testOpPack) — REQ-DC-06's
@@ -288,10 +290,22 @@ export async function testDialect<Library extends object>(fixture: DialectFixtur
 
   const exercise = fixture.libraryExercise;
   const { client, emitted } = createRunVehicle({ [exercise.path]: exercise.seed });
+  // A-11: `find` must reject an extension the dialect does not declare. Probed inside the run,
+  // because outside a Session a conforming `find` would throw for the wrong reason.
+  const undeclaredPath = `conformance-probe${UNDECLARED_EXTENSION}`;
+  let acceptedUndeclared = !fixture.dialect.extensions.includes(UNDECLARED_EXTENSION);
   const run = defineFactory<void>(async () => {
+    try {
+      module.find(undeclaredPath);
+    } catch {
+      acceptedUndeclared = false;
+    }
     await module.find(exercise.path).modify((ast: unknown) => exercise.modify(ast, module.astLibrary));
   });
   await run(undefined, { client });
+  if (acceptedUndeclared) {
+    throw new Error(`testDialect: find accepted "${undeclaredPath}", an undeclared extension (A-11)`);
+  }
   const directives = emitted.flatMap((batch) => batch.instructions);
   if (!deepEqual(directives, [{ op: "modify", modify: { path: exercise.path, content: exercise.expect } }])) {
     throw new Error("testDialect: library exercise did not emit the expected byte-exact modify");

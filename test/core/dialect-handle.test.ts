@@ -679,12 +679,12 @@ describe("dialect handle — REQ-DG-07.2 (concrete collision trigger, S-001)", (
     // asserted here via the fake's own committedTree()/stagingTree(), matching this
     // codebase's established pattern (e.g. test/skeleton/write-only-factory.test.ts's
     // "all-or-nothing" case) rather than the emit-interception spy.
-    const fake = new ContractFake({ seed: { "a.ts": "seed", "b.ts": "const foo = 1;\n" } });
+    const fake = new ContractFake({ seed: { "a.toy": "seed", "b.ts": "const foo = 1;\n" } });
 
     const run = defineFactory<void>(async () => {
       // a.ts's edit would flush cleanly on its own — proving THIS handle's otherwise-clean
       // edits are rolled back too, not just the colliding handle's.
-      await toyDialect.find("a.ts").push("push-line");
+      await toyDialect.find("a.toy").push("push-line");
       await ts.find("b.ts").addFunction("foo", "(): void {}");
     });
 
@@ -952,10 +952,10 @@ describe("dialect handle — REQ-DG-07.1 (row-136 concrete trigger, S-002)", () 
   // handle's directive to emit() before the reject is detected — the durable guarantee
   // lives at commit()/discard(), not emit() interception.
   it("a row-136 reject on a LATER handle commits nothing for an EARLIER, otherwise-clean handle", async () => {
-    const fake = new ContractFake({ seed: { "a.ts": "seed", "b.ts": "const x = 1;\n" } });
+    const fake = new ContractFake({ seed: { "a.toy": "seed", "b.ts": "const x = 1;\n" } });
 
     const run = defineFactory<void>(async () => {
-      await toyDialect.find("a.ts").push("push-line");
+      await toyDialect.find("a.toy").push("push-line");
       await ts.find("b.ts").addImport("readFileSync", "node:fs").replaceContent("raw override");
     });
 
