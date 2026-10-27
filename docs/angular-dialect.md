@@ -172,6 +172,27 @@ binding.
 Adds `readonly name = output<type>();` to the file's only `@Component` or `@Directive` class.
 `options` is `{ type?, imports? }`.
 
+### `addSignal(name, initial, options?)`
+
+Adds `protected readonly name = signal<type>(initial);` to the file's only `@Component` or
+`@Directive` class. `protected` follows the style guide for members the template reads.
+`options` is `{ type?, scope?, imports? }`, where `scope` replaces `protected`.
+
+### `addComputed(name, expression, options?)`
+
+Adds `protected readonly name = computed<type>(() => expression);`, with the same class, options
+and scope as `addSignal`. An object literal expression is wrapped in parentheses, so the arrow
+function returns it and does not read it as a block.
+
+```ts
+await angular
+  .find("src/app/counter.ts")
+  .addSignal("count", "0")
+  .addComputed("double", "this.count() * 2");
+// -> protected readonly count = signal(0);
+// -> protected readonly double = computed(() => this.count() * 2);
+```
+
 ## Format preservation
 
 A new entry follows the layout of the list it joins: a one-line list stays on one line, a

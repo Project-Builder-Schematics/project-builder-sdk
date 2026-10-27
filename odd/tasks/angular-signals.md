@@ -1,5 +1,5 @@
 Objective: Angular delivery 2 — signal and DI class members (`addInjection`, `addInput`, `addOutput`, `addModel`, `addSignal`, `addComputed`), on top of a new TypeScript base op `addClassProperty`.
-Branch: feat/angular-signals-01-class-property (from main 2ef6c5f). Delivery: ask-on-risk, chain strategy stacked-to-main (cached from `odd/tasks/angular-dialect.md` L8). Test runner: `bun test` (focused: `bun test test/dialects/typescript test/dialects/angular`).
+Branch: feat/angular-signals (from main 2ef6c5f). Delivery: single-pr (owner choice, L7). Test runner: `bun test` (focused: `bun test test/dialects/typescript test/dialects/angular`).
 Inputs: Angular v22 docs via the `angular-cli` MCP (style guide, inputs guide), summarized in `## Log`.
 
 ## Specs
@@ -28,7 +28,7 @@ S9 — Error tails follow the house format `<op>("<name>") on "<file>" — <reas
 |---|---|---|---|---|
 | T1 | S1-S3, S9 | inline | done — RED 14 fail → GREEN 15 pass; full suite 3655 pass, 7 fail = the 7 failing on main | PR A |
 | T2 | S4-S7, S9 | inline | done — RED 16 fail → GREEN 17 pass; full suite 3676 pass, 7 fail = the 7 failing on main | PR B |
-| T3 | S4, S8, S9 | inline | pending — PR C | — |
+| T3 | S4, S8, S9 | inline | done — RED 7 fail → GREEN; full suite 3685 pass, 7 fail = the 7 failing on main | PR C |
 
 Route evidence: one dependent chain (T2 and T3 build on T1), each unit under ~400 lines; no writer trigger fires.
 
@@ -39,3 +39,5 @@ L2 (2026-10-28, user, verbatim): "Si me parece" — base op takes the class by n
 L3 (2026-10-28): Angular v22 docs — `input(initial)`, `input<T>()`, `input.required<T>()`, `model(...)`/`model.required<T>()`, `output<T>()` (https://angular.dev/guide/components/inputs); style guide: readonly for input/model/output, protected for template-only members, Angular properties grouped before methods (https://angular.dev/style-guide); `@Service` exists in v22 (https://angular.dev/reference/migrations/injectable-to-service).
 L4 (2026-10-28): the TypeScript dialect has no class-member op (`addFunction`/`addVariable`/`addClass` append top-level statements only). Adding a TS op touches ops.ts, pack.ts, index.ts JSDoc, a new ops test, ops-exact-set, security-authoring-guard, README ops table, docs/authoring-a-dialect.md, and the inherited-op lists in docs/nestjs-dialect.md and docs/angular-dialect.md.
 L5 (2026-10-28): Engram mirror pending — `mem_current_project` is ambiguous for this directory.
+L6 (2026-10-28): native assess per slice (untracked `.mcp.json`/`.atl` cache excluded): PR A 2ef6c5f..2a78a04 medium, 363 lines; PR B 2a78a04..67266e2 medium, 407 lines; PR C 67266e2..def7d6d medium, 149 lines; all `under_budget`, no review due. Risk: none — every op is new; the only change to shared code exports `tokensOf` without changing it. No independent verifier (no high-risk item).
+L7 (2026-10-28, user, verbatim): "Dale como una solo PR" — the three slices ship as one PR (about 925 changed lines, size:exception by owner choice); commits stay one per slice.

@@ -321,3 +321,31 @@ export function addInjection(ast: SourceFile, name: string, token: ArrayElement,
   const initializer = `inject(${elementText(token)})`;
   addMember(ast, "addInjection", name, INJECTABLE_DECORATORS, { initializer, scope: options?.scope ?? "private", core: "inject" }, options?.imports);
 }
+
+/** Options of `addSignal` and `addComputed`; `scope` defaults to `protected`. */
+export type StateOptions = { type?: string; scope?: Scope; imports?: readonly NamedImport[] };
+
+/**
+ * Adds `protected readonly name = signal<type>(initial)` to the file's only `@Component` or
+ * `@Directive` class and imports `signal`. `options.scope` replaces `protected`.
+ */
+export function addSignal(ast: SourceFile, name: string, initial: string, options?: StateOptions): void {
+  assertValidImportBinding(name, "name");
+  assertOptions(options, ["type", "scope", "imports"]);
+  const initializer = `signal${typeArgument(options?.type)}(${elementText({ expression: initial })})`;
+  addMember(ast, "addSignal", name, VIEW_DECORATORS, { initializer, scope: options?.scope ?? "protected", core: "signal" }, options?.imports);
+}
+
+/**
+ * Adds `protected readonly name = computed<type>(() => expression)` to the file's only
+ * `@Component` or `@Directive` class and imports `computed`. `options.scope` replaces `protected`.
+ */
+export function addComputed(ast: SourceFile, name: string, expression: string, options?: StateOptions): void {
+  assertValidImportBinding(name, "name");
+  assertOptions(options, ["type", "scope", "imports"]);
+  const body = elementText({ expression });
+  // An arrow function reads a leading `{` as a block, so an object literal needs parentheses.
+  const arrow = body.startsWith("{") ? `() => (${body})` : `() => ${body}`;
+  const initializer = `computed${typeArgument(options?.type)}(${arrow})`;
+  addMember(ast, "addComputed", name, VIEW_DECORATORS, { initializer, scope: options?.scope ?? "protected", core: "computed" }, options?.imports);
+}

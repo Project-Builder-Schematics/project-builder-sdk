@@ -2,9 +2,9 @@ import type { SourceFile } from "ts-morph";
 import { type Handle } from "../../core/define-dialect.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import type { ArrayElement } from "../typescript/array-element.ts";
-import { type InjectionOptions, type InputOptions, type LazyRouteSpec, type NamedImport, type OutputOptions, type RouteSpec } from "./ops.ts";
+import { type InjectionOptions, type InputOptions, type LazyRouteSpec, type NamedImport, type OutputOptions, type RouteSpec, type StateOptions } from "./ops.ts";
 export * as astLibrary from "ts-morph";
-export type { InjectionOptions, InputOptions, LazyRouteSpec, NamedImport, OutputOptions, RouteSpec };
+export type { InjectionOptions, InputOptions, LazyRouteSpec, NamedImport, OutputOptions, RouteSpec, StateOptions };
 type InsertOp = (ast: SourceFile, element: ArrayElement, imports?: readonly NamedImport[]) => void;
 type AngularOps = {
     addComponentImport: InsertOp;
@@ -16,6 +16,8 @@ type AngularOps = {
     addInput: (ast: SourceFile, name: string, options?: InputOptions) => void;
     addModel: (ast: SourceFile, name: string, options?: InputOptions) => void;
     addOutput: (ast: SourceFile, name: string, options?: OutputOptions) => void;
+    addSignal: (ast: SourceFile, name: string, initial: string, options?: StateOptions) => void;
+    addComputed: (ast: SourceFile, name: string, expression: string, options?: StateOptions) => void;
 };
 /**
  * Opens a `.ts` file of an Angular project for editing. The handle carries every
