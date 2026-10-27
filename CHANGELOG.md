@@ -6,6 +6,78 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.5.1
+
+### NestJS dialect
+
+- **Added**: `@pbuilder/sdk/nestjs` returns a handle with every `@pbuilder/sdk/typescript` op
+  plus four `@Module` ops: `addProvider`, `addController`, `addModuleImport`, and `addExport`,
+  each taking `(name, from)`. Each op adds `import { name } from "from"` with the `addImport`
+  rules, then appends `name` to the matching array of the file's only `@Module` class,
+  creating the metadata object or the array when missing; an entry already listed is a no-op.
+  The new entry follows the list's layout: one-line lists stay on one line, multi-line lists
+  get a new line at the last entry's indentation, and a trailing comma stays trailing. An op
+  rejects, leaving the file unchanged, when the file has no `@Module` class or more than one,
+  or when the metadata or the target property is not a literal. Guide:
+  `docs/nestjs-dialect.md`.
+
+### TypeScript dialect: import and export ops
+
+- **Added**: four import ops on `@pbuilder/sdk/typescript`, inherited by
+  `@pbuilder/sdk/nestjs`:
+  - `addDefaultImport(name, from)` emits `import name from "from";`, merging into a value
+    declaration of `from` that has no default yet (`import name, { a }`,
+    `import name, * as ns`). It rejects a second default under another name, a type-only
+    `import type name`, and a name bound anywhere else.
+  - `addNamespaceImport(name, from)` emits `import * as name from "from";`, merging into a
+    default-only declaration (`import Def, * as name`). Beside named imports it opens its own
+    declaration. It rejects a second namespace under another name.
+  - `addTypeImport(name, from)` always emits its own `import type { name } from "from";`. It
+    is a no-op when the module already imports `name`, by value or as a type, inline or not,
+    and rejects a local `type`/`interface` of the same name and a name bound anywhere else.
+  - `addSideEffectImport(from)` emits `import "from";`, a no-op only when that bare import
+    exists.
+- **Added**: four export ops for barrel files:
+  - `addReExport(name, from)` emits `export { name } from "from";`, merging into a
+    non-type-only `export { … } from "from"`. It is a no-op when `from` already re-exports
+    `name`, matched by source name, and rejects a name the file already exports any other
+    way.
+  - `addExportAll(from, { as? })` emits `export * from "from";` or
+    `export * as ns from "from";`; each form is a no-op only on its own output, and `as`
+    rejects when already exported.
+  - `removeExport(name, from)` removes a named re-export, deleting the statement when it was
+    the last specifier; absent is a no-op.
+  - `removeExportAll(from, { as? })` removes `export *` or its `as` form; absent is a no-op.
+- Every new op validates `name` and `as` before the idempotency check, then checks for
+  collisions, then edits the file.
+
+### TypeScript dialect: stricter names and collisions
+
+- **Behaviour change**: `removeImport`, `addFunction`, `addVariable`, and `addClass` now
+  validate `name` the way `addImport` already did: it must be a plain ASCII JavaScript
+  identifier, not a reserved or strict-mode-restricted word, and not `__proto__`,
+  `constructor`, or `prototype`. An invalid name rejects before the file changes, and
+  `removeImport` rejects it even when nothing would have been removed.
+  **Migration**: a schematic that passed such a name produced broken or injected TypeScript;
+  pass a valid identifier, or make the edit with `.modify()`. Non-ASCII names such as `café`
+  now reject too. `removeImport("default", "m")` can no longer remove
+  `import { default as x } from "m"`; use `.modify()` for that edit.
+- **Behaviour change**: `addVariable`'s `kind` option rejects any value other than `"const"`,
+  `"let"`, or `"var"`, including one forced past the type with a cast.
+- **Behaviour change**: `addFunction`, `addVariable`, and `addClass` now reject a name already
+  bound by a default import (`import X from "m"`) or a namespace import
+  (`import * as X from "m"`), as they already did for named imports. Before, they emitted a
+  duplicate binding TypeScript rejects.
+- `source` and `initializer` arguments are code bodies and stay unvalidated, author-trusted
+  input.
+
+### Fixed
+
+- Conformance corpus: the `m2-create-composition` fixture's `create-composite` case now
+  declares `writtenPaths: ["create-composite.txt", "generated.txt"]` and ships both files in
+  `expected-composite/`, because the fixture-level `lowering` stages `generated.txt` for every
+  case. The rendered bytes of `create-composite.txt` are unchanged.
+
 ## 0.5.0
 
 ### JSON and YAML dialects
