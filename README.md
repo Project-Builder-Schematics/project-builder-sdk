@@ -559,9 +559,9 @@ conformance-tests a *dialect or op-pack* implementation — not the same audienc
 
 When string-level mutation isn't enough — "add an import to this module", "set a prop on
 this JSX element" — **dialects** provide structured, AST-aware operations for one file
-type: see [authoring a dialect](./docs/authoring-a-dialect.md) for the full story. Four
-ship today: `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`, `@pbuilder/sdk/json`, and
-`@pbuilder/sdk/yaml`.
+type: see [authoring a dialect](./docs/authoring-a-dialect.md) for the full story. Five
+ship today: `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`, `@pbuilder/sdk/nestjs`,
+`@pbuilder/sdk/json`, and `@pbuilder/sdk/yaml`.
 
 A dialect's entry point is its own `find(path)`: it opens a **coalescing, awaitable
 handle**. Every op you chain mutates the same live AST, and the handle serializes to
@@ -659,6 +659,23 @@ await yaml
 Extra named ops: `setComment`, `removeComment`, `setAnchor`, `removeAnchor`, `setAlias`,
 `addMergeKey`, `setStyle`, `setTag`, `addDocument`, `removeDocument`. `.modify(fn)` exposes
 [yaml](https://eemeli.org/yaml/). See [the YAML dialect guide](./docs/yaml-dialect.md).
+
+### `@pbuilder/sdk/nestjs`
+
+Every `@pbuilder/sdk/typescript` op, plus ops that import a class and register it in the
+file's `@Module` decorator, keeping the list's layout.
+
+```ts
+import * as nestjs from "@pbuilder/sdk/nestjs";
+
+await nestjs
+  .find("src/app.module.ts")
+  .addModuleImport("UsersModule", "./users/users.module")
+  .addProvider("UsersService", "./users/users.service");
+```
+
+Extra named ops: `addProvider`, `addController`, `addModuleImport`, `addExport`. `.modify(fn)`
+exposes ts-morph. See [the NestJS dialect guide](./docs/nestjs-dialect.md).
 
 ### `.modify()` — the universal escape hatch
 
