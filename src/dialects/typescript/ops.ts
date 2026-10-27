@@ -27,7 +27,13 @@
 // `name` (REQ-TSD-13.6 precedence pin). Its PATH-LESS reject shape is deliberately distinct
 // from Step 2's path-ful `dialectError` tail below — see `addImport`'s own JSDoc.
 
-import { SyntaxKind, type ImportDeclaration, type SourceFile } from "ts-morph";
+import {
+  SyntaxKind,
+  type ImportDeclaration,
+  type ImportDeclarationStructure,
+  type OptionalKind,
+  type SourceFile,
+} from "ts-morph";
 import { dialectError } from "../../core/dialect-error.ts";
 import { handlePathFor } from "../../core/dialect-handle.ts";
 import { elementNameEcho } from "../../core/reject-tail.ts";
@@ -242,17 +248,7 @@ export function addImport(ast: SourceFile, name: string, from: string): void {
   const claimed =
     declarationBoundNames.some(([, bound]) => bound.some((b) => b.localName === name)) ||
     isValueNamespaceClaimed(ast, name);
-  if (claimed) {
-    // `name` is POST-VALIDATION here (Step 0 already ran) but its grammar has no length
-    // ceiling — echoed through `elementNameEcho` (the wide, marked 100-char bound shared with
-    // `setJsxProp`'s reject tails), never left raw, so a pathological-length name can't blow up
-    // this message (REQ-TSD-01.32 pins realistic names, e.g. 29 chars, staying UNCUT).
-    const echoedName = elementNameEcho(name);
-    throw dialectError(
-      `addImport("${echoedName}") on "${handlePathFor(ast)}" — a value or import binding named "${echoedName}" already exists; ` +
-        `TypeScript forbids two bindings sharing a name. Rename or remove the existing one, or edit it with .modify().`
-    );
-  }
+  if (claimed) throw claimedBindingError(ast, "addImport", name);
 
   const mergeTarget = declarationsForModule.find(isNonTypeOnlyNamedImportClause);
   if (mergeTarget !== undefined) {
@@ -260,15 +256,141 @@ export function addImport(ast: SourceFile, name: string, from: string): void {
     return;
   }
 
+  insertImport(ast, { moduleSpecifier: from, namedImports: [name] });
+}
+
+// True when `name` is already bound anywhere in the file: any import binding (default,
+// namespace, or named, type-only included) or a top-level value-namespace declaration.
+function isBindingClaimed(ast: SourceFile, name: string): boolean {
+  return (
+    isValueNamespaceClaimed(ast, name) ||
+    ast.getImportDeclarations().some((decl) => boundNamesIn(decl).some((bound) => bound.localName === name))
+  );
+}
+
+// `name` is post-validation but its grammar has no length ceiling, so it is echoed through
+// `elementNameEcho` (the marked 100-char bound shared with `setJsxProp`'s reject tails), never
+// raw (REQ-TSD-01.32 pins realistic names, e.g. 29 chars, staying uncut).
+function claimedBindingError(ast: SourceFile, opName: string, name: string): Error {
+  const echoedName = elementNameEcho(name);
+  return dialectError(
+    `${opName}("${echoedName}") on "${handlePathFor(ast)}" — a value or import binding named "${echoedName}" already exists; ` +
+      `TypeScript forbids two bindings sharing a name. Rename or remove the existing one, or edit it with .modify().`
+  );
+}
+
+// A fresh import declaration goes after a leading directive prologue, never above it
+// (REQ-TSD-01.21).
+function insertImport(ast: SourceFile, structure: OptionalKind<ImportDeclarationStructure>): void {
   const directiveCount = leadingDirectiveCount(ast);
   if (directiveCount === 0) {
-    ast.addImportDeclaration({ moduleSpecifier: from, namedImports: [name] });
+    ast.addImportDeclaration(structure);
   } else {
-    ast.insertImportDeclaration(directiveInsertIndex(ast, directiveCount), {
-      moduleSpecifier: from,
-      namedImports: [name],
-    });
+    ast.insertImportDeclaration(directiveInsertIndex(ast, directiveCount), structure);
   }
+}
+
+// The value-bound (not whole-declaration type-only) declarations importing `from`.
+function valueImportsOf(ast: SourceFile, from: string): ImportDeclaration[] {
+  return ast.getImportDeclarations().filter((decl) => decl.getModuleSpecifierValue() === from && !decl.isTypeOnly());
+}
+
+/**
+ * Adds `import name from "from";` (V2 REQ-TSD-13). `name` is validated first, as in
+ * `addImport`. A no-op when `from` already has the default import `name`. Rejects when `from`
+ * already has a default import under another name (a module has one default export), or when
+ * `name` is bound anywhere else in the file — a type-only `import type name` included. Merges
+ * into the first value declaration for `from` that has no default yet (`import name, { a }` or
+ * `import name, * as ns`); otherwise inserts a fresh declaration after any directive prologue.
+ */
+export function addDefaultImport(ast: SourceFile, name: string, from: string): void {
+  assertValidImportBinding(name);
+  const declarations = valueImportsOf(ast, from);
+  const existing = declarations.map((decl) => decl.getDefaultImport()?.getText()).find((text) => text !== undefined);
+  if (existing === name) return;
+  if (existing !== undefined) {
+    throw dialectError(
+      `addDefaultImport("${elementNameEcho(name)}") on "${handlePathFor(ast)}" — "${elementNameEcho(from)}" already has a default import named "${existing}"; ` +
+        "a module has one default export. Use that name, or remove the existing import first."
+    );
+  }
+  if (isBindingClaimed(ast, name)) throw claimedBindingError(ast, "addDefaultImport", name);
+
+  const mergeTarget = declarations.find((decl) => decl.getImportClause() !== undefined);
+  if (mergeTarget !== undefined) {
+    mergeTarget.setDefaultImport(name);
+    return;
+  }
+  insertImport(ast, { moduleSpecifier: from, defaultImport: name });
+}
+
+/**
+ * Adds `import * as name from "from";` (V2 REQ-TSD-14). `name` is validated first. A no-op
+ * when `from` already has the namespace import `name`. Rejects when `from` already has a
+ * namespace import under another name, or when `name` is bound anywhere else. Merges into a
+ * default-only value declaration for `from` (`import Def, * as name`); a declaration with
+ * named imports cannot also hold a namespace import, so it gets a fresh declaration instead.
+ */
+export function addNamespaceImport(ast: SourceFile, name: string, from: string): void {
+  assertValidImportBinding(name);
+  const declarations = valueImportsOf(ast, from);
+  const existing = declarations.map((decl) => decl.getNamespaceImport()?.getText()).find((text) => text !== undefined);
+  if (existing === name) return;
+  if (existing !== undefined) {
+    throw dialectError(
+      `addNamespaceImport("${elementNameEcho(name)}") on "${handlePathFor(ast)}" — "${elementNameEcho(from)}" already has a namespace import named "${existing}"; ` +
+        "use that name, or remove the existing import first."
+    );
+  }
+  if (isBindingClaimed(ast, name)) throw claimedBindingError(ast, "addNamespaceImport", name);
+
+  const mergeTarget = declarations.find(
+    (decl) => decl.getDefaultImport() !== undefined && decl.getImportClause()?.getNamedBindings() === undefined
+  );
+  if (mergeTarget !== undefined) {
+    mergeTarget.setNamespaceImport(name);
+    return;
+  }
+  insertImport(ast, { moduleSpecifier: from, namespaceImport: name });
+}
+
+/**
+ * Adds `import type { name } from "from";` (V2 REQ-TSD-15), always as its own declaration —
+ * never merged into another, never the inline `{ type name }` form. `name` is validated first.
+ * A no-op when any declaration for `from` already binds `name` through an unaliased (or
+ * self-aliased) named specifier, type-only or value: a value import already provides the type.
+ * Rejects when `name` is bound anywhere else.
+ */
+export function addTypeImport(ast: SourceFile, name: string, from: string): void {
+  assertValidImportBinding(name);
+  const alreadyBound = ast
+    .getImportDeclarations()
+    .some(
+      (decl) =>
+        decl.getModuleSpecifierValue() === from &&
+        boundNamesIn(decl).some(
+          (bound) => bound.localName === name && bound.kind === "named" && (!bound.aliased || bound.selfAliased)
+        )
+    );
+  if (alreadyBound) return;
+  // A type-only import lives in the type namespace, so unlike `addImport` a local
+  // `type`/`interface` of the same name conflicts with it (TS2440).
+  const typeClaimed = ast.getTypeAlias(name) !== undefined || ast.getInterface(name) !== undefined;
+  if (typeClaimed || isBindingClaimed(ast, name)) throw claimedBindingError(ast, "addTypeImport", name);
+
+  insertImport(ast, { moduleSpecifier: from, isTypeOnly: true, namedImports: [name] });
+}
+
+/**
+ * Adds `import "from";` (V2 REQ-TSD-16) as its own declaration. A no-op when that bare import
+ * already exists; an import that binds names from the same module does not count.
+ */
+export function addSideEffectImport(ast: SourceFile, from: string): void {
+  const exists = ast
+    .getImportDeclarations()
+    .some((decl) => decl.getModuleSpecifierValue() === from && decl.getImportClause() === undefined);
+  if (exists) return;
+  insertImport(ast, { moduleSpecifier: from });
 }
 
 // Shared `{ export?: boolean }` shape across addFunction/addVariable/addClass — addVariable
@@ -295,10 +417,7 @@ function exportPrefixFor(options?: DeclarationOptions): string {
 // live AST instance, not a runtime argument position), so it can never collide with `name`/
 // `options` regardless of which trailing args the author omitted.
 function assertNoCollision(ast: SourceFile, name: string, opName: string): void {
-  const collides =
-    isValueNamespaceClaimed(ast, name) ||
-    ast.getImportDeclarations().some((decl) => boundNamesIn(decl).some((bound) => bound.localName === name));
-  if (!collides) return;
+  if (!isBindingClaimed(ast, name)) return;
   throw dialectError(
     `${opName}("${name}") on "${handlePathFor(ast)}" — a value or import binding named "${name}" already exists; ` +
       `TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, or edit it with .modify().`

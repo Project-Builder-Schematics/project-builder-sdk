@@ -13,11 +13,13 @@ import { typescriptOps } from "./pack.ts";
 
 export * as astLibrary from "ts-morph";
 
-// S-003: the finalized shipped op-set (REQ-TSD-01 V5) — addImport (S-002)/addFunction
-// (S-001)/removeImport (S-002) plus addVariable/addClass (this slice), completing the
-// exact five-op allow-list `ops-exact-set.test.ts` gates.
+// The shipped op-set; `ops-exact-set.test.ts` pins its exact membership.
 type TypeScriptOps = {
   addImport: (ast: SourceFile, name: string, from: string) => void;
+  addDefaultImport: (ast: SourceFile, name: string, from: string) => void;
+  addNamespaceImport: (ast: SourceFile, name: string, from: string) => void;
+  addTypeImport: (ast: SourceFile, name: string, from: string) => void;
+  addSideEffectImport: (ast: SourceFile, from: string) => void;
   addFunction: (ast: SourceFile, name: string, source: string, options?: { export?: boolean }) => void;
   addVariable: (
     ast: SourceFile,
@@ -42,7 +44,8 @@ const typescriptDialect = withOps(baseDialect, opsPack);
 /**
  * Opens a TypeScript file for dialect-aware editing — the dialect's entry verb into a Session
  * (REQ-DG-01.2). Returns an awaitable, chainable `Handle` exposing the universal `.modify()`
- * escape hatch plus the dialect's named ops (`addImport`, `addFunction`, `addVariable`,
+ * escape hatch plus the dialect's named ops (`addImport`, `addDefaultImport`,
+ * `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addFunction`, `addVariable`,
  * `addClass`, `removeImport`). Reads route through `Session.read` only (REQ-MC-03); edits
  * coalesce into a single `modify` at flush (REQ-MC-01/02).
  *

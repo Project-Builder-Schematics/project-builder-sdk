@@ -23,7 +23,7 @@ import { RESERVED_HANDLE_NAMES } from "../../../src/core/define-dialect.ts";
 const BASE_HANDLE_KEYS: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
 
 describe("REQ-TSD-01.1 — exact shipped op-set", () => {
-  it("sorted Object.keys of the dialect's op-pack surface EQUALS the exact five-op allow-list", async () => {
+  it("sorted Object.keys of the dialect's op-pack surface EQUALS the exact op allow-list", async () => {
     const { client } = makeSpyClient({ "a.ts": "" });
 
     let opKeys: string[] = [];
@@ -35,6 +35,16 @@ describe("REQ-TSD-01.1 — exact shipped op-set", () => {
     });
     await run(undefined, { client });
 
-    expect(opKeys).toEqual(["addClass", "addFunction", "addImport", "addVariable", "removeImport"]);
+    expect(opKeys).toEqual([
+      "addClass",
+      "addDefaultImport",
+      "addFunction",
+      "addImport",
+      "addNamespaceImport",
+      "addSideEffectImport",
+      "addTypeImport",
+      "addVariable",
+      "removeImport",
+    ]);
   });
 });

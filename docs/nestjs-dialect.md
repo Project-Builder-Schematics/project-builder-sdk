@@ -1,8 +1,9 @@
 # The NestJS dialect
 
 `@pbuilder/sdk/nestjs` edits the `.ts` files of a NestJS project. Its handle carries every
-op of [`@pbuilder/sdk/typescript`](./authoring-a-dialect.md) (`addImport`, `addFunction`,
-`addVariable`, `addClass`, `removeImport`, and any op the TypeScript dialect gains later)
+op of [`@pbuilder/sdk/typescript`](./authoring-a-dialect.md) (`addImport`, `addDefaultImport`,
+`addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addFunction`, `addVariable`,
+`addClass`, `removeImport`, and any op the TypeScript dialect gains later)
 plus four ops that register a class in a `@Module` decorator. All ops chain on one handle and
 the file is written once.
 

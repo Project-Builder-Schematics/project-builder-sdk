@@ -581,6 +581,10 @@ await ts.find("src/index.ts")
 | Op | What it does |
 |---|---|
 | `addImport(name, from)` | Adds `import { name } from "from"`, merging into an existing clause from the same module. Idempotent — calling it twice never duplicates the import. |
+| `addDefaultImport(name, from)` | Adds `import name from "from"`, merging into a declaration of that module with no default yet. Rejects a second default under another name. |
+| `addNamespaceImport(name, from)` | Adds `import * as name from "from"`, merging into a default-only declaration; beside named imports it opens its own. |
+| `addTypeImport(name, from)` | Adds `import type { name } from "from"` as its own statement. A no-op when the module already imports `name`, by value or as a type. |
+| `addSideEffectImport(from)` | Adds `import "from"`. A no-op when that bare import already exists. |
 | `removeImport(name, from)` | Removes the named binding; deletes the whole statement when it was the last one. Idempotent on an absent binding. |
 | `addFunction(name, source, opts?)` | Appends a top-level function. `source` **includes** the braces (`"(): void {}"`). |
 | `addVariable(name, initializer, opts?)` | Appends a top-level variable (`kind` defaults to `const`). |
