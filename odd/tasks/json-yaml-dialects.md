@@ -22,7 +22,7 @@ Branch: `feat/json-yaml-dialects` (worktree `project-builder-sdk-worktrees/json-
 | T3 | S1, S4 | delegated (parallel unit, disjoint surface) | done (67 tests) | 09d5a67 |
 | T4 | S2, S4 | delegated (parallel unit, disjoint surface) | done (115 tests) | 913840a |
 | T5 | S3-S4 | inline seam check + verifier (Risk item 5: new dependencies) | verifier FAIL (B1-B5) -> one correction batch -> recheck: all fixed; suite 3166 pass | 1ac580b, 2e210a3, a11e83f |
-| T6 | S6 | inline | pending | |
+| T6 | S6 | inline | done | project-builder-docs#18 |
 | T7 | S7 (JSON) | folded into T3 | done | 09d5a67 |
 | T8 | S7 (YAML) | folded into T4 | done | 913840a |
 
@@ -36,3 +36,4 @@ Branch: `feat/json-yaml-dialects` (worktree `project-builder-sdk-worktrees/json-
 - L6: peer request (SDK #103 step 4): format-neutral conformance samples and neutral parse error, commit 4a608b7. Rebased onto origin/main after #104 (rename) and #105 (0.4.0).
 - L7: delivery: ~4.3k changed lines across 4 commits; push/PR pending user decision (chain strategy under ask-on-risk).
 - L8: rebased onto origin/main with SDK #98 (kit rejects undeclared extensions); JSON/YAML dropped their duplicate find gates. Verifier blockers B1-B5 fixed in one batch and rechecked.
+- L9: user chose two chained PRs: #109 (conformance, base main) and #110 (dialects, base #109). Docs issue: project-builder-docs#18.
