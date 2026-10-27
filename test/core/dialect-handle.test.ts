@@ -325,7 +325,7 @@ describe("dialect handle — .modify() and parse-failure containment (REQ-DG-05)
 
     expect(caught).toBeInstanceOf(Error);
     const err = caught as Error;
-    expect(err.message).toBe('dialect operation failed: could not parse "a.toy" as TypeScript');
+    expect(err.message).toBe('dialect operation failed: could not parse "a.toy"');
     expect(err.cause).toBeUndefined();
   });
 });

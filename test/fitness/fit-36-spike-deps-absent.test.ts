@@ -3,9 +3,9 @@
  * installed `@babel/parser`, `@babel/generator`, `recast`, and `magic-string` in a
  * scratchpad to compare AST-mutation mechanisms; NONE of them may ship. Scans the manifest
  * (ALL top-level fields, not just `dependencies`) and the committed lockfile for the four
- * names, and separately pins `dependencies` to deep-equal exactly `{ "ts-morph": "28.0.0" }`
- * — this change adds ZERO dependencies (FIT-14's baseline pin is the standing enforcement;
- * this file is the REQ-RXD-14-owned assertion).
+ * names, and separately pins `dependencies` to deep-equal exactly the authorized set — the
+ * JSON and YAML dialects' `jsonc-parser` and `yaml` alongside `ts-morph` (FIT-14's baseline pin
+ * is the standing enforcement; this file is the REQ-RXD-14-owned assertion).
  *
  * Red-proof: a fixture manifest/lockfile naming one of the four spike libraries is caught.
  */
@@ -33,8 +33,8 @@ describe("FIT-36 — spike dependencies never ship (REQ-RXD-14.1)", () => {
     expect(findSpikeLibMatches(lockRaw)).toEqual([]);
   });
 
-  it("dependencies deep-equals exactly { ts-morph: 28.0.0 } — zero net-new dependencies", () => {
-    expect(pkgJson.dependencies).toEqual({ "ts-morph": "28.0.0" });
+  it("dependencies deep-equals exactly the authorized set — no spike dependency added", () => {
+    expect(pkgJson.dependencies).toEqual({ "jsonc-parser": "3.3.1", "ts-morph": "28.0.0", yaml: "2.9.1" });
   });
 
   // RED-PROOF: a fixture manifest naming a spike library is caught.

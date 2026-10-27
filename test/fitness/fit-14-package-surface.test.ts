@@ -121,9 +121,9 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     expect(pkgJson.main).toEqual(baseline.main);
   });
 
-  it("REQ-FPS-02.1: exports map is EXACTLY the six authorized entries, no more, no less", () => {
+  it("REQ-FPS-02.1: exports map is EXACTLY the eight authorized entries, no more, no less", () => {
     expect(Object.keys(pkgJson.exports).sort()).toEqual(
-      [".", "./commons", "./conformance", "./testing", "./typescript", "./react"].sort()
+      [".", "./commons", "./conformance", "./testing", "./typescript", "./react", "./json", "./yaml"].sort()
     );
   });
 
@@ -139,10 +139,10 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     expect(pkgJson.dependencies ?? {}).toEqual(baseline.dependencies);
   });
 
-  it("REQ-FPS-02.1: dependencies contains EXACTLY one entry, ts-morph, exact-pinned (no caret/tilde)", () => {
+  it("REQ-FPS-02.1: dependencies are EXACTLY jsonc-parser, ts-morph, and yaml, each exact-pinned (no caret/tilde)", () => {
     const deps = pkgJson.dependencies ?? {};
-    expect(Object.keys(deps)).toEqual(["ts-morph"]);
-    expect(deps["ts-morph"]).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(Object.keys(deps)).toEqual(["jsonc-parser", "ts-morph", "yaml"]);
+    for (const version of Object.values(deps)) expect(version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   // RED-PROOF: a caret/tilde-ranged version would fail the exact-pin assertion above.

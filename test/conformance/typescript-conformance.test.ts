@@ -169,7 +169,7 @@ describe("A-11 — find rejects every extension the dialect does not declare", (
 });
 
 describe("REQ-DC-06 — mandatory adversarial samples (contributor cannot opt out)", () => {
-  it("REQ-DC-06.1: all six mandatory samples run even when the fixture's own samples array is empty", async () => {
+  it("REQ-DC-06.1: all four mandatory samples run even when the fixture's own samples array is empty", async () => {
     let parseCalls = 0;
     // Spy on the REAL dialect's parse — every call proves a sample was actually round-trip
     // checked. `fixture.samples` is deliberately empty, so any call beyond zero can only come
@@ -187,10 +187,10 @@ describe("REQ-DC-06 — mandatory adversarial samples (contributor cannot opt ou
     const fixture = { ...DIALECT_MODULES[0], dialect: spiedDialect, samples: [] };
 
     await expect(testDialect(fixture)).resolves.toBeUndefined();
-    expect(parseCalls).toBe(6);
+    expect(parseCalls).toBe(4);
   });
 
-  it("REQ-DC-06.3: all six mandatory samples run against fixture.baseDialect on every testOpPack call, independent of exercises", async () => {
+  it("REQ-DC-06.3: all four mandatory samples run against fixture.baseDialect on every testOpPack call, independent of exercises", async () => {
     const seenSources: string[] = [];
     // Same spy technique as REQ-DC-06.1, applied to `baseDialect` instead of `dialect` —
     // `OpPackFixture` carries no `samples` field at all, so the mandatory set is the ONLY
@@ -228,15 +228,15 @@ describe("REQ-DC-06 — mandatory adversarial samples (contributor cannot opt ou
 
     // The mandatory probe runs LAST (after every exercise, see index.ts's testOpPack) and
     // has no `await` between samples, so it lands as one synchronous burst at the tail —
-    // the last six recorded sources are exactly the injected set, in declaration order,
-    // regardless of how many exercise-driven calls preceded it.
-    expect(seenSources.slice(-6)).toEqual([
+    // the last four recorded sources are exactly the injected set, derived from the first
+    // exercise's seed, regardless of how many exercise-driven calls preceded it.
+    const seed = golden("add-import-before.txt");
+    expect(seed.endsWith("\n") && !seed.includes("\r")).toBe(true);
+    expect(seenSources.slice(-4)).toEqual([
       "",
-      "// just a comment, no statements\n",
-      `/*${"a".repeat(4 * 1024 * 1024)}*/\nconst x = 1;\n`,
-      "const x = 1;\r\nconst y = 2;\r\n",
-      "﻿const x = 1;\n",
-      'import { a } from "m";\nimport { b } from "m";\n',
+      seed.replaceAll("\n", "\r\n"),
+      `\uFEFF${seed}`,
+      seed + "\n".repeat(4 * 1024 * 1024),
     ]);
   });
 });

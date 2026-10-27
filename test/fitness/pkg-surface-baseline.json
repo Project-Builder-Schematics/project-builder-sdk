@@ -30,10 +30,22 @@
       "types": "./dist/dialects/react/index.d.ts",
       "import": "./dist/dialects/react/index.js",
       "default": "./dist/dialects/react/index.js"
+    },
+    "./json": {
+      "types": "./dist/dialects/json/index.d.ts",
+      "import": "./dist/dialects/json/index.js",
+      "default": "./dist/dialects/json/index.js"
+    },
+    "./yaml": {
+      "types": "./dist/dialects/yaml/index.d.ts",
+      "import": "./dist/dialects/yaml/index.js",
+      "default": "./dist/dialects/yaml/index.js"
     }
   },
   "dependencies": {
-    "ts-morph": "28.0.0"
+    "jsonc-parser": "3.3.1",
+    "ts-morph": "28.0.0",
+    "yaml": "2.9.1"
   },
   "files": [
     "dist",
@@ -83,6 +95,8 @@
     "dist/core/handle-state.js",
     "dist/core/index.d.ts",
     "dist/core/index.js",
+    "dist/core/json-value.d.ts",
+    "dist/core/json-value.js",
     "dist/core/jsx-name-validator.d.ts",
     "dist/core/jsx-name-validator.js",
     "dist/core/reject-tail.d.ts",
@@ -107,6 +121,12 @@
     "dist/core/session.js",
     "dist/core/wire.d.ts",
     "dist/core/wire.js",
+    "dist/dialects/json/ast.d.ts",
+    "dist/dialects/json/ast.js",
+    "dist/dialects/json/index.d.ts",
+    "dist/dialects/json/index.js",
+    "dist/dialects/json/ops.d.ts",
+    "dist/dialects/json/ops.js",
     "dist/dialects/react/ast.d.ts",
     "dist/dialects/react/ast.js",
     "dist/dialects/react/index.d.ts",
@@ -119,6 +139,18 @@
     "dist/dialects/typescript/index.js",
     "dist/dialects/typescript/ops.d.ts",
     "dist/dialects/typescript/ops.js",
+    "dist/dialects/yaml/ast.d.ts",
+    "dist/dialects/yaml/ast.js",
+    "dist/dialects/yaml/documents.d.ts",
+    "dist/dialects/yaml/documents.js",
+    "dist/dialects/yaml/index.d.ts",
+    "dist/dialects/yaml/index.js",
+    "dist/dialects/yaml/paths.d.ts",
+    "dist/dialects/yaml/paths.js",
+    "dist/dialects/yaml/presentation.d.ts",
+    "dist/dialects/yaml/presentation.js",
+    "dist/dialects/yaml/structural.d.ts",
+    "dist/dialects/yaml/structural.js",
     "dist/index.d.ts",
     "dist/index.js",
     "dist/pending-directives/index.d.ts",

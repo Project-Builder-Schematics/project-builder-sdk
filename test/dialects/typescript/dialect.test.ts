@@ -402,7 +402,7 @@ describe("TypeScript dialect — REQ-TSD-04 .modify() and unparseable-content co
       caught = err;
     }
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toBe('dialect operation failed: could not parse "bad.ts" as TypeScript');
+    expect((caught as Error).message).toBe('dialect operation failed: could not parse "bad.ts"');
     // The strongest proof of the no-leak guarantee: `.cause` is absent even though the
     // underlying error here is a REAL ts-morph error, not a mock (constraint 3).
     expect((caught as Error).cause).toBeUndefined();
