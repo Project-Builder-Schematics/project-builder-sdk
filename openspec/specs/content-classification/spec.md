@@ -15,7 +15,7 @@ with it. Zero REQ-IDs added/removed.
 V2 → V3: no V3 deltas targeted this domain — content unchanged; version/status bump
 only. (The by-value/by-reference vocabulary HERE is spec/transport prose, deliberately
 retained — the [OWNER] `"rendered" | "copied"` ruling governs only the author-facing
-`DryRunEntry.kind` strings, `dry-run-plan-exposure` REQ-DRE-05.)
+`PendingDirective.kind` strings, `pending-directives-exposure` REQ-DRE-05.)
 
 V1 → V2 (blind council fixes applied): REQ-CCL-05 (`.template` sniff-fail inside a
 scaffold walk fails loud — carved out of REQ-CCL-01's else-branch, B1); REQ-CCL-06

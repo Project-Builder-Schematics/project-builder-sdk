@@ -4,7 +4,7 @@
 **Status**: signed (owner, 2026-07-28 — micro-unfreeze V3.2→V3.3, ruling 15, deltas pre-authorized; plan-verify closed by owner override per ruling 14, see proposal.md)
 **Change**: `inline-collection-marker`
 
-V2 → V3 (archive-sync, `inline-collection-marker`, 2026-07-29): three new fitness guards added — REQ-FTG-06 (no regrowth of the deleted containment ceiling mechanism: the marker literal, the ancestor-walk idiom, the `RunContext` anchor shape, a `test/**` marker-fabrication allowlist, a one-time `openspec/specs/**` retired-vocabulary sweep executed at this archive, and zero `realpathSync`/`realpath` references in the scaffold/context modules), REQ-FTG-07 (every surviving `AuthoringReason` member reachable through both minting mechanisms, excluding the vacuously-reachable union declaration and exhaustiveness switch), and REQ-FTG-08 (exactly one lexical `../`/absolute-path predicate implementation, never a second parallel one per verb). All three guard invariants this change's containment removal depends on staying true going forward.
+V2 → V3 (archive-sync, `inline-collection-marker`, 2026-07-29): three new fitness guards added — REQ-FTG-06 (no regrowth of the deleted containment ceiling mechanism: the marker literal, the ancestor-walk idiom, the `SessionContext` anchor shape, a `test/**` marker-fabrication allowlist, a one-time `openspec/specs/**` retired-vocabulary sweep executed at this archive, and zero `realpathSync`/`realpath` references in the scaffold/context modules), REQ-FTG-07 (every surviving `AuthoringReason` member reachable through both minting mechanisms, excluding the vacuously-reachable union declaration and exhaustiveness switch), and REQ-FTG-08 (exactly one lexical `../`/absolute-path predicate implementation, never a second parallel one per verb). All three guard invariants this change's containment removal depends on staying true going forward.
 
 V1 → V2 (council fixes applied): REQ-FTG-05 added (FIT-27 anti-tautology static scan —
 mechanizes `golden-corpus-contract` REQ-GCC-05, QA-B2); FTG-01/FTG-02 note the
@@ -107,7 +107,7 @@ FIT-27 is RED-provable pre-merge against the skeleton-record writer path
 
 A fitness test MUST statically scan `src/**` and assert: (a) the literal string
 `"collection.json"` appears in ZERO files; (b) no ancestor-walk idiom (a loop calling
-`dirname` upward searching for a marker file) exists anywhere; (c) `RunContext`'s
+`dirname` upward searching for a marker file) exists anywhere; (c) `SessionContext`'s
 `packageAnchors` field shape matches the FIT-04 `.d.ts` baseline exactly (single-field
 `{packageDir}`) — bound to the SAME baseline artefact FIT-04 already maintains, not a
 second, ad hoc runtime check. The scan's allowlist for the pre-existing, UNRELATED

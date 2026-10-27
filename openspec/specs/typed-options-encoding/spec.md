@@ -287,18 +287,18 @@ test proves the match) is a design decision, not pinned here.
   matches real factory output for the same options, regardless of how `createOp` internally
   achieves the match
 
-### REQ-TOE-08: `dryRun()` Remains Options-Blind
+### REQ-TOE-08: `pendingDirectives()` Remains Options-Blind
 
-`dryRun()`'s plan entries MUST NOT expose `options` in any form (encoded or native) — the
+`pendingDirectives()`'s plan entries MUST NOT expose `options` in any form (encoded or native) — the
 encode step introduced by this change MUST NOT create a new options-surfacing path into
-`DryRunEntry`.
+`PendingDirective`.
 
-#### Scenario REQ-TOE-08.1: A create() call with composite options produces no options field in DryRunEntry
+#### Scenario REQ-TOE-08.1: A create() call with composite options produces no options field in PendingDirective
 
-- GIVEN a `create()` call with `options.methods = [{ name: "load" }]`, run under `dryRun()`
-- WHEN the `DryRunEntry` for that create is inspected
+- GIVEN a `create()` call with `options.methods = [{ name: "load" }]`, run under `pendingDirectives()`
+- WHEN the `PendingDirective` for that create is inspected
 - THEN it carries no options-shaped field — only `verb`/`path`/`kind` (per existing
-  `dryRun()` contract)
+  `pendingDirectives()` contract)
 
 ### REQ-TOE-09: Documentation Teaches Native Arrays With Zero Stringify Mentions, Preserving the Testing-Observability Note
 

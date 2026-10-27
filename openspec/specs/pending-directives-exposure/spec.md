@@ -1,4 +1,4 @@
-# Dry-Run Plan Exposure Specification
+# Pending Directives Exposure Specification
 
 **Spec version**: V3
 **Status**: signed (2026-07-13 — owner micro-unfreeze, `schematic-local-files` archive sync)
@@ -6,7 +6,7 @@
 **Domain**: NEW
 
 **V2 → V3 delta (owner micro-unfreeze, 2026-07-13, via `schematic-local-files`)**: adds
-REQ-DRE-05 (`DryRunEntry` gains an additive `kind: "rendered" | "copied"` tag —
+REQ-DRE-05 (`PendingDirective` gains an additive `kind: "rendered" | "copied"` tag —
 author-facing labels, never transport jargon; `create({templateFile})` always
 `"rendered"`, `copyIn` always `"copied"`, `scaffold` per-file per its own
 classification) and REQ-DRE-06 (a by-reference directive, however wire-encoded,
@@ -17,28 +17,28 @@ the author never called it, documented so it isn't a surprise).
 V2 — blind council findings applied (business-analyst + tech-writer, both
 approve-with-notes): cross-domain integration scenario added (REQ-DRE-01.5);
 JSDoc discoverability requirement added (REQ-DRE-04); provisional name changed
-`dryRunPlan` → `dryRun` per tech-writer ruling; scenario hardening on
-REQ-DRE-01.1/.3; outside-run message-omission coordination point recorded;
-`DryRunVerb` union narrowing flagged for design. All V1 REQ-IDs preserved.
+`renderPendingDirectives` → `pendingDirectives` per tech-writer ruling; scenario hardening on
+REQ-DRE-01.1/.3; outside-session message-omission coordination point recorded;
+`AuthoringVerb` union narrowing flagged for design. All V1 REQ-IDs preserved.
 
 ## Purpose
 
-Gives authors a read-only, ambient way to see the plan of what their run is about to
-emit — closing objective O2 coverage line 5. The existing `dryRunPlan` renderer
-(`src/dry-run/plan.ts`) is pure and complete but unreachable: nothing wires it to the
+Gives authors a read-only, ambient way to see the pending Directives their Session is about to
+emit — closing objective O2 coverage line 5. The existing `renderPendingDirectives` renderer
+(`src/pending-directives/render.ts`) is pure and complete but unreachable: nothing wires it to the
 `Session`'s buffer or exposes it publicly. This capability adds ONE accessor to
 `./commons` that reads the current run's buffered directives ambiently and renders
 them in author vocabulary. It is exposure-only — no renderer logic changes here (that
-domain is `dry-run-plan-skeleton`, modified separately in this same change).
+domain is `pending-directives-skeleton`, modified separately in this same change).
 
 ## Requirements
 
-### REQ-DRE-01: Accessor Reflects Buffered Plan
+### REQ-DRE-01: Accessor Reflects Buffered Directives
 
 The system MUST expose, from `@pbuilder/sdk/commons`, a zero-argument accessor
-(PROVISIONAL name `dryRun` — see Accessor Naming below) that returns
-`DryRunEntry[]` reflecting exactly the directives currently buffered in the active
-run's `Session` (`pendingSnapshot()`, rendered through the existing `dryRunPlan`
+(PROVISIONAL name `pendingDirectives` — see Accessor Naming below) that returns
+`PendingDirective[]` reflecting exactly the directives currently buffered in the active
+run's `Session` (`pendingDirectives()`, rendered through the existing `renderPendingDirectives`
 renderer), evaluated at call time. The accessor MUST NOT accept a snapshot argument —
 it sources its input ambiently via `currentContext()`, mirroring every other verb in
 `./commons`.
@@ -106,22 +106,22 @@ spec pins only that the omission is resolved by decision, not by default.
 - THEN it returns exactly `[{ verb: "remove", path: "src/gone.ts" }]` — `remove`,
   never `delete` — proving the author-visible payoff THROUGH the accessor, spanning
   both domains (ambient wiring + author-vocabulary rendering); the renderer-only
-  decoy (`dry-run-plan-skeleton` REQ-04.4) and the identity-verb happy path
+  decoy (`pending-directives-skeleton` REQ-04.4) and the identity-verb happy path
   (REQ-DRE-01.1) cannot detect a mis-wired integration on their own
 
 ### REQ-DRE-02: Public Surface Type Boundary
 
-The accessor's return type MUST be `DryRunEntry[]` exclusively. The `readonly
-Directive[]` wire snapshot type returned by `Session.pendingSnapshot()` MUST NOT be
+The accessor's return type MUST be `PendingDirective[]` exclusively. The `readonly
+Directive[]` wire snapshot type returned by `Session.pendingDirectives()` MUST NOT be
 re-exported, referenced, or otherwise reachable from the public `./commons` `.d.ts`
-surface — `pendingSnapshot()` and `Directive` stay core-internal (ADR-0009 boundary).
+surface — `pendingDirectives()` and `Directive` stay core-internal (ADR-0009 boundary).
 
-**Flag for design (tech-writer)**: `DryRunEntry.verb` is currently typed `string` in
+**Flag for design (tech-writer)**: `PendingDirective.verb` is currently typed `string` in
 the public surface, hiding the six-verb guarantee the frozen map
-(`dry-run-plan-skeleton` REQ-04) establishes at runtime. Design decides whether to
+(`pending-directives-skeleton` REQ-04) establishes at runtime. Design decides whether to
 narrow it — candidate: a LOCAL union
-`type DryRunVerb = "create" | "modify" | "remove" | "rename" | "move" | "copy"`
-living in `src/dry-run/**`, NEVER imported from stage-2's
+`type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" | "copy"`
+living in `src/pending-directives/**`, NEVER imported from stage-2's
 `src/core/authoring-error.ts` (the no-import fitness and the no-coupling rule both
 forbid it). This spec does not mandate the narrowing; it mandates the decision be
 made at design, not defaulted.
@@ -130,13 +130,13 @@ made at design, not defaulted.
 
 - GIVEN the regenerated `commons.index.d.ts` baseline after the accessor is added
 - WHEN its contents are scanned
-- THEN no reference to `Directive` or `pendingSnapshot` appears anywhere in the file
+- THEN no reference to `Directive` or `pendingDirectives` appears anywhere in the file
 
-#### Scenario REQ-DRE-02.2: Accessor's emitted type signature returns `DryRunEntry[]` only
+#### Scenario REQ-DRE-02.2: Accessor's emitted type signature returns `PendingDirective[]` only
 
 - GIVEN the accessor's exported declaration in the `.d.ts` baseline
 - WHEN inspected
-- THEN it reads as a zero-parameter function returning `DryRunEntry[]` — no parameter
+- THEN it reads as a zero-parameter function returning `PendingDirective[]` — no parameter
   or return position typed as `Directive[]` or `readonly Directive[]`
 
 ### REQ-DRE-03: Additive Export, No New Subpath
@@ -165,7 +165,7 @@ REQ-AEC-04.3 / REQ-AEC-03.2 doc-obligation convention):
 
 - (a) an `@example` block showing the accessor called INSIDE a run and reading
   `verb` and `path` off the returned entries;
-- (b) the temporal contract in prose: the plan reflects STILL-PENDING directives
+- (b) the temporal contract in prose: the result reflects STILL-PENDING directives
   and empties after a `read()`/flush — the honest answer to "what will this run
   still emit", not "what has this run emitted in total";
 - (c) the shape-level guarantee: entries carry `{ verb, path }` only — no content
@@ -185,7 +185,7 @@ reads this spec; the JSDoc is the surface where the author actually meets them.
 
 - GIVEN the accessor's emitted JSDoc
 - WHEN its prose is inspected
-- THEN it states that the plan reflects still-pending directives AND that a
+- THEN it states that the result reflects still-pending directives AND that a
   `read()`/flush empties the pending buffer (directives already flushed no longer
   appear)
 
@@ -197,7 +197,7 @@ reads this spec; the JSDoc is the surface where the author actually meets them.
 
 ### REQ-DRE-05: Per-Entry Rendered/Copied Classification Tag
 
-`DryRunEntry` MUST carry a `kind: "rendered" | "copied"` tag (additive field —
+`PendingDirective` MUST carry a `kind: "rendered" | "copied"` tag (additive field —
 existing `{verb, path}` shape unchanged) reflecting `content-classification`'s decision
 for that entry — the honesty mechanism. The author-facing strings are `"rendered"`
 (the by-value/rendered path) and `"copied"` (the by-reference/verbatim path) —
@@ -211,14 +211,14 @@ ALWAYS `"copied"` (`file-escape-hatches` REQ-FEH-03).
 #### Scenario REQ-DRE-05.1: A scaffold call with mixed content shows both tags [SDK]
 
 - GIVEN a `scaffold` call over a folder with one small text file and one binary file
-- WHEN `dryRun()` is called
+- WHEN `pendingDirectives()` is called
 - THEN the entries show `kind: "rendered"` for the text file and
   `kind: "copied"` for the binary file
 
 #### Scenario REQ-DRE-05.2: copyIn entry is always tagged copied [SDK]
 
 - GIVEN a `copyIn` call on a plain text file
-- WHEN `dryRun()` is called
+- WHEN `pendingDirectives()` is called
 - THEN the entry's `kind` is `"copied"` — never `"rendered"`, regardless of the
   source's own text-vs-binary shape
 
@@ -226,43 +226,43 @@ ALWAYS `"copied"` (`file-escape-hatches` REQ-FEH-03).
 
 - GIVEN a `create("dest.ts", { templateFile: "tpl.ts.template", options: {} })` call
   on a valid, under-budget text template
-- WHEN `dryRun()` is called
+- WHEN `pendingDirectives()` is called
 - THEN the entry's `kind` is `"rendered"` — the templateFile render request surfaces
   as a rendered entry, indistinguishable in kind from an inline-template `create`
 
 ### REQ-DRE-06: Author-Verb Rendering Is Wire-Encoding Agnostic for By-Reference Entries
 
-`dryRun()` MUST render the by-reference directive under author verb `"copyIn"`. The
-frozen `WIRE_TO_AUTHOR_VERB` totality map (`dry-run/plan.ts`) covers the `copyIn` wire
+`pendingDirectives()` MUST render the by-reference directive under author verb `"copyIn"`. The
+frozen `WIRE_TO_AUTHOR_VERB` totality map (`pending-directives/render.ts`) covers the `copyIn` wire
 op, preserving the existing 1-wire-shape↔1-author-verb rendering guarantee for every
 OTHER entry.
 
-**Doc note**: the `dryRun()` JSDoc/docs state that a binary file classified
+**Doc note**: the `pendingDirectives()` JSDoc/docs state that a binary file classified
 by-reference INSIDE a `scaffold` call also surfaces under verb `"copyIn"` — even
-though the author never called `copyIn` — so an author reading the plan is not
+though the author never called `copyIn` — so an author reading the result is not
 surprised by entries under a verb they did not invoke.
 
 #### Scenario REQ-DRE-06.1: By-reference directive renders as author verb "copyIn" [SDK]
 
 - GIVEN a by-reference directive present in the buffered snapshot (via `copyIn` or a
   by-reference `scaffold` entry)
-- WHEN `dryRun()` renders it
+- WHEN `pendingDirectives()` renders it
 - THEN its `verb` field is exactly `"copyIn"`
 
-## Accessor Naming (RATIFIED — `dryRun`, owner, 2026-07-06)
+## Accessor Naming (RATIFIED — `pendingDirectives`, owner, 2026-07-06)
 
-Ratified name: **`dryRun`** (tech-writer ruling at V1 council review; V1 proposed
-`dryRunPlan`). Rationale: (1) maximally consistent with the exported entry type
-`DryRunEntry` — the author sees `dryRun(): DryRunEntry[]` as one vocabulary;
+Ratified name: **`pendingDirectives`** (tech-writer ruling at V1 council review; V1 proposed
+`renderPendingDirectives`). Rationale: (1) maximally consistent with the exported entry type
+`PendingDirective` — the author sees `pendingDirectives(): PendingDirective[]` as one vocabulary;
 (2) zero source-level collision with the internal pure renderer
-`dryRunPlan(snapshot)`, so the `commons` call site needs no import alias;
+`renderPendingDirectives(snapshot)`, so the `commons` call site needs no import alias;
 (3) the query-vs-action nuance (accessors read, verbs write) is resolved by
 REQ-DRE-04's mandated `@example`, which shows it as a read.
 
 **Owner's fallback alternative** (recorded for signing, not chosen here): keep
-`dryRunPlan()` as the public name and rename the internal renderer to
+`renderPendingDirectives()` as the public name and rename the internal renderer to
 `renderDryRunPlan(snapshot)` — dissolves the collision at the cost of editing the
-main-spec REQ-04 signature wording (`dry-run-plan-skeleton`).
+main-spec REQ-04 signature wording (`pending-directives-skeleton`).
 
 This name is NOT frozen: owner sign-off ratifies it. REQ-IDs in this domain
 (`REQ-DRE-*`) are capability-based and do not embed the name, so either outcome

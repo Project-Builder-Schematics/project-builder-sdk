@@ -29,7 +29,7 @@ is phrased in terms of "the by-reference directive"; the shipped encoding is the
 
 **Evidence boundary (binding, restated from proposal Success Criteria)**: SDK-side
 verification of by-reference copy is DIRECTIVE EMISSION + fake/conformance simulation
-+ `dryRun()` visibility ONLY. No scenario in this domain (or any domain) asserts bytes
++ `pendingDirectives()` visibility ONLY. No scenario in this domain (or any domain) asserts bytes
 land in `result.tree` or on disk — that is engine-gated (PC-PROTO-01).
 
 ## Requirements
@@ -91,8 +91,8 @@ additive wire surface.
 
 By-reference copy MUST be verifiable SDK-side ONLY as: (a) directive emission (shape,
 paths, `force`, containment rejection) [SDK]; (b) fake/conformance simulation
-(REQ-BRC-06, `author-test-harness` REQ-ATH-15/16) [SDK]; (c) `dryRun()` visibility
-(`dry-run-plan-exposure` REQ-DRE-05) [SDK]. No test anywhere in this change MAY assert
+(REQ-BRC-06, `author-test-harness` REQ-ATH-15/16) [SDK]; (c) `pendingDirectives()` visibility
+(`pending-directives-exposure` REQ-DRE-05) [SDK]. No test anywhere in this change MAY assert
 that by-reference bytes land in `result.tree` or on disk — real end-to-end byte-copy
 evidence is deferred until the engine's apply pass lands (PC-PROTO-01).
 
@@ -101,7 +101,7 @@ evidence is deferred until the engine's apply pass lands (PC-PROTO-01).
 - GIVEN the full by-reference test suite this change ships
 - WHEN reviewed against this boundary
 - THEN zero assertions check `result.tree` content or filesystem bytes for a
-  by-reference target path — only emission/simulation/dryRun assertions exist
+  by-reference target path — only emission/simulation/pendingDirectives assertions exist
 
 ### REQ-BRC-05: Collision With/Without `force`
 

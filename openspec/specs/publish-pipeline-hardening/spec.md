@@ -11,7 +11,7 @@ manifest after the version stamp is never DECLARED anywhere the workflow can be 
 Ruling 5 withdrew the initial emergency framing (W1) after both propose lenses and the
 orchestrator independently verified `prepublishOnly: "bun run build"` already regenerates
 the manifest post-stamp, `npm` 11.12.1 gates `prepublishOnly` on `!ignoreScripts` (not
-`dryRun`), and signed `REQ-BPI-03.1` already records exactly this — so this batch adds
+`pendingDirectives`), and signed `REQ-BPI-03.1` already records exactly this — so this batch adds
 proof and explicit declaration, it does not fix a live break. Five REQs are ADDED, all in
 the `publish-path-integrity` (PPI) family; none of `runner-integrity-manifest`'s
 `REQ-BPI-03.1` is touched (it "explicitly not requiring unfreeze" — the declaration

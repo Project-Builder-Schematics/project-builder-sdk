@@ -22,7 +22,7 @@ V1→V3.2 amendment history and ratification record.)
 
 The TypeScript dialect MUST be reachable at the exact subpath `@pbuilder/sdk/typescript`
 (frozen — not `/ts`, not `/typescript-morph`; ADR-0014 amendment). Its op-pack MUST expose
-`.modify(fn)` (universal, REQ-DG-03) plus SIX structured ops: `addImport` (frozen name and call
+`.modify(fn)` (universal, REQ-DG-03) plus SIX named ops: `addImport` (frozen name and call
 signature, unchanged), `removeImport`, `addFunction`, `addVariable`, `addClass` — WIDENING the
 "at most one more" cardinality bound this REQ pinned at V4 (a prior change). `addImport`'s call
 signature stays FROZEN as `addImport(name: string, from: string)`. The five new ops' call

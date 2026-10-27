@@ -210,7 +210,7 @@ mutation end to end without committing to a full React mutation catalog.
 
 The React dialect MUST be reachable at the exact subpath `@pbuilder/sdk/react`. Its op-pack
 MUST expose `.modify(fn)` (universal escape hatch, `dialect-generics` REQ-DG-03) plus EXACTLY
-TWO structured ops: `setJsxProp(elementName: string, propName: string, value?: string)` and
+TWO named ops: `setJsxProp(elementName: string, propName: string, value?: string)` and
 `addImport(name: string, from: string)`. No third op ships in v1 — the exact set is an
 anti-smuggle assertion, not an allow-list a contributor can quietly extend.
 
@@ -963,7 +963,7 @@ meeting ALL of these criteria:
 - per-op JSDoc on the shipped `setJsxProp`/`addImport` documents each op's idempotency and
   rejection rule at the same fidelity the TypeScript dialect's `addImport`/`removeImport`
   JSDoc already sets;
-- the doc's now-stale "the first real dialect … five structured ops" framing is RECONCILED —
+- the doc's now-stale "the first real dialect … five named ops" framing is RECONCILED —
   the doc must not describe the TypeScript dialect as the only dialect once `./react` ships;
 - (V4) the explicit-extension requirement (REQ-RXD-02 — always pass the `.tsx` extension;
   extensionless paths are rejected) is documented author-facing: in `find`'s JSDoc AND as a
@@ -1017,7 +1017,7 @@ under V8; only its example list needed widening to name the mainstream trigger.)
 #### Scenario REQ-RXD-09.4: stale single-dialect framing reconciled (NEW, V2)
 
 - GIVEN the doc after this change
-- WHEN scanned for the pre-existing "first real dialect … five structured ops" framing
+- WHEN scanned for the pre-existing "first real dialect … five named ops" framing
 - THEN that framing is updated to acknowledge two dialects — no sentence describes
   `./typescript` as the only shipped dialect
 

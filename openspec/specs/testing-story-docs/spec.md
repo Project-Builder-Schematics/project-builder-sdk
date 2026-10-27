@@ -5,7 +5,7 @@
 **Change**: `bare-factory-migration`
 
 **V1 → V2** (plan-verify gate iteration 1, gap #3): ADDED REQ-TSD-05 — closes the
-zero-`defineFactory`/prose-softening coverage gap for `docs/{dry-run,authoring-verbs,
+zero-`defineFactory`/prose-softening coverage gap for `docs/{pending-directives,authoring-verbs,
 authoring-errors}.md`, previously only present in slice S-003's acceptance clause.
 
 ## MODIFIED Requirements
@@ -94,20 +94,20 @@ declarations MUST also carry an `@example`.
 
 ### REQ-TSD-05: Author-Facing Reference Docs Reflect the Bare Contract
 
-`docs/dry-run.md`, `docs/authoring-verbs.md`, and `docs/authoring-errors.md` MUST
-contain zero `defineFactory` tokens. `docs/dry-run.md`'s runnable code fence (currently
+`docs/pending-directives.md`, `docs/authoring-verbs.md`, and `docs/authoring-errors.md` MUST
+contain zero `defineFactory` tokens. `docs/pending-directives.md`'s runnable code fence (currently
 importing and calling `defineFactory`) MUST be rewritten to the BARE
 `(input) => void | Promise<void>` export shape and MUST fence-compile against the
 current `runFactoryForTest` signature. The three files' PROSE mentions of "a
-`defineFactory` run" (`dry-run.md:40`, `authoring-errors.md:51`,
+`defineFactory` run" (`pending-directives.md:40`, `authoring-errors.md:51`,
 `authoring-verbs.md:78`) — none of which are machine-compiled — MUST be reworded to
 describe the same guarantee without naming `defineFactory` (e.g. "an active run" / "a
 factory run", not "a `defineFactory` run"), since `defineFactory` is no longer
 author-facing vocabulary.
 
-#### Scenario REQ-TSD-05.1: `dry-run.md`'s code fence is bare and fence-compiles
+#### Scenario REQ-TSD-05.1: `pending-directives.md`'s code fence is bare and fence-compiles
 
-- GIVEN `docs/dry-run.md`'s runnable code fence
+- GIVEN `docs/pending-directives.md`'s runnable code fence
 - WHEN it is extracted and fence-compiled against the current `runFactoryForTest`
   signature
 - THEN it compiles using a bare `(input) => void | Promise<void>` export, with zero
@@ -115,7 +115,7 @@ author-facing vocabulary.
 
 #### Scenario REQ-TSD-05.2: Prose mentions are softened, not merely deleted
 
-- GIVEN the three prose sites: `dry-run.md:40`, `authoring-errors.md:51`,
+- GIVEN the three prose sites: `pending-directives.md:40`, `authoring-errors.md:51`,
   `authoring-verbs.md:78`
 - WHEN each is inspected
 - THEN each states the same guarantee (a verb/API usable only inside an active run)
@@ -124,7 +124,7 @@ author-facing vocabulary.
 
 #### Scenario REQ-TSD-05.3: Zero `defineFactory` tokens across the 3 doc files [red-proof]
 
-- GIVEN `docs/dry-run.md`, `docs/authoring-verbs.md`, `docs/authoring-errors.md`
+- GIVEN `docs/pending-directives.md`, `docs/authoring-verbs.md`, `docs/authoring-errors.md`
 - WHEN each is scanned for the literal token `defineFactory`
 - THEN zero occurrences are found in any of the three — a stray reintroduction in any
   file fails this scan

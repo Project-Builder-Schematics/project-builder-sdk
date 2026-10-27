@@ -1,4 +1,4 @@
-# Dry-Run Plan Skeleton Specification
+# Pending Directives Skeleton Specification
 
 **Spec version**: V1
 **Status**: signed (orchestrator 2026-06-21)
@@ -9,7 +9,7 @@
 
 Exposes the `Session`'s pending directive buffer as a read-only snapshot and provides
 a minimal author-vocabulary renderer that turns buffered commons directives into a
-human-readable plan. The renderer is AST-blind — it derives its output solely from the
+human-readable list. The renderer is AST-blind — it derives its output solely from the
 commons directive buffer (`Session.#pending`), never from the engine or any AST. Seeds
 SEAM-02 so that `dry-run-and-release-shape` (#4) can grow the complete renderer into a
 working slot.
@@ -19,7 +19,7 @@ working slot.
 ### REQ-03: Read-Only Pending Buffer Snapshot
 
 `Session` MUST expose a read-only snapshot of `#pending` accessible to the author-side
-dry-run renderer. The snapshot MUST reflect the buffer at the moment of the call;
+pending Directives renderer. The snapshot MUST reflect the buffer at the moment of the call;
 mutations to the buffer after the call MUST NOT affect a previously obtained snapshot.
 
 #### Scenario REQ-03.1: Snapshot reflects directives buffered before the call
@@ -34,17 +34,17 @@ mutations to the buffer after the call MUST NOT affect a previously obtained sna
 - WHEN a second directive is buffered into the session after the snapshot is taken
 - THEN the snapshot still contains only one directive
 
-### REQ-04: Minimal Dry-Run Plan Renderer
+### REQ-04: Minimal Pending Directives Renderer
 
-A `dryRunPlan` function MUST accept a `Directive[]` snapshot and MUST return a
-`DryRunEntry[]` array where each entry carries `verb` (author vocabulary) and `path`
+A `renderPendingDirectives` function MUST accept a `Directive[]` snapshot and MUST return a
+`PendingDirective[]` array where each entry carries `verb` (author vocabulary) and `path`
 (primary path of the operation). The renderer MUST NOT import or invoke any AST,
 engine, or filesystem module.
 
 The wire→author verb mapping is frozen as exactly these six rows — identity for five
 ops, one translation for `delete`:
 
-| Wire op (`Directive.op`) | Author verb (`DryRunEntry.verb`) |
+| Wire op (`Directive.op`) | Author verb (`PendingDirective.verb`) |
 |---|---|
 | `create` | `create` |
 | `modify` | `modify` |
@@ -61,14 +61,14 @@ This correction aligns the code to the spec: the wire-tag rationale is RETIRED.)
 #### Scenario REQ-04.1: Renderer maps a create directive to author vocabulary
 
 - GIVEN a directives array containing `{ op: "create", create: { pathTemplate: "src/foo.ts", template: "…", options: {} } }`
-- WHEN `dryRunPlan` is called with that array
+- WHEN `renderPendingDirectives` is called with that array
 - THEN the result contains `{ verb: "create", path: "src/foo.ts" }`
 
 #### Scenario REQ-04.2: Renderer maps all six commons directive ops to author vocabulary
 
 - GIVEN a directives array with one entry of each op kind (`create`, `modify`,
   `delete`, `rename`, `move`, `copy`)
-- WHEN `dryRunPlan` is called
+- WHEN `renderPendingDirectives` is called
 - THEN the result contains six entries whose `verb` is EXACTLY `create`, `modify`,
   `remove`, `rename`, `move`, `copy` respectively (per the table above) — `remove`
   for the `delete` op, never `delete`
@@ -79,13 +79,13 @@ This correction aligns the code to the spec: the wire-tag rationale is RETIRED.)
 
 - GIVEN a write-only factory that calls `create<S>` once (no `.read()` call)
 - WHEN the pending snapshot is captured immediately before flush
-- AND `dryRunPlan` is called on the snapshot
-- THEN the plan contains exactly one entry for the create verb (FIT-01 green: no AST imported)
+- AND `renderPendingDirectives` is called on the snapshot
+- THEN the rendered list contains exactly one entry for the create verb (FIT-01 green: no AST imported)
 
 #### Scenario REQ-04.4: Renderer never emits the wire tag for the delete op [decoy]
 
 - GIVEN a directives array containing only a single `{ op: "delete", delete: { path: "src/gone.ts" } }` directive
-- WHEN `dryRunPlan` is called
+- WHEN `renderPendingDirectives` is called
 - THEN the resulting entry's `verb` is EXACTLY `"remove"`
 - AND is NOT `"delete"` — a dedicated negative assertion so a future edit to the
   verb mapping cannot silently reintroduce the wire tag on this one op while
@@ -93,7 +93,7 @@ This correction aligns the code to the spec: the wire-tag rationale is RETIRED.)
 
 ### REQ-05: AST Import Prohibition
 
-The dry-run renderer module MUST NOT import any module from `src/core/` or any AST
+The pending Directives renderer module MUST NOT import any module from `src/core/` or any AST
 library at module load time or at call time.
 
 #### Scenario REQ-05.1: Renderer module has no core or AST import
