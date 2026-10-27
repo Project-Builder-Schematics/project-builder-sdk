@@ -457,13 +457,13 @@ describe("addImport JSDoc — REQ-TSD-13.5 trust-boundary guard (S-002, ts-addim
     "utf-8"
   );
 
-  it("affirmatively names addFunction/addVariable/addClass as still-raw, unvalidated ops — never a passive disclaimer", () => {
+  it("affirmatively names the still-raw code-body arguments — never a passive disclaimer", () => {
     const trustBoundaryBlock = OPS_SOURCE.match(/\/\*\*[\s\S]*?Trust boundary[\s\S]*?\*\//)?.[0];
     expect(trustBoundaryBlock).toBeDefined();
 
-    expect(trustBoundaryBlock).toContain("addFunction");
-    expect(trustBoundaryBlock).toContain("addVariable");
-    expect(trustBoundaryBlock).toContain("addClass");
+    expect(trustBoundaryBlock).toContain("`addFunction`'s `source`");
+    expect(trustBoundaryBlock).toContain("`addVariable`'s `initializer`");
+    expect(trustBoundaryBlock).toContain("`addClass`'s `source`");
     expect(trustBoundaryBlock).toContain("RAW-SPLICED");
     expect(trustBoundaryBlock).not.toContain("not covered here");
   });

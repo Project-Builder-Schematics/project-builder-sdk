@@ -88,6 +88,14 @@ describe("REQ-DAS-01.1 — authoring doc names exactly the shipped API", () => {
       "addFunction",
       "addVariable",
       "addClass",
+      "addDefaultImport",
+      "addNamespaceImport",
+      "addTypeImport",
+      "addSideEffectImport",
+      "addReExport",
+      "addExportAll",
+      "removeExport",
+      "removeExportAll",
     ]) {
       expect(content).toContain(name);
     }
