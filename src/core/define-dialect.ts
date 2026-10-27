@@ -12,8 +12,10 @@
 // but `any` short-circuits variance checking in both directions, which is exactly the
 // "don't care about the concrete Ast" erasure this bare form needs.
 
+import { basename } from "node:path";
 import type { ReadOps } from "./base-handle.ts";
 import { createDialectHandle } from "./dialect-handle.ts";
+import { dialectError } from "./dialect-error.ts";
 
 // An op mutates the live AST in place; `never[]` at the descriptor level lets each op
 // declare its OWN trailing arg tuple (bound away from `ast` by `OpMethods` below).
@@ -88,6 +90,16 @@ export function defineOpPack<Ast, Ops extends OpPack<Ast>>(ops: Ops): Ops {
   return ops;
 }
 
+// A basename that is only the extension (`.ts`) or whose stem ends in a dot (`a..ts`) names no
+// file of that type, the same as a dotfile such as `.babelrc`.
+function hasDeclaredExtension(path: string, extensions: readonly string[]): boolean {
+  const base = basename(path);
+  return extensions.some((extension) => {
+    const stem = base.slice(0, base.length - extension.length);
+    return base.endsWith(extension) && stem.length > 0 && !stem.endsWith(".");
+  });
+}
+
 /**
  * Assembles a `Dialect` from its frozen descriptor (extensions, an AST parse/print pair,
  * and an op-pack). `find` is the dialect's ONLY entry verb into a Session (REQ-DG-01.2) — it
@@ -106,6 +118,11 @@ export function defineDialect<Ast, Ops extends OpPack<Ast>>(d: DialectDescriptor
     ast: d.ast,
     ops: d.ops,
     find(path: string): Handle<"found", Ast, Ops> {
+      if (!hasDeclaredExtension(path, d.extensions)) {
+        throw dialectError(
+          `find(${JSON.stringify(path)}) — the file's extension is not one this dialect declares (${d.extensions.join(", ")}).`
+        );
+      }
       return createDialectHandle(d.ast, d.ops, path);
     },
   };
@@ -205,12 +222,5 @@ export function withOps<Ast, B extends OpPack<Ast>, P extends OpPack<Ast>[]>(
 ): Dialect<Ast, B & UnionToIntersection<P[number]>> {
   assertNoCompositionCollision(Object.keys(base.ops), packs);
   const merged = Object.assign({}, base.ops, ...packs) as B & UnionToIntersection<P[number]>;
-  return {
-    extensions: base.extensions,
-    ast: base.ast,
-    ops: merged,
-    find(path: string): Handle<"found", Ast, B & UnionToIntersection<P[number]>> {
-      return createDialectHandle(base.ast, merged, path);
-    },
-  };
+  return defineDialect({ extensions: [...base.extensions], ast: base.ast, ops: merged });
 }

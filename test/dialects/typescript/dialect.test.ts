@@ -26,6 +26,27 @@ import { BATCH_CAP_BYTES } from "../../../src/core/wire.ts";
 import { makeSpyClient, collectModifies } from "../../support/spy-client.ts";
 import { golden } from "../../support/golden.ts";
 
+describe("TypeScript dialect — find rejects undeclared extensions (A-11)", () => {
+  for (const path of ["a.js", "a.tsx", "src/a", ".ts", "a."]) {
+    it(`rejects ${JSON.stringify(path)} synchronously, naming the file and the declared extension`, () => {
+      expect(() => ts.find(path)).toThrow(
+        `dialect operation failed: find(${JSON.stringify(path)}) — the file's extension is not one this dialect declares (.ts).`
+      );
+    });
+  }
+
+  it("accepts a declared extension and edits the file", async () => {
+    const spy = makeSpyClient({ "src/a.ts": "const x = 1;\n" });
+    const run = defineFactory<void>(async () => {
+      await ts.find("src/a.ts").addImport("join", "node:path");
+    });
+    await run(undefined, { client: spy.client });
+    const modifies = collectModifies(spy.emitted);
+    expect(modifies.map((d) => d.modify.path)).toEqual(["src/a.ts"]);
+    expect(modifies[0]!.modify.content).toContain('import { join } from "node:path";');
+  });
+});
+
 describe("TypeScript dialect — REQ-TSD-01 subpath + thin op-pack shape", () => {
   // REQ-TSD-01.1's V4 scenario ("ops is EXACTLY addImport") is superseded by spec V5
   // (stage-5b-dialect-breadth): the op-pack now widens incrementally across S-001..S-003.

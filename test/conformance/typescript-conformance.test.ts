@@ -21,6 +21,7 @@ import { addImport } from "../../src/dialects/typescript/ops.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
+import { undeclaredExtensionViolationFixture } from "./planted/undeclared-extension-violation.ts";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { golden } from "../support/golden.ts";
@@ -158,6 +159,12 @@ describe("REQ-DC-05 — planted-violation suite: every core assertion fails RED 
 
   it("[permanent-fixture] REQ-DC-05.2: a dialect that coalesces across a mid-chain read (never splits) fails RED", async () => {
     await expect(testOpPack(readSplitViolationFixture)).rejects.toThrow(/REQ-DC-05\.2/);
+  });
+});
+
+describe("A-11 — find rejects every extension the dialect does not declare", () => {
+  it("[permanent-fixture] a dialect whose find accepts an undeclared extension fails testDialect", async () => {
+    await expect(testDialect(undeclaredExtensionViolationFixture)).rejects.toThrow(/undeclared extension/);
   });
 });
 

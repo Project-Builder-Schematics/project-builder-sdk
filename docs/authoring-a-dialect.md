@@ -168,7 +168,11 @@ A dialect is assembled from three kit verbs:
 - **`defineDialect(descriptor)`** — assembles a `Dialect` from a frozen descriptor: `extensions`
   (file-extension matchers), `ast: { parse, print }` (the AST parse/print pair), and `ops` (the
   dialect's own op-pack, `{}` if none). A 5th descriptor field is a compile error — the shape is
-  frozen. See its JSDoc `@example` in `src/core/define-dialect.ts` for a runnable snippet.
+  frozen. The resulting `find` (and every `withOps` composition of it) throws synchronously on
+  a path whose basename does not end in a declared extension, naming the file and the
+  declared extensions; a bare extension (`.ts`) or a stem ending in a dot (`a..ts`) is
+  rejected too. Several dialects may declare the same extension: the author picks one by
+  importing its `find`. See its JSDoc `@example` in `src/core/define-dialect.ts` for a runnable snippet.
 - **`defineOpPack(ops)`** — declares a named record of ops over one AST type, usable standalone
   (shareable across dialects targeting the same AST type) before any `withOps` composition. See
   its JSDoc `@example` in `src/core/define-dialect.ts`.
@@ -300,7 +304,8 @@ sync throw.
   imports sharing one module — that your dialect's `parse`/`print` must round-trip byte-exact.
   There is no opt-out: the fixture type carries no field to disable them. Before each
   round-trip it rejects a stub/identity `parse` (one that returns nothing or hands back the
-  input string), so an identity dialect cannot pass vacuously.
+  input string), so an identity dialect cannot pass vacuously. It also fails a dialect whose
+  published `find` accepts a path with an extension the dialect does not declare.
 - `testOpPack({ opPack, baseDialect, exercises })` applies each `OpExercise` (a seed, an op
   chain, and the expected byte-exact output) against the real coalescing pipeline, asserting
   per-op fidelity, coalescing-to-one, and seam-serializability. It runs those same six
