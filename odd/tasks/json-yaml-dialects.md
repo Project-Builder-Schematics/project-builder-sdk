@@ -18,13 +18,13 @@ Branch: `feat/json-yaml-dialects` (worktree `project-builder-sdk-worktrees/json-
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S1-S2 | inline | done (specs written) | |
-| T2 | S3 | inline | in progress | |
-| T3 | S1, S4 | delegated (parallel unit, disjoint surface) | pending | |
-| T4 | S2, S4 | delegated (parallel unit, disjoint surface) | pending | |
-| T5 | S3-S4 | inline seam check + verifier (Risk item 5: new dependencies) | pending | |
+| T2 | S3 | inline | done | 69b1732 |
+| T3 | S1, S4 | delegated (parallel unit, disjoint surface) | done (67 tests) | 09d5a67 |
+| T4 | S2, S4 | delegated (parallel unit, disjoint surface) | done (115 tests) | 913840a |
+| T5 | S3-S4 | inline seam check + verifier (Risk item 5: new dependencies) | seam green (3142 tests, typecheck clean); verifier running | |
 | T6 | S6 | inline | pending | |
-| T7 | S7 (JSON) | folded into T3 (sent to the running JSON writer) | pending | |
-| T8 | S7 (YAML) | folded into T4 (sent to the running YAML writer) | pending | |
+| T7 | S7 (JSON) | folded into T3 | done | 09d5a67 |
+| T8 | S7 (YAML) | folded into T4 | done | 913840a |
 
 ## Log
 
@@ -33,3 +33,5 @@ Branch: `feat/json-yaml-dialects` (worktree `project-builder-sdk-worktrees/json-
 - L3: user confirmed `jsonc-parser` for JSON (text edits over a read-only tree; minimal diffs, JSONC comments kept). "Si dale, al final crea un issue en el repo de docs para actualizar la documentacion con este nuevo lenguage".
 - L4: `rename`/`move`/`remove`/`copy` are reserved handle verbs, so key/item ops use `Key`/`Item` suffixes.
 - L5: user approved coverage gap closure (RFC 6902 move/copy, key position, sortKeys, YAML setTag): "Si dale".
+- L6: peer request (SDK #103 step 4): format-neutral conformance samples and neutral parse error, commit 4a608b7. Rebased onto origin/main after #104 (rename) and #105 (0.4.0).
+- L7: delivery: ~4.3k changed lines across 4 commits; push/PR pending user decision (chain strategy under ask-on-risk).
