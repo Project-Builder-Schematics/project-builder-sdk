@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import type { Dialect } from "../../src/core/define-dialect.ts";
-import type { DialectModule } from "../../src/conformance/index.ts";
+import type { DialectFixture, DialectModule } from "../../src/conformance/index.ts";
 import { testDialect } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 
@@ -88,11 +88,14 @@ for (const entry of DIALECT_MODULES) {
   test(`${entry.entrypoint} works with its independently resolved adapter library`, async () => {
     expect(createRequire(entry.adapter).resolve(entry.specifier)).toBe(
       createRequire(new URL("../support/dialect-modules.ts", import.meta.url)).resolve(entry.specifier));
+    // Each entry pairs its own library with its own exercise; a union of entries is not a
+    // fixture over the union of libraries, so widen one entry at a time.
+    const fixture = entry as unknown as DialectFixture<object>;
     let exercised = false;
-    await testDialect({ ...entry, samples: [...entry.samples], libraryExercise: {
-      ...entry.libraryExercise,
-      modify(ast: unknown, library: typeof entry.expectedAstLibrary) {
-        entry.libraryExercise.modify(ast, library);
+    await testDialect({ ...fixture, samples: [...fixture.samples], libraryExercise: {
+      ...fixture.libraryExercise,
+      modify(ast: unknown, library: object) {
+        fixture.libraryExercise.modify(ast, library);
         exercised = true;
       },
     } });

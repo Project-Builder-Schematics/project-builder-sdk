@@ -17,7 +17,8 @@ quickstart; the rest is reference, read in whatever order you need it.
    anything commits.
 6. **[Authoring a dialect](./authoring-a-dialect.md)** — structured, AST-aware mutation for
    one file type (e.g. `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`), for when the verbs
-   above aren't enough. This SDK ships that content only once — this index links it rather
+   above aren't enough. The [JSON](./json-dialect.md) and [YAML](./yaml-dialect.md) guides
+   cover the path-based dialects. This SDK ships that content only once — this index links it rather
    than repeating it.
 
 ## Contributor notes
