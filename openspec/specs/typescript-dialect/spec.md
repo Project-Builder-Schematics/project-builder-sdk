@@ -149,8 +149,10 @@ required.
 
 - GIVEN `package.json#exports`
 - WHEN `@pbuilder/sdk/typescript` is imported and `Object.keys(dialect.ops)` is sorted
-- THEN it resolves AND the sorted array EQUALS EXACTLY `["addClass", "addFunction", "addImport",
-  "addVariable", "removeImport"]` — asserted via `toEqual`, never `toContain`/subset, so an extra
+- THEN it resolves AND the sorted array EQUALS EXACTLY `["addClass", "addDefaultImport",
+  "addExportAll", "addFunction", "addImport", "addNamespaceImport", "addReExport",
+  "addSideEffectImport", "addTypeImport", "addVariable", "removeExport", "removeExportAll",
+  "removeImport"]` — asserted via `toEqual`, never `toContain`/subset, so an extra
   op fails RED (anti-smuggle) and a missing op fails RED (honest cut-lever tracking)
 
 #### Scenario REQ-TSD-01.2: addImport concrete before/after byte pair
@@ -536,11 +538,144 @@ remain out of scope for this change (tracked separately in `project/pending-chan
   REQ-TSD-01's algorithm would flip this reject to the COLLISION shape, and this scenario is
   designed to catch exactly that reordering
 
+### REQ-TSD-14: Every op validates its name-position arguments
+
+Every op with a name-position argument — `name` on `addImport`, `addDefaultImport`,
+`addNamespaceImport`, `addTypeImport`, `addReExport`, `removeImport`, `removeExport`,
+`addFunction`, `addVariable`, `addClass`, and `options.as` on `addExportAll`/`removeExportAll` —
+runs REQ-TSD-13's `assertValidImportBinding` gate before any AST work and before any no-op
+path, with REQ-TSD-13's reject messages. `addVariable`'s `options.kind` rejects any value
+outside `"const" | "let" | "var"` before any AST work, without echoing it. `source` and
+`initializer` code bodies stay unvalidated, author-trusted input.
+
+#### Scenario REQ-TSD-14.1: injection shapes reject on every name-bearing op
+
+- GIVEN each name-position argument above
+- WHEN it receives an injection-shaped value (`x; process.exit(`, `x\ny`, `x/*`, `x"`,
+  `x\\u0061`, `x y`, `1x`, `""`, …) or a reserved/denylisted name (`class`, `eval`,
+  `__proto__`, `constructor`)
+- THEN the op rejects and emits zero directives
+
+#### Scenario REQ-TSD-14.2: validation precedes a no-op
+
+- GIVEN a file where `removeImport("x y", "m")` would find nothing to remove
+- WHEN it is applied
+- THEN it still rejects
+
+#### Scenario REQ-TSD-14.3: `kind` allow-list
+
+- GIVEN `addVariable("x", "1", { kind })`
+- WHEN `kind` is `"const"`, `"let"`, or `"var"`, THEN `{kind} x = 1;` is inserted; WHEN it is
+  any other value (e.g. `"function () {}; //"` forced past the type), THEN it rejects with
+  zero directives
+
+### REQ-TSD-15: Declaration ops see every import binding
+
+`addFunction`, `addVariable`, and `addClass` reject a `name` bound by ANY import — default,
+namespace, or named, type-only included — as `addImport` already did.
+
+#### Scenario REQ-TSD-15.1: default and namespace bindings collide
+
+- GIVEN a file holding `import X from "m";` or `import * as X from "m";`
+- WHEN `addFunction("X", …)`, `addVariable("X", …)`, or `addClass("X", …)` is applied
+- THEN it rejects with zero directives
+
+### Import and export variant ops (REQ-TSD-16 to REQ-TSD-22)
+
+All of them follow REQ-TSD-14's validation, then their own idempotency check, then a collision
+check, then the mutation. A fresh import declaration is inserted after any leading directive
+prologue (REQ-TSD-01.21). "Bound anywhere" means REQ-TSD-01 Step 2's claim set: any import
+binding or top-level value-namespace declaration. "Already exported" means a re-export
+specifier's visible name, an `export * as` name, or an exported top-level declaration —
+including every name an exported destructuring binds (`export const { a: X } = …` exports `X`).
+
+### REQ-TSD-16: `addDefaultImport(name, from)`
+
+Emits `import name from "from";`. No-op when a non-type-only declaration of `from` already has
+default `name`. Rejects when one has a default under another name, or when `name` is bound
+anywhere else (a type-only `import type name` included). Merges into the first non-type-only
+declaration of `from` that has a clause and no default.
+
+#### Scenario REQ-TSD-16.1: insert, no-op, merge, reject
+
+- `""` → `import X from "m";\n`; `import X from "m";` → no-op
+- `import { a } from "m";` → `import X, { a } from "m";`; `import * as ns from "m";` →
+  `import X, * as ns from "m";`
+- `import Y from "m";` → rejects ("already has a default import named \"Y\"");
+  `import type X from "m";` or `function X(): void {}` → rejects
+
+### REQ-TSD-17: `addNamespaceImport(name, from)`
+
+Emits `import * as name from "from";`. No-op when a non-type-only declaration of `from` already
+has namespace `name`. Rejects when one has a namespace under another name, or when `name` is
+bound anywhere else. Merges into a default-only declaration; a declaration with named imports
+cannot hold a namespace import, so the op opens its own declaration.
+
+#### Scenario REQ-TSD-17.1: insert, coexist, merge, reject
+
+- `""` → `import * as ns from "m";\n`; `import * as ns from "m";` → no-op
+- `import { a } from "m";` → `import { a } from "m";\nimport * as ns from "m";\n`, and that output
+  is itself a no-op
+- `import Def from "m";` → `import Def, * as ns from "m";`
+- `import * as other from "m";` or `import { ns } from "m";` → rejects
+
+### REQ-TSD-18: `addTypeImport(name, from)`
+
+Always emits its own `import type { name } from "from";` — never merged, never the inline
+`{ type name }` form. No-op when any declaration of `from` binds `name` through an unaliased or
+self-aliased named specifier, value or type-only, inline or not. Rejects when `name` is bound
+anywhere else, and — unlike the value-side ops — also when a local `type` or `interface` uses it:
+a type-only import lives in the type namespace, so that pair is TS2440.
+
+#### Scenario REQ-TSD-18.1: insert, recognize, reject
+
+- `""` → `import type { X } from "m";\n`
+- `import type { X }`, `import { type X }`, `import { X }`, `import { a, type X }` from `"m"`, on
+  any declaration of `"m"` → no-op
+- `import type { A } from "m";` → a second, separate `import type { X } from "m";`
+- `class X {}`, `type X = 1;`, `interface X {}`, or `import { Y as X } from "m";` → rejects
+
+### REQ-TSD-19: `addSideEffectImport(from)`
+
+Emits `import "from";` as its own declaration. No-op only when a bare `import "from"` exists. The
+module specifier is string-escaped by ts-morph, never spliced.
+
+### REQ-TSD-20: `addReExport(name, from)`
+
+Emits `export { name } from "from";`, merging into the first non-type-only
+`export { … } from "from"`. No-op when that module is already re-exported under `name`, matched
+by SOURCE name (`export { name as Y }` counts). Rejects when `name` is already exported any other
+way, including as the visible alias of another re-export.
+
+#### Scenario REQ-TSD-20.1: insert, merge, no-op, reject
+
+- `""` → `export { X } from "./x";\n`; `export { Y } from "./x";` → `export { Y, X } from "./x";`
+- `export type { Y } from "m";` → a separate `export { X } from "m";`
+- `export { X as Y } from "m";` + `addReExport("X", "m")` → no-op; + `addReExport("Y", "m")` →
+  rejects
+- `export { X } from "./other";`, `export const X = 1;`, `export * as X from "./other";` →
+  rejects; a non-exported `const X = 1;` does not
+
+### REQ-TSD-21: `addExportAll(from, options?)`
+
+Emits `export * from "from";`, or `export * as ns from "from";` with `{ as: "ns" }`. The two
+forms are different statements, each a no-op only on its own output. `as` rejects when it is
+already exported.
+
+### REQ-TSD-22: `removeExport(name, from)` and `removeExportAll(from, options?)`
+
+`removeExport` removes `name` from `export { … } from "from"` (SOURCE-name match, on any
+declaration of `from`), deleting the statement when it was the last specifier; absent → no-op;
+local `export { x }` and `export *` are never touched. `removeExportAll` removes
+`export * from "from"`, or the `export * as ns` form with `{ as: "ns" }`; each form only removes
+itself; absent → no-op.
+
 ## Sensitive Areas Coverage
 
 | Area | REQ IDs | Flagged at triage? |
 |---|---|---|
 | security (code execution) — `addImport`'s merge/collision algorithm, `.modify(fn)` on the real ts-morph AST, and `addImport`'s `name`/`from` splice channels | REQ-TSD-01, REQ-TSD-03, REQ-TSD-04, REQ-TSD-13 | Yes |
+| security (code execution) — every op's name-position and `kind` splice channels | REQ-TSD-14 | Yes |
 
 (REQ-TSD-12's two rows — ts-morph-realm/cross-run-reuse third-party-trust coverage and the
 importable-form public-api-contract coverage — remain dropped since V4: both existed solely to

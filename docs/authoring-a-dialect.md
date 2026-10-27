@@ -7,8 +7,10 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.modify()` escape hatch, and
 the two dialects currently shipped — `@pbuilder/sdk/typescript`, whose op-pack has widened past
-its original thin starter shape (`addImport`) to five named ops: `addImport`, `addFunction`,
-`addVariable`, `addClass`, `removeImport`; and `@pbuilder/sdk/react`, a deliberately minimal v1
+its original thin starter shape (`addImport`) to thirteen named ops: `addImport`,
+`addDefaultImport`, `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`,
+`addExportAll`, `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`,
+`removeExportAll`; and `@pbuilder/sdk/react`, a deliberately minimal v1
 pair for `.tsx`/JSX authoring: `setJsxProp` and `addImport`.
 
 ## Two audiences
@@ -35,6 +37,44 @@ directive at flush (see "Coalescing" below).
 `addImport(name, from)` adds `import { name } from "from";` to the file's import list, merging
 into an existing named-import clause from the same module if one is already present (calling it
 twice with the same name and module is idempotent — no duplicate import line).
+
+The other import forms each have their own op, all idempotent on their own output and all
+rejecting a `name` already bound elsewhere in the file:
+
+| Op | Emits | Notes |
+|---|---|---|
+| `addDefaultImport(name, from)` | `import name from "from";` | Merges into a declaration of `from` that has no default yet (`import name, { a } from "from"`). Rejects when `from` already has a default import under another name. |
+| `addNamespaceImport(name, from)` | `import * as name from "from";` | Merges into a default-only declaration (`import Def, * as name from "from"`); beside named imports it opens its own declaration. Rejects when `from` already has a namespace import under another name. |
+| `addTypeImport(name, from)` | `import type { name } from "from";` | Always its own declaration, never merged and never the inline `{ type name }` form. A no-op when `from` already imports `name`, by value or as a type, inline or not. |
+| `addSideEffectImport(from)` | `import "from";` | Its own declaration; a no-op only when a bare `import "from"` already exists. |
+
+```ts
+await ts
+  .find("src/main.ts")
+  .addDefaultImport("express", "express")
+  .addTypeImport("Request", "express")
+  .addSideEffectImport("reflect-metadata");
+// -> import express from "express";
+// -> import type { Request } from "express";
+// -> import "reflect-metadata";
+```
+
+Re-exports, for barrel files, follow the same rules. They reject a name the file already exports
+by any route — another re-export, an `export * as`, or an exported declaration — because two
+exports sharing a name are invalid TypeScript:
+
+| Op | Does | Notes |
+|---|---|---|
+| `addReExport(name, from)` | Adds `export { name } from "from";` | Merges into a non-type-only `export { … } from "from"`. Matched by source name, so `export { name as Y }` already counts. |
+| `addExportAll(from, { as? })` | Adds `export * from "from";`, or `export * as ns from "from";` with `{ as: "ns" }` | The two forms are different statements; each is a no-op only on its own output. |
+| `removeExport(name, from)` | Removes `name` from `export { … } from "from"` | Deletes the statement when it was the last specifier. Matched by source name, never the alias. Never touches local `export { x }` or `export *`. |
+| `removeExportAll(from, { as? })` | Removes `export * from "from"` (or the `as` form) | Each form only removes itself; absent is a no-op. |
+
+```ts
+await ts.find("src/index.ts").addReExport("UserService", "./user.service").addExportAll("./dto");
+// -> export { UserService } from "./user.service";
+// -> export * from "./dto";
+```
 
 `addFunction(name, source, options?)` inserts a new top-level function declaration at the end of
 the file, in call order: `options?.export` prepends `export `. `source` INCLUDES the function's

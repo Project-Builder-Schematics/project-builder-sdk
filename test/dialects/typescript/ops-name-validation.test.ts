@@ -11,7 +11,14 @@ type Handle = ReturnType<typeof ts.find>;
 
 const NAME_BEARING_OPS: Record<string, (handle: Handle, name: string) => PromiseLike<unknown>> = {
   addImport: (handle, name) => handle.addImport(name, "m"),
+  addDefaultImport: (handle, name) => handle.addDefaultImport(name, "m"),
+  addNamespaceImport: (handle, name) => handle.addNamespaceImport(name, "m"),
+  addTypeImport: (handle, name) => handle.addTypeImport(name, "m"),
   removeImport: (handle, name) => handle.removeImport(name, "m"),
+  addReExport: (handle, name) => handle.addReExport(name, "m"),
+  removeExport: (handle, name) => handle.removeExport(name, "m"),
+  "addExportAll as": (handle, name) => handle.addExportAll("m", { as: name }),
+  "removeExportAll as": (handle, name) => handle.removeExportAll("m", { as: name }),
   addFunction: (handle, name) => handle.addFunction(name, "(): void {}"),
   addVariable: (handle, name) => handle.addVariable(name, "0"),
   addClass: (handle, name) => handle.addClass(name, ""),
