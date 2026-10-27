@@ -690,7 +690,8 @@ exposes ts-morph. See [the NestJS dialect guide](./docs/nestjs-dialect.md).
 ### `@pbuilder/sdk/angular`
 
 Every `@pbuilder/sdk/typescript` op, plus ops for standalone components, the application's root
-providers, and routes. Each op adds the imports its code needs.
+providers, routes, signal inputs and outputs, and injected dependencies.
+Each op adds the imports its code needs.
 
 ```ts
 import * as angular from "@pbuilder/sdk/angular";
@@ -703,7 +704,8 @@ await angular.find("src/app/app.routes.ts").addLazyRoute({ path: "admin", loadCh
 ```
 
 Extra named ops: `addComponentImport`, `addComponentProvider`, `addRootProvider`, `addRoute`,
-`addLazyRoute`. `.modify(fn)` exposes ts-morph. See
+`addLazyRoute`, `addInjection`, `addInput`, `addModel`, `addOutput`. `.modify(fn)` exposes
+ts-morph. See
 [the Angular dialect guide](./docs/angular-dialect.md).
 
 ### `.modify()` — the universal escape hatch

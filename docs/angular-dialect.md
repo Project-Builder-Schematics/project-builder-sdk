@@ -119,6 +119,59 @@ await angular
 // -> { path: "admin", loadChildren: () => import("./admin/admin.routes") },
 ```
 
+## Signals and injection
+
+These ops add a class property, through the TypeScript `addClassProperty`, and import the Angular
+function it calls from `@angular/core`. The property goes after the class's last property, so
+inputs, outputs and injected dependencies stay above the constructor and the methods, as the
+Angular style guide asks. The class is found by its decorator, so the ops need no class name. The
+same property already there is a no-op. Another member with the same name rejects.
+
+Following the style guide, `input`, `model` and `output` properties are `readonly`. In
+`options`, `type` is the generic argument and must parse as exactly one type, `initial` is the
+value and must parse as exactly one expression, and `imports` lists the `{ name, from }` imports
+those need, as in [Code and its imports](#code-and-its-imports).
+
+### `addInjection(name, token, options?)`
+
+Adds `private readonly name = inject(token);` to the file's only class decorated with
+`@Component`, `@Directive`, `@Pipe`, `@Injectable` or `@Service`. `token` is an identifier or
+`{ expression }`. `options` is `{ scope?, imports? }`, where `scope` replaces `private`.
+
+```ts
+await angular
+  .find("src/app/users.ts")
+  .addInjection("http", "HttpClient", { imports: [{ name: "HttpClient", from: "@angular/common/http" }] });
+// -> import { inject } from "@angular/core";
+// -> import { HttpClient } from "@angular/common/http";
+// -> private readonly http = inject(HttpClient);
+```
+
+### `addInput(name, options?)`
+
+Adds `readonly name = input<type>(initial);`, or `readonly name = input.required<type>();` with
+`required: true`, to the file's only `@Component` or `@Directive` class. `options` is
+`{ type?, initial?, required?, imports? }`; `required` and `initial` cannot be combined.
+
+```ts
+await angular
+  .find("src/app/user-card.ts")
+  .addInput("user", { type: "User", required: true, imports: [{ name: "User", from: "./user" }] })
+  .addInput("size", { type: '"sm" | "lg"', initial: '"sm"' });
+// -> readonly user = input.required<User>();
+// -> readonly size = input<"sm" | "lg">("sm");
+```
+
+### `addModel(name, options?)`
+
+Same as `addInput`, with `model()` for a property the component writes back through a two-way
+binding.
+
+### `addOutput(name, options?)`
+
+Adds `readonly name = output<type>();` to the file's only `@Component` or `@Directive` class.
+`options` is `{ type?, imports? }`.
+
 ## Format preservation
 
 A new entry follows the layout of the list it joins: a one-line list stays on one line, a
@@ -129,12 +182,14 @@ stays trailing. Everything outside the inserted text is byte-identical.
 
 An op rejects, and the file is left unchanged, when:
 
-- the file has no `@Component`, `ApplicationConfig` variable, `bootstrapApplication` call, or
-  `Routes` variable for the op, or more than one;
+- the file has no `@Component`, decorated class, `ApplicationConfig` variable,
+  `bootstrapApplication` call, or `Routes` variable for the op, or more than one;
+- the class already has a different member with the property's name;
 - the metadata, config, or route list is not a literal (for example `providers: PROVIDERS`);
 - `bootstrapApplication` receives its config by name;
 - a route `path` starts with `/`, or a different route already uses the `path`;
-- an `element`, an import `name`, a `component`, or an `export` is not valid.
+- an `element`, an import `name`, a `component`, an `export`, a `type`, or an `initial` is not
+  valid, or `required` comes with `initial`.
 
 `find(path)` accepts any `.ts` path, like the TypeScript dialect; a file without the target only
 fails when one of these ops runs.

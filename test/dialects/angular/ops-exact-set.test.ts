@@ -6,7 +6,17 @@ import { defineFactory } from "../../../src/core/context.ts";
 import { RESERVED_HANDLE_NAMES } from "../../../src/core/define-dialect.ts";
 
 const BASE_HANDLE_KEYS: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
-const ANGULAR_OPS = ["addComponentImport", "addComponentProvider", "addLazyRoute", "addRootProvider", "addRoute"];
+const ANGULAR_OPS = [
+  "addComponentImport",
+  "addComponentProvider",
+  "addInjection",
+  "addInput",
+  "addLazyRoute",
+  "addModel",
+  "addOutput",
+  "addRootProvider",
+  "addRoute",
+];
 
 async function opKeys(find: (path: string) => object): Promise<string[]> {
   const { client } = makeSpyClient({ "a.ts": "" });

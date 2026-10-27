@@ -27,7 +27,7 @@ S9 — Error tails follow the house format `<op>("<name>") on "<file>" — <reas
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S1-S3, S9 | inline | done — RED 14 fail → GREEN 15 pass; full suite 3655 pass, 7 fail = the 7 failing on main | PR A |
-| T2 | S4-S7, S9 | inline | pending — PR B | — |
+| T2 | S4-S7, S9 | inline | done — RED 16 fail → GREEN 17 pass; full suite 3676 pass, 7 fail = the 7 failing on main | PR B |
 | T3 | S4, S8, S9 | inline | pending — PR C | — |
 
 Route evidence: one dependent chain (T2 and T3 build on T1), each unit under ~400 lines; no writer trigger fires.
