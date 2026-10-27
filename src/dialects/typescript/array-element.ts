@@ -37,8 +37,10 @@ export function appendEntry(ast: SourceFile, list: Node, entries: Node[], item: 
   }
   const text = ast.getFullText();
   const closeAt = list.getEnd() - 1;
-  const commaAt = text.indexOf(",", last.getEnd());
-  const trailingComma = commaAt !== -1 && commaAt < closeAt;
+  // The comma is read from the list's tokens: a comma inside a comment is trivia, not one.
+  const trailing = list.getFirstChildByKind(SyntaxKind.SyntaxList)?.getLastChild();
+  const trailingComma = trailing?.getKind() === SyntaxKind.CommaToken;
+  const commaAt = trailingComma ? trailing!.getStart() : -1;
   if (!text.slice(list.getStart(), closeAt).includes("\n")) {
     if (trailingComma) ast.insertText(commaAt + 1, ` ${item},`);
     else ast.insertText(last.getEnd(), `, ${item}`);

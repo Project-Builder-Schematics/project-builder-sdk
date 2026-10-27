@@ -124,6 +124,33 @@ describe("addArrayElement — variable root", () => {
   });
 });
 
+describe("addArrayElement — comments after the last entry", () => {
+  it("appends after the entry, not inside a block comment containing a comma, and stays idempotent", async () => {
+    const seed = "export const appConfig = { providers: [A /* x, y */] };\n";
+    const expected = "export const appConfig = { providers: [A, B /* x, y */] };\n";
+    await expectAppend(seed, APP_CONFIG, "B", expected);
+    await expectNoOp(expected, APP_CONFIG, "B");
+  });
+
+  it("keeps a multi-line list valid when the last entry has a line comment with a comma", async () => {
+    await expectAppend(
+      "export const appConfig = {\n  providers: [\n    A // a, b\n  ]\n};\n",
+      APP_CONFIG,
+      "B",
+      "export const appConfig = {\n  providers: [\n    A,\n    B // a, b\n  ]\n};\n"
+    );
+  });
+
+  it("creates a key after a last property whose comment has a comma", async () => {
+    await expectAppend(
+      "export const appConfig = { a: 1 /* x, y */ };\n",
+      APP_CONFIG,
+      "B",
+      "export const appConfig = { a: 1, providers: [B] /* x, y */ };\n"
+    );
+  });
+});
+
 describe("addArrayElement — call and decorator roots", () => {
   it("appends inside an argument of the only call to the callee", async () => {
     await expectAppend(
