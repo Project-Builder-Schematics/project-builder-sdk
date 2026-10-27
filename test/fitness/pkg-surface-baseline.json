@@ -36,6 +36,11 @@
       "import": "./dist/dialects/json/index.js",
       "default": "./dist/dialects/json/index.js"
     },
+    "./nestjs": {
+      "types": "./dist/dialects/nestjs/index.d.ts",
+      "import": "./dist/dialects/nestjs/index.js",
+      "default": "./dist/dialects/nestjs/index.js"
+    },
     "./yaml": {
       "types": "./dist/dialects/yaml/index.d.ts",
       "import": "./dist/dialects/yaml/index.js",
@@ -127,6 +132,10 @@
     "dist/dialects/json/index.js",
     "dist/dialects/json/ops.d.ts",
     "dist/dialects/json/ops.js",
+    "dist/dialects/nestjs/index.d.ts",
+    "dist/dialects/nestjs/index.js",
+    "dist/dialects/nestjs/ops.d.ts",
+    "dist/dialects/nestjs/ops.js",
     "dist/dialects/react/ast.d.ts",
     "dist/dialects/react/ast.js",
     "dist/dialects/react/index.d.ts",

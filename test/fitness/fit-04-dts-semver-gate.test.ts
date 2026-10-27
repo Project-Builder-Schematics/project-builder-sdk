@@ -135,6 +135,11 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     label: "react",
   },
   {
+    baselineFile: join(BASELINE_DIR, "nestjs.index.d.ts"),
+    distFile: join(DIST_DIR, "dialects/nestjs/index.d.ts"),
+    label: "nestjs",
+  },
+  {
     // author-write-surface, S-000, REQ-FIT-04: `core/define-dialect.ts`'s FIRST baseline —
     // `Handle` is the ONE type architecture.md marks FROZEN; ADR-0050 unfreezes it for the
     // `.raw(fn)`->`.modify(fn)` / `.modify(content)`->`.replaceContent(content)` rename, and
