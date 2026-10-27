@@ -131,7 +131,7 @@ function elementNode(element: unknown): Node {
 
 // Tokens without trivia, so formatting, comments, and trailing commas never make two equal
 // elements look different.
-function tokensOf(node: Node): string[] {
+export function tokensOf(node: Node): string[] {
   const sourceFile = node.getSourceFile().compilerNode;
   const tokens: string[] = [];
   const visit = (current: ts.Node): void => {

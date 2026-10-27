@@ -6,16 +6,26 @@ import type { ArrayElement } from "../typescript/array-element.ts";
 import {
   addComponentImport,
   addComponentProvider,
+  addComputed,
+  addInjection,
+  addInput,
   addLazyRoute,
+  addModel,
+  addOutput,
   addRootProvider,
   addRoute,
+  addSignal,
+  type InjectionOptions,
+  type InputOptions,
   type LazyRouteSpec,
   type NamedImport,
+  type OutputOptions,
   type RouteSpec,
+  type StateOptions,
 } from "./ops.ts";
 
 export * as astLibrary from "ts-morph";
-export type { LazyRouteSpec, NamedImport, RouteSpec };
+export type { InjectionOptions, InputOptions, LazyRouteSpec, NamedImport, OutputOptions, RouteSpec, StateOptions };
 
 type InsertOp = (ast: SourceFile, element: ArrayElement, imports?: readonly NamedImport[]) => void;
 
@@ -25,6 +35,12 @@ type AngularOps = {
   addRootProvider: InsertOp;
   addRoute: (ast: SourceFile, route: RouteSpec) => void;
   addLazyRoute: (ast: SourceFile, route: LazyRouteSpec) => void;
+  addInjection: (ast: SourceFile, name: string, token: ArrayElement, options?: InjectionOptions) => void;
+  addInput: (ast: SourceFile, name: string, options?: InputOptions) => void;
+  addModel: (ast: SourceFile, name: string, options?: InputOptions) => void;
+  addOutput: (ast: SourceFile, name: string, options?: OutputOptions) => void;
+  addSignal: (ast: SourceFile, name: string, initial: string, options?: StateOptions) => void;
+  addComputed: (ast: SourceFile, name: string, expression: string, options?: StateOptions) => void;
 };
 
 const angularOps = defineOpPack<SourceFile, AngularOps>({
@@ -33,6 +49,12 @@ const angularOps = defineOpPack<SourceFile, AngularOps>({
   addRootProvider,
   addRoute,
   addLazyRoute,
+  addInjection,
+  addInput,
+  addModel,
+  addOutput,
+  addSignal,
+  addComputed,
 });
 
 const baseDialect = defineDialect({

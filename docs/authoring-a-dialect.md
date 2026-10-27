@@ -7,10 +7,10 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.modify()` escape hatch, and
 the two dialects currently shipped — `@pbuilder/sdk/typescript`, whose op-pack has widened past
-its original thin starter shape (`addImport`) to fourteen named ops: `addImport`,
+its original thin starter shape (`addImport`) to fifteen named ops: `addImport`,
 `addDefaultImport`, `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`,
 `addExportAll`, `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`,
-`removeExportAll`, `addArrayElement`; and `@pbuilder/sdk/react`, a deliberately minimal v1
+`removeExportAll`, `addArrayElement`, `addClassProperty`; and `@pbuilder/sdk/react`, a deliberately minimal v1
 pair for `.tsx`/JSX authoring: `setJsxProp` and `addImport`.
 
 ## Two audiences
@@ -118,6 +118,34 @@ await ts
   content is otherwise inserted verbatim and is author-trusted, like `addFunction`'s `source`:
   never build it from consumer input.
 - The op adds no import. Pair it with `addImport` for the element's binding.
+
+`addClassProperty(className, name, initializer, options?)` adds a property to an existing class:
+`{scope }{readonly }name = initializer;`, where `options` is
+`{ scope?: "public" | "protected" | "private"; readonly?: boolean }` and nothing is written for
+an omitted option.
+
+```ts
+await ts.find("src/app/user.service.ts").addClassProperty("UserService", "http", "inject(HttpClient)", {
+  scope: "private",
+  readonly: true,
+});
+// export class UserService {
+//   private readonly cache = new Map<string, User>();
+// -> private readonly http = inject(HttpClient);
+//
+//   load(id: string) { … }
+// }
+```
+
+- The class is the only one in the file named `className`; zero or several reject.
+- The property goes after the class's last property, so properties stay above the constructor
+  and the methods. A class with no property gets it as its first member, above that member's
+  JSDoc; an empty class gets a new line at its own indentation plus two spaces. A one-line class
+  stays on one line, and a comment after the last property stays on that property's line.
+- A property with the same declaration, compared token by token and ignoring a trailing `;`, is
+  a no-op. Any other member named `name`, a method included, rejects.
+- `initializer` must parse as exactly one expression and is otherwise author-trusted, like
+  `addArrayElement`'s `{ expression }`. The op adds no import.
 
 `addFunction(name, source, options?)` inserts a new top-level function declaration at the end of
 the file, in call order: `options?.export` prepends `export `. `source` INCLUDES the function's

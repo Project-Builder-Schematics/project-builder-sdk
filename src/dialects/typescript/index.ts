@@ -9,6 +9,7 @@
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
 import type { ArrayElement, ArrayLocator } from "./array-element.ts";
+import type { ClassPropertyOptions } from "./class-property.ts";
 import { parse, print } from "./ast.ts";
 import { typescriptOps } from "./pack.ts";
 
@@ -35,6 +36,7 @@ type TypeScriptOps = {
   removeExport: (ast: SourceFile, name: string, from: string) => void;
   removeExportAll: (ast: SourceFile, from: string, options?: { as?: string }) => void;
   addArrayElement: (ast: SourceFile, locator: ArrayLocator, element: ArrayElement) => void;
+  addClassProperty: (ast: SourceFile, className: string, name: string, initializer: string, options?: ClassPropertyOptions) => void;
 };
 
 const opsPack = defineOpPack<SourceFile, TypeScriptOps>(typescriptOps);
@@ -53,7 +55,7 @@ const typescriptDialect = withOps(baseDialect, opsPack);
  * escape hatch plus the dialect's named ops (`addImport`, `addDefaultImport`,
  * `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`, `addExportAll`,
  * `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`, `removeExportAll`,
- * `addArrayElement`). Reads route through `Session.read` only (REQ-MC-03); edits
+ * `addArrayElement`, `addClassProperty`). Reads route through `Session.read` only (REQ-MC-03); edits
  * coalesce into a single `modify` at flush (REQ-MC-01/02).
  *
  * @example

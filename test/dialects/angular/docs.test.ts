@@ -13,6 +13,12 @@ const SIGNATURES = [
   "addRootProvider(element, imports?)",
   "addRoute({ path, component, from })",
   "addLazyRoute({ path, loadComponent | loadChildren, export? })",
+  "addInjection(name, token, options?)",
+  "addInput(name, options?)",
+  "addModel(name, options?)",
+  "addOutput(name, options?)",
+  "addSignal(name, initial, options?)",
+  "addComputed(name, expression, options?)",
 ];
 
 describe("docs/angular-dialect.md — author guide", () => {

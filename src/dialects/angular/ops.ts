@@ -1,4 +1,4 @@
-import { Node, SyntaxKind, type Expression, type SourceFile, type VariableDeclaration } from "ts-morph";
+import { Node, SyntaxKind, type ClassDeclaration, type Expression, type SourceFile, type VariableDeclaration } from "ts-morph";
 import { dialectError } from "../../core/dialect-error.ts";
 import { handlePathFor } from "../../core/dialect-handle.ts";
 import { assertValidImportBinding } from "../../core/jsx-name-validator.ts";
@@ -11,6 +11,8 @@ import {
   type ArrayElement,
   type ArrayLocator,
 } from "../typescript/array-element.ts";
+import { parse } from "../typescript/ast.ts";
+import { insertClassProperty, type ClassPropertyOptions } from "../typescript/class-property.ts";
 import { addImport } from "../typescript/ops.ts";
 
 /** A named import an inserted element needs: `import { name } from "from"`. */
@@ -190,4 +192,160 @@ export function addLazyRoute(ast: SourceFile, route: LazyRouteSpec): void {
   if (route.export !== undefined) assertValidImportBinding(route.export, "export");
   const loader = `import(${JSON.stringify(from)})${route.export === undefined ? "" : `.then((m) => m.${route.export})`}`;
   insertRoute(ast, "addLazyRoute", route.path, `{ path: ${JSON.stringify(route.path)}, ${kind}: () => ${loader} }`);
+}
+
+type Scope = NonNullable<ClassPropertyOptions["scope"]>;
+
+/** Options of `addInput` and `addModel`; `type` is the generic argument, `initial` the default value. */
+export type InputOptions = { type?: string; initial?: string; required?: boolean; imports?: readonly NamedImport[] };
+
+/** Options of `addOutput`. */
+export type OutputOptions = { type?: string; imports?: readonly NamedImport[] };
+
+/** Options of `addInjection`; `scope` defaults to `private`. */
+export type InjectionOptions = { scope?: Scope; imports?: readonly NamedImport[] };
+
+// Angular only reads input(), model() and output() in component and directive initializers.
+const VIEW_DECORATORS = ["Component", "Directive"];
+const INJECTABLE_DECORATORS = ["Component", "Directive", "Pipe", "Injectable", "Service"];
+
+function decoratorList(decorators: readonly string[]): string {
+  const names = decorators.map((name) => `@${name}`);
+  return names.length === 1 ? names[0]! : `${names.slice(0, -1).join(", ")} or ${names.at(-1)}`;
+}
+
+function decoratedClass(ast: SourceFile, decorators: readonly string[], fail: Fail): ClassDeclaration {
+  const classes = ast
+    .getDescendantsOfKind(SyntaxKind.ClassDeclaration)
+    .filter((cls) => cls.getDecorators().some((decorator) => decorators.includes(decorator.getName())));
+  if (classes.length === 0) fail(`no class decorated with ${decoratorList(decorators)} was found`);
+  if (classes.length > 1) fail(`${classes.length} classes are decorated with ${decoratorList(decorators)}; exactly one is required`);
+  return classes[0]!;
+}
+
+function assertOptions(options: unknown, keys: readonly string[]): asserts options is Record<string, unknown> | undefined {
+  if (options === undefined) return;
+  const shape = `\`options\` must be { ${keys.map((key) => `${key}?`).join(", ")} } — fix the options, or use \`.modify()\` to make this edit directly.`;
+  if (typeof options !== "object" || options === null || Array.isArray(options)) throw dialectError(shape);
+  const record = options as Record<string, unknown>;
+  const valid = Object.keys(record).every((key) => {
+    const value = record[key];
+    if (!keys.includes(key)) return false;
+    if (key === "required") return typeof value === "boolean";
+    if (key === "scope") return value === "public" || value === "protected" || value === "private";
+    if (key === "imports") return true;
+    return typeof value === "string";
+  });
+  if (!valid) throw dialectError(shape);
+  assertImports(record.imports);
+}
+
+const TYPE_RULE = "`type` must be exactly one TypeScript type — fix the type, or use `.modify()` to make this edit directly.";
+
+// `<type>` once proven to be one type: a breakout such as `T>(); evil(<T` parses differently.
+function typeArgument(type: string | undefined): string {
+  if (type === undefined) return "";
+  let statements;
+  try {
+    statements = parse(`let x: ${type};`).getStatements();
+  } catch {
+    throw dialectError(TYPE_RULE);
+  }
+  const [statement, ...rest] = statements;
+  const declaration = statement?.asKind(SyntaxKind.VariableStatement)?.getDeclarations();
+  const typeNode = declaration?.length === 1 ? declaration[0]!.getTypeNode() : undefined;
+  if (rest.length > 0 || typeNode === undefined || declaration![0]!.hasInitializer() || typeNode.getText() !== type.trim()) {
+    throw dialectError(TYPE_RULE);
+  }
+  return `<${typeNode.getText()}>`;
+}
+
+// Adds `property` to the file's only class with one of `decorators`, then the Angular
+// function it calls (from `@angular/core`) and the author's `imports`.
+function addMember(
+  ast: SourceFile,
+  opName: string,
+  name: string,
+  decorators: readonly string[],
+  property: { initializer: string; scope?: Scope; core: string },
+  imports: readonly NamedImport[] | undefined
+): void {
+  const fail: Fail = (reason) => {
+    throw dialectError(`${opName}("${elementNameEcho(name)}") on "${handlePathFor(ast)}" — ${reason}. Edit it with .modify().`);
+  };
+  const cls = decoratedClass(ast, decorators, fail);
+  insertClassProperty(ast, cls, { name, initializer: property.initializer, scope: property.scope, readonly: true }, fail);
+  addImport(ast, property.core, "@angular/core");
+  for (const entry of imports ?? []) addImport(ast, entry.name, entry.from);
+}
+
+function signalInputOp(opName: string, fn: "input" | "model") {
+  return (ast: SourceFile, name: string, options?: InputOptions): void => {
+    assertValidImportBinding(name, "name");
+    assertOptions(options, ["type", "initial", "required", "imports"]);
+    if (options?.required && options.initial !== undefined) {
+      throw dialectError("`required` and `initial` cannot be combined — drop one, or use `.modify()` to make this edit directly.");
+    }
+    const generic = typeArgument(options?.type);
+    const initial = options?.initial === undefined ? "" : elementText({ expression: options.initial });
+    const initializer = options?.required ? `${fn}.required${generic}()` : `${fn}${generic}(${initial})`;
+    addMember(ast, opName, name, VIEW_DECORATORS, { initializer, core: fn }, options?.imports);
+  };
+}
+
+/**
+ * Adds `readonly name = input<type>(initial)`, or `input.required<type>()` with `required`, to
+ * the file's only `@Component` or `@Directive` class, after its last property, and imports
+ * `input`. The same declaration already there is a no-op.
+ */
+export const addInput = signalInputOp("addInput", "input");
+
+/** Same as `addInput`, with `model()` for a two-way bound property. */
+export const addModel = signalInputOp("addModel", "model");
+
+/** Adds `readonly name = output<type>()` to the file's only `@Component` or `@Directive` class and imports `output`. */
+export function addOutput(ast: SourceFile, name: string, options?: OutputOptions): void {
+  assertValidImportBinding(name, "name");
+  assertOptions(options, ["type", "imports"]);
+  addMember(ast, "addOutput", name, VIEW_DECORATORS, { initializer: `output${typeArgument(options?.type)}()`, core: "output" }, options?.imports);
+}
+
+/**
+ * Adds `private readonly name = inject(token)` to the file's only class decorated with
+ * `@Component`, `@Directive`, `@Pipe`, `@Injectable` or `@Service`, and imports `inject`.
+ * `token` is an identifier or `{ expression }`; `options.scope` replaces `private`.
+ */
+export function addInjection(ast: SourceFile, name: string, token: ArrayElement, options?: InjectionOptions): void {
+  assertValidImportBinding(name, "name");
+  assertOptions(options, ["scope", "imports"]);
+  const initializer = `inject(${elementText(token)})`;
+  addMember(ast, "addInjection", name, INJECTABLE_DECORATORS, { initializer, scope: options?.scope ?? "private", core: "inject" }, options?.imports);
+}
+
+/** Options of `addSignal` and `addComputed`; `scope` defaults to `protected`. */
+export type StateOptions = { type?: string; scope?: Scope; imports?: readonly NamedImport[] };
+
+/**
+ * Adds `protected readonly name = signal<type>(initial)` to the file's only `@Component` or
+ * `@Directive` class and imports `signal`. `options.scope` replaces `protected`.
+ */
+export function addSignal(ast: SourceFile, name: string, initial: string, options?: StateOptions): void {
+  assertValidImportBinding(name, "name");
+  assertOptions(options, ["type", "scope", "imports"]);
+  const initializer = `signal${typeArgument(options?.type)}(${elementText({ expression: initial })})`;
+  addMember(ast, "addSignal", name, VIEW_DECORATORS, { initializer, scope: options?.scope ?? "protected", core: "signal" }, options?.imports);
+}
+
+/**
+ * Adds `protected readonly name = computed<type>(() => expression)` to the file's only
+ * `@Component` or `@Directive` class and imports `computed`. `options.scope` replaces `protected`.
+ */
+export function addComputed(ast: SourceFile, name: string, expression: string, options?: StateOptions): void {
+  assertValidImportBinding(name, "name");
+  assertOptions(options, ["type", "scope", "imports"]);
+  const body = elementText({ expression });
+  // An arrow function reads a leading `{` as a block, so an object literal needs parentheses.
+  const arrow = body.startsWith("{") ? `() => (${body})` : `() => ${body}`;
+  const initializer = `computed${typeArgument(options?.type)}(${arrow})`;
+  addMember(ast, "addComputed", name, VIEW_DECORATORS, { initializer, scope: options?.scope ?? "protected", core: "computed" }, options?.imports);
 }

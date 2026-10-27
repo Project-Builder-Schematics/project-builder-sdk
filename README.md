@@ -591,6 +591,7 @@ await ts.find("src/index.ts")
 | `removeExport(name, from)` | Removes a named re-export; deletes the statement when it was the last one. Idempotent on an absent one. |
 | `removeExportAll(from, { as? })` | Removes `export * from "from"` (or the `as` form). Idempotent on an absent one. |
 | `addArrayElement(locator, element)` | Appends to the array literal `locator` points at (a variable, a call argument, or a decorator argument, then a `path` of keys and `{ key: "value" }` matches), keeping its layout. Creates missing keys; a no-op when the element is already listed. `element` is an identifier, or `{ expression }` for code. |
+| `addClassProperty(className, name, initializer, opts?)` | Adds `{scope }{readonly }name = initializer;` to the only class named `className`, after its last property. A no-op when the same property exists; any other member named `name` rejects. |
 | `addFunction(name, source, opts?)` | Appends a top-level function. `source` **includes** the braces (`"(): void {}"`). |
 | `addVariable(name, initializer, opts?)` | Appends a top-level variable (`kind` defaults to `const`). |
 | `addClass(name, source, opts?)` | Appends a top-level class. `source` **excludes** the braces — the op adds them. |
@@ -689,7 +690,8 @@ exposes ts-morph. See [the NestJS dialect guide](./docs/nestjs-dialect.md).
 ### `@pbuilder/sdk/angular`
 
 Every `@pbuilder/sdk/typescript` op, plus ops for standalone components, the application's root
-providers, and routes. Each op adds the imports its code needs.
+providers, routes, signal inputs, outputs and state, and injected dependencies.
+Each op adds the imports its code needs.
 
 ```ts
 import * as angular from "@pbuilder/sdk/angular";
@@ -702,7 +704,8 @@ await angular.find("src/app/app.routes.ts").addLazyRoute({ path: "admin", loadCh
 ```
 
 Extra named ops: `addComponentImport`, `addComponentProvider`, `addRootProvider`, `addRoute`,
-`addLazyRoute`. `.modify(fn)` exposes ts-morph. See
+`addLazyRoute`, `addInjection`, `addInput`, `addModel`, `addOutput`, `addSignal`, `addComputed`.
+`.modify(fn)` exposes ts-morph. See
 [the Angular dialect guide](./docs/angular-dialect.md).
 
 ### `.modify()` — the universal escape hatch
