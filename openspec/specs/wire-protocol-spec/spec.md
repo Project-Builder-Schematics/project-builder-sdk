@@ -191,6 +191,14 @@ absolute-path-shaped substrings embedded anywhere in that free-text message — 
 project-relative form or the `<outside-project>` placeholder before composing the note,
 mirroring `toProjectRelativePath`'s fallback rule (UNC/WSL shapes route unconditionally to
 `<outside-project>`, the same fail-safe direction as the Windows-drive-letter case — ADR-02).
+Before any shape is matched, the scrub MUST replace the absolute prefixes this host is known
+to own, by exact substring, with fixed tokens: the project root with `<project-root>` and the
+SDK package root with `<sdk>` — each also under its realpath, longest prefix first, a prefix matching only a whole
+path segment, and the bare root `/` never anchored. The tail below the prefix stays verbatim.
+Only what no anchor covers falls through to shape matching, which keeps the `../`-relative /
+`<outside-project>` rule above. A URL is recognised as one unit: a non-`file:` URL passes
+through unchanged, and a `file://` URL keeps its scheme while its path is scrubbed. A UNC
+shape requires a server name and its closing backslash, so a bare `\\` in prose survives.
 This scrub is diagnostics-preserving
 best-effort, NOT itself a security boundary: non-path-shaped secret content that an
 author's own code interpolates into a thrown message (e.g. an env-var value) is NOT
@@ -202,6 +210,9 @@ unaffected — see REQ-RUN-09.2.
 (Previously: no numeric ceiling, no echoed-token rule, and no rule for paths outside the
 project root — M2, B4. This change adds the uncurated-content-class scrub-and-accept-
 residual addendum for the runner's terminal-catch fallback branch.)
+(Previously, for the uncurated scrub: shape matching alone decided where every path began and
+ended, so a path glued to the preceding word leaked, URLs were relativized into
+`https:../host/...`, and any `\\` in prose became `<outside-project>` — SDK #69, #70.)
 
 #### Scenario REQ-WPS-07.1: Error text is bounded and project-relative
 - GIVEN an import/run/parse failure produces an error message
@@ -232,6 +243,21 @@ residual addendum for the runner's terminal-catch fallback branch.)
 - GIVEN a plain `Error` thrown from schematic execution carries a `.message` embedding a UNC or WSL-interop path shape — e.g. `\\server\share\project\config.json`, `\\wsl.localhost\Ubuntu\home\user\project\file.ts`, or `\\wsl$\Ubuntu\home\user\project\file.ts`
 - WHEN the terminal catch composes the stderr note
 - THEN the composed note does NOT contain the UNC/WSL-shaped substring — it is scrubbed to the `<outside-project>` placeholder, via the same unconditional route as ADR-02's Windows-drive-letter rationale
+
+#### Scenario REQ-WPS-07.7: Known host prefixes are anchored to tokens before shape matching
+- GIVEN a plain `Error`'s `.message` embeds a path under the project root or the SDK root — including with no separator before it (e.g. `loaderror/home/user/project/secret.json`)
+- WHEN the terminal catch composes the stderr note
+- THEN that prefix is replaced by `<project-root>` or `<sdk>` (longest prefix first, whole segments only) and the tail below it is kept verbatim
+
+#### Scenario REQ-WPS-07.8: URLs are not mangled
+- GIVEN a plain `Error`'s `.message` embeds a URL (e.g. `fetch failed for https://api.example.com/v1/users`, or `imported from file:///repo/src/factory.ts`)
+- WHEN the terminal catch composes the stderr note
+- THEN a non-`file:` URL passes through unchanged, and a `file://` URL keeps `file://` while its path is scrubbed like any other path
+
+#### Scenario REQ-WPS-07.9: A bare doubled backslash in prose survives
+- GIVEN a plain `Error`'s `.message` contains `\\` that is not followed by a server name and a backslash (e.g. `the pattern uses \\d+ to match digits`)
+- WHEN the terminal catch composes the stderr note
+- THEN the text passes through unchanged
 
 ### REQ-WPS-08: Factory-Pointer Syntax and `ir.emit` Rejection Wire Shape
 

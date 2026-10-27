@@ -3,7 +3,9 @@
 // host/engine internals verbatim, and expresses paths project-relative — never absolute.
 
 import { describe, it, expect } from "bun:test";
-import { relative } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
 import {
   MESSAGE_CEILING_CHARS,
   TOKEN_CEILING_CHARS,
@@ -14,6 +16,7 @@ import {
   formatRelativeCandidate,
   composeWithToken,
   scrubAbsolutePaths,
+  hostAnchors,
 } from "../../src/transport/error-text.ts";
 
 describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
@@ -75,9 +78,9 @@ describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
   });
 
   describe("Scenario REQ-WPS-07.4/.6: scrubAbsolutePaths recognizes real absolute-path shapes across platforms", () => {
-    it("a POSIX absolute path inside the project root resolves via toProjectRelativePath", () => {
+    it("a POSIX absolute path inside the project root is anchored to the <project-root> token", () => {
       const message = "ENOENT: no such file, open '/repo/src/missing.json'";
-      expect(scrubAbsolutePaths(message, "/repo")).toEqual("ENOENT: no such file, open 'src/missing.json'");
+      expect(scrubAbsolutePaths(message, "/repo")).toEqual("ENOENT: no such file, open '<project-root>/src/missing.json'");
     });
 
     it("a POSIX absolute path outside the project root resolves to a ../-relative form, never absolute", () => {
@@ -198,6 +201,76 @@ describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
     it("secret-shaped content with no path-shaped substring is unchanged by scrubAbsolutePaths — a pin, not a new-behavior proof: an identity function satisfies this trivially too, same as the prose-survival cases above", () => {
       const message = "configuration rejected: DB_PASSWORD=hunter2 failed validation";
       expect(scrubAbsolutePaths(message, "/repo")).toEqual(message);
+    });
+  });
+
+  describe("Scenario REQ-WPS-07.7-.9: known absolute prefixes are anchored before any shape is guessed", () => {
+    const ROOT = "/home/user/project";
+    const ANCHORS = [
+      { token: "<project-root>", path: ROOT },
+      { token: "<sdk>", path: "/home/user/project/node_modules/@pbuilder/sdk" },
+    ];
+
+    it("an absolute path glued to the preceding word is still scrubbed (the round-1 regression)", () => {
+      const message = "loaderror/home/user/project/secret.json";
+      expect(scrubAbsolutePaths(message, ROOT, ANCHORS)).toEqual("loaderror<project-root>/secret.json");
+    });
+
+    it("each known prefix maps to its own token, the longest prefix winning, and a spaced tail survives intact", () => {
+      expect(scrubAbsolutePaths("at /home/user/project/node_modules/@pbuilder/sdk/dist/index.js", ROOT, ANCHORS)).toEqual(
+        "at <sdk>/dist/index.js"
+      );
+      expect(scrubAbsolutePaths("open '/home/user/project/Application Support/x/file.ts'", ROOT, ANCHORS)).toEqual(
+        "open '<project-root>/Application Support/x/file.ts'"
+      );
+    });
+
+    it("a prefix only matches a whole path segment, so a sibling directory falls through to the shape pass", () => {
+      const message = "open '/home/user/project-old/x.json'";
+      const expectedRelative = relative(ROOT, "/home/user/project-old/x.json");
+      expect(scrubAbsolutePaths(message, ROOT, ANCHORS)).toEqual(`open '${expectedRelative}'`);
+    });
+
+    it("a root-only anchor ('/') is ignored instead of swallowing every slash", () => {
+      expect(scrubAbsolutePaths("cat '/etc/hosts'", "/", [{ token: "<project-root>", path: "/" }])).toEqual("cat 'etc/hosts'");
+    });
+
+    it("hostAnchors also anchors the realpath of a symlinked project root", () => {
+      const scratch = mkdtempSync(join(tmpdir(), "scrub-anchor-"));
+      try {
+        const real = join(scratch, "real");
+        const link = join(scratch, "link");
+        mkdirSync(real);
+        symlinkSync(real, link);
+        expect(scrubAbsolutePaths(`open '${join(real, "x.json")}'`, link, hostAnchors(link))).toEqual(
+          "open '<project-root>/x.json'"
+        );
+      } finally {
+        rmSync(scratch, { recursive: true, force: true });
+      }
+    });
+
+    it("a non-file URL passes through unchanged", () => {
+      const message = "fetch failed for https://api.example.com/v1/users";
+      expect(scrubAbsolutePaths(message, ROOT, ANCHORS)).toEqual(message);
+    });
+
+    it("a file:// URL keeps its scheme intact while its path is scrubbed", () => {
+      expect(
+        scrubAbsolutePaths("Cannot find module '/home/user/project/x.js' imported from file:///home/user/project/src/factory.ts", ROOT, ANCHORS)
+      ).toEqual("Cannot find module '<project-root>/x.js' imported from file://<project-root>/src/factory.ts");
+      expect(scrubAbsolutePaths("imported from file:///srv/app/x.ts", ROOT, ANCHORS)).toEqual(
+        `imported from file://${relative(ROOT, "/srv/app/x.ts")}`
+      );
+    });
+
+    it("a bare doubled backslash in prose is not mistaken for a UNC path", () => {
+      for (const message of [
+        "UNC paths on Windows start with \\\\ followed by the server name",
+        "the pattern uses \\\\d+ to match digits",
+      ]) {
+        expect(scrubAbsolutePaths(message, ROOT, ANCHORS)).toEqual(message);
+      }
     });
   });
 });
