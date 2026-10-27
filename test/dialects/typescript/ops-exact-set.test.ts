@@ -36,6 +36,7 @@ describe("REQ-TSD-01.1 — exact shipped op-set", () => {
     await run(undefined, { client });
 
     expect(opKeys).toEqual([
+      "addArrayElement",
       "addClass",
       "addDefaultImport",
       "addExportAll",

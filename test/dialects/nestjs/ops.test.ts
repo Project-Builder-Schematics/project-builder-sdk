@@ -141,6 +141,26 @@ describe("nestjs @Module ops", () => {
   });
 });
 
+describe("nestjs @Module ops — a comma inside a comment after the last entry", () => {
+  const moduleWith = (providers: string) =>
+    ['import { Module } from "@nestjs/common";', "", `@Module({ providers: ${providers} })`, "export class AppModule {}", ""].join("\n");
+
+  it("appends after the entry, not inside a block comment", async () => {
+    const content = await edit(moduleWith("[A /* x, y */]"), () => nestjs.find(PATH).addProvider("B", "./b"));
+    expect(content).toContain("@Module({ providers: [A, B /* x, y */] })");
+  });
+
+  it("keeps a multi-line list valid when the last entry has a line comment with a comma", async () => {
+    const content = await edit(moduleWith("[\n    A // a, b\n  ]"), () => nestjs.find(PATH).addProvider("B", "./b"));
+    expect(content).toContain("providers: [\n    A,\n    B // a, b\n  ]");
+  });
+
+  it("still keeps a real trailing comma trailing", async () => {
+    const content = await edit(moduleWith("[\n    A, // a, b\n  ]"), () => nestjs.find(PATH).addProvider("B", "./b"));
+    expect(content).toContain("providers: [\n    A,\n    B, // a, b\n  ]");
+  });
+});
+
 describe("nestjs @Module ops — rejections leave the file unchanged", () => {
   it("rejects a file without a @Module class", async () => {
     const err = await expectReject("export class M {}\n", () => nestjs.find(PATH).addProvider("A", "./a"));

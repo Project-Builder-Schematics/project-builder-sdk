@@ -107,10 +107,19 @@ export function assertValidElementName(elementName: string): void {
  * `IdentifierName` (including reserved words) — `import { name }` requires a `BindingIdentifier`,
  * so a reserved-word check (V5, SEC-1) runs alongside the denylist.
  */
-export function assertValidImportBinding(name: string): void {
-  assertGrammar("name", name, IMPORT_BINDING_GRAMMAR, "be a valid JavaScript identifier");
-  assertNotReservedWord("name", name);
-  assertNotDenylisted("name", name);
+export function assertValidImportBinding(name: string, argName: string = "name"): void {
+  assertGrammar(argName, name, IMPORT_BINDING_GRAMMAR, "be a valid JavaScript identifier");
+  assertNotReservedWord(argName, name);
+  assertNotDenylisted(argName, name);
+}
+
+/**
+ * A plain-identifier object key. Reserved words are legal keys (`{ default: 1 }`), so only the
+ * grammar and the denylist apply: a created `__proto__: [...]` would set the prototype.
+ */
+export function assertValidPropertyKey(key: string, argName: string): void {
+  assertGrammar(argName, key, IMPORT_BINDING_GRAMMAR, "use object keys that are valid JavaScript identifiers");
+  assertNotDenylisted(argName, key);
 }
 
 /**

@@ -15,6 +15,7 @@ import {
   removeExport,
   removeExportAll,
 } from "./ops.ts";
+import { addArrayElement } from "./array-element.ts";
 
 export const typescriptOps = {
   addImport,
@@ -30,4 +31,5 @@ export const typescriptOps = {
   removeImport,
   removeExport,
   removeExportAll,
+  addArrayElement,
 };

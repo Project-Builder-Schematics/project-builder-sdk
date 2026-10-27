@@ -7,10 +7,10 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.modify()` escape hatch, and
 the two dialects currently shipped — `@pbuilder/sdk/typescript`, whose op-pack has widened past
-its original thin starter shape (`addImport`) to thirteen named ops: `addImport`,
+its original thin starter shape (`addImport`) to fourteen named ops: `addImport`,
 `addDefaultImport`, `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`,
 `addExportAll`, `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`,
-`removeExportAll`; and `@pbuilder/sdk/react`, a deliberately minimal v1
+`removeExportAll`, `addArrayElement`; and `@pbuilder/sdk/react`, a deliberately minimal v1
 pair for `.tsx`/JSX authoring: `setJsxProp` and `addImport`.
 
 ## Two audiences
@@ -75,6 +75,49 @@ await ts.find("src/index.ts").addReExport("UserService", "./user.service").addEx
 // -> export { UserService } from "./user.service";
 // -> export * from "./dto";
 ```
+
+`addArrayElement(locator, element)` appends to an array literal nested inside the file, such as
+a `providers` list. The `locator` starts at one of three roots and then follows a `path`:
+
+| Root | Starts at |
+|---|---|
+| `{ variable: "appConfig", path }` | The initializer of the top-level variable |
+| `{ call: "bootstrapApplication", argument: 1, path }` | That argument of the only call to `bootstrapApplication` |
+| `{ decorator: "NgModule", path }` | The argument of the only `@NgModule(...)` decorator |
+
+Each `path` segment is either an object key (`"providers"`) or a match, `{ path: "admin" }`, that
+selects the only array element whose `path` property is that string. There are no numeric
+indices: an index silently points at the wrong element once the array is reordered. At every
+step the op looks through `as`, `satisfies`, `<T>` assertions, non-null `!`, and parentheses.
+
+```ts
+await ts
+  .find("src/app/app.config.ts")
+  .addArrayElement({ variable: "appConfig", path: ["providers"] }, { expression: "provideHttpClient()" });
+// export const appConfig = { providers: [provideRouter(routes)] };
+// -> export const appConfig = { providers: [provideRouter(routes), provideHttpClient()] };
+
+await ts
+  .find("src/app/app.routes.ts")
+  .addArrayElement({ variable: "routes", path: [{ path: "admin" }, "providers"] }, "AdminGuard");
+```
+
+- The new element follows the list's layout: a one-line list stays on one line, a multi-line
+  list gets a new line at the last entry's indentation, and a trailing comma stays trailing.
+- Missing keys are created (`{}` becomes `{ providers: [X] }`), and so is the next missing call
+  or decorator argument (`bootstrapApplication(App)` becomes
+  `bootstrapApplication(App, { providers: [X] })`). A missing root, an argument past the next
+  one, or a match that selects nothing rejects: the op never invents them. A missing key in an
+  object with a spread (`{ ...base }`) or a computed key also rejects, because a created key could
+  silently shadow one the object already gets; so does a key defined by a getter or setter.
+- The root and every match must select exactly one node; zero or several reject.
+- An element already in the array is a no-op. Elements are compared token by token, so spacing,
+  line breaks, comments, and trailing commas do not count.
+- A plain string `element` must be a valid identifier. Code goes in `{ expression: "..." }`, which
+  must parse as exactly one expression, so it cannot close the array or add statements. Its
+  content is otherwise inserted verbatim and is author-trusted, like `addFunction`'s `source`:
+  never build it from consumer input.
+- The op adds no import. Pair it with `addImport` for the element's binding.
 
 `addFunction(name, source, options?)` inserts a new top-level function declaration at the end of
 the file, in call order: `options?.export` prepends `export `. `source` INCLUDES the function's

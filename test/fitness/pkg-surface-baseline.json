@@ -142,6 +142,8 @@
     "dist/dialects/react/index.js",
     "dist/dialects/react/ops.d.ts",
     "dist/dialects/react/ops.js",
+    "dist/dialects/typescript/array-element.d.ts",
+    "dist/dialects/typescript/array-element.js",
     "dist/dialects/typescript/ast.d.ts",
     "dist/dialects/typescript/ast.js",
     "dist/dialects/typescript/index.d.ts",
