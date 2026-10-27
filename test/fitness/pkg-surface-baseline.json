@@ -155,6 +155,8 @@
     "dist/dialects/typescript/array-element.js",
     "dist/dialects/typescript/ast.d.ts",
     "dist/dialects/typescript/ast.js",
+    "dist/dialects/typescript/class-property.d.ts",
+    "dist/dialects/typescript/class-property.js",
     "dist/dialects/typescript/index.d.ts",
     "dist/dialects/typescript/index.js",
     "dist/dialects/typescript/ops.d.ts",

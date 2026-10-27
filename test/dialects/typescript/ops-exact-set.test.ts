@@ -38,6 +38,7 @@ describe("REQ-TSD-01.1 — exact shipped op-set", () => {
     expect(opKeys).toEqual([
       "addArrayElement",
       "addClass",
+      "addClassProperty",
       "addDefaultImport",
       "addExportAll",
       "addFunction",

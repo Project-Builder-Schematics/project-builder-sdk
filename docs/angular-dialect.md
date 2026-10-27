@@ -4,7 +4,7 @@
 op of [`@pbuilder/sdk/typescript`](./authoring-a-dialect.md) (`addImport`, `addDefaultImport`,
 `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`, `addExportAll`,
 `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`, `removeExportAll`,
-`addArrayElement`, and any op the TypeScript dialect gains later) plus ops for standalone
+`addArrayElement`, `addClassProperty`, and any op the TypeScript dialect gains later) plus ops for standalone
 components, the application's root providers, and routes. All ops chain on one handle and the
 file is written once.
 
