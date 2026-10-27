@@ -4,7 +4,7 @@ Inputs: ecosystem demand survey (Engram `project-builder-sdk/ts-ops/ecosystem-de
 
 ## Specs
 
-S1 — Locator root: a typed root plus a JSON-style path. The root is one of three kinds — a top-level variable, an argument of a call, or a decorator — followed by a path of property keys and indices. Owner choice: "Raíz tipada + ruta (Recommended)". Shape agreed in the option preview:
+S1 — Locator root: a typed root plus a path. The root is one of three kinds — a top-level variable, an argument of a call, or a decorator — followed by a path whose segments S4 defines (keys and matches, no indices). Owner choice: "Raíz tipada + ruta (Recommended)". Shape agreed in the option preview (verbatim; the first call's element was later fixed by S2 to `{ expression: "provideHttpClient()" }`, since a plain string must be an identifier):
 
 ```ts
 addArrayElement({ variable: "appConfig", path: ["providers"] }, "provideHttpClient()")
@@ -70,6 +70,7 @@ S8 — Error tails: `addArrayElement(<locator>) on "<path>" — <reason>. Edit i
 | T2 | S7 | inline | done — `appendEntry` moved to `src/dialects/typescript/array-element.ts`; NestJS tests 45 pass; package baseline gains the new dist files | cb660d5 |
 | T3 | S1-S8 | inline | done — RED 60 fail → GREEN 67 pass; typecheck clean; verifier PASS S1-S8 | db43b55 |
 | T4 | S7 | inline | done — trailing comma read from tokens; RED 5 fail → GREEN (TS + NestJS 506 pass) | b07b1e6 |
+| T5 | S5, S8 | inline | done — review findings R3/R2: reject a key a spread/computed key/accessor may supply; name the missing argument; S1 and docs corrected. RED 4 fail → GREEN (510 pass) | pending |
 
 ## Log
 
@@ -84,3 +85,4 @@ L8 (2026-10-28): S6 decided by the owner (option "No-op por estructura (Recommen
 L9 (2026-10-28): T2 + T3 committed (cb660d5, 5fb1b83). Full suite at 5fb1b83: 3578 pass, 8 fail — FIT-14 (new dist files, change-caused) folded into cb660d5 and green; the other 7 reproduce at the base or are environmental (local Bun 1.4.4 vs the 1.3.14 pin; worktree-path e2e and runner-closure tests; quickstart timeout under load, green on rerun). `gentle-ai review assess` 1685bb3..HEAD committed-only: high (executable change in `src/core/jsx-name-validator.ts`, escalated item 2), review due. Independent verifier launched before review.
 L10 (2026-10-28): independent verifier — S1-S8 PASS, no blockers; 52 `{ expression }` breakout probes rejected; 1,440-case NestJS/TS differential byte-identical to 1685bb3. Advisories: (1) a comma inside a comment after the last entry misplaces `appendEntry`'s insert (pre-existing in NestJS); (2) root names and path keys echoed unbounded — an S8 gap, fixed into the feature commit (now db43b55); (3) `{ expression: "a <!-- b" }` accepted (author-trusted, S2); (4) ts-morph `addArgument` drops a call's trailing comma and joins a multi-line argument list — valid output.
 L11 (2026-10-28): owner on advisory 1: "Arreglarlo en esta rama (Recommended)" — T4, own commit b07b1e6; NestJS output changes only where it was invalid or landed inside a comment.
+L12 (2026-10-28): native review (lineage review-e92890f589f3dbfe; lenses risk, readability, reliability; base 1685bb3, committed-only) approved and acknowledged — authority burned. Non-blocking findings: R3 WARNING a missing key beside a spread/accessor/computed key is created and silently shadows; R3 the call-argument missing message named path[0]; R2 S1 said "keys and indices" and its example used a plain-string call; R2 docs listed fewer unwrap forms than the code; R2 `assertValidImportBinding` is now a general identifier validator by name (left as is — renaming touches every op). Owner, verbatim: "si dale" — fix R3 (both) and R2 (S1, docs) as T5.
