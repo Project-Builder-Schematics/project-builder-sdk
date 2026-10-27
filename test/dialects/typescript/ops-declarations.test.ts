@@ -124,6 +124,41 @@ describe("addFunction — REQ-TSD-09", () => {
     expect(err.cause).toBeUndefined();
   });
 
+  const declarationOps = {
+    addFunction: (handle: ReturnType<typeof ts.find>) => handle.addFunction("X", "(): void {}"),
+    addVariable: (handle: ReturnType<typeof ts.find>) => handle.addVariable("X", "0"),
+    addClass: (handle: ReturnType<typeof ts.find>) => handle.addClass("X", ""),
+  };
+  const defaultOrNamespaceBindings = {
+    "default import": 'import X from "m";\n',
+    "namespace import": 'import * as X from "m";\n',
+  };
+
+  for (const [opName, apply] of Object.entries(declarationOps)) {
+    for (const [bindingKind, seed] of Object.entries(defaultOrNamespaceBindings)) {
+      it(`${opName} rejects a name already bound by a ${bindingKind} — no modify emitted`, async () => {
+        const { client, emitted } = makeSpyClient({ "a.ts": seed });
+
+        const run = defineFactory<void>(async () => {
+          await apply(ts.find("a.ts"));
+        });
+
+        let caught: unknown;
+        try {
+          await run(undefined, { client });
+        } catch (err) {
+          caught = err;
+        }
+        expect(caught).toBeInstanceOf(Error);
+        expect((caught as Error).message).toBe(
+          `dialect operation failed: ${opName}("X") on "a.ts" — a value or import binding named "X" already exists; ` +
+            "TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, or edit it with .modify()."
+        );
+        expect(collectModifies(emitted)).toHaveLength(0);
+      });
+    }
+  }
+
   it("final-verify fix (F-2): an existing CLASS declaration collides too — the getClass conjunct in assertNoCollision", async () => {
     const { client } = makeSpyClient({ "a.ts": "class Foo {}\n" });
 

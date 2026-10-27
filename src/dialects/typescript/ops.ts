@@ -281,17 +281,12 @@ function exportPrefixFor(options?: DeclarationOptions): string {
 }
 
 // ADR-0039 collision-namespace pin (owner ruling #4): a VALUE-namespace declaration
-// (`isValueNamespaceClaimed`, S-001-extracted, shared with `addImport`'s Step 2 above) OR a
-// named-import binding under `name` collides, cross-kind; `type`/`interface` are exempt
-// (legal TS coexistence). Syntactic search only (no language service, per REQ-TSD-02.3's own
-// no-LS commitment) — SourceFile-wide, not scope-aware (matches the "no language service
-// needed" owner framing; every signed scenario seeds top-level declarations only).
-//
-// Behaviour-preservation (S-001, ops-declarations.test.ts guard): the import-binding half of
-// this predicate stays NAMED-imports-only, UNCHANGED by the extraction — `addFunction`/
-// `addVariable`/`addClass` stay blind to a default/namespace import collision, same as
-// before (design §4.8's registered "sibling collision-scan asymmetry" followup, not closed
-// by this change).
+// (`isValueNamespaceClaimed`, S-001-extracted, shared with `addImport`'s Step 2 above) OR any
+// import binding under `name` — default, namespace, or named, via the same `boundNamesIn`
+// walk `addImport` uses — collides, cross-kind; `type`/`interface` are exempt (legal TS
+// coexistence). Syntactic search only (no language service, per REQ-TSD-02.3's own no-LS
+// commitment) — SourceFile-wide, not scope-aware (matches the "no language service needed"
+// owner framing; every signed scenario seeds top-level declarations only).
 //
 // `handlePathFor(ast)` (final-verify fix, dialect-handle.ts) is the ONLY channel through
 // which an op function can recover the author-facing path for its own dialectError()-branded
@@ -301,11 +296,7 @@ function exportPrefixFor(options?: DeclarationOptions): string {
 function assertNoCollision(ast: SourceFile, name: string, opName: string): void {
   const collides =
     isValueNamespaceClaimed(ast, name) ||
-    ast
-      .getImportDeclarations()
-      .some((decl) =>
-        decl.getNamedImports().some((named) => (named.getAliasNode()?.getText() ?? named.getName()) === name)
-      );
+    ast.getImportDeclarations().some((decl) => boundNamesIn(decl).some((bound) => bound.localName === name));
   if (!collides) return;
   throw dialectError(
     `${opName}("${name}") on "${handlePathFor(ast)}" — a value or import binding named "${name}" already exists; ` +
