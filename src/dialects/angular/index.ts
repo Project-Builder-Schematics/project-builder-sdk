@@ -4,13 +4,18 @@ import { parse, print } from "../typescript/ast.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import type { ArrayElement } from "../typescript/array-element.ts";
 import {
+  addBootstrap,
   addComponentImport,
   addComponentProvider,
   addComputed,
+  addDeclaration,
   addInjection,
   addInput,
   addLazyRoute,
   addModel,
+  addNgModuleExport,
+  addNgModuleImport,
+  addNgModuleProvider,
   addOutput,
   addRootProvider,
   addRoute,
@@ -41,6 +46,11 @@ type AngularOps = {
   addOutput: (ast: SourceFile, name: string, options?: OutputOptions) => void;
   addSignal: (ast: SourceFile, name: string, initial: string, options?: StateOptions) => void;
   addComputed: (ast: SourceFile, name: string, expression: string, options?: StateOptions) => void;
+  addNgModuleImport: InsertOp;
+  addDeclaration: InsertOp;
+  addNgModuleProvider: InsertOp;
+  addNgModuleExport: InsertOp;
+  addBootstrap: InsertOp;
 };
 
 const angularOps = defineOpPack<SourceFile, AngularOps>({
@@ -55,6 +65,11 @@ const angularOps = defineOpPack<SourceFile, AngularOps>({
   addOutput,
   addSignal,
   addComputed,
+  addNgModuleImport,
+  addDeclaration,
+  addNgModuleProvider,
+  addNgModuleExport,
+  addBootstrap,
 });
 
 const baseDialect = defineDialect({

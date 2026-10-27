@@ -7,13 +7,18 @@ import { RESERVED_HANDLE_NAMES } from "../../../src/core/define-dialect.ts";
 
 const BASE_HANDLE_KEYS: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
 const ANGULAR_OPS = [
+  "addBootstrap",
   "addComponentImport",
   "addComponentProvider",
   "addComputed",
+  "addDeclaration",
   "addInjection",
   "addInput",
   "addLazyRoute",
   "addModel",
+  "addNgModuleExport",
+  "addNgModuleImport",
+  "addNgModuleProvider",
   "addOutput",
   "addRootProvider",
   "addRoute",

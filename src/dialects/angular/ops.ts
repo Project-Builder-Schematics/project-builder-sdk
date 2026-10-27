@@ -1,10 +1,19 @@
-import { Node, SyntaxKind, type ClassDeclaration, type Expression, type SourceFile, type VariableDeclaration } from "ts-morph";
+import {
+  Node,
+  SyntaxKind,
+  type ArrayLiteralExpression,
+  type ClassDeclaration,
+  type Expression,
+  type SourceFile,
+  type VariableDeclaration,
+} from "ts-morph";
 import { dialectError } from "../../core/dialect-error.ts";
 import { handlePathFor } from "../../core/dialect-handle.ts";
 import { assertValidImportBinding } from "../../core/jsx-name-validator.ts";
 import { elementNameEcho } from "../../core/reject-tail.ts";
 import {
   appendArrayElement,
+  appendEntry,
   elementText,
   isSameElement,
   unwrap,
@@ -103,6 +112,26 @@ export const addComponentProvider = insertOp("addComponentProvider", () => ({ de
  */
 export const addRootProvider = insertOp("addRootProvider", rootProviders);
 
+const ngModuleOp = (opName: string, property: string) => insertOp(opName, () => ({ decorator: "NgModule", path: [property] }));
+
+/**
+ * Appends `element` to `imports` of the file's only `@NgModule`, creating the metadata object
+ * or the array when missing, then adds each of `imports`. An equal element is a no-op.
+ */
+export const addNgModuleImport = ngModuleOp("addNgModuleImport", "imports");
+
+/** Same as `addNgModuleImport`, for `declarations`: components, directives and pipes declared `standalone: false`. */
+export const addDeclaration = ngModuleOp("addDeclaration", "declarations");
+
+/** Same as `addNgModuleImport`, for `providers`. */
+export const addNgModuleProvider = ngModuleOp("addNgModuleProvider", "providers");
+
+/** Same as `addNgModuleImport`, for `exports`. */
+export const addNgModuleExport = ngModuleOp("addNgModuleExport", "exports");
+
+/** Same as `addNgModuleImport`, for `bootstrap`. */
+export const addBootstrap = ngModuleOp("addBootstrap", "bootstrap");
+
 /** An eager route: `{ path, component }`, with `component` imported from `from`. */
 export type RouteSpec = { path: string; component: string; from: string };
 
@@ -131,7 +160,38 @@ function pathOf(element: Node): string | undefined {
   return Node.isStringLiteral(value) || Node.isNoSubstitutionTemplateLiteral(value) ? value.getLiteralValue() : undefined;
 }
 
-// Adds `text` to the file's only `Routes` array. Angular matches routes in order and the first
+// The file's routes: the only variable typed `Routes`/`Route[]`, else the routes of the only
+// `RouterModule.forRoot`/`forChild` call — inline, or a same-file variable it names.
+function routesList(ast: SourceFile, fail: Fail): ArrayLiteralExpression {
+  const declarations = typedVariables(ast, ["Routes", "Route[]"]);
+  if (declarations.length > 1) fail(`${declarations.length} top-level variables are typed Routes or Route[]; exactly one is required`);
+  if (declarations.length === 1) {
+    const list = unwrap(declarations[0]!.getInitializerOrThrow());
+    if (!Node.isArrayLiteralExpression(list)) fail(`"${elementNameEcho(declarations[0]!.getName())}" is not an array literal`);
+    return list;
+  }
+  const calls = ast.getDescendantsOfKind(SyntaxKind.CallExpression).filter((call) => {
+    const callee = call.getExpression();
+    return (
+      Node.isPropertyAccessExpression(callee) &&
+      callee.getExpression().getText() === "RouterModule" &&
+      ["forRoot", "forChild"].includes(callee.getName())
+    );
+  });
+  if (calls.length === 0) fail("no top-level variable typed Routes or Route[] and no RouterModule.forRoot or forChild call was found");
+  if (calls.length > 1) fail(`${calls.length} RouterModule.forRoot or forChild calls were found; exactly one is required`);
+  let routes = calls[0]!.getArguments()[0] as Expression | undefined;
+  if (Node.isIdentifier(routes)) {
+    const named = routes.getText();
+    const declaration = ast.getVariableDeclarations().filter((decl) => decl.getName() === named);
+    routes = declaration.length === 1 ? declaration[0]!.getInitializer() : undefined;
+  }
+  const list = routes === undefined ? undefined : unwrap(routes);
+  if (!Node.isArrayLiteralExpression(list)) fail("the RouterModule routes are not an array literal in this file");
+  return list;
+}
+
+// Adds `text` to the file's routes. Angular matches routes in order and the first
 // match wins, so a new route goes before a top-level `**` route instead of after it.
 function insertRoute(ast: SourceFile, opName: string, path: string, text: string): void {
   const label = `${opName}("${elementNameEcho(path)}")`;
@@ -139,14 +199,9 @@ function insertRoute(ast: SourceFile, opName: string, path: string, text: string
     throw dialectError(`${label} on "${handlePathFor(ast)}" — ${reason}. Edit it with .modify().`);
   };
   if (path.startsWith("/")) fail('a route path cannot start with "/"');
-  const declarations = typedVariables(ast, ["Routes", "Route[]"]);
-  if (declarations.length === 0) fail("no top-level variable typed Routes or Route[] was found");
-  if (declarations.length > 1) fail(`${declarations.length} top-level variables are typed Routes or Route[]; exactly one is required`);
-  const name = declarations[0]!.getName();
-  const list = unwrap(declarations[0]!.getInitializerOrThrow());
-  if (!Node.isArrayLiteralExpression(list)) fail(`"${elementNameEcho(name)}" is not an array literal`);
-
   const element = { expression: text };
+  elementText(element);
+  const list = routesList(ast, fail);
   const elements = list.getElements();
   const samePath = elements.find((candidate) => pathOf(candidate) === path);
   if (samePath !== undefined) {
@@ -155,7 +210,7 @@ function insertRoute(ast: SourceFile, opName: string, path: string, text: string
   }
   const wildcard = elements.find((candidate) => pathOf(candidate) === "**");
   if (wildcard === undefined) {
-    appendArrayElement(ast, { variable: name, path: [] }, element, label);
+    appendEntry(ast, list, elements, text, `[${text}]`);
     return;
   }
   const source = ast.getFullText();

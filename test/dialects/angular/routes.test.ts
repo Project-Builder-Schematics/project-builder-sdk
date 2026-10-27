@@ -117,7 +117,7 @@ describe("angular addRoute", () => {
   it("rejects a file without a Routes variable", async () => {
     const error = await expectReject("export const x = [];\n", () => angular.find(PATH).addRoute({ path: "a", component: "A", from: "./a" }));
     expect(error.message).toBe(
-      `dialect operation failed: addRoute("a") on "${PATH}" — no top-level variable typed Routes or Route[] was found. Edit it with .modify().`
+      `dialect operation failed: addRoute("a") on "${PATH}" — no top-level variable typed Routes or Route[] and no RouterModule.forRoot or forChild call was found. Edit it with .modify().`
     );
   });
 
