@@ -9,7 +9,7 @@
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
 import { parse, print } from "./ast.ts";
-import { addImport, addFunction, addVariable, addClass, removeImport } from "./ops.ts";
+import { typescriptOps } from "./pack.ts";
 
 export * as astLibrary from "ts-morph";
 
@@ -29,13 +29,7 @@ type TypeScriptOps = {
   removeImport: (ast: SourceFile, name: string, from: string) => void;
 };
 
-const opsPack = defineOpPack<SourceFile, TypeScriptOps>({
-  addImport,
-  addFunction,
-  addVariable,
-  addClass,
-  removeImport,
-});
+const opsPack = defineOpPack<SourceFile, TypeScriptOps>(typescriptOps);
 
 const baseDialect = defineDialect({
   extensions: [".ts"],

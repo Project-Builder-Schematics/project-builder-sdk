@@ -139,6 +139,8 @@
     "dist/dialects/typescript/index.js",
     "dist/dialects/typescript/ops.d.ts",
     "dist/dialects/typescript/ops.js",
+    "dist/dialects/typescript/pack.d.ts",
+    "dist/dialects/typescript/pack.js",
     "dist/dialects/yaml/ast.d.ts",
     "dist/dialects/yaml/ast.js",
     "dist/dialects/yaml/documents.d.ts",

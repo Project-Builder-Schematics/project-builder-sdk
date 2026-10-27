@@ -44,14 +44,22 @@ function collectTs(dir: string): string[] {
   return files;
 }
 
+// A dialect that extends another one's ops declares that edge here. An edge is one-way:
+// the extended dialect never imports back.
+const ALLOWED_EDGES: Readonly<Record<string, readonly string[]>> = {
+  nestjs: ["typescript"],
+};
+
 /**
  * Returns any cross-dialect imports found in a source file belonging to `ownerDialect`.
- * A cross-dialect import is a relative import that navigates into a sibling dialect directory.
+ * A cross-dialect import is a relative import that navigates into a sibling dialect directory
+ * not listed for `ownerDialect` in `allowedEdges`.
  */
 function findCrossDialectImports(
   source: string,
   ownerDialect: string,
-  allDialects: string[]
+  allDialects: string[],
+  allowedEdges: Readonly<Record<string, readonly string[]>> = ALLOWED_EDGES
 ): string[] {
   const violations: string[] = [];
   const importPattern = /(?:import\s+(?:type\s+)?(?:[^'"]*from\s+)?|import\s*\()['"]([^'"]+)['"]/g;
@@ -65,6 +73,7 @@ function findCrossDialectImports(
     // Check if the specifier navigates into a sibling dialect
     for (const dialect of allDialects) {
       if (dialect === ownerDialect) continue;
+      if (allowedEdges[ownerDialect]?.includes(dialect)) continue;
       // e.g. ../../dialects/ts-morph or ../ts-morph (when inside the dialect dir itself)
       if (specifier.includes(`dialects/${dialect}`) || specifier.includes(`/${dialect}/`)) {
         violations.push(specifier);
@@ -140,5 +149,17 @@ import { currentContext } from "../../core/context.ts";
     const crossImports = findCrossDialectImports(fixtureSource, ownerDialect, allDialects);
 
     expect(crossImports).toEqual([]);
+  });
+
+  it("[red-proof] a declared edge allows only its own direction and target", () => {
+    const allDialects = ["nestjs", "typescript", "react"];
+    const nestSource = `
+import { typescriptOps } from "../typescript/pack.ts";
+import { addImport } from "../react/ops.ts";
+`;
+    const typescriptSource = `import { nestOps } from "../nestjs/ops.ts";`;
+
+    expect(findCrossDialectImports(nestSource, "nestjs", allDialects)).toEqual(["../react/ops.ts"]);
+    expect(findCrossDialectImports(typescriptSource, "typescript", allDialects)).toEqual(["../nestjs/ops.ts"]);
   });
 });
