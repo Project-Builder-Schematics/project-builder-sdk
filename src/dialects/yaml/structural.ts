@@ -246,13 +246,18 @@ export function updateValue<T extends YamlValue>(
 const isInside = (inner: YamlPath, outer: YamlPath): boolean =>
   inner.length > outer.length && outer.every((segment, index) => inner[index] === segment);
 
-function detach(document: Document, path: YamlPath): Node {
+// Returns the detached node and the comment above its key, which travels with it.
+function detach(document: Document, path: YamlPath): { node: Node; keyComment: string | undefined } {
   const slot = resolve("moveValue", document, path, "write");
   const node = slot.node!;
+  let keyComment: string | undefined;
   if (slot.parent === null) document.contents = null;
-  else if (isMap(slot.parent)) slot.parent.items.splice(slot.parent.items.indexOf(findPair(slot.parent, slot.segment as string)!), 1);
-  else slot.parent.items.splice(slot.segment as number, 1);
-  return node;
+  else if (isMap(slot.parent)) {
+    const pair = findPair(slot.parent, slot.segment as string)!;
+    keyComment = (pair.key as Node).commentBefore ?? undefined;
+    slot.parent.items.splice(slot.parent.items.indexOf(pair), 1);
+  } else slot.parent.items.splice(slot.segment as number, 1);
+  return { node, keyComment };
 }
 
 /** Moves the value at `from` to `to` (RFC 6902 move): a number last segment inserts. */
@@ -267,14 +272,19 @@ export function moveValue(ast: YamlStream, from: YamlPath, to: YamlPath, options
     if (resolve("moveValue", document, to, "read").node !== null) return;
     fail("moveValue", from, "neither the source nor the destination exists.");
   }
-  const node = detach(document, from);
+  const { node, keyComment } = detach(document, from);
   const last = to[to.length - 1];
   if (typeof last === "number") {
     const seq = requireSequence("moveValue", document, to.slice(0, -1));
     assertIndex("moveValue", to, last, seq.items.length);
+    if (keyComment !== undefined) node.commentBefore = node.commentBefore ? `${keyComment}\n${node.commentBefore}` : keyComment;
     seq.items.splice(last, 0, node);
   } else {
-    writeSlot(document, resolve("moveValue", document, to, "create"), node);
+    const slot = resolve("moveValue", document, to, "create");
+    writeSlot(document, slot, node);
+    if (slot.node === null && keyComment !== undefined && isMap(slot.parent)) {
+      (findPair(slot.parent, last as string)!.key as Node).commentBefore = keyComment;
+    }
   }
   assertAliasesResolve("moveValue", document);
 }

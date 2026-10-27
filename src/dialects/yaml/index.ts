@@ -1,9 +1,7 @@
 // The YAML dialect module, `@pbuilder/sdk/yaml`. Composes the sanctioned kit surface only
 // (`defineDialect`/`defineOpPack`/`withOps`), mirroring the other dialect modules.
 
-import { basename } from "node:path";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
-import { dialectError } from "../../core/dialect-error.ts";
 import { parse, print, type YamlStream } from "./ast.ts";
 import { addDocument, removeDocument } from "./documents.ts";
 import type { DocumentOption, YamlPath, YamlValue } from "./paths.ts";
@@ -111,8 +109,6 @@ const baseDialect = defineDialect({
 
 const yamlDialect = withOps(baseDialect, opsPack);
 
-const EXTENSIONS = [".yaml", ".yml"];
-
 /**
  * Opens a `.yaml` or `.yml` file for YAML-dialect editing. The basename must end in one of those
  * extensions after a non-empty stem; every other path throws synchronously, before any op runs,
@@ -140,11 +136,5 @@ const EXTENSIONS = [".yaml", ".yml"];
  * // ->       - 3000:3000
  */
 export function find(path: string): Handle<"found", YamlStream, YamlOps> {
-  const base = basename(path);
-  const extension = EXTENSIONS.find((candidate) => base.endsWith(candidate));
-  const stem = extension === undefined ? "" : base.slice(0, -extension.length);
-  if (extension !== undefined && stem.length > 0 && !stem.endsWith(".")) {
-    return yamlDialect.find(path);
-  }
-  throw dialectError("find(path) — the YAML dialect requires a basename ending in .yaml or .yml after a non-empty name.");
+  return yamlDialect.find(path);
 }

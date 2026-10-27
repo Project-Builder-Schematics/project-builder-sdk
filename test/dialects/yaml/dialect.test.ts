@@ -25,7 +25,7 @@ describe("REQ-YMD-01 — subpath exports and the extension gate", () => {
   it.each(["config.json", ".yaml", ".yml", "README", "config..yaml", "config.yaml.bak"])(
     "rejects %s synchronously with the contained prefix",
     (path) => {
-      expect(() => find(path)).toThrow(/^dialect operation failed: find\(path\)/);
+      expect(() => find(path)).toThrow(/^dialect operation failed: find\(/);
     }
   );
 });

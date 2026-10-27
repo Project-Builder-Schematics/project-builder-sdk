@@ -3,7 +3,8 @@
 // document: a document whose serialization still equals the one taken right after parse is
 // printed from its original source slice; only touched documents are re-serialized.
 
-import { Document, isAlias, isNode, parseAllDocuments, visit, type DocumentOptions, type ParseOptions, type SchemaOptions, type ToStringOptions } from "yaml";
+import { stringifyString } from "yaml/util";
+import { Document, isAlias, isMap, isNode, isScalar, isSeq, parseAllDocuments, visit, type DocumentOptions, type ParseOptions, type SchemaOptions, type ToStringOptions } from "yaml";
 
 /** The YAML dialect's AST: every document of a file, in order. */
 export interface YamlStream {
@@ -69,6 +70,44 @@ function assertAliasesDefined(document: Document): void {
   });
 }
 
+// The library keeps a comment above the first entry of a block collection on the collection
+// itself; moving it onto that entry lets ops read, replace, remove, sort, and move it with the
+// entry. Both spellings print the same.
+function attachLeadingComments(document: Document): void {
+  visit(document, (_, node) => {
+    if (!(isMap(node) || isSeq(node)) || node.flow === true || !node.commentBefore || node.items.length === 0) return;
+    const first = node.items[0];
+    const holder = isMap(node) ? (first as { key: unknown }).key : first;
+    if (!isNode(holder)) return;
+    holder.commentBefore = holder.commentBefore ? `${node.commentBefore}\n${holder.commentBefore}` : node.commentBefore;
+    node.commentBefore = undefined;
+  });
+}
+
+// A tag the schema does not know falls back to the string stringifier, which quotes a value
+// such as `8080` to keep it a string. The explicit tag already decides how the value resolves,
+// so each unknown tag gets a pass-through entry that leaves the scalar's own style alone.
+function registerUnknownTags(document: Document): void {
+  const known = new Set(document.schema.tags.map((tag) => tag.tag));
+  const extra: typeof document.schema.tags = [];
+  visit(document, {
+    Scalar(_, scalar) {
+      if (scalar.tag === undefined || known.has(scalar.tag)) return;
+      known.add(scalar.tag);
+      extra.push({
+        tag: scalar.tag,
+        default: false,
+        resolve: (source: string) => source,
+        stringify: (item, ctx, onComment, onChompKeep) =>
+          isScalar(item) && typeof item.value === "string"
+            ? stringifyString(item, ctx, onComment, onChompKeep)
+            : String((item as { value: unknown }).value),
+      });
+    },
+  });
+  if (extra.length > 0) document.schema.tags = [...document.schema.tags, ...extra];
+}
+
 /** A document created by an op, sharing the parse options so merge keys resolve alike. */
 export function newDocument(value?: unknown): Document {
   if (value === undefined) {
@@ -91,6 +130,7 @@ export function parse(source: string): YamlStream {
   for (const document of documents) {
     if (document.errors.length > 0) throw new Error(`invalid YAML: ${document.errors[0]!.message}`);
     assertAliasesDefined(document);
+    attachLeadingComments(document);
   }
   const stream: YamlStream = { documents };
   streamStates.set(stream, {
@@ -107,7 +147,7 @@ export function parse(source: string): YamlStream {
     const options = inferOptions(slice);
     documentStates.set(document, {
       slice,
-      fresh: document.toString(options),
+      fresh: (registerUnknownTags(document), document.toString(options)),
       marker: document.directives.docStart === true,
       options,
     });
@@ -117,6 +157,7 @@ export function parse(source: string): YamlStream {
 }
 
 function printDocument(document: Document, position: number, stream: StreamState): string {
+  registerUnknownTags(document);
   const state = documentStates.get(document);
   if (state !== undefined && document.toString(state.options) === state.fresh) {
     return position > 0 && !state.marker ? `---${stream.eol}${state.slice}` : state.slice;
