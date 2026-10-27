@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { createRequire } from "node:module";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -8,6 +8,10 @@ import type { Dialect } from "../../src/core/define-dialect.ts";
 import type { DialectFixture, DialectModule } from "../../src/conformance/index.ts";
 import { testDialect } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
+
+// Each entry runs the kit's 4 MiB mandatory sample through its own parser; the yaml parser
+// alone takes several seconds on it, past Bun's 5000ms default.
+setDefaultTimeout(20000);
 
 const fixture = { ...DIALECT_MODULES[0], samples: [...DIALECT_MODULES[0].samples] };
 const scratch = scratchDirFactory("dialect-module-");
