@@ -210,11 +210,10 @@ function directiveInsertIndex(ast: SourceFile, directiveCount: number): number {
  * Idempotent: calling this twice with the same `name`+`from` produces a single import line,
  * never a duplicate (REQ-TSD-03.10).
  *
- * Trust boundary (REQ-TSD-13.5): `name` and `from` are the ONLY two channels this op
- * validates. `addFunction`/`addVariable`/`addClass`'s own `name`/`source`/`initializer`
- * arguments remain RAW-SPLICED, author-trusted input this change does NOT validate or
- * protect — that gap is tracked separately in `project/pending-changes`, out of this
- * change's scope.
+ * Trust boundary (REQ-TSD-13.5): every op in this dialect validates its `name` the same way
+ * (and `addVariable` its `kind`), but `addFunction`'s `source`, `addVariable`'s `initializer`
+ * and `addClass`'s `source` are code bodies, not identifiers — they remain RAW-SPLICED,
+ * author-trusted input that no op validates or escapes.
  */
 export function addImport(ast: SourceFile, name: string, from: string): void {
   // REQ-TSD-13 validation gate: a deliberately PATH-LESS reject (contrast Step 2's path-ful
@@ -276,6 +275,8 @@ export function addImport(ast: SourceFile, name: string, from: string): void {
 // composes it with its own extra `kind` member.
 type DeclarationOptions = { export?: boolean };
 
+const VARIABLE_KINDS: readonly string[] = ["const", "let", "var"];
+
 function exportPrefixFor(options?: DeclarationOptions): string {
   return options?.export === true ? "export " : "";
 }
@@ -319,6 +320,7 @@ function assertNoCollision(ast: SourceFile, name: string, opName: string): void 
  * // contrast addClass, whose source EXCLUDES braces (the op adds them).
  */
 export function addFunction(ast: SourceFile, name: string, source: string, options?: DeclarationOptions): void {
+  assertValidImportBinding(name);
   assertNoCollision(ast, name, "addFunction");
   ast.addStatements(`${exportPrefixFor(options)}function ${name}${source}`);
 }
@@ -339,8 +341,17 @@ export function addVariable(
   initializer: string,
   options?: DeclarationOptions & { kind?: "const" | "let" | "var" }
 ): void {
-  assertNoCollision(ast, name, "addVariable");
+  assertValidImportBinding(name);
   const kind = options?.kind ?? "const";
+  // `kind` is spliced into the emitted statement, so a value outside the TS type (a cast, or
+  // a plain-JS caller) must never reach `addStatements`; it is never echoed back.
+  if (!VARIABLE_KINDS.includes(kind)) {
+    throw dialectError(
+      `addVariable("${name}") on "${handlePathFor(ast)}" — \`kind\` must be "const", "let", or "var". ` +
+        "Fix the option, or edit the file with .modify()."
+    );
+  }
+  assertNoCollision(ast, name, "addVariable");
   ast.addStatements(`${exportPrefixFor(options)}${kind} ${name} = ${initializer};`);
 }
 
@@ -359,6 +370,7 @@ export function addVariable(
  * // contrast addFunction, whose source INCLUDES braces (the op does NOT add them itself).
  */
 export function addClass(ast: SourceFile, name: string, source: string, options?: DeclarationOptions): void {
+  assertValidImportBinding(name);
   assertNoCollision(ast, name, "addClass");
   ast.addStatements(`${exportPrefixFor(options)}class ${name} {\n${source}\n}`);
 }
@@ -383,6 +395,7 @@ export function addClass(ast: SourceFile, name: string, source: string, options?
  * is first-match-only. Sibling declarations from the same module are never touched.
  */
 export function removeImport(ast: SourceFile, name: string, from: string): void {
+  assertValidImportBinding(name);
   const decls = ast.getImportDeclarations().filter((d) => d.getModuleSpecifierValue() === from);
   for (const decl of decls) {
     const namedImports = decl.getNamedImports();
