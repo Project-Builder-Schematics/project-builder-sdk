@@ -268,3 +268,50 @@ describe("coalescing", () => {
     expect(value(out)).toEqual({ title: "app", version: "1.0.0", files: ["dist"] });
   });
 });
+
+describe("trailing line comments stay with their member", () => {
+  it("sortKeys keeps each member's trailing comment on its line, moving the comma", async () => {
+    expect(await edited('{\n  "b": 1, // bee\n  "a": 2 // ay\n}\n', (h) => h.sortKeys([]))).toBe(
+      '{\n  "a": 2, // ay\n  "b": 1 // bee\n}\n'
+    );
+    expect(
+      await edited('{\n  "target": "es2022", // modern\n  "module": "esnext"\n}\n', (h) => h.sortKeys([]))
+    ).toBe('{\n  "module": "esnext",\n  "target": "es2022" // modern\n}\n');
+  });
+
+  it("removeKey of the last member keeps the previous member's comment", async () => {
+    expect(await edited('{\n  "a": 1, // one\n  "b": 2 // two\n}\n', (h) => h.removeKey(["b"]))).toBe('{\n  "a": 1 // one\n}\n');
+  });
+
+  it("removeKey of a middle member drops its own leading and trailing comments only", async () => {
+    expect(
+      await edited('{\n  "a": 1, // one\n  // about b\n  "b": 2, // two\n  "c": 3 // three\n}\n', (h) => h.removeKey(["b"]))
+    ).toBe('{\n  "a": 1, // one\n  "c": 3 // three\n}\n');
+  });
+
+  it("removeItem, removeValue, and moveValue keep the surviving items' comments", async () => {
+    const seed = '{\n  "x": [\n    1, // one\n    2 // two\n  ]\n}\n';
+    const kept = '{\n  "x": [\n    1 // one\n  ]\n}\n';
+    expect(await edited(seed, (h) => h.removeItem(["x"], 1))).toBe(kept);
+    expect(await edited(seed, (h) => h.removeValue(["x"], 2))).toBe(kept);
+    expect(await edited('{\n  "a": 1, // one\n  "b": 2 // two\n}\n', (h) => h.moveValue(["b"], ["c"]))).toBe(
+      '{\n  "a": 1, // one\n  "c": 2\n}\n'
+    );
+  });
+
+  it("appending after a member with a trailing comment leaves the comment on that member", async () => {
+    expect(await edited('{\n  "x": [\n    1 // one\n  ]\n}\n', (h) => h.appendItem(["x"], 2))).toBe(
+      '{\n  "x": [\n    1, // one\n    2\n  ]\n}\n'
+    );
+    expect(await edited('{\n  "a": 1 // one\n}\n', (h) => h.setValue(["b"], 2))).toBe('{\n  "a": 1, // one\n  "b": 2\n}\n');
+    expect(await edited('{\n  "a": 1 // one\n}\n', (h) => h.setValue(["d", "e"], 3))).toBe(
+      '{\n  "a": 1, // one\n  "d": {\n    "e": 3\n  }\n}\n'
+    );
+  });
+
+  it("inserting before a member keeps that member's leading comment with it", async () => {
+    expect(await edited('{\n  "a": 1,\n  // about c\n  "c": 3\n}\n', (h) => h.addKey(["b"], 2, { before: "c" }))).toBe(
+      '{\n  "a": 1,\n  "b": 2,\n  // about c\n  "c": 3\n}\n'
+    );
+  });
+});

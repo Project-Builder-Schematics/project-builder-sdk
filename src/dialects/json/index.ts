@@ -1,6 +1,4 @@
-import { basename } from "node:path";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
-import { dialectError } from "../../core/dialect-error.ts";
 import type { JsonPath, JsonValue } from "../../core/json-value.ts";
 import { parse, print, type JsonDocument } from "./ast.ts";
 import {
@@ -95,9 +93,5 @@ const jsonDialect = withOps(defineDialect({ extensions: [".json", ".jsonc"], ast
  * // -> }
  */
 export function find(path: string): Handle<"found", JsonDocument, JsonOps> {
-  const base = basename(path);
-  const extension = [".json", ".jsonc"].find((candidate) => base.endsWith(candidate));
-  const stem = extension === undefined ? "" : base.slice(0, -extension.length);
-  if (stem.length > 0 && !stem.endsWith(".")) return jsonDialect.find(path);
-  throw dialectError("find(path) — the JSON dialect accepts only .json and .jsonc files with a name before the extension.");
+  return jsonDialect.find(path);
 }

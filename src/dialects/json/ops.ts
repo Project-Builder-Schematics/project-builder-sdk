@@ -149,8 +149,9 @@ interface WriteOptions {
 
 function write(op: string, doc: JsonDocument, path: JsonPath, value: JsonValue | undefined, options: WriteOptions = {}): void {
   const located = locate(op, doc.text, path);
-  const formattingOptions = formattingFor(doc.text, located, path);
   const { position } = options;
+  if (value !== undefined && located.node === undefined && insertKeyLine(doc, located, path, value, position)) return;
+  const formattingOptions = formattingFor(doc.text, located, path);
   const edits = modify(doc.text, [...path], value, {
     formattingOptions,
     getInsertionIndex:
@@ -170,21 +171,84 @@ function splice(doc: JsonDocument, start: number, stop: number, content: string)
   doc.text = doc.text.slice(0, start) + content + doc.text.slice(stop);
 }
 
+interface MemberLine {
+  /** Start of the member's leading lines (indentation and comment lines above it). */
+  leadStart: number;
+  /** Offset of the separator comma on the member's last line, or `-1`. */
+  comma: number;
+  /** End of the member's last line, before its line ending. */
+  tailEnd: number;
+  /** Start of the next line. */
+  lineEnd: number;
+}
+
+// Line-oriented layout of a container whose members each end their own line: a member owns
+// the comment lines above it and the trailing comment on its last line, so edits move or drop
+// those together with it. `undefined` for any other shape (one-line containers, two members on
+// one line, a comma at the start of the next line).
+function lineLayout(text: string, container: Node): MemberLine[] | undefined {
+  const children = container.children ?? [];
+  let leadStart = text.indexOf("\n", container.offset) + 1;
+  if (children.length === 0 || leadStart === 0 || leadStart > children[0]!.offset) return undefined;
+  const lines: MemberLine[] = [];
+  for (const [index, member] of children.entries()) {
+    const newline = text.indexOf("\n", end(member));
+    const next = children[index + 1];
+    if (newline === -1 || newline >= (next?.offset ?? end(container) - 1)) return undefined;
+    const tailEnd = text[newline - 1] === "\r" ? newline - 1 : newline;
+    const commaEnd = afterComma(text, end(member), tailEnd);
+    const comma = commaEnd > end(member) ? commaEnd - 1 : -1;
+    if (comma === -1 && next !== undefined) return undefined;
+    lines.push({ leadStart, comma, tailEnd, lineEnd: newline + 1 });
+    leadStart = newline + 1;
+  }
+  return lines;
+}
+
 // Removals and array insertions are computed against the existing separators rather than
-// through jsonc-parser: its unformatted removal assumes the closing bracket sits on its own line.
+// through jsonc-parser: its unformatted removal assumes the closing bracket sits on its own
+// line, and its insertions put the new member between a member and its trailing comment.
 function removeAt(op: string, doc: JsonDocument, path: JsonPath): void {
   const node = locate(op, doc.text, path).node!;
   const member = typeof path.at(-1) === "number" ? node : node.parent!;
   const container = member.parent!;
   const children = container.children!;
   const index = children.indexOf(member);
+  const lines = lineLayout(doc.text, container);
   if (children.length === 1) {
     splice(doc, container.offset + 1, end(container) - 1, "");
+  } else if (lines !== undefined) {
+    const line = lines[index]!;
+    const previousComma = index === children.length - 1 && line.comma === -1 ? lines[index - 1]!.comma : -1;
+    splice(doc, line.leadStart, line.lineEnd, "");
+    if (previousComma !== -1) splice(doc, previousComma, previousComma + 1, "");
   } else if (index < children.length - 1) {
     splice(doc, member.offset, children[index + 1]!.offset, "");
   } else {
     splice(doc, end(children[index - 1]!), end(member), "");
   }
+}
+
+function indentUnit(text: string): string {
+  const format = detectFormatting(text);
+  return format.insertSpaces ? " ".repeat(format.tabSize ?? 2) : "\t";
+}
+
+// Inserts `prefix + value` as its own line(s) before member `index`, or after the last member.
+function insertLine(doc: JsonDocument, container: Node, lines: MemberLine[], index: number, prefix: string, value: JsonValue): void {
+  const text = doc.text;
+  const at = lines[Math.min(index, lines.length - 1)]!;
+  const member = container.children![Math.min(index, lines.length - 1)]!;
+  const indent = /[ \t]*$/.exec(text.slice(0, member.offset))![0];
+  const eol = text.slice(lines[0]!.tailEnd, lines[0]!.lineEnd);
+  const line = indent + prefix + JSON.stringify(value, null, indentUnit(text)).split("\n").join(eol + indent);
+  if (index < lines.length) {
+    splice(doc, at.leadStart, at.leadStart, `${line},${eol}`);
+    return;
+  }
+  splice(doc, at.lineEnd, at.lineEnd, `${line}${at.comma === -1 ? "" : ","}${eol}`);
+  const last = container.children!.at(-1)!;
+  if (at.comma === -1) splice(doc, end(last), end(last), ",");
 }
 
 function insertAt(op: string, doc: JsonDocument, path: JsonPath, index: number, value: JsonValue): void {
@@ -195,16 +259,35 @@ function insertAt(op: string, doc: JsonDocument, path: JsonPath, index: number, 
     return;
   }
   const text = doc.text;
+  const lines = lineLayout(text, array);
+  if (lines !== undefined) {
+    insertLine(doc, array, lines, index, "", value);
+    return;
+  }
   const anchor = items[Math.min(index, items.length - 1)]!;
   const indent = text.slice(text.lastIndexOf("\n", anchor.offset - 1) + 1, anchor.offset);
   const ownLine = text.slice(array.offset, end(array)).includes("\n") && /^[ \t]*$/.test(indent);
-  const format = detectFormatting(text);
-  const eol = format.eol ?? "\n";
-  const unit = format.insertSpaces ? " ".repeat(format.tabSize ?? 2) : "\t";
-  const rendered = ownLine ? JSON.stringify(value, null, unit).split("\n").join(eol + indent) : JSON.stringify(value);
+  const eol = detectFormatting(text).eol ?? "\n";
+  const rendered = ownLine ? JSON.stringify(value, null, indentUnit(text)).split("\n").join(eol + indent) : JSON.stringify(value);
   const gap = ownLine ? eol + indent : " ";
   if (index < items.length) splice(doc, anchor.offset, anchor.offset, `${rendered},${gap}`);
   else splice(doc, end(anchor), end(anchor), `,${gap}${rendered}`);
+}
+
+// A new key in an existing line-layout object is inserted here; everything else goes through
+// jsonc-parser. Returns whether it handled the write.
+function insertKeyLine(doc: JsonDocument, located: Located, path: JsonPath, value: JsonValue, position?: KeyPosition): boolean {
+  const depth = located.missingDepth;
+  const container = depth > 0 ? located.nodes[depth - 1] : undefined;
+  if (container?.type !== "object") return false;
+  const lines = lineLayout(doc.text, container);
+  if (lines === undefined) return false;
+  const nested = path.slice(depth).reduceRight<JsonValue>((inner, key) => ({ [key]: inner }), value);
+  const keys = container.children!.map((property) => property.children![0]!.value as string);
+  const sibling = position?.before ?? position?.after;
+  const index = sibling === undefined ? keys.length : keys.indexOf(sibling) + (position?.after !== undefined ? 1 : 0);
+  insertLine(doc, container, lines, index, `${JSON.stringify(path[depth - 1])}: `, nested);
+  return true;
 }
 
 function assertPosition(op: string, path: JsonPath, position: KeyPosition | undefined): void {
@@ -461,7 +544,7 @@ function afterComma(text: string, start: number, end: number): number {
 function sortedText(text: string, node: Node, recursive: boolean): string {
   const slice = (from: number, to: number) => text.slice(from, to);
   const render = (child: Node) => (recursive ? sortedText(text, child, true) : slice(child.offset, child.offset + child.length));
-  const end = node.offset + node.length;
+  const nodeEnd = end(node);
   const children = node.children ?? [];
   if (node.type === "array") {
     let out = "";
@@ -470,9 +553,9 @@ function sortedText(text: string, node: Node, recursive: boolean): string {
       out += slice(cursor, child.offset) + render(child);
       cursor = child.offset + child.length;
     }
-    return out + slice(cursor, end);
+    return out + slice(cursor, nodeEnd);
   }
-  if (node.type !== "object" || children.length === 0) return slice(node.offset, end);
+  if (node.type !== "object" || children.length === 0) return slice(node.offset, nodeEnd);
   const members = children.map((property, index) => {
     const previous = children[index - 1];
     const leadStart = previous === undefined ? node.offset + 1 : afterComma(text, previous.offset + previous.length, property.offset);
@@ -486,10 +569,31 @@ function sortedText(text: string, node: Node, recursive: boolean): string {
   });
   const sorted = [...members].sort((a, b) => compareCodePoints(a.key, b.key));
   const last = children.at(-1)!;
+  const lines = lineLayout(text, node);
+  if (lines !== undefined) {
+    // Each member carries its trailing comment; commas are re-placed by position.
+    const trailingComma = lines.at(-1)!.comma !== -1;
+    const tails = children.map((property, index) => {
+      const { comma, tailEnd } = lines[index]!;
+      return comma === -1 ? slice(end(property), tailEnd) : slice(end(property), comma) + slice(comma + 1, tailEnd);
+    });
+    const order = sorted.map((member) => members.indexOf(member));
+    return (
+      slice(node.offset, lines[0]!.leadStart) +
+      order
+        .map((from, position) => {
+          const lead = slice(lines[from]!.leadStart, children[from]!.offset);
+          const comma = position < children.length - 1 || trailingComma ? "," : "";
+          return lead + members[from]!.body + comma + tails[from] + slice(lines[position]!.tailEnd, lines[position]!.lineEnd);
+        })
+        .join("") +
+      slice(lines.at(-1)!.lineEnd, nodeEnd)
+    );
+  }
   return (
     "{" +
     sorted.map((member, index) => members[index]!.separator + member.lead + member.body).join("") +
-    slice(last.offset + last.length, end)
+    slice(last.offset + last.length, nodeEnd)
   );
 }
 

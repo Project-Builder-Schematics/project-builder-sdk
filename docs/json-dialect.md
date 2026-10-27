@@ -213,6 +213,10 @@ indented line, falling back to two spaces) and the document's own line ending. I
 one-line container, edits stay on that line (`{ "a": 1 }` gains `, "b": 2`) instead of
 reformatting it.
 
+In a container where each member ends its own line, a member owns the comment lines above it
+and the trailing comment on its last line: removing it drops them, sorting moves them with it,
+and inserting next to it never separates them from it.
+
 ## The escape hatch: `.modify(fn)`
 
 Comments have no named op. For comments, or any edit the ops do not cover, `.modify(fn)` hands

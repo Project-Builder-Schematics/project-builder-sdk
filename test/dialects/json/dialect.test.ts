@@ -6,7 +6,9 @@ import { edited, expectRejected, expectUnchanged, runJson } from "./run-json.ts"
 describe("REQ-JSD-01.2 — find() extension gate", () => {
   for (const path of ["config.yaml", ".json", "README", "src/.jsonc", "a..json", "file.json5"]) {
     it(`rejects ${JSON.stringify(path)} synchronously with the contained prefix`, () => {
-      expect(() => json.find(path)).toThrow(/^dialect operation failed: find\(path\) — the JSON dialect accepts only/);
+      expect(() => json.find(path)).toThrow(
+        /^dialect operation failed: find\(.*\) — the file's extension is not one this dialect declares \(\.json, \.jsonc\)\.$/
+      );
     });
   }
 
