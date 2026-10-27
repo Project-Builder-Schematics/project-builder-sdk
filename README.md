@@ -585,7 +585,11 @@ await ts.find("src/index.ts")
 | `addNamespaceImport(name, from)` | Adds `import * as name from "from"`, merging into a default-only declaration; beside named imports it opens its own. |
 | `addTypeImport(name, from)` | Adds `import type { name } from "from"` as its own statement. A no-op when the module already imports `name`, by value or as a type. |
 | `addSideEffectImport(from)` | Adds `import "from"`. A no-op when that bare import already exists. |
+| `addReExport(name, from)` | Adds `export { name } from "from"`, merging into an existing re-export of that module. Rejects a name the file already exports. |
+| `addExportAll(from, { as? })` | Adds `export * from "from"`, or `export * as ns from "from"` with `{ as: "ns" }`. |
 | `removeImport(name, from)` | Removes the named binding; deletes the whole statement when it was the last one. Idempotent on an absent binding. |
+| `removeExport(name, from)` | Removes a named re-export; deletes the statement when it was the last one. Idempotent on an absent one. |
+| `removeExportAll(from, { as? })` | Removes `export * from "from"` (or the `as` form). Idempotent on an absent one. |
 | `addFunction(name, source, opts?)` | Appends a top-level function. `source` **includes** the braces (`"(): void {}"`). |
 | `addVariable(name, initializer, opts?)` | Appends a top-level variable (`kind` defaults to `const`). |
 | `addClass(name, source, opts?)` | Appends a top-level class. `source` **excludes** the braces — the op adds them. |

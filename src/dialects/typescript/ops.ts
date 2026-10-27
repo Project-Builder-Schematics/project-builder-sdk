@@ -29,6 +29,7 @@
 
 import {
   SyntaxKind,
+  type ExportDeclaration,
   type ImportDeclaration,
   type ImportDeclarationStructure,
   type OptionalKind,
@@ -529,4 +530,138 @@ export function removeImport(ast: SourceFile, name: string, from: string): void 
     }
     return;
   }
+}
+
+// Every name the file already exports: re-export specifiers (by their visible name),
+// `export * as ns`, and exported top-level declarations. Syntactic only, like the import-side
+// collision scan — no language service.
+function exportedNamesOf(ast: SourceFile): string[] {
+  const names: string[] = [];
+  for (const decl of ast.getExportDeclarations()) {
+    for (const specifier of decl.getNamedExports()) {
+      names.push(specifier.getAliasNode()?.getText() ?? specifier.getName());
+    }
+    const namespaceExport = decl.getNamespaceExport();
+    if (namespaceExport !== undefined) names.push(namespaceExport.getName());
+  }
+  const declarations = [
+    ...ast.getFunctions(),
+    ...ast.getClasses(),
+    ...ast.getInterfaces(),
+    ...ast.getTypeAliases(),
+    ...ast.getEnums(),
+    ...ast.getModules(),
+  ];
+  for (const declaration of declarations) {
+    const name = declaration.getName();
+    if (declaration.isExported() && name !== undefined) names.push(name);
+  }
+  for (const statement of ast.getVariableStatements()) {
+    if (!statement.isExported()) continue;
+    for (const declaration of statement.getDeclarations()) {
+      const nameNode = declaration.getNameNode();
+      if (nameNode.getKind() === SyntaxKind.Identifier) {
+        names.push(nameNode.getText());
+        continue;
+      }
+      // A destructuring pattern binds each element's own name (`{ a: X }` binds `X`, not `a`).
+      for (const element of nameNode.getDescendantsOfKind(SyntaxKind.BindingElement)) {
+        const elementName = element.getNameNode();
+        if (elementName.getKind() === SyntaxKind.Identifier) names.push(elementName.getText());
+      }
+    }
+  }
+  return names;
+}
+
+function assertNotExported(ast: SourceFile, name: string, opName: string): void {
+  if (!exportedNamesOf(ast).includes(name)) return;
+  const echoedName = elementNameEcho(name);
+  throw dialectError(
+    `${opName}("${echoedName}") on "${handlePathFor(ast)}" — the file already exports a binding named "${echoedName}"; ` +
+      "TypeScript forbids two exports sharing a name. Rename or remove the existing one, or edit it with .modify()."
+  );
+}
+
+function exportsOf(ast: SourceFile, from: string): ExportDeclaration[] {
+  return ast.getExportDeclarations().filter((decl) => decl.getModuleSpecifierValue() === from);
+}
+
+// `export * from "m"` when `as` is undefined, `export * as ns from "m"` when it is "ns".
+function isExportAll(decl: ExportDeclaration, as: string | undefined): boolean {
+  if (decl.isTypeOnly()) return false;
+  if (as === undefined) return decl.compilerNode.exportClause === undefined;
+  return decl.getNamespaceExport()?.getName() === as;
+}
+
+/**
+ * Adds `export { name } from "from";` (V2 REQ-TSD-17), merging into the first non-type-only
+ * `export { … } from "from"` clause. `name` is validated first. A no-op when that module is
+ * already re-exported under `name` — matched by SOURCE name, so `export { name as Y }` counts.
+ * Rejects when the file already exports `name` any other way, including as the visible alias
+ * of another re-export: two exports sharing a name are invalid TypeScript.
+ */
+export function addReExport(ast: SourceFile, name: string, from: string): void {
+  assertValidImportBinding(name);
+  const declarations = exportsOf(ast, from).filter((decl) => !decl.isTypeOnly());
+  const alreadyExported = declarations.some((decl) =>
+    decl.getNamedExports().some((specifier) => specifier.getName() === name && !specifier.isTypeOnly())
+  );
+  if (alreadyExported) return;
+  assertNotExported(ast, name, "addReExport");
+
+  const mergeTarget = declarations.find((decl) => decl.hasNamedExports());
+  if (mergeTarget !== undefined) {
+    mergeTarget.addNamedExport(name);
+    return;
+  }
+  ast.addExportDeclaration({ moduleSpecifier: from, namedExports: [name] });
+}
+
+/**
+ * Adds `export * from "from";`, or `export * as ns from "from";` with `{ as: "ns" }` (V2
+ * REQ-TSD-18, extended with `as`). The two forms are different statements: each is a no-op
+ * only on its own output. `as` is validated like a name and rejects when the file already
+ * exports it.
+ */
+export function addExportAll(ast: SourceFile, from: string, options?: { as?: string }): void {
+  const as = options?.as;
+  if (as !== undefined) assertValidImportBinding(as);
+  if (exportsOf(ast, from).some((decl) => isExportAll(decl, as))) return;
+  if (as !== undefined) assertNotExported(ast, as, "addExportAll");
+
+  ast.addExportDeclaration(as === undefined ? { moduleSpecifier: from } : { moduleSpecifier: from, namespaceExport: as });
+}
+
+/**
+ * Removes the re-export of `name` from `export { … } from "from"` (V2 REQ-TSD-19), deleting
+ * the statement when it was the last specifier; an absent re-export is a no-op. Matched by
+ * SOURCE name: `export { name as Y }` matches `name`, never `Y`. Local `export { x }` and
+ * `export *` statements are never touched — see `removeExportAll`.
+ */
+export function removeExport(ast: SourceFile, name: string, from: string): void {
+  assertValidImportBinding(name);
+  for (const decl of exportsOf(ast, from)) {
+    const namedExports = decl.getNamedExports();
+    const specifier = namedExports.find((named) => named.getName() === name);
+    if (specifier === undefined) continue;
+    if (namedExports.length === 1) {
+      decl.remove();
+    } else {
+      specifier.remove();
+    }
+    return;
+  }
+}
+
+/**
+ * Removes `export * from "from";`, or `export * as ns from "from";` with `{ as: "ns" }`. Each
+ * form only removes itself; an absent statement is a no-op.
+ */
+export function removeExportAll(ast: SourceFile, from: string, options?: { as?: string }): void {
+  const as = options?.as;
+  if (as !== undefined) assertValidImportBinding(as);
+  exportsOf(ast, from)
+    .find((decl) => isExportAll(decl, as))
+    ?.remove();
 }

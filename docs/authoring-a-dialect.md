@@ -7,9 +7,10 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.modify()` escape hatch, and
 the two dialects currently shipped — `@pbuilder/sdk/typescript`, whose op-pack has widened past
-its original thin starter shape (`addImport`) to nine named ops: `addImport`,
-`addDefaultImport`, `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addFunction`,
-`addVariable`, `addClass`, `removeImport`; and `@pbuilder/sdk/react`, a deliberately minimal v1
+its original thin starter shape (`addImport`) to thirteen named ops: `addImport`,
+`addDefaultImport`, `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`,
+`addExportAll`, `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`,
+`removeExportAll`; and `@pbuilder/sdk/react`, a deliberately minimal v1
 pair for `.tsx`/JSX authoring: `setJsxProp` and `addImport`.
 
 ## Two audiences
@@ -56,6 +57,23 @@ await ts
 // -> import express from "express";
 // -> import type { Request } from "express";
 // -> import "reflect-metadata";
+```
+
+Re-exports, for barrel files, follow the same rules. They reject a name the file already exports
+by any route — another re-export, an `export * as`, or an exported declaration — because two
+exports sharing a name are invalid TypeScript:
+
+| Op | Does | Notes |
+|---|---|---|
+| `addReExport(name, from)` | Adds `export { name } from "from";` | Merges into a non-type-only `export { … } from "from"`. Matched by source name, so `export { name as Y }` already counts. |
+| `addExportAll(from, { as? })` | Adds `export * from "from";`, or `export * as ns from "from";` with `{ as: "ns" }` | The two forms are different statements; each is a no-op only on its own output. |
+| `removeExport(name, from)` | Removes `name` from `export { … } from "from"` | Deletes the statement when it was the last specifier. Matched by source name, never the alias. Never touches local `export { x }` or `export *`. |
+| `removeExportAll(from, { as? })` | Removes `export * from "from"` (or the `as` form) | Each form only removes itself; absent is a no-op. |
+
+```ts
+await ts.find("src/index.ts").addReExport("UserService", "./user.service").addExportAll("./dto");
+// -> export { UserService } from "./user.service";
+// -> export * from "./dto";
 ```
 
 `addFunction(name, source, options?)` inserts a new top-level function declaration at the end of
