@@ -126,7 +126,7 @@ pointer splits on the FIRST `#` only.
 | Code | Meaning |
 |---|---|
 | 0 | success — the factory run completed and its intent was accepted |
-| 1 | validation failure — bad argv, an invalid/mismatched greeting, a bridge contract version mismatch (`BridgeVersionMismatchError`, BRB-01.2), a rejected factory pointer, a rejected export, a failed single-instance probe, an oversize/malformed `--input-file`, a factory module that cannot be FOUND OR LOADED (`ERR_MODULE_NOT_FOUND`, Bun's `ResolveMessage`/`BuildMessage` shapes, or a `SyntaxError` from the factory import — a module that never RAN, distinct from the module's own top-level code throwing during import, which is exit 4), or an `AuthoringError` whose `origin` **is** `"authoring-rejected"` (an SDK-side authoring misuse: `outside-run`, `invalid-input`, `reserved-name`, `source-*`) |
+| 1 | validation failure — bad argv, an invalid/mismatched greeting, a bridge contract version mismatch (`BridgeVersionMismatchError`, BRB-01.2), a rejected factory pointer, a rejected export, a failed single-instance probe, an oversize/malformed `--input-file`, a factory module that cannot be FOUND OR LOADED (`ERR_MODULE_NOT_FOUND`, Bun's `ResolveMessage`/`BuildMessage` shapes, or a `SyntaxError` from the factory import — a module that never RAN, distinct from the module's own top-level code throwing during import, which is exit 4), or an `AuthoringError` whose `origin` **is** `"authoring-rejected"` (an SDK-side authoring misuse: `outside-session`, `invalid-input`, `reserved-name`, `source-*`) |
 | 2 | emit-rejection / host refusal — an `AuthoringError` whose `origin` is NOT `"authoring-rejected"`, or an `IntentRejectedError` (the host answered `ir.commit`/`ir.discard`/`tree.read` with an error envelope); the host's own rejection message surfaces in the runner's bounded stderr note |
 | 3 | transport fault — a `TransportFault` (`kind`: `malformed`, `desync` (reserved: currently indistinguishable from and reported as `malformed`), `oversize`, `timeout`, or `eof`), including one at GREETING time (a malformed/oversize/EOF-truncated first frame) |
 | 4 | crash — anything else: a non-`AuthoringError`/non-`TransportFault` thrown value, including the author's factory module throwing at its own top level during import |
@@ -152,7 +152,7 @@ The engine's embedded bootstrap dynamic-imports `bootstrap-bridge.ts` and calls
 `enterBridge(expectedVersion, params, io)` exactly ONCE per run. The SDK TOLERATES sequential
 re-entry within one engine process (the fd-1 capture is idempotent — the first capture's real
 write handle is cached and reused), but with a known residual: a timed-out call's parked stdin
-read (`#danglingRead`) can survive run end and consume bytes of a subsequent session sharing
+read (`#danglingRead`) can survive run end and consume bytes of a subsequent Run sharing
 the same stdin iterable — the sequential-rerun lifecycle is engine-team territory, to be
 ratified at PC-PROTO-01 (registered in `openspec/pending-changes.md`). A version mismatch
 rejects IMMEDIATELY — naming both the expected and the installed bridge version — with no

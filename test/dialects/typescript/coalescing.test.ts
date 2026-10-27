@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../../src/core/context.ts";
-import { dryRun } from "../../../src/commons/index.ts";
+import { pendingDirectives } from "../../../src/commons/index.ts";
 import * as ts from "../../../src/dialects/typescript/index.ts";
 import { makeSpyClient, collectModifies } from "../../support/spy-client.ts";
 import { golden } from "../../support/golden.ts";
@@ -129,16 +129,16 @@ describe("real dialect — split by read (REQ-MC-02 restatement)", () => {
   });
 });
 
-describe("real dialect — dryRun over a coalesced chain (REQ-MC-05 restatement)", () => {
-  it("REQ-MC-05.1: dryRun shows exactly one planned modify, without triggering AST re-serialization", async () => {
+describe("real dialect — pendingDirectives over a coalesced chain (REQ-MC-05 restatement)", () => {
+  it("REQ-MC-05.1: pendingDirectives shows exactly one planned modify, without triggering AST re-serialization", async () => {
     const { client } = makeSpyClient({ "a.ts": golden("add-import-before.txt") });
 
     const run = defineFactory<void>(async () => {
       const handle = ts.find("a.ts").addImport("readFileSync", "node:fs").addImport("join", "node:path");
       await handle;
 
-      const plan = dryRun();
-      expect(plan).toEqual([{ verb: "modify", path: "a.ts" }]);
+      const pending = pendingDirectives();
+      expect(pending).toEqual([{ verb: "modify", path: "a.ts" }]);
     });
     await run(undefined, { client });
   });

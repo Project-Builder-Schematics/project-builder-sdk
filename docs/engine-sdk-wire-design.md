@@ -114,7 +114,7 @@ A new SDK bin, built to `dist/bin/`, shebang. Deliberately thin:
 > plan instead.
 
 1. Parse argv: `--factory file:///abs/path/factory.ts#exportName` and `--input '<json>'`
-   (escape hatch: `--input-file <path>` for payloads near ARG_MAX).
+   (fallback: `--input-file <path>` for payloads near ARG_MAX).
 2. Dynamic-import the factory module; resolve the export via the `#fragment` (default export
    when absent). The export is the author's BARE input-receiving function — verify it is a
    function; fail at load time with an actionable message otherwise.
@@ -138,7 +138,7 @@ the schematic project's OWN `node_modules` (Angular-CLI-style project-local exec
 never from an engine-bundled or global SDK copy. The internal wrap only works when the
 runner's `defineFactory` (whose run context is a module-level `AsyncLocalStorage`) and the
 author's imported verbs come from the SAME physical copy of `@pbuilder/sdk` — two copies
-mean two ALS instances, and every verb throws `outside-run` at run time. Project-local
+mean two ALS instances, and every verb throws `outside-session` at run time. Project-local
 resolution also eliminates runner↔SDK version skew by construction: the runner version IS
 the version the schematic compiled against.
 
@@ -198,7 +198,7 @@ with the protocol, and conformance-tested on both sides:
   `AsyncLocalStorage`, and author verbs resolve it from THEIR copy of the SDK. With the
   runner-internal wrap, correctness therefore DEPENDS on the single-SDK-instance pin above
   (project-local runner resolution): an engine-bundled runner wrapping a factory whose
-  verbs come from a different copy fails with `outside-run` at the first verb. The
+  verbs come from a different copy fails with `outside-session` at the first verb. The
   `EngineClient` port itself is copy-tolerant (structural typing); the ALS is not.
 
 ## Open questions

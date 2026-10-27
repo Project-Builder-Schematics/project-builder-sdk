@@ -21,14 +21,14 @@ sequenceDiagram
     CLI->>E: start engine
     E->>E: raise staging tree
     E->>F: start Bun sidecar, run factory
-    loop commit phase — the SDK ↔ engine conversation
+    loop Stage — the SDK ↔ engine conversation
         F->>E: read a file (find().read())
         E-->>F: content, answered from the staging tree
         F->>E: IR directives (create, replaceContent, …)
-        E->>E: commit directive to the staging tree
+        E->>E: stage the Instruction on the staging tree
     end
     F-->>E: factory returns
-    E->>E: apply phase — staged result written to disk
+    E->>E: Commit — the Plan is written to disk
     E-->>CLI: result
     CLI-->>U: ✓ done
 ```
@@ -41,10 +41,10 @@ sequenceDiagram
   testing harness — and lowers everything you author into a small, stable **IR**
   (instruction records). It holds a conversation with the engine over framed stdio: reads
   come back from the staging tree, directives go out as IR. It never writes to disk.
-- The **engine** owns execution, in two phases. During the run — the **commit phase** —
+- The **engine** owns execution, in two steps. During the Run, it **stages**:
   it raises the staging tree, starts the Bun sidecar that runs your factory, answers its
-  read-backs, and commits every incoming IR directive to the staging tree. Only after the
-  factory returns does the **apply phase** begin: the staged result is written to disk.
+  read-backs, and stages every incoming IR Instruction on the staging tree. Only after the
+  factory returns does it **commit**: the staged result is written to disk.
   The engine is the only component that ever writes — and a failed run writes nothing.
 
 That staging tree is what makes a schematic a conversation rather than a one-shot: while
@@ -304,7 +304,7 @@ Everything a factory can do to the tree is one of seven mutation verbs, all impo
 | [`rename(path, newName)`](./docs/authoring-verbs.md#rename) | A basename-only rename in place. |
 | [`move(path, toDir)`](./docs/authoring-verbs.md#move) | A move to a different directory. |
 | [`copy(from, to)`](./docs/authoring-verbs.md#copy) | A tree-to-tree copy, chainable via the returned handle. |
-| [`copyIn(from, to)`](./docs/authoring-verbs.md#copyin) | A package-local file copied into the tree **verbatim** — the never-render escape hatch. |
+| [`copyIn(from, to)`](./docs/authoring-verbs.md#copyin) | A package-local file copied into the tree **verbatim** — never rendered. |
 
 The verbs that write to a new path — `create`, `rename`, `move`, `copy`, `copyIn`, and
 `scaffold` — are fail-closed on collision and accept `{ force: true }` for a deliberate
@@ -318,7 +318,7 @@ Three companions round out the surface:
 - [`scaffold({ from, to, options })`](./docs/authoring-verbs.md#scaffold) — mirror an
   entire package-local folder into the tree, with dynamic file names. The workhorse for
   multi-file generators — see [Scaffolding a folder of templates](#scaffolding-a-folder-of-templates).
-- [`dryRun()`](./docs/dry-run.md) — inspect the directives still **pending**. A `read()`
+- [`pendingDirectives()`](./docs/pending-directives.md) — inspect the directives still **pending**. A `read()`
   drains the buffer, so call it before reading if you want the full picture.
 
 ### What to keep in mind
@@ -337,9 +337,9 @@ Rules that save you real debugging time — each one is a mistake we've watched 
   example shows the read-back mechanics — a production factory would also skip the append
   when the name is already listed.
 - **Nothing touches disk while your factory runs.** Verbs *schedule* directives; during the
-  run the engine commits them to the staging tree only (that's why reading a path you
-  created earlier in the same run sees the staged content). Disk writes happen in the apply
-  phase, after the factory returns — a thrown error before return means nothing is written
+  Run the engine stages them on the staging tree only (that's why reading a path you
+  created earlier in the same run sees the staged content). Disk writes happen at Commit,
+  after the factory returns — a thrown error before return means nothing is written
   at all.
 - **Errors are structured.** A rejected run surfaces an `AuthoringError` with
   `verb`/`path`/`reason` fields telling you which directive failed and why (one label
@@ -409,7 +409,7 @@ Two traps worth knowing before they bite: **empty arrays and objects are falsy**
 the numeric type** they're compared against (option numbers are decimals: `eq .count 2.0`,
 never `eq .count 2`).
 
-If templating gets in your way, the escape hatch is always available: build the final
+If templating gets in your way, there is always a way out: build the final
 strings in TypeScript and pass a token-free template — it renders verbatim. For the full
 language — `with`, variables, whitespace rules, output-path templating, sandbox limits, and
 the error taxonomy — see [Authoring `create` templates](./docs/create-templates.md).
@@ -596,7 +596,7 @@ untrusted input is the author's responsibility to sanitize.
 
 Mutates `.tsx` files — `find()` requires the explicit `.tsx` extension (extensionless and
 `.jsx` paths are rejected, never normalized). The v1 op-pack — a dialect's bundle of named
-ops — is deliberately minimal: two structured ops, with `.modify(fn)` as the escape hatch
+ops — is deliberately minimal: two named ops, with `.modify(fn)` as the escape hatch
 for everything else:
 
 ```ts
@@ -625,7 +625,7 @@ a trailing `{...spread}`, so it **wins** at runtime under React's later-position
 Every dialect handle carries one universal op alongside its named ops: `.modify(ast => …)`.
 Your callback receives the **same live AST instance the named ops mutate** — a ts-morph
 `SourceFile` — so anything a named op could do, `.modify()` can do too, without waiting for
-a structured op to exist:
+a named op to exist:
 
 ```ts
 import * as ts from "@pbuilder/sdk/typescript";
@@ -673,7 +673,7 @@ The full reading path lives in [`docs/`](./docs/README.md):
 2. [Authoring verbs](./docs/authoring-verbs.md) — the seven verbs + `find().read()` in full.
 3. [Authoring `create` templates](./docs/create-templates.md) — the template language.
 4. [Error contract](./docs/authoring-errors.md) — `AuthoringError` and recovery.
-5. [Dry-run](./docs/dry-run.md) — previewing planned changes.
+5. [Pending Directives](./docs/pending-directives.md) — previewing pending changes.
 6. [Authoring a dialect](./docs/authoring-a-dialect.md) — AST-aware mutation per file type.
 
 ## Design at a glance

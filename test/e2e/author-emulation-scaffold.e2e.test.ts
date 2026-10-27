@@ -49,7 +49,7 @@ const CORPUS_DIR = new URL("./author-emulation/corpus/", import.meta.url).pathna
 const REPORTS_ABS_DIR = join(process.cwd(), REPORTS_DIR);
 
 // R-B: `s-00` is the infra-spine skeleton, not a matrix row — it never gets a report
-// (`DryRunEntry.kind` is absent by contract for the six pre-existing ops it exercises).
+// (`PendingDirective.kind` is absent by contract for the six pre-existing ops it exercises).
 function isReportableMatrixRow(scenario: ScenarioEntry): boolean {
   return scenario.id !== "s-00";
 }

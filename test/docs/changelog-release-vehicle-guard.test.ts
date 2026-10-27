@@ -40,7 +40,7 @@ const ROOT_SYMLINK_REJECTION_PHRASE = "A `from` root that is itself a symlinked 
 const DEGENERATE_FROM_REJECTION_PHRASE = "walked the ENTIRE package silently";
 // Reckoning closing batch (2026-07-29): sixth 0.2.0 entry (grouped) — the round-3
 // error-handling hardenings (rename `..` pre-join rejection, include/exclude shape
-// validation, outside-run reporting parity, normalized-path collision detection, walk
+// validation, outside-session reporting parity, normalized-path collision detection, walk
 // bound counting every dirent) had no CHANGELOG entry.
 const ROUND3_HARDENING_PHRASE = "round-3 error-handling hardening";
 const AUDIENCE_PHRASE = "the engine repo and the conformance corpus consume this contract today";

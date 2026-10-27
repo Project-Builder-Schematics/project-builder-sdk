@@ -1,33 +1,34 @@
-# Dry-run
+# Pending Directives
 
-`dryRun()` previews what a run will still emit — before any of it commits. It is a plain
+`pendingDirectives()` previews the Directives your factory's Session will still send — before
+any of them is staged. It is a plain
 function on `@pbuilder/sdk/commons`, imported the same way as every other author verb —
 never its own subpath.
 
 ```ts
-import { dryRun } from "@pbuilder/sdk/commons";
+import { pendingDirectives } from "@pbuilder/sdk/commons";
 ```
 
 ## What it returns
 
-`dryRun()` returns `DryRunEntry[]`: the plan of directives still pending in the active run's
+`pendingDirectives()` returns `PendingDirective[]`: the Directives still pending in the active Session's
 buffer, rendered in author vocabulary. Each entry carries a `verb` and a `path`, plus an
 optional `kind` (`"rendered" | "copied"`) present only on the package-local-read verbs whose
 transport is classified — `create` (`kind: "rendered"`) and `copyIn` (`kind: "copied"`).
 
 `verb` reuses the WIRE mutation label `"modify"` for both `.replaceContent()` and a dialect's
-`.modify(fn)` calls — the two calls lower to the same directive, so `dryRun()` cannot (and
+`.modify(fn)` calls — the two calls lower to the same directive, so `pendingDirectives()` cannot (and
 does not need to) distinguish them; this is deliberate, not a naming mismatch.
 
 ```ts
 import { runFactoryForTest } from "@pbuilder/sdk/testing";
-import { create, find, dryRun } from "@pbuilder/sdk/commons";
+import { create, find, pendingDirectives } from "@pbuilder/sdk/commons";
 
 const run = () => {
   create("src/index.ts", { template: "export const version = '1.0.0';", options: {} });
   find("src/legacy.ts").remove();
 
-  for (const entry of dryRun()) {
+  for (const entry of pendingDirectives()) {
     console.log(entry.verb, entry.path); // "create src/index.ts", then "remove src/legacy.ts"
   }
 };
@@ -37,13 +38,13 @@ await runFactoryForTest(run, undefined, { seed: { "src/legacy.ts": "" } });
 
 ## Call it before any read
 
-The plan reflects only what is still **pending** — the honest answer to "what will this run
-still emit," not "what has this run emitted in total." A `read()` (or any flush) empties the
-pending buffer, so directives already flushed no longer appear in `dryRun()`'s result. Call
-it before any `read()` or dialect `find()` opens, if you want it to see everything the run
+The result holds only what is still **pending** — the honest answer to "what will this Session
+still send," not "what has this Session sent in total." A `read()` (or any flush) drains the
+pending buffer, so Directives already sent no longer appear in `pendingDirectives()`'s result. Call
+it before any `read()` or dialect `find()` opens, if you want it to see everything the Session
 has scheduled so far.
 
-`dryRun()` can only be called inside an active run — calling it outside one throws the same
+`pendingDirectives()` can only be called inside an active Session (a running factory) — calling it outside one throws the same
 "authoring verbs can only be used while a schematic is running" error every other
 `./commons` verb throws.
 

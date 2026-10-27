@@ -38,7 +38,7 @@ function templateFileOversizedMessage(relPath: string): string {
 export { isSniffableText } from "./classify-transport.ts";
 
 /**
- * Reads a package-local file (relative to the active run's `packageDir`) and returns its
+ * Reads a package-local file (relative to the active Session's `packageDir`) and returns its
  * content as the string to use for a `create({ templateFile })` render request.
  *
  * ADR-0077: the path is screened lexically (`validateSourceLexical`, `ir-path-well-formedness`

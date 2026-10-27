@@ -30,8 +30,8 @@ function makeOrderedClient(responses: Record<string, string>): {
   return { client, order, get lastBatch() { return lastBatch; } };
 }
 
-describe("Session — pendingSnapshot (REQ-03)", () => {
-  it("REQ-03.1 — pendingSnapshot() reflects two buffered directives in order", () => {
+describe("Session — pendingDirectives (REQ-03)", () => {
+  it("REQ-03.1 — pendingDirectives() reflects two buffered directives in order", () => {
     const client: EngineClient = {
       async emit() {},
       async read() { return ""; },
@@ -44,7 +44,7 @@ describe("Session — pendingSnapshot (REQ-03)", () => {
     session.buffer(factory.create({ pathTemplate: "src/a.ts", template: "a", options: {} }));
     session.buffer(factory.create({ pathTemplate: "src/b.ts", template: "b", options: {} }));
 
-    const snapshot = session.pendingSnapshot();
+    const snapshot = session.pendingDirectives();
 
     expect(snapshot).toHaveLength(2);
     expect(snapshot[0]!.op).toEqual("create");
@@ -64,7 +64,7 @@ describe("Session — pendingSnapshot (REQ-03)", () => {
     const factory = new DirectiveFactory();
 
     session.buffer(factory.create({ pathTemplate: "src/a.ts", template: "a", options: {} }));
-    const snapshot = session.pendingSnapshot();
+    const snapshot = session.pendingDirectives();
 
     // Buffer a second directive AFTER the snapshot was taken.
     session.buffer(factory.create({ pathTemplate: "src/b.ts", template: "b", options: {} }));

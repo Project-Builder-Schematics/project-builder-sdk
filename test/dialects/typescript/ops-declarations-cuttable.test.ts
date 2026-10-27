@@ -1,5 +1,5 @@
 /**
- * S-003 — `addVariable`/`addClass` structured ops (REQ-TSD-10.1–10.4, REQ-TSD-11.1–11.4,
+ * S-003 — `addVariable`/`addClass` named ops (REQ-TSD-10.1–10.4, REQ-TSD-11.1–11.4,
  * design §4.4/§4.5 ADR-0039). Every content assertion is byte-exact against a committed
  * golden (constraint 7).
  *

@@ -18,7 +18,7 @@ const DOC_PATH = join(PROJECT_ROOT, "docs/authoring-a-dialect.md");
 const PUBLISH_WORKFLOW_PATH = join(PROJECT_ROOT, ".github/workflows/publish.yml");
 const SENSITIVE_AREAS_PATH = join(PROJECT_ROOT, "openspec/sensitive-areas.md");
 const AUTHORING_ERRORS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-errors.md");
-const DRY_RUN_DOC_PATH = join(PROJECT_ROOT, "docs/dry-run.md");
+const PENDING_DIRECTIVES_DOC_PATH = join(PROJECT_ROOT, "docs/pending-directives.md");
 const AUTHORING_ERROR_SRC_PATH = join(PROJECT_ROOT, "src/core/authoring-error.ts");
 const AUTHORING_VERBS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-verbs.md");
 
@@ -129,7 +129,7 @@ describe("REQ-DAS-02.1 — contributor section has no author-style demo", () => 
 
 // author-write-surface S-004.4: `"modify"` is the WIRE-altitude label shared by BOTH
 // `.replaceContent()`- and `.modify(fn)`-produced directives (REQ-AEC-13, Decided item 2 —
-// the mismatch is deliberate, `AuthoringVerb`/`DryRunVerb` are NEVER renamed). A substance
+// the mismatch is deliberate, `AuthoringVerb`/`AuthoringVerb` are NEVER renamed). A substance
 // check (mirrors REQ-DAS-01.3's own pattern), not a byte-exact pin — design.md states this
 // requirement as SUBSTANCE only, no verbatim sentence is prescribed.
 //
@@ -139,7 +139,7 @@ describe("REQ-DAS-02.1 — contributor section has no author-style demo", () => 
 describe("REQ-AEC-13.3 — the shared `\"modify\"` wire label is documented in all 4 surfaces", () => {
   const surfaces = [
     { name: "docs/authoring-errors.md", read: () => readFileSync(AUTHORING_ERRORS_DOC_PATH, "utf-8") },
-    { name: "docs/dry-run.md", read: () => readFileSync(DRY_RUN_DOC_PATH, "utf-8") },
+    { name: "docs/pending-directives.md", read: () => readFileSync(PENDING_DIRECTIVES_DOC_PATH, "utf-8") },
     { name: "src/core/authoring-error.ts (AuthoringVerb JSDoc)", read: () => readFileSync(AUTHORING_ERROR_SRC_PATH, "utf-8") },
     { name: "docs/authoring-verbs.md (replaceContent entry)", read: () => readFileSync(AUTHORING_VERBS_DOC_PATH, "utf-8") },
   ];

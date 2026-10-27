@@ -7,7 +7,7 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.modify()` escape hatch, and
 the two dialects currently shipped — `@pbuilder/sdk/typescript`, whose op-pack has widened past
-its original thin starter shape (`addImport`) to five structured ops: `addImport`, `addFunction`,
+its original thin starter shape (`addImport`) to five named ops: `addImport`, `addFunction`,
 `addVariable`, `addClass`, `removeImport`; and `@pbuilder/sdk/react`, a deliberately minimal v1
 pair for `.tsx`/JSX authoring: `setJsxProp` and `addImport`.
 
@@ -108,7 +108,7 @@ handle.replaceContent("new content"); // succeeds — the documented escape
 `@pbuilder/sdk/react` mutates `.tsx` files — TypeScript source containing JSX syntax. `.jsx`
 files are NOT supported in v1: `find()` REJECTS a `.jsx` path, it does not silently accept it
 (see the explicit-extension note below). Its v1 op-pack is deliberately minimal — exactly two
-structured ops, `setJsxProp` and `addImport` — proving JSX-structural mutation end to end
+named ops, `setJsxProp` and `addImport` — proving JSX-structural mutation end to end
 without committing to a full React mutation catalog; further ops are tracked as the React
 op-catalog follow-up. Until those land, `.modify(fn)` is the escape hatch for anything the two
 shipped ops don't cover — the same universal verb the TypeScript dialect's authors already reach
@@ -208,7 +208,7 @@ This closes a real vulnerability class, not a hypothetical one: ts-morph writes 
 
 Every dialect handle carries one universal op alongside its named ops: `.modify(ast => { ... })`.
 It hands your callback the SAME live AST instance the named ops mutate — anything a named op
-could do, `.modify()` can do too, without waiting for a structured op to exist.
+could do, `.modify()` can do too, without waiting for a named op to exist.
 
 `.modify()` executes your callback with full process privilege — it is not a sandbox. Read
 [SECURITY.md](../SECURITY.md) before importing any third-party dialect or op-pack that uses it.

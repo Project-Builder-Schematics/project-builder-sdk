@@ -68,7 +68,7 @@ describe("SEAM-04 — error attribution (forced rejection, cross-boundary)", () 
     expect(authoringError.appliedCount).toEqual(2);
   });
 
-  it("REQ-AEC-02.3 — an engine rejection and an outside-run misuse are distinguishable by origin, in one assertion", async () => {
+  it("REQ-AEC-02.3 — an engine rejection and an outside-session misuse are distinguishable by origin, in one assertion", async () => {
     const fake = new ContractFake({ seed: { "src/existing.ts": "old" } });
 
     const engineCaught = await rejectedRun(fake, () => {

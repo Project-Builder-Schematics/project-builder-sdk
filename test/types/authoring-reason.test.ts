@@ -27,7 +27,7 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
         case "path-not-found":
         case "unrepresentable-content":
         case "changes-too-large":
-        case "outside-run":
+        case "outside-session":
         case "unknown":
         case "invalid-input":
         case "reserved-name":
@@ -65,7 +65,7 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
       | "path-not-found"
       | "unrepresentable-content"
       | "changes-too-large"
-      | "outside-run"
+      | "outside-session"
       | "unknown"
       | "invalid-input"
       | "reserved-name"

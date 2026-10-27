@@ -1,5 +1,5 @@
 /**
- * S-001 — `addFunction` structured op (REQ-TSD-09.1–09.8, design §4.4/§4.5 ADR-0039).
+ * S-001 — `addFunction` named op (REQ-TSD-09.1–09.8, design §4.4/§4.5 ADR-0039).
  * Every content assertion is byte-exact against a committed golden (constraint 7).
  */
 import { describe, it, expect } from "bun:test";

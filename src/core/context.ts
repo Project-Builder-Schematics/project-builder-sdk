@@ -1,4 +1,4 @@
-// KIT-05: Ambient RunContext via AsyncLocalStorage.
+// KIT-05: Ambient SessionContext via AsyncLocalStorage.
 // defineFactory returns a runner that builds the context and runs fn inside the ALS.
 // The EngineClient is injected by the caller (test passes the fake) — no module global.
 
@@ -49,18 +49,18 @@ class DialectRegistryImpl implements DialectRegistry {
   }
 }
 
-export interface RunContext {
+export interface SessionContext {
   session: Session;
   factory: DirectiveFactory;
   dialects: DialectRegistry;
-  // F2 poison flag (ADR-0037 amendment): run-scoped, first-wins, set by dialect-handle.ts's
+  // F2 poison flag (ADR-0037 amendment): Session-scoped, first-wins, set by dialect-handle.ts's
   // step wrapper on the FIRST rejection and consulted at every subsequent step/read() entry
   // so a chained op on a DIFFERENT handle is never attempted as a fresh operation
   // (REQ-DG-07.3) — not merely left uncommitted. Never serialized, never crosses the wire.
   // Plain field, no reverse import: context.ts still imports NOTHING from
   // dialect-handle.ts (F2 fitness-guarded) — dialect-handle.ts reaches this via
   // currentContext().
-  runFailure?: { reason: unknown };
+  sessionFailure?: { reason: unknown };
   // ADR-0077 §C: `packageDir` is the SOLE run anchor — seeded ONCE, eagerly, at the
   // pre-`als.run` chokepoint below, never re-derived per scaffold/copyIn call within the
   // same run. Absent for the bare `defineFactory(fn)` untyped opt-out (byte-for-byte
@@ -73,13 +73,13 @@ export interface RunContext {
 
 // context-singleton-fix (REQ-MIS-01/02, design §4.3): a module-scope `als` is realm-local —
 // when `dist/bin/pbuilder-runner.js` and a src-relative `.ts` factory co-execute in one Bun
-// process, each resolves its OWN copy of this module and its OWN `als`, so a run entered in
+// process, each resolves its OWN copy of this module and its OWN `als`, so a Session entered in
 // one realm is invisible to `currentContext()` in the other. The store is therefore parked at
-// `globalThis[Symbol.for(RUN_ALS_REGISTRY_KEY)]` — a process-singleton every realm resolving
+// `globalThis[Symbol.for(SESSION_ALS_REGISTRY_KEY)]` — a process-singleton every realm resolving
 // this file reaches via the SAME well-known key — lazily installed on first access.
-export const RUN_ALS_REGISTRY_KEY = "@pbuilder/sdk:core/context#run-als";
+export const SESSION_ALS_REGISTRY_KEY = "@pbuilder/sdk:core/context#session-als";
 
-function isAsyncLocalStorageLike(value: unknown): value is AsyncLocalStorage<RunContext> {
+function isAsyncLocalStorageLike(value: unknown): value is AsyncLocalStorage<SessionContext> {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -95,28 +95,28 @@ function isAsyncLocalStorageLike(value: unknown): value is AsyncLocalStorage<Run
 // trusted or silently clobbered. Plain `Error` (NOT AuthoringError) — this is
 // environment/integration corruption, not author-input misuse; the closed reason enum has no
 // member for it (mirrors `validateAtRunBoundary`'s read-path posture).
-export function resolveRunAls(slotValue: unknown): AsyncLocalStorage<RunContext> {
+export function resolveSessionAls(slotValue: unknown): AsyncLocalStorage<SessionContext> {
   if (slotValue === undefined) {
-    return new AsyncLocalStorage<RunContext>();
+    return new AsyncLocalStorage<SessionContext>();
   }
   if (isAsyncLocalStorageLike(slotValue)) {
     return slotValue;
   }
   throw new Error(
-    `[pbuilder] run-context registry slot Symbol.for("${RUN_ALS_REGISTRY_KEY}") is occupied by an ` +
+    `[pbuilder] run-context registry slot Symbol.for("${SESSION_ALS_REGISTRY_KEY}") is occupied by an ` +
       `incompatible value (expected an AsyncLocalStorage, got ${typeof slotValue}) — another module ` +
       "may have polluted globalThis"
   );
 }
 
 // IMPURE thin shell: reads the shared slot, delegates the 3-state decision to the pure
-// `resolveRunAls`, and installs the resolved ALS ONLY when the slot was absent — a frozen
+// `resolveSessionAls`, and installs the resolved ALS ONLY when the slot was absent — a frozen
 // descriptor (non-enumerable, non-configurable, non-writable) so REQ-MIS-01.2's no-pollution
 // guarantee holds and the slot can never be silently reassigned after first install.
-function getRunAls(): AsyncLocalStorage<RunContext> {
-  const registryKey = Symbol.for(RUN_ALS_REGISTRY_KEY);
+function getSessionAls(): AsyncLocalStorage<SessionContext> {
+  const registryKey = Symbol.for(SESSION_ALS_REGISTRY_KEY);
   const slot = (globalThis as Record<symbol, unknown>)[registryKey];
-  const resolved = resolveRunAls(slot);
+  const resolved = resolveSessionAls(slot);
   if (slot === undefined) {
     Object.defineProperty(globalThis, registryKey, {
       value: resolved,
@@ -140,17 +140,17 @@ export function isDefineFactoryWrapped(value: unknown): boolean {
   return typeof value === "function" && Reflect.get(value, DEFINE_FACTORY_BRAND) === true;
 }
 
-// REQ-AEC-02.1 (2.4): a verb called outside any defineFactory run is SDK-side misuse,
-// independent of any engine round-trip — an AuthoringError{authoring-rejected,outside-run},
-// not a plain Error. The prose lives in authoring-error.ts's outside-run message template
+// REQ-AEC-02.1 (2.4): a verb called outside any defineFactory Session is SDK-side misuse,
+// independent of any engine round-trip — an AuthoringError{authoring-rejected,outside-session},
+// not a plain Error. The prose lives in authoring-error.ts's outside-session message template
 // (the third template, REQ-AEC-06); this is the one call site that reaches it.
-export function currentContext(): RunContext {
-  const ctx = getRunAls().getStore();
+export function currentContext(): SessionContext {
+  const ctx = getSessionAls().getStore();
   if (ctx === undefined) {
     throw new AuthoringError({
       verb: undefined,
       path: undefined,
-      reason: "outside-run",
+      reason: "outside-session",
       appliedCount: 0,
     });
   }
@@ -214,7 +214,7 @@ function emptySchemaWarning(packageDir: string): string {
 }
 
 // Pre-`als.run` schema-conformance check (ADR-0029, REQ-RBV-01/03/05): validates BEFORE
-// RunContext is built, so a rejection throws with nothing buffered — all-or-nothing holds
+// SessionContext is built, so a rejection throws with nothing buffered — all-or-nothing holds
 // trivially and the rejection never reaches the emit seam. Bare `defineFactory(fn)` (no
 // `options`) skips this entirely — the untyped opt-out (REQ-TFO-02) stays byte-for-byte
 // unchanged. Read-path posture (SEC-3, constraint 4): ONLY ENOENT maps to the opt-out;
@@ -278,7 +278,7 @@ function checkReservedNames(packageDir: string): void {
 }
 
 /**
- * Builds a run-context and runs the factory inside it, flushing buffered
+ * Builds a SessionContext and runs the factory inside it, flushing buffered
  * directives at run end (REQ-KIT-05) — a write-only factory still emits.
  *
  * All-or-nothing contract (ADR-01): on success the full directive batch is committed;
@@ -332,7 +332,7 @@ export function defineFactory<O>(
   options?: { packageDir?: string | URL }
 ): (o: O, deps: { client: EngineClient }) => Promise<void> {
   const wrapped = async (o: O, { client }: { client: EngineClient }): Promise<void> => {
-    let packageAnchors: RunContext["packageAnchors"];
+    let packageAnchors: SessionContext["packageAnchors"];
     if (options?.packageDir !== undefined) {
       const resolvedDir = resolvePackageDir(options.packageDir);
       // REQ-RBV-06: exactly TWO reads, in this order — reserved-name check, then schema
@@ -341,7 +341,7 @@ export function defineFactory<O>(
       validateAtRunBoundary(resolvedDir, o);
       packageAnchors = { packageDir: resolvedDir };
     }
-    const ctx: RunContext = {
+    const ctx: SessionContext = {
       session: new Session(client),
       factory: new DirectiveFactory(),
       dialects: new DialectRegistryImpl(),
@@ -356,7 +356,7 @@ export function defineFactory<O>(
     // rejection (an unawaited chain that threw) routes through the SAME catch below as a
     // flush rejection already does.
     try {
-      await getRunAls().run(ctx, () => fn(o));
+      await getSessionAls().run(ctx, () => fn(o));
       await ctx.dialects.drain();
       await ctx.session.flush();
       await ctx.session.commit();

@@ -1,6 +1,6 @@
 /**
- * REQ-DRE-01.1 + REQ-DRE-01.5 — the dry-run e2e: author verbs buffer directives,
- * `dryRun()` renders them in author vocabulary before the run's end-of-run flush commits.
+ * REQ-DRE-01.1 + REQ-DRE-01.5 — the pendingDirectives e2e: author verbs buffer directives,
+ * `pendingDirectives()` renders them in author vocabulary before the run's end-of-run flush commits.
  * Mirrors `test/e2e/author-to-tree.e2e.test.ts`'s harness (raw `ContractFake` +
  * `defineFactory`, assertions inside `fn`).
  *
@@ -12,9 +12,9 @@
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, replaceContent, find, dryRun } from "../../src/commons/index.ts";
+import { create, replaceContent, find, pendingDirectives } from "../../src/commons/index.ts";
 
-describe("e2e — dry-run plan exposure (REQ-DRE-01.1, REQ-DRE-01.5)", () => {
+describe("e2e — pending Directives exposure (REQ-DRE-01.1, REQ-DRE-01.5)", () => {
   it("REQ-DRE-01.1 — buffered create+modify surface in author vocabulary, buffer order", async () => {
     const fake = new ContractFake({ seed: { "src/b.ts": "old" } });
 
@@ -22,7 +22,7 @@ describe("e2e — dry-run plan exposure (REQ-DRE-01.1, REQ-DRE-01.5)", () => {
       create("src/a.ts", { template: "export const a = 1;", options: {} });
       replaceContent("src/b.ts", "content");
 
-      expect(dryRun()).toEqual([
+      expect(pendingDirectives()).toEqual([
         { verb: "create", path: "src/a.ts", kind: "rendered" },
         { verb: "modify", path: "src/b.ts" },
       ]);
@@ -37,7 +37,7 @@ describe("e2e — dry-run plan exposure (REQ-DRE-01.1, REQ-DRE-01.5)", () => {
     const run = defineFactory<void>(async () => {
       find("src/gone.ts").remove();
 
-      expect(dryRun()).toEqual([{ verb: "remove", path: "src/gone.ts" }]);
+      expect(pendingDirectives()).toEqual([{ verb: "remove", path: "src/gone.ts" }]);
     });
 
     await run(undefined, { client: fake });

@@ -38,7 +38,7 @@ describe("e2e — author reads a fully-attributed error and branches on it (REQ-
       case "path-not-found":
       case "unrepresentable-content":
       case "changes-too-large":
-      case "outside-run":
+      case "outside-session":
       case "unknown":
         branchTaken = "default";
         break;

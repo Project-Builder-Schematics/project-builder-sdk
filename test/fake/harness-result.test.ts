@@ -193,8 +193,8 @@ describe("REQ-ATH-07 — fresh fake per call, no cross-call state", () => {
   });
 });
 
-describe("REQ-ATH-08 — outside-run verb calls are not laundered", () => {
-  it("REQ-ATH-08.1: a verb invoked by test code via an escaped callback still throws outside-run", async () => {
+describe("REQ-ATH-08 — outside-session verb calls are not laundered", () => {
+  it("REQ-ATH-08.1: a verb invoked by test code via an escaped callback still throws outside-session", async () => {
     let captured: (() => void) | undefined;
     const run = (input: { capture: (fn: () => void) => void }): void => {
       input.capture(() => {
@@ -216,7 +216,7 @@ describe("REQ-ATH-08 — outside-run verb calls are not laundered", () => {
       thrown = err;
     }
     expect(thrown).toBeInstanceOf(AuthoringError);
-    expect((thrown as AuthoringError).reason).toEqual("outside-run");
+    expect((thrown as AuthoringError).reason).toEqual("outside-session");
   });
 });
 

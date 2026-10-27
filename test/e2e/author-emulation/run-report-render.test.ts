@@ -19,7 +19,7 @@ import { FORMAT_VERSION, type TranscriptRecord } from "../../support/corpus-form
 import { specifiersResolvingInto, stripComments } from "../../support/import-scan.ts";
 
 const RENDERER_SOURCE_PATH = new URL("../../support/run-report-render.ts", import.meta.url).pathname;
-const DRY_RUN_PLAN_PATH = new URL("../../../src/dry-run/plan.ts", import.meta.url).pathname;
+const RENDERER_PATH = new URL("../../../src/pending-directives/render.ts", import.meta.url).pathname;
 const PARALLEL_MAP_FIXTURE = new URL(
   "../../fixtures/red/author-emulation/parallel-kind-map-renderer.ts",
   import.meta.url
@@ -81,7 +81,7 @@ describe("run-report-render — header carries the seam disclaimer + 3-item gap 
   });
 });
 
-describe("run-report-render — committed entries show verb+path+kind, derived via dryRunPlan (RPT-01/RPT-05)", () => {
+describe("run-report-render — committed entries show verb+path+kind, derived via renderPendingDirectives (RPT-01/RPT-05)", () => {
   it("a mixed create+copyIn directive set renders one line per entry with the correct verb, path, and kind", () => {
     const rawDirectives: Directive[] = [
       { op: "create", create: { pathTemplate: "src/widget.entity.ts", template: "x", options: {} } },
@@ -143,9 +143,9 @@ describe("run-report-render — REPORTS_DIR/reportPathFor are the single pinned 
 });
 
 describe("run-report-render — no second op→kind lookup table exists in the renderer's source (RPT-01.1)", () => {
-  it("the renderer imports dryRunPlan from src/dry-run/plan.ts — the one kind mechanism", () => {
+  it("the renderer imports renderPendingDirectives from src/pending-directives/render.ts — the one kind mechanism", () => {
     const source = readFileSync(RENDERER_SOURCE_PATH, "utf-8");
-    const resolved = specifiersResolvingInto(source, dirname(RENDERER_SOURCE_PATH), DRY_RUN_PLAN_PATH);
+    const resolved = specifiersResolvingInto(source, dirname(RENDERER_SOURCE_PATH), RENDERER_PATH);
     expect(resolved.length).toBeGreaterThan(0);
   });
 

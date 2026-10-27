@@ -43,7 +43,7 @@ export interface CreateOptions {
 /**
  * Options for the `create({ templateFile })` render request — an explicit, package-local
  * alternative to an inline `template` string (REQ-FEH-01). `templateFile` is a
- * package-relative path (resolved against the active run's `packageDir`), read at
+ * package-relative path (resolved against the active Session's `packageDir`), read at
  * emission time; its content becomes the `create` directive's `template` field —
  * the existing `create` IR, zero wire change. `templateFile` REQUESTS a render: a binary
  * or oversized source fails loud (`invalid-input`), it never silently falls back to a
@@ -157,12 +157,12 @@ export function find(path: string): FoundHandle {
  *
  * Creating over an existing file is rejected at the engine seam unless
  * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
- * rejected run throws `AuthoringError`.
+ * rejected Session throws `AuthoringError`.
  *
  * `templateFile` is a THIRD overload (REQ-FEH-01): pass a package-local path instead of an
  * inline `template` string — its content is read at emission time and becomes the
  * directive's `template` field. `template` and `templateFile` are mutually exclusive forms;
- * only usable inside a factory run started with packageDir (there is no resolution anchor
+ * only usable inside a factory invocation started with packageDir (there is no resolution anchor
  * to read a package-local file against otherwise — `invalid-input`, never a cwd fallback).
  * `templateFile`'s VALUE is a literal package-relative path, read verbatim by CONTENT —
  * it is NOT run through `scaffold`'s filename pipeline (no rename remap, no `__x__` token
@@ -220,7 +220,7 @@ export function create(path: string, opts: CreateOptions | CreateFromTemplateFil
 export type ScaffoldOptions = ScaffoldArgs;
 
 /**
- * Walks a package-local folder (`from`, resolved against the active run's `packageDir`)
+ * Walks a package-local folder (`from`, resolved against the active Session's `packageDir`)
  * and mirrors every entry into `to`, applying the rename → filename-token-translation →
  * `.template`-strip pipeline (REQ-FSC-05) and include/exclude glob filtering (REQ-FSC-03,
  * `exclude` wins on overlap). Each source classifies by-value or by-reference
@@ -231,7 +231,7 @@ export type ScaffoldOptions = ScaffoldArgs;
  * `false`) passes through unchanged to every emitted directive, no per-file override
  * (REQ-FSC-06). Two or more sources collapsing to the same destination reject fail-loud,
  * naming every offending source (REQ-FSC-08). Only usable inside a
- * factory run started with packageDir — there is no resolution anchor to walk a
+ * factory invocation started with packageDir — there is no resolution anchor to walk a
  * package-local folder against otherwise (`invalid-input`, never a cwd fallback).
  *
  * `rename` is a static REMAP TABLE (`Record<originalSourceRelativePath,
@@ -278,7 +278,7 @@ export function scaffold(args: ScaffoldOptions): void {
  * `from`/`to` are mandatory; `force` defaults `false`. A missing `from`/`to` rejects
  * fail-loud before any emission (REQ-FEH-04.1/.2). Collision without `force` rejects;
  * `force: true` overwrites (`by-reference-copy-wire` REQ-BRC-05). Only usable inside a
- * factory run started with packageDir — there is no resolution anchor to read a
+ * factory invocation started with packageDir — there is no resolution anchor to read a
  * package-local file against otherwise (`invalid-input`, never a cwd fallback).
  *
  * Returns `void` (REQ-FEH-04.3) — NOT a `WritableHandle`, unlike `copy`: a by-reference
@@ -296,7 +296,7 @@ export function copyIn(from: string, to: string, opts?: { force?: boolean }): vo
 
 /**
  * Schedules an in-place content replacement for an existing file and returns a `WritableHandle`.
- * A rejected run (e.g. the target does not exist) throws `AuthoringError`.
+ * A rejected Session (e.g. the target does not exist) throws `AuthoringError`.
  *
  * @example
  * replaceContent("src/config.json", '{ "version": "2.0.0" }');
@@ -322,7 +322,7 @@ export function remove(path: string): void {
  * Schedules a file rename (basename only) and returns a `WritableHandle` for the new path.
  * Renaming onto an existing path is rejected at the engine seam unless
  * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
- * rejected run throws `AuthoringError`.
+ * rejected Session throws `AuthoringError`.
  *
  * @example
  * rename("src/foo.ts", "bar.ts");
@@ -338,7 +338,7 @@ export function rename(path: string, newName: string, opts?: { force?: boolean }
  * Schedules a file move to a different directory and returns a `WritableHandle`.
  * Moving onto an existing destination is rejected at the engine seam unless
  * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
- * rejected run throws `AuthoringError`.
+ * rejected Session throws `AuthoringError`.
  * A move whose destination equals its source is a no-op, never a collision
  * (ADR-0017 self-move amendment).
  *
@@ -355,7 +355,7 @@ export function move(path: string, toDir: string, opts?: { force?: boolean }): W
  * Schedules a file copy to a new path and returns a `WritableHandle` for the destination.
  * Copying onto an existing destination is rejected at the engine seam unless
  * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
- * rejected run throws `AuthoringError`.
+ * rejected Session throws `AuthoringError`.
  *
  * @example
  * copy("src/template.ts", "src/generated/output.ts");
@@ -366,19 +366,19 @@ export function copy(from: string, to: string, opts?: { force?: boolean }): Writ
   return buildWritableHandle(to);
 }
 
-// --- Stage 3: dry-run plan exposure (REQ-DRE-01..04) ---
-import { dryRunPlan } from "../dry-run/index.ts";
-import type { DryRunEntry, DryRunVerb } from "../dry-run/plan.ts";
+// --- Stage 3: pending Directives exposure (REQ-DRE-01..04) ---
+import { renderPendingDirectives } from "../pending-directives/index.ts";
+import type { PendingDirective } from "../pending-directives/render.ts";
 
-export type { DryRunEntry, DryRunVerb };
+export type { PendingDirective };
 
 /**
- * Returns the plan of directives still pending in the active run's buffer, rendered
- * in author vocabulary.
+ * Returns the Directives still pending in the active Session's buffer, rendered in
+ * author vocabulary.
  *
- * The plan reflects only what is still pending — the honest answer to "what will this
- * run still emit", not "what has this run emitted in total." A `read()` (or any flush)
- * empties the pending buffer, so directives already flushed no longer appear.
+ * Only what is still pending appears — the honest answer to "what will this Session
+ * still emit", not "what has this Session emitted in total." A `read()` (or any flush)
+ * drains the pending buffer, so Directives already sent no longer appear.
  *
  * Entries carry verb and path — no content or byte preview — plus an optional `kind`
  * (`"rendered" | "copied"`) present only on the package-local-read verbs whose transport
@@ -386,21 +386,21 @@ export type { DryRunEntry, DryRunVerb };
  * (`kind: "copied"`). The tree→tree `copy` verb also materializes content but predates
  * this axis and is never package-local-read/classified, so it carries no `kind`.
  *
- * Call it inside an active factory run, like every other `./commons` verb.
+ * Call it inside an active factory invocation, like every other `./commons` verb.
  *
  * @example
  * const run = () => {
  *   create("src/index.ts", { template: "export const version = '1.0.0';", options: {} });
  *   find("src/legacy.ts").remove();
- *   for (const entry of dryRun()) {
+ *   for (const entry of pendingDirectives()) {
  *     console.log(entry.verb, entry.path); // "create src/index.ts", then "remove src/legacy.ts"
  *   }
  * };
  *
- * @throws When called outside an active factory run, propagates the standard
+ * @throws When called outside an active factory invocation, propagates the standard
  * error — authoring verbs "can only be used while a schematic is running" (ADR-0026: the
- * message no longer enumerates individual verbs, so it covers `dryRun` too).
+ * message no longer enumerates individual verbs, so it covers `pendingDirectives` too).
  */
-export function dryRun(): DryRunEntry[] {
-  return dryRunPlan(currentContext().session.pendingSnapshot());
+export function pendingDirectives(): PendingDirective[] {
+  return renderPendingDirectives(currentContext().session.pendingDirectives());
 }

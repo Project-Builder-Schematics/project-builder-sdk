@@ -18,7 +18,7 @@ import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
 import { dialectError } from "../../src/core/dialect-error.ts";
-import { dryRun } from "../../src/commons/index.ts";
+import { pendingDirectives } from "../../src/commons/index.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
 import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
 import { ContractFake } from "../support/contract-fake.ts";
@@ -211,7 +211,7 @@ describe("dialect handle — flush-seed-rule (REQ-MC-04)", () => {
   });
 });
 
-describe("dialect handle — dryRun over a coalesced chain (REQ-MC-05)", () => {
+describe("dialect handle — pendingDirectives over a coalesced chain (REQ-MC-05)", () => {
   it("REQ-MC-05.1: shows exactly one planned modify, without triggering AST re-serialization", async () => {
     const { client } = makeSpyClient({ "a.toy": "seed" });
 
@@ -241,14 +241,14 @@ describe("dialect handle — dryRun over a coalesced chain (REQ-MC-05)", () => {
       // #ensureOpen (ADR-0037 amendment clause 2) probes print() ONCE — on the FIRST push,
       // to decide whether the directive should open at all — never again for the second
       // push (the directive is already open and still pending, so #ensureOpen short-
-      // circuits on the identity check before any further print). dryRun() itself never
+      // circuits on the identity check before any further print). pendingDirectives() itself never
       // triggers the LAZY content getter — only settle() (the run-end drain) or a flush
       // does — so it adds no further print call beyond the one the mutation gate already
       // paid on push #1.
       await handle;
 
-      const plan = dryRun();
-      expect(plan).toEqual([{ verb: "modify", path: "a.toy" }]);
+      const pending = pendingDirectives();
+      expect(pending).toEqual([{ verb: "modify", path: "a.toy" }]);
       expect(printCalls).toBe(1);
     });
     await run(undefined, { client });
@@ -712,7 +712,7 @@ describe("dialect handle — mutation-gated #ensureOpen (row-141, REQ-TSD-08.4 m
       // addImport is idempotent (REQ-TSD-03.10) — the binding already exists, so this
       // mutates nothing; the mutation gate must never register an open directive for it.
       await ts.find("a.ts").addImport("readFileSync", "node:fs");
-      expect(dryRun()).toEqual([]);
+      expect(pendingDirectives()).toEqual([]);
     });
     await run(undefined, { client });
 
@@ -871,7 +871,7 @@ describe("dialect handle — removeImport mechanism proofs (REQ-TSD-08.4/08.6, S
 
     const run = defineFactory<void>(async () => {
       await ts.find("a.ts").removeImport("a", "m");
-      expect(dryRun()).toEqual([]);
+      expect(pendingDirectives()).toEqual([]);
     });
     await run(undefined, { client });
 

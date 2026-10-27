@@ -22,7 +22,7 @@ const SURVIVING_REASONS = [
   "path-not-found",
   "unrepresentable-content",
   "changes-too-large",
-  "outside-run",
+  "outside-session",
   "unknown",
   "invalid-input",
   "reserved-name",

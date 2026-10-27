@@ -11,7 +11,7 @@ import { BridgeVersionMismatchError } from "../../src/transport/bootstrap-bridge
 describe("REQ-EXC-01 — exit code taxonomy", () => {
   describe("Scenario REQ-EXC-01.2/.3: four failure classes map to four distinct codes", () => {
     it("an authoring-rejected AuthoringError (SDK-side misuse) classifies as 1 (validation-failure)", () => {
-      const err = new AuthoringError({ verb: undefined, path: undefined, reason: "outside-run", appliedCount: 0 });
+      const err = new AuthoringError({ verb: undefined, path: undefined, reason: "outside-session", appliedCount: 0 });
       expect(err.origin).toEqual("authoring-rejected");
       expect(classifyExitCode(err)).toEqual(1);
     });

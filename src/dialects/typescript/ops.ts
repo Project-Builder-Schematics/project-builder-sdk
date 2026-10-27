@@ -1,4 +1,4 @@
-// S-002: the `addImport` structured op (REQ-TSD-01, frozen call signature
+// S-002: the `addImport` named op (REQ-TSD-01, frozen call signature
 // `addImport(name: string, from: string)`, design §4.4).
 //
 // S-001: `addFunction` (REQ-TSD-09) + the shared `assertNoCollision` predicate it (and

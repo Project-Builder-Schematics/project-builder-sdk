@@ -56,7 +56,7 @@ describe("REQ-AEC-01.2 — no engine string ever appears as a reason value", () 
     "path-not-found",
     "unrepresentable-content",
     "changes-too-large",
-    "outside-run",
+    "outside-session",
     "unknown",
     "invalid-input",
     "reserved-name",

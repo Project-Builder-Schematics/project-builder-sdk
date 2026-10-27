@@ -106,7 +106,7 @@ describe("REQ-04.2 — a single group whose OWN batch exceeds the cap still reje
     const caught = await rejectedRun(fake, () => {
       create(pathTemplate, { template: bigTemplate, options: {} });
       // scaffold's expander seeds its pending-size accumulator from this ALREADY-buffered,
-      // already-over-cap directive (`session.pendingSnapshot()`) — its very first file
+      // already-over-cap directive (`session.pendingDirectives()`) — its very first file
       // triggers a flush of that pre-existing group before adding anything of its own.
       scaffold({ from: "files", to: "out" });
     }, { packageDir: dir });

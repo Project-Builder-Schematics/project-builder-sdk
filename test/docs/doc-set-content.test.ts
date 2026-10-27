@@ -31,11 +31,12 @@ function readDoc(relPath: string): string {
 // Wire-/port-internal identifiers an author-facing doc must never surface (REQ-AOD-05.1):
 // the rejection class name and the two other wire-level type names from src/core/wire.ts,
 // plus the wire op word itself (word-boundary, so it never matches inside prose like
-// "deleted"). Author vocabulary's "path-collision" reason legitimately CONTAINS the
+// "deleted"). `Directive` is word-bounded too: the author-facing `pendingDirectives()` and
+// `PendingDirective` are Authoring vocabulary, only the bare wire type name is banned. Author vocabulary's "path-collision" reason legitimately CONTAINS the
 // substring "collision" (the wire-level EmitRejectionCode is the BARE word "collision") —
 // banning that bare substring would also ban the correct author term, so it is
 // intentionally excluded from this list.
-const WIRE_INTERNAL_TERMS: (string | RegExp)[] = ["EmitRejection", "Directive", "Batch", /\bdelete\b/];
+const WIRE_INTERNAL_TERMS: (string | RegExp)[] = ["EmitRejection", /\bDirective\b/, "Batch", /\bdelete\b/];
 
 function assertNoWireInternalTerms(doc: string): void {
   for (const term of WIRE_INTERNAL_TERMS) {
@@ -103,7 +104,7 @@ describe("wire-internal terms banned across the full author-facing doc set", () 
     "docs/authoring-verbs.md",
     "docs/authoring-errors.md",
     "docs/create-templates.md",
-    "docs/dry-run.md",
+    "docs/pending-directives.md",
     "docs/README.md",
   ];
 
@@ -114,15 +115,15 @@ describe("wire-internal terms banned across the full author-facing doc set", () 
   }
 });
 
-describe("REQ-AOD-06 — dry-run usage: ./commons function, not a subpath", () => {
-  const doc = readDoc("docs/dry-run.md");
+describe("REQ-AOD-06 — pendingDirectives usage: ./commons function, not a subpath", () => {
+  const doc = readDoc("docs/pending-directives.md");
 
-  it("REQ-AOD-06.1: imports dryRun from @pbuilder/sdk/commons", () => {
-    expect(doc).toMatch(/import\s*\{\s*dryRun\s*\}\s*from\s*["']@pbuilder\/sdk\/commons["']/);
+  it("REQ-AOD-06.1: imports pendingDirectives from @pbuilder/sdk/commons", () => {
+    expect(doc).toMatch(/import\s*\{\s*pendingDirectives\s*\}\s*from\s*["']@pbuilder\/sdk\/commons["']/);
   });
 
-  it("REQ-AOD-06.2: demonstrates iterating dryRun()'s returned entries", () => {
-    expect(doc).toMatch(/for\s*\(\s*const\s+\w+\s+of\s+dryRun\(\)/);
+  it("REQ-AOD-06.2: demonstrates iterating pendingDirectives()'s returned entries", () => {
+    expect(doc).toMatch(/for\s*\(\s*const\s+\w+\s+of\s+pendingDirectives\(\)/);
   });
 });
 
@@ -221,19 +222,19 @@ describe("REQ-AOD-09.3 — ROADMAP states release-readiness, not a release", () 
   });
 });
 
-describe("REQ-AOD-10 — demo narrative calls dryRun() before any read/dialect-open", () => {
+describe("REQ-AOD-10 — demo narrative calls pendingDirectives() before any read/dialect-open", () => {
   const doc = readDoc("openspec/objectives-plan.md");
 
-  it("REQ-AOD-10.1: the demo-moment paragraph sequences dryRun() before the dialect handle", () => {
+  it("REQ-AOD-10.1: the demo-moment paragraph sequences pendingDirectives() before the dialect handle", () => {
     const idx = doc.indexOf("**The demo moment:**");
     expect(idx).toBeGreaterThan(-1);
     const paragraphEnd = doc.indexOf("\n\n", idx);
     const paragraph = doc.slice(idx, paragraphEnd === -1 ? undefined : paragraphEnd);
-    const dryRunIdx = paragraph.indexOf("dryRun()");
+    const pendingDirectivesIdx = paragraph.indexOf("pendingDirectives()");
     const dialectIdx = paragraph.indexOf("dialect handle");
-    expect(dryRunIdx).toBeGreaterThan(-1);
+    expect(pendingDirectivesIdx).toBeGreaterThan(-1);
     expect(dialectIdx).toBeGreaterThan(-1);
-    expect(dryRunIdx).toBeLessThan(dialectIdx);
+    expect(pendingDirectivesIdx).toBeLessThan(dialectIdx);
   });
 });
 

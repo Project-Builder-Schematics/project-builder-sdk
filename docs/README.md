@@ -13,7 +13,7 @@ quickstart; the rest is reference, read in whatever order you need it.
    whitespace rules, sandbox limits, and the error taxonomy.
 4. **[Error contract](./authoring-errors.md)** — what `AuthoringError` looks like, its
    `verb`/`path`/`reason` fields, and how to recover from a rejected run.
-5. **[Dry-run](./dry-run.md)** — preview a factory's planned changes with `dryRun()` before
+5. **[Pending Directives](./pending-directives.md)** — preview a factory's pending changes with `pendingDirectives()` before
    anything commits.
 6. **[Authoring a dialect](./authoring-a-dialect.md)** — structured, AST-aware mutation for
    one file type (e.g. `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`), for when the verbs

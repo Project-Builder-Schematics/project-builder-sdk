@@ -59,7 +59,7 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *   case "path-not-found":
  *   case "unrepresentable-content":
  *   case "changes-too-large":
- *   case "outside-run":
+ *   case "outside-session":
  *   case "unknown":
  *   case "invalid-input":
  *   case "reserved-name":
@@ -75,7 +75,7 @@ export type AuthoringReason =
   | "path-not-found"
   | "unrepresentable-content"
   | "changes-too-large"
-  | "outside-run"
+  | "outside-session"
   | "unknown"
   | "invalid-input"
   | "reserved-name"
@@ -100,7 +100,7 @@ export type AuthoringOrigin = "write-rejected" | "authoring-rejected";
 // an unclassifiable rejection necessarily arrived through the emit/write seam (the only
 // place toAuthoringError runs), so the write side is the honest attribution (spec
 // cross-cutting note 7). `invalid-input`/`reserved-name` (V2 → V3 amendment, REQ-AEC-07/08)
-// are ALWAYS "authoring-rejected" — same rationale as outside-run: an SDK-side misuse
+// are ALWAYS "authoring-rejected" — same rationale as outside-session: an SDK-side misuse
 // detection, not an engine round-trip refusal. The three surviving `source-*` reasons
 // (`schematic-local-files` S-002, REQ-AEC-10; `source-outside-package` retired by
 // `inline-collection-marker` S-002, ADR-0077) are likewise ALWAYS "authoring-rejected" —
@@ -114,7 +114,7 @@ function originFor(reason: AuthoringReason): AuthoringOrigin {
     case "changes-too-large":
     case "unknown":
       return "write-rejected";
-    case "outside-run":
+    case "outside-session":
     case "invalid-input":
     case "reserved-name":
     case "source-not-found":
@@ -169,7 +169,7 @@ function primaryPath(directive: Directive): string {
 }
 
 // REQ-AEC-06: message templates selected BY REASON, three-way — never by verb/path
-// presence. `outside-run` also has verb/path undefined but must NOT get the batch
+// presence. `outside-session` also has verb/path undefined but must NOT get the batch
 // template (the context.test.ts:12 substring pin would break).
 //
 // REQ-AEC-09 (V2 → V3 amendment) adds two MORE families (invalid-input's two variants,
@@ -193,7 +193,7 @@ function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, pa
     case "path-collision":
     case "path-not-found":
       return `${verb} failed at ${path}: ${reason}`;
-    case "outside-run":
+    case "outside-session":
       return (
         "@pbuilder/sdk: authoring verbs can only be used while a schematic is running — " +
         "call them inside your factory function, not at module load time."
@@ -252,7 +252,7 @@ export class AuthoringError extends Error {
   readonly origin: AuthoringOrigin;
   /**
    * Counts directives applied within the failing flush before the offender — a
-   * diagnostic for locating progress, NOT a persistence promise (a rejected run
+   * diagnostic for locating progress, NOT a persistence promise (a rejected Session
    * discards everything, ADR-0015).
    */
   readonly appliedCount: number;

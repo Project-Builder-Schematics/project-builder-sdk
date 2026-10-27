@@ -171,7 +171,7 @@ export function describe(directive: Directive): JsonValue {
   return directive as unknown as JsonValue;
 }
 `;
-    const violations = scanPortBleed(fixtureSource, "src/dry-run/plan.ts");
+    const violations = scanPortBleed(fixtureSource, "src/pending-directives/render.ts");
     expect(violations).toEqual([]);
   });
 

@@ -1,19 +1,19 @@
 /**
- * S-002.3 — FIT-dry-run-no-import: import-graph scan of src/dry-run/**.
+ * S-002.3 — FIT-pending-directives-no-import: import-graph scan of src/pending-directives/**.
  * Ensures the renderer module has no runtime import from src/core/** and no AST package.
  * Mirrors the FIT-01 scan approach (fit-01-commons-no-ast.test.ts).
  *
  * type-only imports (import type ...) are ALLOWED — only runtime imports are forbidden.
- * REQ-05.1: the dry-run module must be AST-blind and core-blind by construction.
+ * REQ-05.1: the pending-directives module must be AST-blind and core-blind by construction.
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
 
-const DRY_RUN_DIR = new URL("../../src/dry-run", import.meta.url).pathname;
+const PENDING_DIRECTIVES_DIR = new URL("../../src/pending-directives", import.meta.url).pathname;
 const ROOT_SRC = new URL("../../src", import.meta.url).pathname;
 
-// Known AST packages that must never appear in the dry-run renderer.
+// Known AST packages that must never appear in the pending Directives renderer.
 const BANNED_AST_PACKAGES = [
   "ts-morph",
   "@typescript-eslint/typescript-estree",
@@ -76,17 +76,17 @@ function isAstPackage(specifier: string): boolean {
   return BANNED_AST_PACKAGES.some((pkg) => specifier === pkg || specifier.startsWith(pkg));
 }
 
-describe("FIT-dry-run-no-import — renderer has no core runtime or AST imports (REQ-05.1)", () => {
-  const dryRunFiles = collectTs(DRY_RUN_DIR);
+describe("FIT-pending-directives-no-import — renderer has no core runtime or AST imports (REQ-05.1)", () => {
+  const pendingDirectivesFiles = collectTs(PENDING_DIRECTIVES_DIR);
 
-  it("src/dry-run/** contains at least one file to scan", () => {
-    expect(dryRunFiles.length).toBeGreaterThan(0);
+  it("src/pending-directives/** contains at least one file to scan", () => {
+    expect(pendingDirectivesFiles.length).toBeGreaterThan(0);
   });
 
-  it("src/dry-run/** has no runtime import from src/core/**", () => {
+  it("src/pending-directives/** has no runtime import from src/core/**", () => {
     const violations: Array<{ file: string; specifier: string }> = [];
 
-    for (const filePath of dryRunFiles) {
+    for (const filePath of pendingDirectivesFiles) {
       const source = readFileSync(filePath, "utf-8");
       const runtimeImports = extractRuntimeImports(source);
 
@@ -100,10 +100,10 @@ describe("FIT-dry-run-no-import — renderer has no core runtime or AST imports 
     expect(violations).toEqual([]);
   });
 
-  it("src/dry-run/** has no AST package imports", () => {
+  it("src/pending-directives/** has no AST package imports", () => {
     const violations: Array<{ file: string; specifier: string }> = [];
 
-    for (const filePath of dryRunFiles) {
+    for (const filePath of pendingDirectivesFiles) {
       const source = readFileSync(filePath, "utf-8");
       const runtimeImports = extractRuntimeImports(source);
 

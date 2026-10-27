@@ -1,11 +1,11 @@
 /**
  * e2e — walking skeleton for `schematic-local-files` (S-000). Drives
  * `create({ templateFile })` end-to-end through a real `defineFactory({ packageDir })`
- * run against a `ContractFake` — no mocks on the render/commit/dry-run path.
+ * run against a `ContractFake` — no mocks on the render/commit/pendingDirectives path.
  *
  * Covers (slices.md S-000): REQ-FEH-01.1 (templateFile content becomes the create
  * directive's template), REQ-FEH-02.1/.2 (binary/oversized templateFile fails loud,
- * never silently copies), REQ-DRE-05.3 (create({templateFile}) dry-run entry tagged
+ * never silently copies), REQ-DRE-05.3 (create({templateFile}) pending Directive entry tagged
  * "rendered").
  *
  * S-001 adds the OUTER LOOP for the folder-scaffold + classifier slice (double-loop TDD
@@ -25,7 +25,7 @@ import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { create, scaffold, copyIn, dryRun, AuthoringError } from "../../src/commons/index.ts";
+import { create, scaffold, copyIn, pendingDirectives, AuthoringError } from "../../src/commons/index.ts";
 import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
@@ -34,7 +34,7 @@ import { expectAuthoringReason } from "../support/expect-reason.ts";
 const scratchDir = scratchDirFactory("scaffold-e2e-");
 
 describe("e2e — create({ templateFile }) walking skeleton", () => {
-  it("REQ-FEH-01.1 + REQ-DRE-05.3: renders templateFile content through the create IR, commits, and dry-run tags it 'rendered'", async () => {
+  it("REQ-FEH-01.1 + REQ-DRE-05.3: renders templateFile content through the create IR, commits, and pendingDirectives() tags it 'rendered'", async () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "tpl.ts.template"), "export const x = {= x =};", "utf-8");
     const fake = new ContractFake({ seed: {} });
@@ -42,7 +42,7 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
     const run = defineFactory<void>(() => {
       create("dest.ts", { templateFile: "tpl.ts.template", options: { x: 1 } });
 
-      expect(dryRun()).toEqual([{ verb: "create", path: "dest.ts", kind: "rendered" }]);
+      expect(pendingDirectives()).toEqual([{ verb: "create", path: "dest.ts", kind: "rendered" }]);
     }, { packageDir: dir });
 
     await run(undefined, { client: fake });
@@ -252,7 +252,7 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
 });
 
 describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
-  it("FSC-01.2/02.1/07.1 + DRE-05.3: mirrors a nested folder's text files by-value, commits, and dry-run tags every entry 'rendered'", async () => {
+  it("FSC-01.2/02.1/07.1 + DRE-05.3: mirrors a nested folder's text files by-value, commits, and pendingDirectives() tags every entry 'rendered'", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files", "nested"), { recursive: true });
     writeFileSync(join(dir, "files", "a.ts"), "export const a = 1;", "utf-8");
@@ -263,8 +263,8 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
       const result = scaffold({ from: "files", to: "out" });
       expect(result).toBeUndefined(); // REQ-FSC-07.1: scaffold returns void
 
-      const plan = dryRun();
-      expect(plan).toEqual([
+      const pending = pendingDirectives();
+      expect(pending).toEqual([
         { verb: "create", path: "out/a.ts", kind: "rendered" },
         { verb: "create", path: "out/nested/b.ts", kind: "rendered" },
       ]);
@@ -303,7 +303,7 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
 
     const run = defineFactory<void>(() => {
       scaffold({ from: "empty", to: "out" });
-      expect(dryRun()).toEqual([]);
+      expect(pendingDirectives()).toEqual([]);
     }, { packageDir: dir });
 
     await run(undefined, { client: fake });
@@ -325,7 +325,7 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
     expect(fake.committedTree().size).toEqual(0);
   });
 
-  it("S-003: classifier's by-reference verdict emits a real copyIn directive — mixed scaffold commits the by-value file and dry-run tags each entry with its own kind", async () => {
+  it("S-003: classifier's by-reference verdict emits a real copyIn directive — mixed scaffold commits the by-value file and pendingDirectives() tags each entry with its own kind", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
     writeFileSync(join(dir, "files", "text.ts"), "export const a = 1;", "utf-8");
@@ -336,8 +336,8 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
       const result = scaffold({ from: "files", to: "out" });
       expect(result).toBeUndefined(); // REQ-FSC-07.1: scaffold still returns void
 
-      const plan = dryRun();
-      expect(plan).toEqual([
+      const pending = pendingDirectives();
+      expect(pending).toEqual([
         { verb: "copyIn", path: "files/asset.png", kind: "copied" },
         { verb: "create", path: "out/text.ts", kind: "rendered" },
       ]);
@@ -426,8 +426,8 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
   });
 });
 
-describe("e2e — copyIn(from, to, { force }) escape hatch (S-003)", () => {
-  it("REQ-FEH-03.1 + REQ-DRE-05.2: copies a text file verbatim, unrendered — dry-run tags it 'copied', never lands in result.tree", async () => {
+describe("e2e — copyIn(from, to, { force }) never-render copy (S-003)", () => {
+  it("REQ-FEH-03.1 + REQ-DRE-05.2: copies a text file verbatim, unrendered — pendingDirectives() tags it 'copied', never lands in result.tree", async () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "literal.txt"), "{= this looks like a token =}", "utf-8");
     const fake = new ContractFake({ seed: {} });
@@ -436,7 +436,7 @@ describe("e2e — copyIn(from, to, { force }) escape hatch (S-003)", () => {
       const result = copyIn("literal.txt", "dest/literal.txt");
       expect(result).toBeUndefined(); // REQ-FEH-04.3: copyIn returns void
 
-      expect(dryRun()).toEqual([{ verb: "copyIn", path: "literal.txt", kind: "copied" }]);
+      expect(pendingDirectives()).toEqual([{ verb: "copyIn", path: "literal.txt", kind: "copied" }]);
     }, { packageDir: dir });
 
     await run(undefined, { client: fake });

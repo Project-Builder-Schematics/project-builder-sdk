@@ -186,7 +186,7 @@ function parseReqIds(specMarkdown: string): string[] {
  * into. The post-archive fallback below scans ONLY these (judgment-day F12): a scan of ALL
  * of `openspec/specs/{star}/spec.md` unions ~40 foreign domains (hundreds of REQs), and
  * prefix filtering is NOT a safe alternative — the FEH prefix collides with the foreign
- * `file-escape-hatches`/`scenario-matrix`/`content-classification`/`dry-run-plan-exposure`
+ * `file-escape-hatches`/`scenario-matrix`/`content-classification`/`pending-directives-exposure`
  * domains (verified: `rg "REQ-FEH-" openspec/specs/`). A future re-split of these domains
  * must update this list — FEH-05.2's count tripwire fails loudly if it drifts.
  */

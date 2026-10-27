@@ -478,7 +478,7 @@ type TaintReason = Extract<BindingOrigin, { readonly kind: "tainted" }>["reason"
 /**
  * Classifies a VariableDeclaration initializer for D-3's taint rules. undefined = untainted.
  * Uses the SAME chain resolver as callee/member-path admission (`resolveChain`) so a
- * safe-terminal-rooted initializer (`this.#handles`, `getRunAls()`, a literal) is never
+ * safe-terminal-rooted initializer (`this.#handles`, `getSessionAls()`, a literal) is never
  * mistaken for an undecidable one — only a genuinely computed or unresolvable initializer
  * taints its binding.
  */
@@ -750,7 +750,7 @@ function isPlainFallback(node: Node): boolean {
  * RESULT. Such a base is not thereby harmless: `function g(){ return globalThis }` makes `g()`
  * a call result carrying the entire global surface, which is why the PATH off a safe terminal
  * is checked separately (`classifySafeTerminal`) instead of being admitted with its base.
- * `this.#pending.push(...)`, `getRunAls().getStore()`,
+ * `this.#pending.push(...)`, `getSessionAls().getStore()`,
  * `/re/.test(...)`, `(property.choices ?? []).join(...)` and `createRequire(anchor).resolve(...)`
  * (the exemption's own outer call) are the real-closure "safe-terminal" shapes — probe-verified
  * 0/423 undecidable callees on this branch depends on them being admitted.

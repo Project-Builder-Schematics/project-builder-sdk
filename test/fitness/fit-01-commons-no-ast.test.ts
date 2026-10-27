@@ -4,11 +4,11 @@
  *
  * Rebuilt from a per-file direct-specifier scan into a relative-import-closure GRAPH WALK:
  * starting at every file under src/commons/**, the walk follows every RELATIVE import edge
- * to any depth — including legitimate non-core SDK-internal targets (e.g. ../dry-run/*,
+ * to any depth — including legitimate non-core SDK-internal targets (e.g. ../pending-directives/*,
  * commons-local modules) — and fails on any BARE non-builtin specifier reached anywhere in
  * that reachable graph. The invariant is "zero external packages reachable from commons",
  * NOT "commons only imports core" — a target-allow-list reading was explicitly REJECTED
- * (verify-plan-5) because it would flag today's legitimate ../dry-run imports as violations.
+ * (verify-plan-5) because it would flag today's legitimate ../pending-directives imports as violations.
  *
  * Red-proof: a fixture source importing ts-morph is caught by the scanner (direct case,
  * pre-existing). A PLANTED two-file fixture (leaf.ts → helper.ts → ts-morph) additionally
@@ -89,7 +89,7 @@ function resolveRelativeImport(fromFile: string, specifier: string): string {
 /**
  * Transitive import-graph walk (S-000, REQ-FIT-01, verify-plan-5 latitude ruling): starting
  * from `entryFiles`, follows every RELATIVE import edge to any depth — traversal edges
- * leaving commons (e.g. into ../core, ../dry-run) are legitimate, not violations — and
+ * leaving commons (e.g. into ../core, ../pending-directives) are legitimate, not violations — and
  * reports every BARE non-builtin specifier reached anywhere in that graph.
  */
 function walkTransitiveImports(entryFiles: readonly string[]): ImportViolation[] {
