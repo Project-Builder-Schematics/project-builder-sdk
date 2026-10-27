@@ -6,7 +6,7 @@
 // when no relative form is meaningful, e.g. a different filesystem root).
 
 import { realpathSync } from "node:fs";
-import { isAbsolute, relative } from "node:path";
+import { dirname, isAbsolute, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // SDK-chosen placeholders pending engine-side confirmation — same provenance posture as
@@ -59,7 +59,9 @@ export interface ScrubAnchor {
 }
 
 // This module sits at <sdk>/src/transport/ in source and <sdk>/dist/transport/ in the build.
-const SDK_ROOT = fileURLToPath(new URL("../..", import.meta.url));
+// dirname rather than a "../.." URL: that form keeps a trailing slash, which never matches
+// as a whole segment.
+const SDK_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 
 // REQ-WPS-07.7: the prefixes whose disclosure says something about THIS machine, each also
 // under its realpath (a symlinked checkout reports either). Home and temp directories are not
@@ -130,13 +132,16 @@ function anchorKnownPrefixes(message: string, anchors: readonly ScrubAnchor[]): 
 // ahead is NOT consumed, so prose is never swallowed past the actual path boundary.
 const SHAPES =
   /(<(?:project-root|sdk)>[^\s'"<>]*)|([A-Za-z][A-Za-z0-9+.-]+:\/\/[^\s'"<>]*)|((?:(?<![A-Za-z0-9_])[A-Za-z]:[\\/]|\\\\[A-Za-z0-9._$-]+\\)(?:[^\s'"<>]|[ ](?=[^\s'"<>]*[\\/]))*)|(?<![A-Za-z0-9_])\/(?:[^\s'"<>]|[ ](?=[^\s'"<>]*\/))+/g;
-const FILE_URL_SCHEME = /^file:\/\//i;
+// A scheme ending in "file" also covers a word glued before it ("loadfile:///..."). A drive
+// letter after the authority slash ("file:///C:/...") is handed to the Windows group.
+const FILE_URL = /^([A-Za-z0-9+.-]*file:\/\/)(?:\/(?=[A-Za-z]:[\\/]))?/i;
 
 function scrubShapes(text: string, projectRoot: string | undefined): string {
   return text.replace(SHAPES, (match, anchored?: string, url?: string, windows?: string) => {
     if (anchored !== undefined) return match;
     if (url !== undefined) {
-      return FILE_URL_SCHEME.test(match) ? `file://${scrubShapes(match.slice("file://".length), projectRoot)}` : match;
+      const fileUrl = FILE_URL.exec(match);
+      return fileUrl === null ? match : `${fileUrl[1]}${scrubShapes(match.slice(fileUrl[0].length), projectRoot)}`;
     }
     if (windows !== undefined) return OUTSIDE_PROJECT_TOKEN;
     return toProjectRelativePath(match, projectRoot);

@@ -264,6 +264,24 @@ describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
       );
     });
 
+    it("a file:// URL carrying a Windows drive path routes the drive path to the outside-project placeholder", () => {
+      expect(scrubAbsolutePaths("Cannot find module file:///C:/Users/dev/secret.json", ROOT, ANCHORS)).toEqual(
+        `Cannot find module file://${OUTSIDE_PROJECT_TOKEN}`
+      );
+    });
+
+    it("a file:// URL glued to the word before it is still scrubbed outside the anchors", () => {
+      expect(scrubAbsolutePaths("Cannot loadfile:///srv/app/secret.json", ROOT, ANCHORS)).toEqual(
+        `Cannot loadfile://${relative(ROOT, "/srv/app/secret.json")}`
+      );
+    });
+
+    it("the default anchors include the SDK root, even when its realpath cannot add a variant", () => {
+      const sdkRoot = hostAnchors("/repo").find(({ token }) => token === "<sdk>");
+      expect(sdkRoot?.path).not.toMatch(/\/$/);
+      expect(scrubAbsolutePaths(`at ${sdkRoot?.path}/dist/index.js`, "/repo", [sdkRoot!])).toEqual("at <sdk>/dist/index.js");
+    });
+
     it("a bare doubled backslash in prose is not mistaken for a UNC path", () => {
       for (const message of [
         "UNC paths on Windows start with \\\\ followed by the server name",
