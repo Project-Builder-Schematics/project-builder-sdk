@@ -20,6 +20,8 @@ type TypeScriptOps = {
   addNamespaceImport: (ast: SourceFile, name: string, from: string) => void;
   addTypeImport: (ast: SourceFile, name: string, from: string) => void;
   addSideEffectImport: (ast: SourceFile, from: string) => void;
+  addReExport: (ast: SourceFile, name: string, from: string) => void;
+  addExportAll: (ast: SourceFile, from: string, options?: { as?: string }) => void;
   addFunction: (ast: SourceFile, name: string, source: string, options?: { export?: boolean }) => void;
   addVariable: (
     ast: SourceFile,
@@ -29,6 +31,8 @@ type TypeScriptOps = {
   ) => void;
   addClass: (ast: SourceFile, name: string, source: string, options?: { export?: boolean }) => void;
   removeImport: (ast: SourceFile, name: string, from: string) => void;
+  removeExport: (ast: SourceFile, name: string, from: string) => void;
+  removeExportAll: (ast: SourceFile, from: string, options?: { as?: string }) => void;
 };
 
 const opsPack = defineOpPack<SourceFile, TypeScriptOps>(typescriptOps);
@@ -45,8 +49,8 @@ const typescriptDialect = withOps(baseDialect, opsPack);
  * Opens a TypeScript file for dialect-aware editing — the dialect's entry verb into a Session
  * (REQ-DG-01.2). Returns an awaitable, chainable `Handle` exposing the universal `.modify()`
  * escape hatch plus the dialect's named ops (`addImport`, `addDefaultImport`,
- * `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addFunction`, `addVariable`,
- * `addClass`, `removeImport`). Reads route through `Session.read` only (REQ-MC-03); edits
+ * `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`, `addExportAll`,
+ * `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`, `removeExportAll`). Reads route through `Session.read` only (REQ-MC-03); edits
  * coalesce into a single `modify` at flush (REQ-MC-01/02).
  *
  * @example

@@ -6,10 +6,14 @@ import {
   addNamespaceImport,
   addTypeImport,
   addSideEffectImport,
+  addReExport,
+  addExportAll,
   addFunction,
   addVariable,
   addClass,
   removeImport,
+  removeExport,
+  removeExportAll,
 } from "./ops.ts";
 
 export const typescriptOps = {
@@ -18,8 +22,12 @@ export const typescriptOps = {
   addNamespaceImport,
   addTypeImport,
   addSideEffectImport,
+  addReExport,
+  addExportAll,
   addFunction,
   addVariable,
   addClass,
   removeImport,
+  removeExport,
+  removeExportAll,
 };

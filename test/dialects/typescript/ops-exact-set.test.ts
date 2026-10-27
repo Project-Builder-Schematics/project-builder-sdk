@@ -38,12 +38,16 @@ describe("REQ-TSD-01.1 — exact shipped op-set", () => {
     expect(opKeys).toEqual([
       "addClass",
       "addDefaultImport",
+      "addExportAll",
       "addFunction",
       "addImport",
       "addNamespaceImport",
+      "addReExport",
       "addSideEffectImport",
       "addTypeImport",
       "addVariable",
+      "removeExport",
+      "removeExportAll",
       "removeImport",
     ]);
   });
