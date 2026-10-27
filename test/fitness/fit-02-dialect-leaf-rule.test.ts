@@ -48,6 +48,7 @@ function collectTs(dir: string): string[] {
 // the extended dialect never imports back.
 const ALLOWED_EDGES: Readonly<Record<string, readonly string[]>> = {
   nestjs: ["typescript"],
+  angular: ["typescript"],
 };
 
 /**

@@ -310,10 +310,23 @@ function locatorEcho(locator: ArrayLocator): string {
  */
 export function addArrayElement(ast: SourceFile, locator: ArrayLocator, element: ArrayElement): void {
   assertLocator(locator);
+  appendArrayElement(ast, locator, element, `addArrayElement(${locatorEcho(locator)})`);
+}
+
+/** The validated source text of `element`; rejects like `addArrayElement` does. */
+export function elementText(element: unknown): string {
+  return elementNode(element).getText();
+}
+
+/**
+ * `addArrayElement` for a dialect that builds `locator` itself: `label` heads the reject
+ * tail in place of `addArrayElement(<locator>)`.
+ */
+export function appendArrayElement(ast: SourceFile, locator: ArrayLocator, element: unknown, label: string): void {
   const node = elementNode(element);
   const item = node.getText();
   const fail = (reason: string): never => {
-    throw dialectError(`addArrayElement(${locatorEcho(locator)}) on "${handlePathFor(ast)}" — ${reason}. Edit it with .modify().`);
+    throw dialectError(`${label} on "${handlePathFor(ast)}" — ${reason}. Edit it with .modify().`);
   };
   const placement = locate(ast, locator, node, fail);
   switch (placement.kind) {

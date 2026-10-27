@@ -79,15 +79,15 @@ describe("REQ-PKG-01 — package.json#exports resolution contract", () => {
     expect(pkgJson.exports["./core"]).toBeUndefined();
   });
 
-  it.each(["json", "nestjs", "yaml"])('exports "./%s" with correct types and import fields', (name) => {
+  it.each(["angular", "json", "nestjs", "yaml"])('exports "./%s" with correct types and import fields', (name) => {
     const entry = pkgJson.exports[`./${name}`] ?? null;
     expect(entry).not.toBeNull();
     expect(entry!.types).toBe(`./dist/dialects/${name}/index.d.ts`);
     expect(entry!.import).toBe(`./dist/dialects/${name}/index.js`);
   });
 
-  it("the only exported subpaths are ., ./commons, ./conformance, ./testing, ./typescript, ./react, ./json, ./nestjs, and ./yaml (REQ-TES-01.1, REQ-PKG-01)", () => {
+  it("the only exported subpaths are ., ./commons, ./conformance, ./testing, ./typescript, ./react, ./json, ./nestjs, ./angular, and ./yaml (REQ-TES-01.1, REQ-PKG-01)", () => {
     const keys = Object.keys(pkgJson.exports).sort();
-    expect(keys).toEqual([".", "./commons", "./conformance", "./json", "./nestjs", "./react", "./testing", "./typescript", "./yaml"]);
+    expect(keys).toEqual([".", "./angular", "./commons", "./conformance", "./json", "./nestjs", "./react", "./testing", "./typescript", "./yaml"]);
   });
 });

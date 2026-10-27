@@ -1,6 +1,7 @@
 import * as typescript from "../../src/dialects/typescript/index.ts";
 import * as react from "../../src/dialects/react/index.ts";
 import * as nestjs from "../../src/dialects/nestjs/index.ts";
+import * as angular from "../../src/dialects/angular/index.ts";
 import * as json from "../../src/dialects/json/index.ts";
 import * as yaml from "../../src/dialects/yaml/index.ts";
 import * as expectedAstLibrary from "ts-morph";
@@ -52,6 +53,14 @@ export const DIALECT_MODULES = [
     module: nestjs, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".ts"], ast: typescriptAst, ops: {} }),
     samples: ["@Module({ providers: [A] })\nexport class M {}\n", ...TS_SYNTAX_SAMPLES],
+    libraryExercise: { ...libraryExercise, path: "library.ts" },
+  },
+  {
+    entrypoint: "src/dialects/angular/index.ts", specifier: "ts-morph",
+    adapter: new URL("../../src/dialects/typescript/ast.ts", import.meta.url),
+    module: angular, expectedAstLibrary,
+    dialect: defineDialect({ extensions: [".ts"], ast: typescriptAst, ops: {} }),
+    samples: ["@Component({ imports: [A] })\nexport class C {}\n", ...TS_SYNTAX_SAMPLES],
     libraryExercise: { ...libraryExercise, path: "library.ts" },
   },
   {

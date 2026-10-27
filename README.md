@@ -559,9 +559,9 @@ conformance-tests a *dialect or op-pack* implementation — not the same audienc
 
 When string-level mutation isn't enough — "add an import to this module", "set a prop on
 this JSX element" — **dialects** provide structured, AST-aware operations for one file
-type: see [authoring a dialect](./docs/authoring-a-dialect.md) for the full story. Five
+type: see [authoring a dialect](./docs/authoring-a-dialect.md) for the full story. Six
 ship today: `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`, `@pbuilder/sdk/nestjs`,
-`@pbuilder/sdk/json`, and `@pbuilder/sdk/yaml`.
+`@pbuilder/sdk/angular`, `@pbuilder/sdk/json`, and `@pbuilder/sdk/yaml`.
 
 A dialect's entry point is its own `find(path)`: it opens a **coalescing, awaitable
 handle**. Every op you chain mutates the same live AST, and the handle serializes to
@@ -685,6 +685,24 @@ await nestjs
 
 Extra named ops: `addProvider`, `addController`, `addModuleImport`, `addExport`. `.modify(fn)`
 exposes ts-morph. See [the NestJS dialect guide](./docs/nestjs-dialect.md).
+
+### `@pbuilder/sdk/angular`
+
+Every `@pbuilder/sdk/typescript` op, plus ops for standalone components and the application's
+root providers. Each op adds the imports its code needs.
+
+```ts
+import * as angular from "@pbuilder/sdk/angular";
+
+await angular.find("src/app/app.config.ts").addRootProvider({ expression: "provideHttpClient(withFetch())" }, [
+  { name: "provideHttpClient", from: "@angular/common/http" },
+  { name: "withFetch", from: "@angular/common/http" },
+]);
+```
+
+Extra named ops: `addComponentImport`, `addComponentProvider`, `addRootProvider`. `.modify(fn)`
+exposes ts-morph. See
+[the Angular dialect guide](./docs/angular-dialect.md).
 
 ### `.modify()` — the universal escape hatch
 
