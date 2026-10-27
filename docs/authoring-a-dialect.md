@@ -77,6 +77,16 @@ await ts.find("src/index.ts").addClass("Point", "  x = 0;");
 // contrast addFunction, whose source INCLUDES braces (the op does NOT add them itself).
 ```
 
+"An import binding" covers every import form — named, default (`import X from "m"`), and
+namespace (`import * as X from "m"`) — type-only ones included.
+
+Every op validates its `name` before it touches the file: it must be a plain ASCII JavaScript
+identifier (`^[A-Za-z_$][A-Za-z0-9_$]*$`), not a reserved or strict-mode-restricted word
+(`class`, `await`, `eval`, `arguments`, …), and not `__proto__`, `constructor`, or `prototype`.
+A rejected name leaves the file unchanged, and `removeImport` rejects it even when there was
+nothing to remove. `addVariable`'s `kind` rejects anything other than `"const"`, `"let"`, or
+`"var"`.
+
 `addFunction`'s/`addVariable`'s/`addClass`'s `source`/`initializer` strings are inserted
 VERBATIM — never validated or sanitized. The author owns their own syntax, the same trust
 contract `.modify()` carries.
