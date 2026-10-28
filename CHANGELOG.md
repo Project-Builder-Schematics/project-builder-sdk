@@ -32,6 +32,9 @@ for them, not a summary claiming no migration is needed.
 - **Added**: `addJsxChild(target, jsx)` appends one JSX element or fragment as the last child of
   the one element `target` names, at the siblings' indentation; a self-closing target becomes an
   open/close pair, and a child with the same text already present is a no-op.
+- **Added**: `wrapJsxElement(target, wrapper)` wraps the one element `target` names in a
+  self-closing JSX element, keeping its props (`'<QueryProvider client={qc} />'`); a target
+  already directly inside that tag is a no-op.
 - **Changed**: `react.find().addImport` is now the TypeScript dialect's `addImport`. Merge,
   create, idempotency and collision outcomes are the same, with two differences: a
   self-aliased specifier (`import { X as X } from "m"` + `addImport("X", "m")`) is now a no-op
