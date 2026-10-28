@@ -6,6 +6,30 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.8.0
+
+### Angular dialect: `@NgModule`
+
+- **Added**: `addNgModuleImport`, `addDeclaration`, `addNgModuleProvider`, `addNgModuleExport` and
+  `addBootstrap` on `@pbuilder/sdk/angular`. Each takes `(element, imports?)`, like the component
+  ops, and appends to `imports`, `declarations`, `providers`, `exports` or `bootstrap` of the file's
+  only `@NgModule`, creating the metadata object or the array when missing. An element already
+  listed is a no-op. Guide: `docs/angular-dialect.md`.
+
+  ```ts
+  await angular.find("src/app/app.module.ts").addDeclaration("UserCard", [{ name: "UserCard", from: "./user-card" }]);
+  ```
+
+- **Changed**: `addRoute` and `addLazyRoute` also find the routes of an NgModule routing file.
+  When the file has no top-level variable typed `Routes` or `Route[]`, they use the routes of the
+  only `RouterModule.forRoot(...)` or `RouterModule.forChild(...)` call: its inline array, or a
+  variable in the same file that it names. A typed variable still takes precedence, and every
+  file the ops edited before is edited byte-identically. Migration: a file with a `RouterModule`
+  call and no typed variable used to reject and is now edited. The reject for a file with neither
+  shape now reads `no top-level variable typed Routes or Route[] and no RouterModule.forRoot or
+  forChild call was found`, replacing `no top-level variable typed Routes or Route[] was found`.
+  Update any assertion that matches the old text.
+
 ## 0.7.0
 
 ### New subpath: `@pbuilder/sdk/angular`
