@@ -1,9 +1,11 @@
 import type { SourceFile } from "ts-morph";
 import { type Handle } from "../../core/define-dialect.ts";
 import { typescriptOps } from "../typescript/pack.ts";
+import { type JsxTarget } from "./ops.ts";
 export * as astLibrary from "ts-morph";
+export type { JsxTarget };
 type JsxOps = {
-    setJsxProp: (ast: SourceFile, elementName: string, propName: string, value?: string) => void;
+    setJsxProp: (ast: SourceFile, target: JsxTarget, propName: string, value?: string) => void;
 };
 type ReactOps = typeof typescriptOps & JsxOps;
 /**

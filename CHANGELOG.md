@@ -23,6 +23,10 @@ for them, not a summary claiming no migration is needed.
   // const el = <div hidden />;
   ```
 
+- **Added**: React JSX ops take a target that can pick one of several same-tag elements:
+  `setJsxProp({ tag: "Route", props: { path: '"/users"' } }, "caseSensitive")`. A string prop
+  value must equal the attribute's initializer text; `true` matches the prop with any value. A
+  tag string still works as before. The type is exported as `JsxTarget`.
 - **Changed**: `react.find().addImport` is now the TypeScript dialect's `addImport`. Merge,
   create, idempotency and collision outcomes are the same, with two differences: a
   self-aliased specifier (`import { X as X } from "m"` + `addImport("X", "m")`) is now a no-op

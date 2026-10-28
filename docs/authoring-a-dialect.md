@@ -258,10 +258,30 @@ named-import clause from the SAME module, or inserts a fresh `import { name } fr
 otherwise — idempotent. `addImport("React", "react")` always prints `import { React } from
 "react"`; use `addDefaultImport("React", "react")` for `import React from "react"`.
 
-`setJsxProp(elementName, propName, value?)` targets the ONE element whose tag name matches
-`elementName` — zero matches or more than one match both reject loudly (never a silent
-first-match). `value` accepts three forms: a quoted string (`'"hi"'` → `hi="hi"`), an expression
-container (`'{count}'` → `hi={count}`), or an omitted value (boolean shorthand, `hi`, no `=`).
+`setJsxProp(target, propName, value?)` targets the ONE element `target` names — zero matches or
+more than one match both reject loudly (never a silent first-match). `value` accepts three forms:
+a quoted string (`'"hi"'` → `hi="hi"`), an expression container (`'{count}'` → `hi={count}`), or
+an omitted value (boolean shorthand, `hi`, no `=`).
+
+#### Picking one of several same-tag elements
+
+`target` is a tag name (`"Button"`) or an object that adds props to narrow the match. A string
+prop value must equal the attribute's initializer text as written in the source; `true` matches
+the prop with any value, shorthand included:
+
+```ts
+// src/App.tsx before:
+// <Routes>
+//   <Route path="/" element={<Home />} />
+//   <Route path="/users" element={<Users />} />
+// </Routes>
+await react
+  .find("src/App.tsx")
+  .setJsxProp({ tag: "Route", props: { path: '"/users"' } }, "caseSensitive");
+// -> <Route path="/users" element={<Users />} caseSensitive />
+```
+
+The reject message names the tag and the prop names, never the prop values.
 
 #### The `value` trust boundary
 

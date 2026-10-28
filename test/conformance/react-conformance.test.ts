@@ -19,7 +19,7 @@ import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
 import { parse, print } from "../../src/dialects/react/ast.ts";
 import { typescriptOps } from "../../src/dialects/typescript/pack.ts";
-import { setJsxProp } from "../../src/dialects/react/ops.ts";
+import { setJsxProp, type JsxTarget } from "../../src/dialects/react/ops.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 import { golden } from "../support/golden.ts";
@@ -40,7 +40,7 @@ function reactGolden(name: string): string {
 }
 
 type JsxOps = {
-  setJsxProp: (ast: SourceFile, elementName: string, propName: string, value?: string) => void;
+  setJsxProp: (ast: SourceFile, target: JsxTarget, propName: string, value?: string) => void;
 };
 
 const reactOpsPack = defineOpPack<SourceFile, JsxOps>({ setJsxProp });
