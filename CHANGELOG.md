@@ -27,6 +27,14 @@ for them, not a summary claiming no migration is needed.
   `setJsxProp({ tag: "Route", props: { path: '"/users"' } }, "caseSensitive")`. A string prop
   value must equal the attribute's initializer text; `true` matches the prop with any value. A
   tag string still works as before. The type is exported as `JsxTarget`.
+- **Added**: `removeJsxProp(target, prop)` removes a prop from the one element `target` names;
+  an absent prop is a no-op and a `{...spread}` is never touched.
+- **Added**: `addJsxChild(target, jsx)` appends one JSX element or fragment as the last child of
+  the one element `target` names, at the siblings' indentation; a self-closing target becomes an
+  open/close pair, and a child with the same text already present is a no-op.
+- **Added**: `wrapJsxElement(target, wrapper)` wraps the one element `target` names in a
+  self-closing JSX element, keeping its props (`'<QueryProvider client={qc} />'`); a target
+  already directly inside that tag is a no-op.
 - **Changed**: `react.find().addImport` is now the TypeScript dialect's `addImport`. Merge,
   create, idempotency and collision outcomes are the same, with two differences: a
   self-aliased specifier (`import { X as X } from "m"` + `addImport("X", "m")`) is now a no-op

@@ -607,7 +607,7 @@ untrusted input is the author's responsibility to sanitize.
 
 Mutates `.tsx` files — `find()` requires the explicit `.tsx` extension (extensionless and
 `.jsx` paths are rejected, never normalized). The handle carries every
-`@pbuilder/sdk/typescript` op plus the JSX op below, with `.modify(fn)` as the escape hatch
+`@pbuilder/sdk/typescript` op plus the JSX ops below, with `.modify(fn)` as the escape hatch
 for everything else:
 
 ```ts
@@ -625,6 +625,9 @@ await react
 | Op | What it does |
 |---|---|
 | `setJsxProp(target, prop, value?)` | Sets a prop on **the one** element `target` names: a tag (`"Button"`) or a tag plus props that narrow it (`{ tag: "Route", props: { path: '"/users"' } }`) — zero or multiple matches reject loudly. `value` takes three forms: `'"hi"'` (string), `'{count}'` (expression), or omitted (boolean shorthand). |
+| `removeJsxProp(target, prop)` | Removes a prop from **the one** element `target` names. An absent prop is a no-op; a `{...spread}` is never touched. |
+| `addJsxChild(target, jsx)` | Appends `jsx` (one JSX element or fragment, emitted verbatim) as the last child of **the one** element `target` names, at the siblings' indentation; a self-closing target becomes an open/close pair. A child with the same text already there is a no-op. |
+| `wrapJsxElement(target, wrapper)` | Wraps **the one** element `target` names in `wrapper`, a self-closing JSX element whose props are kept (`'<QueryProvider client={qc} />'`). A target already directly inside that tag is a no-op. |
 
 `setJsxProp`'s `value` is emitted verbatim into executable code — same trust boundary as
 the TypeScript `source` strings. One React-specific subtlety: an inserted prop lands after

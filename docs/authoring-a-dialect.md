@@ -229,8 +229,8 @@ handle.replaceContent("new content"); // succeeds — the documented escape
 `@pbuilder/sdk/react` mutates `.tsx` files — TypeScript source containing JSX syntax. `.jsx`
 files are NOT supported in v1: `find()` REJECTS a `.jsx` path, it does not silently accept it
 (see the explicit-extension note below). The handle carries every `@pbuilder/sdk/typescript`
-op (`addImport`, `addDefaultImport`, `addFunction`, and the rest) plus one JSX op,
-`setJsxProp`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
+op (`addImport`, `addDefaultImport`, `addFunction`, and the rest) plus the JSX ops
+`setJsxProp`, `removeJsxProp`, `addJsxChild` and `wrapJsxElement`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
 `.modify(fn)` is the escape hatch for anything the shipped ops don't cover — the same
 universal verb the TypeScript dialect's authors already reach for.
 
@@ -282,6 +282,38 @@ await react
 ```
 
 The reject message names the tag and the prop names, never the prop values.
+
+`removeJsxProp(target, propName)` removes `propName` from the ONE element `target` names. An
+absent prop is a no-op, and a `{...spread}` is never touched, even when it may carry the prop.
+
+`addJsxChild(target, jsx)` appends `jsx` as the last child of the ONE element `target` names.
+`jsx` must be exactly one JSX element or fragment; anything else rejects without echoing it. The
+child goes on its own line at the siblings' indentation, or inline when the element's content is
+inline; a self-closing target becomes an open/close pair. A child with the same text already
+present is a no-op, so re-running a generator does not duplicate it. `jsx` is emitted verbatim,
+the same trust boundary as `setJsxProp`'s `value`:
+
+```ts
+// src/App.tsx before:
+// <Routes>
+//   <Route path="/" element={<Home />} />
+// </Routes>
+await react.find("src/App.tsx").addJsxChild("Routes", '<Route path="/users" element={<Users />} />');
+// -> <Routes>
+// ->   <Route path="/" element={<Home />} />
+// ->   <Route path="/users" element={<Users />} />
+// -> </Routes>
+```
+
+`wrapJsxElement(target, wrapper)` wraps the ONE element `target` names in `wrapper`, which must be
+exactly one self-closing JSX element; its props are kept. A target whose direct parent already
+has the wrapper's tag is a no-op. `wrapper` is emitted verbatim, like `setJsxProp`'s `value`:
+
+```ts
+// src/main.tsx before: root.render(<App />);
+await react.find("src/main.tsx").wrapJsxElement("App", "<QueryProvider client={queryClient} />");
+// -> root.render(<QueryProvider client={queryClient}><App /></QueryProvider>);
+```
 
 #### The `value` trust boundary
 

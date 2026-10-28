@@ -6,6 +6,9 @@ export * as astLibrary from "ts-morph";
 export type { JsxTarget };
 type JsxOps = {
     setJsxProp: (ast: SourceFile, target: JsxTarget, propName: string, value?: string) => void;
+    removeJsxProp: (ast: SourceFile, target: JsxTarget, propName: string) => void;
+    addJsxChild: (ast: SourceFile, target: JsxTarget, jsx: string) => void;
+    wrapJsxElement: (ast: SourceFile, target: JsxTarget, wrapper: string) => void;
 };
 type ReactOps = typeof typescriptOps & JsxOps;
 /**
