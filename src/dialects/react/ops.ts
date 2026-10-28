@@ -4,10 +4,27 @@
 // contract, REQ-RXD-11/12 verbatim: it is emitted AS-IS, malformed or not, and becomes
 // executable code the author is solely responsible for).
 
-import { Node, SyntaxKind, type JsxOpeningElement, type JsxSelfClosingElement, type SourceFile } from "ts-morph";
+import {
+  Node,
+  SyntaxKind,
+  type ArrowFunction,
+  type FunctionDeclaration,
+  type FunctionExpression,
+  type InterfaceDeclaration,
+  type JsxOpeningElement,
+  type JsxSelfClosingElement,
+  type SourceFile,
+  type Statement,
+  type TypeLiteralNode,
+} from "ts-morph";
 import { dialectError } from "../../core/dialect-error.ts";
-import { assertValidAttributeName, assertValidElementName, validatedOp } from "../../core/jsx-name-validator.ts";
-import { multiMatchTail, zeroMatchTail } from "../../core/reject-tail.ts";
+import {
+  assertValidAttributeName,
+  assertValidElementName,
+  assertValidImportBinding,
+  validatedOp,
+} from "../../core/jsx-name-validator.ts";
+import { elementNameEcho, multiMatchTail, zeroMatchTail } from "../../core/reject-tail.ts";
 import { parse } from "./ast.ts";
 
 type JsxTag = JsxOpeningElement | JsxSelfClosingElement;
@@ -207,5 +224,193 @@ export const wrapJsxElement = validatedOp<SourceFile, [target: JsxTarget, wrappe
     const parent = node.getParent();
     if (Node.isJsxElement(parent) && parent.getOpeningElement().getTagNameNode().getText() === wrapperTag) return;
     ast.replaceText([node.getStart(), node.getEnd()], `${open}${node.getText()}</${wrapperTag}>`);
+  }
+);
+
+type ComponentFunction = FunctionDeclaration | ArrowFunction | FunctionExpression;
+
+// A top-level `function Name` or `const Name =` arrow/function expression. Wrapped components
+// (`memo(...)`, `forwardRef(...)`) are deliberately not unwrapped.
+function componentFunction(ast: SourceFile, name: string): ComponentFunction {
+  const declared: ComponentFunction[] = ast.getFunctions().filter((fn) => fn.getName() === name);
+  const assigned = ast
+    .getVariableDeclarations()
+    .filter((decl) => decl.getName() === name)
+    .map((decl) => decl.getInitializer())
+    .filter((init): init is ArrowFunction | FunctionExpression => Node.isArrowFunction(init) || Node.isFunctionExpression(init));
+  const matches = [...declared, ...assigned];
+  if (matches.length !== 1) {
+    const found = matches.length === 0 ? "no component named" : `${matches.length} components named`;
+    throw dialectError(
+      `${found} \`${elementNameEcho(name)}\` (a top-level function, or a const holding an arrow or function expression) — ` +
+        "use `.modify()` to edit it directly."
+    );
+  }
+  return matches[0]!;
+}
+
+function assertSingleStatement(statement: string): void {
+  let valid = false;
+  try {
+    const statements = parse(statement).getStatements();
+    valid = statements.length === 1 && statements[0]!.getText() === statement.trim();
+  } catch {
+    valid = false;
+  }
+  if (!valid) {
+    throw dialectError("`statement` must be exactly one statement — fix it, or use `.modify()` to make this edit directly.");
+  }
+}
+
+// `useX(...)`, `React.useX(...)`, or a declaration initialized by one.
+function isHookCall(statement: Statement): boolean {
+  const call = Node.isExpressionStatement(statement)
+    ? statement.getExpression()
+    : Node.isVariableStatement(statement)
+      ? statement.getDeclarations()[0]?.getInitializer()
+      : undefined;
+  if (!Node.isCallExpression(call)) return false;
+  const callee = call.getExpression();
+  const name = Node.isPropertyAccessExpression(callee) ? callee.getName() : callee.getText();
+  return /^use[A-Z0-9]/.test(name);
+}
+
+/**
+ * Inserts `statement` into the body of the component named `component`, after its leading
+ * hook calls, or first when it has none. An identical statement already in the body is a
+ * no-op; an expression-bodied arrow component rejects. `statement` must be exactly one
+ * statement and is emitted verbatim, the same trust boundary as `setJsxProp`'s `value`.
+ */
+export const addHookCall = validatedOp<SourceFile, [component: string, statement: string]>(
+  ([component, statement]) => {
+    assertValidImportBinding(component, "component");
+    assertSingleStatement(statement);
+  },
+  (ast, component, statement) => {
+    const body = componentFunction(ast, component).getBody();
+    if (!Node.isBlock(body)) {
+      throw dialectError(
+        `component \`${elementNameEcho(component)}\` has an expression body, so there is no statement list to add to — ` +
+          "give it a block body, or use `.modify()` to make this edit directly."
+      );
+    }
+    const statements = body.getStatements();
+    const text = statement.trim();
+    if (statements.some((existing) => existing.getText() === text)) return;
+    const leadingHooks = statements.findIndex((existing) => !isHookCall(existing));
+    body.insertStatements(leadingHooks === -1 ? statements.length : leadingHooks, text);
+  }
+);
+
+function assertSingleType(type: string): void {
+  let valid = false;
+  try {
+    const statements = parse(`type T = ${type};\n`).getStatements();
+    const alias = statements[0];
+    valid = statements.length === 1 && Node.isTypeAliasDeclaration(alias) && alias.getTypeNode()?.getText() === type.trim();
+  } catch {
+    valid = false;
+  }
+  if (!valid) {
+    throw dialectError("`type` must be exactly one type — fix it, or use `.modify()` to make this edit directly.");
+  }
+}
+
+// The first parameter's inline type literal, or the same-file interface or type-alias literal it
+// names. Anything else (imported, generic utility, untyped) is left to `.modify()`.
+function propsType(ast: SourceFile, fn: ComponentFunction, component: string): TypeLiteralNode | InterfaceDeclaration {
+  const typeNode = fn.getParameters()[0]?.getTypeNode();
+  if (Node.isTypeLiteral(typeNode)) return typeNode;
+  if (Node.isTypeReference(typeNode)) {
+    const name = typeNode.getTypeName().getText();
+    const declared = ast.getInterface(name) ?? ast.getTypeAlias(name)?.getTypeNode();
+    if (Node.isInterfaceDeclaration(declared) || Node.isTypeLiteral(declared)) return declared;
+  }
+  throw dialectError(
+    `component \`${elementNameEcho(component)}\` has no props type this op can edit — its first parameter needs an inline ` +
+      "type literal, or an interface or type literal declared in this file; use `.modify()` to make this edit directly."
+  );
+}
+
+function addPropsMember(ast: SourceFile, props: TypeLiteralNode | InterfaceDeclaration, name: string, type: string, optional: boolean): void {
+  const last = props.getMembers().at(-1);
+  if (last === undefined || props.getText().includes("\n")) {
+    props.addProperty({ name, type, hasQuestionToken: optional });
+    return;
+  }
+  // ts-morph's addProperty breaks a single-line literal across lines; keep it on one line,
+  // reusing the last member's separator when it has one.
+  const signature = `${name}${optional ? "?" : ""}: ${type}`;
+  const separator = /[;,]$/.exec(last.getText())?.[0];
+  ast.insertText(last.getEnd(), separator === undefined ? `; ${signature}` : ` ${signature}${separator}`);
+}
+
+function addDestructuredName(fn: ComponentFunction, name: string): void {
+  const pattern = fn.getParameters()[0]?.getNameNode();
+  if (!Node.isObjectBindingPattern(pattern)) return;
+  const elements = pattern.getElements();
+  if (elements.some((element) => element.getName() === name)) return;
+  const rest = elements.find((element) => element.getDotDotDotToken() !== undefined);
+  const last = elements.at(-1);
+  if (rest !== undefined) fn.getSourceFile().insertText(rest.getStart(), `${name}, `);
+  else if (last !== undefined) fn.getSourceFile().insertText(last.getEnd(), `, ${name}`);
+  else fn.getSourceFile().replaceText([pattern.getStart(), pattern.getEnd()], `{ ${name} }`);
+}
+
+/**
+ * Adds `name: type` (`name?: type` with `{ optional: true }`) to the props of the component
+ * named `component` and, when its props parameter is destructured, `name` to the destructuring.
+ * The props type is an inline type literal, or an interface or type literal declared in the
+ * same file; a component without parameters gets `({ name }: { name: type })`. The same name
+ * with the same type text is a no-op; a different type rejects. `type` is emitted verbatim.
+ */
+export const addComponentProp = validatedOp<
+  SourceFile,
+  [component: string, name: string, type: string, options?: { optional?: boolean }]
+>(
+  ([component, name, type]) => {
+    assertValidImportBinding(component, "component");
+    assertValidImportBinding(name, "name");
+    assertSingleType(type);
+  },
+  (ast, component, name, type, options) => {
+    const text = type.trim();
+    const optional = options?.optional === true;
+    const fn = componentFunction(ast, component);
+    if (fn.getParameters().length === 0) {
+      fn.insertParameter(0, { name: `{ ${name} }`, type: `{ ${name}${optional ? "?" : ""}: ${text} }` });
+      return;
+    }
+    const props = propsType(ast, fn, component);
+    const existing = props.getProperty(name);
+    if (existing !== undefined) {
+      if (existing.getTypeNode()?.getText() === text) return;
+      throw dialectError(
+        `prop \`${elementNameEcho(name)}\` already exists on \`${elementNameEcho(component)}\` with a different type — ` +
+          "change it with `.modify()`."
+      );
+    }
+    addPropsMember(ast, props, name, text, optional);
+    addDestructuredName(componentFunction(ast, component), name);
+  }
+);
+
+/**
+ * Renames the ONE element `target` names to `tag`, opening and closing tag together; nested
+ * elements are left alone. Renaming to the same tag is a no-op. Imports are not touched —
+ * chain `addImport` for the new component.
+ */
+export const renameJsxElement = validatedOp<SourceFile, [target: JsxTarget, tag: string]>(
+  ([target, tag]) => {
+    assertValidTarget(target);
+    assertValidElementName(tag, "tag");
+  },
+  (ast, target, tag) => {
+    const opening = targetElement(ast, target, "renameJsxElement");
+    if (opening.getTagNameNode().getText() === tag) return;
+    if (Node.isJsxOpeningElement(opening)) {
+      opening.getParentIfKindOrThrow(SyntaxKind.JsxElement).getClosingElement().getTagNameNode().replaceWithText(tag);
+    }
+    opening.getTagNameNode().replaceWithText(tag);
   }
 );

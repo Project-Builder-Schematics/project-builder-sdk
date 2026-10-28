@@ -9,6 +9,11 @@ type JsxOps = {
     removeJsxProp: (ast: SourceFile, target: JsxTarget, propName: string) => void;
     addJsxChild: (ast: SourceFile, target: JsxTarget, jsx: string) => void;
     wrapJsxElement: (ast: SourceFile, target: JsxTarget, wrapper: string) => void;
+    addHookCall: (ast: SourceFile, component: string, statement: string) => void;
+    addComponentProp: (ast: SourceFile, component: string, name: string, type: string, options?: {
+        optional?: boolean;
+    }) => void;
+    renameJsxElement: (ast: SourceFile, target: JsxTarget, tag: string) => void;
 };
 type ReactOps = typeof typescriptOps & JsxOps;
 /**

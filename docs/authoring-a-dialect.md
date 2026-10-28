@@ -266,7 +266,8 @@ handle.replaceContent("new content"); // succeeds — the documented escape
 files are NOT supported in v1: `find()` REJECTS a `.jsx` path, it does not silently accept it
 (see the explicit-extension note below). The handle carries every `@pbuilder/sdk/typescript`
 op (`addImport`, `addDefaultImport`, `addFunction`, and the rest) plus the JSX ops
-`setJsxProp`, `removeJsxProp`, `addJsxChild` and `wrapJsxElement`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
+`setJsxProp`, `removeJsxProp`, `addJsxChild`, `wrapJsxElement`, `renameJsxElement`,
+`addHookCall` and `addComponentProp`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
 `.modify(fn)` is the escape hatch for anything the shipped ops don't cover — the same
 universal verb the TypeScript dialect's authors already reach for.
 
@@ -350,6 +351,57 @@ has the wrapper's tag is a no-op. `wrapper` is emitted verbatim, like `setJsxPro
 await react.find("src/main.tsx").wrapJsxElement("App", "<QueryProvider client={queryClient} />");
 // -> root.render(<QueryProvider client={queryClient}><App /></QueryProvider>);
 ```
+
+#### Component ops
+
+Ops that take a `component` name find it among the file's top-level `function Name` declarations
+(exported or not) and top-level `const Name =` arrow functions or function expressions. A wrapped
+component (`memo(...)`, `forwardRef(...)`) is not found; zero or several matches reject.
+
+`addHookCall(component, statement)` inserts `statement` after the component's leading hook calls
+(statements calling `useX(...)` or `React.useX(...)`), or first when there are none, at the body's
+indentation. `statement` must be exactly one statement and is emitted verbatim; an identical
+statement already in the body is a no-op; an expression-bodied arrow (`() => <div />`) rejects:
+
+```ts
+// src/Form.tsx before:
+// export function Form() {
+//   const [name, setName] = useState("");
+//   return <form />;
+// }
+await react.find("src/Form.tsx").addHookCall("Form", "const t = useTranslation();");
+// -> export function Form() {
+// ->   const [name, setName] = useState("");
+// ->   const t = useTranslation();
+// ->   return <form />;
+// -> }
+```
+
+`addComponentProp(component, name, type, options?)` adds `name: type` (or `name?: type` with
+`{ optional: true }`) to the component's props type and, when the props parameter is
+destructured, `name` to the destructuring (before a `...rest` element). The props type is the
+first parameter's inline type literal, or an `interface` or `type` literal declared in the same
+file and referenced by name; an imported or untyped props type rejects. A component without
+parameters gets `({ name }: { name: type })`. The same name with the same type text is a no-op; a
+different type rejects. `type` must be exactly one type and is emitted verbatim:
+
+```ts
+// src/Card.tsx before:
+// interface CardProps {
+//   title: string;
+// }
+// export function Card({ title }: CardProps) { ... }
+await react.find("src/Card.tsx").addComponentProp("Card", "subtitle", "string", { optional: true });
+// -> interface CardProps {
+// ->   title: string;
+// ->   subtitle?: string;
+// -> }
+// -> export function Card({ title, subtitle }: CardProps) { ... }
+```
+
+`renameJsxElement(target, tag)` renames the ONE element `target` names, opening and closing tag
+together; nested elements with the same tag are left alone, and renaming to the same tag is a
+no-op. Imports are not touched: chain `addImport` for the new component.
 
 #### The `value` trust boundary
 

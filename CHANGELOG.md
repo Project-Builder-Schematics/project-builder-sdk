@@ -35,6 +35,14 @@ for them, not a summary claiming no migration is needed.
 - **Added**: `wrapJsxElement(target, wrapper)` wraps the one element `target` names in a
   self-closing JSX element, keeping its props (`'<QueryProvider client={qc} />'`); a target
   already directly inside that tag is a no-op.
+- **Added**: `addHookCall(component, statement)` inserts one statement into a component's
+  body after its leading hook calls; the component is a top-level `function` or a `const`
+  arrow/function expression, and an identical statement already there is a no-op.
+- **Added**: `addComponentProp(component, name, type, options?)` adds a prop to a component's
+  props type (inline, or an `interface`/`type` literal in the same file) and to its destructured
+  parameter; the same name and type is a no-op, a different type rejects.
+- **Added**: `renameJsxElement(target, tag)` renames one element's opening and closing tag
+  together.
 - **Changed**: `react.find().addImport` is now the TypeScript dialect's `addImport`. Merge,
   create, idempotency and collision outcomes are the same, with two differences: a
   self-aliased specifier (`import { X as X } from "m"` + `addImport("X", "m")`) is now a no-op

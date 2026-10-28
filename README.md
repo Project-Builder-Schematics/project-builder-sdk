@@ -629,6 +629,9 @@ await react
 | `removeJsxProp(target, prop)` | Removes a prop from **the one** element `target` names. An absent prop is a no-op; a `{...spread}` is never touched. |
 | `addJsxChild(target, jsx)` | Appends `jsx` (one JSX element or fragment, emitted verbatim) as the last child of **the one** element `target` names, at the siblings' indentation; a self-closing target becomes an open/close pair. A child with the same text already there is a no-op. |
 | `wrapJsxElement(target, wrapper)` | Wraps **the one** element `target` names in `wrapper`, a self-closing JSX element whose props are kept (`'<QueryProvider client={qc} />'`). A target already directly inside that tag is a no-op. |
+| `addHookCall(component, statement)` | Inserts one statement (emitted verbatim) into the body of the component named `component` — a top-level `function` or a `const` arrow/function expression — after its leading hook calls. An identical statement already there is a no-op. |
+| `addComponentProp(component, name, type, options?)` | Adds `name: type` (`name?:` with `{ optional: true }`) to the component's props type — inline, or an `interface`/`type` literal in the same file — and to its destructured parameter. Same name and type is a no-op; a different type rejects. |
+| `renameJsxElement(target, tag)` | Renames **the one** element `target` names, opening and closing tag together. Imports are not touched. |
 
 `setJsxProp`'s `value` is emitted verbatim into executable code — same trust boundary as
 the TypeScript `source` strings. One React-specific subtlety: an inserted prop lands after
