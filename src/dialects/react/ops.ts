@@ -10,6 +10,7 @@
 // validates nothing; that laxity is a confirmed vulnerability class this op does not repeat.
 
 import {
+  Node,
   SyntaxKind,
   type ImportDeclaration,
   type JsxOpeningElement,
@@ -229,6 +230,27 @@ export const addImport = validatedOp<SourceFile, [name: string, from: string]>(
       return;
     }
 
-    ast.addImportDeclaration({ moduleSpecifier: from, namedImports: [name] });
+    const dropSemicolon = omitsSemicolons(ast);
+    const inserted = ast.addImportDeclaration({ moduleSpecifier: from, namedImports: [name] });
+    if (dropSemicolon) inserted.replaceWithText(inserted.getText().slice(0, -1));
   }
 );
+// Duplicated from typescript/ops.ts per ADR-01. A fresh import keeps the file's statement-terminating semicolon style: ts-morph always
+// prints one, so it is dropped only when the file's terminable top-level statements mostly
+// omit it (a file with no such statements, or a tie, keeps it).
+function omitsSemicolons(ast: SourceFile): boolean {
+  const terminable = ast
+    .getStatements()
+    .filter(
+      (statement) =>
+        Node.isImportDeclaration(statement) ||
+        Node.isExportDeclaration(statement) ||
+        Node.isExportAssignment(statement) ||
+        Node.isVariableStatement(statement) ||
+        Node.isExpressionStatement(statement) ||
+        Node.isTypeAliasDeclaration(statement)
+    );
+  const terminated = terminable.filter((statement) => statement.getText().endsWith(";")).length;
+  return terminable.length - terminated > terminated;
+}
+

@@ -1,6 +1,6 @@
 // S-000: ts-morph parse/print pair for the React dialect (REQ-RXD-03, design §4.4, ADR-01).
 // DUPLICATES (does not import) typescript/ast.ts's four fidelity primitives — BOM
-// re-prepend, content-derived newline detection, a frozen per-parse ManipulationSettings,
+// re-prepend, content-derived newline and quote detection, a frozen per-parse ManipulationSettings,
 // and the syntactic-diagnostic throw — so `typescript/ast.ts` stays untouched and ts-morph
 // stays leaf-isolated to one importer per dialect (fit-38 guards this repo-wide). A fresh
 // `Project` per parse, never a module-level singleton, so the newLineKind setting can vary
@@ -38,11 +38,23 @@ function countOccurrences(source: string, needle: string): number {
   return source.split(needle).length - 1;
 }
 
+// The quote kind of the file's own module specifiers; single wins only on a strict majority,
+// so a file with no specifiers (or a tie) keeps the double-quote default.
+function detectQuoteKind(sourceFile: SourceFile): QuoteKind {
+  const specifiers = [...sourceFile.getImportDeclarations(), ...sourceFile.getExportDeclarations()].flatMap((decl) => {
+    const specifier = decl.getModuleSpecifier();
+    return specifier === undefined ? [] : [specifier.getQuoteKind()];
+  });
+  const single = specifiers.filter((kind) => kind === QuoteKind.Single).length;
+  return single > specifiers.length - single ? QuoteKind.Single : QuoteKind.Double;
+}
+
 /**
  * Parses TSX source into a live ts-morph `SourceFile` — the React dialect's `Ast` (design
  * §4.4). Constructs a FRESH `Project` per call (never a module-level singleton) whose
  * `manipulationSettings.newLineKind` is derived from THIS source's own content
- * (`detectNewLineKind`). Indentation and quote style are frozen constants.
+ * (`detectNewLineKind`), and whose quote kind follows its module specifiers (`detectQuoteKind`).
+ * Indentation is a frozen constant.
  *
  * Failure posture (REQ-RXD-03.5 / REQ-DG-05.2): ts-morph's parser is fault-tolerant — it
  * records diagnostics rather than throwing natively. This function surfaces a genuine parse
@@ -68,6 +80,7 @@ export function parse(source: string): SourceFile {
     },
   });
   const sourceFile = project.createSourceFile(VIRTUAL_PATH, body);
+  project.manipulationSettings.set({ quoteKind: detectQuoteKind(sourceFile) });
   if (startsWithBom) hadBom.set(sourceFile, true);
 
   const syntacticErrors = project.getProgram().getSyntacticDiagnostics(sourceFile);

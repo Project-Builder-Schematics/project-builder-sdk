@@ -28,6 +28,7 @@
 // from Step 2's path-ful `dialectError` tail below — see `addImport`'s own JSDoc.
 
 import {
+  Node,
   SyntaxKind,
   type ExportDeclaration,
   type ImportDeclaration,
@@ -283,12 +284,32 @@ function claimedBindingError(ast: SourceFile, opName: string, name: string): Err
 // A fresh import declaration goes after a leading directive prologue, never above it
 // (REQ-TSD-01.21).
 function insertImport(ast: SourceFile, structure: OptionalKind<ImportDeclarationStructure>): void {
+  const dropSemicolon = omitsSemicolons(ast);
   const directiveCount = leadingDirectiveCount(ast);
-  if (directiveCount === 0) {
-    ast.addImportDeclaration(structure);
-  } else {
-    ast.insertImportDeclaration(directiveInsertIndex(ast, directiveCount), structure);
-  }
+  const inserted =
+    directiveCount === 0
+      ? ast.addImportDeclaration(structure)
+      : ast.insertImportDeclaration(directiveInsertIndex(ast, directiveCount), structure);
+  if (dropSemicolon) inserted.replaceWithText(inserted.getText().slice(0, -1));
+}
+
+// A fresh import keeps the file's statement-terminating semicolon style: ts-morph always
+// prints one, so it is dropped only when the file's terminable top-level statements mostly
+// omit it (a file with no such statements, or a tie, keeps it).
+function omitsSemicolons(ast: SourceFile): boolean {
+  const terminable = ast
+    .getStatements()
+    .filter(
+      (statement) =>
+        Node.isImportDeclaration(statement) ||
+        Node.isExportDeclaration(statement) ||
+        Node.isExportAssignment(statement) ||
+        Node.isVariableStatement(statement) ||
+        Node.isExpressionStatement(statement) ||
+        Node.isTypeAliasDeclaration(statement)
+    );
+  const terminated = terminable.filter((statement) => statement.getText().endsWith(";")).length;
+  return terminable.length - terminated > terminated;
 }
 
 // The value-bound (not whole-declaration type-only) declarations importing `from`.
