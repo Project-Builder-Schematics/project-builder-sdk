@@ -16,8 +16,8 @@ S4 — Route text is validated as exactly one expression before any placement, i
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S1-S4 | inline | done — RED 10 fail → GREEN 75 pass (angular); full suite 3701 pass, 7 fail = the 7 failing on main | see git log |
-| T2 | — | inline | pending — docs-site issue if needed (owner: "si necesitas crear un issue en docs dale") | — |
+| T1 | S1-S4 | inline | done — RED 10 fail → GREEN 75 pass (angular); full suite 3701 pass, 7 fail = the 7 failing on main | PR #128 |
+| T2 | — | inline | done — Project-Builder-Schematics/project-builder-docs#29 (Angular guide, both locales; addClassProperty in the TS op lists) | — |
 
 Risk: item 3 — S2/S3 change a published op's output (a file that rejected now gets edited; the reject message changes). Independent verifier required.
 
