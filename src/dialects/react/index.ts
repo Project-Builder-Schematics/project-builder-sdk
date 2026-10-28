@@ -10,7 +10,16 @@ import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/de
 import { dialectError } from "../../core/dialect-error.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import { parse, print } from "./ast.ts";
-import { addJsxChild, removeJsxProp, setJsxProp, wrapJsxElement, type JsxTarget } from "./ops.ts";
+import {
+  addComponentProp,
+  addHookCall,
+  addJsxChild,
+  removeJsxProp,
+  renameJsxElement,
+  setJsxProp,
+  wrapJsxElement,
+  type JsxTarget,
+} from "./ops.ts";
 
 export * as astLibrary from "ts-morph";
 export type { JsxTarget };
@@ -20,11 +29,14 @@ type JsxOps = {
   removeJsxProp: (ast: SourceFile, target: JsxTarget, propName: string) => void;
   addJsxChild: (ast: SourceFile, target: JsxTarget, jsx: string) => void;
   wrapJsxElement: (ast: SourceFile, target: JsxTarget, wrapper: string) => void;
+  addHookCall: (ast: SourceFile, component: string, statement: string) => void;
+  addComponentProp: (ast: SourceFile, component: string, name: string, type: string, options?: { optional?: boolean }) => void;
+  renameJsxElement: (ast: SourceFile, target: JsxTarget, tag: string) => void;
 };
 
 type ReactOps = typeof typescriptOps & JsxOps;
 
-const jsxOps = defineOpPack<SourceFile, JsxOps>({ setJsxProp, removeJsxProp, addJsxChild, wrapJsxElement });
+const jsxOps = defineOpPack<SourceFile, JsxOps>({ setJsxProp, removeJsxProp, addJsxChild, wrapJsxElement, addHookCall, addComponentProp, renameJsxElement });
 
 const baseDialect = defineDialect({
   extensions: [".tsx"],

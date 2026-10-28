@@ -92,14 +92,14 @@ export function assertValidAttributeName(propName: string): void {
 }
 
 /** `assertValidElementName`'s lookup-only JSX-name grammar — identifier/hyphenated, dot-joined. */
-export function assertValidElementName(elementName: string): void {
+export function assertValidElementName(elementName: string, argName: string = "elementName"): void {
   assertGrammar(
-    "elementName",
+    argName,
     elementName,
     ELEMENT_NAME_GRAMMAR,
     "match the JSX element-name grammar (identifier or hyphenated segments, optionally joined by `.`)"
   );
-  assertNotDenylisted("elementName", elementName);
+  assertNotDenylisted(argName, elementName);
 }
 
 /**
