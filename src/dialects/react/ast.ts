@@ -12,7 +12,8 @@ import { Project, NewLineKind, QuoteKind, IndentationText, type SourceFile } fro
 // `.tsx` extension is what engages `ScriptKind.Tsx` (ts-morph infers script kind from the
 // extension, verified empirically against ts-morph@28.0.0 — no explicit scriptKind option
 // needed, mirroring typescript/ast.ts's "the extension drives it" shape).
-const VIRTUAL_PATH = "dialect-source.tsx";
+const TSX_PATH = "dialect-source.tsx";
+const JSX_PATH = "dialect-source.jsx";
 
 const BOM = "﻿";
 
@@ -68,6 +69,15 @@ function detectQuoteKind(sourceFile: SourceFile): QuoteKind {
  * never surfaced directly to the author.
  */
 export function parse(source: string): SourceFile {
+  return parseAs(source, TSX_PATH);
+}
+
+/** `parse` for `.jsx` files: `ScriptKind.JSX`, so `<div>` is always JSX, never a cast. */
+export function parseJsx(source: string): SourceFile {
+  return parseAs(source, JSX_PATH);
+}
+
+function parseAs(source: string, virtualPath: string): SourceFile {
   const startsWithBom = source.startsWith(BOM);
   const body = startsWithBom ? source.slice(BOM.length) : source;
   const project = new Project({
@@ -79,13 +89,13 @@ export function parse(source: string): SourceFile {
       usePrefixAndSuffixTextForRename: false,
     },
   });
-  const sourceFile = project.createSourceFile(VIRTUAL_PATH, body);
+  const sourceFile = project.createSourceFile(virtualPath, body);
   project.manipulationSettings.set({ quoteKind: detectQuoteKind(sourceFile) });
   if (startsWithBom) hadBom.set(sourceFile, true);
 
   const syntacticErrors = project.getProgram().getSyntacticDiagnostics(sourceFile);
   if (syntacticErrors.length > 0) {
-    throw new Error("syntactically invalid TSX source");
+    throw new Error("syntactically invalid JSX source");
   }
   return sourceFile;
 }

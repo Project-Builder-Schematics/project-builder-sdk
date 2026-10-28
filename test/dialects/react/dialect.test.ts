@@ -22,27 +22,13 @@ function reactGolden(name: string): string {
   return golden(name, REACT_GOLDEN_DIR);
 }
 
-describe("React dialect — REQ-RXD-02 extension gate (.tsx-only, synchronous at find())", () => {
+describe("React dialect — REQ-RXD-02 extension gate (.tsx and .jsx only, synchronous at find())", () => {
   it("REQ-RXD-02.1: a .ts path is rejected, the message names @pbuilder/sdk/typescript as the fix", () => {
     expect(() => find("Component.ts")).toThrow(/@pbuilder\/sdk\/typescript/);
   });
 
-  it("REQ-RXD-02.2: a .jsx path is rejected, stating v1 non-support and naming the follow-up", () => {
-    let caught: unknown;
-    try {
-      find("Component.jsx");
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBeInstanceOf(Error);
-    const message = (caught as Error).message;
-    expect(message).toContain(".jsx");
-    expect(message.toLowerCase()).toContain("v1");
-    expect(message.toLowerCase()).toContain("follow-up");
-  });
-
   it("REQ-RXD-02.3: an unrelated extension (.md) is rejected with the generic .tsx-only message", () => {
-    expect(() => find("README.md")).toThrow(/\.tsx is the only extension/);
+    expect(() => find("README.md")).toThrow(/\.tsx and \.jsx are the only extensions/);
   });
 
   it("REQ-RXD-02.4: a .tsx path proceeds past the gate — the handle parses and an op flushes", async () => {
@@ -78,11 +64,11 @@ describe("React dialect — REQ-RXD-02 extension gate (.tsx-only, synchronous at
       trailingDotErr = err;
     }
 
-    expect((dotfileErr as Error).message).toContain(".tsx is the only extension");
-    expect((trailingDotErr as Error).message).toContain(".tsx is the only extension");
+    expect((dotfileErr as Error).message).toContain(".tsx and .jsx are the only extensions");
+    expect((trailingDotErr as Error).message).toContain(".tsx and .jsx are the only extensions");
   });
 
-  it("REQ-RXD-02.9: an extensionless basename rejects, naming the explicit-.tsx requirement", () => {
+  it("REQ-RXD-02.9: an extensionless basename rejects, naming the explicit .tsx or .jsx requirement", () => {
     let caught: unknown;
     try {
       find("src/Button");
@@ -90,8 +76,8 @@ describe("React dialect — REQ-RXD-02 extension gate (.tsx-only, synchronous at
       caught = err;
     }
     expect((caught as Error).message).toBe(
-      "dialect operation failed: find(path) — the React dialect requires an explicit .tsx extension; " +
-        "received a path with no extension. Append .tsx to the path."
+      "dialect operation failed: find(path) — the React dialect requires an explicit .tsx or .jsx extension; " +
+        "received a path with no extension. Append .tsx or .jsx to the path."
     );
   });
 
@@ -101,15 +87,15 @@ describe("React dialect — REQ-RXD-02 extension gate (.tsx-only, synchronous at
     // (suffix `babelrc`, not `.tsx`) that already rejects. Contrast REQ-RXD-02.9's `find(path)
     // — the React dialect requires an explicit .tsx extension` message: `.tsx` DOES contain a
     // dot, so it is not extensionless — it falls through to the generic "only .tsx" reject.
-    expect(() => find(".tsx")).toThrow(/\.tsx is the only extension/);
+    expect(() => find(".tsx")).toThrow(/\.tsx and \.jsx are the only extensions/);
   });
 
   it("defect-fix (judgment-day): a path whose basename is EXACTLY `.tsx` rejects the same way regardless of directory", () => {
-    expect(() => find("src/.tsx")).toThrow(/\.tsx is the only extension/);
+    expect(() => find("src/.tsx")).toThrow(/\.tsx and \.jsx are the only extensions/);
   });
 
   it("defect-fix (judgment-day): a basename with a dot directly adjacent to `.tsx` (`..tsx`) rejects — degenerate stem", () => {
-    expect(() => find("..tsx")).toThrow(/\.tsx is the only extension/);
+    expect(() => find("..tsx")).toThrow(/\.tsx and \.jsx are the only extensions/);
   });
 
   it("a real dotfile with a genuine name before `.tsx` still passes (boundary — not every leading-dot basename rejects)", async () => {
@@ -133,8 +119,8 @@ describe("React dialect — REQ-RXD-02 extension gate (.tsx-only, synchronous at
       caught = err;
     }
     expect((caught as Error).message).toBe(
-      "dialect operation failed: find(path) — the React dialect requires an explicit .tsx extension; " +
-        "received a path with no extension. Append .tsx to the path."
+      "dialect operation failed: find(path) — the React dialect requires an explicit .tsx or .jsx extension; " +
+        "received a path with no extension. Append .tsx or .jsx to the path."
     );
   });
 });

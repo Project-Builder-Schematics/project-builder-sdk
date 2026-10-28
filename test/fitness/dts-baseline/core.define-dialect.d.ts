@@ -96,3 +96,47 @@ export declare const RESERVED_HANDLE_NAMES: readonly ["then", "read", "raw", "mo
  * const tsDialect = withOps(baseTsDialect, addImportPack);
  */
 export declare function withOps<Ast, B extends OpPack<Ast>, P extends OpPack<Ast>[]>(base: Dialect<Ast, B>, ...packs: P): Dialect<Ast, B & UnionToIntersection<P[number]>>;
+/**
+ * Derives a dialect whose named ops reject at call time, leaving the file unchanged, with a
+ * message naming the op, the dialect's extensions and `reason`. The ops stay on the handle and
+ * in its type, so one handle shape can serve every extension of a routed dialect
+ * (`byExtension`). Throws at composition on an op name the dialect does not have.
+ *
+ * @example
+ * const jsx = withoutOps(defineDialect({ extensions: [".jsx"], ast: jsxAst, ops: tsx.ops }), ["addTypeImport"], ".jsx files have no type syntax");
+ */
+export declare function withoutOps<Ast, Ops extends OpPack<Ast>>(dialect: Dialect<Ast, Ops>, names: readonly (keyof Ops & string)[], reason: string): Dialect<Ast, Ops>;
+/**
+ * Derives a dialect whose named ops run `overrides` instead, with the same signatures. Throws at
+ * composition on an op name the dialect does not have; adding new ops is `withOps`'s job.
+ *
+ * @example
+ * const jsx = overrideOps(tsx, { addClassProperty: jsxClassProperty });
+ */
+export declare function overrideOps<Ast, Ops extends OpPack<Ast>>(dialect: Dialect<Ast, Ops>, overrides: Partial<Ops>): Dialect<Ast, Ops>;
+type DialectsByExtension = {
+    readonly [extension: string]: Dialect;
+};
+type HandleOf<D> = D extends Dialect<infer A, infer O> ? Handle<"found", A, O> : never;
+type MatchingKey<M, P extends string> = {
+    [K in keyof M & string]: P extends `${string}${K}` ? K : never;
+}[keyof M & string];
+type LongestKey<Ks extends string> = {
+    [K in Ks]: [Extract<Exclude<Ks, K>, `${string}${K}`>] extends [never] ? K : never;
+}[Ks];
+type RoutedHandle<M extends DialectsByExtension, P extends string> = string extends P ? HandleOf<M[keyof M]> : HandleOf<M[LongestKey<MatchingKey<M, P>>]>;
+export interface ExtensionRouter<M extends DialectsByExtension> {
+    readonly extensions: readonly (keyof M & string)[];
+    find<P extends string>(path: P): RoutedHandle<M, P>;
+}
+/**
+ * Routes `find` by file extension to one dialect per extension, each with its own AST and ops —
+ * a `.ts` dialect and an `.html` dialect may parse to different AST types. The longest matching
+ * extension wins (`.component.html` over `.html`); a path matching none rejects synchronously,
+ * naming every routed extension. Throws at composition on a key its dialect does not declare.
+ *
+ * @example
+ * export const react = byExtension({ ".tsx": tsxDialect, ".jsx": jsxDialect });
+ * react.find("src/App.jsx").setJsxProp("div", "hidden");
+ */
+export declare function byExtension<M extends DialectsByExtension>(dialects: M): ExtensionRouter<M>;

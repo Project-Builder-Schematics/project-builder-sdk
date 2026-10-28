@@ -17,15 +17,16 @@ type JsxOps = {
 };
 type ReactOps = typeof typescriptOps & JsxOps;
 /**
- * Opens a `.tsx` file for React-dialect-aware editing — the dialect's entry verb into a Session
- * that carries every `@pbuilder/sdk/typescript` op plus the JSX ops, chained on one handle
- * (REQ-DG-01.2). `path` MUST end in `.tsx`: the gate below runs SYNCHRONOUSLY, before any op
- * is chained and before any run flush, so a rejected path throws on the bare `find()` call
- * itself. `.ts` files are TypeScript, not this dialect — use `@pbuilder/sdk/typescript`.
- * `.jsx` is not supported in v1: the extension must stay explicit so a future `.jsx` dialect
- * addition never has to disambiguate an assumed `.tsx` default (tracked as a React op-catalog
- * follow-up). Every other extension, dotfile basename, trailing-dot basename, and
- * extensionless path is rejected the same way — no normalization, always an explicit `.tsx`.
+ * Opens a `.tsx` or `.jsx` file for React-dialect-aware editing — the dialect's entry verb into
+ * a Session that carries every `@pbuilder/sdk/typescript` op plus the JSX ops, chained on one
+ * handle (REQ-DG-01.2). Both extensions get the same handle: on `.jsx`, which parses as plain
+ * JavaScript with JSX, `addTypeImport`, `addComponentProp` and `addClassProperty`'s `scope`/
+ * `readonly` reject at call time because they write TypeScript syntax, leaving the file
+ * unchanged. The gate below runs SYNCHRONOUSLY, before any op is chained and before any run
+ * flush, so a rejected path throws on the bare `find()` call itself. `.ts` files are TypeScript,
+ * not this dialect — use `@pbuilder/sdk/typescript`. Every other extension, dotfile basename,
+ * trailing-dot basename, and extensionless path is rejected the same way —
+ * no normalization, always an explicit `.tsx` or `.jsx`, so neither extension is ever assumed.
  * Every gate rejection throws via `dialectError`, so its message carries the standard
  * `dialect operation failed: ` prefix.
  *

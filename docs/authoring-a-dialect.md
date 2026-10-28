@@ -262,17 +262,20 @@ handle.replaceContent("new content"); // succeeds — the documented escape
 
 ### `@pbuilder/sdk/react` — a second dialect
 
-`@pbuilder/sdk/react` mutates `.tsx` files — TypeScript source containing JSX syntax. `.jsx`
-files are NOT supported in v1: `find()` REJECTS a `.jsx` path, it does not silently accept it
-(see the explicit-extension note below). The handle carries every `@pbuilder/sdk/typescript`
+`@pbuilder/sdk/react` mutates `.tsx` files — TypeScript source containing JSX syntax — and
+`.jsx` files, which parse as JavaScript with JSX. Both get the same handle; on `.jsx`,
+`addTypeImport`, `addComponentProp` and `addClassProperty`'s `scope`/`readonly` reject at call
+time, leaving the file unchanged, because they write TypeScript syntax a `.jsx` file cannot
+hold. The dialect routes the two extensions with `byExtension` (see "One `find` for several
+extensions" below). The handle carries every `@pbuilder/sdk/typescript`
 op (`addImport`, `addDefaultImport`, `addFunction`, and the rest) plus the JSX ops
 `setJsxProp`, `removeJsxProp`, `addJsxChild`, `wrapJsxElement`, `renameJsxElement`,
 `addHookCall` and `addComponentProp`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
 `.modify(fn)` is the escape hatch for anything the shipped ops don't cover — the same
 universal verb the TypeScript dialect's authors already reach for.
 
-`find(path)` requires an explicit `.tsx` extension — extensionless paths are rejected, never normalized.
-This is deliberate: a future `.jsx` dialect addition would otherwise leave an assumed extension ambiguous between `Button.tsx` and `Button.jsx`, and baking in a `.tsx` default today would make that a breaking change to unwind later.
+`find(path)` requires an explicit `.tsx` or `.jsx` extension — extensionless paths are rejected, never normalized.
+This is deliberate: an assumed extension would be ambiguous between `Button.tsx` and `Button.jsx`, so neither is ever picked for you.
 
 The worked example below is the COALESCED author journey — `addImport` and `setJsxProp` on ONE
 handle:
@@ -444,6 +447,30 @@ A dialect is assembled from three kit verbs:
   base handle's own vocabulary (`then`, `read`, `raw`, `modify`, `replaceContent`, `rename`,
   `move`, `copy`, `remove`) throws the same way — an op-pack op named `then` in particular would
   break the handle's `PromiseLike` join.
+
+#### One `find` for several extensions
+
+When one dialect covers files that parse differently, or where some ops do not apply, build one
+dialect per extension and route between them:
+
+- **`byExtension({ ".tsx": tsx, ".jsx": jsx })`** returns `{ extensions, find }`. `find(path)`
+  hands the path to the dialect whose key the basename ends with; the longest key wins, so a
+  `.component.html` dialect beats an `.html` one. Each routed dialect keeps its own `ast` and
+  `ops`, so the AST types may differ (a `.ts` dialect over ts-morph next to an `.html` dialect
+  over an HTML AST). For a literal path, `find`'s return type is that extension's handle. A path
+  matching no key rejects synchronously, naming every routed extension; a key its dialect does
+  not declare throws at composition.
+- **`withoutOps(dialect, names, reason)`** keeps the named ops on the handle (and in its type)
+  but makes them reject at call time, leaving the file unchanged, with a message naming the op,
+  the dialect's extensions and `reason`. Use it when an extension shares an op set but cannot
+  hold what some ops write, such as type syntax in `.jsx`.
+- **`overrideOps(dialect, overrides)`** replaces named ops with same-signature implementations,
+  for an op that works on the extension only in a narrower form.
+
+Both derivations throw at composition on an op name the dialect does not have. A variant that
+only needs another parser is plain `defineDialect` reusing the other dialect's ops
+(`ops: tsx.ops`). See their JSDoc `@example`s in `src/core/define-dialect.ts`, and
+`src/dialects/react/index.ts` for the `.tsx`/`.jsx` routing the React dialect ships.
 
 A contributor's worked proof anchors are the conformance kit — `testDialect`/`testOpPack`
 (`@pbuilder/sdk/conformance`) — which asserts a dialect's parse/print round-trip, per-op

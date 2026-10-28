@@ -48,11 +48,9 @@ const VALUE_NAMESPACE_COLLISION_SENTENCE =
   "duplicate-binding problem under a different syntax:";
 
 const EXPLICIT_EXTENSION_REQUIREMENT =
-  "`find(path)` requires an explicit `.tsx` extension — extensionless paths are rejected, " +
+  "`find(path)` requires an explicit `.tsx` or `.jsx` extension — extensionless paths are rejected, " +
   "never normalized.";
-const EXPLICIT_EXTENSION_WHY =
-  "a future `.jsx` dialect addition would otherwise leave an assumed extension ambiguous " +
-  "between `Button.tsx` and `Button.jsx`";
+const EXPLICIT_EXTENSION_WHY = "an assumed extension would be ambiguous between `Button.tsx` and `Button.jsx`";
 
 describe("REQ-RXD-09.4 — stale single-dialect framing reconciled", () => {
   it('no sentence describes "./typescript" as the only/first shipped dialect', () => {
@@ -70,11 +68,10 @@ describe("REQ-RXD-09.4 — stale single-dialect framing reconciled", () => {
 });
 
 describe("REQ-RXD-09.1 — react section names the shipped ops, v1 minimality, catalog follow-up, and .modify(fn)", () => {
-  it("names setJsxProp and addImport, states v1 minimality, the op-catalog follow-up, and .modify(fn)", () => {
+  it("names setJsxProp and addImport, the op-catalog follow-up, and .modify(fn)", () => {
     const section = extractSection(doc(), REACT_SECTION_HEADING, /^## /);
     expect(section).toContain("setJsxProp");
     expect(section).toContain("addImport");
-    expect(section.toLowerCase()).toContain("v1");
     expect(section.toLowerCase()).toContain("op-catalog");
     expect(section).toContain(".modify(fn)");
   });
@@ -171,12 +168,11 @@ describe("REQ-RXD-09.6 — addImport collision-reject limitation documented, gua
 });
 
 describe("REQ-RXD-09.5 — explicit-.tsx-extension requirement documented (find JSDoc + worked example)", () => {
-  it("find()'s own JSDoc states the explicit-extension requirement and the .jsx forward-compat reason", () => {
+  it("find()'s own JSDoc states the explicit-extension requirement and that neither extension is assumed", () => {
     const source = readFileSync(REACT_INDEX_PATH, "utf-8");
     expect(source).toContain("no normalization, always an explicit `.tsx`");
     expect(source).toContain("extensionless path is rejected");
-    expect(source.toLowerCase()).toContain(".jsx");
-    expect(source.toLowerCase()).toContain("follow-up");
+    expect(source).toContain("so neither extension is ever assumed");
   });
 
   it("the doc's react worked-example section states the same requirement and the why, guard-pinned", () => {

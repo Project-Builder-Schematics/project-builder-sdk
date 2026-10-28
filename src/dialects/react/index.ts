@@ -6,10 +6,11 @@
 
 import { basename } from "node:path";
 import type { SourceFile } from "ts-morph";
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
+import { byExtension, defineDialect, defineOpPack, overrideOps, withOps, withoutOps, type Handle } from "../../core/define-dialect.ts";
 import { dialectError } from "../../core/dialect-error.ts";
+import { addClassProperty } from "../typescript/class-property.ts";
 import { typescriptOps } from "../typescript/pack.ts";
-import { parse, print } from "./ast.ts";
+import { parse, parseJsx, print } from "./ast.ts";
 import {
   addComponentProp,
   addHookCall,
@@ -38,24 +39,40 @@ type ReactOps = typeof typescriptOps & JsxOps;
 
 const jsxOps = defineOpPack<SourceFile, JsxOps>({ setJsxProp, removeJsxProp, addJsxChild, wrapJsxElement, addHookCall, addComponentProp, renameJsxElement });
 
-const baseDialect = defineDialect({
-  extensions: [".tsx"],
-  ast: { parse, print },
-  ops: {},
-});
+const tsxDialect = withOps(defineDialect({ extensions: [".tsx"], ast: { parse, print }, ops: {} }), typescriptOps, jsxOps);
 
-const reactDialect = withOps(baseDialect, typescriptOps, jsxOps);
+const jsxDialect = overrideOps(
+  withoutOps(
+    defineDialect({ extensions: [".jsx"], ast: { parse: parseJsx, print }, ops: tsxDialect.ops }),
+    ["addTypeImport", "addComponentProp"],
+    "they write TypeScript type syntax, which a .jsx file cannot hold"
+  ),
+  {
+    addClassProperty: (ast, className, name, initializer, options) => {
+      if (options?.scope !== undefined || options?.readonly !== undefined) {
+        throw dialectError(
+          "addClassProperty's `scope` and `readonly` are TypeScript modifiers, which a .jsx file cannot hold — " +
+            "omit them, or use .modify() to make this edit directly."
+        );
+      }
+      addClassProperty(ast, className, name, initializer);
+    },
+  }
+);
+
+const reactDialect = byExtension({ ".tsx": tsxDialect, ".jsx": jsxDialect });
 
 /**
- * Opens a `.tsx` file for React-dialect-aware editing — the dialect's entry verb into a Session
- * that carries every `@pbuilder/sdk/typescript` op plus the JSX ops, chained on one handle
- * (REQ-DG-01.2). `path` MUST end in `.tsx`: the gate below runs SYNCHRONOUSLY, before any op
- * is chained and before any run flush, so a rejected path throws on the bare `find()` call
- * itself. `.ts` files are TypeScript, not this dialect — use `@pbuilder/sdk/typescript`.
- * `.jsx` is not supported in v1: the extension must stay explicit so a future `.jsx` dialect
- * addition never has to disambiguate an assumed `.tsx` default (tracked as a React op-catalog
- * follow-up). Every other extension, dotfile basename, trailing-dot basename, and
- * extensionless path is rejected the same way — no normalization, always an explicit `.tsx`.
+ * Opens a `.tsx` or `.jsx` file for React-dialect-aware editing — the dialect's entry verb into
+ * a Session that carries every `@pbuilder/sdk/typescript` op plus the JSX ops, chained on one
+ * handle (REQ-DG-01.2). Both extensions get the same handle: on `.jsx`, which parses as plain
+ * JavaScript with JSX, `addTypeImport`, `addComponentProp` and `addClassProperty`'s `scope`/
+ * `readonly` reject at call time because they write TypeScript syntax, leaving the file
+ * unchanged. The gate below runs SYNCHRONOUSLY, before any op is chained and before any run
+ * flush, so a rejected path throws on the bare `find()` call itself. `.ts` files are TypeScript,
+ * not this dialect — use `@pbuilder/sdk/typescript`. Every other extension, dotfile basename,
+ * trailing-dot basename, and extensionless path is rejected the same way —
+ * no normalization, always an explicit `.tsx` or `.jsx`, so neither extension is ever assumed.
  * Every gate rejection throws via `dialectError`, so its message carries the standard
  * `dialect operation failed: ` prefix.
  *
@@ -80,19 +97,16 @@ const reactDialect = withOps(baseDialect, typescriptOps, jsxOps);
  */
 export function find(path: string): Handle<"found", SourceFile, ReactOps> {
   const base = basename(path);
-
-  // A non-empty STEM before `.tsx` is required — `base.endsWith(".tsx")` alone is true for
-  // `base === ".tsx"` itself (and for a degenerate `..tsx`, whose stem is a lone dot), which
-  // would pass a basename with no real name before the extension. That is the SAME "dotfile
-  // with no usable name" shape as `.babelrc` (suffix `babelrc`, not `.tsx`) — by the suffix
-  // rule REQ-RXD-02 already applies to dotfiles, `.tsx`'s suffix is `tsx`, not `.tsx`.
-  const stem = base.substring(0, base.length - ".tsx".length);
-  if (base.endsWith(".tsx") && stem.length > 0 && !stem.endsWith(".")) {
+  // A non-empty stem that does not end in a dot: `.tsx` and `a..tsx` name no file of that type.
+  const routed = reactDialect.extensions.some(
+    (extension) => base.endsWith(extension) && base.length > extension.length && !base.endsWith(`.${extension}`)
+  );
+  if (routed) {
     return reactDialect.find(path);
   }
   if (!base.includes(".")) {
     throw dialectError(
-      "find(path) — the React dialect requires an explicit .tsx extension; received a path with no extension. Append .tsx to the path."
+      "find(path) — the React dialect requires an explicit .tsx or .jsx extension; received a path with no extension. Append .tsx or .jsx to the path."
     );
   }
   if (base.endsWith(".ts")) {
@@ -100,10 +114,5 @@ export function find(path: string): Handle<"found", SourceFile, ReactOps> {
       "find(path) — .ts is not a React file; use @pbuilder/sdk/typescript for TypeScript sources."
     );
   }
-  if (base.endsWith(".jsx")) {
-    throw dialectError(
-      "find(path) — .jsx is not supported in v1; tracked as a follow-up in the React dialect's op catalog."
-    );
-  }
-  throw dialectError("find(path) — .tsx is the only extension the React dialect supports.");
+  throw dialectError("find(path) — .tsx and .jsx are the only extensions the React dialect supports.");
 }
