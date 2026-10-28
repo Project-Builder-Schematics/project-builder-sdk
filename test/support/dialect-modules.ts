@@ -4,14 +4,17 @@ import * as nestjs from "../../src/dialects/nestjs/index.ts";
 import * as angular from "../../src/dialects/angular/index.ts";
 import * as json from "../../src/dialects/json/index.ts";
 import * as yaml from "../../src/dialects/yaml/index.ts";
+import * as css from "../../src/dialects/css/index.ts";
 import * as expectedAstLibrary from "ts-morph";
 import * as jsoncParser from "jsonc-parser";
 import * as yamlLibrary from "yaml";
+import * as postcss from "postcss";
 import { defineDialect } from "../../src/core/define-dialect.ts";
 import * as typescriptAst from "../../src/dialects/typescript/ast.ts";
 import * as reactAst from "../../src/dialects/react/ast.ts";
 import * as jsonAst from "../../src/dialects/json/ast.ts";
 import * as yamlAst from "../../src/dialects/yaml/ast.ts";
+import * as cssAst from "../../src/dialects/css/ast.ts";
 
 // TypeScript-syntax adversarial samples: the kit's mandatory set is format-neutral, so these
 // stay covered here for both ts-morph dialects.
@@ -90,6 +93,22 @@ export const DIALECT_MODULES = [
         const doc = (ast as yaml.YamlStream).documents[0];
         if (!library.isDocument(doc)) throw new Error("library does not recognize the adapter AST");
         doc.set("answer", 2);
+      },
+    },
+  },
+  {
+    entrypoint: "src/dialects/css/index.ts", specifier: "postcss",
+    adapter: new URL("../../src/dialects/css/ast.ts", import.meta.url),
+    module: css, expectedAstLibrary: postcss,
+    dialect: defineDialect({ extensions: [".css"], ast: cssAst, ops: {} }),
+    samples: [":root {\n  --a: 1;\n}\n"],
+    libraryExercise: {
+      path: "library.css", seed: "a { color: red; }\n", expect: "a { color: blue; }\n",
+      modify(ast: unknown, library: typeof postcss) {
+        if (!(ast instanceof library.Root)) throw new Error("library does not recognize the adapter AST");
+        ast.walkDecls("color", (node) => {
+          node.value = "blue";
+        });
       },
     },
   },

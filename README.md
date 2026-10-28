@@ -559,9 +559,9 @@ conformance-tests a *dialect or op-pack* implementation — not the same audienc
 
 When string-level mutation isn't enough — "add an import to this module", "set a prop on
 this JSX element" — **dialects** provide structured, AST-aware operations for one file
-type: see [authoring a dialect](./docs/authoring-a-dialect.md) for the full story. Six
+type: see [authoring a dialect](./docs/authoring-a-dialect.md) for the full story. Seven
 ship today: `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`, `@pbuilder/sdk/nestjs`,
-`@pbuilder/sdk/angular`, `@pbuilder/sdk/json`, and `@pbuilder/sdk/yaml`.
+`@pbuilder/sdk/angular`, `@pbuilder/sdk/json`, `@pbuilder/sdk/yaml`, and `@pbuilder/sdk/css`.
 
 A dialect's entry point is its own `find(path)`: it opens a **coalescing, awaitable
 handle**. Every op you chain mutates the same live AST, and the handle serializes to
@@ -669,6 +669,24 @@ await yaml
 Extra named ops: `setComment`, `removeComment`, `setAnchor`, `removeAnchor`, `setAlias`,
 `addMergeKey`, `setStyle`, `setTag`, `addDocument`, `removeDocument`. `.modify(fn)` exposes
 [yaml](https://eemeli.org/yaml/). See [the YAML dialect guide](./docs/yaml-dialect.md).
+
+### `@pbuilder/sdk/css`
+
+Sets and removes declarations in `.css` files, such as design tokens synced into a file that
+also holds hand-written rules. A target names one block (`{ selector }`, `{ atRule }`, or
+both); a missing block is created at the end of the file, and everything else keeps its bytes.
+
+```ts
+import * as css from "@pbuilder/sdk/css";
+
+await css
+  .find("tokens.css")
+  .setDeclaration({ atRule: "theme" }, "--color-primary", "#1974f9")
+  .removeDeclaration({ selector: ":root" }, "--legacy-blue");
+```
+
+Named ops: `setDeclaration`, `removeDeclaration`. `.modify(fn)` exposes
+[postcss](https://postcss.org/). See [the CSS dialect guide](./docs/css-dialect.md).
 
 ### `@pbuilder/sdk/nestjs`
 

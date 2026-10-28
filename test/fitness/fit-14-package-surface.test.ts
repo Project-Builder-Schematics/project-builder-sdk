@@ -121,9 +121,9 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     expect(pkgJson.main).toEqual(baseline.main);
   });
 
-  it("REQ-FPS-02.1: exports map is EXACTLY the ten authorized entries, no more, no less", () => {
+  it("REQ-FPS-02.1: exports map is EXACTLY the eleven authorized entries, no more, no less", () => {
     expect(Object.keys(pkgJson.exports).sort()).toEqual(
-      [".", "./commons", "./conformance", "./testing", "./typescript", "./react", "./json", "./nestjs", "./angular", "./yaml"].sort()
+      [".", "./commons", "./conformance", "./testing", "./typescript", "./react", "./json", "./nestjs", "./angular", "./yaml", "./css"].sort()
     );
   });
 
@@ -139,9 +139,9 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     expect(pkgJson.dependencies ?? {}).toEqual(baseline.dependencies);
   });
 
-  it("REQ-FPS-02.1: dependencies are EXACTLY jsonc-parser, ts-morph, and yaml, each exact-pinned (no caret/tilde)", () => {
+  it("REQ-FPS-02.1: dependencies are EXACTLY jsonc-parser, postcss, ts-morph, and yaml, each exact-pinned (no caret/tilde)", () => {
     const deps = pkgJson.dependencies ?? {};
-    expect(Object.keys(deps)).toEqual(["jsonc-parser", "ts-morph", "yaml"]);
+    expect(Object.keys(deps)).toEqual(["jsonc-parser", "postcss", "ts-morph", "yaml"]);
     for (const version of Object.values(deps)) expect(version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 

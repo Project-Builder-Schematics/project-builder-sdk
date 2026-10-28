@@ -50,10 +50,16 @@
       "types": "./dist/dialects/yaml/index.d.ts",
       "import": "./dist/dialects/yaml/index.js",
       "default": "./dist/dialects/yaml/index.js"
+    },
+    "./css": {
+      "types": "./dist/dialects/css/index.d.ts",
+      "import": "./dist/dialects/css/index.js",
+      "default": "./dist/dialects/css/index.js"
     }
   },
   "dependencies": {
     "jsonc-parser": "3.3.1",
+    "postcss": "8.5.30",
     "ts-morph": "28.0.0",
     "yaml": "2.9.1"
   },
@@ -135,6 +141,12 @@
     "dist/dialects/angular/index.js",
     "dist/dialects/angular/ops.d.ts",
     "dist/dialects/angular/ops.js",
+    "dist/dialects/css/ast.d.ts",
+    "dist/dialects/css/ast.js",
+    "dist/dialects/css/index.d.ts",
+    "dist/dialects/css/index.js",
+    "dist/dialects/css/ops.d.ts",
+    "dist/dialects/css/ops.js",
     "dist/dialects/json/ast.d.ts",
     "dist/dialects/json/ast.js",
     "dist/dialects/json/index.d.ts",
