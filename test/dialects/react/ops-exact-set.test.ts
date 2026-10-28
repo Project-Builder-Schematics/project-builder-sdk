@@ -6,7 +6,7 @@ import { defineFactory } from "../../../src/core/context.ts";
 import { RESERVED_HANDLE_NAMES } from "../../../src/core/define-dialect.ts";
 
 const BASE_HANDLE_KEYS: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
-const REACT_OPS = ["removeJsxProp", "setJsxProp"];
+const REACT_OPS = ["addJsxChild", "removeJsxProp", "setJsxProp"];
 
 async function opKeys(find: (path: string) => object, path: string): Promise<string[]> {
   const { client } = makeSpyClient({ [path]: "" });
