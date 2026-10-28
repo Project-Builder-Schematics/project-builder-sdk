@@ -2,26 +2,25 @@
 // Composes the sanctioned kit surface ONLY (`defineDialect`/`defineOpPack`/`withOps` from
 // ../../core/define-dialect.ts) — mirrors src/dialects/typescript/index.ts's shape exactly,
 // no port-internal machinery imported anywhere in this tree (REQ-DG-04.1, fit-08/fit-10).
-// S-002 closes the op-pack at its final, exact two-op shape: `setJsxProp` (S-001) +
-// `addImport` (S-002) — no third op ships in v1 (REQ-RXD-01.1).
+// The parser stays local: typescript/ast.ts parses as `.ts`, which rejects JSX syntax.
 
 import { basename } from "node:path";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
 import { dialectError } from "../../core/dialect-error.ts";
+import { typescriptOps } from "../typescript/pack.ts";
 import { parse, print } from "./ast.ts";
-import { addImport, setJsxProp } from "./ops.ts";
+import { setJsxProp } from "./ops.ts";
 
 export * as astLibrary from "ts-morph";
 
-// S-002 completes the op-pack: `setJsxProp` (S-001) + `addImport` (S-002) — the exact,
-// closed two-op vocabulary (REQ-RXD-01.1).
-type ReactOps = {
+type JsxOps = {
   setJsxProp: (ast: SourceFile, elementName: string, propName: string, value?: string) => void;
-  addImport: (ast: SourceFile, name: string, from: string) => void;
 };
 
-const opsPack = defineOpPack<SourceFile, ReactOps>({ setJsxProp, addImport });
+type ReactOps = typeof typescriptOps & JsxOps;
+
+const jsxOps = defineOpPack<SourceFile, JsxOps>({ setJsxProp });
 
 const baseDialect = defineDialect({
   extensions: [".tsx"],
@@ -29,10 +28,11 @@ const baseDialect = defineDialect({
   ops: {},
 });
 
-const reactDialect = withOps(baseDialect, opsPack);
+const reactDialect = withOps(baseDialect, typescriptOps, jsxOps);
 
 /**
  * Opens a `.tsx` file for React-dialect-aware editing — the dialect's entry verb into a Session
+ * that carries every `@pbuilder/sdk/typescript` op plus the JSX ops, chained on one handle
  * (REQ-DG-01.2). `path` MUST end in `.tsx`: the gate below runs SYNCHRONOUSLY, before any op
  * is chained and before any run flush, so a rejected path throws on the bare `find()` call
  * itself. `.ts` files are TypeScript, not this dialect — use `@pbuilder/sdk/typescript`.

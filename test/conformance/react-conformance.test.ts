@@ -18,7 +18,8 @@ import { join } from "node:path";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
 import { parse, print } from "../../src/dialects/react/ast.ts";
-import { setJsxProp, addImport } from "../../src/dialects/react/ops.ts";
+import { typescriptOps } from "../../src/dialects/typescript/pack.ts";
+import { setJsxProp } from "../../src/dialects/react/ops.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 import { golden } from "../support/golden.ts";
@@ -38,14 +39,13 @@ function reactGolden(name: string): string {
   return golden(name, REACT_GOLDEN_DIR);
 }
 
-type ReactOps = {
+type JsxOps = {
   setJsxProp: (ast: SourceFile, elementName: string, propName: string, value?: string) => void;
-  addImport: (ast: SourceFile, name: string, from: string) => void;
 };
 
-const reactOpsPack = defineOpPack<SourceFile, ReactOps>({ setJsxProp, addImport });
+const reactOpsPack = defineOpPack<SourceFile, JsxOps>({ setJsxProp });
 const baseReactDialect = defineDialect({ extensions: [".tsx"], ast: { parse, print }, ops: {} });
-const realReactDialect = withOps(baseReactDialect, reactOpsPack);
+const realReactDialect = withOps(baseReactDialect, typescriptOps, reactOpsPack);
 
 // The 20-sample corpus (slices.md S-003 Contracts enumeration). #20 (angle-bracket-cast
 // divergence) is DELIBERATELY excluded from this round-trip array — it is a parse-REJECT

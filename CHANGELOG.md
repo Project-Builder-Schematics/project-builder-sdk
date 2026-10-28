@@ -6,6 +6,30 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.11.0
+
+### The React dialect extends TypeScript
+
+- **Added**: `react.find()` now carries every `@pbuilder/sdk/typescript` op next to
+  `setJsxProp`, the same way `nestjs` and `angular` do. `.tsx` files gain `addDefaultImport`,
+  `addNamespaceImport`, `addTypeImport`, `addFunction`, `addClass`, the remove ops and the rest,
+  so `import React from "react"` no longer needs `.modify()`.
+
+  ```ts
+  // src/App.tsx: const el = <div />;
+  await react.find("src/App.tsx").addDefaultImport("React", "react").setJsxProp("div", "hidden");
+  // import React from "react";
+  //
+  // const el = <div hidden />;
+  ```
+
+- **Changed**: `react.find().addImport` is now the TypeScript dialect's `addImport`. Merge,
+  create, idempotency and collision outcomes are the same, with two differences: a
+  self-aliased specifier (`import { X as X } from "m"` + `addImport("X", "m")`) is now a no-op
+  instead of a rejection, and the collision error reads like the TypeScript one
+  (`a value or import binding named "X" already exists`) instead of naming `` `name` ``.
+  Callers matching that message text must update it.
+
 ## 0.10.2
 
 ### Filename tokens

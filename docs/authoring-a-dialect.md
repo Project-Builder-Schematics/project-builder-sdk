@@ -228,12 +228,11 @@ handle.replaceContent("new content"); // succeeds — the documented escape
 
 `@pbuilder/sdk/react` mutates `.tsx` files — TypeScript source containing JSX syntax. `.jsx`
 files are NOT supported in v1: `find()` REJECTS a `.jsx` path, it does not silently accept it
-(see the explicit-extension note below). Its v1 op-pack is deliberately minimal — exactly two
-named ops, `setJsxProp` and `addImport` — proving JSX-structural mutation end to end
-without committing to a full React mutation catalog; further ops are tracked as the React
-op-catalog follow-up. Until those land, `.modify(fn)` is the escape hatch for anything the two
-shipped ops don't cover — the same universal verb the TypeScript dialect's authors already reach
-for.
+(see the explicit-extension note below). The handle carries every `@pbuilder/sdk/typescript`
+op (`addImport`, `addDefaultImport`, `addFunction`, and the rest) plus one JSX op,
+`setJsxProp`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
+`.modify(fn)` is the escape hatch for anything the shipped ops don't cover — the same
+universal verb the TypeScript dialect's authors already reach for.
 
 `find(path)` requires an explicit `.tsx` extension — extensionless paths are rejected, never normalized.
 This is deliberate: a future `.jsx` dialect addition would otherwise leave an assumed extension ambiguous between `Button.tsx` and `Button.jsx`, and baking in a `.tsx` default today would make that a breaking change to unwind later.
@@ -254,12 +253,10 @@ await react
 // -> const el = <Button onClick={handleClick} />;
 ```
 
-`addImport(name, from)` merges `name` into an EXISTING named-import clause from the SAME module
-if one already exists, or inserts a fresh `import { name } from "from";` otherwise — idempotent,
-same contract as the TypeScript dialect's own `addImport`. It is NAMED-BINDING-ONLY, pinned as
-contract: `addImport("React", "react")` always prints `import { React } from "react"`, never
-`import React from "react"` — default and namespace imports are NOT supported in v1, tracked as
-catalog-follow-up scope, not an oversight.
+`addImport(name, from)` is the TypeScript dialect's own op: it merges `name` into an EXISTING
+named-import clause from the SAME module, or inserts a fresh `import { name } from "from";`
+otherwise — idempotent. `addImport("React", "react")` always prints `import { React } from
+"react"`; use `addDefaultImport("React", "react")` for `import React from "react"`.
 
 `setJsxProp(elementName, propName, value?)` targets the ONE element whose tag name matches
 `elementName` — zero matches or more than one match both reject loudly (never a silent

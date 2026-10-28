@@ -1,12 +1,14 @@
 import type { SourceFile } from "ts-morph";
 import { type Handle } from "../../core/define-dialect.ts";
+import { typescriptOps } from "../typescript/pack.ts";
 export * as astLibrary from "ts-morph";
-type ReactOps = {
+type JsxOps = {
     setJsxProp: (ast: SourceFile, elementName: string, propName: string, value?: string) => void;
-    addImport: (ast: SourceFile, name: string, from: string) => void;
 };
+type ReactOps = typeof typescriptOps & JsxOps;
 /**
  * Opens a `.tsx` file for React-dialect-aware editing — the dialect's entry verb into a Session
+ * that carries every `@pbuilder/sdk/typescript` op plus the JSX ops, chained on one handle
  * (REQ-DG-01.2). `path` MUST end in `.tsx`: the gate below runs SYNCHRONOUSLY, before any op
  * is chained and before any run flush, so a rejected path throws on the bare `find()` call
  * itself. `.ts` files are TypeScript, not this dialect — use `@pbuilder/sdk/typescript`.
