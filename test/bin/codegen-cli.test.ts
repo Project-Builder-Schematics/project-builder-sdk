@@ -99,9 +99,9 @@ describe("pbuilder-codegen CLI — bin invocation discipline (TFO-03.1/.2)", () 
   // stage-5-first-dialect (REQ-TSD-06, REQ-FPS-02 V4): the zero-deps invariant this test
   // originally asserted became a ONE-deps invariant, still closed — the bin itself pulls in
   // no dependency of its own; the ONLY authorized entries are the dialects' AST libraries
-  // (jsonc-parser, ts-morph, yaml), never the bin's. Any OTHER entry would still be a genuine TFO-03 violation.
+  // (jsonc-parser, postcss, ts-morph, yaml), never the bin's. Any OTHER entry would still be a genuine TFO-03 violation.
   it("only the dialects' authorized dependencies are present — the bin itself pulls in no dependency of its own", () => {
-    expect(Object.keys(pkgJson.dependencies ?? {})).toEqual(["jsonc-parser", "ts-morph", "yaml"]);
+    expect(Object.keys(pkgJson.dependencies ?? {})).toEqual(["jsonc-parser", "postcss", "ts-morph", "yaml"]);
   });
 });
 

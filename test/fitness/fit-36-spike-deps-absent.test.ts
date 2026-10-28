@@ -4,7 +4,7 @@
  * scratchpad to compare AST-mutation mechanisms; NONE of them may ship. Scans the manifest
  * (ALL top-level fields, not just `dependencies`) and the committed lockfile for the four
  * names, and separately pins `dependencies` to deep-equal exactly the authorized set — the
- * JSON and YAML dialects' `jsonc-parser` and `yaml` alongside `ts-morph` (FIT-14's baseline pin
+ * JSON, YAML, and CSS dialects' `jsonc-parser`, `yaml`, and `postcss` alongside `ts-morph` (FIT-14's baseline pin
  * is the standing enforcement; this file is the REQ-RXD-14-owned assertion).
  *
  * Red-proof: a fixture manifest/lockfile naming one of the four spike libraries is caught.
@@ -34,7 +34,7 @@ describe("FIT-36 — spike dependencies never ship (REQ-RXD-14.1)", () => {
   });
 
   it("dependencies deep-equals exactly the authorized set — no spike dependency added", () => {
-    expect(pkgJson.dependencies).toEqual({ "jsonc-parser": "3.3.1", "ts-morph": "28.0.0", yaml: "2.9.1" });
+    expect(pkgJson.dependencies).toEqual({ "jsonc-parser": "3.3.1", postcss: "8.5.30", "ts-morph": "28.0.0", yaml: "2.9.1" });
   });
 
   // RED-PROOF: a fixture manifest naming a spike library is caught.
