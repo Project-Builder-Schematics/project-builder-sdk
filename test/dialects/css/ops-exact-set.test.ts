@@ -7,7 +7,7 @@ import { RESERVED_HANDLE_NAMES } from "../../../src/core/define-dialect.ts";
 const BASE_HANDLE_KEYS: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
 
 describe("subpath resolves with the exact op-set", () => {
-  it("the handle exposes exactly setDeclaration and removeDeclaration plus the base handle verbs", async () => {
+  it("the handle exposes exactly setDeclaration, removeDeclaration, and the getDeclaration query plus the base handle verbs", async () => {
     const { client } = makeSpyClient({ "tokens.css": "" });
 
     let opKeys: string[] = [];
@@ -18,7 +18,7 @@ describe("subpath resolves with the exact op-set", () => {
     });
     await run(undefined, { client });
 
-    expect(opKeys).toEqual(["removeDeclaration", "setDeclaration"]);
+    expect(opKeys).toEqual(["getDeclaration", "removeDeclaration", "setDeclaration"]);
   });
 
   it("rejects a path that is not .css synchronously", () => {

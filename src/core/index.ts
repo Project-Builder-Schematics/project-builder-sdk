@@ -9,5 +9,5 @@ export type { SessionContext } from "./context.ts";
 export { defineFactory, currentContext } from "./context.ts";
 export type { ReadOps, WriteOps, WritableHandleRef } from "./base-handle.ts";
 export type { FoundHandle, WritableHandle } from "./handle-state.ts";
-export { defineDialect, defineOpPack, withOps } from "./define-dialect.ts";
-export type { Dialect, OpPack } from "./define-dialect.ts";
+export { defineDialect, defineOpPack, query, withOps } from "./define-dialect.ts";
+export type { Dialect, OpPack, Query } from "./define-dialect.ts";

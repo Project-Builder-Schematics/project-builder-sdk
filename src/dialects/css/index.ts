@@ -1,18 +1,19 @@
 import type { Root } from "postcss";
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
+import { defineDialect, defineOpPack, query, withOps, type Handle, type Query } from "../../core/define-dialect.ts";
 import { parse, print } from "./ast.ts";
-import { removeDeclaration, setDeclaration, type CssTarget, type DeclarationOptions } from "./ops.ts";
+import { getDeclaration, removeDeclaration, setDeclaration, type CssTarget, type DeclarationOptions } from "./ops.ts";
 
 export * as astLibrary from "postcss";
-export { getDeclaration } from "./ops.ts";
+export { getDeclaration };
 export type { CssTarget, DeclarationOptions };
 
 type CssOps = {
   setDeclaration: (ast: Root, target: CssTarget, property: string, value: string, options?: DeclarationOptions) => void;
   removeDeclaration: (ast: Root, target: CssTarget, property: string) => void;
+  getDeclaration: Query<Root, [target: CssTarget, property: string], ReturnType<typeof getDeclaration>>;
 };
 
-const opsPack = defineOpPack<Root, CssOps>({ setDeclaration, removeDeclaration });
+const opsPack = defineOpPack<Root, CssOps>({ setDeclaration, removeDeclaration, getDeclaration: query(getDeclaration) });
 
 const cssDialect = withOps(defineDialect({ extensions: [".css"], ast: { parse, print }, ops: {} }), opsPack);
 

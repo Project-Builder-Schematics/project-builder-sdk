@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import * as css from "../../../src/dialects/css/index.ts";
 import { parse } from "../../../src/dialects/css/ast.ts";
-import { expectFile } from "./harness.ts";
+import { apply, expectFile } from "./harness.ts";
 
 const TOKENS = '@import "tailwindcss";\n\n@theme {\n  --color-primary: #0b254d;\n  COLOR: red !important;\n}\n';
 const THEME = { atRule: "theme" };
@@ -28,6 +28,23 @@ describe("getDeclaration (S10)", () => {
     [TOKENS, THEME, "co lor", "property name"],
   ])("rejects what the ops reject: %p", (source, target, property, fragment) => {
     expect(() => css.getDeclaration(parse(source), target, property)).toThrow(fragment);
+  });
+
+  it("ends a handle chain and sees the declarations chained before it", async () => {
+    let read: { value: string; important: boolean } | undefined;
+    const outcome = await apply(TOKENS, async (h) => {
+      read = await h.setDeclaration(THEME, "--color-primary", "#1974f9").getDeclaration(THEME, "--color-primary");
+    });
+    expect(outcome.error).toBeUndefined();
+    expect(read).toEqual({ value: "#1974f9", important: false });
+    expect(outcome.modifies).toBe(1);
+    expect(outcome.content).toBe(TOKENS.replace("#0b254d", "#1974f9"));
+  });
+
+  it("rejects on the handle what the function rejects, and nothing commits", async () => {
+    const outcome = await apply(TOKENS, (h) => h.setDeclaration(THEME, "--a", "1").getDeclaration({}, "--a"));
+    expect(outcome.error?.message).toContain("`selector`, an `atRule`");
+    expect(outcome.modifies).toBe(0);
   });
 
   it("drives a decision inside .modify()", async () => {

@@ -314,6 +314,26 @@ fidelity, and coalescing are honest, and the type-level composition proof: an `e
 on `withOps`'s intersection type (`test/types/define-dialect.test.ts`), which fails to compile if
 op-pack composition regresses.
 
+#### Queries: ops that return a value
+
+An op returns `void` and its handle method chains. To let authors read something back, wrap
+the function in **`query(fn)`** inside the same op-pack, next to the ops: with
+`count: query((ast: string[]) => ast.length)` in the pack, `await dialect.find(path).push("x").count()`
+resolves to the line count, `"x"` included. See its JSDoc `@example` in
+`src/core/dialect-handle.ts`.
+
+- On the handle, a query returns `Promise<R>` and ends the chain. It does not return the
+  handle, so call it last, or `await` it and keep chaining on the handle you already hold.
+- It runs in chain order on the live AST, so it sees every op chained before it. It emits no
+  directive, and the ops before it still coalesce into one `modify`. Like the first op, the
+  first step of a fresh handle reads the file, and that read drains pending directives.
+- It is contained like an op: its own `dialectError` passes through verbatim, any other throw
+  becomes `<name>() on "<path>" threw`, and a failure fails the run closed.
+- It must not change the AST. A query whose run changes the printed file rejects with
+  `<name>() is a query and must not change "<path>"`.
+- `query` only brands the function, so `withOps` checks a query's name for duplicates and
+  reserved verbs like any other op.
+
 #### Validating name/identifier arguments: the `validatedOp` pattern
 
 If your op takes a name or identifier-shaped argument that gets SPLICED into generated source —

@@ -10,7 +10,7 @@
 import { currentContext } from "./context.ts";
 import { dialectError, isContained } from "./dialect-error.ts";
 import type { DirectiveFactory } from "./directive-factory.ts";
-import type { OpPack, Handle } from "./define-dialect.ts";
+import type { OpPack, Handle, Query } from "./define-dialect.ts";
 import type { Session } from "./session.ts";
 import type { Directive } from "./wire.ts";
 
@@ -35,6 +35,31 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 // WeakMap entry lives exactly as long as the AST instance it's keyed on (set once in
 // #ensureLive, alongside `#live` itself) — no separate cleanup needed.
 const astHandlePaths = new WeakMap<object, string>();
+
+// The dispatcher must decide synchronously whether a method returns the handle or a promise,
+// and a function's return type is invisible at runtime — so `query()` brands the function.
+// It lives here, not in define-dialect.ts, because define-dialect.ts already imports this
+// module: the reverse runtime import would be circular.
+const queries = new WeakSet<object>();
+
+/**
+ * Marks an op-pack entry as a query: on the handle it ends the chain and resolves to `fn`'s
+ * result instead of returning the handle. It runs in chain order on the live AST, so it sees
+ * every op chained before it; it emits nothing, and it rejects if it changes the AST.
+ *
+ * @example
+ * const pack = defineOpPack({
+ *   push(ast: string[], line: string) { ast.push(line); },
+ *   count: query((ast: string[]) => ast.length),
+ * });
+ * // await dialect.find("a.lines").push("x").count() -> number of lines, "x" included
+ */
+export function query<Ast, A extends unknown[], R>(fn: (ast: Ast, ...args: A) => R): Query<Ast, A, R> {
+  // A fresh wrapper, so `fn` itself stays a plain op wherever it is reused unwrapped.
+  const branded = (ast: Ast, ...args: A): R => fn(ast, ...args);
+  queries.add(branded);
+  return branded as Query<Ast, A, R>;
+}
 
 /**
  * Recovers the author-facing handle path for a live AST instance previously registered by
@@ -283,6 +308,25 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     });
   }
 
+  // Sequenced on #tail like an op, but it never calls #ensureOpen: a query only reads the live
+  // AST, so it registers no directive (#ensureLive's first read still drains, as for an op).
+  // The print comparison is what keeps it read-only: a query that edits the AST would
+  // otherwise smuggle its edit into the next op's directive.
+  runQuery(fn: (ast: Ast, ...args: unknown[]) => unknown, args: unknown[], name: string): Promise<unknown> {
+    return this.#chain(async () => {
+      await this.#ensureLive();
+      const before = this.#printContained();
+      let result: unknown;
+      await this.#invokeContained(async () => {
+        result = await fn(this.#live as Ast, ...args);
+      }, `${name}() on "${this.#path}" threw`);
+      if (this.#printContained() !== before) {
+        throw dialectError(`${name}() is a query and must not change "${this.#path}"`);
+      }
+      return result;
+    });
+  }
+
   // Council fix pass (security note 1, ADR-0037): an ASYNC `fn` is awaited INSIDE the SAME
   // shared containment `runOp` uses (`#invokeContained`) — the enqueued step already runs
   // in the async `#tail` chain, so awaiting is natural. Without this, `fn`'s returned
@@ -418,12 +462,15 @@ export function createDialectHandle<Ast, Ops extends OpPack<Ast>>(
   };
 
   // The op-derived members — one bound dispatcher per key in `ops` (exactly what
-  // `OpMethods<Ast, Ops>` describes at the type level).
+  // `OpMethods<Ast, Ops>` describes at the type level): a query resolves to its value, any
+  // other op chains.
   const opMethods = Object.fromEntries(
     Object.keys(ops).map((opName) => [
       opName,
       (...args: unknown[]) => {
-        controller.runOp(ops[opName] as (ast: Ast, ...a: unknown[]) => void, args, opName);
+        const op = ops[opName] as (ast: Ast, ...a: unknown[]) => unknown;
+        if (queries.has(op)) return controller.runQuery(op, args, opName);
+        controller.runOp(op, args, opName);
         return handle;
       },
     ])
