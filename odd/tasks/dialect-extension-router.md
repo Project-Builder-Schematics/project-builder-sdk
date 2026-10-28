@@ -22,7 +22,7 @@ Out of scope until the owner asks: the Angular `.html` dialect itself.
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S2, S3, S4, S6 | inline | done — RED (missing exports) → GREEN 11 pass; tsc proves literal-path typing | see git log |
-| T2 | S1, S5, S6 | inline | pending (RED written: `test/dialects/react/jsx-files.test.ts`, 9 fail) | — |
+| T2 | S1, S5, S6 | inline | done — RED 9 fail → GREEN 10 pass; existing .tsx-only message pins updated to name both extensions | see git log |
 
 Route evidence: T2 depends on T1; each unit forecast under ~400 lines; no writer trigger fires. Risk: item 3 — new exports on the dialect kit that third-party dialects consume (additive).
 

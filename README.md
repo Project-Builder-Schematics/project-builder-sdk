@@ -606,8 +606,10 @@ untrusted input is the author's responsibility to sanitize.
 
 ### `@pbuilder/sdk/react`
 
-Mutates `.tsx` files — `find()` requires the explicit `.tsx` extension (extensionless and
-`.jsx` paths are rejected, never normalized). The handle carries every
+Mutates `.tsx` and `.jsx` files — `find()` requires one of those extensions explicitly
+(extensionless paths are rejected, never normalized). On `.jsx`, the ops that write TypeScript
+syntax (`addTypeImport`, `addComponentProp`, `addClassProperty`'s `scope`/`readonly`) reject,
+leaving the file unchanged. The handle carries every
 `@pbuilder/sdk/typescript` op plus the JSX ops below, with `.modify(fn)` as the escape hatch
 for everything else:
 

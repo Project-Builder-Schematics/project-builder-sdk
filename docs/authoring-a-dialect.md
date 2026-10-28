@@ -262,17 +262,20 @@ handle.replaceContent("new content"); // succeeds — the documented escape
 
 ### `@pbuilder/sdk/react` — a second dialect
 
-`@pbuilder/sdk/react` mutates `.tsx` files — TypeScript source containing JSX syntax. `.jsx`
-files are NOT supported in v1: `find()` REJECTS a `.jsx` path, it does not silently accept it
-(see the explicit-extension note below). The handle carries every `@pbuilder/sdk/typescript`
+`@pbuilder/sdk/react` mutates `.tsx` files — TypeScript source containing JSX syntax — and
+`.jsx` files, which parse as JavaScript with JSX. Both get the same handle; on `.jsx`,
+`addTypeImport`, `addComponentProp` and `addClassProperty`'s `scope`/`readonly` reject at call
+time, leaving the file unchanged, because they write TypeScript syntax a `.jsx` file cannot
+hold. The dialect routes the two extensions with `byExtension` (see "One `find` for several
+extensions" below). The handle carries every `@pbuilder/sdk/typescript`
 op (`addImport`, `addDefaultImport`, `addFunction`, and the rest) plus the JSX ops
 `setJsxProp`, `removeJsxProp`, `addJsxChild`, `wrapJsxElement`, `renameJsxElement`,
 `addHookCall` and `addComponentProp`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
 `.modify(fn)` is the escape hatch for anything the shipped ops don't cover — the same
 universal verb the TypeScript dialect's authors already reach for.
 
-`find(path)` requires an explicit `.tsx` extension — extensionless paths are rejected, never normalized.
-This is deliberate: a future `.jsx` dialect addition would otherwise leave an assumed extension ambiguous between `Button.tsx` and `Button.jsx`, and baking in a `.tsx` default today would make that a breaking change to unwind later.
+`find(path)` requires an explicit `.tsx` or `.jsx` extension — extensionless paths are rejected, never normalized.
+This is deliberate: an assumed extension would be ambiguous between `Button.tsx` and `Button.jsx`, so neither is ever picked for you.
 
 The worked example below is the COALESCED author journey — `addImport` and `setJsxProp` on ONE
 handle:
