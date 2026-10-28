@@ -230,7 +230,7 @@ handle.replaceContent("new content"); // succeeds — the documented escape
 files are NOT supported in v1: `find()` REJECTS a `.jsx` path, it does not silently accept it
 (see the explicit-extension note below). The handle carries every `@pbuilder/sdk/typescript`
 op (`addImport`, `addDefaultImport`, `addFunction`, and the rest) plus the JSX ops
-`setJsxProp`, `removeJsxProp` and `addJsxChild`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
+`setJsxProp`, `removeJsxProp`, `addJsxChild` and `wrapJsxElement`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
 `.modify(fn)` is the escape hatch for anything the shipped ops don't cover — the same
 universal verb the TypeScript dialect's authors already reach for.
 
@@ -303,6 +303,16 @@ await react.find("src/App.tsx").addJsxChild("Routes", '<Route path="/users" elem
 // ->   <Route path="/" element={<Home />} />
 // ->   <Route path="/users" element={<Users />} />
 // -> </Routes>
+```
+
+`wrapJsxElement(target, wrapper)` wraps the ONE element `target` names in `wrapper`, which must be
+exactly one self-closing JSX element; its props are kept. A target whose direct parent already
+has the wrapper's tag is a no-op. `wrapper` is emitted verbatim, like `setJsxProp`'s `value`:
+
+```ts
+// src/main.tsx before: root.render(<App />);
+await react.find("src/main.tsx").wrapJsxElement("App", "<QueryProvider client={queryClient} />");
+// -> root.render(<QueryProvider client={queryClient}><App /></QueryProvider>);
 ```
 
 #### The `value` trust boundary

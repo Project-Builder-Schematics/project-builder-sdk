@@ -110,9 +110,9 @@ export const removeJsxProp = validatedOp<SourceFile, [target: JsxTarget, propNam
   }
 );
 
-// One JSX element or fragment and nothing around it. Parsed as `(jsx);`, so trailing code such
-// as `<a />); evil(<b />` yields a second statement and rejects. The text itself is never echoed.
-function assertJsxNode(jsx: string, argName: string): void {
+// One JSX node of an accepted kind and nothing around it. Parsed as `(jsx);`, so trailing code
+// such as `<a />); evil(<b />` yields a second statement and rejects. The text is never echoed.
+function assertJsxNode(jsx: string, argName: string, accepts: (node: Node) => boolean, ruleLabel: string): void {
   let valid = false;
   try {
     const statements = parse(`(${jsx});\n`).getStatements();
@@ -121,18 +121,14 @@ function assertJsxNode(jsx: string, argName: string): void {
       const expression = statement.getExpression();
       if (Node.isParenthesizedExpression(expression)) {
         const inner = expression.getExpression();
-        valid =
-          (Node.isJsxElement(inner) || Node.isJsxSelfClosingElement(inner) || Node.isJsxFragment(inner)) &&
-          inner.getText() === jsx.trim();
+        valid = accepts(inner) && inner.getText() === jsx.trim();
       }
     }
   } catch {
     valid = false;
   }
   if (!valid) {
-    throw dialectError(
-      `\`${argName}\` must be exactly one JSX element or fragment — fix it, or use \`.modify()\` to make this edit directly.`
-    );
+    throw dialectError(`\`${argName}\` must be ${ruleLabel} — fix it, or use \`.modify()\` to make this edit directly.`);
   }
 }
 
@@ -156,7 +152,12 @@ function indentUnit(indent: string): string {
 export const addJsxChild = validatedOp<SourceFile, [target: JsxTarget, jsx: string]>(
   ([target, jsx]) => {
     assertValidTarget(target);
-    assertJsxNode(jsx, "jsx");
+    assertJsxNode(
+      jsx,
+      "jsx",
+      (node) => Node.isJsxElement(node) || Node.isJsxSelfClosingElement(node) || Node.isJsxFragment(node),
+      "exactly one JSX element or fragment"
+    );
   },
   (ast, target, jsx) => {
     const child = jsx.trim();
@@ -183,5 +184,28 @@ export const addJsxChild = validatedOp<SourceFile, [target: JsxTarget, jsx: stri
     const closingIndent = lineIndent(ast, closingStart);
     const indent = last === undefined ? closingIndent + indentUnit(closingIndent) : lineIndent(ast, last.getStart());
     ast.insertText(anchor, `${eol}${indent}${child}`);
+  }
+);
+
+/**
+ * Wraps the ONE element `target` names in `wrapper`, a self-closing JSX element whose props are
+ * kept: `'<QueryProvider client={qc} />'` turns `<App />` into
+ * `<QueryProvider client={qc}><App /></QueryProvider>`. A target whose direct parent already
+ * has the wrapper's tag is a no-op. `wrapper` is emitted verbatim, the same trust boundary as
+ * `setJsxProp`'s `value`.
+ */
+export const wrapJsxElement = validatedOp<SourceFile, [target: JsxTarget, wrapper: string]>(
+  ([target, wrapper]) => {
+    assertValidTarget(target);
+    assertJsxNode(wrapper, "wrapper", (node) => Node.isJsxSelfClosingElement(node), "exactly one self-closing JSX element");
+  },
+  (ast, target, wrapper) => {
+    const tag = targetElement(ast, target, "wrapJsxElement");
+    const node = Node.isJsxSelfClosingElement(tag) ? tag : tag.getParentIfKindOrThrow(SyntaxKind.JsxElement);
+    const open = wrapper.trim().replace(/\s*\/>$/, ">");
+    const wrapperTag = /^<([^\s/>]+)/.exec(open)![1]!;
+    const parent = node.getParent();
+    if (Node.isJsxElement(parent) && parent.getOpeningElement().getTagNameNode().getText() === wrapperTag) return;
+    ast.replaceText([node.getStart(), node.getEnd()], `${open}${node.getText()}</${wrapperTag}>`);
   }
 );
