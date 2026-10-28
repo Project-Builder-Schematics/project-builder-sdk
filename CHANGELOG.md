@@ -6,6 +6,19 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.10.2
+
+### Filename tokens
+
+- **Fixed**: filename token translation (`__name__`, `__name@pipe__` in scaffold paths and
+  `to`) now runs in linear time. The previous regex backtracked from every start position
+  and went quadratic on long runs of near-tokens such as `__A@A@__A@A@…` (CodeQL
+  `js/polynomial-redos`).
+- **Changed**: a token now ends at the first `__` after it opens, so a field name can no longer
+  contain `__` or end with `_`. `__a__b__` translates to `{= .a =}b__` (was `{= .a__b =}`) and
+  `__name___` to `{= .name =}_` (was `{= .name_ =}`). Tokens made of plain identifiers, with
+  or without pipes, translate exactly as before.
+
 ## 0.10.1
 
 ### Inserted imports follow the file's style
