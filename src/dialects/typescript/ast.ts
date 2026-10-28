@@ -1,5 +1,5 @@
 // S-002: ts-morph parse/print pair for the TypeScript dialect (REQ-TSD-02, design §4.4).
-// FROZEN ManipulationSettings + an explicit, CONTENT-DERIVED newLineKind (never host-OS) —
+// FROZEN ManipulationSettings + an explicit, CONTENT-DERIVED newLineKind and quoteKind (never host-OS) —
 // a fresh `Project` per parse so the setting can vary per source, never a module-level
 // singleton. No language-service formatter is ever invoked (REQ-TSD-02.3): this module calls
 // no `.formatText()`/language-service API anywhere.
@@ -46,12 +46,24 @@ function countOccurrences(source: string, needle: string): number {
   return source.split(needle).length - 1;
 }
 
+// The quote kind of the file's own module specifiers; single wins only on a strict majority,
+// so a file with no specifiers (or a tie) keeps the double-quote default.
+function detectQuoteKind(sourceFile: SourceFile): QuoteKind {
+  const specifiers = [...sourceFile.getImportDeclarations(), ...sourceFile.getExportDeclarations()].flatMap((decl) => {
+    const specifier = decl.getModuleSpecifier();
+    return specifier === undefined ? [] : [specifier.getQuoteKind()];
+  });
+  const single = specifiers.filter((kind) => kind === QuoteKind.Single).length;
+  return single > specifiers.length - single ? QuoteKind.Single : QuoteKind.Double;
+}
+
 /**
  * Parses TypeScript source into a live ts-morph `SourceFile` — the dialect's `Ast` (design
  * §4.4). Constructs a FRESH `Project` per call (never a module-level singleton) whose
  * `manipulationSettings.newLineKind` is derived from THIS source's own content
- * (`detectNewLineKind`) — the frozen determinism pin (REQ-TSD-02). Indentation and quote
- * style are likewise frozen constants, never inferred from the source or the host.
+ * (`detectNewLineKind`) — the frozen determinism pin (REQ-TSD-02). The quote kind is likewise
+ * derived from the source's own module specifiers (`detectQuoteKind`, double when the source
+ * shows no preference); indentation is a frozen constant. Neither reads the host.
  *
  * Failure posture (REQ-TSD-04.1 / REQ-DG-05.2): ts-morph's parser is deliberately
  * FAULT-TOLERANT — it does not natively throw on malformed syntax, it records diagnostics.
@@ -80,6 +92,7 @@ export function parse(source: string): SourceFile {
     },
   });
   const sourceFile = project.createSourceFile(VIRTUAL_PATH, body);
+  project.manipulationSettings.set({ quoteKind: detectQuoteKind(sourceFile) });
   if (startsWithBom) hadBom.set(sourceFile, true);
 
   const syntacticErrors = project.getProgram().getSyntacticDiagnostics(sourceFile);
