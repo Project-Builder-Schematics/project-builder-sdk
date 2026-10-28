@@ -1,5 +1,10 @@
 import type { ReadOps } from "./base-handle.ts";
+export { query } from "./dialect-handle.ts";
 export type Op<Ast = any> = (ast: Ast, ...args: never[]) => void;
+declare const QUERY: unique symbol;
+export type Query<Ast = any, A extends unknown[] = any[], R = unknown> = ((ast: Ast, ...args: A) => R) & {
+    readonly [QUERY]: true;
+};
 export type OpPack<Ast = any> = Record<string, Op<Ast>>;
 export interface DialectDescriptor<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
     extensions: string[];
@@ -12,7 +17,7 @@ export interface DialectDescriptor<Ast = any, Ops extends OpPack<Ast> = OpPack<A
 type Bound<Ast, F> = F extends (ast: Ast, ...rest: infer R) => void ? (...rest: R) => void : never;
 type Edited<Ast, Ops extends OpPack<Ast>> = Handle<"writable", Ast, Ops>;
 type OpMethods<Ast, Ops extends OpPack<Ast>> = {
-    [K in keyof Ops]: (...a: Parameters<Bound<Ast, Ops[K]>>) => Edited<Ast, Ops>;
+    [K in keyof Ops]: Ops[K] extends Query<any, infer A, infer R> ? (...a: A) => Promise<Awaited<R>> : (...a: Parameters<Bound<Ast, Ops[K]>>) => Edited<Ast, Ops>;
 };
 type DialectWriteOps<Ast, Ops extends OpPack<Ast>> = {
     replaceContent(content: string): Edited<Ast, Ops>;
@@ -91,4 +96,3 @@ export declare const RESERVED_HANDLE_NAMES: readonly ["then", "read", "raw", "mo
  * const tsDialect = withOps(baseTsDialect, addImportPack);
  */
 export declare function withOps<Ast, B extends OpPack<Ast>, P extends OpPack<Ast>[]>(base: Dialect<Ast, B>, ...packs: P): Dialect<Ast, B & UnionToIntersection<P[number]>>;
-export {};

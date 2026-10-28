@@ -17,9 +17,20 @@ import type { ReadOps } from "./base-handle.ts";
 import { createDialectHandle } from "./dialect-handle.ts";
 import { dialectError } from "./dialect-error.ts";
 
+export { query } from "./dialect-handle.ts";
+
 // An op mutates the live AST in place; `never[]` at the descriptor level lets each op
 // declare its OWN trailing arg tuple (bound away from `ast` by `OpMethods` below).
 export type Op<Ast = any> = (ast: Ast, ...args: never[]) => void;
+
+declare const QUERY: unique symbol;
+
+// An op-pack entry branded by `query()`: its handle method resolves to the result instead of
+// chaining. A query is still an `Op` (a non-void return is assignable to `void`), so packs,
+// `withOps`, and its collision checks treat it like any other op.
+export type Query<Ast = any, A extends unknown[] = any[], R = unknown> = ((ast: Ast, ...args: A) => R) & {
+  readonly [QUERY]: true;
+};
 
 // An op-pack is a named record of ops over one shared AST type (ADR-0010).
 export type OpPack<Ast = any> = Record<string, Op<Ast>>;
@@ -42,7 +53,9 @@ type Bound<Ast, F> = F extends (ast: Ast, ...rest: infer R) => void ? (...rest: 
 type Edited<Ast, Ops extends OpPack<Ast>> = Handle<"writable", Ast, Ops>;
 
 type OpMethods<Ast, Ops extends OpPack<Ast>> = {
-  [K in keyof Ops]: (...a: Parameters<Bound<Ast, Ops[K]>>) => Edited<Ast, Ops>;
+  [K in keyof Ops]: Ops[K] extends Query<any, infer A, infer R>
+    ? (...a: A) => Promise<Awaited<R>>
+    : (...a: Parameters<Bound<Ast, Ops[K]>>) => Edited<Ast, Ops>;
 };
 
 // The inherited commons `WriteOps` return `WritableHandleRef` (sync-shaped, non-thenable,
