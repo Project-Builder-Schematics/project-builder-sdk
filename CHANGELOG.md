@@ -6,6 +6,28 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.10.0
+
+### Dialect queries
+
+- **Added**: queries, a second kind of dialect operation. An op-pack entry wrapped in `query(fn)`
+  becomes a handle method that ends the chain and resolves to `fn`'s result (`Promise<R>`)
+  instead of returning the handle. It runs in chain order on the live AST, so it sees every op
+  chained before it; it writes nothing, and those ops still coalesce into one `modify`. A query
+  is contained like an op, and one that changes the file rejects with `<name>() is a query and
+  must not change "<path>"` and fails the run. Existing ops, op-packs, `withOps` and every
+  shipped dialect are unchanged. Guide: `docs/authoring-a-dialect.md`.
+- **Added**: `getDeclaration(target, property)` on `@pbuilder/sdk/css` handles, the first query.
+  It resolves to `{ value, important }` or `undefined`. The plain
+  `getDeclaration(root, target, property)` export stays for use inside `.modify(fn)`.
+
+  ```ts
+  const primary = await css
+    .find("tokens.css")
+    .setDeclaration({ atRule: "theme" }, "--color-primary", "#1974f9")
+    .getDeclaration({ atRule: "theme" }, "--color-primary"); // { value: "#1974f9", important: false }
+  ```
+
 ## 0.9.0
 
 ### New subpath: `@pbuilder/sdk/css`
