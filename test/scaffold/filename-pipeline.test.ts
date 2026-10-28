@@ -27,6 +27,25 @@ describe("translateTokens — REQ-FSC-05 step 2", () => {
   it("a path with no token markers is returned unchanged", () => {
     expect(translateTokens("plain/path.ts")).toEqual("plain/path.ts");
   });
+
+  it("translates every token in a path, pipes chained in order", () => {
+    expect(translateTokens("src/__group@dasherize__/__name@camelize@classify__.ts")).toEqual(
+      "src/{= .group | dasherize =}/{= .name | camelize | classify =}.ts"
+    );
+  });
+
+  it("leaves markers that do not enclose a valid token, and still finds a later one", () => {
+    expect(translateTokens("__1x__name__.ts")).toEqual("__1x{= .name =}.ts");
+    expect(translateTokens("__a.b__/__open.ts")).toEqual("__a.b__/__open.ts");
+    expect(translateTokens("__name@__.ts")).toEqual("__name@__.ts");
+  });
+
+  it("runs in linear time on a long run of near-tokens", () => {
+    const hostile = "__A@A" + "@__A@A".repeat(200_000);
+    const started = performance.now();
+    expect(translateTokens(hostile)).toEqual(hostile);
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
 });
 
 describe("stripTemplateSuffix — REQ-FSC-05 step 3", () => {

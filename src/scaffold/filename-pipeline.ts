@@ -10,7 +10,8 @@ import { posix } from "node:path";
 import { invalidInput } from "../core/authoring-error.ts";
 
 const TEMPLATE_SUFFIX = ".template";
-const TOKEN_PATTERN = /__([A-Za-z_][A-Za-z0-9_]*(?:@[A-Za-z_][A-Za-z0-9_]*)*)__/g;
+const TOKEN_MARKER = "__";
+const TOKEN_INNER = /^[A-Za-z_][A-Za-z0-9_]*(?:@[A-Za-z_][A-Za-z0-9_]*)*$/;
 
 /**
  * Translates on-disk filename tokens to the wire `pathTemplate` syntax the ENGINE
@@ -22,10 +23,26 @@ const TOKEN_PATTERN = /__([A-Za-z_][A-Za-z0-9_]*(?:@[A-Za-z_][A-Za-z0-9_]*)*)__/
  * path-render at ingest (`path-render-failed`, exit 2).
  */
 export function translateTokens(path: string): string {
-  return path.replace(TOKEN_PATTERN, (_match, inner: string) => {
+  // A scan pairing each marker with the NEXT one, never a single unanchored regex: an
+  // identifier may contain `_`, so a regex whose closing `__` overlaps it backtracks from
+  // every start and goes quadratic on long runs of near-tokens (CodeQL js/polynomial-redos).
+  let translated = "";
+  let cursor = 0;
+  for (let open = path.indexOf(TOKEN_MARKER); open !== -1; open = path.indexOf(TOKEN_MARKER, cursor)) {
+    const close = path.indexOf(TOKEN_MARKER, open + TOKEN_MARKER.length);
+    if (close === -1) break;
+    const inner = path.slice(open + TOKEN_MARKER.length, close);
+    if (!TOKEN_INNER.test(inner)) {
+      translated += path.slice(cursor, open + 1);
+      cursor = open + 1;
+      continue;
+    }
     const [field, ...pipes] = inner.split("@");
-    return pipes.length > 0 ? `{= .${field} | ${pipes.join(" | ")} =}` : `{= .${field} =}`;
-  });
+    translated += path.slice(cursor, open);
+    translated += pipes.length > 0 ? `{= .${field} | ${pipes.join(" | ")} =}` : `{= .${field} =}`;
+    cursor = close + TOKEN_MARKER.length;
+  }
+  return translated + path.slice(cursor);
 }
 
 /** REQ-FSC-05 step (3): strips a `.template` suffix from the (post-translation) path. */
