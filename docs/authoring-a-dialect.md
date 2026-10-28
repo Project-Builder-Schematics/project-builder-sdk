@@ -229,8 +229,8 @@ handle.replaceContent("new content"); // succeeds — the documented escape
 `@pbuilder/sdk/react` mutates `.tsx` files — TypeScript source containing JSX syntax. `.jsx`
 files are NOT supported in v1: `find()` REJECTS a `.jsx` path, it does not silently accept it
 (see the explicit-extension note below). The handle carries every `@pbuilder/sdk/typescript`
-op (`addImport`, `addDefaultImport`, `addFunction`, and the rest) plus one JSX op,
-`setJsxProp`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
+op (`addImport`, `addDefaultImport`, `addFunction`, and the rest) plus the JSX ops
+`setJsxProp` and `removeJsxProp`; further JSX ops are tracked as the React op-catalog follow-up. Until those land,
 `.modify(fn)` is the escape hatch for anything the shipped ops don't cover — the same
 universal verb the TypeScript dialect's authors already reach for.
 
@@ -282,6 +282,9 @@ await react
 ```
 
 The reject message names the tag and the prop names, never the prop values.
+
+`removeJsxProp(target, propName)` removes `propName` from the ONE element `target` names. An
+absent prop is a no-op, and a `{...spread}` is never touched, even when it may carry the prop.
 
 #### The `value` trust boundary
 

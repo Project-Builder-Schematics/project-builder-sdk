@@ -45,7 +45,7 @@ function hasProp(element: JsxTag, name: string, value: string | true): boolean {
 // Text-equality targeting against each element's tag-name text (design §4.4) — Set-key-safety
 // clause: the tag and prop names are compared with `===`, NEVER used as an object/array index.
 // Zero or several matches reject — never a silent first-match.
-function targetElement(ast: SourceFile, target: JsxTarget): JsxTag {
+function targetElement(ast: SourceFile, target: JsxTarget, opName: string): JsxTag {
   const { tag, props } = targetParts(target);
   const openings = ast.getDescendantsOfKind(SyntaxKind.JsxOpeningElement);
   const selfClosing = ast.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement);
@@ -55,7 +55,7 @@ function targetElement(ast: SourceFile, target: JsxTarget): JsxTag {
   );
   const propNames = props.map(([name]) => name);
   if (matches.length === 0) throw dialectError(zeroMatchTail(tag, propNames));
-  if (matches.length > 1) throw dialectError(multiMatchTail(tag, matches.length, propNames));
+  if (matches.length > 1) throw dialectError(multiMatchTail(opName, tag, matches.length, propNames));
   return matches[0]!;
 }
 
@@ -79,7 +79,7 @@ export const setJsxProp = validatedOp<SourceFile, [target: JsxTarget, propName: 
     assertValidAttributeName(propName);
   },
   (ast, target, propName, value) => {
-    const element = targetElement(ast, target);
+    const element = targetElement(ast, target, "setJsxProp");
     const existingAttr = element.getAttribute(propName);
     if (existingAttr !== undefined && existingAttr.getKind() === SyntaxKind.JsxAttribute) {
       const attr = existingAttr.asKindOrThrow(SyntaxKind.JsxAttribute);
@@ -91,5 +91,20 @@ export const setJsxProp = validatedOp<SourceFile, [target: JsxTarget, propName: 
       return;
     }
     element.addAttribute({ name: propName, initializer: value });
+  }
+);
+
+/**
+ * Removes the attribute named `propName` from the ONE element `target` names. An absent
+ * attribute is a no-op; a `{...spread}` is never touched, even when it may carry the prop.
+ */
+export const removeJsxProp = validatedOp<SourceFile, [target: JsxTarget, propName: string]>(
+  ([target, propName]) => {
+    assertValidTarget(target);
+    assertValidAttributeName(propName);
+  },
+  (ast, target, propName) => {
+    const attr = targetElement(ast, target, "removeJsxProp").getAttribute(propName);
+    if (attr !== undefined && Node.isJsxAttribute(attr)) attr.remove();
   }
 );

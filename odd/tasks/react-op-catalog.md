@@ -23,7 +23,7 @@ Out of scope until the owner asks: `addComponentProp`, `addHookCall`, `renameJsx
 |---|---|---|---|---|
 | T0 | — | inline | done — React extends the TypeScript ops, 0.11.0 | 4c180e2 (#139) |
 | T1 | S1, S2, S6 | inline | done — RED 8 fail → GREEN 8 pass; full suite 3788 pass, 8 fail = the 7 failing on main + FIT-04 baseline (updated) | PR 2 |
-| T2 | S1, S3, S6 | inline | pending | PR 3 |
+| T2 | S1, S3, S6 | inline | done — RED 7 fail → GREEN 7 pass; full suite 3793 pass, 10 fail = the 7 failing on main + 3 e2e 5s timeouts (also time out on the base) | PR 3 |
 | T3 | S1, S4, S6 | inline | pending | PR 4 |
 | T4 | S1, S5, S6 | inline | pending | PR 5 |
 
