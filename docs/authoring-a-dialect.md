@@ -445,6 +445,30 @@ A dialect is assembled from three kit verbs:
   `move`, `copy`, `remove`) throws the same way — an op-pack op named `then` in particular would
   break the handle's `PromiseLike` join.
 
+#### One `find` for several extensions
+
+When one dialect covers files that parse differently, or where some ops do not apply, build one
+dialect per extension and route between them:
+
+- **`byExtension({ ".tsx": tsx, ".jsx": jsx })`** returns `{ extensions, find }`. `find(path)`
+  hands the path to the dialect whose key the basename ends with; the longest key wins, so a
+  `.component.html` dialect beats an `.html` one. Each routed dialect keeps its own `ast` and
+  `ops`, so the AST types may differ (a `.ts` dialect over ts-morph next to an `.html` dialect
+  over an HTML AST). For a literal path, `find`'s return type is that extension's handle. A path
+  matching no key rejects synchronously, naming every routed extension; a key its dialect does
+  not declare throws at composition.
+- **`withoutOps(dialect, names, reason)`** keeps the named ops on the handle (and in its type)
+  but makes them reject at call time, leaving the file unchanged, with a message naming the op,
+  the dialect's extensions and `reason`. Use it when an extension shares an op set but cannot
+  hold what some ops write, such as type syntax in `.jsx`.
+- **`overrideOps(dialect, overrides)`** replaces named ops with same-signature implementations,
+  for an op that works on the extension only in a narrower form.
+
+Both derivations throw at composition on an op name the dialect does not have. A variant that
+only needs another parser is plain `defineDialect` reusing the other dialect's ops
+(`ops: tsx.ops`). See their JSDoc `@example`s in `src/core/define-dialect.ts`, and
+`src/dialects/react/index.ts` for the `.tsx`/`.jsx` routing the React dialect ships.
+
 A contributor's worked proof anchors are the conformance kit — `testDialect`/`testOpPack`
 (`@pbuilder/sdk/conformance`) — which asserts a dialect's parse/print round-trip, per-op
 fidelity, and coalescing are honest, and the type-level composition proof: an `expectTypeOf` pin
