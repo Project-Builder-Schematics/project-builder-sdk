@@ -17,8 +17,8 @@ Branch: `feat/dialect-queries`, stacked on `feat/css-dialect` (PR #131). Deliver
 
 | ID | Specs | Route | Status | Commit |
 |----|-------|-------|--------|--------|
-| T1 | S1-S5, S7 (core part) | inline | done — RED (`query` not exported) then 10/10 GREEN; FIT-04 core baseline updated | feat(core) commit |
-| T2 | S6, S7 (css part) | inline | pending | |
+| T1 | S1-S5, S7 (core part) | inline | done — RED (`query` not exported) then 10/10 GREEN; FIT-04 core baseline updated | d908436 |
+| T2 | S6, S7 (css part) | inline | done — RED (3 fail) then 72/72 GREEN | feat(css) commit |
 
 Route evidence: one understood core change plus its first consumer; T2 depends on T1, so no parallel writers.
 
@@ -28,3 +28,4 @@ Route evidence: one understood core change plus its first consumer; T2 depends o
 - L2 (2026-10-28): "me parece la b buddy" — chosen over a separate `queries` descriptor field with `withQueries`.
 - L3 (2026-10-28): "vamos 1 -> 2 -> 3 -> 4" — this feature is step 3 (docs issue #30 and release PR #132 done; `.scss` is step 4).
 - L4 (2026-10-28): research — handles enqueue every step on `#tail` through `#chain` (src/core/dialect-handle.ts:127), which `read()` already uses to return a value; ops dispatch from `Object.keys(ops)` (dialect-handle.ts:422). A dispatcher must pick `handle` or `Promise` synchronously, so the query mark must be visible at runtime (a brand), not inferred from a return type. Risk: item 4 (async ordering on the shared `#tail`) and item 3 (core handle type), so an independent verifier runs.
+- L5 (2026-10-28): verification — typecheck clean; full `bun test` 3796 pass, the 7 failures are the environment ones also failing on main (FIT-40, FIT-42N x3, REQ-WPS-07 x3). Risk: item 4 (query steps share the async `#tail` queue) and item 3 (core `Handle` type).

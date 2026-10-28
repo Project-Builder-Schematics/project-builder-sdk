@@ -124,9 +124,20 @@ await css.find("app.css").modify((root) => {
 
 ### `getDeclaration(root, target, property)`
 
-Ops do not return values, so reading is a plain function the module exports. It takes a parsed
-`Root` and returns `{ value, important }`, or `undefined` when the block or declaration is
-missing, with the same target, name, ambiguity, and duplicate rules as the ops. Call it inside
+Reads `{ value, important }`, or `undefined` when the block or declaration is missing, with the
+same target, name, ambiguity, and duplicate rules as the ops. It comes in two forms.
+
+On the handle, `getDeclaration(target, property)` is a query: it ends the chain, resolves to the
+value, and sees every op chained before it. It writes nothing, and those ops still commit:
+
+```ts
+const primary = await css
+  .find("tokens.css")
+  .setDeclaration({ atRule: "theme" }, "--color-primary", "#1974f9")
+  .getDeclaration({ atRule: "theme" }, "--color-primary"); // { value: "#1974f9", important: false }
+```
+
+The module also exports it as a plain function over a parsed `Root`. Call it inside
 `.modify(fn)` to decide what to change:
 
 ```ts
