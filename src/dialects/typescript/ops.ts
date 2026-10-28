@@ -42,6 +42,7 @@ import { elementNameEcho } from "../../core/reject-tail.ts";
 // A misnomer surviving from its JSX-only origin (`jsx-name-validator.ts`) — this dialect is
 // its first non-JSX consumer, sharpening ARCH-2's now-realised "one consumer" debt (ADR-02).
 import { assertValidImportBinding } from "../../core/jsx-name-validator.ts";
+import { closeGapAfter, sortedPlacement, sortedSpecifierIndex } from "./import-order.ts";
 
 // Ported verbatim from `react/ops.ts` (design §4.3 data model) — a bound name, tagged with
 // enough shape to answer BOTH "does this SAME-MODULE binding satisfy idempotency" (Step 1)
@@ -218,16 +219,38 @@ function directiveInsertIndex(ast: SourceFile, directiveCount: number): number {
  * Idempotent: calling this twice with the same `name`+`from` produces a single import line,
  * never a duplicate (REQ-TSD-03.10).
  *
+ * `{ position: "sorted" }` changes only where Steps 3 and 4 put the new code: the merged name
+ * goes into its alphabetical place inside the braces (case-insensitive), and a fresh
+ * declaration goes next to its folder siblings (the existing imports sharing the most leading
+ * path segments with `from`, packages and relative paths kept apart), before the first of them
+ * that sorts after it. Existing imports never move; `sortImports` reorders a whole file.
+ *
+ * @example
+ * // import { BookOpen, Users } from "lucide-react";
+ * // import { authorHandlers } from "./domains/authors.mock";
+ * ts.find(path).addImport("LayoutDashboard", "lucide-react", { position: "sorted" });
+ * ts.find(path).addImport("bookHandlers", "./domains/books.mock", { position: "sorted" });
+ * // import { BookOpen, LayoutDashboard, Users } from "lucide-react";
+ * // import { authorHandlers } from "./domains/authors.mock";
+ * // import { bookHandlers } from "./domains/books.mock";
+ *
  * Trust boundary (REQ-TSD-13.5): every op in this dialect validates its `name` the same way
  * (and `addVariable` its `kind`), but `addFunction`'s `source`, `addVariable`'s `initializer`
  * and `addClass`'s `source` are code bodies, not identifiers — they remain RAW-SPLICED,
  * author-trusted input that no op validates or escapes.
  */
-export function addImport(ast: SourceFile, name: string, from: string): void {
+export function addImport(ast: SourceFile, name: string, from: string, options?: { position?: "sorted" }): void {
   // REQ-TSD-13 validation gate: a deliberately PATH-LESS reject (contrast Step 2's path-ful
   // `dialectError` below) — runs first, so a `name` that is BOTH invalid AND claimed rejects
   // via validation, never collision (REQ-TSD-13.6).
   assertValidImportBinding(name);
+  const sorted = options?.position === "sorted";
+  if (options?.position !== undefined && !sorted) {
+    throw dialectError(
+      `addImport("${name}") on "${handlePathFor(ast)}" — \`position\` must be "sorted" or omitted. ` +
+        "Fix the option, or edit the file with .modify()."
+    );
+  }
 
   // Single pass: one `getImportDeclarations()` call, one `boundNamesIn` per declaration —
   // Step 1 and Step 2 below both read from `declarationBoundNames` instead of each re-walking
@@ -254,11 +277,14 @@ export function addImport(ast: SourceFile, name: string, from: string): void {
 
   const mergeTarget = declarationsForModule.find(isNonTypeOnlyNamedImportClause);
   if (mergeTarget !== undefined) {
-    mergeTarget.addNamedImport(name);
+    if (sorted) mergeTarget.insertNamedImport(sortedSpecifierIndex(mergeTarget, name), name);
+    else mergeTarget.addNamedImport(name);
     return;
   }
 
-  insertImport(ast, { moduleSpecifier: from, namedImports: [name] });
+  const placement = sorted ? sortedPlacement(ast, from) : undefined;
+  const inserted = insertImport(ast, { moduleSpecifier: from, namedImports: [name] }, placement?.index);
+  if (placement?.joinsComment) closeGapAfter(inserted);
 }
 
 // True when `name` is already bound anywhere in the file: any import binding (default,
@@ -283,14 +309,18 @@ function claimedBindingError(ast: SourceFile, opName: string, name: string): Err
 
 // A fresh import declaration goes after a leading directive prologue, never above it
 // (REQ-TSD-01.21).
-function insertImport(ast: SourceFile, structure: OptionalKind<ImportDeclarationStructure>): void {
+// `index`, when given, is a `getStatementsWithComments()` index that already sits after any
+// directive prologue (it comes from an existing import's position).
+function insertImport(ast: SourceFile, structure: OptionalKind<ImportDeclarationStructure>, index?: number): ImportDeclaration {
   const dropSemicolon = omitsSemicolons(ast);
   const directiveCount = leadingDirectiveCount(ast);
   const inserted =
-    directiveCount === 0
-      ? ast.addImportDeclaration(structure)
-      : ast.insertImportDeclaration(directiveInsertIndex(ast, directiveCount), structure);
-  if (dropSemicolon) inserted.replaceWithText(inserted.getText().slice(0, -1));
+    index !== undefined
+      ? ast.insertImportDeclaration(index, structure)
+      : directiveCount === 0
+        ? ast.addImportDeclaration(structure)
+        : ast.insertImportDeclaration(directiveInsertIndex(ast, directiveCount), structure);
+  return dropSemicolon ? (inserted.replaceWithText(inserted.getText().slice(0, -1)) as ImportDeclaration) : inserted;
 }
 
 // A fresh import keeps the file's statement-terminating semicolon style: ts-morph always

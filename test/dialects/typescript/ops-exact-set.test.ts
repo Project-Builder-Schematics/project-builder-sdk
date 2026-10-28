@@ -51,6 +51,7 @@ describe("REQ-TSD-01.1 — exact shipped op-set", () => {
       "removeExport",
       "removeExportAll",
       "removeImport",
+      "sortImports",
     ]);
   });
 });

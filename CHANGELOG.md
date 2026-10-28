@@ -34,6 +34,34 @@ for them, not a summary claiming no migration is needed.
   (`a value or import binding named "X" already exists`) instead of naming `` `name` ``.
   Callers matching that message text must update it.
 
+### Sorted imports
+
+- **Added**: `addImport(name, from, { position: "sorted" })` puts the name into its
+  alphabetical place inside the braces, and puts a new declaration next to its folder siblings,
+  before the first of them that sorts after it. Order is case-insensitive, with package
+  specifiers ahead of relative ones. Existing imports never move. Without the option,
+  `addImport` behaves exactly as before; any other `position` value is rejected.
+
+  ```ts
+  // import { BookOpen, Users } from "lucide-react";
+  // import { authorHandlers } from "./domains/authors.mock";
+  // import { config } from "./config";
+  await ts.find("src/mocks/handlers.ts")
+    .addImport("LayoutDashboard", "lucide-react", { position: "sorted" })
+    .addImport("bookHandlers", "./domains/books.mock", { position: "sorted" });
+  // import { BookOpen, LayoutDashboard, Users } from "lucide-react";
+  // import { authorHandlers } from "./domains/authors.mock";
+  // import { bookHandlers } from "./domains/books.mock";
+  // import { config } from "./config";
+  ```
+
+- **Added**: `sortImports()` sorts a file's import declarations with the same order, and the
+  names inside each one's braces, keeping a multi-line layout. It only reorders: it never
+  combines, removes or reformats an import. Nothing moves across a blank line, a comment, a
+  side-effect import or a declaration with an attached comment, and braces that contain a
+  comment keep their order. On a sorted file it writes nothing. The op is available on
+  `typescript`, `react`, `nestjs` and `angular`.
+
 ## 0.10.2
 
 ### Filename tokens

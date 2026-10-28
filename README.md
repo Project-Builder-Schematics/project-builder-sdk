@@ -580,7 +580,7 @@ await ts.find("src/index.ts")
 
 | Op | What it does |
 |---|---|
-| `addImport(name, from)` | Adds `import { name } from "from"`, merging into an existing clause from the same module. Idempotent — calling it twice never duplicates the import. |
+| `addImport(name, from, opts?)` | Adds `import { name } from "from"`, merging into an existing clause from the same module. Idempotent — calling it twice never duplicates the import. With `{ position: "sorted" }` the name goes into its alphabetical place inside the braces and a new declaration goes next to its folder siblings; existing imports never move. |
 | `addDefaultImport(name, from)` | Adds `import name from "from"`, merging into a declaration of that module with no default yet. Rejects a second default under another name. |
 | `addNamespaceImport(name, from)` | Adds `import * as name from "from"`, merging into a default-only declaration; beside named imports it opens its own. |
 | `addTypeImport(name, from)` | Adds `import type { name } from "from"` as its own statement. A no-op when the module already imports `name`, by value or as a type. |
@@ -590,6 +590,7 @@ await ts.find("src/index.ts")
 | `removeImport(name, from)` | Removes the named binding; deletes the whole statement when it was the last one. Idempotent on an absent binding. |
 | `removeExport(name, from)` | Removes a named re-export; deletes the statement when it was the last one. Idempotent on an absent one. |
 | `removeExportAll(from, { as? })` | Removes `export * from "from"` (or the `as` form). Idempotent on an absent one. |
+| `sortImports()` | Sorts import declarations by module (packages first, then relative paths) and the names inside each one's braces. Only reorders, never combines or removes; nothing moves across a blank line, a comment, or a side-effect import. A no-op on a sorted file. |
 | `addArrayElement(locator, element)` | Appends to the array literal `locator` points at (a variable, a call argument, or a decorator argument, then a `path` of keys and `{ key: "value" }` matches), keeping its layout. Creates missing keys; a no-op when the element is already listed. `element` is an identifier, or `{ expression }` for code. |
 | `addClassProperty(className, name, initializer, opts?)` | Adds `{scope }{readonly }name = initializer;` to the only class named `className`, after its last property. A no-op when the same property exists; any other member named `name` rejects. |
 | `addFunction(name, source, opts?)` | Appends a top-level function. `source` **includes** the braces (`"(): void {}"`). |

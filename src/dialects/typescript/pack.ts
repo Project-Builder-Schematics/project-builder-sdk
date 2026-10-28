@@ -16,6 +16,7 @@ import {
   removeExportAll,
 } from "./ops.ts";
 import { addArrayElement } from "./array-element.ts";
+import { sortImports } from "./import-order.ts";
 import { addClassProperty } from "./class-property.ts";
 
 export const typescriptOps = {
@@ -34,4 +35,5 @@ export const typescriptOps = {
   removeExportAll,
   addArrayElement,
   addClassProperty,
+  sortImports,
 };
