@@ -47,7 +47,7 @@ function withProps(propNames: readonly string[]): string {
   return propNames.length === 0 ? "" : ` with props ${propNames.map((name) => `\`${elementNameEcho(name)}\``).join(", ")}`;
 }
 
-/** `setJsxProp`'s zero-match reject tail (REQ-RXD-04.4) — names the missing element, bounded. */
+/** A JSX op's zero-match reject tail (REQ-RXD-04.4) — names the missing element, bounded. */
 export function zeroMatchTail(elementName: string, propNames: readonly string[] = []): string {
   return (
     `no element named \`${elementNameEcho(elementName)}\`${withProps(propNames)} was found — use \`.modify()\` to inspect ` +
@@ -55,10 +55,10 @@ export function zeroMatchTail(elementName: string, propNames: readonly string[] 
   );
 }
 
-/** `setJsxProp`'s multi-match reject tail (REQ-RXD-04.5) — names the element + count, bounded. */
-export function multiMatchTail(elementName: string, matchCount: number, propNames: readonly string[] = []): string {
+/** A JSX op's multi-match reject tail (REQ-RXD-04.5) — names the element + count, bounded. */
+export function multiMatchTail(opName: string, elementName: string, matchCount: number, propNames: readonly string[] = []): string {
   return (
-    `\`${elementNameEcho(elementName)}\`${withProps(propNames)} matched ${matchCount} elements — setJsxProp requires ` +
+    `\`${elementNameEcho(elementName)}\`${withProps(propNames)} matched ${matchCount} elements — ${opName} requires ` +
     "exactly one match; use `.modify()` to disambiguate."
   );
 }
