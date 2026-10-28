@@ -18,7 +18,7 @@ Branch: `feat/dialect-queries`, stacked on `feat/css-dialect` (PR #131). Deliver
 | ID | Specs | Route | Status | Commit |
 |----|-------|-------|--------|--------|
 | T1 | S1-S5, S7 (core part) | inline | done — RED (`query` not exported) then 10/10 GREEN; FIT-04 core baseline updated | d908436 |
-| T2 | S6, S7 (css part) | inline | done — RED (3 fail) then 72/72 GREEN | feat(css) commit |
+| T2 | S6, S7 (css part) | inline | done — RED (3 fail) then 72/72 GREEN | e2b807d |
 
 Route evidence: one understood core change plus its first consumer; T2 depends on T1, so no parallel writers.
 
@@ -29,3 +29,5 @@ Route evidence: one understood core change plus its first consumer; T2 depends o
 - L3 (2026-10-28): "vamos 1 -> 2 -> 3 -> 4" — this feature is step 3 (docs issue #30 and release PR #132 done; `.scss` is step 4).
 - L4 (2026-10-28): research — handles enqueue every step on `#tail` through `#chain` (src/core/dialect-handle.ts:127), which `read()` already uses to return a value; ops dispatch from `Object.keys(ops)` (dialect-handle.ts:422). A dispatcher must pick `handle` or `Promise` synchronously, so the query mark must be visible at runtime (a brand), not inferred from a return type. Risk: item 4 (async ordering on the shared `#tail`) and item 3 (core handle type), so an independent verifier runs.
 - L5 (2026-10-28): verification — typecheck clean; full `bun test` 3796 pass, the 7 failures are the environment ones also failing on main (FIT-40, FIT-42N x3, REQ-WPS-07 x3). Risk: item 4 (query steps share the async `#tail` queue) and item 3 (core `Handle` type).
+- L6 (2026-10-28): "agregalo al #30 cuando abras el PR" — when this feature's PR opens, edit Project-Builder-Schematics/project-builder-docs#30 to add write ops vs read queries and the chained `getDeclaration(target, property)`, citing the PR.
+- L7 (2026-10-28): independent verifier on d908436..e2b807d — S1-S7 PASS, no blockers. Fixed: `query()` now wraps instead of branding `fn` itself (a function reused unwrapped as a plain op turned into a query; regression test RED observed after fixing a test that swallowed its own assertion inside the run); docs no longer claim a query never flushes (a fresh handle's first step reads, which drains). Kept as advisories: a second handle on the same path does not see the first handle's still-queued ops (baseline behavior, same for read()); the read-only check compares the printed file, per S5.

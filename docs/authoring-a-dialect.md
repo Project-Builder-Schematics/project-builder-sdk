@@ -324,8 +324,9 @@ resolves to the line count, `"x"` included. See its JSDoc `@example` in
 
 - On the handle, a query returns `Promise<R>` and ends the chain. It does not return the
   handle, so call it last, or `await` it and keep chaining on the handle you already hold.
-- It runs in chain order on the live AST, so it sees every op chained before it. It neither
-  flushes nor emits a directive, and the ops before it still coalesce into one `modify`.
+- It runs in chain order on the live AST, so it sees every op chained before it. It emits no
+  directive, and the ops before it still coalesce into one `modify`. Like the first op, the
+  first step of a fresh handle reads the file, and that read drains pending directives.
 - It is contained like an op: its own `dialectError` passes through verbatim, any other throw
   becomes `<name>() on "<path>" threw`, and a failure fails the run closed.
 - It must not change the AST. A query whose run changes the printed file rejects with

@@ -119,6 +119,18 @@ describe("queries (S1-S5)", () => {
     expect(outcome.error?.message).toContain('"missing.lines" does not exist');
   });
 
+  it("leaves the wrapped function a plain op wherever it is reused unwrapped", async () => {
+    const touch = (ast: Lines) => void ast.length;
+    const reused = { asQuery: query(touch), asOp: touch };
+    const dialect = withOps(lines, defineOpPack<Lines, typeof reused>(reused));
+    let chained = false;
+    await run({ "a.lines": "x" }, async () => {
+      const handle = dialect.find("a.lines");
+      chained = handle.asOp() === handle;
+    });
+    expect(chained).toBe(true);
+  });
+
   it("is checked against reserved handle verbs like any op", () => {
     const reserved = { read: query((ast: Lines) => ast.length) };
     expect(() => withOps(lines, defineOpPack<Lines, typeof reserved>(reserved))).toThrow(
