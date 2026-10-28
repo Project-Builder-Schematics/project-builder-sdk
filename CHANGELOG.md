@@ -6,6 +6,28 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.10.1
+
+### Inserted imports follow the file's style
+
+- **Fixed**: an import inserted by a dialect (`addImport`, `addTypeImport`, `addDefaultImport`,
+  `addNamespaceImport`, `addSideEffectImport` on `@pbuilder/sdk/typescript`, and the imports
+  the `angular`, `nestjs` and `react` ops add) now uses the edited file's own quote kind and
+  statement-terminating semicolons, the way the newline kind already did. Before, every
+  inserted import was printed as `import { x } from "m";`, so a file written with single
+  quotes and no semicolons ended up with two styles. Quotes follow the file's module
+  specifiers; the semicolon is dropped when most top-level statements omit it. A file that
+  shows no preference (no imports, or a tie) keeps the old `"..."` and `;` output, so files
+  already in that style are unchanged. Existing statements are never reformatted.
+
+  ```ts
+  // src/smoke.ts: import { a } from './a'
+  await ts.find("src/smoke.ts").addTypeImport("B", "./b").addImport("c", "./c");
+  // import { a } from './a'
+  // import type { B } from './b'
+  // import { c } from './c'
+  ```
+
 ## 0.10.0
 
 ### Dialect queries
