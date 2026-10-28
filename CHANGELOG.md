@@ -6,6 +6,22 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.12.0
+
+### `.jsx` files and per-extension dialects
+
+- **Added**: `react.find()` accepts `.jsx` files, parsed as JavaScript with JSX, with the same
+  handle as `.tsx`. On `.jsx`, `addTypeImport`, `addComponentProp` and `addClassProperty`'s
+  `scope`/`readonly` reject, leaving the file unchanged.
+- **Added**: dialect kit — `byExtension` routes one `find` to a dialect per file extension, each
+  with its own AST and ops (longest extension first); `withoutOps` keeps named ops on the
+  handle but rejects them at call time; `overrideOps` swaps named ops for same-signature
+  implementations. See "One `find` for several extensions" in `docs/authoring-a-dialect.md`.
+- **Changed**: React's extension rejects name both extensions. `.tsx is the only extension the
+  React dialect supports` now reads `.tsx and .jsx are the only extensions the React dialect
+  supports`, and the extensionless reject asks for `an explicit .tsx or .jsx extension`.
+  Callers matching that message text must update it.
+
 ## 0.11.0
 
 ### The React dialect extends TypeScript
@@ -43,14 +59,6 @@ for them, not a summary claiming no migration is needed.
   parameter; the same name and type is a no-op, a different type rejects.
 - **Added**: `renameJsxElement(target, tag)` renames one element's opening and closing tag
   together.
-- **Added**: `react.find()` accepts `.jsx` files, parsed as JavaScript with JSX, with the same
-  handle as `.tsx`. On `.jsx`, `addTypeImport`, `addComponentProp` and `addClassProperty`'s
-  `scope`/`readonly` reject, leaving the file unchanged. A path with neither extension still
-  rejects; the messages now name both.
-- **Added**: dialect kit — `byExtension` routes one `find` to a dialect per file extension, each
-  with its own AST and ops (longest extension first); `withoutOps` keeps named ops on the
-  handle but rejects them at call time; `overrideOps` swaps named ops for same-signature
-  implementations. See "One `find` for several extensions" in `docs/authoring-a-dialect.md`.
 - **Changed**: `react.find().addImport` is now the TypeScript dialect's `addImport`. Merge,
   create, idempotency and collision outcomes are the same, with two differences: a
   self-aliased specifier (`import { X as X } from "m"` + `addImport("X", "m")`) is now a no-op
