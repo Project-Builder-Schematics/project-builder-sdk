@@ -4,7 +4,9 @@ import type { ArrayElement, ArrayLocator } from "./array-element.ts";
 import type { ClassPropertyOptions } from "./class-property.ts";
 export * as astLibrary from "ts-morph";
 type TypeScriptOps = {
-    addImport: (ast: SourceFile, name: string, from: string) => void;
+    addImport: (ast: SourceFile, name: string, from: string, options?: {
+        position?: "sorted";
+    }) => void;
     addDefaultImport: (ast: SourceFile, name: string, from: string) => void;
     addNamespaceImport: (ast: SourceFile, name: string, from: string) => void;
     addTypeImport: (ast: SourceFile, name: string, from: string) => void;
@@ -30,6 +32,7 @@ type TypeScriptOps = {
     }) => void;
     addArrayElement: (ast: SourceFile, locator: ArrayLocator, element: ArrayElement) => void;
     addClassProperty: (ast: SourceFile, className: string, name: string, initializer: string, options?: ClassPropertyOptions) => void;
+    sortImports: (ast: SourceFile) => void;
 };
 /**
  * Opens a TypeScript file for dialect-aware editing — the dialect's entry verb into a Session

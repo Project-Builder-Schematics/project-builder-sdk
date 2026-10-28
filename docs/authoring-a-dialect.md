@@ -7,10 +7,10 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
 contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.modify()` escape hatch, and
 the two dialects currently shipped — `@pbuilder/sdk/typescript`, whose op-pack has widened past
-its original thin starter shape (`addImport`) to fifteen named ops: `addImport`,
+its original thin starter shape (`addImport`) to sixteen named ops: `addImport`,
 `addDefaultImport`, `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`,
 `addExportAll`, `addFunction`, `addVariable`, `addClass`, `removeImport`, `removeExport`,
-`removeExportAll`, `addArrayElement`, `addClassProperty`; and `@pbuilder/sdk/react`, a deliberately minimal v1
+`removeExportAll`, `addArrayElement`, `addClassProperty`, `sortImports`; and `@pbuilder/sdk/react`, a deliberately minimal v1
 pair for `.tsx`/JSX authoring: `setJsxProp` and `addImport`.
 
 ## Two audiences
@@ -146,6 +146,42 @@ await ts.find("src/app/user.service.ts").addClassProperty("UserService", "http",
   a no-op. Any other member named `name`, a method included, rejects.
 - `initializer` must parse as exactly one expression and is otherwise author-trusted, like
   `addArrayElement`'s `{ expression }`. The op adds no import.
+
+`addImport(name, from, { position: "sorted" })` keeps imports in order as it adds them: the name
+goes into its alphabetical place inside the braces, and a new declaration goes next to its folder
+siblings, before the first of them that sorts after it. It matches the file's quotes and
+semicolons like every insertion.
+
+```ts
+// import { BookOpen, Users } from "lucide-react";
+// import { authorHandlers } from "./domains/authors.mock";
+// import { config } from "./config";
+await ts.find("src/mocks/handlers.ts")
+  .addImport("LayoutDashboard", "lucide-react", { position: "sorted" })
+  .addImport("bookHandlers", "./domains/books.mock", { position: "sorted" });
+// import { BookOpen, LayoutDashboard, Users } from "lucide-react";
+// import { authorHandlers } from "./domains/authors.mock";
+// import { bookHandlers } from "./domains/books.mock";
+// import { config } from "./config";
+```
+
+- Order is case-insensitive. Package specifiers (`react`, `node:fs`, `@/lib`) sort ahead of
+  relative ones.
+- Folder siblings are the existing imports that share the most leading path segments with
+  `from`. With no import in the file, the declaration goes where the unsorted form puts it.
+- Existing imports never move, so a file that was out of order stays out of order around the new
+  line. A new declaration goes above a comment attached to the import it precedes.
+
+`sortImports()` sorts the whole file's imports with the same order, and the names inside each
+declaration's braces, keeping a multi-line layout.
+
+- It only reorders: it never combines two declarations of one module, removes an unused import,
+  or reformats one.
+- Declarations move only within a run of consecutive imports. A blank line, a comment, a
+  side-effect import (`import "./polyfills";`, whose position is behaviour), or a declaration with
+  a comment attached to it ends the run, and nothing crosses it. Braces that contain a comment
+  keep their order.
+- On a sorted file it writes nothing.
 
 `addFunction(name, source, options?)` inserts a new top-level function declaration at the end of
 the file, in call order: `options?.export` prepends `export `. `source` INCLUDES the function's

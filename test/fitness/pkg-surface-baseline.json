@@ -169,6 +169,8 @@
     "dist/dialects/typescript/ast.js",
     "dist/dialects/typescript/class-property.d.ts",
     "dist/dialects/typescript/class-property.js",
+    "dist/dialects/typescript/import-order.d.ts",
+    "dist/dialects/typescript/import-order.js",
     "dist/dialects/typescript/index.d.ts",
     "dist/dialects/typescript/index.js",
     "dist/dialects/typescript/ops.d.ts",
