@@ -202,7 +202,7 @@ describe("manual publisher command isolation", () => {
   it("relocates only development configuration and preserves package and lock bytes", () => {
     const files = [
       ["tools/verdaccio/npmrc", "21e9b6de05d118b986f3d9f149dcfbdce5d430f4"],
-      ["package.json", "ed6eedd9d3c122f00727f2dd714e7dfc5b61d571"],
+      ["package.json", "49dcd1e41e68a50ae0013872538e4f9d5b81c045"],
       ["bun.lock", "e48ce53b4fd5c1e57c8bcded4aad229dd0d63149"],
     ];
     for (const [path, hash] of files) {
