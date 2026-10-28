@@ -685,7 +685,8 @@ await css
   .removeDeclaration({ selector: ":root" }, "--legacy-blue");
 ```
 
-Named ops: `setDeclaration`, `removeDeclaration`. `.modify(fn)` exposes
+Named ops: `setDeclaration`, `removeDeclaration`; `getDeclaration(root, target, property)` reads
+a value inside `.modify(fn)`. `.modify(fn)` exposes
 [postcss](https://postcss.org/). See [the CSS dialect guide](./docs/css-dialect.md).
 
 ### `@pbuilder/sdk/nestjs`

@@ -83,7 +83,8 @@ function assertValue(op: string, target: CssTarget, property: string, value: unk
   const block = parsed?.nodes.length === 1 && parsed.first?.type === "rule" ? parsed.first.nodes : [];
   const node = block.length === 1 && block[0]!.type === "decl" ? block[0] : undefined;
   if (node?.important) fail(op, target, "put `!important` in the `important` option, not in the value.");
-  if (node === undefined || node.prop !== property || node.value === "" || node.value !== (value as string).trim()) {
+  // PostCSS keeps the surrounding whitespace of a custom property's value, so compare trimmed.
+  if (node === undefined || node.prop !== property || node.value.trim() === "" || node.value.trim() !== (value as string).trim()) {
     fail(op, target, `\`${String(value)}\` is not a single declaration value.`);
   }
 }
@@ -187,7 +188,7 @@ export const setDeclaration = validatedOp<Root, [CssTarget, string, string, Decl
     const block = findBlock(op, root, target);
     const existing = block === undefined ? undefined : findDeclaration(op, target, block, property);
     if (existing !== undefined) {
-      if (existing.value !== text) existing.value = text;
+      if (existing.value.trim() !== text) existing.value = text;
       if (existing.important !== important) existing.important = important;
       return;
     }
@@ -200,6 +201,19 @@ export const setDeclaration = validatedOp<Root, [CssTarget, string, string, Decl
     else anchor.after(created);
   }
 );
+
+/**
+ * Reads `property` from the `target` block of a parsed `Root`, such as the one `.modify(fn)`
+ * receives: `{ value, important }`, or `undefined` when the block or declaration is missing.
+ * Not an op — it returns a value — so it is called directly, never chained on a handle.
+ */
+export function getDeclaration(root: Root, target: CssTarget, property: string): { value: string; important: boolean } | undefined {
+  assertTarget("getDeclaration", target);
+  assertProperty("getDeclaration", target, property);
+  const block = findBlock("getDeclaration", root, target);
+  const found = block === undefined ? undefined : findDeclaration("getDeclaration", target, block, property);
+  return found === undefined ? undefined : { value: found.value.trim(), important: found.important === true };
+}
 
 /** Removes `property` from the `target` block; a missing block or declaration is a no-op. */
 export const removeDeclaration = validatedOp<Root, [CssTarget, string]>(

@@ -68,7 +68,8 @@ Every rejection throws before the file changes, with the `dialect operation fail
 
 - a property name that is not a CSS identifier or `--` custom property;
 - a value that would close the declaration or add another one (`red; color: blue`, `red}`),
-  carries a comment or `!important`, or is empty;
+  carries `!important`, or is empty, and a regular property value that carries a comment
+  (a custom property keeps a comment as part of its value);
 - a target that is not `{ selector }`, `{ atRule, params? }`, or both, or whose selector or
   params would add another block;
 - a target that matches more than one block;
@@ -121,9 +122,26 @@ await css.find("app.css").modify((root) => {
 });
 ```
 
-Ops do not return values. To read a declaration, read the file and parse it:
+### `getDeclaration(root, target, property)`
+
+Ops do not return values, so reading is a plain function the module exports. It takes a parsed
+`Root` and returns `{ value, important }`, or `undefined` when the block or declaration is
+missing, with the same target, name, ambiguity, and duplicate rules as the ops. Call it inside
+`.modify(fn)` to decide what to change:
+
+```ts
+await css.find("tokens.css").modify((root) => {
+  if (css.getDeclaration(root, { atRule: "theme" }, "--color-primary")?.value === "#0b254d") {
+    root.walkDecls("--color-primary", (decl) => {
+      decl.value = "#1974f9";
+    });
+  }
+});
+```
+
+or on a file you read yourself:
 
 ```ts
 const root = css.astLibrary.parse((await css.find("tokens.css").read()) ?? "");
-root.walkRules(":root", (rule) => rule.walkDecls((decl) => console.log(decl.prop, decl.value)));
+css.getDeclaration(root, { selector: ":root" }, "--radius"); // { value: "4px", important: false }
 ```

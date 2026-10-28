@@ -9,12 +9,15 @@ import type { Root } from "postcss";
 import * as css from "../../src/dialects/css/index.ts";
 import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
 import { parse, print } from "../../src/dialects/css/ast.ts";
-import * as ops from "../../src/dialects/css/ops.ts";
+import { removeDeclaration, setDeclaration } from "../../src/dialects/css/ops.ts";
 import { testDialect, testOpPack, type DialectFixture, type OpPackFixture } from "../../src/conformance/index.ts";
 
 setDefaultTimeout(20000);
 
-const opsPack = defineOpPack<Root, typeof ops>({ ...ops });
+const opsPack = defineOpPack<Root, { setDeclaration: typeof setDeclaration; removeDeclaration: typeof removeDeclaration }>({
+  setDeclaration,
+  removeDeclaration,
+});
 const baseDialect = defineDialect({ extensions: [".css"], ast: { parse, print }, ops: {} });
 const realCssDialect = withOps(baseDialect, opsPack);
 

@@ -4,6 +4,7 @@ import { parse, print } from "./ast.ts";
 import { removeDeclaration, setDeclaration, type CssTarget, type DeclarationOptions } from "./ops.ts";
 
 export * as astLibrary from "postcss";
+export { getDeclaration } from "./ops.ts";
 export type { CssTarget, DeclarationOptions };
 
 type CssOps = {

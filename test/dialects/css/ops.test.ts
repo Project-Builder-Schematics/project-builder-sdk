@@ -43,6 +43,14 @@ describe("setDeclaration — upsert in place (S3, S4)", () => {
     await expectFile(":root {\n  --Color: blue;\n}\n", (h) => h.setDeclaration(ROOT, "--color", "red"), ":root {\n  --Color: blue;\n  --color: red;\n}\n");
   });
 
+  it("trims a padded custom property value like a regular one", async () => {
+    await expectFile(":root {\n  --x: red;\n}\n", (h) => h.setDeclaration(ROOT, "--x", " blue "), ":root {\n  --x: blue;\n}\n");
+  });
+
+  it("leaves a hand-spaced custom property alone when its value is unchanged", async () => {
+    await expectFile(":root {\n  --a:  1 ;\n}\n", (h) => h.setDeclaration(ROOT, "--a", "1"), ":root {\n  --a:  1 ;\n}\n");
+  });
+
   it("keeps the compact style of a one-line block", async () => {
     await expectFile("a{color:red}", (h) => h.setDeclaration({ selector: "a" }, "--y", "1"), "a{color:red;--y:1}");
   });
