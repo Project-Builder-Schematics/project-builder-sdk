@@ -122,7 +122,7 @@ await css.find("app.css").modify((root) => {
 });
 ```
 
-### `getDeclaration(root, target, property)`
+### `getDeclaration(target, property)` and `getDeclaration(root, target, property)`
 
 Reads `{ value, important }`, or `undefined` when the block or declaration is missing, with the
 same target, name, ambiguity, and duplicate rules as the ops. It comes in two forms.

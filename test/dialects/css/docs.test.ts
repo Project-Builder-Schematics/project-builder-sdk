@@ -21,7 +21,7 @@ describe("docs/css-dialect.md — author guide", () => {
     const hatch = extractSection(doc, "## The escape hatch: `.modify(fn)` and reading values");
     expect(hatch).toContain(".modify(");
     expect(hatch).toContain("astLibrary");
-    const read = extractSection(doc, "### `getDeclaration(root, target, property)`");
+    const read = extractSection(doc, "### `getDeclaration(target, property)` and `getDeclaration(root, target, property)`");
     expect(read).toContain("{ value, important }");
     expect(read).toContain("getDeclaration(target, property)");
   });

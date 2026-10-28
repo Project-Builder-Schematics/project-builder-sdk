@@ -124,11 +124,26 @@ describe("queries (S1-S5)", () => {
     const reused = { asQuery: query(touch), asOp: touch };
     const dialect = withOps(lines, defineOpPack<Lines, typeof reused>(reused));
     let chained = false;
-    await run({ "a.lines": "x" }, async () => {
+    let queried: unknown;
+    const outcome = await run({ "a.lines": "x" }, async () => {
       const handle = dialect.find("a.lines");
       chained = handle.asOp() === handle;
+      queried = handle.asQuery();
+      await queried;
     });
+    expect(outcome.error).toBeUndefined();
     expect(chained).toBe(true);
+    expect(queried).toBeInstanceOf(Promise);
+  });
+
+  it("still fails the run when the author catches a mutating query and keeps chaining", async () => {
+    const outcome = await run({ "a.lines": "x" }, async () => {
+      const handle = lines.find("a.lines");
+      await handle.mutating().catch(() => undefined);
+      await handle.push("y");
+    });
+    expect(outcome.error?.message).toBe('dialect operation failed: mutating() is a query and must not change "a.lines"');
+    expect(outcome.modifies).toHaveLength(0);
   });
 
   it("is checked against reserved handle verbs like any op", () => {

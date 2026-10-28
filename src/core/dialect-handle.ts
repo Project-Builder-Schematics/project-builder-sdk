@@ -309,8 +309,9 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   }
 
   // Sequenced on #tail like an op, but it never calls #ensureOpen: a query only reads the live
-  // AST, so it registers no directive (#ensureLive's first read still drains, as for an op). The print comparison is what keeps it read-only — a query that edits
-  // the AST would otherwise smuggle its edit into the next op's directive.
+  // AST, so it registers no directive (#ensureLive's first read still drains, as for an op).
+  // The print comparison is what keeps it read-only: a query that edits the AST would
+  // otherwise smuggle its edit into the next op's directive.
   runQuery(fn: (ast: Ast, ...args: unknown[]) => unknown, args: unknown[], name: string): Promise<unknown> {
     return this.#chain(async () => {
       await this.#ensureLive();
