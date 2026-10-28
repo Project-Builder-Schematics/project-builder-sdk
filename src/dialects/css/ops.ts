@@ -21,7 +21,7 @@ export interface DeclarationOptions {
 
 const REGULAR_PROPERTY = /^-?[A-Za-z_][A-Za-z0-9_-]*$/;
 // `*` admits Tailwind's namespace resets (`--color-*: initial`).
-const CUSTOM_PROPERTY = /^--[A-Za-z0-9_*\u0080-￿-]+$/;
+const CUSTOM_PROPERTY = /^--[A-Za-z0-9_*\u0080-\uFFFF-]+$/;
 const AT_RULE_NAME = /^[A-Za-z][A-Za-z0-9-]*$/;
 
 function label(target: CssTarget): string {
@@ -136,7 +136,8 @@ function styleOf(root: Root): Style {
   let indent = "  ";
   root.walkDecls((node) => {
     if (node.parent?.parent?.type !== "root") return;
-    indent = /[ \t]*$/.exec(node.raws.before ?? "")![0] || indent;
+    // A declaration on its brace's line (`:root { --a: 1; }`) carries no indentation.
+    if (node.raws.before?.includes("\n")) indent = /[ \t]*$/.exec(node.raws.before)![0] || indent;
     return false;
   });
   return { newline: root.source?.input.css.includes("\r\n") ? "\r\n" : "\n", indent };

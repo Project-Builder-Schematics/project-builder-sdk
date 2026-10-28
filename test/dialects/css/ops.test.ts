@@ -105,6 +105,10 @@ describe("setDeclaration — missing blocks (S5, S6)", () => {
     );
   });
 
+  it("keeps the two-space default when the first block is written on one line", async () => {
+    await expectFile(":root { --a: 1; }\n", (h) => h.setDeclaration({ selector: ".dark" }, "--a", "2"), ":root { --a: 1; }\n\n.dark {\n  --a: 2;\n}\n");
+  });
+
   it("fills an existing empty block", async () => {
     await expectFile(":root {}\n", (h) => h.setDeclaration(ROOT, "--a", "1"), ":root {\n  --a: 1;\n}\n");
   });
@@ -199,6 +203,18 @@ describe("setDeclaration — fails closed (S8)", () => {
 
   it("rejects a target matching more than one block", async () => {
     await expectReject(":root {\n  --a: 1;\n}\n:root {\n  --b: 2;\n}\n", (h) => h.setDeclaration(ROOT, "--a", "3"), "2 blocks");
+  });
+
+  it("rejects an at-rule target matching more than one block", async () => {
+    await expectReject("@theme {\n  --a: 1;\n}\n@theme {\n  --b: 2;\n}\n", (h) => h.setDeclaration(THEME, "--a", "3"), "2 blocks");
+  });
+
+  it("emits nothing when a later op in the chain fails after an earlier one succeeded", async () => {
+    await expectReject(
+      TOKENS,
+      (h) => h.setDeclaration(THEME, "--radius", "8px").setDeclaration(THEME, "--x", "1", { after: "--missing" }),
+      "`--missing`"
+    );
   });
 
   it("rejects a property declared more than once in the block", async () => {

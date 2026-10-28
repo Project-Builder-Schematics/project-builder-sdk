@@ -25,7 +25,7 @@ Branch: `feat/css-dialect` (from main 4c0d1e2). Delivery: ask-on-risk. Test runn
 |----|-------|-------|--------|--------|
 | T1 | S3-S8 | inline | done — RED (module missing) then 48/48 GREEN | 3069055 |
 | T2 | S1, S9 | inline | done — conformance, fitness, docs green | 3069055 |
-| T3 | S10 | inline | done — RED (`getDeclaration is not a function`) then GREEN | feat(css) getDeclaration commit |
+| T3 | S10 | inline | done — RED (`getDeclaration is not a function`) then GREEN | 99747ad |
 
 Route evidence: one understood dialect, two dependent units (T2 publishes T1), no writer trigger. T1 and T2 share one commit: FIT-08 forbids an unpublished dialect.
 
@@ -43,3 +43,4 @@ Route evidence: one understood dialect, two dependent units (T2 publishes T1), n
 - L10 (2026-10-28): owner asked mid-task for a value-returning query usable inside `.modify()`: "que tan complicado es crear un operacion dentro del dialecto que te devuelva algo, dentro del .modify() llamas al getValue y le pasas el ast y el valor y te pasa el objecto o el valor. De ahi tomas decisiones. Si lo haces encadenado entonces ya no puede mutar, que opinas?" Not in scope until the owner decides.
 - L11 (2026-10-28): "Si agregalo"
 - L12 (2026-10-28): independent verifier on 3069055 — S1-S9 PASS, no blockers. Advisories: (1) a padded custom property value was rejected while a padded regular value was trimmed; (2) setting a hand-spaced custom property (`--a:  1 ;`) to the same value rewrote it; (3) a comment inside a custom property value is dropped when the value is set. (1) and (2) fixed by comparing trimmed values, pinned by two regression tests (RED observed); (3) stays: the value really changes. Docs now say custom property values may carry comments. `{ atRule: "theme" }` does not match `@theme inline {}` (needs `params: "inline"`), as documented.
+- L13 (2026-10-28): native review of 3069055..99747ad (lenses risk, readability, reliability) approved and acknowledged (lineage review-fd824a4b1a3f0db3); all findings informational. Follow-ups fixed: getDeclaration doc example scoped to @theme (a bare walkDecls rewrote mode blocks); indent inference ignores a declaration on its brace line (RED observed: one-space indent); raw U+FFFF in CUSTOM_PROPERTY escaped; tests pin a mid-chain failure (zero modifies) and an ambiguous at-rule target. Kept: `validatedOp` imported from `core/jsx-name-validator.ts`, the documented shared chokepoint (renaming it would touch the React dialect).

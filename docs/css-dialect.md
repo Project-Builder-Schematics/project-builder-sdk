@@ -132,9 +132,12 @@ missing, with the same target, name, ambiguity, and duplicate rules as the ops. 
 ```ts
 await css.find("tokens.css").modify((root) => {
   if (css.getDeclaration(root, { atRule: "theme" }, "--color-primary")?.value === "#0b254d") {
-    root.walkDecls("--color-primary", (decl) => {
-      decl.value = "#1974f9";
-    });
+    // Scope the edit to @theme: a bare root.walkDecls would also rewrite the mode blocks.
+    root.walkAtRules("theme", (theme) =>
+      theme.walkDecls("--color-primary", (decl) => {
+        decl.value = "#1974f9";
+      })
+    );
   }
 });
 ```
