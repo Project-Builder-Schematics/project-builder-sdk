@@ -439,6 +439,32 @@ describe("addImport — REQ-RXD-05 merge-or-create, idempotent, named-only", () 
     expect(content).toBe('import { React } from "react";\n\nconst el = <div />;\n');
     expect(content).not.toContain("import React from");
   });
+
+  it("a self-aliased specifier for the same module already binds the name — a no-op, like the TypeScript dialect", async () => {
+    const { client, emitted } = makeSpyClient({
+      "App.tsx": 'import { useState as useState } from "react";\nconst el = <div />;\n',
+    });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addImport("useState", "react");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)).toHaveLength(0);
+  });
+
+  it("the inherited addDefaultImport emits the default form in a .tsx file", async () => {
+    const { client, emitted } = makeSpyClient({ "App.tsx": "const el = <div />;\n" });
+
+    const run = defineFactory<void>(async () => {
+      await react.find("App.tsx").addDefaultImport("React", "react").setJsxProp("div", "hidden");
+    });
+    await run(undefined, { client });
+
+    expect(collectModifies(emitted)[0]?.modify.content).toBe(
+      'import React from "react";\n\nconst el = <div hidden />;\n'
+    );
+  });
 });
 
 describe("addImport — REQ-RXD-05.5-.10 (V5) — shape-aware merge/create/idempotency across non-named declaration forms", () => {
@@ -543,7 +569,7 @@ describe("addImport — REQ-RXD-05.11-.15 (V7) — file-wide claimed-name collis
       caught = err;
     }
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toContain("`name`");
+    expect((caught as Error).message).toContain("already exists");
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("App.tsx")).toBe(before);
   });
@@ -563,7 +589,7 @@ describe("addImport — REQ-RXD-05.11-.15 (V7) — file-wide claimed-name collis
       caught = err;
     }
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toContain("`name`");
+    expect((caught as Error).message).toContain("already exists");
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("App.tsx")).toBe(before);
   });
@@ -583,7 +609,7 @@ describe("addImport — REQ-RXD-05.11-.15 (V7) — file-wide claimed-name collis
       caught = err;
     }
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toContain("`name`");
+    expect((caught as Error).message).toContain("already exists");
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("App.tsx")).toBe(before);
   });
@@ -603,7 +629,7 @@ describe("addImport — REQ-RXD-05.11-.15 (V7) — file-wide claimed-name collis
       caught = err;
     }
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toContain("`name`");
+    expect((caught as Error).message).toContain("already exists");
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("App.tsx")).toBe(before);
   });
@@ -639,7 +665,7 @@ describe("addImport — REQ-RXD-05.11-.15 (V7) — file-wide claimed-name collis
       caught = err;
     }
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toContain("`name`");
+    expect((caught as Error).message).toContain("already exists");
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("App.tsx")).toBe(before);
   });
@@ -659,7 +685,7 @@ describe("addImport — REQ-RXD-05.11-.15 (V7) — file-wide claimed-name collis
       caught = err;
     }
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toContain("`name`");
+    expect((caught as Error).message).toContain("already exists");
     expect(collectModifies(emitted)).toHaveLength(0);
     expect(await client.read("App.tsx")).toBe(before);
   });
@@ -697,7 +723,7 @@ describe("addImport — REQ-RXD-05.16-.18 (V8) — value-namespace collision bat
         caught = err;
       }
       expect(caught).toBeInstanceOf(Error);
-      expect((caught as Error).message).toContain("`name`");
+      expect((caught as Error).message).toContain("already exists");
       expect(collectModifies(emitted)).toHaveLength(0);
       expect(await client.read("App.tsx")).toBe(before);
     });

@@ -49,6 +49,7 @@ function collectTs(dir: string): string[] {
 const ALLOWED_EDGES: Readonly<Record<string, readonly string[]>> = {
   nestjs: ["typescript"],
   angular: ["typescript"],
+  react: ["typescript"],
 };
 
 /**

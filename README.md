@@ -606,8 +606,8 @@ untrusted input is the author's responsibility to sanitize.
 ### `@pbuilder/sdk/react`
 
 Mutates `.tsx` files — `find()` requires the explicit `.tsx` extension (extensionless and
-`.jsx` paths are rejected, never normalized). The v1 op-pack — a dialect's bundle of named
-ops — is deliberately minimal: two named ops, with `.modify(fn)` as the escape hatch
+`.jsx` paths are rejected, never normalized). The handle carries every
+`@pbuilder/sdk/typescript` op plus the JSX op below, with `.modify(fn)` as the escape hatch
 for everything else:
 
 ```ts
@@ -624,7 +624,6 @@ await react
 
 | Op | What it does |
 |---|---|
-| `addImport(name, from)` | Same contract as the TypeScript dialect's — idempotent, named-binding-only (no default/namespace imports in v1). |
 | `setJsxProp(element, prop, value?)` | Sets a prop on **the one** element with that tag name — zero or multiple matches reject loudly. `value` takes three forms: `'"hi"'` (string), `'{count}'` (expression), or omitted (boolean shorthand). |
 
 `setJsxProp`'s `value` is emitted verbatim into executable code — same trust boundary as

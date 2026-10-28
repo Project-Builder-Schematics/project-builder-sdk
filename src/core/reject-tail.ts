@@ -40,8 +40,7 @@ export function nameRuleTail(argName: string, ruleLabel: string): string {
 // injection vector), but the grammar has no LENGTH ceiling, so the echo routes through
 // `elementNameEcho` (the wide, marked 100-char bound above) — NOT `boundedFragment`'s 16-char
 // hostile-value cap — keeping every react reject message bounded without mangling ordinary
-// names. `addImport`'s collision-reject tail (`claimedNameTail`, below) echoes `name` the same
-// way, for the same reason (V8).
+// names.
 
 /** `setJsxProp`'s zero-match reject tail (REQ-RXD-04.4) — names the missing element, bounded. */
 export function zeroMatchTail(elementName: string): string {
@@ -56,22 +55,5 @@ export function multiMatchTail(elementName: string, matchCount: number): string 
   return (
     `\`${elementNameEcho(elementName)}\` matched ${matchCount} elements — setJsxProp requires ` +
     "exactly one match; use `.modify()` to disambiguate."
-  );
-}
-
-/**
- * `addImport`'s file-wide collision reject tail (REQ-RXD-05, V7 Step 2; echo bound fixed V8,
- * REQ-RXD-05.18) — names `name` and the rule. `name` is POST-VALIDATION at this point
- * (REQ-RXD-06 already ran), so — the same class as `zeroMatchTail`/`multiMatchTail`'s
- * `elementName` echo — it routes through the wider, marked `elementNameEcho` bound, NEVER
- * REQ-RXD-13's 16-char hostile-value `boundedFragment` cap (that cap silently mangled
- * realistic names, e.g. `useDebouncedCallback` -> `useDebouncedCall`, with no signal anything
- * was cut).
- */
-export function claimedNameTail(name: string): string {
-  return (
-    `\`name\` "${elementNameEcho(name)}" is already bound elsewhere in the file — addImport ` +
-    "cannot create a second local binding under an already-claimed name; rename the existing " +
-    "binding or choose a different `name`, or use `.modify()` to make this edit directly."
   );
 }

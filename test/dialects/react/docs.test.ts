@@ -79,10 +79,9 @@ describe("REQ-RXD-09.1 — react section names the shipped ops, v1 minimality, c
     expect(section).toContain(".modify(fn)");
   });
 
-  it("states the named-only addImport limitation, naming default/mixed imports as catalog scope", () => {
+  it("points the default-import form at the inherited addDefaultImport", () => {
     const section = extractSection(doc(), REACT_SECTION_HEADING, /^## /);
-    expect(section.toLowerCase()).toContain("named-binding-only");
-    expect(section).toContain("import React from \"react\"");
+    expect(section).toContain('use `addDefaultImport("React", "react")` for `import React from "react"`');
   });
 });
 
