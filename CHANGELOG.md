@@ -6,6 +6,33 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.9.0
+
+### New subpath: `@pbuilder/sdk/css`
+
+- **Added**: the CSS dialect, built on PostCSS. It edits `.css` files declaration by declaration,
+  for example to sync design tokens from a JSON export into a file that also holds hand-written
+  `@import` and `@custom-variant` lines, and leaves every other byte alone. A target names one
+  top-level block: `{ selector }`, `{ atRule, params? }` (such as `@theme`), or a selector inside
+  an at-rule. Guide: `docs/css-dialect.md`.
+  - `setDeclaration(target, property, value, options?)` updates a declaration in place or adds
+    it, last in its block or next to a `before` / `after` anchor; a missing block is created at
+    the end of the file, after any `@import`. `important: true` writes `!important`. Setting the
+    current value writes nothing.
+  - `removeDeclaration(target, property)` removes a declaration; a missing one is a no-op.
+  - `getDeclaration(root, target, property)` is an exported function, not an op, that reads
+    `{ value, important }` from a parsed `Root`, such as the one `.modify(fn)` receives.
+
+  ```ts
+  await css
+    .find("tokens.css")
+    .setDeclaration({ atRule: "theme" }, "--color-primary", "#1974f9")
+    .setDeclaration({ selector: "html[data-theme='nylon']" }, "--color-primary", "#0b254d");
+  ```
+
+- **Added**: `postcss` 8.5.30 as an exact-pinned runtime dependency, with its own dependencies
+  `nanoid`, `picocolors` and `source-map-js`.
+
 ## 0.8.0
 
 ### Angular dialect: `@NgModule`
