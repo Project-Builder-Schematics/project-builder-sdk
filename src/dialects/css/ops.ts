@@ -207,6 +207,17 @@ export const setDeclaration = validatedOp<Root, [CssTarget, string, string, Decl
  * Reads `property` from the `target` block of a parsed `Root`, such as the one `.modify(fn)`
  * receives: `{ value, important }`, or `undefined` when the block or declaration is missing.
  * Not an op — it returns a value — so it is called directly, never chained on a handle.
+ *
+ * @example
+ * import * as css from "@pbuilder/sdk/css";
+ *
+ * // tokens.css: @theme {\n  --radius: 4px;\n}\n
+ * export const run = async () => {
+ *   await css.find("tokens.css").modify((root) => {
+ *     const radius = css.getDeclaration(root, { atRule: "theme" }, "--radius");
+ *     // -> { value: "4px", important: false }
+ *   });
+ * };
  */
 export function getDeclaration(root: Root, target: CssTarget, property: string): { value: string; important: boolean } | undefined {
   assertTarget("getDeclaration", target);
