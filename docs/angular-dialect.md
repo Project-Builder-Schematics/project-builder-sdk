@@ -86,8 +86,11 @@ When `bootstrapApplication` receives a config by name, such as an `appConfig` im
 ## Routes
 
 Both route ops add to the file's only top-level variable typed `Routes` or `Route[]`, by
-annotation or `satisfies`. Angular uses the first route that matches, so a new route goes
-before a top-level `{ path: "**" }` route when there is one, and at the end otherwise.
+annotation or `satisfies`. In an NgModule routing file without one, they add to the routes of the
+only `RouterModule.forRoot(...)` or `RouterModule.forChild(...)` call: its inline array, or a
+variable in the same file that it names. `RouterModule` is matched by that name, so an aliased
+import (`RouterModule as RM`) is not found and the op rejects. Angular uses the first route that matches, so a new route
+goes before a top-level `{ path: "**" }` route when there is one, and at the end otherwise.
 
 An equal route is left as it is. A different route with the same `path` rejects, so a
 schematic run twice with other inputs never adds a second one. Routes are compared token by
@@ -117,6 +120,32 @@ await angular
   .addLazyRoute({ path: "admin", loadChildren: "./admin/admin.routes" });
 // -> { path: "settings", loadComponent: () => import("./settings/settings").then((m) => m.Settings) },
 // -> { path: "admin", loadChildren: () => import("./admin/admin.routes") },
+```
+
+## NgModule
+
+Angular recommends standalone components for new code. These ops maintain applications still
+built with `@NgModule`. Each takes `(element, imports?)`, like the component ops, and appends
+to one array of the file's only `@NgModule`, creating the metadata object or the array when
+missing.
+
+| Op | Appends to |
+|---|---|
+| `addNgModuleImport(element, imports?)` | `imports`, such as other NgModules or `StoreModule.forRoot({})` |
+| `addDeclaration(element, imports?)` | `declarations`. Angular requires those components, directives and pipes to be `standalone: false`. |
+| `addNgModuleProvider(element, imports?)` | `providers` |
+| `addNgModuleExport(element, imports?)` | `exports` |
+| `addBootstrap(element, imports?)` | `bootstrap` |
+
+They are not named `addImport`, `addProvider` or `addExport`, because `addImport` is the inherited
+TypeScript op that adds an `import` statement.
+
+```ts
+await angular
+  .find("src/app/app.module.ts")
+  .addDeclaration("UserCard", [{ name: "UserCard", from: "./user-card" }]);
+// @NgModule({ declarations: [App], bootstrap: [App] })
+// -> @NgModule({ declarations: [App, UserCard], bootstrap: [App] })
 ```
 
 ## Signals and injection
@@ -203,8 +232,8 @@ stays trailing. Everything outside the inserted text is byte-identical.
 
 An op rejects, and the file is left unchanged, when:
 
-- the file has no `@Component`, decorated class, `ApplicationConfig` variable,
-  `bootstrapApplication` call, or `Routes` variable for the op, or more than one;
+- the file has no `@Component`, `@NgModule`, decorated class, `ApplicationConfig` variable,
+  `bootstrapApplication` call, or routes for the op, or more than one;
 - the class already has a different member with the property's name;
 - the metadata, config, or route list is not a literal (for example `providers: PROVIDERS`);
 - `bootstrapApplication` receives its config by name;
@@ -217,22 +246,22 @@ fails when one of these ops runs.
 
 ## The escape hatch
 
-Edits these ops do not cover, such as a child route or an NgModule, and the files these ops
+Edits these ops do not cover, such as a child route or `viewProviders`, and the files these ops
 reject, are made with `.modify(fn)`. The callback receives the live ts-morph `SourceFile`, and
 the module's `astLibrary` export is ts-morph itself:
 
 ```ts
 import * as angular from "@pbuilder/sdk/angular";
 
-await angular.find("src/app/app.module.ts").modify((ast) => {
-  const declarations = ast
-    .getClassOrThrow("AppModule")
-    .getDecoratorOrThrow("NgModule")
+await angular.find("src/app/user-card.ts").modify((ast) => {
+  const viewProviders = ast
+    .getClassOrThrow("UserCard")
+    .getDecoratorOrThrow("Component")
     .getArguments()[0]!
     .asKindOrThrow(angular.astLibrary.SyntaxKind.ObjectLiteralExpression)
-    .getPropertyOrThrow("declarations")
+    .getPropertyOrThrow("viewProviders")
     .asKindOrThrow(angular.astLibrary.SyntaxKind.PropertyAssignment)
     .getInitializerIfKindOrThrow(angular.astLibrary.SyntaxKind.ArrayLiteralExpression);
-  declarations.addElement("LegacyWidget");
+  viewProviders.addElement("CardState");
 });
 ```

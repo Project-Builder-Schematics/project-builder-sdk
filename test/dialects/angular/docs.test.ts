@@ -21,6 +21,8 @@ const SIGNATURES = [
   "addComputed(name, expression, options?)",
 ];
 
+const NGMODULE_OPS = ["addNgModuleImport", "addDeclaration", "addNgModuleProvider", "addNgModuleExport", "addBootstrap"];
+
 describe("docs/angular-dialect.md — author guide", () => {
   it.each(SIGNATURES)("documents %s under its own heading", (signature) => {
     expect(() => extractSection(doc, `### \`${signature}\``)).not.toThrow();
@@ -34,6 +36,10 @@ describe("docs/angular-dialect.md — author guide", () => {
     const hatch = extractSection(doc, "## The escape hatch");
     expect(hatch).toContain(".modify(");
     expect(hatch).toContain("astLibrary");
+  });
+
+  it.each(NGMODULE_OPS)("lists %s in the NgModule section", (op) => {
+    expect(extractSection(doc, "## NgModule")).toContain(`\`${op}(element, imports?)\``);
   });
 
   it("the README has a section linking the guide", () => {

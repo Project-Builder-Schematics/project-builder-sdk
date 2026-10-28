@@ -18,6 +18,11 @@ type AngularOps = {
     addOutput: (ast: SourceFile, name: string, options?: OutputOptions) => void;
     addSignal: (ast: SourceFile, name: string, initial: string, options?: StateOptions) => void;
     addComputed: (ast: SourceFile, name: string, expression: string, options?: StateOptions) => void;
+    addNgModuleImport: InsertOp;
+    addDeclaration: InsertOp;
+    addNgModuleProvider: InsertOp;
+    addNgModuleExport: InsertOp;
+    addBootstrap: InsertOp;
 };
 /**
  * Opens a `.ts` file of an Angular project for editing. The handle carries every
