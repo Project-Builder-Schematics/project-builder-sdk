@@ -10,12 +10,13 @@ import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/de
 import { dialectError } from "../../core/dialect-error.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import { parse, print } from "./ast.ts";
-import { setJsxProp } from "./ops.ts";
+import { setJsxProp, type JsxTarget } from "./ops.ts";
 
 export * as astLibrary from "ts-morph";
+export type { JsxTarget };
 
 type JsxOps = {
-  setJsxProp: (ast: SourceFile, elementName: string, propName: string, value?: string) => void;
+  setJsxProp: (ast: SourceFile, target: JsxTarget, propName: string, value?: string) => void;
 };
 
 type ReactOps = typeof typescriptOps & JsxOps;

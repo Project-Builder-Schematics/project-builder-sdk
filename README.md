@@ -624,7 +624,7 @@ await react
 
 | Op | What it does |
 |---|---|
-| `setJsxProp(element, prop, value?)` | Sets a prop on **the one** element with that tag name — zero or multiple matches reject loudly. `value` takes three forms: `'"hi"'` (string), `'{count}'` (expression), or omitted (boolean shorthand). |
+| `setJsxProp(target, prop, value?)` | Sets a prop on **the one** element `target` names: a tag (`"Button"`) or a tag plus props that narrow it (`{ tag: "Route", props: { path: '"/users"' } }`) — zero or multiple matches reject loudly. `value` takes three forms: `'"hi"'` (string), `'{count}'` (expression), or omitted (boolean shorthand). |
 
 `setJsxProp`'s `value` is emitted verbatim into executable code — same trust boundary as
 the TypeScript `source` strings. One React-specific subtlety: an inserted prop lands after
