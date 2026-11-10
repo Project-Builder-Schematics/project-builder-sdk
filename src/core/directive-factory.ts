@@ -103,7 +103,11 @@ function assertEncodable(
   if (typeof value === "function") rejectOption(optionKey, `function at ${path}`);
   if (typeof value === "symbol") rejectOption(optionKey, `symbol at ${path}`);
   if (typeof value === "bigint") rejectOption(optionKey, `BigInt at ${path}`);
-  if (value === null || typeof value !== "object") return value as JsonValue; // string/number/boolean/null: fine
+  if (value === null || typeof value !== "object") {
+    // A nested -0 inside the old JSON-string form became 0; keep that, or the round-trip
+    // guard rejects it (-0 === 0, so this also catches -0). A top-level -0 was never encoded, so it is left alone.
+    return value === 0 && path !== optionKey ? 0 : (value as JsonValue);
+  }
 
   if (Array.isArray(value) || isPlainObject(value)) {
     if (ancestors.has(value)) rejectOption(optionKey, `a circular reference at ${path}`);

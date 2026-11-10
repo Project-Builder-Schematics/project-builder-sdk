@@ -142,6 +142,13 @@ The SDK MUST pass top-level number, boolean, and `null` option values through un
   rejects the batch as `unrepresentable-content` — the same outcome as a top-level non-finite
   number, never a silent `null`
 
+#### Scenario REQ-TOE-03.4: A `-0` nested inside a composite is sent as `0`
+
+- GIVEN `options = { pt: { x: -0 } }`
+- WHEN prepared
+- THEN `pt.x` is `0`, as JSON sends it, and the batch is accepted; a top-level `-0` is left as
+  it is, as before
+
 ### REQ-TOE-04: Loud Rejection of Non-Plain-JSON Option Values
 
 The SDK MUST reject, at scheduling time (the `create()`/`scaffold()` call, before any directive

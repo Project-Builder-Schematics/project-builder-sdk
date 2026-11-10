@@ -50,3 +50,25 @@ describe("REQ-TOE-03.3 — a non-finite number nested inside a composite option 
     expect((result.error as AuthoringError).reason).toEqual("unrepresentable-content");
   });
 });
+
+describe("REQ-TOE-03.4 — a -0 nested inside a composite option is sent as 0, as JSON would", () => {
+  it("records 0 and the batch is accepted", async () => {
+    const result = await runFactoryForTest(() => {
+      create("pt.ts", { template: "x", options: { pt: { x: Math.round(-0.4) }, xs: [-0] } });
+    }, undefined);
+
+    expect(result.error).toBeUndefined();
+    const [recorded] = collectOps(result.emitted, "create");
+    const options = recorded?.create.options as { pt: { x: number }; xs: number[] };
+    expect(Object.is(options.pt.x, 0)).toBe(true);
+    expect(Object.is(options.xs[0], 0)).toBe(true);
+  });
+
+  it("a top-level -0 still fails the round-trip guard, as before", async () => {
+    const result = await runFactoryForTest(() => {
+      create("z.ts", { template: "x", options: { z: -0 } });
+    }, undefined);
+
+    expect((result.error as AuthoringError).reason).toEqual("unrepresentable-content");
+  });
+});
