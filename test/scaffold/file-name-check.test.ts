@@ -160,3 +160,12 @@ describe("A-17 — scaffold() checks every walked entry before include/exclude a
     expect(collectOps(result.emitted, "create").map((d) => d.create.pathTemplate)).toEqual(["out/a{b}.ts"]);
   });
 });
+
+describe("A-17 — only spaces are removed from the end of a device-name stem", () => {
+  it("a no-break space before the extension keeps CON from matching", () => {
+    expect(() => checkSourceName("CON .ts")).not.toThrow();
+  });
+
+  it("an ideographic space before a trailing dot is judged by the trailing dot", () =>
+    expectRejected("CON　.", "CON　.", "trailing dot"));
+});

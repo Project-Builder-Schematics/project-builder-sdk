@@ -51,7 +51,7 @@ function portableNameViolation(name: string): NameViolation | undefined {
     if (character !== undefined) return { rule: "forbidden character", character };
   }
   const stem = name.split(".", 1)[0]!;
-  if (RESERVED_DEVICE_NAMES.has(stem.trimEnd().toUpperCase())) return { rule: "reserved device name" };
+  if (RESERVED_DEVICE_NAMES.has(stem.replace(/ +$/, "").toUpperCase())) return { rule: "reserved device name" };
   if (name.endsWith(".")) return { rule: "trailing dot" };
   if (name.endsWith(" ")) return { rule: "trailing space" };
   return undefined;

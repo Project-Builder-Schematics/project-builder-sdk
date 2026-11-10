@@ -19,8 +19,8 @@ S6 — "REQ-FSC-05 states the check and uses the dotted `{= .name | ... =}` form
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S1-S6 | inline | pending | — |
-| T2 | all | delegated verifier (risk item 3: scaffold rejects inputs it accepted) | pending | — |
+| T1 | S1-S6 | inline | done — RED (1 token case + missing check) → GREEN 92 pass | 3f61638, fix commit |
+| T2 | all | delegated verifier (risk item 3: scaffold rejects inputs it accepted) | done — S2-S6 pass; S1 blocker (trimEnd) fixed in one correction, rechecked | — |
 
 Route evidence: one unit, forecast under ~400 lines; no writer trigger fires.
 
@@ -31,3 +31,7 @@ L1 (2026-11-10, orchestrator brief, verbatim excerpt): "sdk#149 (scaffold reject
 L2 (2026-11-10, orchestrator decisions, verbatim excerpt): "Q1: check every walked entry under files/ before include/exclude filtering. … Q2: rename values and the `to` prefix are out of scope, because A-17 covers names as written on disk. Draft a follow-up issue in English and include it in your report … Q3: use `invalid input: scaffold file name "<path>": the name "<name>" breaks the rule "<rule>" (<character>)`, with the engine's rule and character vocabulary. Also fix the leading-underscore key in TOKEN_INNER: `___name__.ts` must give `_{= .name =}.ts`. Match the engine's CheckPortableName exactly. … Leave CONIN$/CONOUT$ alone until architecture#52 is decided."
 
 L3 (2026-11-10, design): the SDK has no architecture pin or Gherkin runner, so the A-17 `@sdk` example tables are ported as bun tests. `<path>` is the walked path relative to `from`.
+
+L4 (2026-11-10, evidence): full suite 3967/0, typecheck clean, build (runner manifest) clean at 3f61638. Verifier: Go copy of engine 61f577c CheckPortableName/TranslateTokens vs SDK over 24,492 names; baseline-vs-candidate scaffold output identical except the intended underscore-run key change (also affects `to` and rename values, matching the engine) and the new rejections.
+
+L5 (2026-11-10, verifier blocker): `trimEnd()` strips all Unicode whitespace while the engine (`strings.TrimRight(stem, " ")`) and A-17 strip only spaces, so `CON\u00A0.ts` over-rejected. Fixed with `replace(/ +$/, "")`. Recheck: parity mismatches 127 → 36, all lone-surrogate probe artifacts (Go JSON turns U+D800 into U+FFFD); full suite 3969/0.
