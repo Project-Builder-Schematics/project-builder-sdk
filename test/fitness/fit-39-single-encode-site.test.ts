@@ -1,6 +1,7 @@
 /**
- * fit-39 (design § 4.7, single-encode-site — S-003, typed-options-feeder): the options-encode
- * transform (`encodeOptions` by name, or an options-targeting `JSON.stringify` call) lives
+ * fit-39 (design § 4.7, single-encode-site — S-003, typed-options-feeder): the options
+ * validate-and-copy step (`encodeOptions` by name, or an options-targeting `JSON.stringify`
+ * call that would bring back a second wire form, ADR-0082) lives
  * ONLY in `src/core/directive-factory.ts` (the definition) and
  * `src/scaffold/classify-transport.ts` (the CCL-02.4 budget-estimate call site) — never a
  * second, independent encode call site anywhere else in `src/`. Explicitly asserts absence

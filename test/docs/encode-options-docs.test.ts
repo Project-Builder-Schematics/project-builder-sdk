@@ -1,8 +1,8 @@
 /**
  * REQ-TOE-09 (S-003, typed-options-feeder): `docs/create-templates.md` teaches native
  * arrays/objects with zero `JSON.stringify` mentions, and the testing-observability note
- * (that `@pbuilder/sdk/testing` recorded batches show composite options in their encoded
- * wire form, REQ-TOE-07) survives the stringify-removal edit.
+ * (that `@pbuilder/sdk/testing` recorded batches show composite options as the native values
+ * the author passed, REQ-TOE-07, ADR-0082) is present.
  *
  * TW-F4 constraint (slices.md Executor Context): the note must dodge
  * `doc-set-content.test.ts`'s case-sensitive `WIRE_INTERNAL_TERMS` ban and additionally
@@ -41,9 +41,10 @@ describe("REQ-TOE-09.1 — zero options-related JSON.stringify mentions; native 
 describe("REQ-TOE-09.2 — the testing-observability note survives the stringify purge", () => {
   const doc = readDoc();
 
-  it("documents that recorded batches show composite options in their encoded wire form (author-vocabulary phrase match)", () => {
+  it("documents that recorded batches show composite options as the native values passed, never a JSON string (author-vocabulary phrase match)", () => {
     expect(doc).toMatch(/recorded batches/i);
-    expect(doc).toMatch(/encoded\s+wire\s+form/);
+    expect(doc).toMatch(/native\s+array\s+you\s+passed/);
+    expect(doc).not.toMatch(/JSON string/);
   });
 
   it("TW-F4: no sentence in the doc starts with the capitalized wire-internal nouns 'Batches' or 'Directive'", () => {

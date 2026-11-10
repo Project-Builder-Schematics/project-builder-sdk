@@ -26,9 +26,9 @@ export function createRejectProbe(_input: Record<string, never>): void {
 }
 
 // create-composite (REQ-CFX-09.4): the corpus's first POSITIVE wire create, quarantined
-// in this file's second named-export block. Composite `tags` array option exercises
-// encodeOptions's JSON-stringify branch (REQ-TOE-01); the engine's v1 promotion rule
-// restores it to a real array before the `range` below renders it (docs/create-templates.md).
+// in this file's second named-export block. Composite `tags` array option reaches the
+// engine as a native array (REQ-TOE-01, ADR-0082) for the `range` below to render
+// (docs/create-templates.md).
 export function createComposite(_input: Record<string, never>): void {
   create("create-composite.txt", { template: "composite: {= range .tags =}[{= . =}]{= end =}", options: { tags: ["x", "y"] } });
 }

@@ -80,9 +80,9 @@ export class UserProfileComponent {
 Array- and object-valued options — `methods` above — pass as plain native values; you never
 hand-encode them.
 
-Recorded batches from `@pbuilder/sdk/testing` show these values already in their encoded
-wire form — asserting on `options.methods` in a test sees the JSON string
-`'[{"name":"load"},{"name":"save"}]'`, not the native array you passed.
+Recorded batches from `@pbuilder/sdk/testing` show these values as you passed them — asserting
+on `options.methods` in a test sees the native array you passed,
+`[{ name: "load" }, { name: "save" }]`, copied when `create` was called.
 
 ### Overwrite behavior (`force`)
 

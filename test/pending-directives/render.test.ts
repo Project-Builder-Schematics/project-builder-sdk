@@ -137,17 +137,17 @@ describe("renderPendingDirectives — integration: snapshot from real Session (R
 });
 
 describe("renderPendingDirectives — REQ-TOE-08.1 (S-003, typed-options-feeder): composite options never surface [characterization]", () => {
-  it("a create directive carrying encoded composite options produces a PendingDirective with only verb/path/kind — no options field, encoded or native", () => {
+  it("a create directive carrying composite options produces a PendingDirective with only verb/path/kind — no options field", () => {
     const factory = new DirectiveFactory();
     const directive = factory.create({
       pathTemplate: "src/widget.ts",
       template: "content",
       options: { methods: [{ name: "load" }] },
     });
-    // Sanity: the directive genuinely carries non-trivial ENCODED options, so the assertion
-    // below is not vacuously true for an already-empty options object.
+    // Sanity: the directive genuinely carries non-trivial options, so the assertion below is
+    // not vacuously true for an already-empty options object.
     if (directive.op !== "create") throw new Error("fixture invariant broken: expected a create directive");
-    expect(directive.create.options).toEqual({ methods: '[{"name":"load"}]' });
+    expect(directive.create.options).toEqual({ methods: [{ name: "load" }] });
 
     const [entry] = renderPendingDirectives([directive]);
 

@@ -48,12 +48,12 @@ export function forceEntry(force: boolean | undefined): { force?: boolean } {
   return force !== undefined ? { force } : {};
 }
 
-// REQ-TOE-01: shallow top-level composite (array/plain-object) -> JSON string; everything
-// else passes through verbatim. Assembly uses Object.defineProperty (never spread/`result[k]=`)
+// REQ-TOE-01: top-level composite (array/plain-object) values are copied as native JSON;
+// everything else passes through verbatim. Assembly uses Object.defineProperty (never spread/`result[k]=`)
 // per REQ-TOE-05 — enumerable:true is load-bearing, defineProperty defaults it to false and an
 // unenumerable key silently drops from JSON.stringify at the wire boundary.
 // REQ-TOE-01.5: a null-prototype object (Object.create(null)) is a plain, dict-like data
-// container and encodes like any other plain object — only a prototype OUTSIDE
+// container and is copied like any other plain object — only a prototype OUTSIDE
 // {Object.prototype, null} (Date/Map/class instances) is non-plain (REQ-TOE-04, S-002).
 function isPlainObject(v: unknown): v is { [key: string]: JsonValue } {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
@@ -90,49 +90,54 @@ function rejectOption(optionKey: string, detail: string): never {
 // ascent (add-recurse-delete, scoped per top-level call via the default parameter) — never a
 // global "ever-visited" set. Only a value that is its own ancestor (a true cycle) rejects; an
 // acyclic SHARED reference (`const s = {x:1}; {a:s,b:s}`) is revisited from a clean ancestor
-// path each time and encodes normally, matching native JSON.stringify.
+// path each time and is copied normally, matching native JSON.stringify.
+// Returns a structural copy of a valid value: composites are rebuilt (plain-object keys via
+// Object.defineProperty, REQ-TOE-05), scalars are returned as they are.
 function assertEncodable(
   value: unknown,
   optionKey: string,
   ancestors: Set<object> = new Set(),
   path: string = optionKey
-): void {
+): JsonValue {
   if (value === undefined) rejectOption(optionKey, `undefined at ${path}`);
   if (typeof value === "function") rejectOption(optionKey, `function at ${path}`);
   if (typeof value === "symbol") rejectOption(optionKey, `symbol at ${path}`);
   if (typeof value === "bigint") rejectOption(optionKey, `BigInt at ${path}`);
-  if (value === null || typeof value !== "object") return; // string/number/boolean/null: fine
+  if (value === null || typeof value !== "object") return value as JsonValue; // string/number/boolean/null: fine
 
   if (Array.isArray(value) || isPlainObject(value)) {
     if (ancestors.has(value)) rejectOption(optionKey, `a circular reference at ${path}`);
     ancestors.add(value);
     try {
       if (Array.isArray(value)) {
-        value.forEach((item, i) => assertEncodable(item, optionKey, ancestors, `${path}[${i}]`));
-      } else {
-        for (const [k, v] of Object.entries(value)) {
-          assertEncodable(v, optionKey, ancestors, `${path}.${k}`);
-        }
+        return value.map((item, i) => assertEncodable(item, optionKey, ancestors, `${path}[${i}]`));
       }
+      return copyEntries(value, ([k, v]) => assertEncodable(v, optionKey, ancestors, `${path}.${k}`));
     } finally {
       ancestors.delete(value);
     }
-    return;
   }
 
-  rejectOption(optionKey, `${kindOf(value)} at ${path}`);
+  return rejectOption(optionKey, `${kindOf(value)} at ${path}`);
 }
 
-export function encodeOptions(options: JsonValue): JsonValue {
-  if (!isPlainObject(options)) return options;
-
+function copyEntries(
+  source: { [key: string]: JsonValue },
+  copy: (entry: [string, JsonValue]) => JsonValue
+): { [key: string]: JsonValue } {
   const result: { [key: string]: JsonValue } = {};
-  for (const [key, value] of Object.entries(options)) {
-    assertEncodable(value, key);
-    const encoded: JsonValue = Array.isArray(value) || isPlainObject(value) ? JSON.stringify(value) : value;
-    Object.defineProperty(result, key, { value: encoded, enumerable: true, writable: true, configurable: true });
+  for (const entry of Object.entries(source)) {
+    Object.defineProperty(result, entry[0], { value: copy(entry), enumerable: true, writable: true, configurable: true });
   }
   return result;
+}
+
+// ADR-0082: composites reach the wire as native JSON. The copy snapshots the author's value
+// at scheduling time and keeps nested non-finite numbers, so the flush-time round-trip
+// guard sees them (REQ-TOE-03.3).
+export function encodeOptions(options: JsonValue): JsonValue {
+  if (!isPlainObject(options)) return options;
+  return copyEntries(options, ([key, value]) => assertEncodable(value, key));
 }
 
 export class DirectiveFactory {
