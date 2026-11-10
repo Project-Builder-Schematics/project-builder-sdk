@@ -152,12 +152,8 @@ export function classifyTransport(params: ClassifyParams): ClassifyResult {
   // `>` (not `>=`) — exactly-at-budget still fits (REQ-CCL-02.3).
   //
   // REQ-CCL-02.4: `options` is run through the SAME shared `encodeOptions` (fit-39's one
-  // other sanctioned call site) real `create()` emission applies — never the caller's raw,
-  // pre-encode shape. A composite option value's JSON-string form carries its own
-  // quote/backslash-escaping inflation once re-embedded and serialized again here, closing
-  // the pre-encode/post-encode misclassification gap: measuring the raw shape would
-  // under-count and could wrongly classify by-value a directive that is actually over
-  // budget once the real encode step runs.
+  // other sanctioned call site) real `create()` emission applies, so the measure and the
+  // emitted directive can never disagree on the options' wire form.
   const prospectiveDirective: Directive = {
     op: "create",
     create: { pathTemplate: destPath, template: content, options: encodeOptions(options), ...forceEntry(force) },

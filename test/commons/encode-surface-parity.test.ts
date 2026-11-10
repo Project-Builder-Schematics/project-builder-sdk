@@ -61,11 +61,11 @@ describe("REQ-TOE-04 (integration) — rejection surfaces at create() scheduling
 // below (`commons.create()` inline, `create({templateFile})`, `scaffold` by-value
 // expansion) already funnels through that single call site (design §4.1) — so this test
 // proves the cross-surface invariant holds, it does not drive new production code.
-const ANCHOR_METHODS = '[{"name":"load"}]';
+const ANCHOR_METHODS = [{ name: "load" }];
 const SHARED_METHODS = [{ name: "load" }];
 
 describe("REQ-TOE-06.1 — inline vs scaffold by-value, both byte-identical to the absolute anchor [characterization]", () => {
-  it("commons.create() inline and scaffold by-value both encode to the SAME anchor string — cross-equality alone would be insufficient", async () => {
+  it("commons.create() inline and scaffold by-value both encode to the SAME anchor — cross-equality alone would be insufficient", async () => {
     const inlineResult = await runFactoryForTest(() => {
       create("inline.ts", { template: "content", options: { methods: SHARED_METHODS } });
     }, undefined);

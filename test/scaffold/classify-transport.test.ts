@@ -256,24 +256,17 @@ describe("REQ-CCL-02.3 — exactly-at-budget boundary, directive-inclusive, driv
   });
 });
 
-// Deterministic escaping arithmetic (REQ-CCL-02.4, design §4.8): a top-level composite
-// (array) option value whose sole element is `q` literal `"` characters. ONE JSON.stringify
-// pass over the whole directive (the pre-fix/structural measure — options embedded as a
-// native array, never independently encoded first) escapes each quote once (`"` -> `\"`,
-// 2 bytes), contributing exactly `2*q + 4` bytes for the `blob` field. `encodeOptions`
-// (REQ-TOE-01) then JSON.stringifies that array as its OWN step, producing a STRING that
-// itself carries `q` backslashes and `q+2` quote characters; embedding that STRING as the
-// value and stringifying the outer directive a SECOND time escapes every one of those
-// characters again — contributing exactly `2*(2*q+4) = 4*q+8` bytes, precisely DOUBLE the
-// structural measure. `q` is picked (via the real per-directive overhead, same style as
-// `soloDirectiveOverhead` above) so the pre-encode field size fits the budget and the
-// post-encode (doubled) field size exceeds it — the misclassification gap this REQ closes.
+// REQ-CCL-02.4 (ADR-0082): a top-level composite (array) option whose sole element is `q`
+// literal `"` characters. Serialized once with the directive, each quote escapes to 2 bytes,
+// so the `blob` field costs `2*q + 4` bytes. The old JSON-string wire form serialized that
+// array twice, costing `4*q + 8` bytes — double. `q` is picked so the native size fits the
+// budget and the old double-encoded size would not: the measure must see the native form.
 function quoteHeavyOptions(q: number): { blob: string[] } {
   return { blob: ['"'.repeat(q)] };
 }
 
-describe("REQ-CCL-02.4 — composite-valued option measured post-encode at the boundary (NEW)", () => {
-  it("pre-encode structural size fits budget, post-encode encoded-string size exceeds it — classifies by-reference", () => {
+describe("REQ-CCL-02.4 — composite-valued option measured in its native wire form", () => {
+  it("a quote-heavy composite whose native size fits the budget classifies by-value — never measured double-encoded", () => {
     const dir = scratchDir();
     const destPath = "small.ts";
     writeFileSync(join(dir, "small.ts"), "x", "utf-8");
@@ -284,18 +277,16 @@ describe("REQ-CCL-02.4 — composite-valued option measured post-encode at the b
     const q = Math.floor((EMIT_BATCH_BUDGET_BYTES - baseOverhead) * 0.4);
     const rawOptions = quoteHeavyOptions(q);
 
-    const preEncodeDirective: Directive = {
-      op: "create",
-      create: { pathTemplate: destPath, template: "x", options: rawOptions },
-    };
-    const postEncodeDirective: Directive = {
+    const wireDirective: Directive = {
       op: "create",
       create: { pathTemplate: destPath, template: "x", options: encodeOptions(rawOptions) },
     };
-    // Pins the DIRECTIVE-inclusive quantities the fix is actually based on, before driving
-    // classifyTransport — mirrors REQ-CCL-02.2/.3's own established "pin then assert" style.
-    expect(serializedBatchSize([preEncodeDirective])).toBeLessThanOrEqual(EMIT_BATCH_BUDGET_BYTES);
-    expect(serializedBatchSize([postEncodeDirective])).toBeGreaterThan(EMIT_BATCH_BUDGET_BYTES);
+    const doubleEncodedDirective: Directive = {
+      op: "create",
+      create: { pathTemplate: destPath, template: "x", options: { blob: JSON.stringify(rawOptions.blob) } },
+    };
+    expect(serializedBatchSize([wireDirective])).toBeLessThanOrEqual(EMIT_BATCH_BUDGET_BYTES);
+    expect(serializedBatchSize([doubleEncodedDirective])).toBeGreaterThan(EMIT_BATCH_BUDGET_BYTES);
 
     const result = classifyTransport({
       packageDir: dir,
@@ -305,10 +296,10 @@ describe("REQ-CCL-02.4 — composite-valued option measured post-encode at the b
       options: rawOptions,
     });
 
-    expect(result.verdict).toEqual("by-reference");
+    expect(result.verdict).toEqual("by-value");
   });
 
-  it("a real scaffold() run with the same near-boundary composite options succeeds gracefully via copyIn — no options field on the emitted directive, no rejection at emit", async () => {
+  it("a real scaffold() run with the same near-boundary composite options emits one by-value create carrying the native options", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
     const destPath = "out/small.ts";
@@ -326,10 +317,10 @@ describe("REQ-CCL-02.4 — composite-valued option measured post-encode at the b
     const result = await runFactoryForTest(run, undefined, { packageDir: dir });
 
     expect(result.error).toBeUndefined();
-    const copyInDirectives = collectOps(result.emitted, "copyIn");
-    expect(copyInDirectives).toHaveLength(1);
-    expect(copyInDirectives[0]?.copyIn).toEqual({ from: "files/small.ts", to: "out/small.ts" });
-    expect("options" in (copyInDirectives[0]?.copyIn ?? {})).toBe(false);
+    expect(collectOps(result.emitted, "copyIn")).toHaveLength(0);
+    const creates = collectOps(result.emitted, "create");
+    expect(creates).toHaveLength(1);
+    expect(creates[0]?.create.options).toEqual(rawOptions);
   });
 });
 

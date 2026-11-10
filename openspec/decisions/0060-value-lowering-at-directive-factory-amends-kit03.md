@@ -1,6 +1,6 @@
 # ADR-0060: Option Value-Lowering at DirectiveFactory Is Wire Shaping, Not Rendering — Amends KIT-03 (ADR-0013)
 
-**Status**: Accepted · **Date**: 2026-07-18 · **Change**: typed-options-feeder
+**Status**: Superseded by ADR-0082 (2026-11-10, sdk#150) · **Date**: 2026-07-18 · **Change**: typed-options-feeder
 
 ## Context
 

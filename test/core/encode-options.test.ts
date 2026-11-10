@@ -1,51 +1,55 @@
-// REQ-TOE-01/02/03/05: shallow top-level encode of composite (array/plain-object) option
-// values, string/scalar/null passthrough, and prototype-safe assembly.
-// S-000 walking skeleton laid a general Object.entries loop + Object.defineProperty
-// assembly (not a hard-coded per-key check) — several S-001 scenarios below pass against
-// that unchanged implementation ([characterization], same convention as
-// test/fake/boundary-pass-through.test.ts's pre-existing-behavior describes). Only
-// REQ-TOE-01.5 (null-prototype objects) drives a real production change this slice
-// (isPlainObject hardening, S-001.4). No rejection/validation yet (S-002).
+// REQ-TOE-01/02/03/05: composite (array/plain-object) option values reach the wire as native
+// JSON (ADR-0082), string/scalar/null passthrough, and prototype-safe assembly.
 
 import { describe, it, expect } from "bun:test";
 import { encodeOptions } from "../../src/core/directive-factory.ts";
 import type { JsonValue } from "../../src/core/wire.ts";
 
-describe("REQ-TOE-01 — encodeOptions, shallow top-level composite encode", () => {
-  it("Scenario REQ-TOE-01.1: native array value encodes to a JSON string", () => {
+describe("REQ-TOE-01 — encodeOptions forwards composite values as native JSON", () => {
+  it("Scenario REQ-TOE-01.1: a native array value stays a native array", () => {
     const options = { methods: [{ name: "load" }, { name: "save" }] };
     expect(encodeOptions(options)).toEqual({
-      methods: '[{"name":"load"},{"name":"save"}]',
+      methods: [{ name: "load" }, { name: "save" }],
     });
   });
 
-  it("Scenario REQ-TOE-01.2: native plain object value encodes to a JSON string", () => {
+  it("Scenario REQ-TOE-01.2: a native plain object value stays a native object", () => {
     const options = { user: { name: "a" } };
-    expect(encodeOptions(options)).toEqual({ user: '{"name":"a"}' });
+    expect(encodeOptions(options)).toEqual({ user: { name: "a" } });
   });
 
-  it("[characterization] Scenario REQ-TOE-01.3: nested composites ride inside the single top-level encode", () => {
+  it("Scenario REQ-TOE-01.3: nested composites stay native at every depth", () => {
     const options = { methods: [{ tags: ["x", "y"] }] };
-    expect(encodeOptions(options)).toEqual({ methods: '[{"tags":["x","y"]}]' });
+    expect(encodeOptions(options)).toEqual({ methods: [{ tags: ["x", "y"] }] });
+  });
+
+  it("Scenario REQ-TOE-01.9: composites are copied when scheduled — mutating the author's value afterwards leaves the result unchanged", () => {
+    const methods = [{ name: "load" }];
+    const result = encodeOptions({ methods });
+    methods.push({ name: "save" });
+    methods[0]!.name = "changed";
+    expect(result).toEqual({ methods: [{ name: "load" }] });
   });
 
   it("[characterization] Scenario REQ-TOE-01.4: mixed composite/scalar values — order, encode, and passthrough all pinned together", () => {
     const options = { b: [1, 2], a: "x", c: 5 };
     const result = encodeOptions(options) as Record<string, JsonValue>;
     expect(Object.keys(result)).toEqual(["b", "a", "c"]);
-    expect(result).toEqual({ b: "[1,2]", a: "x", c: 5 });
+    expect(result).toEqual({ b: [1, 2], a: "x", c: 5 });
   });
 
-  it("Scenario REQ-TOE-01.5: a null-prototype object carrying composite data encodes (dict-like container)", () => {
+  it("Scenario REQ-TOE-01.5: a null-prototype object carrying composite data is forwarded as a plain object (dict-like container)", () => {
     const registry = Object.create(null) as Record<string, JsonValue>;
     registry.a = 1;
     registry.b = 2;
-    expect(encodeOptions({ registry })).toEqual({ registry: '{"a":1,"b":2}' });
+    const result = encodeOptions({ registry }) as { registry: object };
+    expect(result).toEqual({ registry: { a: 1, b: 2 } });
+    expect(Object.getPrototypeOf(result.registry)).toBe(Object.prototype);
   });
 
-  it("[characterization] Scenario REQ-TOE-01.6: empty composite values encode to their empty JSON form, not skipped", () => {
+  it("Scenario REQ-TOE-01.6: empty composite values stay empty composites, not skipped", () => {
     const options = { tags: [] as JsonValue[], cfg: {} };
-    expect(encodeOptions(options)).toEqual({ tags: "[]", cfg: "{}" });
+    expect(encodeOptions(options)).toEqual({ tags: [], cfg: {} });
   });
 
   it("[characterization] Scenario REQ-TOE-01.7: empty options object is a no-op", () => {
@@ -76,21 +80,18 @@ describe("REQ-TOE-03 — scalar and null option values pass through verbatim", (
     expect(result.note).toBeNull();
   });
 
-  // QA-F2 / REQ-TOE-03.3 (design §4.2d): non-finite numbers (NaN/Infinity) are `typeof
-  // "number"` and deliberately pass the plain-JSON predicate uncaught — pinning this here
-  // records it as INTENTIONAL, not an oversight. Rejecting them at scheduling time would make
-  // Stage-2 REQ-14.3's flush-time `unrepresentable-content` guard unreachable for create-
-  // options (the guard's live path depends on a value that survives encodeOptions but still
-  // fails the fake's JSON round-trip). They coerce to the wire as JSON.stringify's own `null`
-  // (JSON semantics, not an SDK transform) and the engine's typed null-error makes that LOUD
-  // at render time, downstream of this boundary.
+  // REQ-TOE-03.3: non-finite numbers (NaN/Infinity) are `typeof "number"` and deliberately
+  // pass the plain-JSON predicate, at any depth. Rejecting them at scheduling time would make
+  // Stage-2 REQ-14.3's flush-time `unrepresentable-content` guard unreachable for create
+  // options; that guard rejects them instead (test/fake/encode-recorded-batch.test.ts).
   it("[characterization] Scenario REQ-TOE-03.3: a top-level non-finite number (NaN) passes the predicate and coerces to wire null (REQ-TOE-03 carve-out)", () => {
     const result = encodeOptions({ n: NaN }) as { n: unknown };
     expect(result.n).toBeNaN();
   });
 
-  it("[characterization] Scenario REQ-TOE-03.3: a non-finite number (Infinity) nested inside a composite value coerces to JSON null in the encoded string", () => {
-    expect(encodeOptions({ nums: [Infinity] })).toEqual({ nums: "[null]" });
+  it("Scenario REQ-TOE-03.3: a non-finite number (Infinity) nested inside a composite value is kept as a number, never coerced to null", () => {
+    const result = encodeOptions({ nums: [Infinity] }) as { nums: number[] };
+    expect(result.nums).toEqual([Infinity]);
   });
 });
 
@@ -185,7 +186,7 @@ describe("REQ-TOE-01 (shared-ref DAG, ARCH-F2) — an acyclic shared reference e
   it("the SAME object reference used at two sibling keys encodes both, not rejected as circular", () => {
     const s = { x: 1 };
     const options = { a: s, b: s };
-    expect(encodeOptions(options)).toEqual({ a: '{"x":1}', b: '{"x":1}' });
+    expect(encodeOptions(options)).toEqual({ a: { x: 1 }, b: { x: 1 } });
   });
 
   // QA-F1: the top-level-sibling test above gives EACH key a fresh `ancestors` Set
@@ -197,13 +198,13 @@ describe("REQ-TOE-01 (shared-ref DAG, ARCH-F2) — an acyclic shared reference e
   it("the SAME object reference used at NESTED sibling positions (array) encodes both, not rejected as circular", () => {
     const s = { x: 1 };
     const options = { cfg: [s, s] };
-    expect(encodeOptions(options)).toEqual({ cfg: '[{"x":1},{"x":1}]' });
+    expect(encodeOptions(options)).toEqual({ cfg: [{ x: 1 }, { x: 1 }] });
   });
 
   it("the SAME object reference used at NESTED sibling positions (object) encodes both, not rejected as circular", () => {
     const s = { x: 1 };
     const options = { cfg: { p: s, q: s } };
-    expect(encodeOptions(options)).toEqual({ cfg: '{"p":{"x":1},"q":{"x":1}}' });
+    expect(encodeOptions(options)).toEqual({ cfg: { p: { x: 1 }, q: { x: 1 } } });
   });
 });
 
@@ -220,7 +221,7 @@ describe("REQ-TOE-05 — prototype-safe encoding", () => {
     const result = encodeOptions(options) as Record<string, JsonValue>;
 
     expect(Object.prototype.hasOwnProperty.call(result, "__proto__")).toBe(true);
-    expect(Object.getOwnPropertyDescriptor(result, "__proto__")?.value).toEqual("[1,2]");
+    expect(Object.getOwnPropertyDescriptor(result, "__proto__")?.value).toEqual([1, 2]);
     expect(Object.getPrototypeOf({})).toBe(Object.prototype);
   });
 });

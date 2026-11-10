@@ -90,3 +90,6 @@ only to the `create` method's `options` field and is transparent to all other op
 pattern may be reused for similar wire-shaping transforms in future changes.
 
 See ADR-0060 for full context and rationale.
+
+**Superseded in part by ADR-0082 (2026-11-10)**: composite `create` options now cross the wire as
+native JSON. `encodeOptions` validates and copies them; it no longer encodes them into strings.
