@@ -6,6 +6,22 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.14.0
+
+### `scaffold` rejects names that are not portable (breaking)
+
+- **Breaking**: `scaffold()` checks every file and folder name under `from` as written on disk,
+  including names `include`/`exclude` would drop, and rejects the call with `invalid-input` when a
+  name holds `{=` or `=}`, holds `|`, `"`, `<`, `>`, `:`, `?`, `*`, `\` or a control character, is a
+  Windows device name (`CON`, `PRN`, `AUX`, `NUL`, `COM0`–`COM9`, `LPT0`–`LPT9`, `COM`/`LPT` followed
+  by `¹`, `²` or `³`, in any letter case, with or without an extension), or ends in a dot or a
+  space. The error reads `invalid input: scaffold file name "<path>": the name "<name>" breaks the
+  rule "<rule>"`, plus ` (<character>)` for a forbidden character; with several bad names, the
+  first in byte-wise order is reported. Nothing is scheduled for the call.
+  **Migration**: rename such files; write a `{= .name =}` path with the `__name__` token form.
+- **Changed**: a file-name token's key starts with a letter, so `___name__.ts` becomes
+  `_{= .name =}.ts` (was `{= ._name =}.ts`). This applies to `to` and `rename` values too.
+
 ## 0.13.0
 
 ### `create` options cross the wire as native JSON (breaking)

@@ -119,11 +119,25 @@ surviving publish.
 
 ### REQ-FSC-05: Filename Pipeline — Pinned Order (rename → token translation → `.template` strip)
 
+Before the pipeline, every walked source-relative path — including entries `include`/`exclude`
+would drop — is checked as written on disk (architecture A-17, sdk#149): each component (each
+directory name and the file name) is rejected with `invalid-input`, naming the path and the
+rule, when it holds `{=` or `=}` (`template syntax`); holds `|`, `"`, `<`, `>`, `:`, `?`, `*`,
+`\` or a control character 0x00-0x1F (`forbidden character`, naming the character); has a part
+before its first dot that, with trailing spaces removed and letter case ignored, is `CON`,
+`PRN`, `AUX`, `NUL`, `COM0`-`COM9`, `LPT0`-`LPT9` or `COM`/`LPT` followed by `¹`, `²` or `³`
+(`reserved device name`); or ends in a dot (`trailing dot`) or a space (`trailing space`). The
+message is `invalid input: scaffold file name "<path>": the name "<name>" breaks the rule
+"<rule>"`, followed by ` (<character>)` for a forbidden character. With several bad paths,
+the first in byte-wise (UTF-8) order is reported. Nothing is scheduled for the call. The rules and their order match the engine's `CheckPortableName`.
+
 For each source-relative path, exactly ONE pipeline order applies, in this sequence:
 (1) `rename` — if a rule matches the ORIGINAL source-relative path, remap it to the
 rule's destination-relative path; (2) filename token translation — `__x__` segments
-in the (possibly renamed) path translate to `{= x =}` in the wire `pathTemplate`
-(`__name@dasherize__` → `{= name | dasherize =}`); (3) `.template` suffix strip —
+in the (possibly renamed) path translate to `{= .x =}` in the wire `pathTemplate`
+(`__name@dasherize__` → `{= .name | dasherize =}`); a token's key starts with a letter, so an
+opening `__` inside a longer underscore run is its last two underscores (`___name__.ts` →
+`_{= .name =}.ts`); (3) `.template` suffix strip —
 if the path (post-translation) ends in `.template`, strip it from the destination
 filename. This order is PINNED — rename matches original names (so authors don't
 have to predict token-translated names), tokens translate next, and the marker
@@ -134,9 +148,9 @@ strips last since it must survive translation to be recognized.
 - GIVEN a source file `__name@dasherize__.service.ts.template` and
   `rename: { "__name@dasherize__.service.ts.template": "__name@dasherize__.svc.ts.template" }`
 - WHEN scaffolded with `options: { name: "MyThing" }`
-- THEN the emitted destination `pathTemplate` is `{= name | dasherize =}.svc.ts` —
+- THEN the emitted destination `pathTemplate` is `{= .name | dasherize =}.svc.ts` —
   renamed first (`.service.` → `.svc.`), then token-translated
-  (`__name@dasherize__` → `{= name | dasherize =}`), then `.template` stripped last
+  (`__name@dasherize__` → `{= .name | dasherize =}`), then `.template` stripped last
 
 ### REQ-FSC-06: `force` Pass-Through
 

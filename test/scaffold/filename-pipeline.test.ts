@@ -40,6 +40,22 @@ describe("translateTokens — REQ-FSC-05 step 2", () => {
     expect(translateTokens("__name@__.ts")).toEqual("__name@__.ts");
   });
 
+  it("an opening marker inside a longer underscore run is its last two underscores (a key starts with a letter)", () => {
+    expect(translateTokens("___name__.ts")).toEqual("_{= .name =}.ts");
+  });
+
+  it("a closing marker inside a longer underscore run is its first two underscores", () => {
+    expect(translateTokens("__name___.ts")).toEqual("{= .name =}_.ts");
+  });
+
+  it("a filter name may still start with an underscore", () => {
+    expect(translateTokens("__name@_private__.ts")).toEqual("{= .name | _private =}.ts");
+  });
+
+  it("text between markers that is not a token stays as written (A-17 examples)", () => {
+    expect(translateTokens("__a.b__/__open.ts")).toEqual("__a.b__/__open.ts");
+  });
+
   it("runs in linear time on a long run of near-tokens", () => {
     const hostile = "__A@A" + "@__A@A".repeat(200_000);
     const started = performance.now();

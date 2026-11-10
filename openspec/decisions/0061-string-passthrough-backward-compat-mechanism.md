@@ -1,6 +1,6 @@
 # ADR-0061: String Passthrough Is the Backward-Compat Mechanism — Type Discrimination, Not a Flag
 
-**Status**: Accepted · **Date**: 2026-07-18 · **Change**: typed-options-feeder
+**Status**: Accepted, amended by ADR-0082 (2026-11-10) · **Date**: 2026-07-18 · **Change**: typed-options-feeder
 
 ## Context
 
@@ -15,8 +15,12 @@ Type discrimination itself IS the backward-compat seam: no version flag, no opt-
 ## Consequences
 
 - Zero migration burden: both hand-stringified and native call sites work identically in both forward and revert directions.
+  **Amended 2026-11-10 by ADR-0082**: this holds only while the engine promotes JSON-string options. Once the
+  engine removes that promotion (engine#286 D3), a hand-stringified composite renders as the literal string
+  it is. The SDK still passes strings through unchanged; authors should pass native arrays and objects. See
+  the 0.13.0 migration note in `CHANGELOG.md`.
 - Encoding is idempotent: encoding an already-encoded string is a no-op.
-- The engine's v1 promotion rule for strings beginning `[`/`{` remains an engine-owned limit (documented, not SDK-guarded).
+- The engine's v1 promotion rule for strings beginning `[`/`{` remains an engine-owned limit (documented, not SDK-guarded); engine#286 D3 removes it (ADR-0082).
 - Future changes that add native type support should follow this pattern: discriminate on type, use existing strings as-is.
 
 ## Alternatives Considered
@@ -26,5 +30,6 @@ Type discrimination itself IS the backward-compat seam: no version flag, no opt-
 
 ## Related ADRs
 
-- **ADR-0060**: Wire value-lowering (this change implements it via type discrimination).
+- **ADR-0060**: Wire value-lowering (this change implements it via type discrimination). Superseded by ADR-0082.
+- **ADR-0082**: Native JSON `create` options; amends this decision's compatibility consequence.
 - **ADR-0062**: Independent oracle for test-side `createOp` builders.

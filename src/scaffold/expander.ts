@@ -33,7 +33,13 @@ import { forceEntry } from "../core/directive-factory.ts";
 import type { JsonValue } from "../core/wire.ts";
 import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../core/wire.ts";
 import { walkFolder } from "./walk.ts";
-import { runFilenamePipeline, isIncluded, detectDestinationCollisions, translateTokens } from "./filename-pipeline.ts";
+import {
+  runFilenamePipeline,
+  isIncluded,
+  detectDestinationCollisions,
+  translateTokens,
+  checkSourceNames,
+} from "./filename-pipeline.ts";
 import { classifyTransport } from "./classify-transport.ts";
 import { validateDestinationLexical, validateSourceLexical } from "./path-guards.ts";
 
@@ -182,6 +188,10 @@ export function runScaffold(args: ScaffoldArgs): void {
   if (walked.length === 0) {
     return; // REQ-FSC-04.1: a truly-empty source folder is a silent no-op.
   }
+
+  // A-17 covers every name under the source folder, excluded ones included: an excluded
+  // `con.ts` still cannot be checked out on Windows.
+  checkSourceNames(walked.map((entry) => entry.relPath));
 
   const filtered = walked.filter((entry) => isIncluded(entry.relPath, args.include, args.exclude));
   if (filtered.length === 0) {
