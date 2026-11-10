@@ -6,6 +6,22 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.13.0
+
+### `create` options cross the wire as native JSON (breaking)
+
+- **Breaking**: array and object `create` options now reach the engine as native JSON, not as
+  JSON strings, for `create()`, `create({ templateFile })` and `scaffold()` by-value files.
+  Recorded batches from `@pbuilder/sdk/testing` show the native value you passed:
+  `options.methods` is `[{ name: "load" }]`, no longer `'[{"name":"load"}]'`. Strings, numbers,
+  booleans and `null` pass through unchanged, and non-JSON values still reject when `create` is
+  called. A `NaN` or `Infinity` nested in an array or object option now fails the batch as
+  unrepresentable content in `@pbuilder/sdk/testing` instead of becoming `null`.
+  **Migration**: tests that assert on a composite option as a JSON string must assert on the
+  native value. Pass arrays and objects natively instead of calling `JSON.stringify` on them:
+  once the engine drops its string-to-JSON promotion (engine#286), a stringified option renders
+  as the string it is. The engine can drop that promotion only after it pins this release.
+
 ## 0.12.0
 
 ### `.jsx` files and per-extension dialects
