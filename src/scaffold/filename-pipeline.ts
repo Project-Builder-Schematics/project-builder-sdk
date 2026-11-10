@@ -155,6 +155,23 @@ export function runFilenamePipeline(
   return { sourceRelPath: relPath, destRelPath: stripped, isTemplateMarked: wasTemplate };
 }
 
+// UTF-8 byte order is code-point order; the default sort compares UTF-16 code units, which
+// puts astral characters before U+E000-U+FFFF.
+function compareCodePoints(a: string, b: string): number {
+  const x = [...a];
+  const y = [...b];
+  for (let i = 0; i < x.length && i < y.length; i++) {
+    const diff = x[i]!.codePointAt(0)! - y[i]!.codePointAt(0)!;
+    if (diff !== 0) return diff;
+  }
+  return x.length - y.length;
+}
+
+/** Checks every path, reporting the first bad one in byte-wise order, as the engine does. */
+export function checkSourceNames(relPaths: readonly string[]): void {
+  for (const relPath of [...relPaths].sort(compareCodePoints)) checkSourceName(relPath);
+}
+
 function escapeRegexChar(ch: string): string {
   return /[.+^${}()|[\]\\]/.test(ch) ? `\\${ch}` : ch;
 }

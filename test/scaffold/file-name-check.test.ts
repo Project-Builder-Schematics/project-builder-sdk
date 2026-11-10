@@ -6,7 +6,7 @@
 import { describe, it, expect } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { checkSourceName } from "../../src/scaffold/filename-pipeline.ts";
+import { checkSourceName, checkSourceNames } from "../../src/scaffold/filename-pipeline.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { scaffold, AuthoringError } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
@@ -168,4 +168,16 @@ describe("A-17 — only spaces are removed from the end of a device-name stem", 
 
   it("an ideographic space before a trailing dot is judged by the trailing dot", () =>
     expectRejected("CON　.", "CON　.", "trailing dot"));
+});
+
+describe("A-17 — with several bad names, the first in byte-wise (UTF-8) order is reported, as the engine does", () => {
+  it("a/b?.ts is reported before c:d.ts whatever the walk order", () => {
+    const err = expectReason(() => checkSourceNames(["c:d.ts", "a/b?.ts"]), "invalid-input");
+    expect(err.message).toEqual(message("a/b?.ts", "b?.ts", "forbidden character", "question mark"));
+  });
+
+  it("orders by code point, not UTF-16 code unit: U+FF01 comes before U+1F600", () => {
+    const err = expectReason(() => checkSourceNames(["\u{1F600}|.ts", "\uFF01|.ts"]), "invalid-input");
+    expect(err.message).toEqual(message("\uFF01|.ts", "\uFF01|.ts", "forbidden character", "vertical bar"));
+  });
 });

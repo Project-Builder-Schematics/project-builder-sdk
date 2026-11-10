@@ -128,8 +128,8 @@ before its first dot that, with trailing spaces removed and letter case ignored,
 `PRN`, `AUX`, `NUL`, `COM0`-`COM9`, `LPT0`-`LPT9` or `COM`/`LPT` followed by `¹`, `²` or `³`
 (`reserved device name`); or ends in a dot (`trailing dot`) or a space (`trailing space`). The
 message is `invalid input: scaffold file name "<path>": the name "<name>" breaks the rule
-"<rule>"`, followed by ` (<character>)` for a forbidden character. Nothing is scheduled for the
-call. The rules and their order match the engine's `CheckPortableName`.
+"<rule>"`, followed by ` (<character>)` for a forbidden character. With several bad paths,
+the first in byte-wise (UTF-8) order is reported. Nothing is scheduled for the call. The rules and their order match the engine's `CheckPortableName`.
 
 For each source-relative path, exactly ONE pipeline order applies, in this sequence:
 (1) `rename` — if a rule matches the ORIGINAL source-relative path, remap it to the
