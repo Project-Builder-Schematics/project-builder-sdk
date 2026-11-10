@@ -11,7 +11,68 @@ import { invalidInput } from "../core/authoring-error.ts";
 
 const TEMPLATE_SUFFIX = ".template";
 const TOKEN_MARKER = "__";
-const TOKEN_INNER = /^[A-Za-z_][A-Za-z0-9_]*(?:@[A-Za-z_][A-Za-z0-9_]*)*$/;
+// A key starts with a letter, so an opening `__` inside a longer underscore run is its last
+// two underscores (A-17); a filter name may start with `_`.
+const TOKEN_INNER = /^[A-Za-z][A-Za-z0-9_]*(?:@[A-Za-z_][A-Za-z0-9_]*)*$/;
+
+const FORBIDDEN_CHARACTER_NAMES: Record<string, string> = {
+  "|": "vertical bar",
+  '"': "double quote",
+  "<": "less-than sign",
+  ">": "greater-than sign",
+  ":": "colon",
+  "?": "question mark",
+  "*": "asterisk",
+  "\\": "backslash",
+};
+
+const RESERVED_DEVICE_NAMES = new Set([
+  "CON",
+  "PRN",
+  "AUX",
+  "NUL",
+  ...["COM", "LPT"].flatMap((prefix) => [..."0123456789¹²³"].map((digit) => prefix + digit)),
+]);
+
+interface NameViolation {
+  rule: string;
+  character?: string;
+}
+
+// The first A-17 rule `name` breaks, in the engine's `CheckPortableName` order and vocabulary
+// (characters first, then reserved device names, then a trailing dot or space).
+function portableNameViolation(name: string): NameViolation | undefined {
+  for (const ch of name) {
+    const code = ch.charCodeAt(0);
+    if (code < 0x20) {
+      return { rule: "forbidden character", character: `control character 0x${code.toString(16).toUpperCase().padStart(2, "0")}` };
+    }
+    const character = FORBIDDEN_CHARACTER_NAMES[ch];
+    if (character !== undefined) return { rule: "forbidden character", character };
+  }
+  const stem = name.split(".", 1)[0]!;
+  if (RESERVED_DEVICE_NAMES.has(stem.trimEnd().toUpperCase())) return { rule: "reserved device name" };
+  if (name.endsWith(".")) return { rule: "trailing dot" };
+  if (name.endsWith(" ")) return { rule: "trailing space" };
+  return undefined;
+}
+
+/**
+ * Architecture A-17: rejects a source-relative path, as written on disk, when any of its
+ * components holds `{=` or `=}` or is a name Windows refuses — on every OS. A well-formed
+ * token holds only letters, digits, `_` and `@`, so it never trips this check.
+ */
+export function checkSourceName(relPath: string): void {
+  for (const name of relPath.split("/")) {
+    const violation: NameViolation | undefined =
+      name.includes("{=") || name.includes("=}") ? { rule: "template syntax" } : portableNameViolation(name);
+    if (violation === undefined) continue;
+    const suffix = violation.character === undefined ? "" : ` (${violation.character})`;
+    throw invalidInput(
+      `invalid input: scaffold file name "${relPath}": the name "${name}" breaks the rule "${violation.rule}"${suffix}`
+    );
+  }
+}
 
 /**
  * Translates on-disk filename tokens to the wire `pathTemplate` syntax the ENGINE

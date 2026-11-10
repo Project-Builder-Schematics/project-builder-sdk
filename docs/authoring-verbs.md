@@ -263,6 +263,21 @@ destination:
 3. **`.template` suffix strip** — applied last, so the marker must survive step 2 to be
    recognized.
 
+Before any of this, every file and folder name under `from` is checked as it is written on
+disk, including names that `include`/`exclude` would drop. A name is rejected on every
+operating system, and the call schedules nothing, when it:
+
+- holds `{=` or `=}` — use the `__name__` token form instead (a lone `{`, `}` or `=` is fine);
+- holds any of `|`, `"`, `<`, `>`, `:`, `?`, `*` or `\`, or a control character;
+- is a Windows device name before its first dot, in any letter case: `CON`, `PRN`, `AUX`,
+  `NUL`, `COM0`–`COM9`, `LPT0`–`LPT9`, or `COM`/`LPT` followed by `¹`, `²` or `³`
+  (`con.ts` and `NUL .txt` are rejected, `CONSOLE.ts` and `com10.ts` are not);
+- ends in a dot or a space.
+
+The error names the path and the rule, for example
+`invalid input: scaffold file name "src/a|b.ts": the name "a|b.ts" breaks the rule "forbidden character" (vertical bar)`.
+A token's key starts with a letter, so `___name__.ts` becomes `_{= .name =}.ts`.
+
 `include`/`exclude` filtering runs against the *original* source-relative path, using a
 hand-rolled minimal glob dialect: `*` matches within one path segment, `**` matches across
 segments. Each surviving entry is then classified by-value (rendered, emits `create`) or
