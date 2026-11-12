@@ -11,6 +11,8 @@ S3 — The proposal contains (orchestrator brief): "1. A current-state map: ever
 
 S4 — Sources to apply: project-builder-architecture origin/main 7ed257b (`CODE-LAYOUT.md`, `bounded-contexts/*`, Decision 19 = Discussion #1 comment 19464384); the method of engine `odd/tasks/hexagonal-layout.md` (origin/main 9b07d07) and CLI `odd/tasks/layout-contexts.md` (origin/main 081510a). Artifacts in English.
 
+S5 — The user's layout requirement, verbatim: "aqui necesito que tengamos: docs, bounded-context (si solo hay un subdomino entonces va plano en el folder del bounded-context pero sino con el nombre del subdominio), shared-kernel". Orchestrator reading: CODE-LAYOUT:7-33, kebab-case folders (`src/bounded-contexts/<ctx>/`, `src/shared-kernel/`), each context flat while it has one subdomain, `docs/` at the root per CODE-LAYOUT:21-22.
+
 ## Tasks
 
 | ID | Specs | Route | Status | Commit |
@@ -25,3 +27,5 @@ Route evidence: the maps needed far more than the inline evidence budget (three 
 L1 (2026-11-12, user via the orchestrator, verbatim): "para el sdk necesito lo siguiente, necesito que hagan la misma migracion que han estado haciendo engine y cli de pasar a DDD + hexagonal. Hay que primero armar la propuesta de esta misma, necesito que apliquen las reglas del repo de arquitectura".
 
 L2 (2026-11-12): proposal written from three maps. Key findings: the SDK implements Authoring (`bounded-contexts/authoring/README.md:5` "Repository: SDK"); whether it also has a Runner hosting folder is open (README:5 names the engine and the CLI, Discussion #1 puts "runner" in the SDK column, `runner-guard.feature` carries 32 `@sdk` tags). The runner closure (23 emitted files) and the `.d.ts`/tarball baselines follow dist paths, so moves in `src/core` and `src/transport` are risk item 3 and need the engine conformance run. Next step: the orchestrator takes the proposal and its open questions to the user.
+
+L3 (2026-11-12, user via the orchestrator, verbatim): "aqui necesito que tengamos: docs, bounded-context (si solo hay un subdomino entonces va plano en el folder del bounded-context pero sino con el nombre del subdominio), shared-kernel". Applied: target tree uses `src/bounded-contexts/` and `src/shared-kernel/` (kebab-case per CODE-LAYOUT:29), contexts flat; shared-kernel candidates named only for Q1 = yes (`framing.ts`, `wire-protocol.ts`), otherwise empty until a first piece exists; new section 3.2 lands today's docs under `docs/` (bounded-contexts, adr, contracts, guides) and a new slice S16 moves them. Open questions left unchanged (the orchestrator takes them to the user).

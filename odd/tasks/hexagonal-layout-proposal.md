@@ -12,6 +12,7 @@ Sources: project-builder-architecture origin/main 7ed257b — `CODE-LAYOUT.md` (
 - `composition` is the only file that knows use cases and concrete adapters; in TypeScript it exports `makeX(adapterA, adapterB)` (CL:102). Public entry points call each context's composition (CL:103).
 - The dependency rule (CL:122-131), enforced by an architecture test that fails the build (CL:133).
 - The public API does not change during the migration; renames are separate changes (CL:137-138).
+- The user's layout requirement (feature doc S5): `docs`, `bounded-context` folders that are flat when the context has one subdomain and split by subdomain name otherwise, and `shared-kernel` — CL:7-33. Folder names use kebab-case, the casing TypeScript allows (CL:29): `bounded-contexts/`, `shared-kernel/`, `runner-hosting/`.
 
 ## 1. Contexts the SDK implements
 
@@ -105,6 +106,7 @@ No cycle exists at file level; `core ↔ core/schema` is two-way only at folder 
 ## 3. Target layout
 
 ```
+docs/                                technical explanations (CL:22): one page per bounded context, ADRs, contracts — see 3.2
 src/
 ├── index.ts                         public entry  (@pbuilder/sdk)                 — unchanged path, thin
 ├── commons/index.ts                 public entry  (@pbuilder/sdk/commons)         — becomes a thin barrel
@@ -112,8 +114,8 @@ src/
 ├── conformance/index.ts             public entry  (@pbuilder/sdk/conformance)     — thin barrel
 ├── dialects/<name>/index.ts  ×7     public entries (@pbuilder/sdk/<name>)         — thin barrels
 ├── bin/pbuilder-runner.ts           process entry (dist/bin/pbuilder-runner.js)   — path kept (runner manifest)
-├── boundedcontexts/
-│   ├── authoring/
+├── bounded-contexts/
+│   ├── authoring/                   flat: one subdomain (CL:30-31)
 │   │   ├── domain/
 │   │   │   ├── aggregates/session/          session.ts
 │   │   │   ├── entities/                    dialect-handle.ts, base-handle.ts, handle-state.ts
@@ -129,27 +131,51 @@ src/
 │   │   │                                    dialects/<name>/ (AST library adapters, Q3), run-context (AsyncLocalStorage)
 │   │   ├── composition.ts                   makeAuthoring(engineClient, fs, …) and the per-dialect makeX
 │   │   └── testing/                         contract-fake.ts, run-for-test (runFactoryForTest), conformance fixture (Q4)
-│   └── runnerhosting/                       only if Q1 = yes: runner bootstrap, R-2 guard, single-instance probe,
-│                                            factory pointer, exit codes, error text, bootstrap bridge, composition.ts
+│   └── runner-hosting/                      only if Q1 = yes; flat: runner bootstrap, R-2 guard, single-instance probe,
+│                                            factory pointer, exit codes, bootstrap bridge, composition.ts
+├── shared-kernel/                           only when a first shared piece exists (CL:32) — see below
 ├── acl/
 │   └── irwire/                              Q6 for the name; mirrors the engine's acl/irwire
 │       ├── index.ts
 │       ├── irwire.out.acl.ts                Directive/Batch → wire frames; StdioEngineClient (implements EngineClient, CL:93)
 │       └── irwire.in.acl.ts                 frames → results; engine rejections → Authoring errors (emit-rejection)
-│       (framing.ts, frame-reader.ts, wire-protocol.ts sit beside them as the ACL's internals)
-└── platform/                                only if needed: deep-equal.ts, fs-errors.ts (CL:34, imported only by
-                                             infrastructure/, composition and public entries — CL:126)
+│       (frame-reader.ts sits beside them; framing.ts and wire-protocol.ts too unless Q1 moves them to shared-kernel/)
+└── platform/                                only if needed: deep-equal.ts, fs-errors.ts, error-text.ts (path scrubbing)
+                                             (CL:34, imported only by infrastructure/, composition and public entries — CL:126)
 ```
 
-No `sharedkernel/` and no `application/<name>/`: with one or two contexts nothing is shared "and agreed to change together" (CL:32), and no layer orchestrates several contexts (CL:38). This mirrors the engine's stance (engine doc :14, "Revisit if one appears").
+Each context is flat because each has a single subdomain (CL:30-31); a subdomain folder appears only if the architecture repository splits a context. No `application/<name>/`: no layer orchestrates several contexts (CL:38).
+
+**`shared-kernel/`** holds only code that several contexts share and agree to change together, and it imports no bounded context (CL:32). With Authoring alone there is nothing to put in it. If Q1 adds `runner-hosting/`, the candidates are the pieces both contexts use today and must change in lockstep:
+
+- `transport/framing.ts` — the frame codec and the only fd-1 writer (fit-31): the runner bootstrap writes frames with it (`src/bin/pbuilder-runner.ts`, `transport/bootstrap-bridge.ts`), and Authoring's engine client in `acl/irwire` reads and writes the same frames.
+- `transport/wire-protocol.ts` — the protocol version and frame types, imported by the runner (`transport/runner.ts`, `bootstrap-bridge.ts`) and by the engine client.
+
+The alternative is to keep both in `acl/irwire/` and let `runner-hosting` reach them through the ACL, which CL:131 also permits. What the runner takes from Authoring today (`core/context.ts` `defineFactory`, `core/authoring-error.ts`, `core/schema/schema-{locate,parse}.ts`) is not shared-kernel material: Runner hosting reaches Authoring through its `run-factory` use case and the types it exposes (CL:127, CL:131). `error-text.ts` carries no domain rules, so it goes to `platform/`. Until Q1 is answered no folder is created; it appears with its first piece.
+
+### 3.2 `docs/` at the repository root
+
+CL:21-22: "`handbook/` is the guide for contributing …"; "`docs/` holds technical explanations: one page per bounded context, ADRs and contracts." Proposed landing for what the SDK has today (moves happen in S16, separately from code):
+
+| Today | Lands in |
+|---|---|
+| — (new) | `docs/bounded-contexts/authoring.md` (and `runner-hosting.md` if Q1 = yes): one page per context — model, layers, ports, adapters, ACL |
+| `openspec/decisions/*.md` (84 ADRs) | `docs/adr/` with their numbers kept; `openspec/decisions/` left as a pointer or removed after links are updated |
+| `docs/engine-sdk-wire-spec.md`, `docs/engine-sdk-wire-design.md`, `ENGINE-RUNNER-MANIFEST-CONTRACT.md`, `SDK-RUNNER-MANIFEST-REPLY.md`, `ENGINE-REPLY-TO-MANIFEST-REPLY.md`, `SDK-EXIT-CODE-CONFIRMATION.md`, `CONFORMANCE-CORPUS-HANDOFF.md` | `docs/contracts/` (the IR wire, the runner manifest, exit codes, the conformance corpus) |
+| `docs/runner-integrity-invariants.md` | `docs/contracts/` (runner manifest) or `docs/bounded-contexts/runner-hosting.md` |
+| Author-facing guides: `docs/{quickstart,authoring-verbs,create-templates,pending-directives,authoring-errors,authoring-a-dialect,*-dialect}.md`, `docs/README.md` | `docs/guides/` — they explain how to use the public API; CL:22 does not name author guides, so this sub-folder is the proposal, not a rule. They also feed the public site (project-builder-docs), whose links must follow. |
+| `openspec/{architecture,architecture-audit,lessons-learned,pending-changes,…}.md` | stay in `openspec/` (process records, not technical explanations); `architecture.md` is superseded by `docs/bounded-contexts/*.md` in S15 |
+| `CONTRIBUTING.md` conventions | `handbook/` (CL:21) if the repository adopts it; Q8 |
+
+Moving docs touches `test/docs/*` (seven tests read `docs/` paths), README links and the docs site, so S16 updates them in the same commit.
 
 ### 3.1 Public API mapping — no change
 
 | `exports` subpath | Today | Target |
 |---|---|---|
 | `.` | `dist/index.js` | same file; re-exports the Authoring facade |
-| `./commons` | `dist/commons/index.js` | same file; thin barrel over `boundedcontexts/authoring/infrastructure/in` |
-| `./testing` | `dist/testing/index.js` | same file; barrel over `boundedcontexts/authoring/testing` |
+| `./commons` | `dist/commons/index.js` | same file; thin barrel over `bounded-contexts/authoring/infrastructure/in` |
+| `./testing` | `dist/testing/index.js` | same file; barrel over `bounded-contexts/authoring/testing` |
 | `./conformance` | `dist/conformance/index.js` | same file; barrel over the conformance fixture (Q4) |
 | `./typescript` … `./css` (7) | `dist/dialects/<name>/index.js` | same files; each calls `composition.ts` for its pack |
 | `bin.pbuilder-codegen` | `dist/bin/pbuilder-codegen.js` | same (bundled from repo-root `bin/`, Q5) |
@@ -163,7 +189,7 @@ A TypeScript translation of the engine's FF-45 and the CLI's `internal/arch`, bu
 
 - **File:** `test/fitness/fit-49-layering.test.ts` (next free number) with `test/support/layering/{classify,rules,exceptions}.ts`.
 - **Graph:** every `.ts` under `src/` and the repo-root `bin/`; edges from `import`/`export … from`, `import type`, dynamic `import("…")`, and `node:` specifiers. It reuses `stripComments` from `import-scan.ts` so JSDoc `@example` imports (e.g. `src/conformance/index.ts:51`) are not edges. A liveness check fails closed if the file count or edge count drops below a floor, or if a known edge (`transport/stdio-engine-client.ts → core/engine-client.ts`) goes missing — the engine's lesson that moves can silently hide code from a check (engine L33).
-- **Classification:** fail-closed, derived from the path for the target tree (CLI style: `boundedcontexts/<ctx>/<layer>`, `acl/<counterpart>/{in,out}`, `platform`, public entries), plus an explicit **legacy table** for today's folders, each with a dominant role and a `mixed` list (engine style), so the table shrinks as files move. An unknown path, context, layer or counterpart is an error.
+- **Classification:** fail-closed, derived from the path for the target tree (CLI style: `bounded-contexts/<ctx>/<layer>`, `acl/<counterpart>/{in,out}`, `platform`, public entries), plus an explicit **legacy table** for today's folders, each with a dominant role and a `mixed` list (engine style), so the table shrinks as files move. An unknown path, context, layer or counterpart is an error.
 - **Rules:** one named rule per CL line 122-131 (e.g. `ruleApplicationImports = "application/ imports only domain/ and sharedkernel/"`), plus `ruleTargetNeverImportsLegacy` (CLI S12c: target-layout code never imports the legacy tree; legacy → target stays unchecked until the legacy tree is empty).
 - **I/O rule (needs approval, Q10):** a `node:fs`, `node:child_process`, `node:net`, `process.stdin/stdout` import in `domain/` or `application/` is a violation. CODE-LAYOUT does not state it; it is the SDK's reading of CL:90 ("a filesystem adapter … lives in `infrastructure/out/` and implements a port").
 - **Exceptions:** `{ from, to, rule, reason, removedBy: "S<n>" }`. A row whose edge no longer exists or no longer breaks its rule fails the test ("stale exception — delete the row"), so the table can only shrink; a row's `rule` must equal the rule the edge actually breaks. A `CEILING` constant equal to today's row count; the test fails if the table is longer. Planned interim growth (engine L34) needs a logged decision.
@@ -194,17 +220,18 @@ Every slice: about 400 authored changed lines (pure moves count rewritten import
 | **S2** | Pure move: dialect kit → `authoring/domain` (`define-dialect` → `ports/dialect-contract`, handles → `entities/`, `dialect-error`, `json-value`, `classify-content`). fit-21 retargeted. | 3 | P-API, P-PACK, P-IR |
 | **S3** | Pure move: `pending-directives` → `application/usecases`; `scaffold/filename-pipeline` → `domain/services`; scaffold orchestration → `application/usecases/scaffold`; scaffold fs files → `infrastructure/out/fs` (V3 stays an exception until S10). fit-22 retargeted. | 3 | P-API, P-IR, scaffold tests |
 | **S4** | Pure move, runner closure: `session`, `directive-factory`, `authoring-error`, `input-rejection`, `schema/*` → `authoring/domain`; `wire.ts` split into the Directive VO (domain) and Batch/frame types (acl). Runner closure baseline and `derive-runner-closure.ts` updated. Split S4a/S4b if over budget. | **3** (runner manifest is a cross-repo contract), 5 | P-ENG, P-IR, P-API, closure diff limited to declared paths |
-| **S5** | Pure move: `transport/{stdio-engine-client,framing,frame-reader,wire-protocol}` + `core/emit-rejection` → `acl/irwire` (Q6). Removes V5, V6. fit-10/30/31 retargeted. | **3**, 4 (stdio ordering) | P-ENG, P-IR, transport tests |
-| **S6** | Pure move: runner bootstrap (`transport/runner`, factory-pointer, exit-codes, error-text, single-instance-probe, bootstrap-bridge) → `runnerhosting/` or `authoring/infrastructure/in/runner` per Q1. `src/bin/pbuilder-runner.ts` and the closure's entry keep their paths. fit-29 and `derive-runner-closure.ts` updated. | **3**, 2 (runner guard R-2 sits here), 5 | P-ENG, closure diff, fit-42 |
+| **S5** | Pure move: `transport/{stdio-engine-client,framing,frame-reader,wire-protocol}` + `core/emit-rejection` → `acl/irwire` (Q6); `framing`/`wire-protocol` go to `shared-kernel/` instead if Q1 = yes. Removes V5, V6. fit-10/30/31 retargeted. | **3**, 4 (stdio ordering) | P-ENG, P-IR, transport tests |
+| **S6** | Pure move: runner bootstrap (`transport/runner`, factory-pointer, exit-codes, error-text, single-instance-probe, bootstrap-bridge) → `bounded-contexts/runner-hosting/` or `authoring/infrastructure/in/runner` per Q1. `src/bin/pbuilder-runner.ts` and the closure's entry keep their paths. fit-29 and `derive-runner-closure.ts` updated. | **3**, 2 (runner guard R-2 sits here), 5 | P-ENG, closure diff, fit-42 |
 | **S7** | Pure move: `testing/` and `conformance/` internals → `authoring/testing/` (Q4); public entries stay. fit-17/18 retargeted. | 3 (`./testing` is public) | P-API, P-PACK, fit-17 marker check |
 | **S8** | Split `commons/index.ts`: facade → `infrastructure/in`, verb logic → `application/usecases`. Removes V4. | 3 | P-API, P-IR |
 | **S9** | Ports for filesystem reads: `source-folder` and `schema-source` ports in `domain/ports`, fs adapters in `infrastructure/out/fs`; `context.ts` and `schema-discovery` stop importing `node:fs`. Removes V1, V2. | 6 if a read path is untested → characterise first | P-IR, P-ENG, new port tests |
 | **S10** | Scaffold use case talks to the source-folder port; removes V3. | 3 (scaffold errors are public text) | P-IR, scaffold message tests |
-| **S11** | `boundedcontexts/authoring/composition.ts` (`makeX`) and, per Q1, `runnerhosting/composition.ts`; public entries and `bin/pbuilder-runner.ts` call composition (CL:102-103). | 3 | P-API, P-ENG |
+| **S11** | `bounded-contexts/authoring/composition.ts` (`makeX`) and, per Q1, `bounded-contexts/runner-hosting/composition.ts`; public entries and `bin/pbuilder-runner.ts` call composition (CL:102-103). | 3 | P-API, P-ENG |
 | **S12** | ARCH-2: JSX grammar and no-echo tail out of the kit into the React dialect. Removes V7. | 3 (reject messages) | dialect tests, P-API |
 | **S13** | Codegen per Q5 (driving adapter over Authoring's schema use cases); removes V8. | 3 (codegen output is public) | P-CG |
 | **S14** | Fold the import-only fitness tests (fit-01, 02, 07, 10, 15, 21, 22, 37, 38) into fit-49 rules or make them thin wrappers; keep tests that check more than imports (fit-29 caller set, fit-39 encode site, fit-42). Legacy table and exceptions reach zero. | 6 | red-proofs carried over, oracle matrix |
-| **S15** | Docs: rewrite `openspec/architecture.md` (stale at 0.2.0; line 65 "No `adapters/`/`ports/`/`usecases/`/`domain/` scaffold" becomes false), a layout ADR, `CONTRIBUTING.md` conventions, the hexagon drawing (domainrings, as engine D6). | — | structural readback |
+| **S15** | Docs content: `docs/bounded-contexts/authoring.md` (+ `runner-hosting.md` per Q1) replacing `openspec/architecture.md` (stale at 0.2.0; line 65 "No `adapters/`/`ports/`/`usecases/`/`domain/` scaffold" becomes false), a layout ADR, `CONTRIBUTING.md` conventions, the hexagon drawing (domainrings, as engine D6). | — | structural readback |
+| **S16** | Docs moves per 3.2: ADRs → `docs/adr/`, contracts → `docs/contracts/`, author guides → `docs/guides/`; update `test/docs/*`, README and cross-links; open a project-builder-docs issue for the site links. | 3 (links the docs site and engine docs consume) | `test/docs/*`, a link check over moved files |
 
 Renames to ubiquitous language are not in this plan (CL:138). Where a move forces a name change, it is a separate commit (engine M9).
 
