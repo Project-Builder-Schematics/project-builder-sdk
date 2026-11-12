@@ -10,7 +10,7 @@
     "type": "git",
     "url": "git+https://github.com/Project-Builder-Schematics/project-builder-sdk.git"
   },
-  "homepage": "https://github.com/Project-Builder-Schematics/project-builder-sdk#readme",
+  "homepage": "https://schematics.pbuilder.dev/",
   "bugs": {
     "url": "https://github.com/Project-Builder-Schematics/project-builder-sdk/issues"
   },
