@@ -307,9 +307,4 @@ describe("release operator guidance", () => {
     expect(text).toContain("## Amendment: manual stable publication");
     expect(text).toContain("required-reviewer approval remains mandatory");
   });
-  it("records the new deployment flow separately from the historical baseline", () => {
-    const text = readFileSync(join(ROOT, "openspec/architecture.md"), "utf8");
-    expect(text).toContain("Manual publication amendment (2026-09-11)");
-    expect(text).toContain("scripts/validate-release.ts");
-  });
 });

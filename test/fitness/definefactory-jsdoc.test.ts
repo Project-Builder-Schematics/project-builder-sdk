@@ -66,7 +66,7 @@ describe("REQ-FPS-05.2 (re-aim, bare-factory-migration) — defineFactory's JSDo
 describe("REQ-FPS-05.4 — README incremental-shipping qualifying line (reverted by stage-4b REQ-TSD-03)", () => {
   // The scenario's own text anticipated this flip: "this line is REVERTED when
   // stage-4b-testing-harness lands (temporary, stage-scoped qualifier)". `stage-4b`'s
-  // REQ-TSD-03 owns the revert (openspec/changes/stage-4b-testing-harness); this permanent
+  // REQ-TSD-03 owns the revert; this permanent
   // regression guard stays here so a future change can never silently reintroduce the
   // stale qualifier once the API this note qualified is real.
   const README_QUALIFYING_LINE =

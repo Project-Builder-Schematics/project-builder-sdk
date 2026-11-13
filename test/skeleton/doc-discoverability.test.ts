@@ -1,17 +1,17 @@
 /**
  * Doc-discoverability pins (authoring-error-contract REQ-AEC-03.2, REQ-AEC-04.3,
- * REQ-AEC-04.4; error-attribution-skeleton REQ-16.1) — all NON-DROPPABLE. The
+ * REQ-AEC-04.4) — all NON-DROPPABLE. The
  * `read-trichotomy-helper` domain's REQ-RT-03 doc-discoverability scenario lives instead
  * in `test/skeleton/classify-content.test.ts` (S-004, droppable) — droppability is
  * enforced by file placement, not by a flag in this file.
  *
- * Static text-scan over already-authored JSDoc (S-000) and the signed spec — same
+ * Static text-scan over already-authored JSDoc (S-000) — same
  * convention as FIT-06/FIT-08/FIT-09/pyramid-codification: readFileSync + regex, no
  * markdown/TS-AST parser dependency. [characterization] — pins shape already intended by
  * S-000's authoring-error.ts / commons/index.ts JSDoc, not a bug fix (RED taxonomy (d)).
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { jsDocBefore, PROJECT_ROOT } from "../support/jsdoc-scan.ts";
 
@@ -59,72 +59,5 @@ describe("REQ-AEC-04.4 — the five rejecting verbs cross-reference AuthoringErr
   it("remove() is the declared non-site and is NOT required to cross-reference AuthoringError (REQ-16)", () => {
     const doc = jsDocBefore(COMMONS_SOURCE, /^export function remove\(/);
     expect(doc).toContain("Idempotent");
-  });
-});
-
-/**
- * REQ-16.1 is a documentation-review requirement ("declared non-sites"), not a runtime
- * behavior — its artifact of record is the signed spec, not production source. Resolves
- * across the change lifecycle: the active change folder today, its archived location
- * after `sdd-archive` moves the folder, or the synced main spec as a last resort.
- */
-function resolveDeclaredNonSitesSpec(): string {
-  const specRelative = join("specs", "error-attribution-skeleton", "spec.md");
-
-  const activePath = join(PROJECT_ROOT, "openspec", "changes", "stage-2-error-attribution", specRelative);
-  if (existsSync(activePath)) return readFileSync(activePath, "utf-8");
-
-  const archiveRoot = join(PROJECT_ROOT, "openspec", "changes", "archive");
-  if (existsSync(archiveRoot)) {
-    const archivedChange = readdirSync(archiveRoot).find((entry) => entry.endsWith("-stage-2-error-attribution"));
-    if (archivedChange) {
-      const archivedPath = join(archiveRoot, archivedChange, specRelative);
-      if (existsSync(archivedPath)) return readFileSync(archivedPath, "utf-8");
-    }
-  }
-
-  const mainSpecPath = join(PROJECT_ROOT, "openspec", "specs", "error-attribution-skeleton", "spec.md");
-  if (existsSync(mainSpecPath)) {
-    const mainSpec = readFileSync(mainSpecPath, "utf-8");
-    if (mainSpec.includes("REQ-16")) return mainSpec;
-  }
-
-  throw new Error(
-    "REQ-16 non-sites declaration not found in the active change spec, its archived location, " +
-      "or the synced main spec — the doc-discoverability pin has nothing to check."
-  );
-}
-
-describe("REQ-16.1 — the five declared non-sites are named, not silently absent", () => {
-  const specContent = resolveDeclaredNonSitesSpec();
-
-  const nonSites: Array<{ label: string; reasonKeyword: string }> = [
-    { label: "Commit-time rejection", reasonKeyword: "never rejects" },
-    { label: "remove` (wire `delete`)", reasonKeyword: "Idempotent" },
-    { label: "Read transport", reasonKeyword: "never rejects" },
-    { label: "Template-render rejection", reasonKeyword: "Stage 6" },
-    { label: "double-fault (E1/E2) machinery", reasonKeyword: "OUT OF SCOPE" },
-  ];
-
-  for (const { label, reasonKeyword } of nonSites) {
-    it(`"${label}" is named with a reason (contains "${reasonKeyword}")`, () => {
-      const idx = specContent.indexOf(label);
-      expect(idx).toBeGreaterThanOrEqual(0);
-      const window = specContent.slice(idx, idx + 400);
-      expect(window).toContain(reasonKeyword);
-    });
-  }
-
-  it("exactly five non-sites are declared (table row count)", () => {
-    // Every non-site row lives in the "Non-site | Why" table — count data rows, not the
-    // header/separator.
-    const tableStart = specContent.indexOf("| Non-site | Why |");
-    expect(tableStart).toBeGreaterThanOrEqual(0);
-    const tableSection = specContent.slice(tableStart, specContent.indexOf("\n\n", tableStart));
-    const dataRows = tableSection
-      .split("\n")
-      .slice(2) // header + separator
-      .filter((line) => line.trim().startsWith("|"));
-    expect(dataRows.length).toEqual(5);
   });
 });

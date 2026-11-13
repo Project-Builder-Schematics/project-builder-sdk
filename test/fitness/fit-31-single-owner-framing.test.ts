@@ -11,10 +11,6 @@
  * vacuous or falsely flag that pre-existing, already-audited S-000 code. The scan below is
  * scoped to frame ENCODING (`writeUInt32BE`, the construction half of the codec), which
  * `framing.ts`'s `encodeFrame` is genuinely the sole owner of.
- *
- * Also carries REQ-LED-01's "fit-31-style ledger-presence scan" (spec.md's own attribution) —
- * bundled here rather than as a 7th numbered check, since slices.md's Executor Context ruling
- * fixes the new-check count at exactly six (fit-30..35).
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -27,10 +23,8 @@ const TRANSPORT_DIR = join(PROJECT_ROOT, "src/transport");
 const FRAMING_FILE = join(TRANSPORT_DIR, "framing.ts");
 const DESIGN_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-design.md");
 const WIRE_SPEC_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-spec.md");
-const PENDING_CHANGES_PATH = join(PROJECT_ROOT, "openspec/pending-changes.md");
 
 const DESIGN_DOC_TEXT = readFileSync(DESIGN_DOC_PATH, "utf-8");
-const PENDING_CHANGES_TEXT = readFileSync(PENDING_CHANGES_PATH, "utf-8");
 
 // ---------------------------------------------------------------------------------------
 // single-owner-of-framing (design § 4.7): only framing.ts constructs a frame's length prefix.
@@ -105,44 +99,7 @@ function missingMandatedSections(text: string): string[] {
   return MANDATED_SECTIONS.filter(({ pattern }) => !pattern.test(text)).map(({ label }) => label);
 }
 
-// ---------------------------------------------------------------------------------------
-// REQ-LED-01 ("fit-31-style ledger-presence scan", spec.md's own attribution): the pending-
-// changes ledger names the cross-repo tether + Windows/macOS-pins rows, and the closed
-// StdioEngineClient row carries a supersession note naming all three superseded decisions.
-// ---------------------------------------------------------------------------------------
-
-function ledgerTetherViolations(text: string): string[] {
-  const violations: string[] = [];
-  const tetherLine = text
-    .split("\n")
-    .find((line) => /PC-PROTO-01/.test(line) && /MUST build against/i.test(line) && /rev.?3/i.test(line) && /wire-spec/i.test(line));
-  if (tetherLine === undefined) {
-    violations.push("no cross-repo tether row naming 'engine PC-PROTO-01 MUST build against rev-3 + wire-spec v{N}'");
-  }
-  const windowsMacosLine = text.split("\n").find((line) => /Windows/.test(line) && /macOS/.test(line) && /(pins|deferred)/i.test(line));
-  if (windowsMacosLine === undefined) {
-    violations.push("no deferred Windows/macOS-pins row");
-  }
-  return violations;
-}
-
-// Table rows in this ledger are single (very long) lines — scanning per-LINE for a row that
-// names BOTH the row's subject and its closure marker avoids matching an unrelated line that
-// merely mentions "StdioEngineClient" in passing (e.g. a cross-reference in a DIFFERENT row).
-function ledgerSupersessionViolations(text: string): string[] {
-  const violations: string[] = [];
-  const closedLine = text.split("\n").find((line) => line.includes("StdioEngineClient") && /CLOSED/.test(line));
-  if (closedLine === undefined) {
-    violations.push("no CLOSED StdioEngineClient row found");
-    return violations;
-  }
-  if (!/NDJSON/.test(closedLine)) violations.push("closed row's supersession note omits NDJSON");
-  if (!/session\.init/.test(closedLine)) violations.push("closed row's supersession note omits session.init");
-  if (!/(argv|bridge)/i.test(closedLine)) violations.push("closed row's supersession note omits the argv/bridge bootstrap mechanism");
-  return violations;
-}
-
-describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconciliation + REQ-LED-01 ledger scan", () => {
+describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconciliation", () => {
   describe("single-owner-of-framing — only framing.ts constructs a length-prefix frame", () => {
     it("the walk reaches the real transport modules (non-vacuous)", () => {
       const files = collectTsFiles(TRANSPORT_DIR);
@@ -208,25 +165,6 @@ describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconcili
       const fixture = "# Doc\n\n## Frame Grammar (WPS-01)\n\n## Ready Handshake (WPS-02)\n";
       const missing = missingMandatedSections(fixture);
       expect(missing).toContain("exit-code taxonomy (EXC-01)");
-    });
-  });
-
-  describe("REQ-LED-01 — pending-changes ledger reconciled (fit-31-style ledger-presence scan)", () => {
-    it("openspec/pending-changes.md names the cross-repo tether row and the Windows/macOS-pins row", () => {
-      expect(ledgerTetherViolations(PENDING_CHANGES_TEXT)).toEqual([]);
-    });
-
-    it("openspec/pending-changes.md's closed StdioEngineClient row carries a full supersession note", () => {
-      expect(ledgerSupersessionViolations(PENDING_CHANGES_TEXT)).toEqual([]);
-    });
-
-    it("[red-proof] a ledger with no tether/Windows rows is caught", () => {
-      expect(ledgerTetherViolations("# Pending\n\nnothing here\n").length).toBeGreaterThan(0);
-    });
-
-    it("[red-proof] a closed row missing one superseded decision is caught", () => {
-      const fixture = "CLOSED — StdioEngineClient row: superseded NDJSON and session.init.";
-      expect(ledgerSupersessionViolations(fixture).length).toBeGreaterThan(0);
     });
   });
 });

@@ -501,7 +501,7 @@ describe("addImport / removeImport — REQ-TSD-01.25 match-cardinality asymmetry
 });
 
 describe("addImport — REQ-TSD-01.33 shebang fallback (S-004, ts-addimport-collision, ADR-03)", () => {
-  it("REQ-TSD-01.33: a shebang file stays a HANDLE-contained fail-closed reject — pinned message, .cause undefined, zero directives, byte-unchanged (ADR-03 fallback; shebang-aware insertion deferred, see openspec/pending-changes.md)", async () => {
+  it("REQ-TSD-01.33: a shebang file stays a HANDLE-contained fail-closed reject — pinned message, .cause undefined, zero directives, byte-unchanged (ADR-03 fallback; shebang-aware insertion deferred)", async () => {
     const seed = "#!/usr/bin/env node\nconst x = 1;\n";
     const { client, emitted } = makeSpyClient({ "a.ts": seed });
 

@@ -16,7 +16,6 @@ import { extractSection } from "../support/markdown-section.ts";
 const SECURITY_PATH = join(PROJECT_ROOT, "SECURITY.md");
 const DOC_PATH = join(PROJECT_ROOT, "docs/authoring-a-dialect.md");
 const PUBLISH_WORKFLOW_PATH = join(PROJECT_ROOT, ".github/workflows/publish.yml");
-const SENSITIVE_AREAS_PATH = join(PROJECT_ROOT, "openspec/sensitive-areas.md");
 const AUTHORING_ERRORS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-errors.md");
 const PENDING_DIRECTIVES_DOC_PATH = join(PROJECT_ROOT, "docs/pending-directives.md");
 const AUTHORING_ERROR_SRC_PATH = join(PROJECT_ROOT, "src/core/authoring-error.ts");
@@ -24,7 +23,6 @@ const AUTHORING_VERBS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-verbs.md");
 
 const security = () => readFileSync(SECURITY_PATH, "utf-8");
 const doc = () => readFileSync(DOC_PATH, "utf-8");
-const sensitiveAreas = () => readFileSync(SENSITIVE_AREAS_PATH, "utf-8");
 
 // Frozen strings — design.md §4.4b, migrated by S-004 (author-write-surface, REQ-STD-01/
 // REQ-DAS-01.2) to the shipped `.modify(fn)` name. Copied verbatim; do not paraphrase.
@@ -228,19 +226,5 @@ describe("REQ-PSH-05.1 — SECURITY.md carries the owner-verified engine symlink
     const withoutAttestation = content.replace(SYMLINK_APPLY_TIME_ATTESTATION_PHRASE, "");
     expect(withoutAttestation).not.toContain(SYMLINK_APPLY_TIME_ATTESTATION_PHRASE);
     expect(withoutAttestation).toContain(PSH_05_POSTURE_PHRASE_2);
-  });
-});
-
-describe("S-002 registry deliverable — sensitive-areas.md promotion (constraint 9)", () => {
-  it('the "security (code execution)" row reads `high`, not `medium`', () => {
-    const row = sensitiveAreas()
-      .split("\n")
-      .find((line) => line.startsWith("| security (code execution)"));
-    expect(row).toBeDefined();
-    expect(row).toContain("| high |");
-  });
-
-  it('the stale "All entries are `confidence: low` and **anticipated**" sentence is absent', () => {
-    expect(sensitiveAreas()).not.toContain("All entries are `confidence: low` and **anticipated**");
   });
 });
