@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from "node:async_hooks";
 import type { EngineClient } from "./engine-client.ts";
 import { DirectiveFactory } from "./directive-factory.ts";
 import { Session } from "./session.ts";
@@ -19,8 +18,6 @@ export interface SessionContext {
         packageDir: string;
     };
 }
-export declare const SESSION_ALS_REGISTRY_KEY = "@pbuilder/sdk:core/context#session-als";
-export declare function resolveSessionAls(slotValue: unknown): AsyncLocalStorage<SessionContext>;
 export declare function isDefineFactoryWrapped(value: unknown): boolean;
 export declare function currentContext(): SessionContext;
 export declare function requirePackageAnchors(missingAnchorMessage: string): {

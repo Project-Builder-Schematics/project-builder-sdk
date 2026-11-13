@@ -1,5 +1,5 @@
 import type { SourceFile } from "ts-morph";
-import { type Handle } from "../../core/define-dialect.ts";
+import { type Handle } from "../../../../domain/services/define-dialect.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 export * as astLibrary from "ts-morph";
 type ModuleOps = {

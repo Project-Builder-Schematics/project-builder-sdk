@@ -1,13 +1,13 @@
 import type { JsonValue } from "../core/wire.ts";
-import type { FoundHandle, WritableHandle } from "../core/handle-state.ts";
+import type { FoundHandle, WritableHandle } from "../bounded-contexts/authoring/domain/entities/handle-state.ts";
 import { AuthoringError } from "../core/authoring-error.ts";
 import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../core/authoring-error.ts";
 import type { ScaffoldArgs } from "../scaffold/index.ts";
 export type { FoundHandle, WritableHandle };
 export { AuthoringError };
 export type { AuthoringVerb, AuthoringReason, AuthoringOrigin };
-export { classifyContent } from "./classify-content.ts";
-export type { ContentState } from "./classify-content.ts";
+export { classifyContent } from "../bounded-contexts/authoring/domain/services/classify-content.ts";
+export type { ContentState } from "../bounded-contexts/authoring/domain/services/classify-content.ts";
 /**
  * Options for the `create` author verb.
  *
