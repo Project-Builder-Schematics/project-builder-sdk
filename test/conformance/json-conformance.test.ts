@@ -6,7 +6,7 @@
 import { describe, it, expect, setDefaultTimeout } from "bun:test";
 import * as expectedAstLibrary from "jsonc-parser";
 import * as json from "../../src/dialects/json/index.ts";
-import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { parse, print, type JsonDocument } from "../../src/dialects/json/ast.ts";
 import * as ops from "../../src/dialects/json/ops.ts";
 import { testDialect, testOpPack, type DialectFixture, type OpPackFixture } from "../../src/conformance/index.ts";

@@ -1,7 +1,7 @@
 // Presentation ops only YAML has: comments, anchors, aliases, merge keys, styles, and tags.
 
 import { Alias, Document, Pair, Scalar, isAlias, isMap, isScalar, isSeq, parseDocument, visit, type Node, type YAMLMap } from "yaml";
-import { deepEqual } from "../../core/deep-equal.ts";
+import { deepEqual } from "../../platform/deep-equal.ts";
 import type { YamlStream } from "./ast.ts";
 import {
   assertAliasesResolve,

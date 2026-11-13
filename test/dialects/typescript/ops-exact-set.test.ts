@@ -16,7 +16,7 @@ import { describe, it, expect } from "bun:test";
 import * as ts from "../../../src/dialects/typescript/index.ts";
 import { makeSpyClient } from "../../support/spy-client.ts";
 import { defineFactory } from "../../../src/core/context.ts";
-import { RESERVED_HANDLE_NAMES } from "../../../src/core/define-dialect.ts";
+import { RESERVED_HANDLE_NAMES } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 
 // Derived, not hand-typed: this filter is mechanical (strip the base surface, keep the
 // op-pack keys) — the byte-exact order/membership pin lives in REQ-DG-02.7.

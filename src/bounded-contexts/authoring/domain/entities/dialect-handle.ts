@@ -7,12 +7,12 @@
 // fitness-pinned. Only the PUBLIC `find(path)` signature and the `Handle<State, Ast, Ops>`
 // TYPE (define-dialect.ts) are frozen.
 
-import { currentContext } from "./context.ts";
-import { dialectError, isContained } from "./dialect-error.ts";
-import type { DirectiveFactory } from "./directive-factory.ts";
-import type { OpPack, Handle, Query } from "./define-dialect.ts";
-import type { Session } from "./session.ts";
-import type { Directive } from "./wire.ts";
+import { currentContext } from "../../../../core/context.ts";
+import { dialectError, isContained } from "../valueobjects/dialect-error.ts";
+import type { DirectiveFactory } from "../../../../core/directive-factory.ts";
+import type { OpPack, Handle, Query } from "../services/define-dialect.ts";
+import type { Session } from "../../../../core/session.ts";
+import type { Directive } from "../../../../core/wire.ts";
 
 interface DialectAst<Ast> {
   parse(source: string): Ast;

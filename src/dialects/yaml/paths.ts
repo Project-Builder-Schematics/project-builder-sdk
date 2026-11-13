@@ -2,8 +2,8 @@
 // node replacement that keeps comments and anchors, and the alias-order invariant.
 
 import { Pair, Scalar, isAlias, isMap, isNode, isScalar, isSeq, visit, type Document, type Node, type YAMLMap, type YAMLSeq } from "yaml";
-import { dialectError } from "../../core/dialect-error.ts";
-import { assertJsonValue, formatPath, type JsonPath, type JsonValue } from "../../core/json-value.ts";
+import { dialectError } from "../../bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { assertJsonValue, formatPath, type JsonPath, type JsonValue } from "../../bounded-contexts/authoring/domain/valueobjects/json-value.ts";
 import { newDocument, type YamlStream } from "./ast.ts";
 
 export type YamlValue = JsonValue;

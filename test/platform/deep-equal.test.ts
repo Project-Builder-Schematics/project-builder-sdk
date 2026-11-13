@@ -4,7 +4,7 @@
  * src/conformance/index.ts and src/testing/contract-fake.ts as their shared implementation.
  */
 import { describe, it, expect } from "bun:test";
-import { deepEqual } from "../../src/core/deep-equal.ts";
+import { deepEqual } from "../../src/platform/deep-equal.ts";
 
 describe("deep-equal — structural equality", () => {
   it("primitives equal via Object.is", () => {

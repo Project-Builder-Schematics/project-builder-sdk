@@ -15,7 +15,7 @@
 import { existsSync } from "node:fs";
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
-import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { parse, print } from "../../src/dialects/typescript/ast.ts";
 import { addImport } from "../../src/dialects/typescript/ops.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";

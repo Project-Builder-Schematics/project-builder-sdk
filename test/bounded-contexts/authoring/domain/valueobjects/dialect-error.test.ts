@@ -5,7 +5,7 @@
  * dialect-handle.ts's #invokeContained consumes them.
  */
 import { describe, it, expect } from "bun:test";
-import { dialectError, isContained } from "../../src/core/dialect-error.ts";
+import { dialectError, isContained } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
 
 describe("dialect-error — dialectError() + isContained() (WeakSet brand)", () => {
   it("dialectError(tail) builds a message with the frozen prefix and the given tail", () => {

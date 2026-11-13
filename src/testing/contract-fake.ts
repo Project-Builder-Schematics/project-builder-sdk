@@ -10,7 +10,7 @@ import type { EngineClient } from "../core/engine-client.ts";
 import type { Batch, Directive } from "../core/wire.ts";
 import { EMIT_BATCH_BUDGET_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES, exceedsEmitBatchBudget } from "../core/wire.ts";
 import { EmitRejection } from "../core/emit-rejection.ts";
-import { deepEqual } from "../core/deep-equal.ts";
+import { deepEqual } from "../platform/deep-equal.ts";
 import {
   CONTRACT_FAKE_PREFIX,
   ALREADY_EXISTS,

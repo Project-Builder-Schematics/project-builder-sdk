@@ -2,8 +2,8 @@
 // and "array" as sequence.
 
 import { isAlias, isMap, isSeq, type Document, type Node, type YAMLMap, type YAMLSeq } from "yaml";
-import { deepEqual } from "../../core/deep-equal.ts";
-import { formatPath } from "../../core/json-value.ts";
+import { deepEqual } from "../../platform/deep-equal.ts";
+import { formatPath } from "../../bounded-contexts/authoring/domain/valueobjects/json-value.ts";
 import type { YamlStream } from "./ast.ts";
 import {
   assertAliasesResolve,

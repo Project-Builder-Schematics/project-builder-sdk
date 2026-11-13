@@ -9,10 +9,10 @@ import {
   type ObjectLiteralExpression,
   type SourceFile,
 } from "ts-morph";
-import { dialectError } from "../../core/dialect-error.ts";
-import { handlePathFor } from "../../core/dialect-handle.ts";
-import { elementNameEcho } from "../../core/reject-tail.ts";
-import { assertValidImportBinding, assertValidPropertyKey } from "../../core/jsx-name-validator.ts";
+import { dialectError } from "../../bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { handlePathFor } from "../../bounded-contexts/authoring/domain/entities/dialect-handle.ts";
+import { elementNameEcho } from "../../bounded-contexts/authoring/domain/services/reject-tail.ts";
+import { assertValidImportBinding, assertValidPropertyKey } from "../../bounded-contexts/authoring/domain/services/jsx-name-validator.ts";
 import { parse } from "./ast.ts";
 
 /** A string is an object key; `{ key: "value" }` selects the only array element whose `key` is that string. */

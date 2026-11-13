@@ -5,9 +5,9 @@ import {
   type ObjectLiteralExpression,
   type SourceFile,
 } from "ts-morph";
-import { dialectError } from "../../core/dialect-error.ts";
-import { handlePathFor } from "../../core/dialect-handle.ts";
-import { assertValidImportBinding } from "../../core/jsx-name-validator.ts";
+import { dialectError } from "../../bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { handlePathFor } from "../../bounded-contexts/authoring/domain/entities/dialect-handle.ts";
+import { assertValidImportBinding } from "../../bounded-contexts/authoring/domain/services/jsx-name-validator.ts";
 import { appendEntry } from "../typescript/array-element.ts";
 import { addImport } from "../typescript/ops.ts";
 

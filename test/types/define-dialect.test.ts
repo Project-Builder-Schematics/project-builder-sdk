@@ -20,7 +20,7 @@ import {
   type Dialect,
   type OpPack,
   type Handle,
-} from "../../src/core/define-dialect.ts";
+} from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 
 interface Ast {
   lines: string[];

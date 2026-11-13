@@ -13,11 +13,11 @@
 // "don't care about the concrete Ast" erasure this bare form needs.
 
 import { basename } from "node:path";
-import type { ReadOps } from "./base-handle.ts";
-import { createDialectHandle } from "./dialect-handle.ts";
-import { dialectError } from "./dialect-error.ts";
+import type { ReadOps } from "../entities/base-handle.ts";
+import { createDialectHandle } from "../entities/dialect-handle.ts";
+import { dialectError } from "../valueobjects/dialect-error.ts";
 
-export { query } from "./dialect-handle.ts";
+export { query } from "../entities/dialect-handle.ts";
 
 // An op mutates the live AST in place; `never[]` at the descriptor level lets each op
 // declare its OWN trailing arg tuple (bound away from `ast` by `OpMethods` below).

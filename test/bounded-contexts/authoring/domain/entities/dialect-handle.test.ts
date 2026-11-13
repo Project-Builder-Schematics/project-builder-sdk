@@ -15,16 +15,16 @@
  * Every find()-only chain pre-seeds its target (flush-seed-rule, REQ-MC-04, Stage 3 §4.6b).
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
-import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
-import { dialectError } from "../../src/core/dialect-error.ts";
-import { pendingDirectives } from "../../src/commons/index.ts";
-import * as ts from "../../src/dialects/typescript/index.ts";
-import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
-import { ContractFake } from "../support/contract-fake.ts";
-import { assertNoLeak } from "../support/assert-no-leak.ts";
-import { toyDialect, PARSE_FAIL_SENTINEL, type ToyAst } from "../fixtures/toy-dialect/index.ts";
-import { asyncRejectingOp } from "../fixtures/red/dialect-generics/async-op-rejects.ts";
+import { defineFactory } from "../../../../../src/core/context.ts";
+import { defineDialect, defineOpPack, withOps } from "../../../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { dialectError } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { pendingDirectives } from "../../../../../src/commons/index.ts";
+import * as ts from "../../../../../src/dialects/typescript/index.ts";
+import { makeSpyClient, collectModifies } from "../../../../support/spy-client.ts";
+import { ContractFake } from "../../../../support/contract-fake.ts";
+import { assertNoLeak } from "../../../../support/assert-no-leak.ts";
+import { toyDialect, PARSE_FAIL_SENTINEL, type ToyAst } from "../../../../fixtures/toy-dialect/index.ts";
+import { asyncRejectingOp } from "../../../../fixtures/red/dialect-generics/async-op-rejects.ts";
 
 // S-000 — a dedicated synthetic dialect (generic ADR-0037 mechanism proof, constraint 7):
 // REQ-DG-06/07's containment/fail-closed contract is proven here against a synthetic

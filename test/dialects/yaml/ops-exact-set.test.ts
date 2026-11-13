@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test";
 import * as yaml from "../../../src/dialects/yaml/index.ts";
 import { makeSpyClient } from "../../support/spy-client.ts";
 import { defineFactory } from "../../../src/core/context.ts";
-import { RESERVED_HANDLE_NAMES } from "../../../src/core/define-dialect.ts";
+import { RESERVED_HANDLE_NAMES } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 
 const BASE_HANDLE_KEYS: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
 

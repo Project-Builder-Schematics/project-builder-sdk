@@ -93,12 +93,12 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
   },
   {
     baselineFile: join(BASELINE_DIR, "core.handle-state.d.ts"),
-    distFile: join(DIST_DIR, "core/handle-state.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/domain/entities/handle-state.d.ts"),
     label: "core/handle-state",
   },
   {
     baselineFile: join(BASELINE_DIR, "core.base-handle.d.ts"),
-    distFile: join(DIST_DIR, "core/base-handle.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/domain/entities/base-handle.d.ts"),
     label: "core/base-handle",
   },
   {
@@ -108,7 +108,7 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
   },
   {
     baselineFile: join(BASELINE_DIR, "commons.classify-content.d.ts"),
-    distFile: join(DIST_DIR, "commons/classify-content.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/domain/services/classify-content.d.ts"),
     label: "commons/classify-content",
   },
   {
@@ -151,7 +151,7 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     // this pair re-freezes it. The baseline's content must exhibit both `replaceContent` and
     // `modify(fn:...)` among `Handle`'s members, with ZERO occurrences of `raw`.
     baselineFile: join(BASELINE_DIR, "core.define-dialect.d.ts"),
-    distFile: join(DIST_DIR, "core/define-dialect.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/domain/services/define-dialect.d.ts"),
     label: "core/define-dialect",
   },
 ];

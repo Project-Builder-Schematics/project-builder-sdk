@@ -7,7 +7,7 @@
 // production or conformance code — S-004's conformance fixtures target the REAL TypeScript
 // dialect only. This file exists solely to de-risk S-002's ts-morph landing.
 
-import { defineDialect, defineOpPack, withOps } from "../../../src/core/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 
 /** Ast = one line per array entry. */
 export type ToyAst = string[];

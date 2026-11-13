@@ -20,7 +20,7 @@
 // DEV CONVENIENCE: `bun run typecheck:permissive-proof` still runs tsc against
 // `tsconfig.permissive-proof.json`; expect TS2578 on the [idiom-1] line and none on [idiom-2] lines.
 
-import type { ReadOps, WriteOps } from "../../src/core/base-handle.ts";
+import type { ReadOps, WriteOps } from "../../src/bounded-contexts/authoring/domain/entities/base-handle.ts";
 import { create } from "../../src/commons/index.ts";
 
 // PermissiveWritableHandle: WritableHandle + remove() — the mutation that real WritableHandle forbids.
@@ -40,7 +40,7 @@ void _negativeWouldBeUnused;
 
 // Assignability: PermissiveWritableHandle IS assignable to FoundHandle (it has remove).
 // In the real suite, WritableHandle is NOT assignable to FoundHandle — that's what we protect.
-import type { FoundHandle } from "../../src/core/handle-state.ts";
+import type { FoundHandle } from "../../src/bounded-contexts/authoring/domain/entities/handle-state.ts";
 type _PermissiveAssignable = PermissiveWritableHandle extends FoundHandle ? true : false;
 // This should be `true` (unlike the real WritableHandle which resolves to `false`).
 // Asserting it: if this becomes false, the proof fixture is broken.

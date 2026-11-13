@@ -8,7 +8,7 @@
 // smuggling failure mode REQ-DC-04.2 mandates: `JSON.stringify` THROWS here, vs.
 // closure-smuggle-violation.ts's SILENT key-drop — both must be caught, not just one.
 import { parse } from "../../../src/dialects/typescript/ast.ts";
-import { defineDialect, defineOpPack } from "../../../src/core/define-dialect.ts";
+import { defineDialect, defineOpPack } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import type { SourceFile } from "ts-morph";
 import type { OpPackFixture } from "../../../src/conformance/index.ts";
 

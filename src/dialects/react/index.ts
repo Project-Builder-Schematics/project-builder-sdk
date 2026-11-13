@@ -6,8 +6,8 @@
 
 import { basename } from "node:path";
 import type { SourceFile } from "ts-morph";
-import { byExtension, defineDialect, defineOpPack, overrideOps, withOps, withoutOps, type Handle } from "../../core/define-dialect.ts";
-import { dialectError } from "../../core/dialect-error.ts";
+import { byExtension, defineDialect, defineOpPack, overrideOps, withOps, withoutOps, type Handle } from "../../bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { dialectError } from "../../bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
 import { addClassProperty } from "../typescript/class-property.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import { parse, parseJsx, print } from "./ast.ts";

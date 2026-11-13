@@ -9,7 +9,7 @@
 // no `counts[tag]++`. Set/Map/`===` only. This, not denylist width, is the real Stage-4b
 // `__proto__` defence (test/dialects/react/name-validation.test.ts pins it via static scan).
 
-import { dialectError } from "./dialect-error.ts";
+import { dialectError } from "../valueobjects/dialect-error.ts";
 import { boundedFragment, nameRuleTail } from "./reject-tail.ts";
 
 // judgment-day (comment-only fix): "Frozen" previously implied a RUNTIME immutability

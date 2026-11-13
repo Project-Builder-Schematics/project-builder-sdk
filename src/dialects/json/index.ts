@@ -1,5 +1,5 @@
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
-import type { JsonPath, JsonValue } from "../../core/json-value.ts";
+import { defineDialect, defineOpPack, withOps, type Handle } from "../../bounded-contexts/authoring/domain/services/define-dialect.ts";
+import type { JsonPath, JsonValue } from "../../bounded-contexts/authoring/domain/valueobjects/json-value.ts";
 import { parse, print, type JsonDocument } from "./ast.ts";
 import {
   addKey,

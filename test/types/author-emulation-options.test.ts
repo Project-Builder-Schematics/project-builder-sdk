@@ -11,7 +11,7 @@
 import { describe, test } from "bun:test";
 import { expectTypeOf } from "expect-type";
 import { create } from "../../src/commons/index.ts";
-import type { WritableHandle } from "../../src/core/handle-state.ts";
+import type { WritableHandle } from "../../src/bounded-contexts/authoring/domain/entities/handle-state.ts";
 import type { Input } from "../fixtures/author-emulation/schema.generated.ts";
 
 describe("author-emulation fixture — typed options compile against the generated Input (REQ-AEG-03.1)", () => {

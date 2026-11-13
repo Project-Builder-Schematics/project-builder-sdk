@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
-import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { parse, print } from "../../src/dialects/typescript/ast.ts";
 import { typescriptOps } from "../../src/dialects/typescript/pack.ts";
 import { addController, addExport, addModuleImport, addProvider } from "../../src/dialects/nestjs/ops.ts";

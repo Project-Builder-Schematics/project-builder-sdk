@@ -4,10 +4,10 @@
  */
 import { describe, it, expect } from "bun:test";
 import { expectTypeOf } from "expect-type";
-import { defineFactory } from "../../src/core/context.ts";
-import { defineDialect, defineOpPack, query, withOps } from "../../src/core/define-dialect.ts";
-import { dialectError } from "../../src/core/dialect-error.ts";
-import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
+import { defineFactory } from "../../../../../src/core/context.ts";
+import { defineDialect, defineOpPack, query, withOps } from "../../../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { dialectError } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { makeSpyClient, collectModifies } from "../../../../support/spy-client.ts";
 
 type Lines = string[];
 

@@ -8,9 +8,9 @@ import {
   type Node,
   type ParseError,
 } from "jsonc-parser";
-import { deepEqual } from "../../core/deep-equal.ts";
-import { dialectError } from "../../core/dialect-error.ts";
-import { assertJsonValue, formatPath, type JsonPath, type JsonValue } from "../../core/json-value.ts";
+import { deepEqual } from "../../platform/deep-equal.ts";
+import { dialectError } from "../../bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { assertJsonValue, formatPath, type JsonPath, type JsonValue } from "../../bounded-contexts/authoring/domain/valueobjects/json-value.ts";
 import type { JsonDocument } from "./ast.ts";
 
 export interface KeyPosition {

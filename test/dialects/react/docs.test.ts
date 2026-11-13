@@ -222,7 +222,7 @@ describe("REQ-RXD-15 — contributor docs teach the validatedOp pattern (ARCH-1)
     expect(section).toContain("validatedOp");
     expect(section.toLowerCase()).toContain("chokepoint");
     expect(section).toContain(VALIDATED_OP_SENTENCE);
-    expect(section).toContain("src/core/jsx-name-validator.ts");
+    expect(section).toContain("src/bounded-contexts/authoring/domain/services/jsx-name-validator.ts");
   });
 
   it("carries the validatedOp sentinel sentence verbatim, exactly once", () => {

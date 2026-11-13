@@ -7,10 +7,10 @@ import {
   overrideOps,
   withOps,
   withoutOps,
-} from "../../src/core/define-dialect.ts";
-import { defineFactory } from "../../src/core/context.ts";
-import { isContained } from "../../src/core/dialect-error.ts";
-import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
+} from "../../../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { defineFactory } from "../../../../../src/core/context.ts";
+import { isContained } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { makeSpyClient, collectModifies } from "../../../../support/spy-client.ts";
 
 // Two dialects over DIFFERENT AST types, the shape a `.ts` + `.html` dialect needs.
 interface Lines {

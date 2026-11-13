@@ -1,6 +1,6 @@
 import { atRule, decl, parse, rule, type AtRule, type ChildNode, type Container, type Declaration, type Root, type Rule } from "postcss";
-import { dialectError } from "../../core/dialect-error.ts";
-import { validatedOp } from "../../core/jsx-name-validator.ts";
+import { dialectError } from "../../bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { validatedOp } from "../../bounded-contexts/authoring/domain/services/jsx-name-validator.ts";
 
 /**
  * Addresses one top-level block: `{ selector }` is a rule, `{ atRule, params? }` is an at-rule's

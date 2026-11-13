@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, setDefaultTimeout } from "bun:test";
 import * as expectedAstLibrary from "yaml";
-import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { parse, print, type YamlStream } from "../../src/dialects/yaml/ast.ts";
 import * as yaml from "../../src/dialects/yaml/index.ts";
 import { addDocument, removeDocument } from "../../src/dialects/yaml/documents.ts";

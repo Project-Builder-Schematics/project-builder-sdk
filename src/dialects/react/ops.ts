@@ -17,14 +17,14 @@ import {
   type Statement,
   type TypeLiteralNode,
 } from "ts-morph";
-import { dialectError } from "../../core/dialect-error.ts";
+import { dialectError } from "../../bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
 import {
   assertValidAttributeName,
   assertValidElementName,
   assertValidImportBinding,
   validatedOp,
-} from "../../core/jsx-name-validator.ts";
-import { elementNameEcho, multiMatchTail, zeroMatchTail } from "../../core/reject-tail.ts";
+} from "../../bounded-contexts/authoring/domain/services/jsx-name-validator.ts";
+import { elementNameEcho, multiMatchTail, zeroMatchTail } from "../../bounded-contexts/authoring/domain/services/reject-tail.ts";
 import { parse } from "./ast.ts";
 
 type JsxTag = JsxOpeningElement | JsxSelfClosingElement;

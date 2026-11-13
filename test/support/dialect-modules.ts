@@ -9,7 +9,7 @@ import * as expectedAstLibrary from "ts-morph";
 import * as jsoncParser from "jsonc-parser";
 import * as yamlLibrary from "yaml";
 import * as postcss from "postcss";
-import { defineDialect } from "../../src/core/define-dialect.ts";
+import { defineDialect } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import * as typescriptAst from "../../src/dialects/typescript/ast.ts";
 import * as reactAst from "../../src/dialects/react/ast.ts";
 import * as jsonAst from "../../src/dialects/json/ast.ts";

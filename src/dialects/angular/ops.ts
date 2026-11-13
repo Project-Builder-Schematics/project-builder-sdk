@@ -7,10 +7,10 @@ import {
   type SourceFile,
   type VariableDeclaration,
 } from "ts-morph";
-import { dialectError } from "../../core/dialect-error.ts";
-import { handlePathFor } from "../../core/dialect-handle.ts";
-import { assertValidImportBinding } from "../../core/jsx-name-validator.ts";
-import { elementNameEcho } from "../../core/reject-tail.ts";
+import { dialectError } from "../../bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { handlePathFor } from "../../bounded-contexts/authoring/domain/entities/dialect-handle.ts";
+import { assertValidImportBinding } from "../../bounded-contexts/authoring/domain/services/jsx-name-validator.ts";
+import { elementNameEcho } from "../../bounded-contexts/authoring/domain/services/reject-tail.ts";
 import {
   appendArrayElement,
   appendEntry,

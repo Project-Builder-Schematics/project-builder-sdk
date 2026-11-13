@@ -6,7 +6,7 @@
 // isolates the cross-pack-duplicate path from the reserved-name path (REQ-DG-02.5, tested
 // separately).
 import type { SourceFile } from "ts-morph";
-import { defineOpPack } from "../../../../src/core/define-dialect.ts";
+import { defineOpPack } from "../../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 
 export const packA = defineOpPack<SourceFile, { annotate: (ast: SourceFile, note: string) => void }>({
   annotate(_ast, _note) {

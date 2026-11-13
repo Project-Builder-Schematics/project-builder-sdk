@@ -5,10 +5,10 @@
  */
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
-import { defineDialect, defineOpPack, withOps, RESERVED_HANDLE_NAMES } from "../../src/core/define-dialect.ts";
-import { isContained } from "../../src/core/dialect-error.ts";
-import { parse, print } from "../../src/dialects/typescript/ast.ts";
-import { packA as collidingPackA, packB as collidingPackB } from "../fixtures/red/dialect-generics/colliding-op-packs.ts";
+import { defineDialect, defineOpPack, withOps, RESERVED_HANDLE_NAMES } from "../../../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { isContained } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { parse, print } from "../../../../../src/dialects/typescript/ast.ts";
+import { packA as collidingPackA, packB as collidingPackB } from "../../../../fixtures/red/dialect-generics/colliding-op-packs.ts";
 
 function realBaseDialect() {
   return defineDialect({ extensions: [".ts"], ast: { parse, print }, ops: {} });

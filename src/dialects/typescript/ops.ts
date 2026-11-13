@@ -36,12 +36,12 @@ import {
   type OptionalKind,
   type SourceFile,
 } from "ts-morph";
-import { dialectError } from "../../core/dialect-error.ts";
-import { handlePathFor } from "../../core/dialect-handle.ts";
-import { elementNameEcho } from "../../core/reject-tail.ts";
+import { dialectError } from "../../bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
+import { handlePathFor } from "../../bounded-contexts/authoring/domain/entities/dialect-handle.ts";
+import { elementNameEcho } from "../../bounded-contexts/authoring/domain/services/reject-tail.ts";
 // A misnomer surviving from its JSX-only origin (`jsx-name-validator.ts`) — this dialect is
 // its first non-JSX consumer, sharpening ARCH-2's now-realised "one consumer" debt (ADR-02).
-import { assertValidImportBinding } from "../../core/jsx-name-validator.ts";
+import { assertValidImportBinding } from "../../bounded-contexts/authoring/domain/services/jsx-name-validator.ts";
 import { closeGapAfter, sortedPlacement, sortedSpecifierIndex } from "./import-order.ts";
 
 // Ported verbatim from `react/ops.ts` (design §4.3 data model) — a bound name, tagged with

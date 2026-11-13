@@ -15,7 +15,7 @@ import {
   assertValidAttributeName,
   assertValidElementName,
   assertValidImportBinding,
-} from "../../../src/core/jsx-name-validator.ts";
+} from "../../../src/bounded-contexts/authoring/domain/services/jsx-name-validator.ts";
 import { parse, print } from "../../../src/dialects/react/ast.ts";
 import * as react from "../../../src/dialects/react/index.ts";
 import { defineFactory } from "../../../src/core/context.ts";
@@ -230,7 +230,7 @@ describe("Set-key-safety static scan (ADR-02 clause) — propName/elementName ar
   it("src/core/jsx-name-validator.ts and every file under src/dialects/react/** contain no bracket-indexed object access keyed by a name argument", () => {
     const root = new URL("../../../", import.meta.url).pathname;
     const files = [
-      join(root, "src/core/jsx-name-validator.ts"),
+      join(root, "src/bounded-contexts/authoring/domain/services/jsx-name-validator.ts"),
       ...readdirSync(join(root, "src/dialects/react"))
         .filter((f) => f.endsWith(".ts"))
         .map((f) => join(root, "src/dialects/react", f)),

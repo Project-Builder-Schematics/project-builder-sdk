@@ -1,5 +1,5 @@
 import type { SourceFile } from "ts-morph";
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps, type Handle } from "../../bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { parse, print } from "../typescript/ast.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import type { ArrayElement } from "../typescript/array-element.ts";

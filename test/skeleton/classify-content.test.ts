@@ -11,7 +11,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { classifyContent } from "../../src/commons/classify-content.ts";
+import { classifyContent } from "../../src/bounded-contexts/authoring/domain/services/classify-content.ts";
 import { jsDocBefore, PROJECT_ROOT } from "../support/jsdoc-scan.ts";
 
 describe("classifyContent — trichotomy classification (REQ-RT-01)", () => {
@@ -43,7 +43,7 @@ describe("classifyContent — falsy-trio mutant killers (REQ-RT-02)", () => {
 });
 
 const CLASSIFY_CONTENT_SOURCE = readFileSync(
-  join(PROJECT_ROOT, "src", "commons", "classify-content.ts"),
+  join(PROJECT_ROOT, "src/bounded-contexts/authoring/domain/services/classify-content.ts"),
   "utf-8"
 );
 const COMMONS_SOURCE = readFileSync(join(PROJECT_ROOT, "src", "commons", "index.ts"), "utf-8");

@@ -1,7 +1,7 @@
 // The YAML dialect module, `@pbuilder/sdk/yaml`. Composes the sanctioned kit surface only
 // (`defineDialect`/`defineOpPack`/`withOps`), mirroring the other dialect modules.
 
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps, type Handle } from "../../bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { parse, print, type YamlStream } from "./ast.ts";
 import { addDocument, removeDocument } from "./documents.ts";
 import type { DocumentOption, YamlPath, YamlValue } from "./paths.ts";

@@ -4,7 +4,7 @@
 // — an over-broad mutation REQ-DC-02's "unchanged-elsewhere" half exists to catch. The
 // exercise's `expect` describes the INTENDED (never-actually-produced) effect, so the
 // byte-exact comparison fails — proves the assertion is live, not a no-op.
-import { defineDialect, defineOpPack } from "../../../src/core/define-dialect.ts";
+import { defineDialect, defineOpPack } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import type { OpPackFixture } from "../../../src/conformance/index.ts";
 
 type BrokenAst = { text: string };

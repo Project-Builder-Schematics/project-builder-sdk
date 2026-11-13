@@ -7,7 +7,7 @@
 // then `ts.find(path)`.
 
 import type { SourceFile } from "ts-morph";
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../core/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps, type Handle } from "../../bounded-contexts/authoring/domain/services/define-dialect.ts";
 import type { ArrayElement, ArrayLocator } from "./array-element.ts";
 import type { ClassPropertyOptions } from "./class-property.ts";
 import { parse, print } from "./ast.ts";

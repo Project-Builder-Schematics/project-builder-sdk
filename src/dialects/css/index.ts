@@ -1,5 +1,5 @@
 import type { Root } from "postcss";
-import { defineDialect, defineOpPack, query, withOps, type Handle, type Query } from "../../core/define-dialect.ts";
+import { defineDialect, defineOpPack, query, withOps, type Handle, type Query } from "../../bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { parse, print } from "./ast.ts";
 import { getDeclaration, removeDeclaration, setDeclaration, type CssTarget, type DeclarationOptions } from "./ops.ts";
 
