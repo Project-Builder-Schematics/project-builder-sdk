@@ -85,3 +85,4 @@ Typecheck reads `src/`, `test/`, `bin/`, `scripts/`, `conformance/` and the tsco
 
 - L1 (2026-11-13, user via the orchestrator): "necesito que optimice el CI para mejorar tiempos, que no se corra lo que no se toco o no es necesario"
 - L2 (2026-11-13, orchestrator): analyse and propose first; no `ci.yml` edits until the order with the `sdk` session's R0 slice (its `rules` job) is agreed. Heavy runs need the machine slot.
+- L3 (2026-11-13, user via the orchestrator, decision a): "Si dale". A branch pushed without a PR gets no automatic CI; `workflow_dispatch` stays available to run it by hand. S2 stands as written. Decisions b (path gate) and c (nightly run) are pending; edits wait for them and for R0.
