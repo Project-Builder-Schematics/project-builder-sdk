@@ -154,7 +154,8 @@ re-entry within one engine process (the fd-1 capture is idempotent — the first
 write handle is cached and reused), but with a known residual: a timed-out call's parked stdin
 read (`#danglingRead`) can survive run end and consume bytes of a subsequent Run sharing
 the same stdin iterable — the sequential-rerun lifecycle is engine-team territory, to be
-ratified at PC-PROTO-01 (registered in `openspec/pending-changes.md`). A version mismatch
+ratified at PC-PROTO-01 (tracked in
+[#167](https://github.com/Project-Builder-Schematics/project-builder-sdk/issues/167)). A version mismatch
 rejects IMMEDIATELY — naming both the expected and the installed bridge version — with no
 protection armed and no factory-related code ever reached. On a match, the bridge arms the SAME fd-1
 capture + console redirect the direct-spawn path gets (RUN-08), then hands `params` through the

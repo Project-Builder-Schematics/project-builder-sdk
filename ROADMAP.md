@@ -8,19 +8,18 @@ This is the SDK that schematic authors import inside a `factory.ts`. It never to
 translates author intent into **IR** (the instruction record) and converses with the Go engine over
 JSON-RPC. The engine owns execution and the disk; the SDK owns the authoring experience.
 
-> Direction only. Per-part design detail lands in each part's `/plan` under `openspec/changes/`; the
-> *why* behind decisions lives in `openspec/decisions/` (ADRs). We do not pull design detail up into
-> this roadmap.
+> Direction only. Each feature is tracked in its own document under `odd/tasks/`, open work is
+> tracked as GitHub issues, and the reasons behind decisions are in `docs/adr/`. Domain rules
+> shared with the engine and the CLI come from
+> [project-builder-architecture](https://github.com/Project-Builder-Schematics/project-builder-architecture);
+> where this roadmap disagrees with them, the rules win.
 
-> **⚠ Reconciliation notice (2026-07-04, first pass).** The ratified problem statement
-> (`openspec/problem-statement.md`) is now the canonical frame and **wins over this document
-> wherever they conflict**. The near goal is the **two objectives** — (O1) IR generation for the
-> six mutations with the **contract fake as the legitimate counterpart, not a stopgap**, and
-> (O2) the authoring developer experience — delivered per the WHAT-level plan in
-> `openspec/objectives-plan.md`. An **engine-backed release is NOT the near goal**; §6 remains
-> real cross-repo context for a *later* engine-backed milestone, but it gates nothing in the
-> current plan. The L1–L4 / T-M2–T-M3 level language below is retained as direction and will be
-> fully reconciled at the plan's final pass (objectives-plan Stage 6.4).
+> History note: the sections below date from 2026-07, when work followed a
+> [problem statement](https://github.com/Project-Builder-Schematics/project-builder-sdk/blob/1a1888f316a3be4664e4c72ab1c0c652cbb141c7/openspec/problem-statement.md) and an
+> [objectives plan](https://github.com/Project-Builder-Schematics/project-builder-sdk/blob/1a1888f316a3be4664e4c72ab1c0c652cbb141c7/openspec/objectives-plan.md) that are no longer in the repository. The two
+> objectives were (O1) IR generation for the six mutations, with the contract fake as the
+> counterpart, and (O2) the authoring developer experience. The L1 to L4 and T-M2 to T-M3 level
+> language below is kept as direction.
 
 The build mirrors the engine's discipline: **two independent axes** — the **authoring surface**
 (rides the IR wire) and the **orthogonal Modify track** (the AST-dependent part). These map onto
@@ -219,7 +218,7 @@ will be **restated in the public SDK docs** — a public library cannot point au
 
 - **Bun** as runtime, package manager, test runner — TypeScript runs directly, no transpile step.
 - **Publish gate:** no public release until the dialect-contract names/shape and the
-  `remove`/`find`/`read` naming are written into `openspec/decisions/`, a stub
+  `remove`/`find`/`read` naming are written into `docs/adr/`, a stub
   `docs/authoring-a-dialect.md` exists, and (for an *engine-backed* release) §6 has landed.
 - **Public-repo standards** — LICENSE (MIT), CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, issue/PR templates,
   CI that runs on forks/PRs.
@@ -263,13 +262,13 @@ Sequenced value-vs-risk, evidence-first. The first move proves the riskiest assu
 `l1-author-surface` delivered **#1 (walking skeleton)** and **#2 (`typed-options-and-read`)** — both
 archived and merged (188 tests green). Its pending **#3/#4 are SUPERSEDED** (owner decision,
 2026-07-04): execution now follows the ratified problem statement
-(`openspec/problem-statement.md`) and the WHAT-level delivery plan
-(`openspec/objectives-plan.md`), which re-absorbs their valuable pieces (error attribution →
+([problem statement](https://github.com/Project-Builder-Schematics/project-builder-sdk/blob/1a1888f316a3be4664e4c72ab1c0c652cbb141c7/openspec/problem-statement.md)) and the WHAT-level delivery plan
+([objectives plan](https://github.com/Project-Builder-Schematics/project-builder-sdk/blob/1a1888f316a3be4664e4c72ab1c0c652cbb141c7/openspec/objectives-plan.md)), which re-absorbs their valuable pieces (error attribution →
 Stage 2, dry-run exposure → Stage 3, frame-cap/tarball hardening → Stages 1.4/6). The contract
 fake is the legitimate counterpart; `read-staged` and any *engine-backed* release remain later
 milestones gated on §6, outside the current plan.
 
-**Stage 6 — release shape (2026-07-14):** `stage-6-release-shape` delivers RELEASE-READINESS, not a release — a hardened-but-never-fired publish pipeline (`--dry-run` pinned), `bun link`/tarball local-consumption parity, and a docs-only onboarding path. The first LIVE publish is a separate, future gate (see `openspec/pending-changes.md`'s required-reviewers precondition) — this stage does not cross it.
+**Stage 6 — release shape (2026-07-14):** `stage-6-release-shape` delivers RELEASE-READINESS, not a release — a hardened-but-never-fired publish pipeline (`--dry-run` pinned), `bun link`/tarball local-consumption parity, and a docs-only onboarding path. The first LIVE publish is a separate, future gate (see the required-reviewer rule in [CONTRIBUTING](CONTRIBUTING.md#publishing-a-release)) — this stage does not cross it.
 
 **The demo moment:** an author writes a ~10-line `factory.ts` that `create`s a file from a typed
 `schema.json` option and `addImport`s a module into `app.module.ts`, runs it, sees a **dry-run plan

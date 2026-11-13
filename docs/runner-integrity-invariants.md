@@ -220,8 +220,8 @@ The one mechanism that would have caught all three rounds is a **differential or
 (`FIT-CAP-ORACLE`, deferred in this change's design §7): execute each corpus construct in a
 sandboxed realm and compare "did a capability actually become reachable" against the classifier's
 verdict, so the corpus is grown by the runtime rather than by whoever last reviewed it. It is
-registered as its own future change (`capability-admission-oracle`) in
-`openspec/pending-changes.md`. Until it lands, treat Constraint 4's verdict as drift evidence only.
+tracked as its own change (`capability-admission-oracle`) in
+[#65](https://github.com/Project-Builder-Schematics/project-builder-sdk/issues/65). Until it lands, treat Constraint 4's verdict as drift evidence only.
 
 ### The `dist/package.json` residual
 
