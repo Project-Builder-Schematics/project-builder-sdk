@@ -21,6 +21,7 @@
   },
   "exclude": [
     "test/types/permissive-proof.ts",
-    "test/fixtures/red/**"
+    "test/fixtures/red/**",
+    "third_party/**"
   ]
 }

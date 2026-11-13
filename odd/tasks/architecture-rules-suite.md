@@ -91,7 +91,9 @@ D4 — Actions outside this repo: **resolved (L5), amended (L8, L9): R0 pins v0.
 |---|---|---|---|---|
 | P1 | S1, S2 | inline, two read-only explorers (engine/CLI mechanics; architecture inventory) | done | this commit |
 | P2 | — | the user's answers to D1-D4 | done (L3-L5) | — |
-| R0 | plan §5 R0; D1-D4 | inline; independent verifier (risk item 5) | waits for layout S1a to merge, then the orchestrator's slot | — |
+| R0a | plan §5 R0 without fit-49 and CI; D1-D4 | inline | done — self-tests 22/23 (the pin test passes once the gitlink is committed), both passes run, fit-14 unchanged | see git log |
+| R0b | fit-49 `acceptance` class (classify.ts row, rules.ts rule, fit-49 case) | inline | waits for layout S1b to merge (S1b owns `test/support/layering/*`) | — |
+| R0c | CI `rules` job | inline; independent verifier (risk item 5) | after R0b, sequenced with `odd/tasks/ci-optimization.md` | — |
 
 Route evidence: the plan needed three repositories' evidence, beyond the inline budget, so the mapping trigger fired; the write is one document, inline.
 
@@ -114,3 +116,9 @@ L7 (2026-11-13, via the orchestrator): architecture #69 (A-83..A-86, dialect com
 L8 (2026-11-13, user via the orchestrator, D4 amendment, verbatim): "si dale, cortá la v0.16.0". Architecture v0.16.0 is cut and pushed (annotated, at fc22dfc) and carries #67 (TypeScript rules), #68 (React), #69 (dialect composition) and #70 (composition steps moved to designed, `@issue:sdk-103`). R0 pins the submodule at v0.16.0 in place of v0.15.0.
 
 L9 (2026-11-13, user via the orchestrator, second D4 amendment, verbatim): "si dale, cortá la v0.17.0". Architecture v0.17.0 is cut and pushed (annotated, at 0064fc2) and carries #71: css A-88..A-92, nestjs A-93..A-94, angular A-95..A-105, and the A-87 rejection wording for every dialect. With it, every SDK dialect op has a rule. R0 pins the submodule at v0.17.0, superseding L8. The inventory counts in the Plan were measured at 0dd9ea9; R0 re-measures them at v0.17.0 before setting the non-vacuity floor (the orchestrator expects about 54 more implemented scenarios).
+
+L10 (2026-11-14, via the orchestrator): S1a merged (main 493aa76); R0 starts here, on this branch rebased onto it. Order approved: R0a (runner, submodule, devDependencies, scripts, self-tests, pending list) first; R0b (the fit-49 `acceptance` class) after S1b merges, because S1b owns `test/support/layering/*`; R0c (the CI `rules` job) last, sequenced with the CI-optimization work.
+
+L11 (2026-11-14): inventory re-measured at v0.17.0 (0064fc2), counting runner cases (Outlines expanded): 346 `@sdk @status:implemented`, 208 `@sdk @status:designed`, none tagged both, none untagged. Implemented scenarios span 13 features: typescript 76, yaml 71, json 70, react 49, angular 28, css 18, dialects 15, nestjs 7, chaining-rules 5, session 3, content-as-truth 2, stale-nodes 1, dialect-composition 1. `IMPLEMENTED_FLOOR` is 346 and `PENDING_CEILING` 13. Slice plan amended for the dialects v0.16.0 and v0.17.0 added: R1 json and yaml; R2 dialects, chaining-rules, session, stale-nodes, content-as-truth; R3 typescript and react; R4 css, angular, nestjs; dialect-composition leaves with sdk#103 (L7); the plan's R3+ (designed families) becomes R5+.
+
+L12 (2026-11-14): R0a choices. The two passes are `src/acceptance/runner/{implemented,designed}.rules.ts`, outside `bun test`'s default discovery, run by `bun run rules:implemented` and `bun run rules:designed`; the self-tests live in `test/acceptance/runner/` and run in the normal suite. A missing checkout skips with a `::notice::`, and fails when `RULES_REQUIRE_ARCHITECTURE=1`, which the CI `rules` job sets in the main repository (L6). Step definitions are written as their exact catalog phrase; a quoted `"{name}"` compiles to `{string}` and everything else matches literally, so a definition cannot invent phrasing. `tsconfig.json` excludes `third_party/**` (the checkout's own scripts are not SDK code) and `tsconfig.build.json` excludes `src/acceptance`. The submodule was added with `gh`'s credential helper passed per command; no git config changed.
