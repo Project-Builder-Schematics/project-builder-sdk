@@ -53,6 +53,33 @@ describe("fit-50 — [red-proof] P-API ignores moves and catches API changes", (
     expect(moved).toEqual(before);
   });
 
+  it("moving a type that a barrel re-exports leaves the description unchanged", () => {
+    // The checker names `Value` through the barrel or through its own file depending on the
+    // relative paths, so the description must name the declaring file itself, even when
+    // another SDK file declares a type of the same name.
+    const barrel = (valueDir: string): Record<string, string> => ({
+      "/pkg/index.ts": `export { x } from "./other.ts";\n`,
+      "/pkg/other.ts": `export type Value = boolean;\nexport const x: Value = true;\n`,
+      "/pkg/dialects/json/index.ts": `export type { Value } from "../../${valueDir}/value.ts";\nexport { setValue } from "./ops.ts";\n`,
+      "/pkg/dialects/json/ops.ts": `import type { Value } from "../../${valueDir}/value.ts";\nexport function setValue(v: Value): void {}\n`,
+      [`/pkg/${valueDir}/value.ts`]: `export type Value = string | number | Value[];\n`,
+    });
+    const entries: Array<[string, string]> = [[".", "/pkg/index.ts"], ["./json", "/pkg/dialects/json/index.ts"]];
+    const near = describeEntries(inMemory(barrel("core")), entries).text;
+    expect(near).toContain("reachable Value@value type: string | number | Value[]");
+    expect(describeEntries(inMemory(barrel("bounded-contexts/authoring/domain/valueobjects")), entries).text).toEqual(near);
+  });
+
+  it("an alias the resolved type drops (`Scope | undefined`) is still pinned", () => {
+    const options = (scope: string): Record<string, string> => ({
+      "/pkg/index.ts": `export type { Options } from "./core/options.ts";\n`,
+      "/pkg/core/options.ts": `type Scope = ${scope};\nexport interface Options { scope?: Scope }\n`,
+    });
+    const before = describeIndex(options(`"public" | "private"`));
+    expect(before).toContain(`reachable Scope@options type: "public" | "private"`);
+    expect(describeIndex(options(`"public" | "protected"`))).not.toEqual(before);
+  });
+
   it("changing a member type of a non-exported type changes the description", () => {
     expect(describeIndex({ "/pkg/index.ts": entry("core"), "/pkg/core/shape.ts": shape("string") })).not.toEqual(before);
   });
