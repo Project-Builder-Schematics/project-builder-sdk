@@ -10,7 +10,7 @@
 // characterization, not treated as a strict-TDD RED violation.
 
 import { describe, it, expect } from "bun:test";
-import { readFileSync, readdirSync, existsSync, mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -113,40 +113,25 @@ describe("REQ-WPS-09 — run bootstrap is argv/bridge-only, no host-issued reque
 
 // ===========================================================================================
 // FEH-01..05 (S-004): corpus-driven parity, structural no-reimplementation guard, spec-derived
-// citation guard, spec-parsed coverage map + count tripwire, and a real no-Go-toolchain proof.
+// citation guard, coverage map, and a real no-Go-toolchain proof.
 // ===========================================================================================
 
-const SPEC_PRE_ARCHIVE_PATH = join(PROJECT_ROOT, "openspec/changes/stdio-engine-client/spec.md");
-const SPEC_POST_ARCHIVE_SPECS_DIR = join(PROJECT_ROOT, "openspec/specs");
-
-/** Locates a change's sealed archive folder under `openspec/changes/archive/` by its
- * `{YYYY-MM-DD}-{change-name}` suffix — the date prefix is assigned at archive time and not
- * knowable in advance, so this scans rather than hardcoding a date. */
-function findArchivedChangeDir(changeName: string): string {
-  const archiveRoot = join(PROJECT_ROOT, "openspec/changes/archive");
-  const match = readdirSync(archiveRoot, { withFileTypes: true }).find(
-    (entry) => entry.isDirectory() && entry.name.endsWith(`-${changeName}`)
-  );
-  if (match === undefined) {
-    throw new Error(`no archived change folder found for '${changeName}' under ${archiveRoot}`);
-  }
-  return join(archiveRoot, match.name);
-}
-
-// REQ-FEH-05: the maintained REQ-ID count across THIS_SPEC_DOMAIN_DIRS as they stand in the
-// LIVE openspec/specs tree — a spec edit that adds or removes a REQ without updating this
-// constant fails FEH-05.2 loudly. It tracks the evolving specs, NOT the frozen content of any
-// sealed archive: the archive-rehearsal test above compares the resolver's output against the
-// archived markdown it was given, which is self-verifying and must not be pinned to this number.
-const EXPECTED_REQ_COUNT = 42;
+// The stdio-engine-client spec's REQ-IDs (wire protocol, exit codes, runner bin, bridge,
+// client, harness). Adding or removing a requirement means editing this list.
+const SPEC_REQ_IDS: readonly string[] = [
+  "WPS-01", "WPS-02", "WPS-03", "WPS-04", "WPS-05", "WPS-06", "WPS-07", "WPS-08", "WPS-09", "WPS-10", "WPS-11",
+  "EXC-01", "EXC-02",
+  "RUN-01", "RUN-02", "RUN-03", "RUN-04", "RUN-05", "RUN-06", "RUN-07", "RUN-08", "RUN-09",
+  "BRB-01", "BRB-02", "BRB-03",
+  "SEC-01", "SEC-02", "SEC-03", "SEC-04", "SEC-05", "SEC-06", "SEC-07", "SEC-08", "SEC-09", "SEC-10",
+  "FEH-01", "FEH-02", "FEH-03", "FEH-04", "FEH-05", "FEH-06",
+];
 
 // S-005 shrunk this to empty (shrink-only, never grow — see S-004's Discoveries for the
-// original build-ordering rationale). All four were S-004-time gaps because their exercising
-// fitness tests were explicitly S-005 scope, not yet built: WPS-06/FEH-06 (BATCH_CAP drift,
-// `fit-34-batch-cap-drift.test.ts`), WPS-11 (doc-scan + header stamp,
-// `fit-31-single-owner-framing.test.ts`), and LED-01 (ledger-presence scan, same file's
-// REQ-LED-01 `describe` block). Every one now has a real, non-vacuous test citing its REQ-ID
-// in a test title/comment, so FEH-05's whole-suite citation scan (`scanReqCitationsAcrossTests`)
+// original build-ordering rationale). The S-004-time gaps were exercised by fitness tests
+// built in S-005: WPS-06/FEH-06 (BATCH_CAP drift, `fit-34-batch-cap-drift.test.ts`) and
+// WPS-11 (doc-scan + header stamp, `fit-31-single-owner-framing.test.ts`). Every one now has
+// a real, non-vacuous test citing its REQ-ID in a test title, so FEH-05's whole-suite citation scan (`scanReqCitationsAcrossTests`)
 // covers them without a carve-out.
 const PENDING_S005_COVERAGE_EXEMPTIONS = new Set<string>();
 
@@ -169,56 +154,6 @@ function noReimplementationViolations(source: string): string[] {
     }
   }
   return violations;
-}
-
-const REQ_HEADER_RE = /^### REQ-([A-Z]+-\d+):/gm;
-
-/** Extracts every `### REQ-XX-NN:` header's ID from a spec markdown body. Shared verbatim by
- * the FEH-03 citation guard and the FEH-05 coverage map (REQ-FEH-03 requires reading the SAME
- * spec-parsed universe FEH-05 does — never a separate re-parse). */
-function parseReqIds(specMarkdown: string): string[] {
-  return [...specMarkdown.matchAll(REQ_HEADER_RE)].map((m) => m[1]!);
-}
-
-/**
- * THIS spec's own domain directory names — one per `## Domain:` header in spec.md, the
- * exact directories `openspec-convention.md`'s archive procedure redistributes the spec
- * into. The post-archive fallback below scans ONLY these (judgment-day F12): a scan of ALL
- * of `openspec/specs/{star}/spec.md` unions ~40 foreign domains (hundreds of REQs), and
- * prefix filtering is NOT a safe alternative — the FEH prefix collides with the foreign
- * `file-escape-hatches`/`scenario-matrix`/`content-classification`/`pending-directives-exposure`
- * domains (verified: `rg "REQ-FEH-" openspec/specs/`). A future re-split of these domains
- * must update this list — FEH-05.2's count tripwire fails loudly if it drifts.
- */
-const THIS_SPEC_DOMAIN_DIRS: readonly string[] = [
-  "wire-protocol-spec",
-  "runner-exit-code-taxonomy",
-  "pbuilder-runner-bin",
-  "bootstrap-runner-bridge",
-  "stdio-engine-client",
-  "fake-engine-conformance-harness",
-  "ledger-reconciliation",
-];
-
-/**
- * Resolves the REQ-ID universe for THIS spec, pre- or post-archive (REQ-FEH-03.2): tries the
- * change-local flat spec.md first; if archived (the change folder loses its flat spec.md at
- * archive time — content is redistributed into one `openspec/specs/{domain}/spec.md` per
- * domain header this spec declared, per `openspec-convention.md`'s archive procedure), falls
- * back to scanning exactly THIS spec's own domain directories (THIS_SPEC_DOMAIN_DIRS) under
- * the post-archive specs directory — never every domain, which would union foreign specs'
- * REQ-IDs into the universe the moment this change archives.
- */
-function resolveSpecReqIds(preArchivePath: string, postArchiveSpecsDir: string): { reqIds: string[]; source: string } {
-  if (existsSync(preArchivePath)) {
-    return { reqIds: parseReqIds(readFileSync(preArchivePath, "utf-8")), source: preArchivePath };
-  }
-  const ids: string[] = [];
-  for (const domain of THIS_SPEC_DOMAIN_DIRS) {
-    const specPath = join(postArchiveSpecsDir, domain, "spec.md");
-    if (existsSync(specPath)) ids.push(...parseReqIds(readFileSync(specPath, "utf-8")));
-  }
-  return { reqIds: ids, source: `${postArchiveSpecsDir}/{${THIS_SPEC_DOMAIN_DIRS.join(",")}}/spec.md` };
 }
 
 const TEST_TITLE_RE = /\b(?:it|describe)\(\s*(["'`])((?:(?!\1)[\s\S])*)\1/g;
@@ -251,7 +186,7 @@ function scanReqCitationsAcrossTests(testRoot: string): Set<string> {
 
 /** REQ-FEH-05.1: every `reqIds` entry that is neither `exemptions`-listed nor `cited` —
  * shared by the real coverage assertion and its red-proof, one filter, never two. */
-function uncoveredReqIds(reqIds: string[], cited: Set<string>, exemptions: Set<string>): string[] {
+function uncoveredReqIds(reqIds: readonly string[], cited: Set<string>, exemptions: Set<string>): string[] {
   return reqIds.filter((id) => !exemptions.has(id) && !cited.has(id));
 }
 
@@ -325,8 +260,7 @@ describe("REQ-FEH-01 — transport shell over the ONE ContractFake", () => {
 
 describe("REQ-FEH-03 — spec-derived harness (anti-tautology)", () => {
   it("Scenario REQ-FEH-03.1: every REQ-ID cited by this file's own test titles resolves to a requirement in the signed spec", () => {
-    const { reqIds } = resolveSpecReqIds(SPEC_PRE_ARCHIVE_PATH, SPEC_POST_ARCHIVE_SPECS_DIR);
-    const universe = new Set(reqIds);
+    const universe = new Set(SPEC_REQ_IDS);
     const cited = extractCitedReqIds(readFileSync(HARNESS_TEST_PATH, "utf-8"));
     const unresolved = [...cited].filter((id) => !universe.has(id));
     expect(unresolved).toEqual([]);
@@ -343,91 +277,12 @@ describe("REQ-FEH-03 — spec-derived harness (anti-tautology)", () => {
     expect(unresolved).toEqual(["BOGUS-99"]);
   });
 
-  it("Scenario REQ-FEH-03.2: the spec-path resolver falls back to the post-archive per-domain layout, scoped to THIS spec's domain directories — foreign domains never bleed in (judgment-day F12)", () => {
-    const dir = mkdtempSync(join(tmpdir(), "feh-03-archive-fixture-"));
-    try {
-      const preArchive = join(dir, "changes", "some-change", "spec.md");
-      const postArchiveDir = join(dir, "specs");
-
-      // Branch A: pre-archive path present — read directly, never touching postArchiveDir.
-      mkdirSync(join(dir, "changes", "some-change"), { recursive: true });
-      writeFileSync(preArchive, "### REQ-AAA-01: pre-archive requirement\n");
-      const preArchiveResult = resolveSpecReqIds(preArchive, postArchiveDir);
-      expect(preArchiveResult.reqIds).toEqual(["AAA-01"]);
-
-      // Branch B: pre-archive path ABSENT (simulates archive having moved it) — falls back
-      // to scanning ONLY this spec's own domain directories. A FOREIGN domain sits right
-      // beside them (the real repo layout: openspec/specs/ holds ~40 other domains, and
-      // file-escape-hatches even collides on the FEH prefix) and must be ignored.
-      const missingPreArchive = join(dir, "changes", "some-change", "does-not-exist.md");
-      mkdirSync(join(postArchiveDir, "stdio-engine-client"), { recursive: true });
-      writeFileSync(join(postArchiveDir, "stdio-engine-client", "spec.md"), "### REQ-BBB-02: post-archive requirement\n");
-      mkdirSync(join(postArchiveDir, "file-escape-hatches"), { recursive: true });
-      writeFileSync(join(postArchiveDir, "file-escape-hatches", "spec.md"), "### REQ-FEH-01: a FOREIGN domain's requirement\n");
-      const postArchiveResult = resolveSpecReqIds(missingPreArchive, postArchiveDir);
-      expect(postArchiveResult.reqIds).toEqual(["BBB-02"]);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it("[real repo-layout hazard, judgment-day F12] post-archive with the REAL foreign domains present still resolves EXACTLY this spec's REQ universe", () => {
-    const dir = mkdtempSync(join(tmpdir(), "feh-03-real-layout-"));
-    try {
-      const simulatedSpecsDir = join(dir, "specs");
-      // Copy the REAL foreign domains as they exist in the repo today (hundreds of REQs,
-      // including the colliding REQ-FEH-* family in file-escape-hatches et al.).
-      for (const entry of readdirSync(SPEC_POST_ARCHIVE_SPECS_DIR, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        const foreignSpec = join(SPEC_POST_ARCHIVE_SPECS_DIR, entry.name, "spec.md");
-        if (!existsSync(foreignSpec)) continue;
-        mkdirSync(join(simulatedSpecsDir, entry.name), { recursive: true });
-        writeFileSync(join(simulatedSpecsDir, entry.name, "spec.md"), readFileSync(foreignSpec, "utf-8"));
-      }
-      // Simulate the archive: split THIS change's real spec.md into one
-      // specs/{domain}/spec.md per `## Domain:` header (openspec-convention.md's procedure).
-      // This test rehearses the archive event itself, so — same resilience contract as
-      // `resolveSpecReqIds` above — its own ground truth must survive the REAL archive
-      // actually happening: once `stdio-engine-client` archives for real, the live
-      // pre-archive `spec.md` is gone (that IS the event this test rehearses), so fall back
-      // to the sealed archive copy (immutable historical record, never modified post-move).
-      const specMarkdown = existsSync(SPEC_PRE_ARCHIVE_PATH)
-        ? readFileSync(SPEC_PRE_ARCHIVE_PATH, "utf-8")
-        : readFileSync(join(findArchivedChangeDir("stdio-engine-client"), "spec.md"), "utf-8");
-      const sections = specMarkdown.split(/^## Domain:\s*/m).slice(1);
-      expect(sections.length).toBeGreaterThan(0);
-      for (const section of sections) {
-        const domainName = section.slice(0, section.indexOf("\n")).trim().split(/\s+/)[0]!;
-        mkdirSync(join(simulatedSpecsDir, domainName), { recursive: true });
-        writeFileSync(join(simulatedSpecsDir, domainName, "spec.md"), section);
-      }
-
-      const missingPreArchive = join(dir, "changes", "stdio-engine-client", "spec.md");
-      const { reqIds } = resolveSpecReqIds(missingPreArchive, simulatedSpecsDir);
-
-      expect([...new Set(reqIds)].sort()).toEqual([...new Set(parseReqIds(specMarkdown))].sort());
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
 });
 
 describe("REQ-FEH-05 — spec-item-to-scenario coverage map", () => {
-  it("Scenario REQ-FEH-05.2: the parsed REQ-ID count matches the maintained expected count", () => {
-    const { reqIds } = resolveSpecReqIds(SPEC_PRE_ARCHIVE_PATH, SPEC_POST_ARCHIVE_SPECS_DIR);
-    expect(reqIds.length).toEqual(EXPECTED_REQ_COUNT);
-  });
-
-  it("[red-proof] a count mismatch fails loudly instead of silently reporting stale zero-uncovered", () => {
-    const staleParsedIds = ["A-1", "A-2"];
-    const nowStaleExpectedCount = 3; // pretend a REQ was removed without updating this constant
-    expect(staleParsedIds.length).not.toEqual(nowStaleExpectedCount);
-  });
-
   it("Scenario REQ-FEH-05.1: zero uncovered REQ-IDs across the whole test suite (S-005-pending items exempted, see comment above)", () => {
-    const { reqIds } = resolveSpecReqIds(SPEC_PRE_ARCHIVE_PATH, SPEC_POST_ARCHIVE_SPECS_DIR);
     const cited = scanReqCitationsAcrossTests(join(PROJECT_ROOT, "test"));
-    expect(uncoveredReqIds(reqIds, cited, PENDING_S005_COVERAGE_EXEMPTIONS)).toEqual([]);
+    expect(uncoveredReqIds(SPEC_REQ_IDS, cited, PENDING_S005_COVERAGE_EXEMPTIONS)).toEqual([]);
   });
 
   it("[red-proof] an uncited, non-exempt REQ-ID surfaces as uncovered", () => {

@@ -17,9 +17,9 @@ Branch: `chore/retire-sdd` (from origin/main 1a1888f). Delivery: one PR per slic
 
 | ID | Specs | Route | Status | Commit |
 |----|-------|-------|--------|--------|
-| T1 | S1, S4 | inline | done — PR1 | see git log |
-| T2 | S5 | inline | pending — PR2 | — |
-| T3 | S2, S3 | drafts delegated, publish inline | waiting on the user's approval | — |
+| T1 | S1, S4 | inline | done — PR #161 | 60d74f3 |
+| T2 | S5 | inline | done — full suite GREEN with openspec/ moved aside | 5cfe614 |
+| T3 | S2, S3 | drafts delegated, publish inline | done — held: G7, TS op catalog, TS import/export advisories, React name breadth | architecture #58-#63 + comments on #21, #23, #24, #28, #29, #32, #35; sdk #163-#171 + #69 comment/retitle |
 | T4 | S6, S7 | inline | pending — PR3, after T3 | — |
 
 Route evidence: one understood mechanical change per slice, no writer trigger.
@@ -31,3 +31,5 @@ Route evidence: one understood mechanical change per slice, no writer trigger.
 - L3 (2026-11-13, user via the orchestrator): "vamos con 1". The process records (architecture-audit, lessons-learned, objectives-plan, problem-statement, sensitive-areas, pending-changes) are deleted with the S1 permalinks as their archive; no `docs/history/`. This replaces the hexagonal-layout Q8 answer that kept them in `openspec/`.
 - L4 (2026-11-13): no ADR exists only in the archive; 13 decisions live only in change designs (react-dialect, sdk-plain-error-note, context-singleton-fix, modify-e2e-extensible) and are indexed by permalink in `docs/adr/README.md`. Moved ADR text that mentions `openspec/decisions/` (0019, 0038) is history and stays unchanged.
 - L5 (2026-11-13): full `bun test` on 1a1888f plus the move: 4004 pass, 2 fail, both in `fit-raw-sweep` (its `docs/**` sweep now saw ADR history quoting `.raw` and free `modify(`). The sweep now skips `docs/adr/`, as it skipped `openspec/` before; `fit-raw-sweep` 13/13 GREEN after the fix.
+- L6 (2026-11-13, user via the orchestrator): "Si autorizo" to filing, after seeing drafts; then "SI te doy mi okay" to the index. Held until the architecture dialect rules land: G7 (SDK dialect set and op argument rules), the TypeScript op catalog, the TypeScript import/export advisories and the React element-name breadth; G3 was filed without the drain-every-handle rule. Filed: project-builder-architecture #58 (scaffold, templateFile), #59 (rendered vs copied), #60 (read outcomes), #61 (package anchor, lifecycle names), #62 (A-10 vs E-3), #63 (boundary invariants), comments on #24, #21, #28, #29, #23, #32, #35; project-builder-sdk #163 (C1), #164 (force), #165 (verb), #166 (enum choices), #167 (runner transport), #168 (e2e coverage table), #169 (factory boundary), #170 (flaky tests), #171 (tarball secret scan), #69 commented and retitled to the home/tmp anchors. Drafts: `~/.cache/retire-sdd/`.
+- L7 (2026-11-13): PR2 proof on 5cfe614 with `openspec/` moved out of the tree: `bun test` 3977 pass, 0 fail, 258 files (4006 before; the 29 removed tests pinned process records, the specs sweep, the archive resolver and the REQ-16 spec table).

@@ -5,10 +5,9 @@
  *  (a) `.gitignore` carries the report output pattern (`run-report` REQ-RPT-02/03).
  *  (b) the report filename derives ONLY from `REPORTS_DIR`/`reportPathFor` — no ad-hoc
  *      path literal for the reports dir exists anywhere else in the change's tree.
- *  (c) every row of the signed `specs/scenario-matrix/spec.md` table cites at least one
+ *  (c) every row of `test/e2e/author-emulation/scenario-matrix.md` cites at least one
  *      `schematic-local-files` REQ-ID or an explicit owner boundary (D1-D4) — a row
- *      without a citation fails this check (REQ-SCM-01's 20-row table, archive-synced
- *      `inline-collection-marker`). REQ-SCM-02.1 additionally pins that the
+ *      without a citation fails this check (REQ-SCM-01's 20-row table). REQ-SCM-02.1 additionally pins that the
  *      engine-gated `REQ-BRC-08` never appears as a matrix row citation — only as a
  *      `golden-corpus-contract` coverage-manifest NOT-EXERCISED entry.
  *  (d) no report artifact is ever git-tracked (`run-report` REQ-RPT-04): nothing under
@@ -35,7 +34,7 @@ import { collectTsFiles } from "../support/import-scan.ts";
 
 const GITIGNORE = new URL("../../.gitignore", import.meta.url).pathname;
 const MATRIX_SPEC = new URL(
-  "../../openspec/specs/scenario-matrix/spec.md",
+  "../e2e/author-emulation/scenario-matrix.md",
   import.meta.url
 ).pathname;
 const UNCITED_ROW_FIXTURE = new URL(
@@ -104,7 +103,7 @@ describe("FIT-26 (b) — report filename derives ONLY from REPORTS_DIR/reportPat
 });
 
 describe("FIT-26 (c) — every scenario-matrix row cites a REQ-ID or owner boundary (REQ-SCM-01)", () => {
-  it("the signed 20-row matrix table has no uncited row", () => {
+  it("the 20-row matrix table has no uncited row", () => {
     const rows = extractMatrixRows(readFileSync(MATRIX_SPEC, "utf-8"));
     expect(rows.length).toEqual(20);
     expect(uncitedRows(rows)).toEqual([]);

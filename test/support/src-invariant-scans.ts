@@ -188,39 +188,6 @@ export function findRealpathReferences(files: readonly ScanFile[], allowlist: Re
 }
 
 // ---------------------------------------------------------------------------------------
-// REQ-FTG-06 clause (e) / REQ-FTG-06.4: the `openspec/specs/` sweep LOGIC — a fixture-pair
-// scenario in-change; the REAL tree run is archive-sync only (never invoked by this file).
-// ---------------------------------------------------------------------------------------
-
-const RETIRED_TERMS = ["package-root-containment", "REQ-PRC-", "source-outside-package"];
-const VERSION_HISTORY_MARKER_RE = /\(Previously:|V\d+\s*→\s*V\d+/;
-
-export interface OrphanedCitation {
-  file: string;
-  line: number;
-  term: string;
-}
-
-/**
- * A retired-vocabulary hit is credited to the version-history allowlist ONLY when the SAME
- * line carries a `(Previously: ...)` or `V{n} → V{n+1}` marker — never file-wide credit.
- */
-export function findOrphanedRetiredCitations(files: readonly ScanFile[]): OrphanedCitation[] {
-  const hits: OrphanedCitation[] = [];
-  for (const file of files) {
-    const lines = file.content.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-      if (VERSION_HISTORY_MARKER_RE.test(line)) continue;
-      for (const term of RETIRED_TERMS) {
-        if (line.includes(term)) hits.push({ file: file.path, line: i + 1, term });
-      }
-    }
-  }
-  return hits;
-}
-
-// ---------------------------------------------------------------------------------------
 // REQ-FTG-06 clause (d): `test/**` marker-fabrication allowlist (a write call whose path
 // argument ends in `collection.json`) — symbol-scoped (`file#function` or `file` for a
 // module-level call), initially EMPTY.

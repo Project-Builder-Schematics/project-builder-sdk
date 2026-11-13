@@ -226,8 +226,7 @@ describe("S-003 — matrix-row assertions beyond the generic corpus-compare", ()
 
       // Hardcoded literal, written directly in THIS test source — if the landed
       // REQ-FSC-05 pipeline does not chain multi-filter tokens, this assertion goes RED
-      // and STAYS RED; the gap escalates via the `PC-SPEC-FSC-TOKENS` row (registered in
-      // S-001's `openspec/pending-changes.md`), never a weakened assertion.
+      // and STAYS RED; the gap escalates as an issue, never a weakened assertion.
       expect(paths).toContain("m04-out/{= .name | singular | dasherize =}.entity.ts");
     });
 

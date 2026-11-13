@@ -65,10 +65,12 @@ consuming engine, `PC-PROTO-01`).
 
 ## Reference
 
-Spec: `openspec/changes/author-emulation-e2e-scaffold/specs/golden-corpus-contract/spec.md`
-(REQ-GCC-01..12) and `specs/ir-transcript-capture/spec.md` (REQ-ITC-01..05). Design:
-`openspec/changes/author-emulation-e2e-scaffold/design.md` (§4.3 data model, ADR-0047,
-ADR-0048, ADR-0049).
+Spec: [golden-corpus-contract](https://github.com/Project-Builder-Schematics/project-builder-sdk/blob/1a1888f316a3be4664e4c72ab1c0c652cbb141c7/openspec/changes/archive/2026-07-14-author-emulation-e2e-scaffold/specs/golden-corpus-contract/spec.md)
+(REQ-GCC-01..12) and [ir-transcript-capture](https://github.com/Project-Builder-Schematics/project-builder-sdk/blob/1a1888f316a3be4664e4c72ab1c0c652cbb141c7/openspec/changes/archive/2026-07-14-author-emulation-e2e-scaffold/specs/ir-transcript-capture/spec.md)
+(REQ-ITC-01..05). Design: [design.md](https://github.com/Project-Builder-Schematics/project-builder-sdk/blob/1a1888f316a3be4664e4c72ab1c0c652cbb141c7/openspec/changes/archive/2026-07-14-author-emulation-e2e-scaffold/design.md) (§4.3 data model). Decisions:
+[ADR-0047](../../../../docs/adr/0047-corpus-authority-normative-informative.md),
+[ADR-0048](../../../../docs/adr/0048-third-golden-idiom-single-capture-path.md),
+[ADR-0049](../../../../docs/adr/0049-canonical-corpus-serialization.md).
 
 **Family-prefix reservation**: this change owns the `m-*` matrix-id prefix (plus the
 non-matrix `s-00` skeleton). A future mutation-family e2e change (e.g. a modify-family

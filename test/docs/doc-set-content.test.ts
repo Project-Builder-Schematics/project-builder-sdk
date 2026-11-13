@@ -20,7 +20,6 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { findRowLine, lastTableCell } from "../support/markdown-section.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 
@@ -159,58 +158,8 @@ describe("README front-door", () => {
   });
 });
 
-// S-005 (REQ-AOD-09/10/12): planning-doc reconciliation. Static content scans over the
-// planning docs, same "no execution" unit layer as the rest of this file. Row lookups locate
-// rows BY CONTENT (a stable fragment of each row's own text), never by line number — per
-// slices.md's Executor Context item 9 ("re-locate by content before editing" if an earlier
-// slice in this change edited the file first; no earlier slice in this change touches these
-// files, but the convention is followed for future-proofing regardless).
-
-describe("REQ-AOD-09 — planning-doc reconciliation (openspec/pending-changes.md)", () => {
-  const doc = readDoc("openspec/pending-changes.md");
-
-  const RETIRED_FRAGMENTS = [
-    "publish.yml` repo-owner guard",
-    "Pin `actions/checkout` + `actions/setup-node`",
-    "dist/core/**` ships in tarball",
-    "Add a `prebuild` clean",
-    "Demo-moment narrative restructure",
-    "README front-door dialect entry",
-  ];
-
-  it("REQ-AOD-09.1: rows 27/33/34/35/86/143 are struck through and marked retired", () => {
-    for (const fragment of RETIRED_FRAGMENTS) {
-      const line = findRowLine(doc, fragment);
-      expect(line).toContain("~~");
-    }
-    const retiredMarkerCount = (doc.match(/RETIRED — `stage-6-release-shape`/g) ?? []).length;
-    expect(retiredMarkerCount).toBe(6);
-  });
-
-  it("REQ-AOD-09.2: row 74 is re-tagged away from Stage 6 to the cross-repo engine-gated bucket", () => {
-    const line = findRowLine(doc, "EmitRejection port conformance for the real engine client");
-    expect(line).not.toMatch(/\|\s*\*\*6\*\*\s*\|/);
-    expect(line).toContain("cross-repo");
-  });
-
-  it("REQ-AOD-09.4: rows 56 and 142 are re-tagged to the PC-PROTO-01/public-package bucket", () => {
-    for (const fragment of ["`BATCH_CAP_BYTES`", "provenance go-live checklist"]) {
-      const line = findRowLine(doc, fragment);
-      expect(lastTableCell(line)).toBe("PC-PROTO-01 / public-package plan");
-    }
-  });
-
-  it("REQ-AOD-09.5: row 175's trigger is re-pointed at the sdk-kit extraction/public-package plan", () => {
-    const line = findRowLine(doc, "`RunResult.error`'s typed union");
-    expect(lastTableCell(line)).toBe("sdk-kit extraction / public-package plan");
-  });
-
-  it("REQ-AOD-09.6: a new entry records the required-reviewers go-live precondition", () => {
-    expect(doc).toContain("GitHub Environment required-reviewers gate");
-    expect(doc).toMatch(/MANDATORY precondition of removing `--dry-run`/);
-    expect(doc).toContain("public-package plan");
-  });
-});
+// S-005 (REQ-AOD-09.3): static content scan over ROADMAP.md, same "no execution" unit
+// layer as the rest of this file.
 
 describe("REQ-AOD-09.3 — ROADMAP states release-readiness, not a release", () => {
   const doc = readDoc("ROADMAP.md");
@@ -219,48 +168,5 @@ describe("REQ-AOD-09.3 — ROADMAP states release-readiness, not a release", () 
     expect(doc).toContain("Stage 6");
     expect(doc).toContain("delivers RELEASE-READINESS, not a release");
     expect(doc).toMatch(/first LIVE publish is a separate/);
-  });
-});
-
-describe("REQ-AOD-10 — demo narrative calls pendingDirectives() before any read/dialect-open", () => {
-  const doc = readDoc("openspec/objectives-plan.md");
-
-  it("REQ-AOD-10.1: the demo-moment paragraph sequences pendingDirectives() before the dialect handle", () => {
-    const idx = doc.indexOf("**The demo moment:**");
-    expect(idx).toBeGreaterThan(-1);
-    const paragraphEnd = doc.indexOf("\n\n", idx);
-    const paragraph = doc.slice(idx, paragraphEnd === -1 ? undefined : paragraphEnd);
-    const pendingDirectivesIdx = paragraph.indexOf("pendingDirectives()");
-    const dialectIdx = paragraph.indexOf("dialect handle");
-    expect(pendingDirectivesIdx).toBeGreaterThan(-1);
-    expect(dialectIdx).toBeGreaterThan(-1);
-    expect(pendingDirectivesIdx).toBeLessThan(dialectIdx);
-  });
-});
-
-describe("REQ-AOD-12 — sensitive-areas registry reconciliation", () => {
-  const doc = readDoc("openspec/sensitive-areas.md");
-
-  it("REQ-AOD-12.1: deployment row moves low->medium confidence with publish.yml in paths", () => {
-    const line = findRowLine(doc, "| deployment |");
-    expect(line).toContain(".github/workflows/publish.yml");
-    expect(line).toMatch(/\|\s*medium\s*\|/);
-    expect(line).toMatch(/SHA-pin/);
-    expect(line).toMatch(/repo-owner guard/);
-  });
-
-  it("REQ-AOD-12.2: supply-chain row notes the dist/core decision and SHA-pin convention", () => {
-    const line = findRowLine(doc, "| security (supply-chain) |");
-    expect(line).toContain("dist/core/**");
-    expect(line).toContain("REQ-FPS-06");
-    expect(line).toContain("REQ-PPH-02");
-  });
-
-  it("REQ-AOD-12.3: the Review Required section no longer claims deployment is lower-confidence", () => {
-    const reviewIdx = doc.indexOf("## Review Required");
-    expect(reviewIdx).toBeGreaterThan(-1);
-    const reviewSection = doc.slice(reviewIdx);
-    expect(reviewSection).not.toMatch(/deployment[^\n]{0,60}lower-confidence/i);
-    expect(reviewSection).toContain("security (IPC)");
   });
 });

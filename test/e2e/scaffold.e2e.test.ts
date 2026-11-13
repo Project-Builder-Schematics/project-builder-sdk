@@ -9,7 +9,7 @@
  * "rendered").
  *
  * S-001 adds the OUTER LOOP for the folder-scaffold + classifier slice (double-loop TDD
- * ordering, sdd-apply Step 7b): `scaffold({from, to})` walking a package-local folder,
+ * ordering): `scaffold({from, to})` walking a package-local folder,
  * mirroring by-value files through the existing `create` IR, and the by-reference verdict
  * throwing fail-loud (temporary — S-003 swaps this for real `copyIn` emission). Covers
  * (slices.md S-001): FSC-01..05, FSC-07..09, CCL-01..06 (through the e2e happy path +
