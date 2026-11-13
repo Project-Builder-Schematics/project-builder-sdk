@@ -196,7 +196,7 @@ it. No lockstep coordination gate.
 
 The SDK stops deriving and enforcing a package-local containment ceiling
 (`package-root-containment`, retired — see
-[ADR-0077](./openspec/decisions/0077-relocate-containment-boundary-out-of-sdk.md)).
+[ADR-0077](./docs/adr/0077-relocate-containment-boundary-out-of-sdk.md)).
 `AuthoringReason` narrows from twelve members to eleven: `source-outside-package` is
 removed. Every corpus fixture already declares its outcomes without depending on that
 reason (verified: `rg -n "source-outside-package" conformance/` returns zero hits), so no

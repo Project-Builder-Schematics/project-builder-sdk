@@ -55,7 +55,7 @@ Symlink escape from `packageDir` is an accepted, documented residual (`package-s
 
 Windows UNC and drive-relative source forms are not screened SDK-side — that is the engine's obligation (`by-reference-copy-wire` REQ-BRC-08).
 
-See [ADR-0077](./openspec/decisions/0077-relocate-containment-boundary-out-of-sdk.md) and
+See [ADR-0077](./docs/adr/0077-relocate-containment-boundary-out-of-sdk.md) and
 [Authoring verbs](./docs/authoring-verbs.md#package-local-reads-the-boundary) for the full
 context and the per-path-class boundary table.
 

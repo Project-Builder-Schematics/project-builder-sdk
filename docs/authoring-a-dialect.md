@@ -15,7 +15,7 @@ pair for `.tsx`/JSX authoring: `setJsxProp` and `addImport`.
 
 ## Two audiences
 
-Per [ADR-0009](../openspec/decisions/0009-two-audiences-contributor-kit.md), this SDK has two
+Per [ADR-0009](adr/0009-two-audiences-contributor-kit.md), this SDK has two
 distinct audiences:
 
 - **Authors** consume a published dialect (e.g. `@pbuilder/sdk/typescript`) inside a schematic —

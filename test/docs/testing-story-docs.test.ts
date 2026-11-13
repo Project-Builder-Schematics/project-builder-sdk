@@ -17,8 +17,8 @@ import { extractSection } from "../support/markdown-section.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 const README_PATH = join(PROJECT_ROOT, "README.md");
-const ADR_0033_PATH = join(PROJECT_ROOT, "openspec/decisions/0033-third-audience-author-testing.md");
-const ADR_0009_PATH = join(PROJECT_ROOT, "openspec/decisions/0009-two-audiences-contributor-kit.md");
+const ADR_0033_PATH = join(PROJECT_ROOT, "docs/adr/0033-third-audience-author-testing.md");
+const ADR_0009_PATH = join(PROJECT_ROOT, "docs/adr/0009-two-audiences-contributor-kit.md");
 
 // Outside test/ so bun's test-file glob (evaluated once at suite start) never picks these up
 // mid-run — same precedent as test/e2e/installed-consumer.e2e.test.ts's `.tmp-testing-e2e/`.
