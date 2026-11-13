@@ -24,7 +24,7 @@ S6 — SDK port rule (user: "Si me parece"; orchestrator wording): "a port exist
 | P3 | — | the user's final approval before S0a | done (L15) | — |
 | S0a | proposal §4, S3-S6 | inline | done — RED 3 → GREEN 31; mutation probes bite; full gate L16 | 411af93 (PR #160, merged as 1a1888f) |
 | S0b | proposal §5 P-API, P-PACK, P-SIZE; S2, S6 | inline | done — RED 3 → GREEN 10; full gate L18 | 4cb0f4c (PR #172, merged as 5b33c0a) |
-| S1a | proposal §3.2 guard, S1a row; S2, S6 | inline (one behavior, about 300 lines, no writer reason) | in progress — gate pending (L19) | — |
+| S1a | proposal §3.2 guard, S1a row; S2, S6 | inline (one behavior, about 300 lines, no writer reason) | in progress — gate pending (L19) | 6c9da28 |
 
 Route evidence: the maps needed far more than the inline evidence budget (three repositories), so the mapping trigger fired; the write is one document, inline.
 
