@@ -6,11 +6,11 @@ Branch: `chore/ci-optimization` (from origin/main 048cd2c). Delivery: PR per sli
 ## Specs
 
 - S1 — Analysis first, no workflow edits until the user decides (L1, L2).
-- S2 — Stop running CI twice per commit. Today `ci.yml` triggers on `push` to every branch except main and on `pull_request`, so each PR commit runs the full job twice. Proposed triggers: `pull_request`, `push` to `main`, a nightly `schedule`, and `workflow_dispatch`.
+- S2 — Stop running CI twice per commit. Today `ci.yml` triggers on `push` to every branch except main and on `pull_request`, so each PR commit runs the full job twice. Proposed triggers: `pull_request`, `push` to `main`, a nightly `schedule` at 06:00 UTC (`cron: "0 6 * * *"`, L5), and `workflow_dispatch`.
 - S3 — Cancel superseded runs: a `concurrency` group per PR with `cancel-in-progress` on pull requests only. Runs on main and scheduled runs are never cancelled.
 - S4 — Run test files in parallel inside the one job with `bun test --parallel=<N>` (Bun 1.3.14 runs files in worker processes, isolated). This keeps the single `Run tests` step that `test/pyramid/pyramid-codification.test.ts` (REQ-03) and `test/fitness/fit-23-publish-workflow-guard.test.ts` read. The gain must be measured before adoption, since some suites share `dist/` through `test/support/shared-build.ts`.
 - S5 — Deferred by the user (L4). Path gate, fail-closed: CI skips the suite only when every changed file is in an explicit allowlist that no job reads (`odd/**`, `.atl/**`, `.github/ISSUE_TEMPLATE/**`, `.github/PULL_REQUEST_TEMPLATE.md`). Any other path runs everything. A gate job that always runs keeps the required check name `Test, typecheck, build` and passes when the suite passed or was skipped by the gate. Low value today (0 of the last 40 merged PRs would have skipped); kept only if the user wants it.
-- S6 — Safety net: the full suite runs on every push to main and nightly, whatever the paths. CodeQL default setup and the publish workflow are untouched.
+- S6 — Safety net: the full suite runs on every push to main and nightly at 06:00 UTC, whatever the paths. CodeQL default setup and the publish workflow are untouched.
 - S7 — The `rules` job that the `sdk` session adds in its R0 slice joins the gate's `needs`, runs in parallel with the suite, and follows the same path gate.
 
 ## Tasks
@@ -19,7 +19,7 @@ Branch: `chore/ci-optimization` (from origin/main 048cd2c). Delivery: PR per sli
 |----|-------|-------|--------|--------|
 | T1 | S1 | inline | done — analysis below | — |
 | T2 | S4 | inline, heavy run needs the slot | pending — measure `--parallel` locally and on a draft PR | — |
-| T3 | S2, S3, S6 | inline | pending the user's decision and R0 ordering | — |
+| T3 | S2, S3, S6 | inline | decided (L3, L5); waits for R0 to land | — |
 | T4 | S5, S7 | inline | S5 deferred (L4); S7 waits for R0 | — |
 
 Route evidence: one understood change per slice, no writer trigger.
@@ -87,3 +87,4 @@ Typecheck reads `src/`, `test/`, `bin/`, `scripts/`, `conformance/` and the tsco
 - L2 (2026-11-13, orchestrator): analyse and propose first; no `ci.yml` edits until the order with the `sdk` session's R0 slice (its `rules` job) is agreed. Heavy runs need the machine slot.
 - L3 (2026-11-13, user via the orchestrator, decision a): "Si dale". A branch pushed without a PR gets no automatic CI; `workflow_dispatch` stays available to run it by hand. S2 stands as written. Decisions b (path gate) and c (nightly run) are pending; edits wait for them and for R0.
 - L4 (2026-11-14, user via the orchestrator, decision b): "Si me parece". No path gate for now; revisit it later inside R0's gate job, for docs-only PRs. Note for that revisit: the doc tests (`test/docs/*`, `fit-raw-sweep`, `pyramid-codification`) read `docs/**` and the root `*.md`, so a docs-only PR can still break the suite. A docs gate would have to run at least those tests. Decision c (nightly run and time) is pending; edits wait for it and for R0.
+- L5 (2026-11-14, user via the orchestrator, decision c): "si dale, a las 06:00 UTC". The nightly full run is `schedule: cron: "0 6 * * *"`. All three CI decisions are made; `ci.yml` edits wait for R0 to land, and measuring `bun test --parallel` waits for the heavy slot.
