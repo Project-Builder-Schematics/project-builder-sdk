@@ -6,7 +6,7 @@
  *
  * Per ADR-0012 (mirrored from `test/conformance/typescript-conformance.test.ts`): the fixture
  * dialect below is assembled from the SAME real production building blocks
- * `src/dialects/react/index.ts` composes internally (`defineDialect`/`defineOpPack`/`withOps`
+ * `src/bounded-contexts/authoring/infrastructure/out/dialects/react/index.ts` composes internally (`defineDialect`/`defineOpPack`/`withOps`
  * over the real `ast.ts` parse/print pair and the real `ops.ts` ops) — `index.ts` exports
  * `find` and its library, so conformance re-assembles the same real `Dialect`/`OpPack` objects rather
  * than importing a mock.
@@ -17,9 +17,9 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
-import { parse, print } from "../../src/dialects/react/ast.ts";
-import { typescriptOps } from "../../src/dialects/typescript/pack.ts";
-import { setJsxProp, type JsxTarget } from "../../src/dialects/react/ops.ts";
+import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts";
+import { typescriptOps } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/pack.ts";
+import { setJsxProp, type JsxTarget } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ops.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 import { golden } from "../support/golden.ts";
@@ -33,7 +33,7 @@ import { golden } from "../support/golden.ts";
 setDefaultTimeout(20000);
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
-const REACT_GOLDEN_DIR = new URL("../dialects/react/golden/", import.meta.url).pathname;
+const REACT_GOLDEN_DIR = new URL("../bounded-contexts/authoring/infrastructure/out/dialects/react/golden/", import.meta.url).pathname;
 
 function reactGolden(name: string): string {
   return golden(name, REACT_GOLDEN_DIR);

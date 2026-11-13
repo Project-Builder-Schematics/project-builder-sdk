@@ -184,7 +184,7 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["targetNeverImportsLegacy", `${A}/domain/services/x.ts`, "src/core/session.ts"],
     ["dialectIsolation", `${A}/application/usecases/x.ts`, `${A}/infrastructure/out/dialects/css/ops.ts`],
     ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, `${A}/infrastructure/out/dialects/typescript/ast.ts`],
-    ["dialectIsolation", "src/dialects/json/ops.ts", "src/dialects/yaml/ast.ts"],
+    ["dialectIsolation", "src/bounded-contexts/authoring/infrastructure/out/dialects/json/ops.ts", "src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/ast.ts"],
     ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, `${A}/application/usecases/x.ts`],
     ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, `${A}/infrastructure/out/fs/x.ts`],
     ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, "node:fs"],

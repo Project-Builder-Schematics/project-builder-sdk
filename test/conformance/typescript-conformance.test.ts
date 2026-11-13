@@ -4,7 +4,7 @@
  * is NOT carried into conformance code past S-001).
  *
  * The dialect fixture below is assembled from the SAME real production building blocks
- * `src/dialects/typescript/index.ts` composes internally (`defineDialect`/`defineOpPack`/
+ * `src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/index.ts` composes internally (`defineDialect`/`defineOpPack`/
  * `withOps` over the real `ast.ts` parse/print pair and the real `ops.ts` addImport op) —
  * `index.ts` exports `find` and its library, not the instance, so conformance re-assembles
  * the same real `Dialect` object rather than importing a mock (ADR-0012, REQ-TSD-07).
@@ -16,8 +16,8 @@ import { existsSync } from "node:fs";
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
-import { parse, print } from "../../src/dialects/typescript/ast.ts";
-import { addImport } from "../../src/dialects/typescript/ops.ts";
+import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
+import { addImport } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ops.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";

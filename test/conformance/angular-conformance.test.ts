@@ -1,10 +1,10 @@
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
-import { parse, print } from "../../src/dialects/typescript/ast.ts";
-import { typescriptOps } from "../../src/dialects/typescript/pack.ts";
-import type { ArrayElement } from "../../src/dialects/typescript/array-element.ts";
-import { addComponentImport, addComponentProvider, addRootProvider, type NamedImport } from "../../src/dialects/angular/ops.ts";
+import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
+import { typescriptOps } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/pack.ts";
+import type { ArrayElement } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/array-element.ts";
+import { addComponentImport, addComponentProvider, addRootProvider, type NamedImport } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/angular/ops.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 

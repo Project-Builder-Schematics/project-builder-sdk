@@ -33,7 +33,7 @@ function collectTs(dir: string): string[] {
 
 // Only src/dialects/<name>/ast.ts is an authorized construction site.
 function isAuthorizedAstFile(relativePath: string): boolean {
-  return /^dialects\/[^/]+\/ast\.ts$/.test(relativePath);
+  return /^bounded-contexts\/authoring\/infrastructure\/out\/dialects\/[^/]+\/ast\.ts$/.test(relativePath);
 }
 
 interface ConstructionSite {
@@ -53,8 +53,8 @@ function findUnauthorizedConstructions(files: readonly string[]): ConstructionSi
   return violations;
 }
 
-describe("FIT-38 — new Project( appears only in src/dialects/*/ast.ts", () => {
-  it("no source file outside src/dialects/*/ast.ts constructs `new Project(`", () => {
+describe("FIT-38 — new Project( appears only in src/bounded-contexts/authoring/infrastructure/out/dialects/*/ast.ts", () => {
+  it("no source file outside src/bounded-contexts/authoring/infrastructure/out/dialects/*/ast.ts constructs `new Project(`", () => {
     const files = collectTs(SRC_DIR);
     const violations = findUnauthorizedConstructions(files);
     expect(violations).toEqual([]);
@@ -64,7 +64,7 @@ describe("FIT-38 — new Project( appears only in src/dialects/*/ast.ts", () => 
     const files = collectTs(SRC_DIR).filter((f) => isAuthorizedAstFile(relative(SRC_DIR, f)));
     const withConstruction = files.filter((f) => PROJECT_CONSTRUCTION_PATTERN.test(readFileSync(f, "utf-8")));
     const labels = withConstruction.map((f) => relative(SRC_DIR, f)).sort();
-    expect(labels).toEqual(["dialects/react/ast.ts", "dialects/typescript/ast.ts"]);
+    expect(labels).toEqual(["bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts", "bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts"]);
   });
 
   // RED-PROOF: a fixture constructing `new Project(` outside any ast.ts file is caught.

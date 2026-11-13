@@ -27,7 +27,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 import pkg from "../../package.json";
 
@@ -37,6 +37,12 @@ interface ScannedPath {
   path: string;
   valueAllow: string[];
   typeAllow: string[];
+}
+
+// A dialect's public entry is a barrel over its adapter's index; the adapter is scanned with the
+// same allowlist, so a barrel that is exactly `export *` of its own adapter exposes nothing unscanned.
+function adapterOf(entrypoint: string): string {
+  return join(ROOT, "..", entrypoint.replace(/^src\/dialects\//, "src/bounded-contexts/authoring/infrastructure/out/dialects/"));
 }
 
 // Per-path allowlist data model (REQ-TES-03): the FIT-08 equivalent of the old flat
@@ -51,7 +57,10 @@ const SCANNED: ScannedPath[] = [
     valueAllow: ["runFactoryForTest"],
     typeAllow: ["Batch", "Directive"],
   },
-  ...DIALECT_MODULES.map((entry) => ({ path: join(ROOT, "..", entry.entrypoint), valueAllow: [], typeAllow: [] })),
+  ...DIALECT_MODULES.flatMap((entry) => [
+    { path: join(ROOT, "..", entry.entrypoint), valueAllow: [], typeAllow: [] },
+    { path: adapterOf(entry.entrypoint), valueAllow: [], typeAllow: [] },
+  ]),
 ];
 
 const UMBRELLA_PATH = join(ROOT, "index.ts");
@@ -85,8 +94,10 @@ function findWildcardViolations(source: string, filePath: string): string[] {
     const [, typeOnly, alias, specifier] = match;
     const isUmbrellaExemption = !typeOnly && !alias && filePath === UMBRELLA_PATH && specifier === UMBRELLA_EXEMPT_SPECIFIER;
     const isLibraryExemption = !typeOnly && alias === "astLibrary" && DIALECT_MODULES.some((entry) =>
-      filePath === join(ROOT, "..", entry.entrypoint) && specifier === entry.specifier);
-    if (!isUmbrellaExemption && !isLibraryExemption) {
+      filePath === adapterOf(entry.entrypoint) && specifier === entry.specifier);
+    const isBarrelExemption = !typeOnly && !alias && DIALECT_MODULES.some((entry) =>
+      filePath === join(ROOT, "..", entry.entrypoint) && resolve(dirname(filePath), specifier ?? "") === adapterOf(entry.entrypoint));
+    if (!isUmbrellaExemption && !isLibraryExemption && !isBarrelExemption) {
       violations.push(`wildcard re-export banned by form: ${match[0].trim()}`);
     }
   }
@@ -133,8 +144,8 @@ describe("FIT-08 — no author subpath re-exports a kit symbol beyond its allowl
   });
 
   for (const entry of DIALECT_MODULES) {
-    it(`${entry.entrypoint} permits only its own native runtime astLibrary namespace`, () => {
-      const path = join(ROOT, "..", entry.entrypoint);
+    it(`${entry.entrypoint}'s adapter permits only its own native runtime astLibrary namespace`, () => {
+      const path = adapterOf(entry.entrypoint);
       expect(findWildcardViolations(`export * as astLibrary from "${entry.specifier}";`, path)).toEqual([]);
       for (const source of [
         `export * as other from "${entry.specifier}";`,
@@ -146,6 +157,19 @@ describe("FIT-08 — no author subpath re-exports a kit symbol beyond its allowl
       expect(findWildcardViolations(`export * as astLibrary from "${entry.specifier}";`, join(ROOT, "commons/index.ts"))).toHaveLength(1);
     });
   }
+
+  it("a dialect barrel may re-export only its own adapter, and only as a plain wildcard", () => {
+    const [css, json] = ["css", "json"].map((name) => DIALECT_MODULES.find((e) => e.entrypoint === `src/dialects/${name}/index.ts`)!) as [(typeof DIALECT_MODULES)[number], (typeof DIALECT_MODULES)[number]];
+    const barrel = join(ROOT, "..", css.entrypoint);
+    const own = "../../bounded-contexts/authoring/infrastructure/out/dialects/css/index.ts";
+    expect(findWildcardViolations(`export * from "${own}";`, barrel)).toEqual([]);
+    for (const source of [
+      `export * from "../../bounded-contexts/authoring/infrastructure/out/dialects/json/index.ts";`,
+      `export * as css from "${own}";`,
+      `export type * from "${own}";`,
+    ]) expect(findWildcardViolations(source, barrel)).toHaveLength(1);
+    expect(findWildcardViolations(`export * from "${own}";`, join(ROOT, "..", json.entrypoint))).toHaveLength(1);
+  });
 
   it("the root exemption does not permit namespace or type-only variants", () => {
     expect(findWildcardViolations('export * as astLibrary from "./commons/index.ts";', UMBRELLA_PATH)).toHaveLength(1);

@@ -7,7 +7,7 @@ import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps, RESERVED_HANDLE_NAMES } from "../../../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { isContained } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
-import { parse, print } from "../../../../../src/dialects/typescript/ast.ts";
+import { parse, print } from "../../../../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
 import { packA as collidingPackA, packB as collidingPackB } from "../../../../fixtures/red/dialect-generics/colliding-op-packs.ts";
 
 function realBaseDialect() {

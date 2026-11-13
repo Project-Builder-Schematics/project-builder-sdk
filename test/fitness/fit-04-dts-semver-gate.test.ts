@@ -124,24 +124,24 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     // first commit is additive by definition (a brand-new subpath); this pair gates every
     // subsequent change to it the same as every other public surface.
     baselineFile: join(BASELINE_DIR, "typescript.index.d.ts"),
-    distFile: join(DIST_DIR, "dialects/typescript/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/infrastructure/out/dialects/typescript/index.d.ts"),
     label: "typescript",
   },
   {
     // react-dialect, S-000, REQ-FIT-04: the ./react subpath's FIRST baseline — additive by
     // definition (a brand-new subpath), pins `find`'s JSDoc incl. the trust line.
     baselineFile: join(BASELINE_DIR, "react.index.d.ts"),
-    distFile: join(DIST_DIR, "dialects/react/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/infrastructure/out/dialects/react/index.d.ts"),
     label: "react",
   },
   {
     baselineFile: join(BASELINE_DIR, "nestjs.index.d.ts"),
-    distFile: join(DIST_DIR, "dialects/nestjs/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/infrastructure/out/dialects/nestjs/index.d.ts"),
     label: "nestjs",
   },
   {
     baselineFile: join(BASELINE_DIR, "angular.index.d.ts"),
-    distFile: join(DIST_DIR, "dialects/angular/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/infrastructure/out/dialects/angular/index.d.ts"),
     label: "angular",
   },
   {

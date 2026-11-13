@@ -10,11 +10,11 @@ import * as jsoncParser from "jsonc-parser";
 import * as yamlLibrary from "yaml";
 import * as postcss from "postcss";
 import { defineDialect } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
-import * as typescriptAst from "../../src/dialects/typescript/ast.ts";
-import * as reactAst from "../../src/dialects/react/ast.ts";
-import * as jsonAst from "../../src/dialects/json/ast.ts";
-import * as yamlAst from "../../src/dialects/yaml/ast.ts";
-import * as cssAst from "../../src/dialects/css/ast.ts";
+import * as typescriptAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
+import * as reactAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts";
+import * as jsonAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/json/ast.ts";
+import * as yamlAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/ast.ts";
+import * as cssAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/css/ast.ts";
 
 // TypeScript-syntax adversarial samples: the kit's mandatory set is format-neutral, so these
 // stay covered here for both ts-morph dialects.
@@ -37,7 +37,7 @@ const libraryExercise = {
 export const DIALECT_MODULES = [
   {
     entrypoint: "src/dialects/typescript/index.ts", specifier: "ts-morph",
-    adapter: new URL("../../src/dialects/typescript/ast.ts", import.meta.url),
+    adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts", import.meta.url),
     module: typescript, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".ts"], ast: typescriptAst, ops: {} }),
     samples: ["const x = 1;\n", ...TS_SYNTAX_SAMPLES, `/*${"a".repeat(4 * 1024 * 1024)}*/\nconst x = 1;\n`],
@@ -45,14 +45,14 @@ export const DIALECT_MODULES = [
   },
   {
     entrypoint: "src/dialects/react/index.ts", specifier: "ts-morph",
-    adapter: new URL("../../src/dialects/react/ast.ts", import.meta.url),
+    adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts", import.meta.url),
     module: react, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".tsx"], ast: reactAst, ops: {} }),
     samples: ["const el = <Button />;\n", ...TS_SYNTAX_SAMPLES], libraryExercise: { ...libraryExercise, path: "library.tsx" },
   },
   {
     entrypoint: "src/dialects/nestjs/index.ts", specifier: "ts-morph",
-    adapter: new URL("../../src/dialects/typescript/ast.ts", import.meta.url),
+    adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts", import.meta.url),
     module: nestjs, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".ts"], ast: typescriptAst, ops: {} }),
     samples: ["@Module({ providers: [A] })\nexport class M {}\n", ...TS_SYNTAX_SAMPLES],
@@ -60,7 +60,7 @@ export const DIALECT_MODULES = [
   },
   {
     entrypoint: "src/dialects/angular/index.ts", specifier: "ts-morph",
-    adapter: new URL("../../src/dialects/typescript/ast.ts", import.meta.url),
+    adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts", import.meta.url),
     module: angular, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".ts"], ast: typescriptAst, ops: {} }),
     samples: ["@Component({ imports: [A] })\nexport class C {}\n", ...TS_SYNTAX_SAMPLES],
@@ -68,7 +68,7 @@ export const DIALECT_MODULES = [
   },
   {
     entrypoint: "src/dialects/json/index.ts", specifier: "jsonc-parser",
-    adapter: new URL("../../src/dialects/json/ast.ts", import.meta.url),
+    adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/json/ast.ts", import.meta.url),
     module: json, expectedAstLibrary: jsoncParser,
     dialect: defineDialect({ extensions: [".json"], ast: jsonAst, ops: {} }),
     samples: ['{ "a": [1, 2] }\n'],
@@ -83,7 +83,7 @@ export const DIALECT_MODULES = [
   },
   {
     entrypoint: "src/dialects/yaml/index.ts", specifier: "yaml",
-    adapter: new URL("../../src/dialects/yaml/ast.ts", import.meta.url),
+    adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/ast.ts", import.meta.url),
     module: yaml, expectedAstLibrary: yamlLibrary,
     dialect: defineDialect({ extensions: [".yaml"], ast: yamlAst, ops: {} }),
     samples: ["a:\n  - 1\n"],
@@ -98,7 +98,7 @@ export const DIALECT_MODULES = [
   },
   {
     entrypoint: "src/dialects/css/index.ts", specifier: "postcss",
-    adapter: new URL("../../src/dialects/css/ast.ts", import.meta.url),
+    adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/css/ast.ts", import.meta.url),
     module: css, expectedAstLibrary: postcss,
     dialect: defineDialect({ extensions: [".css"], ast: cssAst, ops: {} }),
     samples: [":root {\n  --a: 1;\n}\n"],

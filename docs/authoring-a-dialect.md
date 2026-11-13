@@ -470,7 +470,7 @@ dialect per extension and route between them:
 Both derivations throw at composition on an op name the dialect does not have. A variant that
 only needs another parser is plain `defineDialect` reusing the other dialect's ops
 (`ops: tsx.ops`). See their JSDoc `@example`s in `src/bounded-contexts/authoring/domain/services/define-dialect.ts`, and
-`src/dialects/react/index.ts` for the `.tsx`/`.jsx` routing the React dialect ships.
+`src/bounded-contexts/authoring/infrastructure/out/dialects/react/index.ts` for the `.tsx`/`.jsx` routing the React dialect ships.
 
 A contributor's worked proof anchors are the conformance kit — `testDialect`/`testOpPack`
 (`@pbuilder/sdk/conformance`) — which asserts a dialect's parse/print round-trip, per-op
@@ -640,7 +640,7 @@ For example, a test in this repository's `test/conformance/` directory can use i
 ```ts
 import * as module from "../../src/dialects/typescript/index.ts";
 import * as expectedAstLibrary from "ts-morph";
-import { parse, print } from "../../src/dialects/typescript/ast.ts";
+import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
 import { defineDialect } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { testDialect, type DialectFixture } from "../../src/conformance/index.ts";
 

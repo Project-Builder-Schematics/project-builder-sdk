@@ -29,7 +29,7 @@ const PUBLIC_PATHS = [
   join(ROOT, "commons/index.ts"),
   join(ROOT, "conformance/index.ts"),
   join(ROOT, "testing/index.ts"),
-  join(ROOT, "dialects/typescript/index.ts"),
+  join(ROOT, "bounded-contexts/authoring/infrastructure/out/dialects/typescript/index.ts"),
 ];
 
 // Matches a JSDoc tag at the start of a JSDoc line: `* @tagname` or `* @tagname value`
@@ -223,8 +223,8 @@ describe("FIT-06 — every public export carries a JSDoc @example", () => {
   // REQ-FIT-06 (stage-5-first-dialect): ./typescript's entry verb `find` is gate-covered by
   // THIS SAME fitness function — proven positively (it currently carries @example) and by a
   // red-proof (removing it fails RED), not left to per-subpath convention.
-  it("REQ-FIT-06: src/dialects/typescript/index.ts's find carries @example", () => {
-    const source = readFileSync(join(ROOT, "dialects/typescript/index.ts"), "utf-8");
+  it("REQ-FIT-06: the TypeScript dialect adapter's find carries @example", () => {
+    const source = readFileSync(join(ROOT, "bounded-contexts/authoring/infrastructure/out/dialects/typescript/index.ts"), "utf-8");
     const exports = extractPublicExports(source);
     const findExport = exports.find((e) => e.name === "find");
     expect(findExport?.hasExample).toBe(true);

@@ -1,16 +1,16 @@
 /**
  * REQ-YMD-08: the YAML dialect passes the conformance kit. The fixture dialect is assembled
- * from the same production building blocks `src/dialects/yaml/index.ts` composes (the real
+ * from the same production building blocks `src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/index.ts` composes (the real
  * parse/print pair and the real named ops), never a mock.
  */
 import { describe, it, expect, setDefaultTimeout } from "bun:test";
 import * as expectedAstLibrary from "yaml";
 import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
-import { parse, print, type YamlStream } from "../../src/dialects/yaml/ast.ts";
+import { parse, print, type YamlStream } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/ast.ts";
 import * as yaml from "../../src/dialects/yaml/index.ts";
-import { addDocument, removeDocument } from "../../src/dialects/yaml/documents.ts";
-import { addMergeKey, setAnchor, setComment, setTag } from "../../src/dialects/yaml/presentation.ts";
-import { appendItem, merge, setValue, sortKeys } from "../../src/dialects/yaml/structural.ts";
+import { addDocument, removeDocument } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/documents.ts";
+import { addMergeKey, setAnchor, setComment, setTag } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/presentation.ts";
+import { appendItem, merge, setValue, sortKeys } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/structural.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
 
 // The kit's derived 4 MiB sample and the 1 MiB corpus sample are real parse/print work (the

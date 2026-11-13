@@ -10,7 +10,7 @@ engine-handoff contract (owner ruling D1) — there is no separate "golden" file
 handoff stays provisional until a real consuming engine exists (`PC-PROTO-01`).
 
 This is the third golden idiom in this SDK's test suite, alongside `test/golden-ir/`
-(in-source `Directive` literals) and `test/dialects/typescript/golden/` (byte-print
+(in-source `Directive` literals) and `test/bounded-contexts/authoring/infrastructure/out/dialects/typescript/golden/` (byte-print
 files) — a genuinely different unit: the whole-run lowered-directive sequence, not a
 single directive or a single rendered file (ADR-0048).
 

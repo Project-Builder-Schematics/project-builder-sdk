@@ -12,7 +12,8 @@ know about. It is the contributor-facing counterpart to
 closure, plus the package's root `package.json`. Those 24 are the code that runs **before** the
 runner imports the author's factory — the *pre-factory bootstrap*, and nothing beyond it. They are
 not "the runner" in the sense a reader is likely to assume, and they are certainly not "the SDK".
-`dist/commons/**`, `dist/dialects/**`, `dist/conformance/**`, `dist/testing/**` and everything under
+`dist/commons/**`, `dist/dialects/**`, `dist/bounded-contexts/**`, `dist/platform/**`, `dist/conformance/**`,
+`dist/testing/**` and everything under
 `node_modules/**` are absent from the manifest by design, and they load into the same process, at
 the same privilege, moments later — after the bootstrap has been checked and the factory import has
 begun. Their absence is deliberate, not an oversight: they are reachable only through the factory's

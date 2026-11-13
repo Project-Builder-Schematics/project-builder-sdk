@@ -98,7 +98,7 @@ function outOfScopeTextOptOuts(entries: ReturnType<typeof parseGitAttributes>): 
   return entries
     .filter((entry) => entry.attrs.includes("-text"))
     .map((entry) => entry.pattern)
-    .filter((pattern) => !pattern.startsWith("test/dialects/"));
+    .filter((pattern) => !pattern.startsWith("test/bounded-contexts/authoring/infrastructure/out/dialects/"));
 }
 
 describe("runner closure — .gitattributes normalises source line endings", () => {
@@ -108,7 +108,7 @@ describe("runner closure — .gitattributes normalises source line endings", () 
     expect(committed.some((e) => e.pattern === "*" && e.attrs.includes("eol=lf"))).toBe(true);
   });
 
-  it("REQ-RMD-03.3: every `-text` opt-out is scoped to test/dialects/**, never to src/**", () => {
+  it("REQ-RMD-03.3: every `-text` opt-out is scoped to the dialect tests (test/bounded-contexts/authoring/infrastructure/out/dialects/**), never to src/**", () => {
     expect(outOfScopeTextOptOuts(committed)).toEqual([]);
   });
 
