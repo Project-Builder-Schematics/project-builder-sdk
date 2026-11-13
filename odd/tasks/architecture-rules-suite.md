@@ -77,9 +77,9 @@ Shared touchpoints: `package.json` and `bun.lock` (R0 adds 4 devDependencies and
 
 ## 7. Decisions for the user
 
-D1 — Placement: `src/acceptance/` as CODE-LAYOUT:107 says (excluded from the build, a fit-49 `acceptance` class) **(recommended)**, or `test/acceptance/` outside the private root (simpler, but departs from CODE-LAYOUT).
+D1 — Placement: **settled by the rule (L3)** — `src/acceptance/` as CODE-LAYOUT:107 says, excluded from the build, with a fit-49 `acceptance` class.
 
-D2 — Strict-pass ramp: the 136 implemented `@sdk` scenarios have no step definitions yet, so a strict pass fails from R0. Options: a shrink-only list of pending features, each row with the slice that removes it, which the strict pass skips with an explicit count, and which must hold only features with undefined steps **(recommended)**; or land R0 together with the json/yaml steps (one much larger first PR); or have the architecture repo retag them designed until the SDK steps exist (moves status upstream for a tooling gap).
+D2 — Strict-pass ramp: **resolved (L3): the shrink-only pending-features list.** The 136 implemented `@sdk` scenarios have no step definitions yet, so a strict pass fails from R0. Options were: a shrink-only list of pending features, each row with the slice that removes it, which the strict pass skips with an explicit count, and which must hold only features with undefined steps **(recommended)**; or land R0 together with the json/yaml steps (one much larger first PR); or have the architecture repo retag them designed until the SDK steps exist (moves status upstream for a tooling gap).
 
 D3 — Dependencies (risk item 5): the four `@cucumber/*` packages as devDependencies only **(recommended)**, or `@cucumber/cucumber` as a separate runner.
 
@@ -90,7 +90,7 @@ D4 — Actions outside this repo: the orchestrator cuts architecture v0.15.0; th
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | P1 | S1, S2 | inline, two read-only explorers (engine/CLI mechanics; architecture inventory) | done | this commit |
-| P2 | — | the user's answers to D1-D4 | pending | — |
+| P2 | — | the user's answers to D1-D4 | D1, D2 done (L3); D3, D4 pending | — |
 
 Route evidence: the plan needed three repositories' evidence, beyond the inline budget, so the mapping trigger fired; the write is one document, inline.
 
@@ -99,3 +99,5 @@ Route evidence: the plan needed three repositories' evidence, beyond the inline 
 L1 (2026-11-13, user via the orchestrator, verbatim): "Para esta caso montemos todo para correr el tema de las reglas de arquitectura". Previously this was a deferred follow-up (`odd/tasks/hexagonal-layout.md`); it is now in scope.
 
 L2 (2026-11-13): plan written from two maps (engine/CLI origin/main; architecture origin/main 0dd9ea9) and npm metadata for the runner candidates. No source change; no heavy run.
+
+L3 (2026-11-13, via the orchestrator): D1 settled by the rule, not a user call — CODE-LAYOUT:107 places acceptance under `<private code root>/acceptance/`, so `src/acceptance/`, excluded from the build, with a fit-49 `acceptance` class (orchestrator checked the text at architecture main). D2, user decision verbatim: "vamos con la 1" — a shrink-only pending-features list: each row names the slice that removes it; the strict pass reports the pending count explicitly; a row is valid only while that feature's steps are really undefined, and a stale row fails; a CEILING applies, as in fit-49. No implementation until D3 and D4 are answered.
