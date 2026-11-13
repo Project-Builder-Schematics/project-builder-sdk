@@ -60,7 +60,7 @@ The json and yaml suites need 16 phrases: the workspace file steps (inline and d
 
 | Slice | Scope | Risk | Proof |
 |---|---|---|---|
-| R0 | Submodule at v0.15.0; the driver; `rules:implemented` / `rules:designed` scripts; the CI `rules` job with token skip; self-tests: tag inheritance, nothing selects both statuses, pin is a tag, non-vacuity floor (cli#152), catalog match (every step definition's expression is a CATALOG.md phrase); the strict-pass ramp (section 7, D2). No step definitions yet. | 5 (deps, CI) | the self-tests; strict pass reports 0 run / 136 pending explicitly; designed pass reports 98 |
+| R0 | Submodule at v0.15.0; the driver; `rules:implemented` / `rules:designed` scripts; the CI `rules` job with token skip; self-tests: tag inheritance, nothing selects both statuses, pin is a tag, non-vacuity floor (cli#152), catalog match (every step definition's expression is a CATALOG.md phrase); the strict-pass ramp (section 7, D2). No step definitions yet. | 5 (deps, CI): exact-version devDependencies only; independent verifier | the self-tests; fit-14 unchanged (published dependencies, tarball); strict pass reports 0 run / 136 pending explicitly; designed pass reports 98 |
 | R1 | Steps for the json and yaml suites (16 phrases): workspace files, Dialect handle, generic op table, dialect outcomes. json and yaml leave the ramp: 113 implemented scenarios run strict. | 6 if a step weakens a Then | strict pass green on 113; designed pass reports the rest |
 | R2 | Steps for dialects, chaining-rules, session, stale-nodes and content-as-truth implemented scenarios (23). Ramp empty: all 136 strict. | as R1 | strict pass green on 136 |
 | R3+ | Designed families as their SDK issues land: A-17 files-directory steps, runner-guard (sdk#101), invoke and codegen, execution and catalog `@sdk` phrases. Each retag to implemented goes through an architecture PR. | per family | designed → implemented, strict |
@@ -81,7 +81,7 @@ D1 — Placement: **settled by the rule (L3)** — `src/acceptance/` as CODE-LAY
 
 D2 — Strict-pass ramp: **resolved (L3): the shrink-only pending-features list.** The 136 implemented `@sdk` scenarios have no step definitions yet, so a strict pass fails from R0. Options were: a shrink-only list of pending features, each row with the slice that removes it, which the strict pass skips with an explicit count, and which must hold only features with undefined steps **(recommended)**; or land R0 together with the json/yaml steps (one much larger first PR); or have the architecture repo retag them designed until the SDK steps exist (moves status upstream for a tooling gap).
 
-D3 — Dependencies (risk item 5): the four `@cucumber/*` packages as devDependencies only **(recommended)**, or `@cucumber/cucumber` as a separate runner.
+D3 — Dependencies (risk item 5): **resolved (L4): the four `@cucumber/*` packages** (`gherkin`, `messages`, `cucumber-expressions`, `tag-expressions`) as devDependencies only, exact versions, driven from `bun test`; R0 proves fit-14's published dependency set unchanged and gets an independent verifier. The alternative was `@cucumber/cucumber` as a separate runner.
 
 D4 — Actions outside this repo: the orchestrator cuts architecture v0.15.0; the user adds the `ARCHITECTURE_READ_TOKEN` secret to the SDK repository. Follow-up: A-17's 15 scenarios are `@status:designed @issue:sdk-149` though sdk#149 shipped in 0.14.0; whether they move to implemented depends on the engine side too (they are shared with `@engine`).
 
@@ -90,7 +90,7 @@ D4 — Actions outside this repo: the orchestrator cuts architecture v0.15.0; th
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | P1 | S1, S2 | inline, two read-only explorers (engine/CLI mechanics; architecture inventory) | done | this commit |
-| P2 | — | the user's answers to D1-D4 | D1, D2 done (L3); D3, D4 pending | — |
+| P2 | — | the user's answers to D1-D4 | D1, D2 done (L3); D3 done (L4); D4 pending | — |
 
 Route evidence: the plan needed three repositories' evidence, beyond the inline budget, so the mapping trigger fired; the write is one document, inline.
 
@@ -101,3 +101,5 @@ L1 (2026-11-13, user via the orchestrator, verbatim): "Para esta caso montemos t
 L2 (2026-11-13): plan written from two maps (engine/CLI origin/main; architecture origin/main 0dd9ea9) and npm metadata for the runner candidates. No source change; no heavy run.
 
 L3 (2026-11-13, via the orchestrator): D1 settled by the rule, not a user call — CODE-LAYOUT:107 places acceptance under `<private code root>/acceptance/`, so `src/acceptance/`, excluded from the build, with a fit-49 `acceptance` class (orchestrator checked the text at architecture main). D2, user decision verbatim: "vamos con la 1" — a shrink-only pending-features list: each row names the slice that removes it; the strict pass reports the pending count explicitly; a row is valid only while that feature's steps are really undefined, and a stale row fails; a CEILING applies, as in fit-49. No implementation until D3 and D4 are answered.
+
+L4 (2026-11-13, user via the orchestrator, D3, verbatim): "vamos con el 1". The four `@cucumber/*` packages (`gherkin`, `messages`, `cucumber-expressions`, `tag-expressions`) as devDependencies, driven from `bun test`. Pin exact versions (no `^`), devDependencies only; R0 must prove fit-14's published dependency set unchanged. Risk item 5, so R0 gets an independent verifier.
