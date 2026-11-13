@@ -1,9 +1,10 @@
 // fit-49's rules: project-builder-architecture CODE-LAYOUT.md "Dependency rule"
-// (origin/main 16c3df0, lines 122-132) plus two SDK rules from the approved proposal
-// (odd/tasks/hexagonal-layout-proposal.md section 4). `violation` returns the one rule an
+// (origin/main 16c3df0, lines 122-132) plus the SDK rules of the approved proposal
+// (odd/tasks/hexagonal-layout-proposal.md sections 3.2 and 4). `violation` returns the one rule an
 // edge breaks, checked from the most specific rule to the most general.
 
 import type { Classified } from "./classify.ts";
+import { ALLOWED_SIBLINGS } from "./dialects.ts";
 
 export const RULES = {
   noRuntimeIo: "domain/ and application/ never import runtime I/O (CODE-LAYOUT:126)",
@@ -18,9 +19,15 @@ export const RULES = {
   infrastructureImports: "infrastructure/ imports application/, domain/, its own infrastructure/, acl/, shared-kernel/ and platform/ (CODE-LAYOUT:125)",
   aclImports: "acl/ imports the domain/ and application/ it translates, shared-kernel/, platform/ and itself",
   targetNeverImportsLegacy: "target-layout code never imports the legacy tree (proposal section 4)",
+  dialectIsolation:
+    "a dialect adapter imports only domain/, shared-kernel/, platform/, its own folder, the siblings ALLOWED_SIBLINGS lists and no runtime I/O; only composition, its public barrel and those siblings import it (proposal 3.2)",
+  noClosedDialectSet: "domain/ and application/ never name a dialect: no string literal equal to a dialect folder name or a declared extension (proposal 3.2)",
 } as const;
 
 export type Rule = keyof typeof RULES;
+
+// Checked over string literals, not import edges, so `violation` never returns them.
+export const LITERAL_RULES: readonly Rule[] = ["noClosedDialectSet"];
 
 // CODE-LAYOUT:126's TypeScript list, plus the node modules that are the same I/O by another
 // name. I/O-free builtins (node:path, node:url, node:crypto hashing, node:async_hooks) are
@@ -47,8 +54,22 @@ const isEntry = (c: Classified): boolean => c.kind === "public-entry" || c.kind 
 const sameContext = (a: Classified, b: Classified): boolean =>
   a.kind === "context" && b.kind === "context" && a.context === b.context;
 
+const isSibling = (from: Classified, to: Classified): boolean =>
+  from.dialect !== undefined && to.dialect !== undefined && (from.dialect === to.dialect || (ALLOWED_SIBLINGS[from.dialect] ?? []).includes(to.dialect));
+
+// The parser library is not pinned here: fit-37 and fit-38 keep each parser inside its dialect's ast.ts.
+function dialectIsolation(from: Classified, to: string, toClass: Classified | undefined): boolean {
+  const isAdapter = from.dialect !== undefined && from.kind !== "public-entry";
+  if (toClass === undefined) return isAdapter && RUNTIME_IO.has(to);
+  if (toClass.dialect !== undefined) {
+    return !(isSibling(from, toClass) || (isLayer(from, "composition") && sameContext(from, toClass)));
+  }
+  return isAdapter && !(isLayer(toClass, "domain") || toClass.kind === "shared-kernel" || toClass.kind === "platform");
+}
+
 /** The rule `from → to` breaks, or undefined. `toClass` is undefined for an external module. */
 export function violation(from: Classified, to: string, toClass: Classified | undefined): Rule | undefined {
+  if (dialectIsolation(from, to, toClass)) return "dialectIsolation";
   if (toClass === undefined) {
     return RUNTIME_IO.has(to) && isLayer(from, "domain", "application") ? "noRuntimeIo" : undefined;
   }

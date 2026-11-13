@@ -3,7 +3,9 @@
  * CODE-LAYOUT.md (origin/main 16c3df0, lines 122-132), enforced over every `.ts` file in `src/`
  * and `bin/`. Every file is classified (target layout from its path, today's folders from the
  * LEGACY table); every edge that breaks a rule must match one EXCEPTIONS row, and every row must
- * still match a violating edge. A sibling check keeps `test/` mirroring `src/` by folder (Q9).
+ * still match a violating edge. String literals in domain/ and application/ that name a dialect
+ * count as violations too (proposal 3.2). A sibling check keeps `test/` mirroring `src/` by
+ * folder (Q9).
  *
  * Red-proofs run the same rule engine over in-memory synthetic graphs, one per rule, so they
  * need no planted files on disk.
@@ -13,7 +15,8 @@ import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, posix, relative, sep } from "node:path";
 import { buildGraph, type Edge } from "../support/layering/graph.ts";
 import { classify, entriesFrom, ClassificationError, type Classified, type Entries, CONTEXTS } from "../support/layering/classify.ts";
-import { violation, RULES, type Rule } from "../support/layering/rules.ts";
+import { violation, RULES, LITERAL_RULES, type Rule } from "../support/layering/rules.ts";
+import { dialectLiterals, dialectVocabulary, type DialectVocabulary } from "../support/layering/dialects.ts";
 import { EXCEPTIONS, CEILING } from "../support/layering/exceptions.ts";
 import { collectFiles } from "../support/import-scan.ts";
 
@@ -45,10 +48,22 @@ function findViolations(edges: readonly Edge[], classes: ReadonlyMap<string, Cla
   return found;
 }
 
+function findNamedDialects(classes: ReadonlyMap<string, Classified>, vocabulary: DialectVocabulary): Found[] {
+  const found: Found[] = [];
+  for (const [file, c] of classes) {
+    if (c.kind !== "context" || (c.layer !== "domain" && c.layer !== "application")) continue;
+    for (const literal of new Set(dialectLiterals(file, readFileSync(join(ROOT, file), "utf-8"), vocabulary))) {
+      found.push({ from: file, to: `literal ${JSON.stringify(literal)}`, rule: "noClosedDialectSet" });
+    }
+  }
+  return found;
+}
+
 const key = (v: { from: string; to: string }): string => `${v.from} -> ${v.to}`;
 
 const graph = buildGraph(ROOT);
 const entries = entriesFrom(PKG, graph.files);
+const vocabulary = dialectVocabulary(ROOT);
 
 describe("fit-49 — liveness (the scan reaches the real tree)", () => {
   it(`reads at least ${MIN_FILES} files and ${MIN_EDGES} edges`, () => {
@@ -65,6 +80,11 @@ describe("fit-49 — liveness (the scan reaches the real tree)", () => {
       expect(graph.files).toContain(path);
     }
     expect(entries.testKitEntries).toEqual(new Set(["src/testing/index.ts", "src/conformance/index.ts"]));
+  });
+
+  it("reads every dialect folder and the extensions the dialects declare", () => {
+    for (const name of ["typescript", "react", "json", "yaml", "css", "nestjs", "angular"]) expect(vocabulary.names).toContain(name);
+    for (const ext of [".ts", ".tsx", ".jsx", ".json", ".jsonc", ".yaml", ".yml", ".css"]) expect(vocabulary.extensions).toContain(ext);
   });
 });
 
@@ -84,7 +104,8 @@ describe("fit-49 — every file is classified", () => {
 });
 
 describe("fit-49 — the dependency rule holds, up to the shrinking EXCEPTIONS table", () => {
-  const found = findViolations(graph.edges, classifyGraph(graph.files, entries));
+  const classes = classifyGraph(graph.files, entries);
+  const found = [...findViolations(graph.edges, classes), ...findNamedDialects(classes, vocabulary)];
   const foundRule = new Map(found.map((v) => [key(v), v.rule]));
 
   it("every violating edge has an EXCEPTIONS row with the rule it breaks", () => {
@@ -137,7 +158,7 @@ describe("fit-49 — test/ mirrors src/ by folder (Q9)", () => {
 });
 
 const SYNTHETIC_ENTRIES: Entries = {
-  publicEntries: new Set(["src/commons/index.ts", "src/testing/index.ts"]),
+  publicEntries: new Set(["src/commons/index.ts", "src/testing/index.ts", "src/dialects/css/index.ts", "src/dialects/react/index.ts"]),
   testKitEntries: new Set(["src/testing/index.ts"]),
   processEntries: new Set(["src/bin/pbuilder-runner.ts"]),
 };
@@ -161,6 +182,14 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["infrastructureImports", `${A}/infrastructure/out/x.ts`, "src/commons/index.ts"],
     ["aclImports", "src/acl/irwire/index.ts", `${A}/infrastructure/out/x.ts`],
     ["targetNeverImportsLegacy", `${A}/domain/services/x.ts`, "src/core/session.ts"],
+    ["dialectIsolation", `${A}/application/usecases/x.ts`, `${A}/infrastructure/out/dialects/css/ops.ts`],
+    ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, `${A}/infrastructure/out/dialects/typescript/ast.ts`],
+    ["dialectIsolation", "src/dialects/json/ops.ts", "src/dialects/yaml/ast.ts"],
+    ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, `${A}/application/usecases/x.ts`],
+    ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, `${A}/infrastructure/out/fs/x.ts`],
+    ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, "node:fs"],
+    ["dialectIsolation", "src/commons/index.ts", `${A}/infrastructure/out/dialects/css/ops.ts`],
+    ["dialectIsolation", "src/dialects/react/index.ts", `${A}/infrastructure/out/dialects/css/ops.ts`],
   ];
   it.each(cases)("%s: %s -> %s", (rule, from, to) => {
     const toClass = to.startsWith("src/") ? at(to) : undefined;
@@ -174,8 +203,41 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     expect(violation(at(`${A}/infrastructure/out/fs/x.ts`), "node:fs", undefined)).toBeUndefined();
   });
 
+  it.each([
+    ["the sibling fit-02 allows", `${A}/infrastructure/out/dialects/react/ops.ts`, `${A}/infrastructure/out/dialects/typescript/ast.ts`],
+    ["its own folder", `${A}/infrastructure/out/dialects/css/adapter.ts`, `${A}/infrastructure/out/dialects/css/ops.ts`],
+    ["the domain kit", `${A}/infrastructure/out/dialects/css/adapter.ts`, `${A}/domain/ports/dialect-contract.ts`],
+    ["platform/", `${A}/infrastructure/out/dialects/json/ops.ts`, "src/platform/deep-equal.ts"],
+    ["shared-kernel/", `${A}/infrastructure/out/dialects/json/ops.ts`, "src/shared-kernel/x.ts"],
+    ["its parser library", `${A}/infrastructure/out/dialects/css/ast.ts`, "postcss"],
+    ["composition", `${A}/composition.ts`, `${A}/infrastructure/out/dialects/css/adapter.ts`],
+    ["its public barrel", "src/dialects/css/index.ts", `${A}/infrastructure/out/dialects/css/adapter.ts`],
+    ["a public barrel's allowed sibling", "src/dialects/react/index.ts", `${A}/infrastructure/out/dialects/typescript/pack.ts`],
+  ])("a dialect adapter may reach %s", (_, from, to) => {
+    expect(violation(at(from), to, to.startsWith("src/") ? at(to) : undefined)).toBeUndefined();
+  });
+
   it("every rule has at least one red-proof", () => {
-    expect(new Set(cases.map(([rule]) => rule))).toEqual(new Set(Object.keys(RULES) as Rule[]));
+    expect(new Set([...cases.map(([rule]) => rule), ...LITERAL_RULES])).toEqual(new Set(Object.keys(RULES) as Rule[]));
+  });
+});
+
+describe("fit-49 — [red-proof] noClosedDialectSet: the core names no dialect", () => {
+  const planted: DialectVocabulary = { names: new Set(["css", "yaml"]), extensions: new Set([".css", ".yml"]) };
+
+  it("a dialect name or extension as a value, a case label or a literal type is caught", () => {
+    const source = 'const a = "css";\nswitch (ext) { case ".yml": break; }\ntype D = "yaml" | `.css`;\n';
+    expect(dialectLiterals(`${A}/domain/services/x.ts`, source, planted)).toEqual(["css", ".yml", "yaml", ".css"]);
+  });
+
+  it("module specifiers and other strings are not", () => {
+    const source = 'import { parse } from "yaml";\nexport * from "yaml";\ntype T = import("yaml").Document;\nconst m = import("yaml");\nconst s = "schema.css.ts";\n';
+    expect(dialectLiterals(`${A}/domain/services/x.ts`, source, planted)).toEqual([]);
+  });
+
+  it("the vocabulary follows the dialect folders: a dialect added on disk is named without editing the guard", () => {
+    const withCssx: DialectVocabulary = { names: new Set([...vocabulary.names, "cssx"]), extensions: new Set([...vocabulary.extensions, ".cssx"]) };
+    expect(dialectLiterals(`${A}/application/usecases/x.ts`, 'const d = "cssx";', withCssx)).toEqual(["cssx"]);
   });
 });
 
@@ -184,6 +246,7 @@ describe("fit-49 — [red-proof] the classifier fails closed", () => {
     [`src/bounded-contexts/billing/domain/services/x.ts`, "unknown bounded context"],
     [`${A}/domain/helpers/x.ts`, "not a CODE-LAYOUT slot"],
     [`${A}/infrastructure/sideways/x.ts`, "not a CODE-LAYOUT slot"],
+    [`${A}/infrastructure/out/dialects/x.ts`, "belongs in infrastructure/out/dialects/<name>/"],
     ["src/acl/engine/index.ts", "unknown acl counterpart"],
     ["src/brand-new-folder/x.ts", "unclassified"],
   ])("%s", (path, message) => {
@@ -209,6 +272,10 @@ const REPRESENTATIVES: Record<string, string> = Object.fromEntries([
   ["public-test-entry", "src/testing/index.ts"],
   ["process-entry", "src/bin/pbuilder-runner.ts"],
   ["legacy-domain", "src/core/session.ts"],
+  ["dialect-css", `${A}/infrastructure/out/dialects/css/ops.ts`],
+  ["dialect-typescript", `${A}/infrastructure/out/dialects/typescript/ast.ts`],
+  ["dialect-react", `${A}/infrastructure/out/dialects/react/ops.ts`],
+  ["dialect-css-barrel", "src/dialects/css/index.ts"],
 ]);
 const EXTERNALS = ["node:fs", "process.env", "node:path", "ts-morph"];
 
