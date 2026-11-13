@@ -20,7 +20,8 @@ export type Class =
   | { kind: "public-entry"; testKit: boolean }
   | { kind: "process-entry" };
 
-export type Classified = Class & { legacy: boolean; mixed?: readonly string[] };
+// `dialect` names the dialect folder a file sits in (adapter files and public barrels alike).
+export type Classified = Class & { legacy: boolean; mixed?: readonly string[]; dialect?: string };
 
 type LegacyRow = { path: string; class: Class; mixed?: readonly string[] };
 
@@ -85,6 +86,9 @@ function classifyTarget(path: string): Class | undefined {
   if (layer === "testing" && parts.length > 4) return { kind: "context", context, layer: "testing" };
   if (layer === "domain" && DOMAIN_FOLDERS.has(sub ?? "") && parts.length > 5) return { kind: "context", context, layer: "domain" };
   if (layer === "application" && sub === "usecases" && parts.length > 5) return { kind: "context", context, layer: "application" };
+  if (layer === "infrastructure" && sub === "out" && parts[5] === "dialects" && parts.length < 8) {
+    throw new ClassificationError(`${path}: a dialect adapter file belongs in infrastructure/out/dialects/<name>/`);
+  }
   if (layer === "infrastructure" && (sub === "in" || sub === "out") && parts.length > 5) {
     return { kind: "context", context, layer: sub === "in" ? "infrastructure-in" : "infrastructure-out" };
   }
@@ -102,16 +106,21 @@ function classifyLegacy(path: string): LegacyRow | undefined {
 
 export type Entries = { publicEntries: ReadonlySet<string>; testKitEntries: ReadonlySet<string>; processEntries: ReadonlySet<string> };
 
+function dialectOf(path: string): { dialect?: string } {
+  const match = /^src\/(?:dialects|bounded-contexts\/authoring\/infrastructure\/out\/dialects)\/([^/]+)\/./.exec(path);
+  return match ? { dialect: match[1]! } : {};
+}
+
 /** Classifies one repo-relative path; throws ClassificationError for anything unknown. */
 export function classify(path: string, entries: Entries): Classified {
   if (entries.publicEntries.has(path)) {
-    return { kind: "public-entry", testKit: entries.testKitEntries.has(path), legacy: false };
+    return { kind: "public-entry", testKit: entries.testKitEntries.has(path), legacy: false, ...dialectOf(path) };
   }
   if (entries.processEntries.has(path)) return { kind: "process-entry", legacy: false };
   const target = classifyTarget(path);
-  if (target !== undefined) return { ...target, legacy: false };
+  if (target !== undefined) return { ...target, legacy: false, ...dialectOf(path) };
   const row = classifyLegacy(path);
-  if (row !== undefined) return { ...row.class, legacy: true, ...(row.mixed ? { mixed: row.mixed } : {}) };
+  if (row !== undefined) return { ...row.class, legacy: true, ...(row.mixed ? { mixed: row.mixed } : {}), ...dialectOf(path) };
   throw new ClassificationError(`${path}: unclassified — add it to the target layout or the LEGACY table`);
 }
 

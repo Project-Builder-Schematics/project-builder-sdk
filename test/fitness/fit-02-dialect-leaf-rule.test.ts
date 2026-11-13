@@ -12,6 +12,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
+import { ALLOWED_SIBLINGS } from "../support/layering/dialects.ts";
 
 const DIALECTS_DIR = new URL("../../src/dialects", import.meta.url).pathname;
 const SRC_DIR = new URL("../../src", import.meta.url).pathname;
@@ -44,14 +45,6 @@ function collectTs(dir: string): string[] {
   return files;
 }
 
-// A dialect that extends another one's ops declares that edge here. An edge is one-way:
-// the extended dialect never imports back.
-const ALLOWED_EDGES: Readonly<Record<string, readonly string[]>> = {
-  nestjs: ["typescript"],
-  angular: ["typescript"],
-  react: ["typescript"],
-};
-
 /**
  * Returns any cross-dialect imports found in a source file belonging to `ownerDialect`.
  * A cross-dialect import is a relative import that navigates into a sibling dialect directory
@@ -61,7 +54,7 @@ function findCrossDialectImports(
   source: string,
   ownerDialect: string,
   allDialects: string[],
-  allowedEdges: Readonly<Record<string, readonly string[]>> = ALLOWED_EDGES
+  allowedEdges: Readonly<Record<string, readonly string[]>> = ALLOWED_SIBLINGS
 ): string[] {
   const violations: string[] = [];
   const importPattern = /(?:import\s+(?:type\s+)?(?:[^'"]*from\s+)?|import\s*\()['"]([^'"]+)['"]/g;

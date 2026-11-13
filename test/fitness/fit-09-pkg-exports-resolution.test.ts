@@ -19,10 +19,11 @@
  * A note is left explaining why we test the shape and not live resolution.
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
+const DIALECTS_DIR = join(PROJECT_ROOT, "src/dialects");
 const pkgJson = JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
   exports: Record<string, { types: string; import: string }>;
 };
@@ -61,33 +62,31 @@ describe("REQ-PKG-01 — package.json#exports resolution contract", () => {
     expect(testing!.import).toMatch(/dist\/testing\/index\.js$/);
   });
 
-  it('exports "./typescript" with correct types and import fields (stage-5-first-dialect REQ-TSD-01, ADR-0014 amendment)', () => {
-    const typescript = pkgJson.exports["./typescript"] ?? null;
-    expect(typescript).not.toBeNull();
-    expect(typescript!.types).toMatch(/dist\/dialects\/typescript\/index\.d\.ts$/);
-    expect(typescript!.import).toMatch(/dist\/dialects\/typescript\/index\.js$/);
-  });
-
-  it('exports "./react" with correct types and import fields (react-dialect S-000, REQ-RXD-01)', () => {
-    const react = pkgJson.exports["./react"] ?? null;
-    expect(react).not.toBeNull();
-    expect(react!.types).toMatch(/dist\/dialects\/react\/index\.d\.ts$/);
-    expect(react!.import).toMatch(/dist\/dialects\/react\/index\.js$/);
-  });
-
   it('does NOT export "./core" (contributor-kit boundary, ADR-0009)', () => {
     expect(pkgJson.exports["./core"]).toBeUndefined();
   });
 
-  it.each(["angular", "css", "json", "nestjs", "yaml"])('exports "./%s" with correct types and import fields', (name) => {
-    const entry = pkgJson.exports[`./${name}`] ?? null;
-    expect(entry).not.toBeNull();
-    expect(entry!.types).toBe(`./dist/dialects/${name}/index.d.ts`);
-    expect(entry!.import).toBe(`./dist/dialects/${name}/index.js`);
+  // Each `./<name>` subpath that points into dist/dialects/ is a public dialect, read from
+  // package.json so adding one needs no edit here; its public barrel is src/dialects/<name>/.
+  const dialectSubpaths = Object.entries(pkgJson.exports).filter(([, entry]) => entry.import.startsWith("./dist/dialects/"));
+
+  it("finds the shipped dialect subpaths in package.json", () => {
+    expect(dialectSubpaths.length).toBeGreaterThanOrEqual(7);
   });
 
-  it("the only exported subpaths are ., ./commons, ./conformance, ./testing, ./typescript, ./react, ./json, ./nestjs, ./angular, ./yaml, and ./css (REQ-TES-01.1, REQ-PKG-01)", () => {
-    const keys = Object.keys(pkgJson.exports).sort();
-    expect(keys).toEqual([".", "./angular", "./commons", "./conformance", "./css", "./json", "./nestjs", "./react", "./testing", "./typescript", "./yaml"]);
+  it.each(dialectSubpaths)('exports "%s" with correct types and import fields', (subpath, entry) => {
+    const name = subpath.slice(2);
+    expect(entry.types).toBe(`./dist/dialects/${name}/index.d.ts`);
+    expect(entry.import).toBe(`./dist/dialects/${name}/index.js`);
+  });
+
+  it("every public barrel folder under src/dialects/ has its subpath, and no subpath lacks one", () => {
+    const folders = readdirSync(DIALECTS_DIR).filter((entry) => statSync(join(DIALECTS_DIR, entry)).isDirectory());
+    expect(dialectSubpaths.map(([subpath]) => subpath.slice(2)).sort()).toEqual(folders.sort());
+  });
+
+  it("the only other exported subpaths are ., ./commons, ./conformance and ./testing (REQ-TES-01.1, REQ-PKG-01)", () => {
+    const dialects = new Set(dialectSubpaths.map(([subpath]) => subpath));
+    expect(Object.keys(pkgJson.exports).filter((key) => !dialects.has(key)).sort()).toEqual([".", "./commons", "./conformance", "./testing"]);
   });
 });
