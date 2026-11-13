@@ -1,6 +1,8 @@
 # @pbuilder/sdk
 
-> The TypeScript/Bun authoring layer for [Project Builder](https://github.com/Project-Builder-Schematics) schematics.
+> The TypeScript/Bun authoring layer for [Project Builder](https://schematics.pbuilder.dev/) schematics.
+>
+> Documentation: [schematics.pbuilder.dev](https://schematics.pbuilder.dev/)
 
 Project Builder exists to give developers — **and the AI agents working alongside them** —
 deterministic code generation. A prompt produces something different every run; a
