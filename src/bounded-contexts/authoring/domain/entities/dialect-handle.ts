@@ -7,12 +7,20 @@
 // fitness-pinned. Only the PUBLIC `find(path)` signature and the `Handle<State, Ast, Ops>`
 // TYPE (define-dialect.ts) are frozen.
 
-import { currentContext } from "../../../../core/context.ts";
+import { currentRun } from "../services/run-context.ts";
 import { dialectError, isContained } from "../valueobjects/dialect-error.ts";
 import type { DirectiveFactory } from "../../../../core/directive-factory.ts";
 import type { OpPack, Handle, Query } from "../services/define-dialect.ts";
 import type { Session } from "../../../../core/session.ts";
 import type { Directive } from "../../../../core/wire.ts";
+
+// The fields of the run store `defineFactory` installs that a handle step reads.
+type HandleRun = {
+  session: Session;
+  factory: DirectiveFactory;
+  dialects: { register(handle: { readonly settle: () => Promise<void> }): void };
+  sessionFailure?: { reason: unknown };
+};
 
 interface DialectAst<Ast> {
   parse(source: string): Ast;
@@ -151,7 +159,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // one every later op/read surfaces, unchanged).
   #chain<T>(step: () => T | Promise<T>): Promise<T> {
     const guardedStep = async (): Promise<T> => {
-      const ctx = currentContext();
+      const ctx = currentRun<HandleRun>();
       if (ctx.sessionFailure !== undefined) {
         throw ctx.sessionFailure.reason;
       }
@@ -179,7 +187,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
 
   #bufferDirective(build: (factory: DirectiveFactory) => Directive): void {
     this.#enqueue(() => {
-      const { session, factory } = currentContext();
+      const { session, factory } = currentRun<HandleRun>();
       session.buffer(build(factory));
     });
   }
@@ -187,12 +195,12 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   #registerOnce(): void {
     if (this.#registered) return;
     this.#registered = true;
-    currentContext().dialects.register({ settle: () => this.settle() });
+    currentRun<HandleRun>().dialects.register({ settle: () => this.settle() });
   }
 
   async #ensureLive(): Promise<void> {
     if (this.#live !== undefined) return;
-    const { session } = currentContext();
+    const { session } = currentRun<HandleRun>();
     const content = await session.read(this.#path);
     if (content === undefined) {
       throw dialectError(`"${this.#path}" does not exist — create it first in this run`);
@@ -218,7 +226,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // buffered, undrained? #ensureOpen consults it to skip re-registration while the prior
   // directive is still pending; runReplaceContent consults the SAME check to reject a
   // conflicting .replaceContent() (ADR-0039). `session` is passed in rather than re-derived
-  // via currentContext() — both call sites already have it in scope from their own context
+  // via currentRun() — both call sites already have it in scope from their own context
   // lookup.
   #hasOpenPendingDirective(session: Session): boolean {
     return this.#openDirective !== undefined && session.isPending(this.#openDirective);
@@ -247,7 +255,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // #openDirective so the zero-directive gate below re-evaluates against the fresh baseline
   // instead of unconditionally re-registering a byte-identical directive.
   #ensureOpen(): void {
-    const { session } = currentContext();
+    const { session } = currentRun<HandleRun>();
     if (this.#hasOpenPendingDirective(session)) {
       return;
     }
@@ -352,7 +360,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // first, so a `.replaceContent()` chained after a `.read()` is unaffected).
   runReplaceContent(content: string): void {
     this.#enqueue(() => {
-      const { session, factory } = currentContext();
+      const { session, factory } = currentRun<HandleRun>();
       if (this.#hasOpenPendingDirective(session)) {
         throw dialectError(
           `cannot .replaceContent() "${this.#path}" while a structured edit is pending — the pending edit would be lost; call .read() to commit it first, then .replaceContent()`
@@ -388,7 +396,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // one mechanism instead of two subtly different ones.
   read(): Promise<string | undefined> {
     return this.#chain(async () => {
-      const { session } = currentContext();
+      const { session } = currentRun<HandleRun>();
       return session.read(this.#path);
     });
   }

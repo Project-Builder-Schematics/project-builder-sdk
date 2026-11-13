@@ -61,7 +61,7 @@ context and the per-path-class boundary table.
 
 ## Runner integrity manifest
 
-Published releases carry `dist/runner-manifest.json`, which lets the engine check that the runner's pre-factory bootstrap — 23 files plus `package.json` — is the code we published. It is not a sandbox, not a signature, and not a check on the dialect, op-pack, or `node_modules` code that loads afterwards; those remain governed by the trust model above. See [docs/runner-integrity-invariants.md](./docs/runner-integrity-invariants.md).
+Published releases carry `dist/runner-manifest.json`, which lets the engine check that the runner's pre-factory bootstrap — 24 files plus `package.json` — is the code we published. It is not a sandbox, not a signature, and not a check on the dialect, op-pack, or `node_modules` code that loads afterwards; those remain governed by the trust model above. See [docs/runner-integrity-invariants.md](./docs/runner-integrity-invariants.md).
 
 ## Publish pipeline
 

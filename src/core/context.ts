@@ -2,14 +2,14 @@
 // defineFactory returns a runner that builds the context and runs fn inside the ALS.
 // The EngineClient is injected by the caller (test passes the fake) — no module global.
 
-import { AsyncLocalStorage } from "node:async_hooks";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { relative } from "node:path";
 import type { EngineClient } from "./engine-client.ts";
 import { DirectiveFactory } from "./directive-factory.ts";
 import { Session } from "./session.ts";
-import { AuthoringError, invalidInput } from "./authoring-error.ts";
+import { invalidInput } from "./authoring-error.ts";
+import { currentRun, getSessionAls } from "../bounded-contexts/authoring/domain/services/run-context.ts";
 import { schemaPathFor, findReservedSibling } from "./schema/schema-discovery.ts";
 import { parseSchema, SchemaParseFailure, formatLocator } from "./schema/schema-parse.ts";
 import { validateInput } from "./schema/schema-validate.ts";
@@ -21,8 +21,7 @@ import { isErrnoException } from "./fs-errors.ts";
 // `session.flush()`, so an unawaited dialect chain still completes and commits, and an
 // unawaited THROWING chain rejects the run contained instead of leaking an
 // `unhandledRejection`. Kept generic over "anything with a settle()" — this module has no
-// knowledge of dialect-handle.ts internals (dialect-handle.ts imports FROM context.ts, not
-// the other way around).
+// knowledge of dialect-handle.ts internals; the handle reaches the run through run-context.ts.
 export interface DialectRegistry {
   register(handle: { readonly settle: () => Promise<void> }): void;
   drain(): Promise<void>;
@@ -71,63 +70,6 @@ export interface SessionContext {
   packageAnchors?: { packageDir: string };
 }
 
-// context-singleton-fix (REQ-MIS-01/02, design §4.3): a module-scope `als` is realm-local —
-// when `dist/bin/pbuilder-runner.js` and a src-relative `.ts` factory co-execute in one Bun
-// process, each resolves its OWN copy of this module and its OWN `als`, so a Session entered in
-// one realm is invisible to `currentContext()` in the other. The store is therefore parked at
-// `globalThis[Symbol.for(SESSION_ALS_REGISTRY_KEY)]` — a process-singleton every realm resolving
-// this file reaches via the SAME well-known key — lazily installed on first access.
-export const SESSION_ALS_REGISTRY_KEY = "@pbuilder/sdk:core/context#session-als";
-
-function isAsyncLocalStorageLike(value: unknown): value is AsyncLocalStorage<SessionContext> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { run?: unknown }).run === "function" &&
-    typeof (value as { getStore?: unknown }).getStore === "function"
-  );
-}
-
-// PURE 3-state decision (design §4.3, rev 3 purity split) — no globalThis, no side effects.
-// `undefined` (slot absent) -> fresh ALS; a duck-valid ALS-shaped value (cross-realm reuse)
-// -> returned verbatim, SAME instance; anything else -> fail LOUD (occupied-slot contract,
-// ADR-01 addendum): a foreign/corrupted occupant under this well-known key must never be
-// trusted or silently clobbered. Plain `Error` (NOT AuthoringError) — this is
-// environment/integration corruption, not author-input misuse; the closed reason enum has no
-// member for it (mirrors `validateAtRunBoundary`'s read-path posture).
-export function resolveSessionAls(slotValue: unknown): AsyncLocalStorage<SessionContext> {
-  if (slotValue === undefined) {
-    return new AsyncLocalStorage<SessionContext>();
-  }
-  if (isAsyncLocalStorageLike(slotValue)) {
-    return slotValue;
-  }
-  throw new Error(
-    `[pbuilder] run-context registry slot Symbol.for("${SESSION_ALS_REGISTRY_KEY}") is occupied by an ` +
-      `incompatible value (expected an AsyncLocalStorage, got ${typeof slotValue}) — another module ` +
-      "may have polluted globalThis"
-  );
-}
-
-// IMPURE thin shell: reads the shared slot, delegates the 3-state decision to the pure
-// `resolveSessionAls`, and installs the resolved ALS ONLY when the slot was absent — a frozen
-// descriptor (non-enumerable, non-configurable, non-writable) so REQ-MIS-01.2's no-pollution
-// guarantee holds and the slot can never be silently reassigned after first install.
-function getSessionAls(): AsyncLocalStorage<SessionContext> {
-  const registryKey = Symbol.for(SESSION_ALS_REGISTRY_KEY);
-  const slot = (globalThis as Record<symbol, unknown>)[registryKey];
-  const resolved = resolveSessionAls(slot);
-  if (slot === undefined) {
-    Object.defineProperty(globalThis, registryKey, {
-      value: resolved,
-      writable: false,
-      enumerable: false,
-      configurable: false,
-    });
-  }
-  return resolved;
-}
-
 // ADR-04 (stdio-engine-client, REQ-RUN-06): a non-enumerable, non-configurable brand
 // stamped on defineFactory's returned wrapper — arity-independent double-wrap detection
 // (RUN-06.2 rejected V1's arity-sniffing: an author's bare `(o, unused) => {}` factory must
@@ -140,21 +82,8 @@ export function isDefineFactoryWrapped(value: unknown): boolean {
   return typeof value === "function" && Reflect.get(value, DEFINE_FACTORY_BRAND) === true;
 }
 
-// REQ-AEC-02.1 (2.4): a verb called outside any defineFactory Session is SDK-side misuse,
-// independent of any engine round-trip — an AuthoringError{authoring-rejected,outside-session},
-// not a plain Error. The prose lives in authoring-error.ts's outside-session message template
-// (the third template, REQ-AEC-06); this is the one call site that reaches it.
 export function currentContext(): SessionContext {
-  const ctx = getSessionAls().getStore();
-  if (ctx === undefined) {
-    throw new AuthoringError({
-      verb: undefined,
-      path: undefined,
-      reason: "outside-session",
-      appliedCount: 0,
-    });
-  }
-  return ctx;
+  return currentRun<SessionContext>();
 }
 
 // The one gate every package-local read verb (`scaffold`/`copyIn`/`create({templateFile})`)
@@ -356,7 +285,7 @@ export function defineFactory<O>(
     // rejection (an unawaited chain that threw) routes through the SAME catch below as a
     // flush rejection already does.
     try {
-      await getSessionAls().run(ctx, () => fn(o));
+      await getSessionAls<SessionContext>().run(ctx, () => fn(o));
       await ctx.dialects.drain();
       await ctx.session.flush();
       await ctx.session.commit();

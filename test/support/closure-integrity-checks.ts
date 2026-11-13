@@ -272,7 +272,7 @@ export interface EmitMismatch {
 /**
  * The load-bearing half is dist ⊆ src: an emitted specifier with no source counterpart means
  * the graph was rewritten. The anti-vacuity half is that every src-only specifier must be
- * explained by type-only erasure — the same erasure that makes the closure 23 files, not 24.
+ * explained by type-only erasure — the same erasure that makes the closure 24 files, not 25.
  */
 export function findGraphEmitMismatches(
   entries: readonly EmitComparisonEntry[]

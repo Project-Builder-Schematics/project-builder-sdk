@@ -91,6 +91,8 @@
     "dist/bounded-contexts/authoring/domain/services/jsx-name-validator.js",
     "dist/bounded-contexts/authoring/domain/services/reject-tail.d.ts",
     "dist/bounded-contexts/authoring/domain/services/reject-tail.js",
+    "dist/bounded-contexts/authoring/domain/services/run-context.d.ts",
+    "dist/bounded-contexts/authoring/domain/services/run-context.js",
     "dist/bounded-contexts/authoring/domain/valueobjects/dialect-error.d.ts",
     "dist/bounded-contexts/authoring/domain/valueobjects/dialect-error.js",
     "dist/bounded-contexts/authoring/domain/valueobjects/json-value.d.ts",

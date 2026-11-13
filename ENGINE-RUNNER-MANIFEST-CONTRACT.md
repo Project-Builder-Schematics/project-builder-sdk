@@ -36,6 +36,17 @@ Against the pinned submodule at `6e4aab7`:
 If any of these has changed on your side, tell us — several of them are load-bearing (see
 "Constraints", below).
 
+> **SDK note, 2026-11-14 (closure size).** The closure is now **24 `.js` files**, so the manifest
+> carries **25 records** with `package.json`. The new file is
+> `bounded-contexts/authoring/domain/services/run-context.js`: the run-store registry and the
+> outside-session lookup that used to sit inside `core/context.js` moved there, and
+> `core/context.js` imports it. No new behavior enters the bootstrap. Its only import is
+> `core/authoring-error.js`, already in the closure; it uses `node:async_hooks`, already listed,
+> and reads no environment variable. The other rows above still hold. The engine's verification
+> takes the file list from the shipped manifest and checks no count (`manifestShapeValid` and
+> `Verify` in `internal/boundedcontexts/runnerhosting/infrastructure/out/bunipc/runner.go`,
+> engine main a0aa590).
+
 ---
 
 ## Deliverable — `dist/runner-manifest.json`
