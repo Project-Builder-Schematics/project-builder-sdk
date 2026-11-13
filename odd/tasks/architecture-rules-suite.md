@@ -83,14 +83,15 @@ D2 — Strict-pass ramp: **resolved (L3): the shrink-only pending-features list.
 
 D3 — Dependencies (risk item 5): **resolved (L4): the four `@cucumber/*` packages** (`gherkin`, `messages`, `cucumber-expressions`, `tag-expressions`) as devDependencies only, exact versions, driven from `bun test`; R0 proves fit-14's published dependency set unchanged and gets an independent verifier. The alternative was `@cucumber/cucumber` as a separate runner.
 
-D4 — Actions outside this repo: the orchestrator cuts architecture v0.15.0; the user adds the `ARCHITECTURE_READ_TOKEN` secret to the SDK repository. Follow-up: A-17's 15 scenarios are `@status:designed @issue:sdk-149` though sdk#149 shipped in 0.14.0; whether they move to implemented depends on the engine side too (they are shared with `@engine`).
+D4 — Actions outside this repo: **resolved (L5)** — architecture v0.15.0 is cut (annotated tag on 0dd9ea9); the SDK repository already lists an `ARCHITECTURE_READ_TOKEN` secret (created 2026-11-07), unverified; R0's CI job skips with a notice when the secret is absent or the checkout fails, as the engine's does. Follow-up: A-17's 15 scenarios are `@status:designed @issue:sdk-149` though sdk#149 shipped in 0.14.0; whether they move to implemented depends on the engine side too (they are shared with `@engine`).
 
 ## Tasks
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | P1 | S1, S2 | inline, two read-only explorers (engine/CLI mechanics; architecture inventory) | done | this commit |
-| P2 | — | the user's answers to D1-D4 | D1, D2 done (L3); D3 done (L4); D4 pending | — |
+| P2 | — | the user's answers to D1-D4 | done (L3-L5) | — |
+| R0 | plan §5 R0; D1-D4 | inline; independent verifier (risk item 5) | waits for layout S1a to merge, then the orchestrator's slot | — |
 
 Route evidence: the plan needed three repositories' evidence, beyond the inline budget, so the mapping trigger fired; the write is one document, inline.
 
@@ -103,3 +104,5 @@ L2 (2026-11-13): plan written from two maps (engine/CLI origin/main; architectur
 L3 (2026-11-13, via the orchestrator): D1 settled by the rule, not a user call — CODE-LAYOUT:107 places acceptance under `<private code root>/acceptance/`, so `src/acceptance/`, excluded from the build, with a fit-49 `acceptance` class (orchestrator checked the text at architecture main). D2, user decision verbatim: "vamos con la 1" — a shrink-only pending-features list: each row names the slice that removes it; the strict pass reports the pending count explicitly; a row is valid only while that feature's steps are really undefined, and a stale row fails; a CEILING applies, as in fit-49. No implementation until D3 and D4 are answered.
 
 L4 (2026-11-13, user via the orchestrator, D3, verbatim): "vamos con el 1". The four `@cucumber/*` packages (`gherkin`, `messages`, `cucumber-expressions`, `tag-expressions`) as devDependencies, driven from `bun test`. Pin exact versions (no `^`), devDependencies only; R0 must prove fit-14's published dependency set unchanged. Risk item 5, so R0 gets an independent verifier.
+
+L5 (2026-11-13, user via the orchestrator, D4, verbatim): "si dale" — architecture v0.15.0 cut and pushed (annotated, on 0dd9ea9, verified with `git cat-file -t v0.15.0` = tag). The token secret is the user's own step; `gh secret list` already shows `ARCHITECTURE_READ_TOKEN` on the SDK repository (created 2026-11-07), not verified to work, so R0's CI job keeps the skip-with-notice path. All four decisions are in. Order: R0 starts after layout S1a merges (shared fit-49 files); heavy runs need the orchestrator's slot.
