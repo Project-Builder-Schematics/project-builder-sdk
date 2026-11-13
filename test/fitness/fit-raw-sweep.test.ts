@@ -78,8 +78,8 @@ function maskToCommentsOnly(source: string): string {
 const SRC_ROOT = join(PROJECT_ROOT, "src");
 const DOCS_ROOT = join(PROJECT_ROOT, "docs");
 
-/** Non-recursive by design — recursing from the repo root would sweep node_modules, test
- * fixtures, and openspec planning artefacts; `docs/**` recurses via `collectFiles`. */
+/** Non-recursive by design — recursing from the repo root would sweep node_modules and test
+ * fixtures; `docs/**` recurses via `collectFiles`. */
 const ROOT_MARKDOWN_FILES = readdirSync(PROJECT_ROOT)
   .filter((entry) => extname(entry) === ".md")
   .map((entry) => join(PROJECT_ROOT, entry));
@@ -131,7 +131,12 @@ const SRC_COMMENT_TEXTS: ScanText[] = collectTsFiles(SRC_ROOT).map((file) => ({
   file,
   text: maskToCommentsOnly(readFileSync(file, "utf-8")),
 }));
-const MARKDOWN_TEXTS: ScanText[] = [...ROOT_MARKDOWN_FILES, ...collectFiles(DOCS_ROOT, ".md")].map((file) => ({
+// ADRs are dated records: they quote the retired names on purpose.
+const ADR_ROOT = join(DOCS_ROOT, "adr");
+const MARKDOWN_TEXTS: ScanText[] = [
+  ...ROOT_MARKDOWN_FILES,
+  ...collectFiles(DOCS_ROOT, ".md").filter((file) => !file.startsWith(`${ADR_ROOT}/`)),
+].map((file) => ({
   file,
   text: readFileSync(file, "utf-8"),
 }));

@@ -303,7 +303,7 @@ describe("release operator guidance", () => {
     expect(text).toContain("CONTRIBUTING.md#publishing-a-release");
   });
   it("amends the rehearsal decision without removing approval protection", () => {
-    const text = readFileSync(join(ROOT, "openspec/decisions/0042-publish-rehearsal-interlock.md"), "utf8");
+    const text = readFileSync(join(ROOT, "docs/adr/0042-publish-rehearsal-interlock.md"), "utf8");
     expect(text).toContain("## Amendment: manual stable publication");
     expect(text).toContain("required-reviewer approval remains mandatory");
   });

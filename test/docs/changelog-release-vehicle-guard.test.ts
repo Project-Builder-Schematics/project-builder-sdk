@@ -19,9 +19,9 @@ import { PROJECT_ROOT } from "../support/jsdoc-scan.ts";
 
 const CHANGELOG_PATH = join(PROJECT_ROOT, "CHANGELOG.md");
 const PACKAGE_JSON_PATH = join(PROJECT_ROOT, "package.json");
-const ADR_0045_PATH = join(PROJECT_ROOT, "openspec/decisions/0045-package-read-containment-boundary.md");
-const ADR_0046_PATH = join(PROJECT_ROOT, "openspec/decisions/0046-runcontext-package-root-ceiling.md");
-const ADR_0067_PATH = join(PROJECT_ROOT, "openspec/decisions/0067-collection-json-package-anchor-marker.md");
+const ADR_0045_PATH = join(PROJECT_ROOT, "docs/adr/0045-package-read-containment-boundary.md");
+const ADR_0046_PATH = join(PROJECT_ROOT, "docs/adr/0046-runcontext-package-root-ceiling.md");
+const ADR_0067_PATH = join(PROJECT_ROOT, "docs/adr/0067-collection-json-package-anchor-marker.md");
 
 const changelog = () => readFileSync(CHANGELOG_PATH, "utf-8");
 
