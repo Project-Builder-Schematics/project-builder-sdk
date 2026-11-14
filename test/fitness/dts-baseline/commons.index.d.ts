@@ -1,7 +1,7 @@
-import type { JsonValue } from "../core/wire.ts";
+import type { JsonValue } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import type { FoundHandle, WritableHandle } from "../bounded-contexts/authoring/domain/entities/handle-state.ts";
-import { AuthoringError } from "../core/authoring-error.ts";
-import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../core/authoring-error.ts";
+import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import type { ScaffoldArgs } from "../scaffold/index.ts";
 export type { FoundHandle, WritableHandle };
 export { AuthoringError };

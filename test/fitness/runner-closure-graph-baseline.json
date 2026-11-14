@@ -1,20 +1,20 @@
 {
   "nodes": [
     "bin/pbuilder-runner.js",
+    "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+    "bounded-contexts/authoring/domain/aggregates/session/session.js",
+    "bounded-contexts/authoring/domain/services/directive-factory.js",
     "bounded-contexts/authoring/domain/services/run-context.js",
-    "core/authoring-error.js",
-    "core/context.js",
-    "core/directive-factory.js",
+    "bounded-contexts/authoring/domain/services/schema/input-rejection.js",
+    "bounded-contexts/authoring/domain/services/schema/schema-locate.js",
+    "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
+    "bounded-contexts/authoring/domain/services/schema/schema-validate.js",
+    "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+    "bounded-contexts/authoring/domain/valueobjects/schema-model.js",
+    "bounded-contexts/authoring/domain/valueobjects/wire.js",
+    "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
     "core/emit-rejection.js",
-    "core/fs-errors.js",
-    "core/schema/input-rejection.js",
-    "core/schema/schema-discovery.js",
-    "core/schema/schema-locate.js",
-    "core/schema/schema-model.js",
-    "core/schema/schema-parse.js",
-    "core/schema/schema-validate.js",
-    "core/session.js",
-    "core/wire.js",
+    "platform/fs-errors.js",
     "transport/error-text.js",
     "transport/exit-codes.js",
     "transport/factory-pointer.js",
@@ -52,99 +52,99 @@
       "specifier": "../transport/stdio-engine-client.js"
     },
     {
-      "from": "bounded-contexts/authoring/domain/services/run-context.js",
-      "to": "core/authoring-error.js",
-      "specifier": "../../../../core/authoring-error.js"
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/domain/aggregates/session/session.js",
+      "specifier": "../../../domain/aggregates/session/session.js"
     },
     {
-      "from": "core/authoring-error.js",
-      "to": "core/emit-rejection.js",
-      "specifier": "./emit-rejection.js"
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/domain/services/directive-factory.js",
+      "specifier": "../../../domain/services/directive-factory.js"
     },
     {
-      "from": "core/context.js",
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
       "to": "bounded-contexts/authoring/domain/services/run-context.js",
-      "specifier": "../bounded-contexts/authoring/domain/services/run-context.js"
+      "specifier": "../../../domain/services/run-context.js"
     },
     {
-      "from": "core/context.js",
-      "to": "core/authoring-error.js",
-      "specifier": "./authoring-error.js"
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/domain/services/schema/input-rejection.js",
+      "specifier": "../../../domain/services/schema/input-rejection.js"
     },
     {
-      "from": "core/context.js",
-      "to": "core/directive-factory.js",
-      "specifier": "./directive-factory.js"
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
+      "specifier": "../../../domain/services/schema/schema-parse.js"
     },
     {
-      "from": "core/context.js",
-      "to": "core/fs-errors.js",
-      "specifier": "./fs-errors.js"
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/domain/services/schema/schema-validate.js",
+      "specifier": "../../../domain/services/schema/schema-validate.js"
     },
     {
-      "from": "core/context.js",
-      "to": "core/schema/input-rejection.js",
-      "specifier": "./schema/input-rejection.js"
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+      "specifier": "../../../domain/valueobjects/authoring-error.js"
     },
     {
-      "from": "core/context.js",
-      "to": "core/schema/schema-discovery.js",
-      "specifier": "./schema/schema-discovery.js"
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
+      "specifier": "../../../infrastructure/out/fs/schema-discovery.js"
     },
     {
-      "from": "core/context.js",
-      "to": "core/schema/schema-parse.js",
-      "specifier": "./schema/schema-parse.js"
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "platform/fs-errors.js",
+      "specifier": "../../../../../platform/fs-errors.js"
     },
     {
-      "from": "core/context.js",
-      "to": "core/schema/schema-validate.js",
-      "specifier": "./schema/schema-validate.js"
+      "from": "bounded-contexts/authoring/domain/aggregates/session/session.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+      "specifier": "../../valueobjects/authoring-error.js"
     },
     {
-      "from": "core/context.js",
-      "to": "core/session.js",
-      "specifier": "./session.js"
+      "from": "bounded-contexts/authoring/domain/services/run-context.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+      "specifier": "../valueobjects/authoring-error.js"
     },
     {
-      "from": "core/schema/input-rejection.js",
-      "to": "core/authoring-error.js",
-      "specifier": "../authoring-error.js"
+      "from": "bounded-contexts/authoring/domain/services/schema/input-rejection.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+      "specifier": "../../valueobjects/authoring-error.js"
     },
     {
-      "from": "core/schema/schema-discovery.js",
-      "to": "core/fs-errors.js",
-      "specifier": "../fs-errors.js"
-    },
-    {
-      "from": "core/schema/schema-discovery.js",
-      "to": "core/schema/schema-model.js",
-      "specifier": "./schema-model.js"
-    },
-    {
-      "from": "core/schema/schema-parse.js",
-      "to": "core/schema/schema-locate.js",
+      "from": "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
+      "to": "bounded-contexts/authoring/domain/services/schema/schema-locate.js",
       "specifier": "./schema-locate.js"
     },
     {
-      "from": "core/schema/schema-parse.js",
-      "to": "core/schema/schema-model.js",
-      "specifier": "./schema-model.js"
+      "from": "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/schema-model.js",
+      "specifier": "../../valueobjects/schema-model.js"
     },
     {
-      "from": "core/schema/schema-validate.js",
-      "to": "core/schema/schema-model.js",
-      "specifier": "./schema-model.js"
+      "from": "bounded-contexts/authoring/domain/services/schema/schema-validate.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/schema-model.js",
+      "specifier": "../../valueobjects/schema-model.js"
     },
     {
-      "from": "core/session.js",
-      "to": "core/authoring-error.js",
-      "specifier": "./authoring-error.js"
+      "from": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+      "to": "core/emit-rejection.js",
+      "specifier": "../../../../core/emit-rejection.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/schema-model.js",
+      "specifier": "../../../domain/valueobjects/schema-model.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
+      "to": "platform/fs-errors.js",
+      "specifier": "../../../../../platform/fs-errors.js"
     },
     {
       "from": "transport/exit-codes.js",
-      "to": "core/authoring-error.js",
-      "specifier": "../core/authoring-error.js"
+      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+      "specifier": "../bounded-contexts/authoring/domain/valueobjects/authoring-error.js"
     },
     {
       "from": "transport/exit-codes.js",
@@ -153,8 +153,8 @@
     },
     {
       "from": "transport/factory-pointer.js",
-      "to": "core/context.js",
-      "specifier": "../core/context.js"
+      "to": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "specifier": "../bounded-contexts/authoring/application/usecases/run-factory/context.js"
     },
     {
       "from": "transport/frame-reader.js",
@@ -168,28 +168,28 @@
     },
     {
       "from": "transport/framing.js",
-      "to": "core/wire.js",
-      "specifier": "../core/wire.js"
+      "to": "bounded-contexts/authoring/domain/valueobjects/wire.js",
+      "specifier": "../bounded-contexts/authoring/domain/valueobjects/wire.js"
     },
     {
       "from": "transport/runner.js",
-      "to": "core/authoring-error.js",
-      "specifier": "../core/authoring-error.js"
+      "to": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "specifier": "../bounded-contexts/authoring/application/usecases/run-factory/context.js"
     },
     {
       "from": "transport/runner.js",
-      "to": "core/context.js",
-      "specifier": "../core/context.js"
+      "to": "bounded-contexts/authoring/domain/services/schema/schema-locate.js",
+      "specifier": "../bounded-contexts/authoring/domain/services/schema/schema-locate.js"
     },
     {
       "from": "transport/runner.js",
-      "to": "core/schema/schema-locate.js",
-      "specifier": "../core/schema/schema-locate.js"
+      "to": "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
+      "specifier": "../bounded-contexts/authoring/domain/services/schema/schema-parse.js"
     },
     {
       "from": "transport/runner.js",
-      "to": "core/schema/schema-parse.js",
-      "specifier": "../core/schema/schema-parse.js"
+      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+      "specifier": "../bounded-contexts/authoring/domain/valueobjects/authoring-error.js"
     },
     {
       "from": "transport/runner.js",
@@ -233,13 +233,13 @@
     },
     {
       "from": "transport/stdio-engine-client.js",
-      "to": "core/emit-rejection.js",
-      "specifier": "../core/emit-rejection.js"
+      "to": "bounded-contexts/authoring/domain/valueobjects/wire.js",
+      "specifier": "../bounded-contexts/authoring/domain/valueobjects/wire.js"
     },
     {
       "from": "transport/stdio-engine-client.js",
-      "to": "core/wire.js",
-      "specifier": "../core/wire.js"
+      "to": "core/emit-rejection.js",
+      "specifier": "../core/emit-rejection.js"
     },
     {
       "from": "transport/stdio-engine-client.js",
