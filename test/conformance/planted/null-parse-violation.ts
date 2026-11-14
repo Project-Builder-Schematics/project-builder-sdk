@@ -4,7 +4,7 @@
 // `ast === sample` branch: this exercises the null half of the real-base probe's 3-way OR
 // independently, closing the triangulation gap verify-in-loop-4 flagged (only the identity
 // branch had a dedicated fixture before this).
-import { defineDialect } from "../../../src/core/define-dialect.ts";
+import { defineDialect } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { DIALECT_MODULES } from "../../support/dialect-modules.ts";
 
 export const nullParseViolationDialect = defineDialect<null, Record<string, never>>({

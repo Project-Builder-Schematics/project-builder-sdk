@@ -4,7 +4,7 @@
 // identity-fixture-violation.ts's `ast === sample` branch and null-parse-violation.ts's
 // `ast === null` branch: this exercises the THIRD, remaining half of the real-base probe's
 // 3-way OR independently (verify-in-loop-4 Finding #2, triangulation gap).
-import { defineDialect } from "../../../src/core/define-dialect.ts";
+import { defineDialect } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { DIALECT_MODULES } from "../../support/dialect-modules.ts";
 
 export const undefinedParseViolationDialect = defineDialect<undefined, Record<string, never>>({

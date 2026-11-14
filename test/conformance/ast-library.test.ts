@@ -4,7 +4,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
-import type { Dialect } from "../../src/core/define-dialect.ts";
+import type { Dialect } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import type { DialectFixture, DialectModule } from "../../src/conformance/index.ts";
 import { testDialect } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
@@ -27,7 +27,7 @@ test("native type-only namespaces are erased and cannot satisfy runtime conforma
 
 test("independent nominal libraries work with their own ASTs without cross-origin identity", async () => {
   const dir = scratch();
-  const core = new URL("../../src/core/define-dialect.ts", import.meta.url).href;
+  const core = new URL("../../src/bounded-contexts/authoring/domain/services/define-dialect.ts", import.meta.url).href;
   for (const name of ["first", "second"]) {
     writeFileSync(join(dir, `${name}-library.ts`), `
 export class Document {

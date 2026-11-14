@@ -40,7 +40,7 @@ const flatComment = (text: string): string =>
 // --- Frozen strings — design.md §9. Copied verbatim; do not paraphrase. -------------------
 
 const SCOPE_PULL_QUOTE =
-  "the manifest covers the runner's pre-factory bootstrap — 23 closure files plus " +
+  "the manifest covers the runner's pre-factory bootstrap — 24 closure files plus " +
   "`package.json` — and nothing that loads after it.";
 
 const EXCLUDED_TREES = [
@@ -78,8 +78,8 @@ const LINK_DEGRADES =
   "wrong-artefact detector and nothing more.";
 
 const ENTRY_24_REASON =
-  '`package.json` is entry #24 because its `"type": "module"` field governs the parse mode of ' +
-  'all 23 closure files: flipping it to `"commonjs"` reinterprets every hashed byte without ' +
+  '`package.json` is entry #25 because its `"type": "module"` field governs the parse mode of ' +
+  'all 24 closure files: flipping it to `"commonjs"` reinterprets every hashed byte without ' +
   "editing one. It is **not** included because of `packageRootFor()` — hashing content cannot " +
   "constrain a topology walk.";
 
@@ -99,7 +99,7 @@ const SECURITY_SUBSECTION_HEADING = "## Runner integrity manifest";
 
 const SECURITY_SUBSECTION =
   "Published releases carry `dist/runner-manifest.json`, which lets the engine check that the " +
-  "runner's pre-factory bootstrap — 23 files plus `package.json` — is the code we published. " +
+  "runner's pre-factory bootstrap — 24 files plus `package.json` — is the code we published. " +
   "It is not a sandbox, not a signature, and not a check on the dialect, op-pack, or " +
   "`node_modules` code that loads afterwards; those remain governed by the trust model above. " +
   "See [docs/runner-integrity-invariants.md](./docs/runner-integrity-invariants.md).";
@@ -248,12 +248,12 @@ describe("REQ-IID-03 — the justification states the real value", () => {
   });
 });
 
-describe("REQ-IID-04..07 — portability, entry #24, bun link, and the known gaps", () => {
+describe("REQ-IID-04..07 — portability, entry #25, bun link, and the known gaps", () => {
   it("IID-04: records one manifest per published package with its evidence", () => {
     expect(flat(doc())).toContain(flat(PORTABILITY_ANSWER));
   });
 
-  it("IID-05: justifies entry #24 by `type: module`, and rules out packageRootFor()", () => {
+  it("IID-05: justifies entry #25 by `type: module`, and rules out packageRootFor()", () => {
     expect(flat(doc())).toContain(flat(ENTRY_24_REASON));
   });
 
@@ -297,7 +297,7 @@ describe("REQ-IID-08 + docs index + SECURITY.md", () => {
 // `deriveRunnerClosure`'s LIVE output, never a hardcoded literal committed in this test (R1-11).
 // The templates below carry the surrounding PROSE frozen (mirroring every other frozen-string
 // check above); only the NUMBER inside each is supplied by the live derivation at test-run time
-// — "23"/"24" never appear as literals anywhere in this describe block.
+// — "24"/"25" never appear as literals anywhere in this describe block.
 // ===========================================================================================
 
 interface CountClaimTemplate {
@@ -305,7 +305,7 @@ interface CountClaimTemplate {
   readonly render: (n: number) => string;
 }
 
-// Every claim below is either the TOTAL manifest entry count (23 closure files + package.json)
+// Every claim below is either the TOTAL manifest entry count (24 closure files + package.json)
 // or the CLOSURE file count on its own — both derived from the same live closureFileCount.
 const TOTAL_ENTRY_CLAIMS: CountClaimTemplate[] = [
   { label: "`lists N files:` opening claim", render: (n) => `lists ${n} files: the` },
@@ -320,7 +320,7 @@ const TOTAL_ENTRY_CLAIMS: CountClaimTemplate[] = [
 const CLOSURE_FILE_CLAIMS: CountClaimTemplate[] = [
   { label: "`the N emitted .js files` opening claim", render: (n) => `the ${n} emitted \`.js\` files` },
   { label: "`N closure files plus package.json` pull-quote", render: (n) => `${n} closure files plus` },
-  { label: "`all N closure files:` entry-#24 justification", render: (n) => `all ${n} closure files:` },
+  { label: "`all N closure files:` entry-#25 justification", render: (n) => `all ${n} closure files:` },
 ];
 
 interface CountMismatch {
@@ -367,7 +367,7 @@ describe("REQ-DLV-01 — documentation counts derived from the live derivation, 
   });
 
   it("DLV-01.2 [red-proof]: a mutant total-entry count is caught, naming the claim and the live value", () => {
-    const mutant = doc().replace("entry #24 because", "entry #25 because");
+    const mutant = doc().replace("entry #25 because", "entry #26 because");
     expect(findStaleCountClaims(mutant, closureFileCount)).toEqual([
       { label: "`entry #N because` heading justification", liveValue: closureFileCount + 1 },
     ]);
@@ -376,7 +376,7 @@ describe("REQ-DLV-01 — documentation counts derived from the live derivation, 
   // Sibling red-proof: the check above only exercises the TOTAL-entry leg; a mutant on the
   // CLOSURE-file leg is caught independently, proving both templates arrays are live, not one.
   it("DLV-01.2 [red-proof]: a mutant closure-file count is caught, naming the claim and the live value", () => {
-    const mutant = doc().replace("23 closure files plus", "22 closure files plus");
+    const mutant = doc().replace("24 closure files plus", "23 closure files plus");
     expect(findStaleCountClaims(mutant, closureFileCount)).toEqual([
       { label: "`N closure files plus package.json` pull-quote", liveValue: closureFileCount },
     ]);

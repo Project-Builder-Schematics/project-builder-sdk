@@ -14,7 +14,7 @@ import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
 import { ALLOWED_SIBLINGS } from "../support/layering/dialects.ts";
 
-const DIALECTS_DIR = new URL("../../src/dialects", import.meta.url).pathname;
+const DIALECTS_DIR = new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects", import.meta.url).pathname;
 const SRC_DIR = new URL("../../src", import.meta.url).pathname;
 
 /**
@@ -80,7 +80,7 @@ function findCrossDialectImports(
 }
 
 describe("FIT-02 — no dialect imports another dialect (leaf rule)", () => {
-  it("no cross-dialect imports exist in src/dialects/**", () => {
+  it("no cross-dialect imports exist in src/bounded-contexts/authoring/infrastructure/out/dialects/**", () => {
     const dialects = listDialects();
 
     // No dialects yet — scan returns no violations; rule is pre-wired for when they land.

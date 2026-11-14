@@ -1,5 +1,5 @@
-import type { ReadOps } from "./base-handle.ts";
-export { query } from "./dialect-handle.ts";
+import type { ReadOps } from "../entities/base-handle.ts";
+export { query } from "../entities/dialect-handle.ts";
 export type Op<Ast = any> = (ast: Ast, ...args: never[]) => void;
 declare const QUERY: unique symbol;
 export type Query<Ast = any, A extends unknown[] = any[], R = unknown> = ((ast: Ast, ...args: A) => R) & {

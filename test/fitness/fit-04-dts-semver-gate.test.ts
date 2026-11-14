@@ -93,12 +93,12 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
   },
   {
     baselineFile: join(BASELINE_DIR, "core.handle-state.d.ts"),
-    distFile: join(DIST_DIR, "core/handle-state.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/domain/entities/handle-state.d.ts"),
     label: "core/handle-state",
   },
   {
     baselineFile: join(BASELINE_DIR, "core.base-handle.d.ts"),
-    distFile: join(DIST_DIR, "core/base-handle.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/domain/entities/base-handle.d.ts"),
     label: "core/base-handle",
   },
   {
@@ -108,7 +108,7 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
   },
   {
     baselineFile: join(BASELINE_DIR, "commons.classify-content.d.ts"),
-    distFile: join(DIST_DIR, "commons/classify-content.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/domain/services/classify-content.d.ts"),
     label: "commons/classify-content",
   },
   {
@@ -124,24 +124,24 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     // first commit is additive by definition (a brand-new subpath); this pair gates every
     // subsequent change to it the same as every other public surface.
     baselineFile: join(BASELINE_DIR, "typescript.index.d.ts"),
-    distFile: join(DIST_DIR, "dialects/typescript/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/infrastructure/out/dialects/typescript/index.d.ts"),
     label: "typescript",
   },
   {
     // react-dialect, S-000, REQ-FIT-04: the ./react subpath's FIRST baseline — additive by
     // definition (a brand-new subpath), pins `find`'s JSDoc incl. the trust line.
     baselineFile: join(BASELINE_DIR, "react.index.d.ts"),
-    distFile: join(DIST_DIR, "dialects/react/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/infrastructure/out/dialects/react/index.d.ts"),
     label: "react",
   },
   {
     baselineFile: join(BASELINE_DIR, "nestjs.index.d.ts"),
-    distFile: join(DIST_DIR, "dialects/nestjs/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/infrastructure/out/dialects/nestjs/index.d.ts"),
     label: "nestjs",
   },
   {
     baselineFile: join(BASELINE_DIR, "angular.index.d.ts"),
-    distFile: join(DIST_DIR, "dialects/angular/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/infrastructure/out/dialects/angular/index.d.ts"),
     label: "angular",
   },
   {
@@ -151,7 +151,7 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     // this pair re-freezes it. The baseline's content must exhibit both `replaceContent` and
     // `modify(fn:...)` among `Handle`'s members, with ZERO occurrences of `raw`.
     baselineFile: join(BASELINE_DIR, "core.define-dialect.d.ts"),
-    distFile: join(DIST_DIR, "core/define-dialect.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/domain/services/define-dialect.d.ts"),
     label: "core/define-dialect",
   },
 ];

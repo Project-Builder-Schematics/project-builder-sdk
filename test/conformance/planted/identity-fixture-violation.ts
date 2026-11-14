@@ -5,7 +5,7 @@
 // would pass VACUOUSLY for every sample (identity round-trips everything). The probe rejects
 // it before the round-trip assertion ever runs: `parse(sample)` returns the input string
 // unchanged, never a distinct AST object.
-import { defineDialect } from "../../../src/core/define-dialect.ts";
+import { defineDialect } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { DIALECT_MODULES } from "../../support/dialect-modules.ts";
 
 export const identityFixtureViolationDialect = defineDialect<string, Record<string, never>>({

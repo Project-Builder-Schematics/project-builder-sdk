@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const DEFAULT_GOLDEN_DIR = new URL("../dialects/typescript/golden/", import.meta.url).pathname;
+const DEFAULT_GOLDEN_DIR = new URL("../bounded-contexts/authoring/infrastructure/out/dialects/typescript/golden/", import.meta.url).pathname;
 
 export function golden(name: string, dir: string = DEFAULT_GOLDEN_DIR): string {
   return readFileSync(join(dir, name), "utf-8");

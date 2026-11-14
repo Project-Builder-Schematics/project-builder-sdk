@@ -1,14 +1,14 @@
 /**
  * REQ-JSD-08: the JSON dialect passes the conformance kit. The fixture re-assembles the same
- * real building blocks `src/dialects/json/index.ts` composes (its parse/print pair and its
+ * real building blocks `src/bounded-contexts/authoring/infrastructure/out/dialects/json/index.ts` composes (its parse/print pair and its
  * named ops), never a mock, plus a JSONC sample corpus.
  */
 import { describe, it, expect, setDefaultTimeout } from "bun:test";
 import * as expectedAstLibrary from "jsonc-parser";
 import * as json from "../../src/dialects/json/index.ts";
-import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
-import { parse, print, type JsonDocument } from "../../src/dialects/json/ast.ts";
-import * as ops from "../../src/dialects/json/ops.ts";
+import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { parse, print, type JsonDocument } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/json/ast.ts";
+import * as ops from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/json/ops.ts";
 import { testDialect, testOpPack, type DialectFixture, type OpPackFixture } from "../../src/conformance/index.ts";
 
 setDefaultTimeout(20000);

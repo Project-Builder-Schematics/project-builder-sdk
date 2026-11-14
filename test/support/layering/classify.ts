@@ -32,15 +32,11 @@ const runnerHosting = (layer: Layer): Class => ({ kind: "context", context: "run
 // the current-state map in odd/tasks/hexagonal-layout-proposal.md section 2.1.
 export const LEGACY: readonly LegacyRow[] = [
   { path: "src/commons/", class: authoring("application") },
-  { path: "src/commons/classify-content.ts", class: authoring("domain") },
   { path: "src/core/", class: authoring("domain") },
   { path: "src/core/context.ts", class: authoring("application"), mixed: ["infrastructure-out: package filesystem reads (V1)"] },
   { path: "src/core/wire.ts", class: authoring("domain"), mixed: ["acl: Batch wire types and batch cap (V5)"] },
   { path: "src/core/emit-rejection.ts", class: { kind: "acl", counterpart: "irwire" } },
-  { path: "src/core/deep-equal.ts", class: { kind: "platform" } },
   { path: "src/core/fs-errors.ts", class: { kind: "platform" } },
-  { path: "src/core/jsx-name-validator.ts", class: authoring("domain"), mixed: ["React-only grammar (V7, ARCH-2)"] },
-  { path: "src/core/reject-tail.ts", class: authoring("domain"), mixed: ["React-only no-echo tail (V7, ARCH-2)"] },
   { path: "src/core/schema/schema-discovery.ts", class: authoring("infrastructure-out") },
   { path: "src/dialects/", class: authoring("infrastructure-out") },
   { path: "src/pending-directives/", class: authoring("application") },

@@ -8,11 +8,12 @@ know about. It is the contributor-facing counterpart to
 
 ## What the manifest covers — and what it does not
 
-`dist/runner-manifest.json` lists 24 files: the 23 emitted `.js` files in the runner's static import
-closure, plus the package's root `package.json`. Those 24 are the code that runs **before** the
+`dist/runner-manifest.json` lists 25 files: the 24 emitted `.js` files in the runner's static import
+closure, plus the package's root `package.json`. Those 25 are the code that runs **before** the
 runner imports the author's factory — the *pre-factory bootstrap*, and nothing beyond it. They are
 not "the runner" in the sense a reader is likely to assume, and they are certainly not "the SDK".
-`dist/commons/**`, `dist/dialects/**`, `dist/conformance/**`, `dist/testing/**` and everything under
+`dist/commons/**`, `dist/dialects/**`, `dist/bounded-contexts/**`, `dist/platform/**`, `dist/conformance/**`,
+`dist/testing/**` and everything under
 `node_modules/**` are absent from the manifest by design, and they load into the same process, at
 the same privilege, moments later — after the bootstrap has been checked and the factory import has
 begun. Their absence is deliberate, not an oversight: they are reachable only through the factory's
@@ -24,7 +25,7 @@ code with the largest attack surface has been checked. Most of that code is outs
 purpose.
 
 If a one-line form of this is needed elsewhere, use this one rather than composing a new one: *the
-manifest covers the runner's pre-factory bootstrap — 23 closure files plus `package.json` — and
+manifest covers the runner's pre-factory bootstrap — 24 closure files plus `package.json` — and
 nothing that loads after it.*
 
 ## Why this exists
@@ -34,7 +35,7 @@ story, and pretending otherwise would not survive the first person who checked. 
 declared surface (the factory module, `schema.json`, argv) sits on the far side of the boundary this
 manifest draws. One route did reach the installed SDK tree in practice — a workspace `node_modules`
 write the containment gate did not exclude — and the engine now denies `SDKRoot`-subtree writes at
-ingestion: closed by a containment rule, not by any digest of ours. Hashing our own 24 files does
+ingestion: closed by a containment rule, not by any digest of ours. Hashing our own 25 files does
 not constrain them. This paragraph says so plainly on purpose: an engineer who works that out
 independently, six months from now, with nothing on the page to explain it, will reasonably conclude
 the mechanism is ceremony and delete it.
@@ -68,7 +69,7 @@ worth more than the digests. Weigh all three before removing any part of it.
 
 ## The five Constraints
 
-The engine's closure-sealing lemma — their argument that verifying 24 digests is equivalent to
+The engine's closure-sealing lemma — their argument that verifying 25 digests is equivalent to
 hashing the executed tree — holds only while all five of the properties below hold. Each is named
 and numbered, never cited by bare number, because the two repos number independently and a silent
 divergence would be invisible. Each carries an `enforced-by:` field naming the mechanism that
@@ -167,9 +168,9 @@ a preload hook or an import map that substitutes different code. That control si
 engine's side of the boundary; this repo has no mechanism for it and does not claim one. It is
 listed here so the lemma's preconditions are complete, not because we enforce it.
 
-## Why `package.json` is entry #24
+## Why `package.json` is entry #25
 
-`package.json` is entry #24 because its `"type": "module"` field governs the parse mode of all 23
+`package.json` is entry #25 because its `"type": "module"` field governs the parse mode of all 24
 closure files: flipping it to `"commonjs"` reinterprets every hashed byte without editing one. It is
 **not** included because of `packageRootFor()` — hashing content cannot constrain a topology walk.
 

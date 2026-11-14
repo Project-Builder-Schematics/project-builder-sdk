@@ -1,6 +1,7 @@
 {
   "nodes": [
     "bin/pbuilder-runner.js",
+    "bounded-contexts/authoring/domain/services/run-context.js",
     "core/authoring-error.js",
     "core/context.js",
     "core/directive-factory.js",
@@ -51,9 +52,19 @@
       "specifier": "../transport/stdio-engine-client.js"
     },
     {
+      "from": "bounded-contexts/authoring/domain/services/run-context.js",
+      "to": "core/authoring-error.js",
+      "specifier": "../../../../core/authoring-error.js"
+    },
+    {
       "from": "core/authoring-error.js",
       "to": "core/emit-rejection.js",
       "specifier": "./emit-rejection.js"
+    },
+    {
+      "from": "core/context.js",
+      "to": "bounded-contexts/authoring/domain/services/run-context.js",
+      "specifier": "../bounded-contexts/authoring/domain/services/run-context.js"
     },
     {
       "from": "core/context.js",

@@ -1,5 +1,5 @@
 import type { SourceFile } from "ts-morph";
-import { type Handle } from "../../core/define-dialect.ts";
+import { type Handle } from "../../../../domain/services/define-dialect.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import type { ArrayElement } from "../typescript/array-element.ts";
 import { type InjectionOptions, type InputOptions, type LazyRouteSpec, type NamedImport, type OutputOptions, type RouteSpec, type StateOptions } from "./ops.ts";

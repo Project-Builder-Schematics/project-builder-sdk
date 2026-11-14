@@ -2,8 +2,8 @@
 // The published `find` declares whatever extension it is handed, so it accepts every path
 // while the fixture's dialect declares only `.ts`.
 import { extname } from "node:path";
-import { defineDialect } from "../../../src/core/define-dialect.ts";
-import { parse, print } from "../../../src/dialects/typescript/ast.ts";
+import { defineDialect } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { parse, print } from "../../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
 import { DIALECT_MODULES } from "../../support/dialect-modules.ts";
 
 const typescript = DIALECT_MODULES[0];

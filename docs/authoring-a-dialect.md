@@ -433,14 +433,14 @@ A dialect is assembled from three kit verbs:
   a path whose basename does not end in a declared extension, naming the file and the
   declared extensions; a bare extension (`.ts`) or a stem ending in a dot (`a..ts`) is
   rejected too. Several dialects may declare the same extension: the author picks one by
-  importing its `find`. See its JSDoc `@example` in `src/core/define-dialect.ts` for a runnable snippet.
+  importing its `find`. See its JSDoc `@example` in `src/bounded-contexts/authoring/domain/services/define-dialect.ts` for a runnable snippet.
 - **`defineOpPack(ops)`** — declares a named record of ops over one AST type, usable standalone
   (shareable across dialects targeting the same AST type) before any `withOps` composition. See
-  its JSDoc `@example` in `src/core/define-dialect.ts`.
+  its JSDoc `@example` in `src/bounded-contexts/authoring/domain/services/define-dialect.ts`.
 - **`withOps(base, ...packs)`** — composes additional op-packs onto a base dialect; the resulting
   handle type is the INTERSECTION of the base's ops and every attached pack's ops. An op from an
   unattached pack, or a typo, is a compile error. See its JSDoc `@example` in
-  `src/core/define-dialect.ts`. At composition time, `withOps` also runs an eager, synchronous,
+  `src/bounded-contexts/authoring/domain/services/define-dialect.ts`. At composition time, `withOps` also runs an eager, synchronous,
   fail-closed check: an op name declared by two or more of the passed packs (or colliding with
   the base dialect's own ops) throws immediately, naming the colliding op — composition never
   silently resolves to whichever pack happened to be spread last. An op name that shadows the
@@ -469,8 +469,8 @@ dialect per extension and route between them:
 
 Both derivations throw at composition on an op name the dialect does not have. A variant that
 only needs another parser is plain `defineDialect` reusing the other dialect's ops
-(`ops: tsx.ops`). See their JSDoc `@example`s in `src/core/define-dialect.ts`, and
-`src/dialects/react/index.ts` for the `.tsx`/`.jsx` routing the React dialect ships.
+(`ops: tsx.ops`). See their JSDoc `@example`s in `src/bounded-contexts/authoring/domain/services/define-dialect.ts`, and
+`src/bounded-contexts/authoring/infrastructure/out/dialects/react/index.ts` for the `.tsx`/`.jsx` routing the React dialect ships.
 
 A contributor's worked proof anchors are the conformance kit — `testDialect`/`testOpPack`
 (`@pbuilder/sdk/conformance`) — which asserts a dialect's parse/print round-trip, per-op
@@ -484,7 +484,7 @@ An op returns `void` and its handle method chains. To let authors read something
 the function in **`query(fn)`** inside the same op-pack, next to the ops: with
 `count: query((ast: string[]) => ast.length)` in the pack, `await dialect.find(path).push("x").count()`
 resolves to the line count, `"x"` included. See its JSDoc `@example` in
-`src/core/dialect-handle.ts`.
+`src/bounded-contexts/authoring/domain/entities/dialect-handle.ts`.
 
 - On the handle, a query returns `Promise<R>` and ends the chain. It does not return the
   handle, so call it last, or `await` it and keep chaining on the handle you already hold.
@@ -503,7 +503,7 @@ resolves to the line count, `"x"` included. See its JSDoc `@example` in
 If your op takes a name or identifier-shaped argument that gets SPLICED into generated source —
 an attribute name, an import binding, anything your AST library writes as raw text — validate
 that argument BEFORE any mutation runs, not after. `@pbuilder/sdk/react`'s
-`src/core/jsx-name-validator.ts` is the reference implementation: `validatedOp(validators, body)`
+`src/bounded-contexts/authoring/domain/services/jsx-name-validator.ts` is the reference implementation: `validatedOp(validators, body)`
 is the single validate-before-mutate CHOKEPOINT — it wraps an op so `body` (the actual AST
 mutation) is structurally unreachable until `validators` has run and thrown on every invalid
 argument. Register a per-argument grammar for each such
@@ -640,8 +640,8 @@ For example, a test in this repository's `test/conformance/` directory can use i
 ```ts
 import * as module from "../../src/dialects/typescript/index.ts";
 import * as expectedAstLibrary from "ts-morph";
-import { parse, print } from "../../src/dialects/typescript/ast.ts";
-import { defineDialect } from "../../src/core/define-dialect.ts";
+import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
+import { defineDialect } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { testDialect, type DialectFixture } from "../../src/conformance/index.ts";
 
 const exerciseLibrary: DialectFixture<typeof expectedAstLibrary>["libraryExercise"]["modify"] = (ast, library) => {

@@ -3,7 +3,7 @@
 // byte-exact matches `sample` — proves testDialect's round-trip assertion is live, not a
 // no-op. Uses the real `defineDialect` factory (no reason to hand-roll a fake Dialect
 // object — only `ast.print` needs to be broken).
-import { defineDialect } from "../../../src/core/define-dialect.ts";
+import { defineDialect } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { DIALECT_MODULES } from "../../support/dialect-modules.ts";
 
 type BrokenAst = { text: string };

@@ -4,7 +4,7 @@
  * strict JSON (plus the empty file), the narrowest format the SDK ships a dialect for.
  */
 import { describe, it, expect } from "bun:test";
-import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { testOpPack } from "../../src/conformance/index.ts";
 
 type StrictJson = { text: string };

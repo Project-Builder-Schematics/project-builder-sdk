@@ -6,7 +6,7 @@
 // evaluates the body under `bunx tsc --noEmit`; runtime never calls it.
 import { describe, test } from "bun:test";
 import { expectTypeOf } from "expect-type";
-import type { ContentState } from "../../src/commons/classify-content.ts";
+import type { ContentState } from "../../src/bounded-contexts/authoring/domain/services/classify-content.ts";
 
 describe("ContentState — exhaustive switch never-arm pin (REQ-RT-01.4)", () => {
   test("switch(state) over all three ContentState values reaches an arm; a 4th value fails this compile", () => {

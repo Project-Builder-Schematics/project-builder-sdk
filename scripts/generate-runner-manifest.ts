@@ -1,5 +1,5 @@
 // Build authority for dist/runner-manifest.json: derive -> fail closed on any violation ->
-// hash all 24 files -> write once -> print the two identity lines.
+// hash all 25 files -> write once -> print the two identity lines.
 //
 // The package root is resolved with `fileURLToPath`, NOT `new URL(...).pathname` (this
 // repo's test-helper idiom): `.pathname` does not percent-decode, so it breaks on a build
@@ -71,7 +71,7 @@ function generate(): void {
     fail([{ rule: "unreadable-file", file: "package.json", line: null, found: "package.json" }]);
   }
 
-  // All 24 records sort together (ambiguity B) — package.json is not appended after the
+  // All 25 records sort together (ambiguity B) — package.json is not appended after the
   // dist/ ones.
   const manifestPaths = [
     ...derivation.nodes.map((node) => `${DIST_DIR_NAME}/${node}`),

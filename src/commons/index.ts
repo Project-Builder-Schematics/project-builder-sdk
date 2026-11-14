@@ -5,7 +5,7 @@ import { posix } from "node:path";
 import type { JsonValue } from "../core/wire.ts";
 import { currentContext } from "../core/context.ts";
 import { forceEntry } from "../core/directive-factory.ts";
-import type { FoundHandle, WritableHandle } from "../core/handle-state.ts";
+import type { FoundHandle, WritableHandle } from "../bounded-contexts/authoring/domain/entities/handle-state.ts";
 import { AuthoringError } from "../core/authoring-error.ts";
 import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../core/authoring-error.ts";
 import { readTemplateFile, runScaffold, runCopyIn } from "../scaffold/index.ts";
@@ -22,8 +22,8 @@ export type { AuthoringVerb, AuthoringReason, AuthoringOrigin };
 // 2.3 (CQ-1, droppable): classifyContent + ContentState give authors a named,
 // branchable read-result classification (see find()'s JSDoc pointer below). Severable
 // from the AuthoringError cluster above — no other component references it.
-export { classifyContent } from "./classify-content.ts";
-export type { ContentState } from "./classify-content.ts";
+export { classifyContent } from "../bounded-contexts/authoring/domain/services/classify-content.ts";
+export type { ContentState } from "../bounded-contexts/authoring/domain/services/classify-content.ts";
 
 /**
  * Options for the `create` author verb.

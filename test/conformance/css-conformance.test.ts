@@ -1,15 +1,15 @@
 /**
  * The CSS dialect passes the conformance kit. The fixture re-assembles the same real building
- * blocks `src/dialects/css/index.ts` composes (its parse/print pair and its named ops), never a
+ * blocks `src/bounded-contexts/authoring/infrastructure/out/dialects/css/index.ts` composes (its parse/print pair and its named ops), never a
  * mock, plus a CSS sample corpus.
  */
 import { describe, it, expect, setDefaultTimeout } from "bun:test";
 import * as expectedAstLibrary from "postcss";
 import type { Root } from "postcss";
 import * as css from "../../src/dialects/css/index.ts";
-import { defineDialect, defineOpPack, withOps } from "../../src/core/define-dialect.ts";
-import { parse, print } from "../../src/dialects/css/ast.ts";
-import { removeDeclaration, setDeclaration } from "../../src/dialects/css/ops.ts";
+import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/css/ast.ts";
+import { removeDeclaration, setDeclaration } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/css/ops.ts";
 import { testDialect, testOpPack, type DialectFixture, type OpPackFixture } from "../../src/conformance/index.ts";
 
 setDefaultTimeout(20000);

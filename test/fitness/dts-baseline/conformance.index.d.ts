@@ -1,4 +1,4 @@
-import type { Dialect, Handle, OpPack } from "../core/define-dialect.ts";
+import type { Dialect, Handle, OpPack } from "../bounded-contexts/authoring/domain/services/define-dialect.ts";
 /**
  * Runtime module contract; native namespace exports also preserve upstream types.
  *
@@ -25,7 +25,7 @@ export interface DialectModule<Library extends object = object> {
  * import * as module from "@pbuilder/sdk/typescript";
  * import * as expectedAstLibrary from "ts-morph";
  * import { defineDialect } from "../../src/core/define-dialect.ts";
- * import { parse, print } from "../../src/dialects/typescript/ast.ts";
+ * import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
  *
  * const exerciseLibrary: DialectFixture<typeof expectedAstLibrary>["libraryExercise"]["modify"] = (ast, library) => {
  *   if (!(ast instanceof library.SourceFile) || !library.Node.isSourceFile(ast)) {

@@ -12,7 +12,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { expectTypeOf } from "expect-type";
-import type { FoundHandle, WritableHandle } from "../../src/core/handle-state.ts";
+import type { FoundHandle, WritableHandle } from "../../src/bounded-contexts/authoring/domain/entities/handle-state.ts";
 
 describe("handle type-state machine (KIT-04)", () => {
   test("FoundHandle has remove(): void", () => {

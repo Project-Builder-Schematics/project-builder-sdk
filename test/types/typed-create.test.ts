@@ -17,7 +17,7 @@
 import { describe, test } from "bun:test";
 import { expectTypeOf } from "expect-type";
 import { create } from "../../src/commons/index.ts";
-import type { WritableHandle } from "../../src/core/handle-state.ts";
+import type { WritableHandle } from "../../src/bounded-contexts/authoring/domain/entities/handle-state.ts";
 
 describe("create<S> generic overload — type surface (SEAM-01 / REQ-01)", () => {
   test("REQ-01.1 — typed create compiles for a matching single-field schema", () => {

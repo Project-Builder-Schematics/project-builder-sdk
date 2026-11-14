@@ -6,7 +6,7 @@
 // `JSON.stringify` SILENTLY DROPS a function-valued property rather than throwing — the
 // deep-equal structural compare (never plain `===`/`JSON.stringify`-only) is what catches
 // this failure mode, distinct from the live-node-smuggle fixture's THROW (REQ-DC-04.2).
-import { defineDialect, defineOpPack } from "../../../src/core/define-dialect.ts";
+import { defineDialect, defineOpPack } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import type { OpPackFixture } from "../../../src/conformance/index.ts";
 
 type BrokenAst = { text: string };
