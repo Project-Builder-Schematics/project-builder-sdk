@@ -197,6 +197,10 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "zod"],
     ["scaffoldLeaf", `${A}/infrastructure/out/fs/walk.ts`, "zod"],
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "src/acl/irwire/index.ts"],
+    ["acceptance", "src/acceptance/runner/x.ts", `${A}/application/usecases/x.ts`],
+    ["acceptance", "src/acceptance/runner/x.ts", "src/core/session.ts"],
+    ["acceptance", "src/commons/index.ts", "src/acceptance/runner/x.ts"],
+    ["acceptance", "src/testing/index.ts", "src/acceptance/runner/x.ts"],
   ];
   it.each(cases)("%s: %s -> %s", (rule, from, to) => {
     const toClass = to.startsWith("src/") ? at(to) : undefined;
@@ -208,6 +212,17 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     expect(violation(at(`${R}/infrastructure/in/x.ts`), `${A}/application/usecases/run-factory.ts`, at(`${A}/application/usecases/run-factory.ts`))).toBeUndefined();
     expect(violation(at(`${A}/domain/services/x.ts`), "node:path", undefined)).toBeUndefined();
     expect(violation(at(`${A}/infrastructure/out/fs/x.ts`), "node:fs", undefined)).toBeUndefined();
+  });
+
+  it.each([
+    ["a public entry", "src/commons/index.ts"],
+    ["the test-kit entry", "src/testing/index.ts"],
+    ["a dialect's public barrel", "src/dialects/css/index.ts"],
+    ["its own runner", "src/acceptance/runner/steps.ts"],
+    ["runtime I/O", "node:fs"],
+    ["the Cucumber packages", "@cucumber/gherkin"],
+  ])("acceptance/ may reach %s", (_, to) => {
+    expect(violation(at("src/acceptance/step-definitions.ts"), to, to.startsWith("src/") ? at(to) : undefined)).toBeUndefined();
   });
 
   it.each([
@@ -298,6 +313,7 @@ const REPRESENTATIVES: Record<string, string> = Object.fromEntries([
   ["scaffold-part", `${A}/infrastructure/out/fs/walk.ts`],
   ["run-factory", `${A}/application/usecases/run-factory/context.ts`],
   ["sibling-use-case", `${A}/application/usecases/pending-directives/render.ts`],
+  ["acceptance", "src/acceptance/runner/x.ts"],
 ]);
 const EXTERNALS = ["node:fs", "process.env", "node:path", "ts-morph"];
 

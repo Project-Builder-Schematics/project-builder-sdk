@@ -18,6 +18,7 @@ export const RULES = {
   applicationImports: "application/ imports only domain/, its own application/ and shared-kernel/ (CODE-LAYOUT:124)",
   infrastructureImports: "infrastructure/ imports application/, domain/, its own infrastructure/, acl/, shared-kernel/ and platform/ (CODE-LAYOUT:125)",
   aclImports: "acl/ imports the domain/ and application/ it translates, shared-kernel/, platform/ and itself",
+  acceptance: "acceptance/ imports only the public entries and itself, and nothing outside acceptance/ imports it (CODE-LAYOUT:118, :130)",
   targetNeverImportsLegacy: "target-layout code never imports the legacy tree (proposal section 4)",
   dialectIsolation:
     "a dialect adapter imports only domain/, shared-kernel/, platform/, its own folder, the siblings ALLOWED_SIBLINGS lists and no runtime I/O; only composition, its public barrel and those siblings import it (proposal 3.2)",
@@ -83,6 +84,10 @@ function scaffoldLeaf(from: Classified, to: string, toClass: Classified | undefi
 
 /** The rule `from → to` breaks, or undefined. `toClass` is undefined for an external module. */
 export function violation(from: Classified, to: string, toClass: Classified | undefined): Rule | undefined {
+  if (from.kind === "acceptance") {
+    return toClass === undefined || toClass.kind === "public-entry" || toClass.kind === "acceptance" ? undefined : "acceptance";
+  }
+  if (toClass?.kind === "acceptance") return "acceptance";
   if (dialectIsolation(from, to, toClass)) return "dialectIsolation";
   if (scaffoldLeaf(from, to, toClass)) return "scaffoldLeaf";
   if (toClass === undefined) {
