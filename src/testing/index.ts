@@ -8,7 +8,7 @@
 // under `strictFunctionTypes` without a cast.
 import type { Batch, Directive } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import type { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { defineFactory } from "../core/context.ts";
+import { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "./contract-fake.ts";
 
 interface RecordingClient {

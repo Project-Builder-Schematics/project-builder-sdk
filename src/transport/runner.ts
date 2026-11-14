@@ -16,7 +16,7 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, statSync } from "node:fs";
-import { defineFactory } from "../core/context.ts";
+import { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { locateFirstJsonSyntaxError } from "../bounded-contexts/authoring/domain/services/schema/schema-locate.ts";
 import { formatLocator } from "../bounded-contexts/authoring/domain/services/schema/schema-parse.ts";

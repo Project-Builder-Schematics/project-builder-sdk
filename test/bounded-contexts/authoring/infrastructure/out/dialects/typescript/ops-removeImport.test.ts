@@ -7,7 +7,7 @@ import * as ts from "../../../../../../../src/dialects/typescript/index.ts";
 import { pendingDirectives } from "../../../../../../../src/commons/index.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";
 import { golden } from "../../../../../../support/golden.ts";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 
 describe("removeImport — REQ-TSD-08", () => {
   it("REQ-TSD-08.1: sibling-binding survives byte-exact", async () => {

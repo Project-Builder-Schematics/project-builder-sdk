@@ -34,9 +34,14 @@ import { join, extname } from "node:path";
 
 const PROJECT_ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 const SRC_ROOT = join(PROJECT_ROOT, "src");
-// The port and the Session that drives it live in the Authoring domain; `src/core` keeps the
-// legacy kit barrel until the legacy tree is empty.
-const CORE_DIRS: readonly string[] = [join(SRC_ROOT, "core"), join(SRC_ROOT, "bounded-contexts/authoring/domain")];
+// The port and the Session that drives it live in the Authoring domain, and the run-factory use
+// case hands the Session its client and commits or discards the run; `src/core` keeps the legacy
+// kit barrel until the legacy tree is empty.
+const CORE_DIRS: readonly string[] = [
+  join(SRC_ROOT, "core"),
+  join(SRC_ROOT, "bounded-contexts/authoring/domain"),
+  join(SRC_ROOT, "bounded-contexts/authoring/application/usecases/run-factory"),
+];
 
 const ALLOW_LISTED_PATHS: readonly string[] = ["src/testing/contract-fake.ts", "src/transport/stdio-engine-client.ts"];
 
@@ -177,7 +182,7 @@ export function describe(directive: Directive): JsonValue {
     expect(violations).toEqual([]);
   });
 
-  describe("production scan — src/** outside the core (src/core and the Authoring domain)", () => {
+  describe("production scan — src/** outside the core (src/core, the Authoring domain and the run-factory use case)", () => {
     // Single tree walk, shared by both tests below.
     const files = collectTsOutsideCore(SRC_ROOT);
 

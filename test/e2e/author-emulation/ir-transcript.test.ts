@@ -7,7 +7,7 @@
  * CONTRACT tests, not corpus scenarios, so no corpus file is committed for them).
  */
 import { describe, it, expect } from "bun:test";
-import { currentContext } from "../../../src/core/context.ts";
+import { currentContext } from "../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { create } from "../../../src/commons/index.ts";
 import { invalidInput } from "../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { captureRun } from "../../support/ir-transcript.ts";

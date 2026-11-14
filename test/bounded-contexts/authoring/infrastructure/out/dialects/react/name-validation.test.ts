@@ -18,7 +18,7 @@ import {
 } from "../../../../../../../src/bounded-contexts/authoring/domain/services/jsx-name-validator.ts";
 import { parse, print } from "../../../../../../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts";
 import * as react from "../../../../../../../src/dialects/react/index.ts";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";
 
 // The battery every REQ-RXD-06.5 case runs — each value rejects as BOTH elementName and

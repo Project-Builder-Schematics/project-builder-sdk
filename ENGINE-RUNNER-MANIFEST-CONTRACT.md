@@ -47,6 +47,16 @@ If any of these has changed on your side, tell us — several of them are load-b
 > `Verify` in `internal/boundedcontexts/runnerhosting/infrastructure/out/bunipc/runner.go`,
 > engine main a0aa590).
 
+> **SDK note, 2026-11-14 (closure paths).** The SDK's source moved into its bounded-context
+> layout, so 12 closure files changed path; the count stays 24 `.js` files and 25 records. The
+> per-folder split is now `bin/`×1, `transport/`×9, `core/`×1 (`emit-rejection`), `platform/`×1
+> (`fs-errors`), and under `bounded-contexts/authoring/`: `application/usecases/run-factory/`×1
+> (`context`), `domain/aggregates/session/`×1, `domain/services/`×2 (`directive-factory`,
+> `run-context`), `domain/services/schema/`×4, `domain/valueobjects/`×3 (`authoring-error`, `wire`,
+> `schema-model`) and `infrastructure/out/fs/`×1 (`schema-discovery`). No file's content changed
+> beyond its relative import specifiers; the third-party, dynamic-import, resolution and
+> environment rows above still hold.
+
 ---
 
 ## Deliverable — `dist/runner-manifest.json`

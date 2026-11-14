@@ -193,17 +193,17 @@ describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
     expect([...derivedFromDistDir().violations]).toEqual([]);
   });
 
-  it("REQ-RCD-03.3: dist/bounded-contexts/authoring/domain/valueobjects/authoring-error.js and dist/core/context.js are ordinary file records", () => {
+  it("REQ-RCD-03.3: dist/bounded-contexts/authoring/domain/valueobjects/authoring-error.js and dist/bounded-contexts/authoring/application/usecases/run-factory/context.js are ordinary file records", () => {
     const paths = manifest.files.map((record) => record.path);
     expect(paths).toContain("dist/bounded-contexts/authoring/domain/valueobjects/authoring-error.js");
-    expect(paths).toContain("dist/core/context.js");
+    expect(paths).toContain("dist/bounded-contexts/authoring/application/usecases/run-factory/context.js");
   });
 
   // judgment-day finding 3: none of the three original assertions here proved the @example
   // JSDoc was still present — deleting it left all three green. Pin the fixture by content.
   it("REQ-RCD-03.3: the two @example blocks — a bare specifier and a relative one — are still emitted", () => {
     const authoringError = readFileSync(join(distDir, "bounded-contexts/authoring/domain/valueobjects/authoring-error.js"), "utf-8");
-    const context = readFileSync(join(distDir, "core/context.js"), "utf-8");
+    const context = readFileSync(join(distDir, "bounded-contexts/authoring/application/usecases/run-factory/context.js"), "utf-8");
     expect(authoringError).toContain('import { AuthoringError } from "@pbuilder/sdk/commons";');
     expect(context).toContain('import type { Input } from "./schema.generated.ts";');
   });

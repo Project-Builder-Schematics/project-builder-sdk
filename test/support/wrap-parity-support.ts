@@ -5,7 +5,7 @@
 // STRUCTURALLY mirroring `src/testing/index.ts:100-116`'s private `RecordingClient`
 // interface — that interface is unexported and deliberately never imported here; this
 // file only matches its shape (four members, same signatures).
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import type { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { ContractFake, type ContractFakeOptions } from "../../src/testing/contract-fake.ts";

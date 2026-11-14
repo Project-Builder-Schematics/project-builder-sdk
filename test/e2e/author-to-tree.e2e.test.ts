@@ -9,7 +9,7 @@
  * it does not drive new production code.
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, find, replaceContent, move } from "../../src/commons/index.ts";
 

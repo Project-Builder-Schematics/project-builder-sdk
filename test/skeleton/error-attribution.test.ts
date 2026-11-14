@@ -14,7 +14,7 @@
  * logical coupling to this scenario.
  */
 import { describe, it, expect } from "bun:test";
-import { currentContext } from "../../src/core/context.ts";
+import { currentContext } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, replaceContent, find, rename, move, copy } from "../../src/commons/index.ts";

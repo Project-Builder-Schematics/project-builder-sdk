@@ -8,7 +8,7 @@
 import { describe, it, expect, spyOn } from "bun:test";
 import { chmodSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { defineFactory, currentContext } from "../../src/core/context.ts";
+import { defineFactory, currentContext } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { seedSchema } from "../support/canary.ts";

@@ -19,7 +19,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import * as fs from "node:fs";
 import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { scaffold, pendingDirectives, AuthoringError } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";

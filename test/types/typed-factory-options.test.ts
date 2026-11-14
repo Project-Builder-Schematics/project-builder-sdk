@@ -8,7 +8,7 @@
 // evaluates it (a type error here fails `tsc --noEmit`), runtime never runs it.
 
 import { describe, test } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 
 describe("defineFactory<O> — type surface (REQ-TFO-01/02)", () => {
   test("REQ-TFO-02.1 — untyped defineFactory(fn), no type parameter supplied, still compiles", () => {

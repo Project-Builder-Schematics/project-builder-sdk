@@ -33,7 +33,6 @@ const runnerHosting = (layer: Layer): Class => ({ kind: "context", context: "run
 export const LEGACY: readonly LegacyRow[] = [
   { path: "src/commons/", class: authoring("application") },
   { path: "src/core/", class: authoring("domain") },
-  { path: "src/core/context.ts", class: authoring("application"), mixed: ["infrastructure-out: package filesystem reads (V1)"] },
   { path: "src/core/emit-rejection.ts", class: { kind: "acl", counterpart: "irwire" } },
   { path: "src/dialects/", class: authoring("infrastructure-out") },
   { path: "src/pending-directives/", class: authoring("application") },

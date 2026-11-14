@@ -13,7 +13,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { currentContext } from "../../../src/core/context.ts";
+import { currentContext } from "../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { findReservedSibling } from "../../../src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts";
 import { rejectionForReservedName } from "../../../src/bounded-contexts/authoring/domain/services/schema/input-rejection.ts";
 import { create, copyIn, scaffold } from "../../../src/commons/index.ts";

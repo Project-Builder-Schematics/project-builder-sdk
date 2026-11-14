@@ -13,7 +13,7 @@ import { describe, it, expect, spyOn } from "bun:test";
 import { writeFileSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create } from "../../src/commons/index.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";

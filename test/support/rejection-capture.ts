@@ -2,7 +2,7 @@
 // reject and return whatever it threw (or undefined on success), instead of every call
 // site hand-rolling its own try/catch.
 
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import type { ContractFake } from "./contract-fake.ts";
 import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 

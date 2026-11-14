@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import * as ts from "../../../../../../../src/dialects/typescript/index.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 
 type Handle = ReturnType<typeof ts.find>;
 

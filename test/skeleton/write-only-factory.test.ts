@@ -4,7 +4,7 @@
  * when the runner resolves. The session MUST flush after fn resolves.
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, replaceContent } from "../../src/commons/index.ts";
 

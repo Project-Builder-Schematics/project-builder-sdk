@@ -27,7 +27,7 @@
 // NO new atomicity mechanism, exactly as the design promises.
 
 import { posix, join } from "node:path";
-import { currentContext, requirePackageAnchors } from "../core/context.ts";
+import { currentContext, requirePackageAnchors } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { invalidInput } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { forceEntry } from "../bounded-contexts/authoring/domain/services/directive-factory.ts";
 import type { JsonValue } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";

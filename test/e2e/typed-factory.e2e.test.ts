@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { run, PACKAGE_DIR } from "../fixtures/typed-factory/factory.ts";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import type { Input } from "../fixtures/typed-factory/schema.generated.ts";

@@ -9,7 +9,7 @@
  * constraint 7).
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { pendingDirectives } from "../../../../../../../src/commons/index.ts";
 import * as ts from "../../../../../../../src/dialects/typescript/index.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";

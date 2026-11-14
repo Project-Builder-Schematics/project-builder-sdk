@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import * as ts from "../../../../../../../src/dialects/typescript/index.ts";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { makeSpyClient } from "../../../../../../support/spy-client.ts";
 import { golden } from "../../../../../../support/golden.ts";
 

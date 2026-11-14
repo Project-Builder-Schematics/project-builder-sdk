@@ -23,7 +23,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { writeFileSync } from "node:fs";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { copyIn, AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { createRunVehicle } from "../../src/conformance/run-vehicle.ts";

@@ -24,7 +24,7 @@ const SRC_DIR = `${PROJECT_ROOT}src`;
 const TEST_DIR = `${PROJECT_ROOT}test`;
 const RED_ROOT = `${PROJECT_ROOT}test/fixtures/red/src-invariant-scans`;
 const SINGLE_INSTANCE_PROBE_PATH = `${SRC_DIR}/transport/single-instance-probe.ts`;
-const CONTEXT_TS_PATH = `${SRC_DIR}/core/context.ts`;
+const CONTEXT_TS_PATH = `${SRC_DIR}/bounded-contexts/authoring/application/usecases/run-factory/context.ts`;
 const CORE_CONTEXT_DTS_PATH = `${PROJECT_ROOT}test/fitness/dts-baseline/core.context.d.ts`;
 
 beforeAll(() => {
@@ -109,8 +109,8 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
     // (`ensureTscBuild()`, shared/memoized — no second build), so an additive regrown field
     // that survives a real `tsc` emit fails HERE even though the baseline-vs-itself check
     // above cannot see it.
-    it("the FRESHLY BUILT dist/core/context.d.ts also pins exactly one field — non-vacuous against a regrown additive field", () => {
-      const distContent = readFileSync(join(ensureTscBuild(), "core/context.d.ts"), "utf-8");
+    it("the FRESHLY BUILT run-factory context.d.ts also pins exactly one field — non-vacuous against a regrown additive field", () => {
+      const distContent = readFileSync(join(ensureTscBuild(), "bounded-contexts/authoring/application/usecases/run-factory/context.d.ts"), "utf-8");
       const fields = packageAnchorsFields(distContent);
       expect(fields).toEqual(["packageDir: string"]);
     });
@@ -134,7 +134,7 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
     });
   });
 
-  describe("clause (f) — zero realpathSync/realpath references in src/scaffold/** or src/core/context.ts, symbol-scoped allowlist", () => {
+  describe("clause (f) — zero realpathSync/realpath references in src/scaffold/** or the run-factory context.ts, symbol-scoped allowlist", () => {
     it("the real trees have zero non-allowlisted occurrences", () => {
       const scaffoldFiles = readScanFiles(collectFiles(`${SRC_DIR}/scaffold`, ".ts"));
       const contextFile = readScanFiles([CONTEXT_TS_PATH]);

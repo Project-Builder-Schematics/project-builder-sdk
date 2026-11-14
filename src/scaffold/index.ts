@@ -4,7 +4,7 @@
 // compliant by the fitness rule's own terms — it bans bare external PACKAGES, not `node:`
 // builtins).
 
-import { currentContext, requirePackageAnchors } from "../core/context.ts";
+import { currentContext, requirePackageAnchors } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { invalidInput } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { forceEntry } from "../bounded-contexts/authoring/domain/services/directive-factory.ts";
 import type { JsonValue } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";

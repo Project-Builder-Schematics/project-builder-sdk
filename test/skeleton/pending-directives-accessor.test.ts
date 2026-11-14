@@ -8,7 +8,7 @@
  * flush (`Session.flush()`, fired by `read()`).
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { create, find, replaceContent, pendingDirectives } from "../../src/commons/index.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
 

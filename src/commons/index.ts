@@ -3,7 +3,7 @@
 
 import { posix } from "node:path";
 import type { JsonValue } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { currentContext } from "../core/context.ts";
+import { currentContext } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { forceEntry } from "../bounded-contexts/authoring/domain/services/directive-factory.ts";
 import type { FoundHandle, WritableHandle } from "../bounded-contexts/authoring/domain/entities/handle-state.ts";
 import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";

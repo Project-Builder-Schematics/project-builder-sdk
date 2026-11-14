@@ -26,4 +26,5 @@ export const REPLACED_CORE_FILES: readonly string[] = [
   "bounded-contexts/authoring/domain/ports/engine-client.ts",
   "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts",
   "platform/fs-errors.ts",
+  "bounded-contexts/authoring/application/usecases/run-factory/context.ts",
 ];
