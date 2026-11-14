@@ -1,8 +1,9 @@
 /**
  * FIT-07: No Map<path,*>/tree field in core (ADR-0008).
- * RECURSIVELY globs the production core, src/core/** and src/bounded-contexts/authoring/domain/**
- * (ARCH-1, stage-4-typed-options design §4.7 — a non-recursive scan would silently exempt the
- * schema/ subdirectory) and scans for prohibited path-keyed collection patterns.
+ * RECURSIVELY globs src/core/** and scans every file that moved out of it into the target layout
+ * (test/support/replaced-core.ts; ARCH-1, stage-4-typed-options design §4.7 — a non-recursive
+ * scan would silently exempt the schema/ subdirectory) for prohibited path-keyed collection
+ * patterns.
  *
  * ContractFake lives at src/testing/contract-fake.ts (relocated from test/support/ in
  * stage-4b S-000, ADR-0035) — it IS compiled into dist/testing/ now, but its `#tree:
@@ -22,10 +23,11 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { REPLACED_CORE_FILES } from "../support/replaced-core.ts";
 
 const SRC_DIR = new URL("../../src", import.meta.url).pathname;
-// The production core: the Authoring domain, plus what is left of the legacy src/core.
-const CORE_ROOTS = ["core", "bounded-contexts/authoring/domain"] as const;
+// The production core: what is left of src/core, plus the files that moved out of it.
+const CORE_ROOT = "core";
 
 // Returns every .ts file under dir, recursively, as src-relative posix paths
 // (e.g. "bounded-contexts/authoring/domain/services/schema/schema-parse.ts") — never truncated
@@ -45,7 +47,7 @@ function walk(dir: string, prefix: string): string[] {
 }
 
 function getProductionCoreFiles(): string[] {
-  return CORE_ROOTS.flatMap((root) => walk(join(SRC_DIR, root), root));
+  return [...walk(join(SRC_DIR, CORE_ROOT), CORE_ROOT), ...REPLACED_CORE_FILES];
 }
 
 function readCoreFile(relPath: string): string {
@@ -87,7 +89,7 @@ describe("FIT-07 — no Map<path,*>/tree field in production core", () => {
 
   // ARCH-1 (stage-4-typed-options design §4.7): a non-recursive scan silently exempts the
   // whole src/core/schema/ subdirectory from this guard. Recursion must actually reach it.
-  it("recursively covers nested subdirectories (domain/services/schema/**), not just top-level files", () => {
+  it("covers the schema services that moved out of src/core/schema/", () => {
     expect(files).toContain("bounded-contexts/authoring/domain/services/schema/schema-parse.ts");
     expect(files).toContain("bounded-contexts/authoring/domain/services/schema/input-rejection.ts");
   });
@@ -97,7 +99,7 @@ describe("FIT-07 — no Map<path,*>/tree field in production core", () => {
   // legitimate job, not a production-core violation) would trip this detector if the scan
   // were ever widened to reach it.
   it("the glob stays pinned to the production core — src/testing/contract-fake.ts is never scanned", () => {
-    expect(CORE_ROOTS).toEqual(["core", "bounded-contexts/authoring/domain"]);
+    expect(CORE_ROOT).toBe("core");
     expect(files.some((f) => f.includes("testing"))).toBe(false);
   });
 
