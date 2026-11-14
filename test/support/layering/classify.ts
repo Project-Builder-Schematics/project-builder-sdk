@@ -1,6 +1,6 @@
 // fit-49's classifier. Target-layout paths (CODE-LAYOUT, as the SDK names them:
 // `src/bounded-contexts/<ctx>/…`, `src/acl/<counterpart>/`, `src/shared-kernel/`,
-// `src/platform/`) are classified from the path and fail closed on any context, layer,
+// `src/platform/`, `src/acceptance/`) are classified from the path and fail closed on any context, layer,
 // domain folder or counterpart the layout does not know. Today's folders are classified by
 // the LEGACY table, by dominant role with the other roles listed in `mixed`; the table
 // shrinks as slices move files into the target tree.
@@ -17,6 +17,7 @@ export type Class =
   | { kind: "acl"; counterpart: string }
   | { kind: "shared-kernel" }
   | { kind: "platform" }
+  | { kind: "acceptance" }
   | { kind: "public-entry"; testKit: boolean }
   | { kind: "process-entry" };
 
@@ -62,6 +63,7 @@ function classifyTarget(path: string): Class | undefined {
   if (parts[0] !== "src") return undefined;
   if (parts[1] === "shared-kernel") return { kind: "shared-kernel" };
   if (parts[1] === "platform") return { kind: "platform" };
+  if (parts[1] === "acceptance") return { kind: "acceptance" };
   if (parts[1] === "acl") {
     const counterpart = parts[2] ?? "";
     if (!(ACL_COUNTERPARTS as readonly string[]).includes(counterpart) || parts.length < 4) {

@@ -91,9 +91,9 @@ D4 — Actions outside this repo: **resolved (L5), amended (L8, L9): R0 pins v0.
 |---|---|---|---|---|
 | P1 | S1, S2 | inline, two read-only explorers (engine/CLI mechanics; architecture inventory) | done | this commit |
 | P2 | — | the user's answers to D1-D4 | done (L3-L5) | — |
-| R0a | plan §5 R0 without fit-49 and CI; D1-D4 | inline | done — self-tests 23/23, both passes run, fit-14 unchanged, manual-publish 69/69 | 202f64d |
-| R0b | fit-49 `acceptance` class (classify.ts row, rules.ts rule, fit-49 case) | inline | waits for layout S1b to merge (S1b owns `test/support/layering/*`) | — |
-| R0c | CI `rules` job | inline; independent verifier (risk item 5) | committed (does not depend on R0b); verifier and full suite wait for the heavy slot | this commit |
+| R0a | plan §5 R0 without fit-49 and CI; D1-D4 | inline | done — self-tests 23/23, both passes run, fit-14 unchanged, manual-publish 69/69 | 34deea6 |
+| R0b | fit-49 `acceptance` class (classify.ts row, rules.ts rule, fit-49 case) | inline | done — fit-49 63/63, oracle +51 rows (no existing verdict changed), self-tests 23/23, typecheck clean | this commit |
+| R0c | CI `rules` job | inline; independent verifier (risk item 5) | committed (does not depend on R0b); verifier and full suite wait for the heavy slot | 5f7fc1b |
 
 Route evidence: the plan needed three repositories' evidence, beyond the inline budget, so the mapping trigger fired; the write is one document, inline.
 
@@ -126,3 +126,7 @@ L12 (2026-11-14): R0a choices. The two passes are `src/acceptance/runner/{implem
 L13 (2026-11-14, via the orchestrator): the slice amendment in L11 is confirmed. R1: json, yaml. R2: dialects, chaining-rules, session, stale-nodes, content-as-truth. R3: typescript, react. R4: css, angular, nestjs. dialect-composition stays pending until sdk#103. The designed families become R5+. R0c goes ahead before R0b; R0 goes up as one PR after the verifier.
 
 L14 (2026-11-14): R0c adds the `rules` job to `.github/workflows/ci.yml`, after the engine's pattern: it checks the architecture repository out at the gitlink with `ARCHITECTURE_READ_TOKEN` (tags fetched for the pin self-test), then runs `bun test test/acceptance`, `rules:implemented` and, even after a strict failure, `rules:designed`, all with `RULES_REQUIRE_ARCHITECTURE=1`. Only a fork PR may skip, with a notice; a missing token in this repository fails the job (L6). The job runs in parallel with `Test, typecheck, build` and is not a required check. R0a also changed the bytes of `package.json` and `bun.lock`, which `test/fitness/manual-publish.test.ts` pins by git blob hash, so the pins were updated and folded into the R0a commit (202f64d) with an autosquash rebase, keeping every commit green; that failure was missed in the first R0a report, and `manual-publish` now passes 69/69 on 202f64d and on the branch head. Light checks: `fit-23`, `pyramid`, `manual-publish` and `security-authoring-guard` pass.
+
+L15 (2026-11-14, via the orchestrator): S1b merged (main 3d9e49a), so the branch was rebased onto it (R0a is now fac87f6, R0c cb071cf; L14's 202f64d is the pre-rebase R0a). R0b adds the fit-49 `acceptance` class: `classify.ts` reads `src/acceptance/` from the path as a target-layout slot, and one `rules.ts` rule, `acceptance`, checked before every other rule, lets `acceptance/` import only the public entries (dialect barrels and the test kit included), itself and external modules, and flags any import of `acceptance/` from outside it (CODE-LAYOUT:118, :130). fit-49 gains four red-proofs, six allowed edges and an `acceptance` oracle representative; the regenerated oracle only adds rows. `exceptions.ts` is untouched (sdk's S4 owns it).
+
+L16 (2026-11-14, via the orchestrator): S4 merged (main 5ce9e8a), so the branch was rebased onto it with no conflicts (R0a 34deea6, R0c 5f7fc1b). R0b's classify.ts and rules.ts edits apply unchanged on the new tree; fit-49 plus the acceptance self-tests pass 86/86 and typecheck is clean. The legacy red-proof target src/core/session.ts no longer exists on disk but is still classified by the LEGACY row "src/core/", which S4 kept.

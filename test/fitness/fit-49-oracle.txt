@@ -25,6 +25,7 @@ authoring/domain -> scaffold-use-case: scaffoldLeaf
 authoring/domain -> scaffold-part: domainImports
 authoring/domain -> run-factory: domainImports
 authoring/domain -> sibling-use-case: domainImports
+authoring/domain -> acceptance: acceptance
 authoring/domain -> node:fs: noRuntimeIo
 authoring/domain -> process.env: noRuntimeIo
 authoring/domain -> node:path: ok
@@ -56,6 +57,7 @@ authoring/application -> scaffold-use-case: scaffoldLeaf
 authoring/application -> scaffold-part: applicationImports
 authoring/application -> run-factory: ok
 authoring/application -> sibling-use-case: ok
+authoring/application -> acceptance: acceptance
 authoring/application -> node:fs: noRuntimeIo
 authoring/application -> process.env: noRuntimeIo
 authoring/application -> node:path: ok
@@ -87,6 +89,7 @@ authoring/infrastructure-in -> scaffold-use-case: scaffoldLeaf
 authoring/infrastructure-in -> scaffold-part: ok
 authoring/infrastructure-in -> run-factory: ok
 authoring/infrastructure-in -> sibling-use-case: ok
+authoring/infrastructure-in -> acceptance: acceptance
 authoring/infrastructure-in -> node:fs: ok
 authoring/infrastructure-in -> process.env: ok
 authoring/infrastructure-in -> node:path: ok
@@ -118,6 +121,7 @@ authoring/infrastructure-out -> scaffold-use-case: scaffoldLeaf
 authoring/infrastructure-out -> scaffold-part: ok
 authoring/infrastructure-out -> run-factory: ok
 authoring/infrastructure-out -> sibling-use-case: ok
+authoring/infrastructure-out -> acceptance: acceptance
 authoring/infrastructure-out -> node:fs: ok
 authoring/infrastructure-out -> process.env: ok
 authoring/infrastructure-out -> node:path: ok
@@ -149,6 +153,7 @@ authoring/composition -> scaffold-use-case: scaffoldLeaf
 authoring/composition -> scaffold-part: ok
 authoring/composition -> run-factory: ok
 authoring/composition -> sibling-use-case: ok
+authoring/composition -> acceptance: acceptance
 authoring/composition -> node:fs: ok
 authoring/composition -> process.env: ok
 authoring/composition -> node:path: ok
@@ -180,6 +185,7 @@ authoring/testing -> scaffold-use-case: scaffoldLeaf
 authoring/testing -> scaffold-part: ok
 authoring/testing -> run-factory: ok
 authoring/testing -> sibling-use-case: ok
+authoring/testing -> acceptance: acceptance
 authoring/testing -> node:fs: ok
 authoring/testing -> process.env: ok
 authoring/testing -> node:path: ok
@@ -211,6 +217,7 @@ runner-hosting/domain -> scaffold-use-case: scaffoldLeaf
 runner-hosting/domain -> scaffold-part: crossContext
 runner-hosting/domain -> run-factory: domainImports
 runner-hosting/domain -> sibling-use-case: domainImports
+runner-hosting/domain -> acceptance: acceptance
 runner-hosting/domain -> node:fs: noRuntimeIo
 runner-hosting/domain -> process.env: noRuntimeIo
 runner-hosting/domain -> node:path: ok
@@ -242,6 +249,7 @@ runner-hosting/application -> scaffold-use-case: scaffoldLeaf
 runner-hosting/application -> scaffold-part: crossContext
 runner-hosting/application -> run-factory: ok
 runner-hosting/application -> sibling-use-case: ok
+runner-hosting/application -> acceptance: acceptance
 runner-hosting/application -> node:fs: noRuntimeIo
 runner-hosting/application -> process.env: noRuntimeIo
 runner-hosting/application -> node:path: ok
@@ -273,6 +281,7 @@ runner-hosting/infrastructure-in -> scaffold-use-case: scaffoldLeaf
 runner-hosting/infrastructure-in -> scaffold-part: crossContext
 runner-hosting/infrastructure-in -> run-factory: ok
 runner-hosting/infrastructure-in -> sibling-use-case: ok
+runner-hosting/infrastructure-in -> acceptance: acceptance
 runner-hosting/infrastructure-in -> node:fs: ok
 runner-hosting/infrastructure-in -> process.env: ok
 runner-hosting/infrastructure-in -> node:path: ok
@@ -304,6 +313,7 @@ runner-hosting/infrastructure-out -> scaffold-use-case: scaffoldLeaf
 runner-hosting/infrastructure-out -> scaffold-part: crossContext
 runner-hosting/infrastructure-out -> run-factory: ok
 runner-hosting/infrastructure-out -> sibling-use-case: ok
+runner-hosting/infrastructure-out -> acceptance: acceptance
 runner-hosting/infrastructure-out -> node:fs: ok
 runner-hosting/infrastructure-out -> process.env: ok
 runner-hosting/infrastructure-out -> node:path: ok
@@ -335,6 +345,7 @@ runner-hosting/composition -> scaffold-use-case: scaffoldLeaf
 runner-hosting/composition -> scaffold-part: crossContext
 runner-hosting/composition -> run-factory: ok
 runner-hosting/composition -> sibling-use-case: ok
+runner-hosting/composition -> acceptance: acceptance
 runner-hosting/composition -> node:fs: ok
 runner-hosting/composition -> process.env: ok
 runner-hosting/composition -> node:path: ok
@@ -366,6 +377,7 @@ runner-hosting/testing -> scaffold-use-case: scaffoldLeaf
 runner-hosting/testing -> scaffold-part: crossContext
 runner-hosting/testing -> run-factory: ok
 runner-hosting/testing -> sibling-use-case: ok
+runner-hosting/testing -> acceptance: acceptance
 runner-hosting/testing -> node:fs: ok
 runner-hosting/testing -> process.env: ok
 runner-hosting/testing -> node:path: ok
@@ -397,6 +409,7 @@ acl -> scaffold-use-case: scaffoldLeaf
 acl -> scaffold-part: aclImports
 acl -> run-factory: ok
 acl -> sibling-use-case: ok
+acl -> acceptance: acceptance
 acl -> node:fs: ok
 acl -> process.env: ok
 acl -> node:path: ok
@@ -428,6 +441,7 @@ shared-kernel -> scaffold-use-case: scaffoldLeaf
 shared-kernel -> scaffold-part: sharedKernelImports
 shared-kernel -> run-factory: sharedKernelImports
 shared-kernel -> sibling-use-case: sharedKernelImports
+shared-kernel -> acceptance: acceptance
 shared-kernel -> node:fs: ok
 shared-kernel -> process.env: ok
 shared-kernel -> node:path: ok
@@ -459,6 +473,7 @@ platform -> scaffold-use-case: scaffoldLeaf
 platform -> scaffold-part: platformImports
 platform -> run-factory: platformImports
 platform -> sibling-use-case: platformImports
+platform -> acceptance: acceptance
 platform -> node:fs: ok
 platform -> process.env: ok
 platform -> node:path: ok
@@ -490,6 +505,7 @@ public-entry -> scaffold-use-case: ok
 public-entry -> scaffold-part: ok
 public-entry -> run-factory: ok
 public-entry -> sibling-use-case: ok
+public-entry -> acceptance: acceptance
 public-entry -> node:fs: ok
 public-entry -> process.env: ok
 public-entry -> node:path: ok
@@ -521,6 +537,7 @@ public-test-entry -> scaffold-use-case: ok
 public-test-entry -> scaffold-part: ok
 public-test-entry -> run-factory: ok
 public-test-entry -> sibling-use-case: ok
+public-test-entry -> acceptance: acceptance
 public-test-entry -> node:fs: ok
 public-test-entry -> process.env: ok
 public-test-entry -> node:path: ok
@@ -552,6 +569,7 @@ process-entry -> scaffold-use-case: ok
 process-entry -> scaffold-part: ok
 process-entry -> run-factory: ok
 process-entry -> sibling-use-case: ok
+process-entry -> acceptance: acceptance
 process-entry -> node:fs: ok
 process-entry -> process.env: ok
 process-entry -> node:path: ok
@@ -583,6 +601,7 @@ legacy-domain -> scaffold-use-case: scaffoldLeaf
 legacy-domain -> scaffold-part: domainImports
 legacy-domain -> run-factory: domainImports
 legacy-domain -> sibling-use-case: domainImports
+legacy-domain -> acceptance: acceptance
 legacy-domain -> node:fs: noRuntimeIo
 legacy-domain -> process.env: noRuntimeIo
 legacy-domain -> node:path: ok
@@ -614,6 +633,7 @@ dialect-css -> scaffold-use-case: dialectIsolation
 dialect-css -> scaffold-part: dialectIsolation
 dialect-css -> run-factory: dialectIsolation
 dialect-css -> sibling-use-case: dialectIsolation
+dialect-css -> acceptance: acceptance
 dialect-css -> node:fs: dialectIsolation
 dialect-css -> process.env: dialectIsolation
 dialect-css -> node:path: ok
@@ -645,6 +665,7 @@ dialect-typescript -> scaffold-use-case: dialectIsolation
 dialect-typescript -> scaffold-part: dialectIsolation
 dialect-typescript -> run-factory: dialectIsolation
 dialect-typescript -> sibling-use-case: dialectIsolation
+dialect-typescript -> acceptance: acceptance
 dialect-typescript -> node:fs: dialectIsolation
 dialect-typescript -> process.env: dialectIsolation
 dialect-typescript -> node:path: ok
@@ -676,6 +697,7 @@ dialect-react -> scaffold-use-case: dialectIsolation
 dialect-react -> scaffold-part: dialectIsolation
 dialect-react -> run-factory: dialectIsolation
 dialect-react -> sibling-use-case: dialectIsolation
+dialect-react -> acceptance: acceptance
 dialect-react -> node:fs: dialectIsolation
 dialect-react -> process.env: dialectIsolation
 dialect-react -> node:path: ok
@@ -707,6 +729,7 @@ dialect-css-barrel -> scaffold-use-case: ok
 dialect-css-barrel -> scaffold-part: ok
 dialect-css-barrel -> run-factory: ok
 dialect-css-barrel -> sibling-use-case: ok
+dialect-css-barrel -> acceptance: acceptance
 dialect-css-barrel -> node:fs: ok
 dialect-css-barrel -> process.env: ok
 dialect-css-barrel -> node:path: ok
@@ -738,6 +761,7 @@ scaffold-use-case -> scaffold-use-case: ok
 scaffold-use-case -> scaffold-part: applicationImports
 scaffold-use-case -> run-factory: ok
 scaffold-use-case -> sibling-use-case: scaffoldLeaf
+scaffold-use-case -> acceptance: acceptance
 scaffold-use-case -> node:fs: noRuntimeIo
 scaffold-use-case -> process.env: noRuntimeIo
 scaffold-use-case -> node:path: ok
@@ -769,6 +793,7 @@ scaffold-part -> scaffold-use-case: ok
 scaffold-part -> scaffold-part: ok
 scaffold-part -> run-factory: ok
 scaffold-part -> sibling-use-case: scaffoldLeaf
+scaffold-part -> acceptance: acceptance
 scaffold-part -> node:fs: ok
 scaffold-part -> process.env: ok
 scaffold-part -> node:path: ok
@@ -800,6 +825,7 @@ run-factory -> scaffold-use-case: scaffoldLeaf
 run-factory -> scaffold-part: applicationImports
 run-factory -> run-factory: ok
 run-factory -> sibling-use-case: ok
+run-factory -> acceptance: acceptance
 run-factory -> node:fs: noRuntimeIo
 run-factory -> process.env: noRuntimeIo
 run-factory -> node:path: ok
@@ -831,7 +857,40 @@ sibling-use-case -> scaffold-use-case: scaffoldLeaf
 sibling-use-case -> scaffold-part: applicationImports
 sibling-use-case -> run-factory: ok
 sibling-use-case -> sibling-use-case: ok
+sibling-use-case -> acceptance: acceptance
 sibling-use-case -> node:fs: noRuntimeIo
 sibling-use-case -> process.env: noRuntimeIo
 sibling-use-case -> node:path: ok
 sibling-use-case -> ts-morph: ok
+acceptance -> authoring/domain: acceptance
+acceptance -> authoring/application: acceptance
+acceptance -> authoring/infrastructure-in: acceptance
+acceptance -> authoring/infrastructure-out: acceptance
+acceptance -> authoring/composition: acceptance
+acceptance -> authoring/testing: acceptance
+acceptance -> runner-hosting/domain: acceptance
+acceptance -> runner-hosting/application: acceptance
+acceptance -> runner-hosting/infrastructure-in: acceptance
+acceptance -> runner-hosting/infrastructure-out: acceptance
+acceptance -> runner-hosting/composition: acceptance
+acceptance -> runner-hosting/testing: acceptance
+acceptance -> acl: acceptance
+acceptance -> shared-kernel: acceptance
+acceptance -> platform: acceptance
+acceptance -> public-entry: ok
+acceptance -> public-test-entry: ok
+acceptance -> process-entry: acceptance
+acceptance -> legacy-domain: acceptance
+acceptance -> dialect-css: acceptance
+acceptance -> dialect-typescript: acceptance
+acceptance -> dialect-react: acceptance
+acceptance -> dialect-css-barrel: ok
+acceptance -> scaffold-use-case: acceptance
+acceptance -> scaffold-part: acceptance
+acceptance -> run-factory: acceptance
+acceptance -> sibling-use-case: acceptance
+acceptance -> acceptance: ok
+acceptance -> node:fs: ok
+acceptance -> process.env: ok
+acceptance -> node:path: ok
+acceptance -> ts-morph: ok
