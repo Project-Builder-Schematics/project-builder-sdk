@@ -34,7 +34,9 @@ import { join, extname } from "node:path";
 
 const PROJECT_ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 const SRC_ROOT = join(PROJECT_ROOT, "src");
-const CORE_DIR = join(SRC_ROOT, "core");
+// The port and the Session that drives it live in the Authoring domain; `src/core` keeps the
+// legacy kit barrel until the legacy tree is empty.
+const CORE_DIRS: readonly string[] = [join(SRC_ROOT, "core"), join(SRC_ROOT, "bounded-contexts/authoring/domain")];
 
 const ALLOW_LISTED_PATHS: readonly string[] = ["src/testing/contract-fake.ts", "src/transport/stdio-engine-client.ts"];
 
@@ -54,7 +56,7 @@ function scanPortBleed(source: string, relPath: string): string[] {
     return [];
   }
 
-  const violations: string[] = [`names port symbol (EngineClient/EmitRejection) outside src/core: ${relPath}`];
+  const violations: string[] = [`names port symbol (EngineClient/EmitRejection) outside the core: ${relPath}`];
 
   for (const match of source.matchAll(PORT_CALL_PATTERN)) {
     violations.push(`port call site: ${match[0]} (${relPath})`);
@@ -67,12 +69,12 @@ function toRelPath(filePath: string): string {
   return filePath.replace(PROJECT_ROOT, "").replace(/^\//, "");
 }
 
-/** Collects .ts files under dir, recursively, excluding CORE_DIR entirely. */
+/** Collects .ts files under dir, recursively, excluding every CORE_DIRS folder entirely. */
 function collectTsOutsideCore(dir: string): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
-    if (full === CORE_DIR) continue;
+    if (CORE_DIRS.includes(full)) continue;
     const st = statSync(full);
     if (st.isDirectory()) {
       files.push(...collectTsOutsideCore(full));
@@ -175,7 +177,7 @@ export function describe(directive: Directive): JsonValue {
     expect(violations).toEqual([]);
   });
 
-  describe("production scan — src/** outside src/core", () => {
+  describe("production scan — src/** outside the core (src/core and the Authoring domain)", () => {
     // Single tree walk, shared by both tests below.
     const files = collectTsOutsideCore(SRC_ROOT);
 

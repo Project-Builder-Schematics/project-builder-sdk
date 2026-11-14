@@ -5,9 +5,9 @@
 // builtins).
 
 import { currentContext, requirePackageAnchors } from "../core/context.ts";
-import { invalidInput } from "../core/authoring-error.ts";
-import { forceEntry } from "../core/directive-factory.ts";
-import type { JsonValue } from "../core/wire.ts";
+import { invalidInput } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { forceEntry } from "../bounded-contexts/authoring/domain/services/directive-factory.ts";
+import type { JsonValue } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { validateSourceLexical, statSourceForRead, validateDestinationLexical } from "./path-guards.ts";
 import { classifyTransport } from "./classify-transport.ts";
 

@@ -17,9 +17,9 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, statSync } from "node:fs";
 import { defineFactory } from "../core/context.ts";
-import { AuthoringError } from "../core/authoring-error.ts";
-import { locateFirstJsonSyntaxError } from "../core/schema/schema-locate.ts";
-import { formatLocator } from "../core/schema/schema-parse.ts";
+import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { locateFirstJsonSyntaxError } from "../bounded-contexts/authoring/domain/services/schema/schema-locate.ts";
+import { formatLocator } from "../bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
 import { FrameReader, FrameFault } from "./frame-reader.ts";
 import { WIRE_PROTOCOL_VERSION, isStructurallyValidGreeting, versionMatches } from "./wire-protocol.ts";
 import {

@@ -13,7 +13,7 @@ import { cpSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineFactory } from "../../../../../src/core/context.ts";
-import { AuthoringError } from "../../../../../src/core/authoring-error.ts";
+import { AuthoringError } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { buildGraph } from "../../../../support/layering/graph.ts";
 import { makeSpyClient, collectModifies } from "../../../../support/spy-client.ts";
 import { toyDialect } from "../../../../fixtures/toy-dialect/index.ts";

@@ -31,10 +31,10 @@
 import { describe, it, expect } from "bun:test";
 import { renderPendingDirectives } from "../../src/pending-directives/index.ts";
 import type { PendingDirective } from "../../src/pending-directives/index.ts";
-import { Session } from "../../src/core/session.ts";
-import { DirectiveFactory } from "../../src/core/directive-factory.ts";
-import type { EngineClient } from "../../src/core/engine-client.ts";
-import type { Directive } from "../../src/core/wire.ts";
+import { Session } from "../../src/bounded-contexts/authoring/domain/aggregates/session/session.ts";
+import { DirectiveFactory } from "../../src/bounded-contexts/authoring/domain/services/directive-factory.ts";
+import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import type { Directive } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 function makeNoopClient(): EngineClient {
   return {

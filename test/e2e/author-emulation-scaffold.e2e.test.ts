@@ -43,7 +43,7 @@ import {
   WALK_ORDER_CREATION_SEQUENCE,
 } from "../fixtures/author-emulation/factory.ts";
 import type { ScaffoldOptions } from "../../src/commons/index.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
+import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 
 const CORPUS_DIR = new URL("./author-emulation/corpus/", import.meta.url).pathname;
 const REPORTS_ABS_DIR = join(process.cwd(), REPORTS_DIR);

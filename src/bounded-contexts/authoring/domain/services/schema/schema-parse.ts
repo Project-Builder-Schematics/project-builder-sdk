@@ -2,8 +2,8 @@
 // (RBV-05.1's fail-closed literal) — both format SchemaParseFailure into their own
 // vocabulary; this module never renders a caller-facing message itself (no-echo, ADR-0027).
 
-import type { Schema, SchemaKind, SchemaProperty } from "./schema-model.ts";
-import { isPlainObject } from "./schema-model.ts";
+import type { Schema, SchemaKind, SchemaProperty } from "../../valueobjects/schema-model.ts";
+import { isPlainObject } from "../../valueobjects/schema-model.ts";
 import { locateFirstJsonSyntaxError } from "./schema-locate.ts";
 
 export interface SchemaParseFailureInfo {

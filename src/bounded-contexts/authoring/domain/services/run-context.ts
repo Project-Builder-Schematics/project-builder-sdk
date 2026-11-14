@@ -3,7 +3,7 @@
 // handle reused across runs both keep working. `T` is the store `defineFactory` puts in it.
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import { AuthoringError } from "../../../../core/authoring-error.ts";
+import { AuthoringError } from "../valueobjects/authoring-error.ts";
 
 // context-singleton-fix (REQ-MIS-01/02, design §4.3): a module-scope `als` is realm-local —
 // when `dist/bin/pbuilder-runner.js` and a src-relative `.ts` factory co-execute in one Bun

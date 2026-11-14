@@ -2,7 +2,7 @@
  * fit-39 (design § 4.7, single-encode-site — S-003, typed-options-feeder): the options
  * validate-and-copy step (`encodeOptions` by name, or an options-targeting `JSON.stringify`
  * call that would bring back a second wire form, ADR-0082) lives
- * ONLY in `src/core/directive-factory.ts` (the definition) and
+ * ONLY in `src/bounded-contexts/authoring/domain/services/directive-factory.ts` (the definition) and
  * `src/scaffold/classify-transport.ts` (the CCL-02.4 budget-estimate call site) — never a
  * second, independent encode call site anywhere else in `src/`. Explicitly asserts absence
  * from `src/commons/index.ts` and `src/scaffold/expander.ts` — the two verb-layer files that
@@ -22,7 +22,7 @@ import { collectTsFiles, stripComments } from "../support/import-scan.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = join(PROJECT_ROOT, "src");
-const DIRECTIVE_FACTORY_FILE = join(SRC_DIR, "core", "directive-factory.ts");
+const DIRECTIVE_FACTORY_FILE = join(SRC_DIR, "bounded-contexts/authoring/domain/services/directive-factory.ts");
 const CLASSIFY_TRANSPORT_FILE = join(SRC_DIR, "scaffold", "classify-transport.ts");
 const COMMONS_FILE = join(SRC_DIR, "commons", "index.ts");
 const EXPANDER_FILE = join(SRC_DIR, "scaffold", "expander.ts");

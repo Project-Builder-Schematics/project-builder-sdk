@@ -11,7 +11,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BATCH_CAP_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const WIRE_SPEC_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-spec.md");

@@ -7,7 +7,7 @@ import { describe, it, expect, afterEach } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { schemaPathFor, findReservedSibling } from "../../src/core/schema/schema-discovery.ts";
+import { schemaPathFor, findReservedSibling } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts";
 
 describe("schemaPathFor", () => {
   it("resolves schema.json adjacent to the given package directory", () => {

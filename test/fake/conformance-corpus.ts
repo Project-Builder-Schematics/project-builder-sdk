@@ -11,7 +11,7 @@
 import happyFactory from "../fixtures/frame-runner/happy/factory.ts";
 import collideFactory from "../fixtures/frame-runner/collide/factory.ts";
 import capBoundaryFactory from "../fixtures/frame-runner/cap-boundary/factory.ts";
-import type { AuthoringReason } from "../../src/core/authoring-error.ts";
+import type { AuthoringReason } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 
 function pointerFor(dir: string): string {
   return `file://${new URL(`../fixtures/frame-runner/${dir}/`, import.meta.url).pathname}factory.ts`;

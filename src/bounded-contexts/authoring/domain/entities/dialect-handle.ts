@@ -9,10 +9,10 @@
 
 import { currentRun } from "../services/run-context.ts";
 import { dialectError, isContained } from "../valueobjects/dialect-error.ts";
-import type { DirectiveFactory } from "../../../../core/directive-factory.ts";
+import type { DirectiveFactory } from "../services/directive-factory.ts";
 import type { OpPack, Handle, Query } from "../services/define-dialect.ts";
-import type { Session } from "../../../../core/session.ts";
-import type { Directive } from "../../../../core/wire.ts";
+import type { Session } from "../aggregates/session/session.ts";
+import type { Directive } from "../valueobjects/wire.ts";
 
 // The fields of the run store `defineFactory` installs that a handle step reads.
 type HandleRun = {

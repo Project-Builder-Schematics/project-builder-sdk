@@ -10,7 +10,7 @@
 import { describe, it, expect } from "bun:test";
 import { expectTypeOf } from "expect-type";
 import { WIRE_TO_AUTHOR_VERB } from "../../src/pending-directives/render.ts";
-import type { AuthoringVerb } from "../../src/core/authoring-error.ts";
+import type { AuthoringVerb } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 
 const RATIFIED_AUTHOR_VERBS = ["create", "modify", "remove", "rename", "move", "copy", "copyIn"] as const;
 

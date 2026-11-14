@@ -17,7 +17,7 @@
 // LOCAL structural type instead — the same sanctioned pattern `src/testing/index.ts`'s facade
 // uses for its own spy-wrapping.
 
-import type { Batch, Directive } from "../core/wire.ts";
+import type { Batch, Directive } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 /** Local structural mirror of the transport port — never names the port type (see header). */
 interface RunVehicleClient {

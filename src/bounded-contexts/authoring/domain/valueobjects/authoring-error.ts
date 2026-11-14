@@ -10,7 +10,7 @@
 // only `.message`.
 
 import type { Batch, Directive } from "./wire.ts";
-import { EmitRejection, type EmitRejectionCode } from "./emit-rejection.ts";
+import { EmitRejection, type EmitRejectionCode } from "../../../../core/emit-rejection.ts";
 
 /**
  * The author-vocabulary verb of the operation whose rejection produced this

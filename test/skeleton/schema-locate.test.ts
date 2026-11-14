@@ -7,7 +7,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { locateFirstJsonSyntaxError } from "../../src/core/schema/schema-locate.ts";
+import { locateFirstJsonSyntaxError } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-locate.ts";
 
 const FIXTURES_ROOT = new URL("../fixtures/red/schema/", import.meta.url).pathname;
 

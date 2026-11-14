@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { ContractFake } from "../support/contract-fake.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 function makeBatch(pathTemplate: string, template: string): Batch {
   return {

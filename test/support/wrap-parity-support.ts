@@ -6,8 +6,8 @@
 // interface — that interface is unexported and deliberately never imported here; this
 // file only matches its shape (four members, same signatures).
 import { defineFactory } from "../../src/core/context.ts";
-import type { Batch } from "../../src/core/wire.ts";
-import type { AuthoringError } from "../../src/core/authoring-error.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import type { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { ContractFake, type ContractFakeOptions } from "../../src/testing/contract-fake.ts";
 
 export interface ManualRunResult {

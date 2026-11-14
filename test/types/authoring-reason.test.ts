@@ -17,7 +17,7 @@
 // resolve "outside" of.
 import { describe, test } from "bun:test";
 import { expectTypeOf } from "expect-type";
-import type { AuthoringReason, AuthoringOrigin } from "../../src/core/authoring-error.ts";
+import type { AuthoringReason, AuthoringOrigin } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 
 describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin (ADR-0021)", () => {
   test("switch(reason) over all eleven AuthoringReason values reaches an arm; a 12th value fails this compile", () => {

@@ -14,9 +14,9 @@
 // fail-closed propagation (SEC-08), injectable timeout (SEC-05), and the EmitRejection
 // precondition/degrade (SEC-04) all now hold.
 
-import type { EngineClient } from "../core/engine-client.ts";
-import type { Batch } from "../core/wire.ts";
-import { exceedsEmitBatchBudget } from "../core/wire.ts";
+import type { EngineClient } from "../bounded-contexts/authoring/domain/ports/engine-client.ts";
+import type { Batch } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { exceedsEmitBatchBudget } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { EmitRejection, type EmitRejectionCode } from "../core/emit-rejection.ts";
 import { type ReverseMethod, type ResponseFrame, type WireError } from "./wire-protocol.ts";
 import { encodeFrameBody, withPreserializedBody } from "./framing.ts";

@@ -3,7 +3,7 @@
 // (ADR-01: the PORT owns the not-found contract; not-found is a return, never a throw). The
 // served-from tag is fake-internal state, never in the read return.
 
-import type { Batch } from "./wire.ts";
+import type { Batch } from "../valueobjects/wire.ts";
 
 export interface EngineClient {
   // ADR-0022 rejection convention: an implementation MUST reject with an `EmitRejection`

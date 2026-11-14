@@ -8,9 +8,9 @@
 // here because the author API has no run-wide force concept yet. The fake's Row-3 test
 // (FAKE-04) is intentional engine-contract coverage, not dead-code coverage.
 
-import type { EngineClient } from "./engine-client.ts";
-import type { Batch, Directive } from "./wire.ts";
-import { toAuthoringError } from "./authoring-error.ts";
+import type { EngineClient } from "../../ports/engine-client.ts";
+import type { Batch, Directive } from "../../valueobjects/wire.ts";
+import { toAuthoringError } from "../../valueobjects/authoring-error.ts";
 
 export class Session {
   readonly #client: EngineClient;

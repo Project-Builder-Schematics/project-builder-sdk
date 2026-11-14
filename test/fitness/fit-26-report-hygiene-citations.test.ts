@@ -178,7 +178,7 @@ describe("FIT-26 (d) — no report artifact is git-tracked (REQ-RPT-04)", () => 
   // the reports dir and a rolled-up aggregate placed OUTSIDE it are caught.
   it("[red-proof] a tracked report path is detected, in or out of the reports dir", () => {
     const simulated = [
-      "src/core/wire.ts",
+      "src/bounded-contexts/authoring/domain/valueobjects/wire.ts",
       `${REPORTS_DIR}/m-01.example.report.md`,
       "docs/aggregate.report.md",
     ];

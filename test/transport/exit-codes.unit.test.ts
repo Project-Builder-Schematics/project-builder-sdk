@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from "bun:test";
 import { classifyExitCode } from "../../src/transport/exit-codes.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
+import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { TransportFault, IntentRejectedError } from "../../src/transport/stdio-engine-client.ts";
 import { BridgeVersionMismatchError } from "../../src/transport/bootstrap-bridge.ts";
 

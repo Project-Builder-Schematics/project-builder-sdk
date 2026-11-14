@@ -1,6 +1,6 @@
 // KIT-03: pure args→Directive; never renders templates, never touches AST.
 
-import type { Directive, JsonValue } from "./wire.ts";
+import type { Directive, JsonValue } from "../valueobjects/wire.ts";
 
 export interface CreateArgs {
   pathTemplate: string;

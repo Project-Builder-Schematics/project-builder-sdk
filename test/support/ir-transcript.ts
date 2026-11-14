@@ -4,9 +4,9 @@
 // spy-client.ts (ITC-04). The module's value-add is NORMALIZATION (ITC-01): it builds the
 // record downstream corpus/report code asserts against — never a bare pass-through of
 // `emitted`.
-import type { Batch, Directive } from "../../src/core/wire.ts";
+import type { Batch, Directive } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
+import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import {
   embedTemplate,
   type BatchGroupingEntry,

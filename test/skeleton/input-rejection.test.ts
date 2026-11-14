@@ -7,9 +7,9 @@
  * value's shape upgrades from plain `Error`.
  */
 import { describe, it, expect } from "bun:test";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
-import { rejectionFor, rejectionForReservedName } from "../../src/core/schema/input-rejection.ts";
-import type { ValidationFinding } from "../../src/core/schema/schema-validate.ts";
+import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { rejectionFor, rejectionForReservedName } from "../../src/bounded-contexts/authoring/domain/services/schema/input-rejection.ts";
+import type { ValidationFinding } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-validate.ts";
 
 describe("rejectionFor", () => {
   it("renders a 'missing' finding as the pinned REQ-AEC-09 input-level template literal", () => {

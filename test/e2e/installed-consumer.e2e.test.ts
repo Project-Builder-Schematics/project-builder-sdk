@@ -50,8 +50,8 @@ import {
 } from "../support/scratch-consumer.ts";
 import { spawnCapture } from "../support/canary.ts";
 import { emitInputType } from "../../bin/emit-type.ts";
-import { parseSchema } from "../../src/core/schema/schema-parse.ts";
-import { computeSchemaDigest } from "../../src/core/schema/schema-digest.ts";
+import { parseSchema } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
+import { computeSchemaDigest } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
 
 // REQ-LC-04: a structural bin-executability check, shared by both legs' bin-exec scenarios
 // AND REQ-LC-04.3's red-proof — never a bare "spawn and check exit code", so a missing bin

@@ -193,16 +193,16 @@ describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
     expect([...derivedFromDistDir().violations]).toEqual([]);
   });
 
-  it("REQ-RCD-03.3: dist/core/authoring-error.js and dist/core/context.js are ordinary file records", () => {
+  it("REQ-RCD-03.3: dist/bounded-contexts/authoring/domain/valueobjects/authoring-error.js and dist/core/context.js are ordinary file records", () => {
     const paths = manifest.files.map((record) => record.path);
-    expect(paths).toContain("dist/core/authoring-error.js");
+    expect(paths).toContain("dist/bounded-contexts/authoring/domain/valueobjects/authoring-error.js");
     expect(paths).toContain("dist/core/context.js");
   });
 
   // judgment-day finding 3: none of the three original assertions here proved the @example
   // JSDoc was still present — deleting it left all three green. Pin the fixture by content.
   it("REQ-RCD-03.3: the two @example blocks — a bare specifier and a relative one — are still emitted", () => {
-    const authoringError = readFileSync(join(distDir, "core/authoring-error.js"), "utf-8");
+    const authoringError = readFileSync(join(distDir, "bounded-contexts/authoring/domain/valueobjects/authoring-error.js"), "utf-8");
     const context = readFileSync(join(distDir, "core/context.js"), "utf-8");
     expect(authoringError).toContain('import { AuthoringError } from "@pbuilder/sdk/commons";');
     expect(context).toContain('import type { Input } from "./schema.generated.ts";');
@@ -210,15 +210,15 @@ describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
 
   // engine-client.ts is reachable only via `import type`, so tsc erases the edge: a SOURCE
   // walk yields 25 nodes, the emitted walk 24. This is the 24-vs-25 proof, by name.
-  it("REQ-RCD-02.1: dist/core/engine-client.js exists on disk but is absent from the closure", () => {
-    expect(existsSync(join(distDir, "core/engine-client.js"))).toBe(true);
+  it("REQ-RCD-02.1: dist/bounded-contexts/authoring/domain/ports/engine-client.js exists on disk but is absent from the closure", () => {
+    expect(existsSync(join(distDir, "bounded-contexts/authoring/domain/ports/engine-client.js"))).toBe(true);
     expect(derivedFromDistDir().nodes).not.toContain(
-      "core/engine-client.js"
+      "bounded-contexts/authoring/domain/ports/engine-client.js"
     );
   });
 
-  it("REQ-RCD-02.1: dist/core/engine-client.js is absent from the manifest's file records", () => {
-    expect(manifest.files.map((record) => record.path)).not.toContain("dist/core/engine-client.js");
+  it("REQ-RCD-02.1: dist/bounded-contexts/authoring/domain/ports/engine-client.js is absent from the manifest's file records", () => {
+    expect(manifest.files.map((record) => record.path)).not.toContain("dist/bounded-contexts/authoring/domain/ports/engine-client.js");
   });
 });
 
@@ -432,7 +432,7 @@ describe("FIT-42 S-002 — tampering is localised to the file that changed", () 
     expect(runGenerator(root).status).toBe(0);
     const before = JSON.parse(readFileSync(manifestIn(root), "utf-8")) as RunnerManifest;
 
-    appendFileSync(join(root, "dist/core/session.js"), "\n");
+    appendFileSync(join(root, "dist/bounded-contexts/authoring/domain/aggregates/session/session.js"), "\n");
     expect(runGenerator(root).status).toBe(0);
     const after = JSON.parse(readFileSync(manifestIn(root), "utf-8")) as RunnerManifest;
 
@@ -441,7 +441,7 @@ describe("FIT-42 S-002 — tampering is localised to the file that changed", () 
     const changed = after.files.filter(
       (record, index) => record.sha256 !== (before.files[index] as { sha256: string }).sha256
     );
-    expect(changed.map((record) => record.path)).toEqual(["dist/core/session.js"]);
+    expect(changed.map((record) => record.path)).toEqual(["dist/bounded-contexts/authoring/domain/aggregates/session/session.js"]);
   });
 });
 
@@ -453,7 +453,7 @@ describe("FIT-42 S-002 — the generator fails closed and leaves nothing behind"
     expect(runGenerator(root).status).toBe(0);
     expect(existsSync(manifestIn(root))).toBe(true);
 
-    appendFileSync(join(root, "dist/core/wire.js"), 'import "ts-morph";\n');
+    appendFileSync(join(root, "dist/bounded-contexts/authoring/domain/valueobjects/wire.js"), 'import "ts-morph";\n');
     const result = runGenerator(root);
 
     expect(result.status).not.toBe(0);
@@ -472,7 +472,7 @@ describe("FIT-42 S-002 — the generator fails closed and leaves nothing behind"
     () => {
       const root = copiedPackageRoot();
       rmSync(manifestIn(root), { force: true });
-      chmodSync(join(root, "dist/core/session.js"), 0o000);
+      chmodSync(join(root, "dist/bounded-contexts/authoring/domain/aggregates/session/session.js"), 0o000);
 
       const result = runGenerator(root);
 
@@ -643,10 +643,10 @@ describe("FIT-42 S-003 — the closure graph is the one the sources describe", (
   // false-alarm a naive dist-vs-src comparison.
   it("REQ-BDI-02.2: session.ts and stdio-engine-client.ts carry type-only imports and are not flagged", () => {
     const named = emitComparison().filter((entry) =>
-      ["core/session.js", "transport/stdio-engine-client.js"].includes(entry.path)
+      ["bounded-contexts/authoring/domain/aggregates/session/session.js", "transport/stdio-engine-client.js"].includes(entry.path)
     );
     expect(named.map((entry) => entry.path).sort()).toEqual([
-      "core/session.js",
+      "bounded-contexts/authoring/domain/aggregates/session/session.js",
       "transport/stdio-engine-client.js",
     ]);
     expect(named.every((entry) => entry.sourceTypeOnly.length > 0)).toBe(true);
@@ -699,7 +699,7 @@ describe("FIT-42 S-003 — the one real-tree negative, and the epilogue each too
   // eleven red-proofs are synthetic, in the negative file.
   it("REQ-CST-01.1: a bare specifier planted in a copied real tree fails, naming the src file", () => {
     const root = copiedPackageRoot();
-    appendFileSync(join(root, "dist/core/wire.js"), 'import { Project } from "ts-morph";\n');
+    appendFileSync(join(root, "dist/bounded-contexts/authoring/domain/valueobjects/wire.js"), 'import { Project } from "ts-morph";\n');
 
     const result = runGenerator(root);
     const stderr = result.stderr as unknown as string;
@@ -708,8 +708,8 @@ describe("FIT-42 S-003 — the one real-tree negative, and the epilogue each too
     expect(existsSync(manifestIn(root))).toBe(false);
     expect(stderr).toBe(
       [
-        "runner-manifest: src/core/wire.ts — bare specifier in the runner closure.",
-        '  found: import { Project } from "ts-morph";     (emitted: dist/core/wire.js:50)',
+        "runner-manifest: src/bounded-contexts/authoring/domain/valueobjects/wire.ts — bare specifier in the runner closure.",
+        '  found: import { Project } from "ts-morph";     (emitted: dist/bounded-contexts/authoring/domain/valueobjects/wire.js:50)',
         "  rule:  Constraint 3 — no bare third-party specifier inside the closure.",
         "  why:   \"ts-morph\" resolves into node_modules/, which the manifest does not cover, so it would execute unverified during the bootstrap.",
         '  fix:   move the code that needs "ts-morph" behind the factory import, or into a module outside the runner closure (src/commons/**, src/dialects/**). If the runner must genuinely depend on it, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-3 and agree it with the engine before regenerating any baseline.',
@@ -723,7 +723,7 @@ describe("FIT-42 S-003 — the one real-tree negative, and the epilogue each too
   it("REQ-CST-06.1: the baseline writer's failure names the baseline, never the manifest", () => {
     const root = copiedPackageRoot();
     mkdirSync(join(root, "test/fitness"), { recursive: true });
-    appendFileSync(join(root, "dist/core/wire.js"), 'import { Project } from "ts-morph";\n');
+    appendFileSync(join(root, "dist/bounded-contexts/authoring/domain/valueobjects/wire.js"), 'import { Project } from "ts-morph";\n');
 
     const result = spawnSync("bun", ["scripts/regen-closure-baseline.ts", root], {
       cwd: PROJECT_ROOT,
@@ -736,8 +736,8 @@ describe("FIT-42 S-003 — the one real-tree negative, and the epilogue each too
       [
         "regen-closure-baseline: refusing to write a baseline from a tree that cannot build.",
         "",
-        "runner-manifest: src/core/wire.ts — bare specifier in the runner closure.",
-        '  found: import { Project } from "ts-morph";     (emitted: dist/core/wire.js:50)',
+        "runner-manifest: src/bounded-contexts/authoring/domain/valueobjects/wire.ts — bare specifier in the runner closure.",
+        '  found: import { Project } from "ts-morph";     (emitted: dist/bounded-contexts/authoring/domain/valueobjects/wire.js:50)',
         "  rule:  Constraint 3 — no bare third-party specifier inside the closure.",
         "  why:   \"ts-morph\" resolves into node_modules/, which the manifest does not cover, so it would execute unverified during the bootstrap.",
         '  fix:   move the code that needs "ts-morph" behind the factory import, or into a module outside the runner closure (src/commons/**, src/dialects/**). If the runner must genuinely depend on it, the closure contract has changed — read docs/runner-integrity-invariants.md#constraint-3 and agree it with the engine before regenerating any baseline.',

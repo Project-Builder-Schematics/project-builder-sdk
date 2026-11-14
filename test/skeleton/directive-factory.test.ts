@@ -2,7 +2,7 @@
  * KIT-03: DirectiveFactory.create — pure, ADR-0013 shapes, template unrendered.
  */
 import { describe, it, expect } from "bun:test";
-import { DirectiveFactory } from "../../src/core/directive-factory.ts";
+import { DirectiveFactory } from "../../src/bounded-contexts/authoring/domain/services/directive-factory.ts";
 
 describe("DirectiveFactory.create", () => {
   it("returns a directive with op:create and the exact provided fields", () => {

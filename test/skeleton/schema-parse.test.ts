@@ -4,7 +4,7 @@
  * (RBV-05.1) — pinned here once since this module is the single parser both consume.
  */
 import { describe, it, expect } from "bun:test";
-import { parseSchema, SchemaParseFailure } from "../../src/core/schema/schema-parse.ts";
+import { parseSchema, SchemaParseFailure } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
 
 describe("parseSchema", () => {
   it("lifts a wrapped schema.json properties map into a Schema properties array", () => {

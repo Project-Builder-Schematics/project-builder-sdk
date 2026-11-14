@@ -4,7 +4,7 @@
 
 import { defineFactory } from "../../src/core/context.ts";
 import type { ContractFake } from "./contract-fake.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 /**
  * Runs `fn` inside a fresh factory against `fake` and returns whatever it threw.

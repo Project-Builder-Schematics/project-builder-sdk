@@ -2,8 +2,8 @@
 // No search, no Date/random — every fixture hits its target byte length by direct
 // arithmetic on JSON-escaping ratios, so the tests stay reproducible.
 
-import type { Batch } from "../../src/core/wire.ts";
-import { EMIT_BATCH_BUDGET_BYTES } from "../../src/core/wire.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 // Fixed multi-byte + escaping prefix: 3-byte "€" plus an escaped quote, backslash, and
 // newline. Present in every fixture so a UTF-16-code-unit measurer AND a measurer that

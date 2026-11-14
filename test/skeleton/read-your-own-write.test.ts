@@ -6,8 +6,8 @@
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import type { EngineClient } from "../../src/core/engine-client.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { create, find } from "../../src/commons/index.ts";
 
 /** Wraps an EngineClient to record the order in which emit/read are called. */

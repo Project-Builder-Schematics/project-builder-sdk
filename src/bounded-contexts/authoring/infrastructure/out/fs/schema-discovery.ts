@@ -4,8 +4,8 @@
 
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { RESERVED_LIFECYCLE_NAMES } from "./schema-model.ts";
-import { isErrnoException } from "../fs-errors.ts";
+import { RESERVED_LIFECYCLE_NAMES } from "../../../domain/valueobjects/schema-model.ts";
+import { isErrnoException } from "../../../../../platform/fs-errors.ts";
 
 export const SCHEMA_FILENAME = "schema.json";
 

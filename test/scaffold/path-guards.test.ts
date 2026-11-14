@@ -15,7 +15,7 @@
  * `test/scaffold/expander.test.ts` (S-003, design §7 Test Derivation).
  *
  * Some rows below (plain missing-source, directory-as-source) already have a fixture at
- * `test/core/authoring-error-source.test.ts` via `classifyTransport` — not repeated here.
+ * `test/bounded-contexts/authoring/domain/valueobjects/authoring-error-source.test.ts` via `classifyTransport` — not repeated here.
  * This file's rows are the ones with no existing coverage anywhere: broken-symlink,
  * ELOOP, embedded NUL, the resource-exhaustion errno collapse, FIFO, the degenerate
  * source strings, both symlink-accept scenarios, and the lexical screens themselves.

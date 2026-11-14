@@ -28,7 +28,7 @@ import { copyIn, AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { createRunVehicle } from "../../src/conformance/run-vehicle.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
-import type { EngineClient } from "../../src/core/engine-client.ts";
+import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
 
 const scratchDir = scratchDirFactory("copyin-parity-");
 

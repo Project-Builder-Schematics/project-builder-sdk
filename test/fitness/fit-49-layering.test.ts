@@ -28,7 +28,7 @@ const ORACLE_FILE = join(ROOT, "test/fitness/fit-49-oracle.txt");
 // silently drops code fails here instead of passing vacuously.
 const MIN_FILES = 75;
 const MIN_EDGES = 250;
-const KNOWN_EDGE: Edge = { from: "src/transport/stdio-engine-client.ts", to: "src/core/engine-client.ts" };
+const KNOWN_EDGE: Edge = { from: "src/transport/stdio-engine-client.ts", to: "src/bounded-contexts/authoring/domain/ports/engine-client.ts" };
 
 type Found = { from: string; to: string; rule: Rule };
 

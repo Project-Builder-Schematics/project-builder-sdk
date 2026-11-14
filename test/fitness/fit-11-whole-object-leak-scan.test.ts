@@ -22,7 +22,7 @@
  * traversal / does not infinite-loop on a cycle.
  */
 import { describe, it, expect } from "bun:test";
-import { toAuthoringError, AuthoringError } from "../../src/core/authoring-error.ts";
+import { toAuthoringError, AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { EmitRejection } from "../../src/core/emit-rejection.ts";
 import { currentContext } from "../../src/core/context.ts";
 import { batchOf, createOp } from "../fake/directive-builders.ts";

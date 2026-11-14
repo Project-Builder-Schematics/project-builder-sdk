@@ -8,7 +8,7 @@
 // spawned e2e, so the dispatch exists exactly once.
 
 import type { ContractFake } from "../../src/testing/contract-fake.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import type { FrameHost } from "../support/frame-host.ts";
 import { EmitRejection } from "../../src/core/emit-rejection.ts";
 

@@ -15,10 +15,10 @@
 // only (REQ-CCL-05/AEC-12) and by-reference for everything else.
 
 import { readFileSync } from "node:fs";
-import { invalidInput } from "../core/authoring-error.ts";
-import type { Directive, JsonValue } from "../core/wire.ts";
-import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../core/wire.ts";
-import { encodeOptions, forceEntry } from "../core/directive-factory.ts";
+import { invalidInput } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import type { Directive, JsonValue } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { encodeOptions, forceEntry } from "../bounded-contexts/authoring/domain/services/directive-factory.ts";
 import { sourceRejection, statSourceForRead } from "./path-guards.ts";
 
 export type ClassificationVerdict = "by-value" | "by-reference";

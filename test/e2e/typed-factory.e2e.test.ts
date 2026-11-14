@@ -9,7 +9,7 @@ import { describe, it, expect } from "bun:test";
 import { run, PACKAGE_DIR } from "../fixtures/typed-factory/factory.ts";
 import { defineFactory } from "../../src/core/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
+import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import type { Input } from "../fixtures/typed-factory/schema.generated.ts";
 
 // REQ-FPS-04.1 (bare-factory-migration): the fixture's own export is bare — this e2e test

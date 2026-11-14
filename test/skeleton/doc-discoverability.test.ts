@@ -17,7 +17,7 @@ import { jsDocBefore, PROJECT_ROOT } from "../support/jsdoc-scan.ts";
 
 const SRC_ROOT = join(PROJECT_ROOT, "src");
 
-const AUTHORING_ERROR_SOURCE = readFileSync(join(SRC_ROOT, "core", "authoring-error.ts"), "utf-8");
+const AUTHORING_ERROR_SOURCE = readFileSync(join(SRC_ROOT, "bounded-contexts/authoring/domain/valueobjects/authoring-error.ts"), "utf-8");
 const COMMONS_SOURCE = readFileSync(join(SRC_ROOT, "commons", "index.ts"), "utf-8");
 
 describe("REQ-AEC-03.2 — appliedCount JSDoc states diagnostic-not-persistence", () => {

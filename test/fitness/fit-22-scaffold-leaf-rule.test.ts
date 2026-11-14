@@ -20,11 +20,14 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { specifiersResolvingInto } from "../support/import-scan.ts";
+import { REPLACED_CORE_FILES } from "../support/replaced-core.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = join(PROJECT_ROOT, "src");
 const SCAFFOLD_DIR = join(SRC_DIR, "scaffold");
 const CORE_DIR = join(SRC_DIR, "core");
+// The files that moved out of src/core keep its role in both directions of this rule.
+const REPLACED_CORE = REPLACED_CORE_FILES.map((path) => join(SRC_DIR, path));
 
 function collectTs(dir: string): string[] {
   const files: string[] = [];
@@ -63,7 +66,7 @@ function outOfAllowListImports(source: string, fromDir: string): string[] {
     }
     const resolved = resolve(fromDir, specifier);
     const withinScaffold = resolved === SCAFFOLD_DIR || resolved.startsWith(`${SCAFFOLD_DIR}/`);
-    const withinCore = resolved === CORE_DIR || resolved.startsWith(`${CORE_DIR}/`);
+    const withinCore = resolved === CORE_DIR || resolved.startsWith(`${CORE_DIR}/`) || REPLACED_CORE.includes(resolved);
     if (!withinScaffold && !withinCore) {
       offenders.push(specifier);
     }
@@ -73,7 +76,7 @@ function outOfAllowListImports(source: string, fromDir: string): string[] {
 
 describe("FIT-22 — src/scaffold/ leaf-rule (no reverse dep; scaffold imports only core + node:)", () => {
   describe("direction 1 — no file under src/core/** or src/pending-directives/** imports src/scaffold/", () => {
-    const coreFiles = collectTs(CORE_DIR);
+    const coreFiles = [...collectTs(CORE_DIR), ...REPLACED_CORE];
     const pendingDirectivesDir = join(SRC_DIR, "pending-directives");
     const pendingDirectivesFiles = collectTs(pendingDirectivesDir);
 

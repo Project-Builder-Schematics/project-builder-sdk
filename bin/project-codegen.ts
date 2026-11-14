@@ -1,7 +1,7 @@
 import { lstatSync, statSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { isErrnoException } from "../src/core/fs-errors.ts";
-import { isPlainObject } from "../src/core/schema/schema-model.ts";
+import { isErrnoException } from "../src/platform/fs-errors.ts";
+import { isPlainObject } from "../src/bounded-contexts/authoring/domain/valueobjects/schema-model.ts";
 
 type ProjectEntry = { kind: "target"; label: string; directory: string }
   | { kind: "failure"; label: string; diagnostic: string };

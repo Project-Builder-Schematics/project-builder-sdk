@@ -18,7 +18,7 @@ const DOC_PATH = join(PROJECT_ROOT, "docs/authoring-a-dialect.md");
 const PUBLISH_WORKFLOW_PATH = join(PROJECT_ROOT, ".github/workflows/publish.yml");
 const AUTHORING_ERRORS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-errors.md");
 const PENDING_DIRECTIVES_DOC_PATH = join(PROJECT_ROOT, "docs/pending-directives.md");
-const AUTHORING_ERROR_SRC_PATH = join(PROJECT_ROOT, "src/core/authoring-error.ts");
+const AUTHORING_ERROR_SRC_PATH = join(PROJECT_ROOT, "src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts");
 const AUTHORING_VERBS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-verbs.md");
 
 const security = () => readFileSync(SECURITY_PATH, "utf-8");
