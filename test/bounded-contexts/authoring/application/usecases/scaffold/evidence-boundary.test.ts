@@ -19,7 +19,7 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
 
-const PROJECT_ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
+const PROJECT_ROOT = new URL("../../../../../..", import.meta.url).pathname.replace(/\/$/, "");
 const TEST_ROOT = join(PROJECT_ROOT, "test");
 
 function toRelPath(filePath: string): string {

@@ -4,12 +4,12 @@
 // compliant by the fitness rule's own terms — it bans bare external PACKAGES, not `node:`
 // builtins).
 
-import { currentContext, requirePackageAnchors } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
-import { invalidInput } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { forceEntry } from "../bounded-contexts/authoring/domain/services/directive-factory.ts";
-import type { JsonValue } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { validateSourceLexical, statSourceForRead, validateDestinationLexical } from "./path-guards.ts";
-import { classifyTransport } from "./classify-transport.ts";
+import { currentContext, requirePackageAnchors } from "../run-factory/context.ts";
+import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
+import { forceEntry } from "../../../domain/services/directive-factory.ts";
+import type { JsonValue } from "../../../domain/valueobjects/wire.ts";
+import { validateSourceLexical, statSourceForRead, validateDestinationLexical } from "../../../infrastructure/out/fs/path-guards.ts";
+import { classifyTransport } from "../../../infrastructure/out/fs/classify-transport.ts";
 
 // S-001: the folder-scaffold orchestrator lives in expander.ts (the single owner of the
 // walk → filename-pipeline → classify → emit fan-out, ADR-0044); re-exported here so
@@ -35,7 +35,7 @@ function templateFileOversizedMessage(relPath: string): string {
 // REQ-CCL-01's whole-file sniff — moved into `classify-transport.ts` (the classify leaf)
 // to break the `index → expander → classify-transport → index` import cycle; re-exported
 // so this module's surface is unchanged.
-export { isSniffableText } from "./classify-transport.ts";
+export { isSniffableText } from "../../../infrastructure/out/fs/classify-transport.ts";
 
 /**
  * Reads a package-local file (relative to the active Session's `packageDir`) and returns its

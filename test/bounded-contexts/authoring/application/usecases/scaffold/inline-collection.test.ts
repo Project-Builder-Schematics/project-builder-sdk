@@ -11,8 +11,8 @@ import { describe, it, expect } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { create, scaffold, copyIn } from "../../src/commons/index.ts";
+import { runFactoryForTest } from "../../../../../../src/testing/index.ts";
+import { create, scaffold, copyIn } from "../../../../../../src/commons/index.ts";
 
 // REQ-MFB-01.1/.2's shared precondition: NO `collection.json` anywhere from `dir` up to
 // (and including) the filesystem root — not merely at `dir` itself.

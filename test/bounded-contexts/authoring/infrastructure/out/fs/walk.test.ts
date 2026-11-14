@@ -11,9 +11,9 @@ import { describe, it, expect, spyOn } from "bun:test";
 import { mkdirSync, writeFileSync, symlinkSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
-import { walkFolder } from "../../src/scaffold/walk.ts";
-import { scratchDirFactory } from "../support/scratch-dir.ts";
-import { expectReason } from "../support/expect-reason.ts";
+import { walkFolder } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/walk.ts";
+import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
+import { expectReason } from "../../../../../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("walk-");
 

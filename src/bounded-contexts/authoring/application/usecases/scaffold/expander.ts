@@ -27,21 +27,21 @@
 // NO new atomicity mechanism, exactly as the design promises.
 
 import { posix, join } from "node:path";
-import { currentContext, requirePackageAnchors } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
-import { invalidInput } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { forceEntry } from "../bounded-contexts/authoring/domain/services/directive-factory.ts";
-import type { JsonValue } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { walkFolder } from "./walk.ts";
+import { currentContext, requirePackageAnchors } from "../run-factory/context.ts";
+import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
+import { forceEntry } from "../../../domain/services/directive-factory.ts";
+import type { JsonValue } from "../../../domain/valueobjects/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../../domain/valueobjects/wire.ts";
+import { walkFolder } from "../../../infrastructure/out/fs/walk.ts";
 import {
   runFilenamePipeline,
   isIncluded,
   detectDestinationCollisions,
   translateTokens,
   checkSourceNames,
-} from "./filename-pipeline.ts";
-import { classifyTransport } from "./classify-transport.ts";
-import { validateDestinationLexical, validateSourceLexical } from "./path-guards.ts";
+} from "../../../domain/services/filename-pipeline.ts";
+import { classifyTransport } from "../../../infrastructure/out/fs/classify-transport.ts";
+import { validateDestinationLexical, validateSourceLexical } from "../../../infrastructure/out/fs/path-guards.ts";
 
 /**
  * Argument shape for the `scaffold` author verb (REQ-FSC-01). `from`/`to` are mandatory;

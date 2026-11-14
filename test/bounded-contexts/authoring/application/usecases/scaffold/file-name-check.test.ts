@@ -6,12 +6,12 @@
 import { describe, it, expect } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { checkSourceName, checkSourceNames } from "../../src/scaffold/filename-pipeline.ts";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { scaffold, AuthoringError } from "../../src/commons/index.ts";
-import { scratchDirFactory } from "../support/scratch-dir.ts";
-import { collectOps } from "../support/spy-client.ts";
-import { expectReason } from "../support/expect-reason.ts";
+import { checkSourceName, checkSourceNames } from "../../../../../../src/bounded-contexts/authoring/domain/services/filename-pipeline.ts";
+import { runFactoryForTest } from "../../../../../../src/testing/index.ts";
+import { scaffold, AuthoringError } from "../../../../../../src/commons/index.ts";
+import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
+import { collectOps } from "../../../../../support/spy-client.ts";
+import { expectReason } from "../../../../../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("file-name-check-");
 

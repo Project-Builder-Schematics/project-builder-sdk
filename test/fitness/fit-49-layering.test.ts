@@ -190,6 +190,13 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, "node:fs"],
     ["dialectIsolation", "src/commons/index.ts", `${A}/infrastructure/out/dialects/css/ops.ts`],
     ["dialectIsolation", "src/dialects/react/index.ts", `${A}/infrastructure/out/dialects/css/ops.ts`],
+    ["scaffoldLeaf", `${A}/domain/services/x.ts`, `${A}/application/usecases/scaffold/expander.ts`],
+    ["scaffoldLeaf", "src/core/session.ts", `${A}/application/usecases/scaffold/expander.ts`],
+    ["scaffoldLeaf", `${A}/application/usecases/pending-directives/render.ts`, `${A}/application/usecases/scaffold/expander.ts`],
+    ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, `${A}/application/usecases/pending-directives/render.ts`],
+    ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "zod"],
+    ["scaffoldLeaf", `${A}/infrastructure/out/fs/walk.ts`, "zod"],
+    ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "src/acl/irwire/index.ts"],
   ];
   it.each(cases)("%s: %s -> %s", (rule, from, to) => {
     const toClass = to.startsWith("src/") ? at(to) : undefined;
@@ -215,6 +222,17 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["a public barrel's allowed sibling", "src/dialects/react/index.ts", `${A}/infrastructure/out/dialects/typescript/pack.ts`],
   ])("a dialect adapter may reach %s", (_, from, to) => {
     expect(violation(at(from), to, to.startsWith("src/") ? at(to) : undefined)).toBeUndefined();
+  });
+
+  it.each([
+    ["its own folder", `${A}/application/usecases/scaffold/expander.ts`, `${A}/application/usecases/scaffold/index.ts`],
+    ["the domain", `${A}/application/usecases/scaffold/expander.ts`, `${A}/domain/valueobjects/authoring-error.ts`],
+    ["the run-factory use case", `${A}/application/usecases/scaffold/expander.ts`, `${A}/application/usecases/run-factory/context.ts`],
+    ["platform/", `${A}/infrastructure/out/fs/walk.ts`, "src/platform/fs-errors.ts"],
+    ["a node: builtin", `${A}/infrastructure/out/fs/walk.ts`, "node:fs"],
+    ["the public entry importing it", "src/commons/index.ts", `${A}/application/usecases/scaffold/expander.ts`],
+  ])("scaffold code may reach (or be reached by) %s", (_, from, to) => {
+    expect(violation(at(from), to, to.startsWith("src/") ? at(to) : undefined)).not.toBe("scaffoldLeaf");
   });
 
   it("every rule has at least one red-proof", () => {
@@ -276,6 +294,10 @@ const REPRESENTATIVES: Record<string, string> = Object.fromEntries([
   ["dialect-typescript", `${A}/infrastructure/out/dialects/typescript/ast.ts`],
   ["dialect-react", `${A}/infrastructure/out/dialects/react/ops.ts`],
   ["dialect-css-barrel", "src/dialects/css/index.ts"],
+  ["scaffold-use-case", `${A}/application/usecases/scaffold/expander.ts`],
+  ["scaffold-part", `${A}/infrastructure/out/fs/walk.ts`],
+  ["run-factory", `${A}/application/usecases/run-factory/context.ts`],
+  ["sibling-use-case", `${A}/application/usecases/pending-directives/render.ts`],
 ]);
 const EXTERNALS = ["node:fs", "process.env", "node:path", "ts-morph"];
 

@@ -14,8 +14,8 @@
 // This internal `renderPendingDirectives(directives)` renderer is surfaced to authors as
 // the zero-arg `pendingDirectives()` accessor in src/commons — renderer edits here are
 // publicly visible under that name.
-import type { Directive } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import type { AuthoringVerb } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import type { Directive } from "../../../domain/valueobjects/wire.ts";
+import type { AuthoringVerb } from "../../../domain/valueobjects/authoring-error.ts";
 
 /**
  * One pending Directive rendered in author vocabulary: the author verb and the primary path the

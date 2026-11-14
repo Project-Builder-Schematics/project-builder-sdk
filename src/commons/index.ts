@@ -8,8 +8,8 @@ import { forceEntry } from "../bounded-contexts/authoring/domain/services/direct
 import type { FoundHandle, WritableHandle } from "../bounded-contexts/authoring/domain/entities/handle-state.ts";
 import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { readTemplateFile, runScaffold, runCopyIn } from "../scaffold/index.ts";
-import type { ScaffoldArgs } from "../scaffold/index.ts";
+import { readTemplateFile, runScaffold, runCopyIn } from "../bounded-contexts/authoring/application/usecases/scaffold/index.ts";
+import type { ScaffoldArgs } from "../bounded-contexts/authoring/application/usecases/scaffold/index.ts";
 
 export type { FoundHandle, WritableHandle };
 // ADR-0023: AuthoringError (+ its supporting types) is an author-facing DATA type, not
@@ -370,8 +370,8 @@ export function copy(from: string, to: string, opts?: { force?: boolean }): Writ
 }
 
 // --- Stage 3: pending Directives exposure (REQ-DRE-01..04) ---
-import { renderPendingDirectives } from "../pending-directives/index.ts";
-import type { PendingDirective } from "../pending-directives/render.ts";
+import { renderPendingDirectives } from "../bounded-contexts/authoring/application/usecases/pending-directives/index.ts";
+import type { PendingDirective } from "../bounded-contexts/authoring/application/usecases/pending-directives/render.ts";
 
 export type { PendingDirective };
 
