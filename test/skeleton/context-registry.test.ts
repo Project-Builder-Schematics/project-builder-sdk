@@ -9,9 +9,9 @@
 import { describe, it, expect } from "bun:test";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { join } from "node:path";
-import { defineFactory, currentContext } from "../../src/core/context.ts";
+import { defineFactory, currentContext } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { resolveSessionAls, SESSION_ALS_REGISTRY_KEY } from "../../src/bounded-contexts/authoring/domain/services/run-context.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
+import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { requireDistArtifacts } from "../support/shared-build.ts";
 

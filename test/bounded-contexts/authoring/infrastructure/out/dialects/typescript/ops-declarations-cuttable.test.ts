@@ -11,7 +11,7 @@ import { describe, it, expect } from "bun:test";
 import * as ts from "../../../../../../../src/dialects/typescript/index.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";
 import { golden } from "../../../../../../support/golden.ts";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 
 describe("addVariable — REQ-TSD-10", () => {
   it("REQ-TSD-10.1: non-exported const added (default kind)", async () => {

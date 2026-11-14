@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import * as react from "../../../../../../../src/dialects/react/index.ts";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { RESERVED_HANDLE_NAMES } from "../../../../../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";
 

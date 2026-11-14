@@ -1,5 +1,5 @@
-import type { Batch, Directive } from "../core/wire.ts";
-import type { AuthoringError } from "../core/authoring-error.ts";
+import type { Batch, Directive } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import type { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 /**
  * The outcome of running a factory via `runFactoryForTest`.
  *

@@ -9,7 +9,7 @@
 // classifier never looks past the error it is handed, E2 can never override E1's class —
 // preservation falls out of the classifier's own narrowness, not a special case.
 
-import { AuthoringError } from "../core/authoring-error.ts";
+import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { TransportFault, IntentRejectedError } from "./stdio-engine-client.ts";
 
 export type ExitCode = 0 | 1 | 2 | 3 | 4;

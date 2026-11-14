@@ -8,11 +8,11 @@
  * (no try/catch around discard(): E2 propagates and replaces E1). Historical once GREEN lands.
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create } from "../../src/commons/index.ts";
-import type { EngineClient } from "../../src/core/engine-client.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 // REQ-10 needs a discard-rejecting double, not a full fake reimplementation — delegates
 // emit/read/commit to a real ContractFake, only discard() is overridden to reject with E2.

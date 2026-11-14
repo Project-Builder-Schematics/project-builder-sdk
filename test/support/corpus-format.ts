@@ -4,7 +4,7 @@
 // byte-compare) — no second implementation can drift from this one. No fs anywhere here
 // (FIT-27's write-boundary partition depends on this module staying pure).
 import { createHash } from "node:crypto";
-import type { JsonValue } from "../../src/core/wire.ts";
+import type { JsonValue } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 export const FORMAT_VERSION = 0;
 

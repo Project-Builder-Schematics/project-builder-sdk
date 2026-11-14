@@ -6,7 +6,7 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, replaceContent } from "../../src/commons/index.ts";
 
@@ -69,7 +69,7 @@ describe("SEAM-03 — all-or-nothing commit (throw path)", () => {
 describe("SEAM-03 — JSDoc contract (REQ-09)", () => {
   it("REQ-09.1 — context.ts JSDoc states all-or-nothing; no partial-write sentence present", () => {
     const contextSource = readFileSync(
-      new URL("../../src/core/context.ts", import.meta.url).pathname,
+      new URL("../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", import.meta.url).pathname,
       "utf-8"
     );
     // The all-or-nothing contract must be stated.

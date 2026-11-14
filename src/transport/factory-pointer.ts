@@ -5,7 +5,7 @@
 // are S-002 additions to this same file. RUN-07's import-failure split lives in runner.ts
 // (it classifies the dynamic `import()` call itself, which this file never performs).
 
-import { isDefineFactoryWrapped } from "../core/context.ts";
+import { isDefineFactoryWrapped } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 
 export interface ParsedFactoryPointer {
   url: string;

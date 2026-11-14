@@ -10,7 +10,7 @@
 //
 // Test-only code: importing `currentContext` here is fine (FIT-08/FIT-10 scope `src/**`
 // only, never `test/**`).
-import { currentContext } from "../../../src/core/context.ts";
+import { currentContext } from "../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import type { Dialect, OpPack } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import type { OpPackFixture } from "../../../src/conformance/index.ts";
 

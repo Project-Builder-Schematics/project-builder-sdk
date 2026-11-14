@@ -13,7 +13,7 @@
  * Flow 4: forgotten-await chain still completes + commits at run end (REQ-MC-06)
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
 import { golden } from "../support/golden.ts";

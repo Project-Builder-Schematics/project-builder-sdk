@@ -6,10 +6,10 @@
 // the pass-through is surgical, not a blanket rethrow.
 
 import { describe, it, expect } from "bun:test";
-import type { EngineClient } from "../../src/core/engine-client.ts";
-import { Session } from "../../src/core/session.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
-import { TransportFault } from "../../src/transport/stdio-engine-client.ts";
+import type { EngineClient } from "../../../../../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import { Session } from "../../../../../../src/bounded-contexts/authoring/domain/aggregates/session/session.ts";
+import { AuthoringError } from "../../../../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { TransportFault } from "../../../../../../src/transport/stdio-engine-client.ts";
 
 function rejectingClient(rejection: unknown): EngineClient {
   return {

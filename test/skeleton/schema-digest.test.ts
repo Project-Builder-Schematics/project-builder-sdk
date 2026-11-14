@@ -3,7 +3,7 @@
  * this in the generated header comment; FIT-12 (S-002) recomputes it for the parity gate.
  */
 import { describe, it, expect } from "bun:test";
-import { computeSchemaDigest } from "../../src/core/schema/schema-digest.ts";
+import { computeSchemaDigest } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
 
 describe("computeSchemaDigest", () => {
   it("returns the SHA-256 hex digest of the schema bytes", () => {

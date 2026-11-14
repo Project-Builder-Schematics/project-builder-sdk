@@ -6,7 +6,7 @@
  * `create` template contains real DSL syntax: loops + interpolation that MUST survive byte-identical —
  * the factory must NOT render, parse, or transform these strings in any way.
  */
-import type { Batch, Directive } from "../../src/core/wire.ts";
+import type { Batch, Directive } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 export const GOLDEN_CREATE: Extract<Directive, { op: "create" }> = {
   op: "create",

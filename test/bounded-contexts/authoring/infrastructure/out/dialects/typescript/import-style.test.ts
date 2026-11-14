@@ -6,7 +6,7 @@ import { describe, it, expect } from "bun:test";
 import * as ts from "../../../../../../../src/dialects/typescript/index.ts";
 import * as react from "../../../../../../../src/dialects/react/index.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 
 async function modifiedContent(
   path: string,

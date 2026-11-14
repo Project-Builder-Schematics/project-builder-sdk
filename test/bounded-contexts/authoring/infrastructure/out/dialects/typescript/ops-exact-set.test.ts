@@ -15,7 +15,7 @@
 import { describe, it, expect } from "bun:test";
 import * as ts from "../../../../../../../src/dialects/typescript/index.ts";
 import { makeSpyClient } from "../../../../../../support/spy-client.ts";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { RESERVED_HANDLE_NAMES } from "../../../../../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 
 // Derived, not hand-typed: this filter is mechanical (strip the base surface, keep the

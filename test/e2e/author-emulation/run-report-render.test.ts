@@ -7,7 +7,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { dirname } from "node:path";
-import type { Directive } from "../../../src/core/wire.ts";
+import type { Directive } from "../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import {
   renderReport,
   reportPathFor,

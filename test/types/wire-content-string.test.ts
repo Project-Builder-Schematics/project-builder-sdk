@@ -8,7 +8,7 @@
 
 import { describe, test } from "bun:test";
 import { expectTypeOf } from "expect-type";
-import type { Directive } from "../../src/core/wire.ts";
+import type { Directive } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 describe("wire content fields — string pin (batch-cap-contract REQ-02.1)", () => {
   test("REQ-02.1 — modify.content is exactly string", () => {

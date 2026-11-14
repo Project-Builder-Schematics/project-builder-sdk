@@ -15,7 +15,7 @@
 // `reserved lifecycle name: {name} is reserved and cannot be declared by a factory module`
 // (RLN-02.1, distinguishable-in-kind from the two templates above by literal text alone).
 
-import { AuthoringError, type AuthoringReason } from "../authoring-error.ts";
+import { AuthoringError, type AuthoringReason } from "../../valueobjects/authoring-error.ts";
 import type { ValidationFinding } from "./schema-validate.ts";
 
 function rejection(reason: AuthoringReason, message: string): AuthoringError {

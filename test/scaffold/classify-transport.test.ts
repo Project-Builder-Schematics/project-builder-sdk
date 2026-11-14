@@ -22,9 +22,9 @@ import { writeFileSync, statSync, mkdirSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
 import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
-import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
-import type { Directive } from "../../src/core/wire.ts";
-import { encodeOptions } from "../../src/core/directive-factory.ts";
+import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import type { Directive } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { encodeOptions } from "../../src/bounded-contexts/authoring/domain/services/directive-factory.ts";
 import { scaffold } from "../../src/commons/index.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { collectOps } from "../support/spy-client.ts";
@@ -135,7 +135,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
 });
 
 // Same measurer classify-transport.ts's budget check and the fake's real batch-cap check
-// both use (`core/wire.ts`) — the batch shape for ONE `create` directive at `pathTemplate`
+// both use (`bounded-contexts/authoring/domain/valueobjects/wire.ts`) — the batch shape for ONE `create` directive at `pathTemplate`
 // with EMPTY options and no `force` (scaffold's own defaults when the author passes
 // neither), given `content`. Mirrors batch-cap-chunk.test.ts's established pattern for the
 // SAME measurer — not duplicated as a shared helper (that file's own local convention).

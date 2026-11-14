@@ -6,9 +6,9 @@
  * `error-attribution.test.ts` (REQ-AEC-04.1, REQ-12).
  */
 import { describe, it, expect } from "bun:test";
-import { toAuthoringError, AuthoringError, type AuthoringReason, type AuthoringVerb } from "../../src/core/authoring-error.ts";
+import { toAuthoringError, AuthoringError, type AuthoringReason, type AuthoringVerb } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { EmitRejection, type EmitRejectionCode } from "../../src/core/emit-rejection.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { batchOf, createOp, modifyOp, deleteOp, renameOp, copyOp, moveOp, copyInOp } from "../fake/directive-builders.ts";
 
 function rejectAt(batch: Batch, code: EmitRejectionCode, failedIndex: number): AuthoringError {

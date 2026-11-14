@@ -6,8 +6,8 @@
  * Coverage Check). Safe iteration (constraint 5): Object.keys/Object.hasOwn only.
  */
 import { describe, it, expect } from "bun:test";
-import { validateInput } from "../../src/core/schema/schema-validate.ts";
-import type { Schema } from "../../src/core/schema/schema-model.ts";
+import { validateInput } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-validate.ts";
+import type { Schema } from "../../src/bounded-contexts/authoring/domain/valueobjects/schema-model.ts";
 
 const PORT_SCHEMA: Schema = {
   properties: [{ key: "port", type: "number", required: true }],

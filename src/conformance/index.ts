@@ -16,8 +16,8 @@
 // from this path, not internal use of them).
 
 import type { Dialect, Handle, OpPack } from "../bounded-contexts/authoring/domain/services/define-dialect.ts";
-import type { Directive } from "../core/wire.ts";
-import { defineFactory } from "../core/context.ts";
+import type { Directive } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { deepEqual } from "../platform/deep-equal.ts";
 import { createRunVehicle } from "./run-vehicle.ts";
 

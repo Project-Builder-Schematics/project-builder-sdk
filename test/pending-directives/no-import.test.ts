@@ -8,7 +8,8 @@
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, extname } from "node:path";
+import { join, extname, resolve } from "node:path";
+import { REPLACED_CORE_FILES } from "../support/replaced-core.ts";
 
 const PENDING_DIRECTIVES_DIR = new URL("../../src/pending-directives", import.meta.url).pathname;
 const ROOT_SRC = new URL("../../src", import.meta.url).pathname;
@@ -64,9 +65,15 @@ function extractRuntimeImports(source: string): string[] {
 /**
  * Returns true if the specifier is a relative path into src/core/.
  */
+const CORE_DIR = join(ROOT_SRC, "core");
+const REPLACED_CORE = new Set(REPLACED_CORE_FILES.map((path) => join(ROOT_SRC, path)));
+
+// A relative import from src/pending-directives/ that resolves into src/core/** or to a file
+// that moved out of it.
 function isCoreRuntimeImport(specifier: string): boolean {
-  // Relative imports to ../core or similar paths that resolve to src/core/
-  return specifier.startsWith("../core") || specifier.startsWith("./core");
+  if (!specifier.startsWith(".")) return false;
+  const resolved = resolve(PENDING_DIRECTIVES_DIR, specifier);
+  return resolved === CORE_DIR || resolved.startsWith(`${CORE_DIR}/`) || REPLACED_CORE.has(resolved);
 }
 
 /**
@@ -115,6 +122,13 @@ describe("FIT-pending-directives-no-import — renderer has no core runtime or A
     }
 
     expect(violations).toEqual([]);
+  });
+
+  // RED-PROOF: a runtime import of a file that moved out of src/core is detected too.
+  it("[red-proof] a runtime import from the moved authoring-error.ts is flagged as a violation", () => {
+    const specifier = "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+    const runtimeImports = extractRuntimeImports(`import { AuthoringError } from "${specifier}";`);
+    expect(runtimeImports.filter(isCoreRuntimeImport)).toEqual([specifier]);
   });
 
   // RED-PROOF: a source with a runtime import from ../core/session is detected.

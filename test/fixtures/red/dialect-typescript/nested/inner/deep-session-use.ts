@@ -2,7 +2,7 @@
 // green suite. Planted TWO directory levels deep to prove a top-level-only file listing would
 // miss it: simulates a dialect module reaching for `Session` directly instead of routing
 // through `core/dialect-handle.ts`'s own delegation.
-import { Session } from "../../../../../../src/core/session.ts";
+import { Session } from "../../../../../../src/bounded-contexts/authoring/domain/aggregates/session/session.ts";
 
 export function bypass(session: Session, path: string): Promise<string | undefined> {
   return session.read(path);

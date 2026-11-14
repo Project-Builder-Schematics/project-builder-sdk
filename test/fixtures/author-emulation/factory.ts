@@ -13,13 +13,13 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { currentContext } from "../../../src/core/context.ts";
-import { findReservedSibling } from "../../../src/core/schema/schema-discovery.ts";
-import { rejectionForReservedName } from "../../../src/core/schema/input-rejection.ts";
+import { currentContext } from "../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
+import { findReservedSibling } from "../../../src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts";
+import { rejectionForReservedName } from "../../../src/bounded-contexts/authoring/domain/services/schema/input-rejection.ts";
 import { create, copyIn, scaffold } from "../../../src/commons/index.ts";
 import type { ScaffoldOptions } from "../../../src/commons/index.ts";
-import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../../src/core/wire.ts";
-import type { Directive } from "../../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import type { Directive } from "../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { materializeByteFill, materializeGitHostileFixtures } from "../../support/author-emulation-setup.ts";
 import type { Input } from "./schema.generated.ts";
 

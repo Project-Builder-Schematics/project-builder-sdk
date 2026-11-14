@@ -3,10 +3,10 @@
  * Verifies the flush order and that Session holds no path-keyed map.
  */
 import { describe, it, expect } from "bun:test";
-import { Session } from "../../src/core/session.ts";
-import { DirectiveFactory } from "../../src/core/directive-factory.ts";
-import type { EngineClient } from "../../src/core/engine-client.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import { Session } from "../../src/bounded-contexts/authoring/domain/aggregates/session/session.ts";
+import { DirectiveFactory } from "../../src/bounded-contexts/authoring/domain/services/directive-factory.ts";
+import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 function makeOrderedClient(responses: Record<string, string>): {
   client: EngineClient;

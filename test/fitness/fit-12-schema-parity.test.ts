@@ -15,7 +15,7 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { computeSchemaDigest } from "../../src/core/schema/schema-digest.ts";
+import { computeSchemaDigest } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
 import { generateSchema } from "../../bin/pbuilder-codegen.ts";
 import { ALWAYS_ON_SCAN_ROOTS } from "../support/scan-roots.ts";
 

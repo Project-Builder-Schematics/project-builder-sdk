@@ -1,7 +1,7 @@
 /**
  * FIT-29 (NEW, ADR-A): sanctioned-`defineFactory`-caller guard. `defineFactory` graduates
  * to core-internal vocabulary — this guard confines PRODUCTION imports of the
- * `defineFactory` BINDING (resolving into `src/core/context.ts` or its barrel
+ * `defineFactory` BINDING (resolving into the run-factory `context.ts` or the kit barrel
  * `src/core/index.ts`) to `src/core/**`, `src/testing/**`, `src/conformance/**`. Scan
  * surface: `src/**` + `bin/**` — `test/**` is categorically OUTSIDE this scan's domain (the
  * ~85 deep-import sentinel files and the wrap-parity harness import `defineFactory`
@@ -24,7 +24,7 @@ import { specifiersResolvingInto, collectTsFiles } from "../support/import-scan.
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = join(PROJECT_ROOT, "src");
 const BIN_DIR = join(PROJECT_ROOT, "bin");
-const CONTEXT_FILE = join(SRC_DIR, "core/context.ts");
+const CONTEXT_FILE = join(SRC_DIR, "bounded-contexts/authoring/application/usecases/run-factory/context.ts");
 const CORE_INDEX_FILE = join(SRC_DIR, "core/index.ts");
 
 // ADR-07 (stdio-engine-client): + the FILE src/transport/runner.ts — the production runner
@@ -99,28 +99,28 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
 
   // Positive control: the scanner DOES detect the real production defineFactory import
   // shape (src/testing/index.ts's own internal `import { defineFactory } from
-  // "../core/context.ts"`, used to delegate — bare-factory-migration S-006 removed the
-  // public `export { defineFactory } from "../core/context.ts"` re-export this file used to
+  // "../bounded-contexts/authoring/application/usecases/run-factory/context.ts"`, used to delegate — bare-factory-migration S-006 removed the
+  // public `export { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts"` re-export this file used to
   // ALSO carry, so only the one internal import line resolves here now) — proving
   // allowlisting, not scanner blindness, is what keeps sanctioned callers green.
   it("positive control: the scanner detects src/testing/index.ts's own internal defineFactory import (allowlisting, not blindness, keeps it green)", () => {
     const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "testing/index.ts"));
-    expect(offenders).toEqual(["../core/context.ts"]);
+    expect(offenders).toEqual(["../bounded-contexts/authoring/application/usecases/run-factory/context.ts"]);
   });
 
   it("positive control: the scanner detects src/conformance/index.ts's own defineFactory import too", () => {
     const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "conformance/index.ts"));
-    expect(offenders).toEqual(["../core/context.ts"]);
+    expect(offenders).toEqual(["../bounded-contexts/authoring/application/usecases/run-factory/context.ts"]);
   });
 
   // RED-PROOF (ADR-07): the runner.ts entry is a FILE allow-list, not a directory one — a
   // planted defineFactory import from an UNRELATED src/transport/** file is still flagged.
   it("[red-proof] ADR-07: a planted defineFactory import from an unrelated src/transport/** file is flagged", () => {
-    const fakeSource = `import { defineFactory } from "../core/context.ts";`;
+    const fakeSource = `import { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";`;
     const fakeDir = join(SRC_DIR, "transport");
     expect(isAllowlisted(join(SRC_DIR, "transport/framing.ts"))).toBe(false);
     expect(specifiersResolvingInto(definesFactoryImportLines(fakeSource), fakeDir, CONTEXT_FILE)).toEqual([
-      "../core/context.ts",
+      "../bounded-contexts/authoring/application/usecases/run-factory/context.ts",
     ]);
   });
 
@@ -129,16 +129,16 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
   // testing/conformance positive controls above).
   it("positive control: the scanner detects src/transport/runner.ts's own defineFactory import", () => {
     const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "transport/runner.ts"));
-    expect(offenders).toEqual(["../core/context.ts"]);
+    expect(offenders).toEqual(["../bounded-contexts/authoring/application/usecases/run-factory/context.ts"]);
     expect(isAllowlisted(join(SRC_DIR, "transport/runner.ts"))).toBe(true);
   });
 
   // RED-PROOF: a planted defineFactory import from src/commons/** is flagged.
   it("[red-proof] a planted defineFactory import from src/commons/** is flagged", () => {
-    const fakeSource = `import { defineFactory } from "../core/context.ts";`;
+    const fakeSource = `import { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";`;
     const fakeDir = join(SRC_DIR, "commons");
     expect(specifiersResolvingInto(definesFactoryImportLines(fakeSource), fakeDir, CONTEXT_FILE)).toEqual([
-      "../core/context.ts",
+      "../bounded-contexts/authoring/application/usecases/run-factory/context.ts",
     ]);
   });
 
@@ -159,7 +159,7 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
   // flagged — this is exactly what a plain specifiersResolvingInto scan (without the
   // defineFactory-name narrowing) would false-positive on.
   it("[red-proof] an import of a different name from context.ts is NOT flagged", () => {
-    const fakeSource = `import { currentContext, requirePackageAnchors } from "../core/context.ts";`;
+    const fakeSource = `import { currentContext, requirePackageAnchors } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";`;
     expect(definesFactoryImportLines(fakeSource)).toEqual("");
   });
 

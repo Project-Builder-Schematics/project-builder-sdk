@@ -19,8 +19,8 @@
 import { describe, it, expect } from "bun:test";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { create, find, replaceContent, AuthoringError } from "../../src/commons/index.ts";
-import { EMIT_BATCH_BUDGET_BYTES } from "../../src/core/wire.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 describe("REQ-ATH-01 — runFactoryForTest result shape", () => {
   it("REQ-ATH-01.1: happy-path shape — tree, single emitted batch, no error", async () => {

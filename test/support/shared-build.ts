@@ -90,7 +90,7 @@ export function ensureTscBuild(): string {
  * the dual-realm regression e2e instead of exercising the real bug).
  */
 export function requireDistArtifacts(distDir: string): void {
-  const requiredArtifacts = [join(distDir, "bin/pbuilder-runner.js"), join(distDir, "core/context.js")];
+  const requiredArtifacts = [join(distDir, "bin/pbuilder-runner.js"), join(distDir, "bounded-contexts/authoring/application/usecases/run-factory/context.js")];
   for (const artifact of requiredArtifacts) {
     if (!existsSync(artifact)) {
       throw new Error(`requireDistArtifacts: missing build artifact ${artifact} — run "bun run build" first`);

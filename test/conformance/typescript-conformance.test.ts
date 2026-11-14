@@ -22,7 +22,7 @@ import * as ts from "../../src/dialects/typescript/index.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
 import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 import { undeclaredExtensionViolationFixture } from "./planted/undeclared-extension-violation.ts";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { golden } from "../support/golden.ts";
 import { roundTripViolationFixture } from "./planted/round-trip-violation.ts";

@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { jsDocBefore, PROJECT_ROOT } from "../support/jsdoc-scan.ts";
 
-const CONTEXT_SOURCE = readFileSync(join(PROJECT_ROOT, "src/core/context.ts"), "utf-8");
+const CONTEXT_SOURCE = readFileSync(join(PROJECT_ROOT, "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts"), "utf-8");
 const DEFINE_FACTORY_DOC = jsDocBefore(CONTEXT_SOURCE, /^export function defineFactory<O>\($/);
 
 describe("REQ-FPS-05.2 — defineFactory's JSDoc @example demonstrates the full bin-to-typed workflow", () => {

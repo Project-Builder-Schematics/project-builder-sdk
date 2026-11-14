@@ -8,10 +8,10 @@
  * pinned here so the round-trip/cap logic added to `emit` cannot regress them.
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { create } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import type { Batch, JsonValue } from "../../src/core/wire.ts";
+import type { Batch, JsonValue } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { batchOf as batch, createOp, deleteOp } from "./directive-builders.ts";
 
 // Smuggles a non-JsonValue past the type system — REQ-02's scenarios are values an author

@@ -4,8 +4,8 @@
 // this locks the compile-time contract so a future signature drift fails here by name.
 import { describe, it } from "bun:test";
 import { expectTypeOf } from "expect-type";
-import type { EngineClient } from "../../src/core/engine-client.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { StdioEngineClient } from "../../src/transport/stdio-engine-client.ts";
 
 describe("REQ-SEC-01 — StdioEngineClient port conformance (type level)", () => {

@@ -14,7 +14,7 @@
  * `test/e2e/dialect-modify.e2e.test.ts`, S-002).
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { toyDialect, type ToyAst } from "../fixtures/toy-dialect/index.ts";
 

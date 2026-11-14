@@ -6,9 +6,9 @@
 // Idempotent delete (FAKE-05): absent target → succeed (no error).
 
 import { posix as path } from "node:path";
-import type { EngineClient } from "../core/engine-client.ts";
-import type { Batch, Directive } from "../core/wire.ts";
-import { EMIT_BATCH_BUDGET_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES, exceedsEmitBatchBudget } from "../core/wire.ts";
+import type { EngineClient } from "../bounded-contexts/authoring/domain/ports/engine-client.ts";
+import type { Batch, Directive } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES, exceedsEmitBatchBudget } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { EmitRejection } from "../core/emit-rejection.ts";
 import { deepEqual } from "../platform/deep-equal.ts";
 import {

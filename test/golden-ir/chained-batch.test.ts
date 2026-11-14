@@ -5,7 +5,7 @@
  * exact keys, in author order.
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
 import { RENAME_THEN_MOVE, CREATE_THEN_MODIFY } from "./fixtures.ts";
 

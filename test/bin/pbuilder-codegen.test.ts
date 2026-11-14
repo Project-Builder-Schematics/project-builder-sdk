@@ -9,7 +9,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateSchema } from "../../bin/pbuilder-codegen.ts";
-import { computeSchemaDigest } from "../../src/core/schema/schema-digest.ts";
+import { computeSchemaDigest } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
 import { GENERATED_HEADER } from "../../bin/emit-type.ts";
 
 let workDir: string | undefined;

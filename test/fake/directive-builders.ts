@@ -2,7 +2,7 @@
 // Kept out of test/support/ (that's runtime-facing) since these build wire literals
 // directly, bypassing commons/context — the fidelity suites construct ContractFake
 // inputs by hand on purpose (see fidelity.test.ts header).
-import type { Batch, Directive, JsonValue } from "../../src/core/wire.ts";
+import type { Batch, Directive, JsonValue } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 export function batch(force: boolean, ...instructions: Directive[]): Batch {
   return { protocolVersion: 1, force, instructions };

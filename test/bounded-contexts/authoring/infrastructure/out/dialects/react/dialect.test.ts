@@ -8,7 +8,7 @@
  * only op-shaped verb this slice has.
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import * as react from "../../../../../../../src/dialects/react/index.ts";
 import { find } from "../../../../../../../src/dialects/react/index.ts";
 import { parse, print } from "../../../../../../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts";

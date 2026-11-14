@@ -6,8 +6,8 @@
 import { describe, it, expect } from "bun:test";
 import { ContractFake } from "../support/contract-fake.ts";
 import { EmitRejection } from "../../src/core/emit-rejection.ts";
-import { toAuthoringError } from "../../src/core/authoring-error.ts";
-import { BATCH_CAP_BYTES, type JsonValue } from "../../src/core/wire.ts";
+import { toAuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { BATCH_CAP_BYTES, type JsonValue } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { batchOf, createOp, modifyOp } from "./directive-builders.ts";
 import { batchOverSerializedBytes, FIXTURE_PATH } from "./batch-cap-fixtures.ts";
 import { rejectedEmit } from "../support/rejection-capture.ts";

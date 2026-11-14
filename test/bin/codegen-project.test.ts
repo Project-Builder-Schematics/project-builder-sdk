@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join, resolve, relative } from "node:path";
 import { GENERATED_FILENAME, runCli, USAGE, SUCCESS_LINE } from "../../bin/pbuilder-codegen.ts";
 import { emitInputType } from "../../bin/emit-type.ts";
-import { parseSchema } from "../../src/core/schema/schema-parse.ts";
-import { computeSchemaDigest } from "../../src/core/schema/schema-digest.ts";
+import { parseSchema } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
+import { computeSchemaDigest } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
 
 const cli = resolve(import.meta.dir, "../../bin/pbuilder-codegen.ts");
 const schema = JSON.stringify({ properties: { port: { type: "number", label: "Port" } } });

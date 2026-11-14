@@ -4,7 +4,7 @@
  * fed straight to `checkSufficiency`.
  */
 import { describe, it, expect } from "bun:test";
-import { checkSufficiency } from "../../src/core/schema/schema-sufficiency.ts";
+import { checkSufficiency } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-sufficiency.ts";
 
 function schemaJson(properties: unknown): string {
   return JSON.stringify({ properties });

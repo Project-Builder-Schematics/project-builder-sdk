@@ -41,8 +41,8 @@ describe("FIT-15 — bin -> core direction only (no src/ runtime module imports 
   const files = getSourceFiles(SRC_DIR);
 
   it("the recursive walk reaches real files (sanity)", () => {
-    expect(files).toContain("core/context.ts");
-    expect(files).toContain("core/schema/schema-model.ts");
+    expect(files).toContain("bounded-contexts/authoring/application/usecases/run-factory/context.ts");
+    expect(files).toContain("bounded-contexts/authoring/domain/valueobjects/schema-model.ts");
   });
 
   for (const relPath of files) {

@@ -9,8 +9,8 @@
 // S-000 built the "missing" finding (RBV-01.1 site proof). S-003 (this module) triangulates
 // the remaining branches — see slices Coverage Check.
 
-import type { Schema, SchemaProperty } from "./schema-model.ts";
-import { FORBIDDEN_KEYS, RESERVED_LIFECYCLE_NAMES } from "./schema-model.ts";
+import type { Schema, SchemaProperty } from "../../valueobjects/schema-model.ts";
+import { FORBIDDEN_KEYS, RESERVED_LIFECYCLE_NAMES } from "../../valueobjects/schema-model.ts";
 
 const RESERVED_INPUT_KEYS = new Set<string>(RESERVED_LIFECYCLE_NAMES);
 

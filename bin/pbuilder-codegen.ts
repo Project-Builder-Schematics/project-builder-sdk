@@ -13,11 +13,11 @@ import {
   openSync, fstatSync, ftruncateSync, closeSync, constants,
 } from "node:fs";
 import { join, dirname, basename, resolve, sep } from "node:path";
-import { parseSchema, SchemaParseFailure, formatLocator } from "../src/core/schema/schema-parse.ts";
-import { computeSchemaDigest } from "../src/core/schema/schema-digest.ts";
-import { schemaPathFor } from "../src/core/schema/schema-discovery.ts";
-import { checkSufficiency, type SufficiencyFinding } from "../src/core/schema/schema-sufficiency.ts";
-import { isErrnoException } from "../src/core/fs-errors.ts";
+import { parseSchema, SchemaParseFailure, formatLocator } from "../src/bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
+import { computeSchemaDigest } from "../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
+import { schemaPathFor } from "../src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts";
+import { checkSufficiency, type SufficiencyFinding } from "../src/bounded-contexts/authoring/domain/services/schema/schema-sufficiency.ts";
+import { isErrnoException } from "../src/platform/fs-errors.ts";
 import { emitInputType, UnrecognizedPropertyTypeError } from "./emit-type.ts";
 import { discoverProject } from "./project-codegen.ts";
 

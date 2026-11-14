@@ -5,7 +5,7 @@
 // `>` comparison locally.
 
 import { describe, it, expect } from "bun:test";
-import { batchOfSerializedBytes, batchOverSerializedBytes, batchAtEmitBudget, batchOverEmitBudget } from "../fake/batch-cap-fixtures.ts";
+import { batchOfSerializedBytes, batchOverSerializedBytes, batchAtEmitBudget, batchOverEmitBudget } from "../../../../fake/batch-cap-fixtures.ts";
 import {
   BATCH_CAP_BYTES,
   EMIT_BATCH_BUDGET_BYTES,
@@ -14,7 +14,7 @@ import {
   exceedsEmitBatchBudget,
   serializedBatchBytes,
   serializedBatchSize,
-} from "../../src/core/wire.ts";
+} from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 describe("REQ-WPS-04 — serializedBatchBytes", () => {
   it("measures the exact UTF-8 serialized byte length of the batch envelope", () => {

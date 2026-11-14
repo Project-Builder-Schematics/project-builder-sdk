@@ -15,14 +15,14 @@ import { describe, it, expect, spyOn } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { SourceFile, NewLineKind } from "ts-morph";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { create } from "../../../../../../../src/commons/index.ts";
-import { AuthoringError } from "../../../../../../../src/core/authoring-error.ts";
+import { AuthoringError } from "../../../../../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import * as ts from "../../../../../../../src/dialects/typescript/index.ts";
 import { detectNewLineKind, parse, print } from "../../../../../../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
 import { addImport } from "../../../../../../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ops.ts";
-import type { Directive } from "../../../../../../../src/core/wire.ts";
-import { BATCH_CAP_BYTES } from "../../../../../../../src/core/wire.ts";
+import type { Directive } from "../../../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { BATCH_CAP_BYTES } from "../../../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";
 import { golden } from "../../../../../../support/golden.ts";
 

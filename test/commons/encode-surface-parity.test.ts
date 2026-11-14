@@ -13,7 +13,7 @@ import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { collectOps } from "../support/spy-client.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
-import type { JsonValue } from "../../src/core/wire.ts";
+import type { JsonValue } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 const scratchDir = scratchDirFactory("encode-surface-parity-");
 

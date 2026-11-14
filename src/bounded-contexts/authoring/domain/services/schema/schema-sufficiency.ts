@@ -8,7 +8,7 @@
 // is itself one of the hard-fail conditions this module exists to catch, so the walk must
 // never trigger a prototype getter via bare/for-in access.
 
-import { FORBIDDEN_KEYS, isPlainObject } from "./schema-model.ts";
+import { FORBIDDEN_KEYS, isPlainObject } from "../../valueobjects/schema-model.ts";
 
 // Exported as the single canonical allow-list — `emitPropertyType` (bin/emit-type.ts) reuses
 // this same Set as its last-line-of-defence guard against an unrecognized `type`, rather than

@@ -12,8 +12,8 @@ import { spawnSync } from "node:child_process";
 import { cpSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defineFactory } from "../../../../../src/core/context.ts";
-import { AuthoringError } from "../../../../../src/core/authoring-error.ts";
+import { defineFactory } from "../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
+import { AuthoringError } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { buildGraph } from "../../../../support/layering/graph.ts";
 import { makeSpyClient, collectModifies } from "../../../../support/spy-client.ts";
 import { toyDialect } from "../../../../fixtures/toy-dialect/index.ts";
@@ -46,7 +46,7 @@ describe("run-context — outside any run", () => {
       for (const e of edges) if (e.from === file) queue.push(e.to);
     }
     expect(reached.size).toBeGreaterThan(5);
-    expect(reached).not.toContain("src/core/context.ts");
+    expect(reached).not.toContain("src/bounded-contexts/authoring/application/usecases/run-factory/context.ts");
   });
 
   it("an op rejects with AuthoringError{outside-session}, the same error as before", () => {
@@ -102,7 +102,7 @@ describe("run-context — two copies of the SDK in one process", () => {
     // Copy A provides only the dialect handle (the toy fixture over this repo's kit); copy B
     // provides only defineFactory. Neither copy's other half is ever imported.
     const { stdout, stderr, status } = runChild(`
-      const { defineFactory } = await import(${JSON.stringify(join(copy, "src/core/context.ts"))});
+      const { defineFactory } = await import(${JSON.stringify(join(copy, "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts"))});
       const { toyDialect } = await import(${JSON.stringify(join(ROOT, "test/fixtures/toy-dialect/index.ts"))});
       const emitted = [];
       const client = {

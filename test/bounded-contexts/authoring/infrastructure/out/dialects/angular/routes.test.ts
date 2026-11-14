@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import * as angular from "../../../../../../../src/dialects/angular/index.ts";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";
 
 const PATH = "src/app/app.routes.ts";

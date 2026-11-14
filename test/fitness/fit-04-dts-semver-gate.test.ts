@@ -103,7 +103,7 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
   },
   {
     baselineFile: join(BASELINE_DIR, "core.authoring-error.d.ts"),
-    distFile: join(DIST_DIR, "core/authoring-error.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/domain/valueobjects/authoring-error.d.ts"),
     label: "core/authoring-error",
   },
   {
@@ -171,7 +171,7 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
 const KIT_INTERNAL_DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }> = [
   {
     baselineFile: join(BASELINE_DIR, "core.context.d.ts"),
-    distFile: join(DIST_DIR, "core/context.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/application/usecases/run-factory/context.d.ts"),
     label: "core/context (kit-internal, not semver-gated as public)",
   },
 ];

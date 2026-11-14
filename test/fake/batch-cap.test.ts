@@ -7,9 +7,9 @@
  * of its own — only the fake (engine stand-in) judges size, matching ADR-0018.
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
+import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { EMIT_BATCH_BUDGET_BYTES } from "../../src/core/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { replaceContent } from "../../src/commons/index.ts";
 import {
   batchOfSerializedBytes,

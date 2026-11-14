@@ -16,7 +16,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { join } from "node:path";
-import { findReservedSibling } from "../../src/core/schema/schema-discovery.ts";
+import { findReservedSibling } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts";
 import { ALWAYS_ON_SCAN_ROOTS } from "../support/scan-roots.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;

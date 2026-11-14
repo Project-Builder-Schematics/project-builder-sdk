@@ -3,7 +3,7 @@
 // double-wrap detection (RUN-06.2 rejects V1's arity-sniffing mechanism).
 
 import { describe, it, expect } from "bun:test";
-import { defineFactory, isDefineFactoryWrapped } from "../../src/core/context.ts";
+import { defineFactory, isDefineFactoryWrapped } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 
 describe("ADR-04 — defineFactory brand marker", () => {
   it("a value returned by defineFactory() is recognized as wrapped", () => {

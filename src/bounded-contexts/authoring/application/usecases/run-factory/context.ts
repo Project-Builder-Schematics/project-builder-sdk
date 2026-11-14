@@ -5,16 +5,16 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { relative } from "node:path";
-import type { EngineClient } from "./engine-client.ts";
-import { DirectiveFactory } from "./directive-factory.ts";
-import { Session } from "./session.ts";
-import { invalidInput } from "./authoring-error.ts";
-import { currentRun, getSessionAls } from "../bounded-contexts/authoring/domain/services/run-context.ts";
-import { schemaPathFor, findReservedSibling } from "./schema/schema-discovery.ts";
-import { parseSchema, SchemaParseFailure, formatLocator } from "./schema/schema-parse.ts";
-import { validateInput } from "./schema/schema-validate.ts";
-import { rejectionFor, rejectionForReservedName } from "./schema/input-rejection.ts";
-import { isErrnoException } from "./fs-errors.ts";
+import type { EngineClient } from "../../../domain/ports/engine-client.ts";
+import { DirectiveFactory } from "../../../domain/services/directive-factory.ts";
+import { Session } from "../../../domain/aggregates/session/session.ts";
+import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
+import { currentRun, getSessionAls } from "../../../domain/services/run-context.ts";
+import { schemaPathFor, findReservedSibling } from "../../../infrastructure/out/fs/schema-discovery.ts";
+import { parseSchema, SchemaParseFailure, formatLocator } from "../../../domain/services/schema/schema-parse.ts";
+import { validateInput } from "../../../domain/services/schema/schema-validate.ts";
+import { rejectionFor, rejectionForReservedName } from "../../../domain/services/schema/input-rejection.ts";
+import { isErrnoException } from "../../../../../platform/fs-errors.ts";
 
 // ADR-0037: the run-boundary join registry. A dialect handle self-registers here at its
 // first op; `defineFactory` drains it (awaits every registered `settle()`) BEFORE

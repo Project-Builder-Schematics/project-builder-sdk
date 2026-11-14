@@ -23,10 +23,10 @@
 import { describe, it, expect } from "bun:test";
 import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, scaffold, copyIn, pendingDirectives, AuthoringError } from "../../src/commons/index.ts";
-import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 import { expectAuthoringReason } from "../support/expect-reason.ts";

@@ -6,9 +6,9 @@
 // runner `defineFactory` produces is typed against that same port shape, and the two are
 // structurally identical (same four members/signatures), so they are mutually assignable
 // under `strictFunctionTypes` without a cast.
-import type { Batch, Directive } from "../core/wire.ts";
-import type { AuthoringError } from "../core/authoring-error.ts";
-import { defineFactory } from "../core/context.ts";
+import type { Batch, Directive } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import type { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "./contract-fake.ts";
 
 interface RecordingClient {

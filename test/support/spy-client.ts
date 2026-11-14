@@ -1,7 +1,7 @@
 // Shared EngineClient spy: records every emitted Batch while delegating
 // to a real ContractFake for read/commit/discard fidelity.
-import type { EngineClient } from "../../src/core/engine-client.ts";
-import type { Batch, Directive } from "../../src/core/wire.ts";
+import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import type { Batch, Directive } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { ContractFake } from "./contract-fake.ts";
 
 /** Flattens the recorded batches down to their `op`-matching directives, in emission order. */

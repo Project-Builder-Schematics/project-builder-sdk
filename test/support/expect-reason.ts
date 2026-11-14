@@ -6,7 +6,7 @@
 // layer extra asserts (message text, etc.) on top.
 
 import { expect } from "bun:test";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
+import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 
 /** Asserts an ALREADY-CAUGHT value is the expected authoring rejection. */
 export function expectAuthoringReason(caught: unknown, reason: AuthoringError["reason"]): AuthoringError {

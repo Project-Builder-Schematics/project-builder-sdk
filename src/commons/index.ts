@@ -2,12 +2,12 @@
 // No AST imports. All handle write-ops wired (S-003).
 
 import { posix } from "node:path";
-import type { JsonValue } from "../core/wire.ts";
-import { currentContext } from "../core/context.ts";
-import { forceEntry } from "../core/directive-factory.ts";
+import type { JsonValue } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { currentContext } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
+import { forceEntry } from "../bounded-contexts/authoring/domain/services/directive-factory.ts";
 import type { FoundHandle, WritableHandle } from "../bounded-contexts/authoring/domain/entities/handle-state.ts";
-import { AuthoringError } from "../core/authoring-error.ts";
-import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../core/authoring-error.ts";
+import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { readTemplateFile, runScaffold, runCopyIn } from "../scaffold/index.ts";
 import type { ScaffoldArgs } from "../scaffold/index.ts";
 

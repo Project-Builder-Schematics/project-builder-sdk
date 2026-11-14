@@ -10,9 +10,9 @@
 //   delete: { path }
 
 import { describe, expect, test } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
-import type { EngineClient } from "../../src/core/engine-client.ts";
-import type { Batch, Directive } from "../../src/core/wire.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
+import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import type { Batch, Directive } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
 
 function makeSpy(seed: Record<string, string> = {}): { spy: EngineClient; emitted: Batch[] } {

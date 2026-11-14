@@ -5,7 +5,7 @@ import { describe, it, expect } from "bun:test";
 import { encodeFrame, LENGTH_PREFIX_BYTES } from "../../src/transport/framing.ts";
 import { FrameReader, FrameFault } from "../../src/transport/frame-reader.ts";
 import { TransportFault } from "../../src/transport/stdio-engine-client.ts";
-import { BATCH_CAP_BYTES } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 async function* chunksOf(...buffers: Buffer[]): AsyncGenerator<Buffer> {
   for (const buf of buffers) yield buf;

@@ -21,7 +21,7 @@ import { dispatchToFake, serveSpawnedRunner } from "./fake-engine-harness.ts";
 import { ContractFake } from "../../src/testing/contract-fake.ts";
 import { pushableByteSource } from "../support/pushable-byte-source.ts";
 import { runFactoryForTest } from "../../src/testing/index.ts";
-import { AuthoringError } from "../../src/core/authoring-error.ts";
+import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { frameHostFactory } from "../support/frame-host.ts";
 import { collectTsFiles } from "../support/import-scan.ts";
 import * as rejectionMessages from "../../src/testing/rejection-messages.ts";

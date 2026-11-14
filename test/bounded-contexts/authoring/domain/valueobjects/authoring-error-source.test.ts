@@ -23,14 +23,14 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
-import { ContractFake } from "../support/contract-fake.ts";
-import { scaffold, AuthoringError } from "../../src/commons/index.ts";
-import { walkFolder } from "../../src/scaffold/walk.ts";
-import { detectDestinationCollisions, type PipelineResult } from "../../src/scaffold/filename-pipeline.ts";
-import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
-import { scratchDirFactory } from "../support/scratch-dir.ts";
-import { rejectedRun } from "../support/rejection-capture.ts";
-import { expectAuthoringReason, expectReason } from "../support/expect-reason.ts";
+import { ContractFake } from "../../../../support/contract-fake.ts";
+import { scaffold, AuthoringError } from "../../../../../src/commons/index.ts";
+import { walkFolder } from "../../../../../src/scaffold/walk.ts";
+import { detectDestinationCollisions, type PipelineResult } from "../../../../../src/scaffold/filename-pipeline.ts";
+import { classifyTransport } from "../../../../../src/scaffold/classify-transport.ts";
+import { scratchDirFactory } from "../../../../support/scratch-dir.ts";
+import { rejectedRun } from "../../../../support/rejection-capture.ts";
+import { expectAuthoringReason, expectReason } from "../../../../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("aec-12-");
 

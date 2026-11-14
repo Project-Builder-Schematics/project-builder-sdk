@@ -15,7 +15,7 @@
  * Every find()-only chain pre-seeds its target (flush-seed-rule, REQ-MC-04, Stage 3 §4.6b).
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { defineDialect, defineOpPack, withOps } from "../../../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import { dialectError } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/dialect-error.ts";
 import { pendingDirectives } from "../../../../../src/commons/index.ts";

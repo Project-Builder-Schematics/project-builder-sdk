@@ -22,7 +22,7 @@
  *       observer, many ticks later.
  */
 import { describe, it, expect, afterEach } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { makeSpyClient, collectModifies } from "../support/spy-client.ts";
 import { toyDialect } from "../fixtures/toy-dialect/index.ts";
 

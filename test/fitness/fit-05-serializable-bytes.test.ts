@@ -6,9 +6,9 @@
  * Red-proof: a directive with a non-serializable value (Function) must fail the roundtrip.
  */
 import { describe, it, expect } from "bun:test";
-import { DirectiveFactory } from "../../src/core/directive-factory.ts";
-import type { Directive } from "../../src/core/wire.ts";
-import { defineFactory } from "../../src/core/context.ts";
+import { DirectiveFactory } from "../../src/bounded-contexts/authoring/domain/services/directive-factory.ts";
+import type { Directive } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
 import { golden } from "../support/golden.ts";
@@ -91,7 +91,7 @@ describe("FIT-05 — only serializable bytes cross the seam", () => {
       create: {
         pathTemplate: "bad.ts",
         template: "",
-        options: { fn: () => {} } as unknown as import("../../src/core/wire.ts").JsonValue,
+        options: { fn: () => {} } as unknown as import("../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts").JsonValue,
       },
     } satisfies Directive;
 
@@ -110,7 +110,7 @@ describe("FIT-05 — only serializable bytes cross the seam", () => {
       create: {
         pathTemplate: "a.ts",
         template: "",
-        options: { count: NaN } as unknown as import("../../src/core/wire.ts").JsonValue,
+        options: { count: NaN } as unknown as import("../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts").JsonValue,
       },
     } satisfies Directive;
 

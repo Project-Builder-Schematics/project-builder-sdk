@@ -1,6 +1,6 @@
-import type { EngineClient } from "./engine-client.ts";
-import { DirectiveFactory } from "./directive-factory.ts";
-import { Session } from "./session.ts";
+import type { EngineClient } from "../../../domain/ports/engine-client.ts";
+import { DirectiveFactory } from "../../../domain/services/directive-factory.ts";
+import { Session } from "../../../domain/aggregates/session/session.ts";
 export interface DialectRegistry {
     register(handle: {
         readonly settle: () => Promise<void>;

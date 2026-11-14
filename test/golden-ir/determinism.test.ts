@@ -7,8 +7,8 @@
  * literally.
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
-import type { Batch } from "../../src/core/wire.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
+import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
 import { GOLDEN_DETERMINISM_STRING } from "./fixtures.ts";
 

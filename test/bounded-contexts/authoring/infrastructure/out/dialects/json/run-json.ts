@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import { defineFactory } from "../../../../../../../src/core/context.ts";
+import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import * as json from "../../../../../../../src/dialects/json/index.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";
 

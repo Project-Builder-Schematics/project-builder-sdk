@@ -2,8 +2,8 @@
 // JSON (ADR-0082), string/scalar/null passthrough, and prototype-safe assembly.
 
 import { describe, it, expect } from "bun:test";
-import { encodeOptions } from "../../src/core/directive-factory.ts";
-import type { JsonValue } from "../../src/core/wire.ts";
+import { encodeOptions } from "../../../../../src/bounded-contexts/authoring/domain/services/directive-factory.ts";
+import type { JsonValue } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 describe("REQ-TOE-01 — encodeOptions forwards composite values as native JSON", () => {
   it("Scenario REQ-TOE-01.1: a native array value stays a native array", () => {

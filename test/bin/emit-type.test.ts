@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { emitInputType, GENERATED_HEADER } from "../../bin/emit-type.ts";
-import type { Schema, SchemaKind } from "../../src/core/schema/schema-model.ts";
+import type { Schema, SchemaKind } from "../../src/bounded-contexts/authoring/domain/valueobjects/schema-model.ts";
 
 describe("emitInputType", () => {
   it("emits the AUTO-GENERATED header and an embedded schema-digest line", () => {

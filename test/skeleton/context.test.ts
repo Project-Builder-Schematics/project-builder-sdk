@@ -3,7 +3,7 @@
  * Verifies ALS injection, context outside run throws, fake is used (no global).
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory, currentContext } from "../../src/core/context.ts";
+import { defineFactory, currentContext } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, find, AuthoringError } from "../../src/commons/index.ts";
 

@@ -23,12 +23,12 @@
  */
 import { describe, it, expect } from "bun:test";
 import { writeFileSync } from "node:fs";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { copyIn, AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { createRunVehicle } from "../../src/conformance/run-vehicle.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
-import type { EngineClient } from "../../src/core/engine-client.ts";
+import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
 
 const scratchDir = scratchDirFactory("copyin-parity-");
 

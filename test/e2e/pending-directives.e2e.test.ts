@@ -10,7 +10,7 @@
  * collide fail-closed). REQ-DRE-01.5 seeds `src/gone.ts` so the remove targets a real file.
  */
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/core/context.ts";
+import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, replaceContent, find, pendingDirectives } from "../../src/commons/index.ts";
 

@@ -5,7 +5,7 @@
  * `copy` is shape-only; no apply logic.
  */
 import { describe, it, expect } from "bun:test";
-import { DirectiveFactory } from "../../src/core/directive-factory.ts";
+import { DirectiveFactory } from "../../src/bounded-contexts/authoring/domain/services/directive-factory.ts";
 import {
   GOLDEN_CREATE,
   GOLDEN_MODIFY,

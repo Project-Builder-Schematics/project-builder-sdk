@@ -30,7 +30,7 @@ import { join } from "node:path";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { create, scaffold, AuthoringError } from "../../src/commons/index.ts";
-import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../src/core/wire.ts";
+import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { collectOps } from "../support/spy-client.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
