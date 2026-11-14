@@ -21,15 +21,15 @@ import { describe, it, expect, spyOn } from "bun:test";
 import { writeFileSync, statSync, mkdirSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
-import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
-import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import type { Directive } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { encodeOptions } from "../../src/bounded-contexts/authoring/domain/services/directive-factory.ts";
-import { scaffold } from "../../src/commons/index.ts";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { collectOps } from "../support/spy-client.ts";
-import { scratchDirFactory } from "../support/scratch-dir.ts";
-import { expectReason } from "../support/expect-reason.ts";
+import { classifyTransport } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts";
+import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import type { Directive } from "../../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { encodeOptions } from "../../../../../../src/bounded-contexts/authoring/domain/services/directive-factory.ts";
+import { scaffold } from "../../../../../../src/commons/index.ts";
+import { runFactoryForTest } from "../../../../../../src/testing/index.ts";
+import { collectOps } from "../../../../../support/spy-client.ts";
+import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
+import { expectReason } from "../../../../../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("classify-transport-");
 

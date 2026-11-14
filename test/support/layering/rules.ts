@@ -21,6 +21,8 @@ export const RULES = {
   targetNeverImportsLegacy: "target-layout code never imports the legacy tree (proposal section 4)",
   dialectIsolation:
     "a dialect adapter imports only domain/, shared-kernel/, platform/, its own folder, the siblings ALLOWED_SIBLINGS lists and no runtime I/O; only composition, its public barrel and those siblings import it (proposal 3.2)",
+  scaffoldLeaf:
+    "only the scaffold use case, its parts and the entry points import the scaffold use case; scaffold code imports only itself, domain/, platform/, the run-factory use case and node: builtins",
   noClosedDialectSet: "domain/ and application/ never name a dialect: no string literal equal to a dialect folder name or a declared extension (proposal 3.2)",
 } as const;
 
@@ -67,9 +69,22 @@ function dialectIsolation(from: Classified, to: string, toClass: Classified | un
   return isAdapter && !(isLayer(toClass, "domain") || toClass.kind === "shared-kernel" || toClass.kind === "platform");
 }
 
+const inScaffold = (c: Classified): boolean => c.useCase === "scaffold" || c.scaffoldPart === true;
+
+// The scaffold use case is a leaf. The layer rules already keep it off legacy
+// code, other contexts and dialects; this adds what they allow: a sibling use case or the domain
+// reaching into scaffold, scaffold reaching a sibling use case, and third-party packages.
+function scaffoldLeaf(from: Classified, to: string, toClass: Classified | undefined): boolean {
+  if (toClass?.useCase === "scaffold" && !inScaffold(from) && !isEntry(from)) return true;
+  if (!inScaffold(from)) return false;
+  if (toClass === undefined) return !(to.startsWith("node:") || to.startsWith("process."));
+  return !(inScaffold(toClass) || isLayer(toClass, "domain") || toClass.kind === "platform" || toClass.useCase === "run-factory");
+}
+
 /** The rule `from → to` breaks, or undefined. `toClass` is undefined for an external module. */
 export function violation(from: Classified, to: string, toClass: Classified | undefined): Rule | undefined {
   if (dialectIsolation(from, to, toClass)) return "dialectIsolation";
+  if (scaffoldLeaf(from, to, toClass)) return "scaffoldLeaf";
   if (toClass === undefined) {
     return RUNTIME_IO.has(to) && isLayer(from, "domain", "application") ? "noRuntimeIo" : undefined;
   }

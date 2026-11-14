@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { collectFiles } from "../support/import-scan.ts";
+import { SCAFFOLD_PARTS } from "../support/layering/classify.ts";
 import { ensureTscBuild } from "../support/shared-build.ts";
 import {
   readScanFiles,
@@ -134,9 +135,13 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
     });
   });
 
-  describe("clause (f) — zero realpathSync/realpath references in src/scaffold/** or the run-factory context.ts, symbol-scoped allowlist", () => {
+  describe("clause (f) — zero realpathSync/realpath references in the scaffold use case and its parts or the run-factory context.ts, symbol-scoped allowlist", () => {
     it("the real trees have zero non-allowlisted occurrences", () => {
-      const scaffoldFiles = readScanFiles(collectFiles(`${SRC_DIR}/scaffold`, ".ts"));
+      const scaffoldFiles = readScanFiles([
+        ...collectFiles(`${SRC_DIR}/bounded-contexts/authoring/application/usecases/scaffold`, ".ts"),
+        ...[...SCAFFOLD_PARTS].map((path) => `${PROJECT_ROOT}${path}`),
+      ]);
+      expect(scaffoldFiles.length).toBeGreaterThanOrEqual(6);
       const contextFile = readScanFiles([CONTEXT_TS_PATH]);
       expect(findRealpathReferences([...scaffoldFiles, ...contextFile], PACKAGE_ROOT_FOR_ALLOWLIST)).toEqual([]);
     });

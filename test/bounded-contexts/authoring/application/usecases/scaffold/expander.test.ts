@@ -19,12 +19,12 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import * as fs from "node:fs";
 import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
-import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
-import { ContractFake } from "../support/contract-fake.ts";
-import { scaffold, pendingDirectives, AuthoringError } from "../../src/commons/index.ts";
-import { scratchDirFactory } from "../support/scratch-dir.ts";
-import { rejectedRun } from "../support/rejection-capture.ts";
-import { expectAuthoringReason, expectReason } from "../support/expect-reason.ts";
+import { defineFactory } from "../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
+import { ContractFake } from "../../../../../support/contract-fake.ts";
+import { scaffold, pendingDirectives, AuthoringError } from "../../../../../../src/commons/index.ts";
+import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
+import { rejectedRun } from "../../../../../support/rejection-capture.ts";
+import { expectAuthoringReason, expectReason } from "../../../../../support/expect-reason.ts";
 
 const scratchDir = scratchDirFactory("expander-");
 

@@ -11,7 +11,7 @@ import { readScanFiles, realSrcFileSnapshot, findLexicalEscapePredicates, findCa
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = `${PROJECT_ROOT}src`;
 const RED_ROOT = `${PROJECT_ROOT}test/fixtures/red/src-invariant-scans`;
-const PATH_GUARDS_PATH = `${SRC_DIR}/scaffold/path-guards.ts`;
+const PATH_GUARDS_PATH = `${SRC_DIR}/bounded-contexts/authoring/infrastructure/out/fs/path-guards.ts`;
 
 describe("FIT-NEW-C (fit-45) — exactly one lexical predicate implementation", () => {
   describe("clause (a) — exactly one (file, function) pair implements the idiom", () => {
@@ -38,9 +38,9 @@ describe("FIT-NEW-C (fit-45) — exactly one lexical predicate implementation", 
         .sort((a, b) => a.file.localeCompare(b.file) || (a.function ?? "").localeCompare(b.function ?? ""));
 
       expect(normalized).toEqual([
-        { file: "src/scaffold/expander.ts", function: "runScaffold" },
-        { file: "src/scaffold/index.ts", function: "readTemplateFile" },
-        { file: "src/scaffold/index.ts", function: "runCopyIn" },
+        { file: "src/bounded-contexts/authoring/application/usecases/scaffold/expander.ts", function: "runScaffold" },
+        { file: "src/bounded-contexts/authoring/application/usecases/scaffold/index.ts", function: "readTemplateFile" },
+        { file: "src/bounded-contexts/authoring/application/usecases/scaffold/index.ts", function: "runCopyIn" },
       ]);
       expect(sites.length).toBe(3);
     });

@@ -14,8 +14,8 @@
 
 import { statSync, type Stats } from "node:fs";
 import { join, resolve } from "node:path";
-import { AuthoringError, invalidInput } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { isErrnoException } from "../platform/fs-errors.ts";
+import { AuthoringError, invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
+import { isErrnoException } from "../../../../../platform/fs-errors.ts";
 
 // Lexical `../`/absolute screen shared by BOTH the source guard (REQ-IPF-01) and the
 // destination guard (REQ-IPF-02, symmetric by design): a literal ".." segment or an

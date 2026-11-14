@@ -25,7 +25,7 @@ import { canaryToken, seedSchema, spawnCapture } from "../support/canary.ts";
 import * as react from "../../src/dialects/react/index.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
 import { scaffold, copyIn, create } from "../../src/commons/index.ts";
-import { classifyTransport } from "../../src/scaffold/classify-transport.ts";
+import { classifyTransport } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;

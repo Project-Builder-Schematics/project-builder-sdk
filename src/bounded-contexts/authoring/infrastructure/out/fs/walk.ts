@@ -5,8 +5,8 @@
 
 import { lstatSync, readdirSync, statSync } from "node:fs";
 import { join, posix, resolve } from "node:path";
-import { invalidInput } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { isErrnoException } from "../platform/fs-errors.ts";
+import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
+import { isErrnoException } from "../../../../../platform/fs-errors.ts";
 
 export const DEFAULT_WALK_ENTRY_BOUND = 10_000;
 

@@ -9,10 +9,10 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, resolve } from "node:path";
-import { REPLACED_CORE_FILES } from "../support/replaced-core.ts";
+import { REPLACED_CORE_FILES } from "../../../../../support/replaced-core.ts";
 
-const PENDING_DIRECTIVES_DIR = new URL("../../src/pending-directives", import.meta.url).pathname;
-const ROOT_SRC = new URL("../../src", import.meta.url).pathname;
+const PENDING_DIRECTIVES_DIR = new URL("../../../../../../src/bounded-contexts/authoring/application/usecases/pending-directives", import.meta.url).pathname;
+const ROOT_SRC = new URL("../../../../../../src", import.meta.url).pathname;
 
 // Known AST packages that must never appear in the pending Directives renderer.
 const BANNED_AST_PACKAGES = [
@@ -86,11 +86,11 @@ function isAstPackage(specifier: string): boolean {
 describe("FIT-pending-directives-no-import — renderer has no core runtime or AST imports (REQ-05.1)", () => {
   const pendingDirectivesFiles = collectTs(PENDING_DIRECTIVES_DIR);
 
-  it("src/pending-directives/** contains at least one file to scan", () => {
+  it("the pending-directives use case contains at least one file to scan", () => {
     expect(pendingDirectivesFiles.length).toBeGreaterThan(0);
   });
 
-  it("src/pending-directives/** has no runtime import from src/core/**", () => {
+  it("the pending-directives use case has no runtime import from src/core/**", () => {
     const violations: Array<{ file: string; specifier: string }> = [];
 
     for (const filePath of pendingDirectivesFiles) {
@@ -107,7 +107,7 @@ describe("FIT-pending-directives-no-import — renderer has no core runtime or A
     expect(violations).toEqual([]);
   });
 
-  it("src/pending-directives/** has no AST package imports", () => {
+  it("the pending-directives use case has no AST package imports", () => {
     const violations: Array<{ file: string; specifier: string }> = [];
 
     for (const filePath of pendingDirectivesFiles) {
@@ -126,17 +126,17 @@ describe("FIT-pending-directives-no-import — renderer has no core runtime or A
 
   // RED-PROOF: a runtime import of a file that moved out of src/core is detected too.
   it("[red-proof] a runtime import from the moved authoring-error.ts is flagged as a violation", () => {
-    const specifier = "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+    const specifier = "../../../domain/valueobjects/authoring-error.ts";
     const runtimeImports = extractRuntimeImports(`import { AuthoringError } from "${specifier}";`);
     expect(runtimeImports.filter(isCoreRuntimeImport)).toEqual([specifier]);
   });
 
   // RED-PROOF: a source with a runtime import from ../core/session is detected.
   it("[red-proof] a runtime import from ../core/session is flagged as a violation", () => {
-    const fixtureSource = `import { Session } from "../core/session.ts";`;
+    const fixtureSource = `import { Session } from "../../../../../core/session.ts";`;
     const runtimeImports = extractRuntimeImports(fixtureSource);
     const violations = runtimeImports.filter(isCoreRuntimeImport);
-    expect(violations).toContain("../core/session.ts");
+    expect(violations).toContain("../../../../../core/session.ts");
   });
 
   // RED-PROOF: a type-only import from ../core/wire is NOT flagged (type imports are erased).

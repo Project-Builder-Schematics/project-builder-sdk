@@ -19,7 +19,7 @@ import { FORMAT_VERSION, type TranscriptRecord } from "../../support/corpus-form
 import { specifiersResolvingInto, stripComments } from "../../support/import-scan.ts";
 
 const RENDERER_SOURCE_PATH = new URL("../../support/run-report-render.ts", import.meta.url).pathname;
-const RENDERER_PATH = new URL("../../../src/pending-directives/render.ts", import.meta.url).pathname;
+const RENDERER_PATH = new URL("../../../src/bounded-contexts/authoring/application/usecases/pending-directives/render.ts", import.meta.url).pathname;
 const PARALLEL_MAP_FIXTURE = new URL(
   "../../fixtures/red/author-emulation/parallel-kind-map-renderer.ts",
   import.meta.url
@@ -143,7 +143,7 @@ describe("run-report-render — REPORTS_DIR/reportPathFor are the single pinned 
 });
 
 describe("run-report-render — no second op→kind lookup table exists in the renderer's source (RPT-01.1)", () => {
-  it("the renderer imports renderPendingDirectives from src/pending-directives/render.ts — the one kind mechanism", () => {
+  it("the renderer imports renderPendingDirectives from the pending-directives use case — the one kind mechanism", () => {
     const source = readFileSync(RENDERER_SOURCE_PATH, "utf-8");
     const resolved = specifiersResolvingInto(source, dirname(RENDERER_SOURCE_PATH), RENDERER_PATH);
     expect(resolved.length).toBeGreaterThan(0);

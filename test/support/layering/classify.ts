@@ -20,8 +20,16 @@ export type Class =
   | { kind: "public-entry"; testKit: boolean }
   | { kind: "process-entry" };
 
-// `dialect` names the dialect folder a file sits in (adapter files and public barrels alike).
-export type Classified = Class & { legacy: boolean; mixed?: readonly string[]; dialect?: string };
+// `dialect` names the dialect folder a file sits in (adapter files and public barrels alike);
+// `useCase` names the application/usecases/<name>/ folder; `scaffoldPart` marks the files the
+// scaffold use case is built from outside its own folder.
+export type Classified = Class & {
+  legacy: boolean;
+  mixed?: readonly string[];
+  dialect?: string;
+  useCase?: string;
+  scaffoldPart?: true;
+};
 
 type LegacyRow = { path: string; class: Class; mixed?: readonly string[] };
 
@@ -35,12 +43,6 @@ export const LEGACY: readonly LegacyRow[] = [
   { path: "src/core/", class: authoring("domain") },
   { path: "src/core/emit-rejection.ts", class: { kind: "acl", counterpart: "irwire" } },
   { path: "src/dialects/", class: authoring("infrastructure-out") },
-  { path: "src/pending-directives/", class: authoring("application") },
-  { path: "src/scaffold/", class: authoring("application") },
-  { path: "src/scaffold/filename-pipeline.ts", class: authoring("domain") },
-  { path: "src/scaffold/walk.ts", class: authoring("infrastructure-out") },
-  { path: "src/scaffold/path-guards.ts", class: authoring("infrastructure-out") },
-  { path: "src/scaffold/classify-transport.ts", class: authoring("infrastructure-out") },
   { path: "src/testing/", class: authoring("testing") },
   { path: "src/conformance/", class: authoring("testing") },
   { path: "src/transport/", class: runnerHosting("infrastructure-in") },
@@ -98,21 +100,33 @@ function classifyLegacy(path: string): LegacyRow | undefined {
 
 export type Entries = { publicEntries: ReadonlySet<string>; testKitEntries: ReadonlySet<string>; processEntries: ReadonlySet<string> };
 
-function dialectOf(path: string): { dialect?: string } {
-  const match = /^src\/(?:dialects|bounded-contexts\/authoring\/infrastructure\/out\/dialects)\/([^/]+)\/./.exec(path);
-  return match ? { dialect: match[1]! } : {};
+export const SCAFFOLD_PARTS: ReadonlySet<string> = new Set([
+  "src/bounded-contexts/authoring/domain/services/filename-pipeline.ts",
+  "src/bounded-contexts/authoring/infrastructure/out/fs/walk.ts",
+  "src/bounded-contexts/authoring/infrastructure/out/fs/path-guards.ts",
+  "src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts",
+]);
+
+function unitOf(path: string): Pick<Classified, "dialect" | "useCase" | "scaffoldPart"> {
+  const dialect = /^src\/(?:dialects|bounded-contexts\/authoring\/infrastructure\/out\/dialects)\/([^/]+)\/./.exec(path);
+  const useCase = /^src\/bounded-contexts\/[^/]+\/application\/usecases\/([^/]+)\/./.exec(path);
+  return {
+    ...(dialect ? { dialect: dialect[1]! } : {}),
+    ...(useCase ? { useCase: useCase[1]! } : {}),
+    ...(SCAFFOLD_PARTS.has(path) ? { scaffoldPart: true as const } : {}),
+  };
 }
 
 /** Classifies one repo-relative path; throws ClassificationError for anything unknown. */
 export function classify(path: string, entries: Entries): Classified {
   if (entries.publicEntries.has(path)) {
-    return { kind: "public-entry", testKit: entries.testKitEntries.has(path), legacy: false, ...dialectOf(path) };
+    return { kind: "public-entry", testKit: entries.testKitEntries.has(path), legacy: false, ...unitOf(path) };
   }
   if (entries.processEntries.has(path)) return { kind: "process-entry", legacy: false };
   const target = classifyTarget(path);
-  if (target !== undefined) return { ...target, legacy: false, ...dialectOf(path) };
+  if (target !== undefined) return { ...target, legacy: false, ...unitOf(path) };
   const row = classifyLegacy(path);
-  if (row !== undefined) return { ...row.class, legacy: true, ...(row.mixed ? { mixed: row.mixed } : {}), ...dialectOf(path) };
+  if (row !== undefined) return { ...row.class, legacy: true, ...(row.mixed ? { mixed: row.mixed } : {}), ...unitOf(path) };
   throw new ClassificationError(`${path}: unclassified — add it to the target layout or the LEGACY table`);
 }
 

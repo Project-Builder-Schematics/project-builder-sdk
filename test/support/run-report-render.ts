@@ -5,7 +5,7 @@
 // does not itself capture anything — it takes the capture's output as input, so it never
 // imports `ir-transcript.ts` (FIT-25 scope).
 import type { Directive } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { renderPendingDirectives } from "../../src/pending-directives/render.ts";
+import { renderPendingDirectives } from "../../src/bounded-contexts/authoring/application/usecases/pending-directives/render.ts";
 import type { TranscriptRecord } from "./corpus-format.ts";
 
 export const REPORTS_DIR = "test/e2e/author-emulation/reports";

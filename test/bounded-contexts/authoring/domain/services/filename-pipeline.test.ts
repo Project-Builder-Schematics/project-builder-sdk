@@ -12,8 +12,8 @@ import {
   isIncluded,
   detectDestinationCollisions,
   type PipelineResult,
-} from "../../src/scaffold/filename-pipeline.ts";
-import { expectReason } from "../support/expect-reason.ts";
+} from "../../../../../src/bounded-contexts/authoring/domain/services/filename-pipeline.ts";
+import { expectReason } from "../../../../support/expect-reason.ts";
 
 describe("translateTokens — REQ-FSC-05 step 2", () => {
   it("__name@dasherize__ translates to {= .name | dasherize =} (the spec-pinned example)", () => {

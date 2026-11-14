@@ -26,9 +26,9 @@ import * as fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { statSourceForRead, validateSourceLexical, validateDestinationLexical } from "../../src/scaffold/path-guards.ts";
-import { expectReason } from "../support/expect-reason.ts";
-import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { statSourceForRead, validateSourceLexical, validateDestinationLexical } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/path-guards.ts";
+import { expectReason } from "../../../../../support/expect-reason.ts";
+import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
 
 const originalStatSync = fs.statSync;
 

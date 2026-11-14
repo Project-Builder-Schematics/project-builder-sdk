@@ -7,7 +7,7 @@
 // already-enumerated `walk.ts` entries.
 
 import { posix } from "node:path";
-import { invalidInput } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { invalidInput } from "../valueobjects/authoring-error.ts";
 
 const TEMPLATE_SUFFIX = ".template";
 const TOKEN_MARKER = "__";

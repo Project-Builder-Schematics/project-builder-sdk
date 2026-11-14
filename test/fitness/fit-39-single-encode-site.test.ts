@@ -23,9 +23,9 @@ import { collectTsFiles, stripComments } from "../support/import-scan.ts";
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = join(PROJECT_ROOT, "src");
 const DIRECTIVE_FACTORY_FILE = join(SRC_DIR, "bounded-contexts/authoring/domain/services/directive-factory.ts");
-const CLASSIFY_TRANSPORT_FILE = join(SRC_DIR, "scaffold", "classify-transport.ts");
+const CLASSIFY_TRANSPORT_FILE = join(SRC_DIR, "bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts");
 const COMMONS_FILE = join(SRC_DIR, "commons", "index.ts");
-const EXPANDER_FILE = join(SRC_DIR, "scaffold", "expander.ts");
+const EXPANDER_FILE = join(SRC_DIR, "bounded-contexts/authoring/application/usecases/scaffold/expander.ts");
 const ALLOWED_FILES = new Set([DIRECTIVE_FACTORY_FILE, CLASSIFY_TRANSPORT_FILE]);
 
 // An options-targeting JSON.stringify call — a second, independent encode site bypassing
@@ -74,7 +74,7 @@ describe("fit-39 — single-encode-site (encodeOptions confined to directive-fac
     expect(siteViolations(readFileSync(COMMONS_FILE, "utf-8"))).toEqual([]);
   });
 
-  it("src/scaffold/expander.ts holds no encode site (verb layer funnels through the factory)", () => {
+  it("the scaffold expander holds no encode site (verb layer funnels through the factory)", () => {
     expect(siteViolations(readFileSync(EXPANDER_FILE, "utf-8"))).toEqual([]);
   });
 

@@ -15,10 +15,10 @@
 import { describe, it, expect } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { scaffold, copyIn, create, AuthoringError } from "../../src/commons/index.ts";
-import { scratchDirFactory } from "../support/scratch-dir.ts";
-import { collectOps } from "../support/spy-client.ts";
+import { runFactoryForTest } from "../../../../../../src/testing/index.ts";
+import { scaffold, copyIn, create, AuthoringError } from "../../../../../../src/commons/index.ts";
+import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
+import { collectOps } from "../../../../../support/spy-client.ts";
 
 const scratchDir = scratchDirFactory("scaffold-fake-");
 
