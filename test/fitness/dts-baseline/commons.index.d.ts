@@ -2,7 +2,7 @@ import type { JsonValue } from "../bounded-contexts/authoring/domain/valueobject
 import type { FoundHandle, WritableHandle } from "../bounded-contexts/authoring/domain/entities/handle-state.ts";
 import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import type { ScaffoldArgs } from "../scaffold/index.ts";
+import type { ScaffoldArgs } from "../bounded-contexts/authoring/application/usecases/scaffold/index.ts";
 export type { FoundHandle, WritableHandle };
 export { AuthoringError };
 export type { AuthoringVerb, AuthoringReason, AuthoringOrigin };
@@ -244,7 +244,7 @@ export declare function move(path: string, toDir: string, opts?: {
 export declare function copy(from: string, to: string, opts?: {
     force?: boolean;
 }): WritableHandle;
-import type { PendingDirective } from "../pending-directives/render.ts";
+import type { PendingDirective } from "../bounded-contexts/authoring/application/usecases/pending-directives/render.ts";
 export type { PendingDirective };
 /**
  * Returns the Directives still pending in the active Session's buffer, rendered in
