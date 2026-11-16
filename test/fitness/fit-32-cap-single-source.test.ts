@@ -39,9 +39,11 @@ function capSourceViolations(source: string, relPath: string): string[] {
   return violations;
 }
 
-// wire.ts held the cap until it moved to shared-kernel/batch-cap.ts (the one home, outside this
-// scan); it now only delegates, so it is scanned like the rest.
+// wire.ts held the cap until it moved to shared-kernel/batch-cap.ts; it now only delegates, so it
+// is scanned like the rest. batch-cap.ts is the cap's one home, so the scan leaves it out.
 const WIRE_VO_FILE = join(PROJECT_ROOT, "src/bounded-contexts/authoring/domain/valueobjects/wire.ts");
+const CAP_HOME_FILE = join(PROJECT_ROOT, "src/shared-kernel/batch-cap.ts");
+const capScopeFiles = (): string[] => [...transportScopeFiles(PROJECT_ROOT).filter((file) => file !== CAP_HOME_FILE), WIRE_VO_FILE];
 
 function scan(files: readonly string[]): { file: string; violations: string[] }[] {
   return files.map((file) => ({
@@ -52,16 +54,17 @@ function scan(files: readonly string[]): { file: string; violations: string[] }[
 
 describe("fit-32 — cap-single-source (BATCH_CAP_BYTES imported, exceedsBatchCap the sole comparison)", () => {
   it("the walk reaches the real transport/fake/harness modules (non-vacuous)", () => {
-    const transportFiles = transportScopeFiles(PROJECT_ROOT);
+    const transportFiles = capScopeFiles();
     expect(transportFiles).toContain(join(PROJECT_ROOT, "src/shared-kernel/framing.ts"));
     expect(transportFiles).toContain(join(PROJECT_ROOT, "src/acl/irwire/frame-reader.ts"));
     expect(transportFiles).toContain(join(PROJECT_ROOT, "src/acl/irwire/stdio-engine-client.ts"));
-    expect(transportFiles).not.toContain(join(PROJECT_ROOT, "src/shared-kernel/batch-cap.ts"));
+    expect(transportScopeFiles(PROJECT_ROOT)).toContain(CAP_HOME_FILE);
+    expect(transportFiles).not.toContain(CAP_HOME_FILE);
     expect(collectTsFiles(HARNESS_DIR)).toContain(join(HARNESS_DIR, "batch-cap-fixtures.ts"));
   });
 
   describe("production scan — src/transport/** and the files that left it, plus wire.ts", () => {
-    for (const { file, violations } of scan([...transportScopeFiles(PROJECT_ROOT), WIRE_VO_FILE])) {
+    for (const { file, violations } of scan(capScopeFiles())) {
       it(`${file.replace(PROJECT_ROOT, "")} holds no re-derived cap comparison or spelled-out literal`, () => {
         expect(violations).toEqual([]);
       });

@@ -1,22 +1,22 @@
-// The files that moved out of src/transport into the target layout, src-relative. A guard whose
-// scope is src/transport keeps that scope over these files too, by exact path: nothing else
-// under src/acl/, src/shared-kernel/ or src/platform/ counts as transport.
+// The code that took over src/transport's role, src-relative, for the guards whose scope was
+// src/transport/**. Folders count whole, so a file added to one later is still scanned; platform/
+// is shared by every context, so there only the file that left src/transport counts.
 import { join } from "node:path";
+import { collectTsFiles } from "./import-scan.ts";
 
-export const REPLACED_TRANSPORT_FILES: readonly string[] = [
-  "acl/irwire/stdio-engine-client.ts",
-  "acl/irwire/frame-reader.ts",
-  "shared-kernel/framing.ts",
-  "shared-kernel/wire-protocol.ts",
-  "platform/error-text.ts",
-  "bounded-contexts/runner-hosting/infrastructure/in/runner.ts",
-  "bounded-contexts/runner-hosting/infrastructure/in/factory-pointer.ts",
-  "bounded-contexts/runner-hosting/infrastructure/in/exit-codes.ts",
-  "bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.ts",
-  "bounded-contexts/runner-hosting/infrastructure/in/bootstrap-bridge.ts",
+export const TRANSPORT_SCOPE_FOLDERS: readonly string[] = [
+  "bounded-contexts/runner-hosting/infrastructure/in",
+  "acl/irwire",
+  "shared-kernel",
 ];
 
-/** Absolute paths of every file that moved out of src/transport, which is now empty. */
+export const TRANSPORT_SCOPE_FILES: readonly string[] = ["platform/error-text.ts"];
+
+/** Absolute paths of every .ts file under the scope folders, plus the scope files. */
 export function transportScopeFiles(projectRoot: string): string[] {
-  return REPLACED_TRANSPORT_FILES.map((file) => join(projectRoot, "src", file));
+  const src = join(projectRoot, "src");
+  return [
+    ...TRANSPORT_SCOPE_FOLDERS.flatMap((folder) => collectTsFiles(join(src, folder))),
+    ...TRANSPORT_SCOPE_FILES.map((file) => join(src, file)),
+  ];
 }
