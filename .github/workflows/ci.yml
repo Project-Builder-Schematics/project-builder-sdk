@@ -1,10 +1,19 @@
 name: CI
 
+# A PR commit runs once, through pull_request. Main and the nightly run cover everything merged.
 on:
-  push:
-    branches-ignore:
-      - main
   pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+# A new commit on a PR cancels that PR's older run; runs on main and scheduled runs are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # No id-token permission here — fork PRs must never have publish credentials.
 permissions:

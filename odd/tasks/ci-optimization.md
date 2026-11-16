@@ -11,7 +11,8 @@ Branch: `chore/ci-optimization` (from origin/main 048cd2c). Delivery: PR per sli
 - S4 — Run test files in parallel inside the one job with `bun test --parallel=<N>` (Bun 1.3.14 runs files in worker processes, isolated). This keeps the single `Run tests` step that `test/pyramid/pyramid-codification.test.ts` (REQ-03) and `test/fitness/fit-23-publish-workflow-guard.test.ts` read. The gain must be measured before adoption, since some suites share `dist/` through `test/support/shared-build.ts`.
 - S5 — Deferred by the user (L4). Path gate, fail-closed: CI skips the suite only when every changed file is in an explicit allowlist that no job reads (`odd/**`, `.atl/**`, `.github/ISSUE_TEMPLATE/**`, `.github/PULL_REQUEST_TEMPLATE.md`). Any other path runs everything. A gate job that always runs keeps the required check name `Test, typecheck, build` and passes when the suite passed or was skipped by the gate. Low value today (0 of the last 40 merged PRs would have skipped); kept only if the user wants it.
 - S6 — Safety net: the full suite runs on every push to main and nightly at 06:00 UTC, whatever the paths. CodeQL default setup and the publish workflow are untouched.
-- S7 — The `rules` job that the `sdk` session adds in its R0 slice joins the gate's `needs`, runs in parallel with the suite, and follows the same path gate.
+- S7 — The `rules` job that the `sdk` session adds in its R0 slice joins the gate's `needs`, runs in parallel with the suite, and follows the same path gate. With S5 deferred there is no gate: the `rules` job (R0, #188) sits in the same workflow, so it takes the S2 triggers and the S3 concurrency.
+- S8 — R0's review warnings, folded into this PR because they touch `ci.yml` (L7): "the designed pass runs after an install failure (ci.yml:102-104)" and "same-repo runs without the secret (ci.yml:56-63)"; plus the test-side findings in `architecture-checkout.test.ts`: "catalog vacuity :43-57, pin vs checkout :26-30, URL pathname :13".
 
 ## Tasks
 
@@ -19,8 +20,9 @@ Branch: `chore/ci-optimization` (from origin/main 048cd2c). Delivery: PR per sli
 |----|-------|-------|--------|--------|
 | T1 | S1 | inline | done — analysis below | — |
 | T2 | S4 | inline, heavy run needs the slot | pending — measure `--parallel` locally and on a draft PR | — |
-| T3 | S2, S3, S6 | inline | decided (L3, L5); waits for R0 to land | — |
-| T4 | S5, S7 | inline | S5 deferred (L4); S7 waits for R0 | — |
+| T3 | S2, S3, S6, S7 | inline | done — actionlint clean, fit-23 and pyramid pass | this commit |
+| T4 | S5 | inline | deferred (L4) | — |
+| T5 | S8 | inline | pending | — |
 
 Route evidence: one understood change per slice, no writer trigger.
 
@@ -89,3 +91,5 @@ Typecheck reads `src/`, `test/`, `bin/`, `scripts/`, `conformance/` and the tsco
 - L4 (2026-11-14, user via the orchestrator, decision b): "Si me parece". No path gate for now; revisit it later inside R0's gate job, for docs-only PRs. Note for that revisit: the doc tests (`test/docs/*`, `fit-raw-sweep`, `pyramid-codification`) read `docs/**` and the root `*.md`, so a docs-only PR can still break the suite. A docs gate would have to run at least those tests. Decision c (nightly run and time) is pending; edits wait for it and for R0.
 - L5 (2026-11-14, user via the orchestrator, decision c): "si dale, a las 06:00 UTC". The nightly full run is `schedule: cron: "0 6 * * *"`. All three CI decisions are made; `ci.yml` edits wait for R0 to land, and measuring `bun test --parallel` waits for the heavy slot.
 - L6 (2026-11-14, user via the orchestrator): "we're pausing once each session finishes its current slice... Don't start the CI-optimization edits or R1. Leave both feature docs resumable, with the next steps, and then stop." Paused before any `ci.yml` edit. The branch `chore/ci-optimization` (local, not pushed) holds only this document. Next steps on resume: (1) wait for R0 (`feat/architecture-rules-suite`) to merge, then rebase this branch onto main; (2) ask the orchestrator for the heavy slot and measure `bun test --parallel=N` (T2, S4); (3) write T3 (S2 triggers incl. cron "0 6 * * *", S3 concurrency, S6) and S7 (the R0 `rules` job joins the gate) in `ci.yml`, keeping the "Run tests" step name, SHA-pinned actions and the required check "Test, typecheck, build"; (4) one PR after the light fitness checks (fit-23, pyramid).
+
+- L7 (2026-11-16, via the orchestrator): "R0 (#188) is merged, and SDK main is bb50762." Order: "(1) CI optimization on chore/ci-optimization, rebased onto main, with the decisions the user made: triggers: PR, push to main, nightly at cron "0 6 * * *", and dispatch; concurrency cancels in-progress PR runs; no path filter. Then ask me for the slot to measure `bun test --parallel`. (2) Fold R0's review warnings into that same CI PR, since they touch ci.yml: the designed pass runs after an install failure (ci.yml:102-104); same-repo runs without the secret (ci.yml:56-63). Fold the test-side findings in architecture-checkout.test.ts (catalog vacuity :43-57, pin vs checkout :26-30, URL pathname :13) in as well. (3) After that, R1: json and yaml." Rebased onto bb50762. T3 writes S2, S3 and S6 in `ci.yml`; the concurrency group is the PR number, else the ref, and only `pull_request` runs cancel. S7 needs nothing more without a gate.
