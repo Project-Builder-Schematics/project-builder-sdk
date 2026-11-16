@@ -56,9 +56,8 @@ jobs:
     env:
       HAS_ARCHITECTURE_TOKEN: ${{ secrets.ARCHITECTURE_READ_TOKEN != '' }}
       # Fork PRs and Dependabot runs get no Actions secrets, so only they may skip the suite; in
-      # any other run of this repository a missing token or checkout is a defect. A Dependabot run
-      # is named by its actor or, for a re-run of its PR, by the PR's author.
-      SECRETS_WITHHELD: ${{ github.repository != 'Project-Builder-Schematics/project-builder-sdk' || github.event.pull_request.head.repo.fork == true || github.actor == 'dependabot[bot]' || github.event.pull_request.user.login == 'dependabot[bot]' }}
+      # any other run of this repository a missing token or checkout is a defect.
+      SECRETS_WITHHELD: ${{ github.repository != 'Project-Builder-Schematics/project-builder-sdk' || github.event.pull_request.head.repo.fork == true || github.actor == 'dependabot[bot]' }}
       RULES_REQUIRE_ARCHITECTURE: "1"
 
     steps:
