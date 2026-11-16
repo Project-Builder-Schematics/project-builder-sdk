@@ -4,13 +4,13 @@
  */
 import { describe, expect, it } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { relative } from "node:path";
+import { join, relative } from "node:path";
 import { STEP_DEFINITIONS } from "../../../src/acceptance/step-definitions.ts";
 import { catalogPhrases, compilePhrase } from "../../../src/acceptance/runner/catalog.ts";
 import { ARCHITECTURE_ROOT, loadPickles, requireArchitecture } from "../../../src/acceptance/runner/features.ts";
 import { DESIGNED, IMPLEMENTED, select } from "../../../src/acceptance/runner/selection.ts";
 
-const PROJECT_ROOT = new URL("../../../", import.meta.url).pathname;
+const PROJECT_ROOT = join(import.meta.dir, "../../..");
 
 function git(cwd: string, args: string[]): string {
   const result = spawnSync("git", args, { cwd, encoding: "utf-8" });
@@ -23,8 +23,13 @@ if (requireArchitecture()) {
   const catalog = catalogPhrases();
 
   describe("the architecture pin", () => {
+    const gitlink = git(PROJECT_ROOT, ["ls-tree", "HEAD", relative(PROJECT_ROOT, ARCHITECTURE_ROOT)]).split(/\s+/)[2]!;
+
+    it("is the commit the checkout has, so the suite reads the pinned rules", () => {
+      expect(git(ARCHITECTURE_ROOT, ["rev-parse", "HEAD"])).toBe(gitlink);
+    });
+
     it("is a v* release tag of project-builder-architecture", () => {
-      const gitlink = git(PROJECT_ROOT, ["ls-tree", "HEAD", relative(PROJECT_ROOT, ARCHITECTURE_ROOT)]).split(/\s+/)[2]!;
       const tags = git(ARCHITECTURE_ROOT, ["tag", "--points-at", gitlink]).split("\n");
       expect(tags.filter((tag) => /^v\d+\.\d+\.\d+$/.test(tag))).not.toEqual([]);
     });
@@ -41,6 +46,12 @@ if (requireArchitecture()) {
   });
 
   describe("the step catalog", () => {
+    // Just under the 638 phrases at v0.17.0, so a table format change cannot empty the catalog
+    // and pass the checks below vacuously.
+    it("reads at least 600 phrases", () => {
+      expect(catalog.length).toBeGreaterThanOrEqual(600);
+    });
+
     it("compiles every phrase as a Cucumber expression", () => {
       expect(catalog.filter((phrase) => {
         try {

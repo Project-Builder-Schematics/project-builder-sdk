@@ -54,9 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_ARCHITECTURE_TOKEN: ${{ secrets.ARCHITECTURE_READ_TOKEN != '' }}
-      # Fork PRs get no secrets, so only they may skip the suite; in this repository a missing
-      # token or checkout is a defect.
-      IS_FORK: ${{ github.repository != 'Project-Builder-Schematics/project-builder-sdk' || github.event.pull_request.head.repo.fork == true }}
+      # Fork PRs and Dependabot runs get no Actions secrets, so only they may skip the suite; in
+      # any other run of this repository a missing token or checkout is a defect.
+      SECRETS_WITHHELD: ${{ github.repository != 'Project-Builder-Schematics/project-builder-sdk' || github.event.pull_request.head.repo.fork == true || github.actor == 'dependabot[bot]' }}
       RULES_REQUIRE_ARCHITECTURE: "1"
 
     steps:
@@ -65,11 +65,11 @@ jobs:
       - name: Skip notice when the architecture token is absent
         if: env.HAS_ARCHITECTURE_TOKEN != 'true'
         run: |
-          if [ "$IS_FORK" != "true" ]; then
+          if [ "$SECRETS_WITHHELD" != "true" ]; then
             echo "::error::ARCHITECTURE_READ_TOKEN is missing in the canonical repository."
             exit 1
           fi
-          echo "::notice::ARCHITECTURE_READ_TOKEN is not available (fork PR); the architecture rules suite is skipped."
+          echo "::notice::ARCHITECTURE_READ_TOKEN is not available (fork PR or Dependabot); the architecture rules suite is skipped."
 
       - name: Resolve the pinned architecture commit
         if: env.HAS_ARCHITECTURE_TOKEN == 'true'
@@ -96,6 +96,7 @@ jobs:
 
       - name: Install dependencies
         if: env.HAS_ARCHITECTURE_TOKEN == 'true'
+        id: install
         run: bun install --frozen-lockfile
 
       - name: Runner self-tests
@@ -106,8 +107,8 @@ jobs:
         if: env.HAS_ARCHITECTURE_TOKEN == 'true'
         run: bun run rules:implemented
 
-      # Runs even when the strict pass fails, so the job output always shows what is still to
-      # be built.
+      # Runs even when the self-tests or the strict pass fail, so the job output always shows what
+      # is still to be built; it needs a successful install to say anything.
       - name: Designed rules (reports undefined steps)
-        if: ${{ !cancelled() && env.HAS_ARCHITECTURE_TOKEN == 'true' }}
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: bun run rules:designed
