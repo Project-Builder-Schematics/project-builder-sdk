@@ -26,7 +26,6 @@ export const EXCEPTIONS: readonly Exception[] = [
   { from: "src/transport/runner.ts", to: "src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts", rule: "crossContext", reason: "runner reaches Authoring's error type directly; it goes through the run-factory use case and the types it exposes", removedBy: "S11" },
   { from: "src/transport/runner.ts", to: "src/bounded-contexts/authoring/domain/services/schema/schema-locate.ts", rule: "crossContext", reason: "runner calls Authoring's schema services directly; it goes through the run-factory use case", removedBy: "S11" },
   { from: "src/transport/runner.ts", to: "src/bounded-contexts/authoring/domain/services/schema/schema-parse.ts", rule: "crossContext", reason: "runner calls Authoring's schema services directly; it goes through the run-factory use case", removedBy: "S11" },
-  { from: "src/transport/framing.ts", to: "src/bounded-contexts/authoring/domain/valueobjects/wire.ts", rule: "sharedKernelImports", reason: "the frame codec takes exceedsBatchCap from the domain wire module; the byte-count cap moves to shared-kernel/batch-cap.ts", removedBy: "S5" },
 ];
 
 // 18 at S0a. S1b added 4 interim rows and removed the handle → context row (21); S4 removed

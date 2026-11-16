@@ -19,7 +19,7 @@
 import { describe, it, expect } from "bun:test";
 import { runFactoryForTest } from "../../src/testing/index.ts";
 import { create, find, replaceContent, AuthoringError } from "../../src/commons/index.ts";
-import { EMIT_BATCH_BUDGET_BYTES } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../src/shared-kernel/batch-cap.ts";
 import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 describe("REQ-ATH-01 — runFactoryForTest result shape", () => {

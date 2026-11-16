@@ -9,7 +9,8 @@ import {
   decodeFrameBody,
   isOversizeDeclaredLength,
 } from "../../src/transport/framing.ts";
-import { BATCH_CAP_BYTES, exceedsBatchCap } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { exceedsBatchCap } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { BATCH_CAP_BYTES } from "../../src/shared-kernel/batch-cap.ts";
 import { batchOfSerializedBytes, batchOverSerializedBytes } from "../fake/batch-cap-fixtures.ts";
 
 describe("REQ-WPS-01 — frame envelope structure", () => {

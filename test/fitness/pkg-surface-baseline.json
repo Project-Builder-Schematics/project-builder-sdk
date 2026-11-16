@@ -224,6 +224,8 @@
     "dist/platform/fs-errors.d.ts",
     "dist/platform/fs-errors.js",
     "dist/runner-manifest.json",
+    "dist/shared-kernel/batch-cap.d.ts",
+    "dist/shared-kernel/batch-cap.js",
     "dist/testing/contract-fake.d.ts",
     "dist/testing/contract-fake.js",
     "dist/testing/index.d.ts",

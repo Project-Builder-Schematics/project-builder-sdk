@@ -5,12 +5,8 @@
 import { describe, it, expect } from "bun:test";
 import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
 import { EmitRejection } from "../../src/core/emit-rejection.ts";
-import {
-  BATCH_CAP_BYTES,
-  EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES,
-  serializedBatchBytes,
-  type Batch,
-} from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { serializedBatchBytes, type Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { BATCH_CAP_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES } from "../../src/shared-kernel/batch-cap.ts";
 import { ContractFake } from "../../src/testing/contract-fake.ts";
 import {
   FIXTURE_PATH,

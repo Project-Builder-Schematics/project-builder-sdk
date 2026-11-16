@@ -3,7 +3,7 @@
 // framing) guards that no other module re-implements this codec.
 
 import { Console } from "node:console";
-import { exceedsBatchCap } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { exceedsBatchCap } from "../shared-kernel/batch-cap.ts";
 
 export const LENGTH_PREFIX_BYTES = 4;
 

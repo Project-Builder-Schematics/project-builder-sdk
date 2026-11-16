@@ -17,7 +17,8 @@
 import { readFileSync } from "node:fs";
 import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
 import type { Directive, JsonValue } from "../../../domain/valueobjects/wire.ts";
-import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../../domain/valueobjects/wire.ts";
+import { serializedBatchSize } from "../../../domain/valueobjects/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../../../../shared-kernel/batch-cap.ts";
 import { encodeOptions, forceEntry } from "../../../domain/services/directive-factory.ts";
 import { sourceRejection, statSourceForRead } from "./path-guards.ts";
 
