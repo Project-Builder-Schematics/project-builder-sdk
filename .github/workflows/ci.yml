@@ -10,10 +10,11 @@ on:
     - cron: "0 6 * * *"
   workflow_dispatch:
 
-# A new commit on a PR cancels that PR's older run; runs on main and scheduled runs are never cancelled.
+# A new commit on a PR cancels that PR's older run. Every other run gets a group of its own, since
+# a group also drops its pending run when a newer one queues, so runs on main are never cancelled.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 # No id-token permission here — fork PRs must never have publish credentials.
 permissions:
