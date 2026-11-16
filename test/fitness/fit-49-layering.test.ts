@@ -28,7 +28,7 @@ const ORACLE_FILE = join(ROOT, "test/fitness/fit-49-oracle.txt");
 // silently drops code fails here instead of passing vacuously.
 const MIN_FILES = 75;
 const MIN_EDGES = 250;
-const KNOWN_EDGE: Edge = { from: "src/transport/stdio-engine-client.ts", to: "src/bounded-contexts/authoring/domain/ports/engine-client.ts" };
+const KNOWN_EDGE: Edge = { from: "src/acl/irwire/stdio-engine-client.ts", to: "src/bounded-contexts/authoring/domain/ports/engine-client.ts" };
 
 type Found = { from: string; to: string; rule: Rule };
 
@@ -197,6 +197,7 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "zod"],
     ["scaffoldLeaf", `${A}/infrastructure/out/fs/walk.ts`, "zod"],
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "src/acl/irwire/index.ts"],
+    ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "src/shared-kernel/framing.ts"],
     ["acceptance", "src/acceptance/runner/x.ts", `${A}/application/usecases/x.ts`],
     ["acceptance", "src/acceptance/runner/x.ts", "src/core/session.ts"],
     ["acceptance", "src/commons/index.ts", "src/acceptance/runner/x.ts"],
@@ -246,6 +247,7 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["platform/", `${A}/infrastructure/out/fs/walk.ts`, "src/platform/fs-errors.ts"],
     ["a node: builtin", `${A}/infrastructure/out/fs/walk.ts`, "node:fs"],
     ["the public entry importing it", "src/commons/index.ts", `${A}/application/usecases/scaffold/expander.ts`],
+    ["a file that left src/core", `${A}/application/usecases/scaffold/expander.ts`, "src/shared-kernel/batch-cap.ts"],
   ])("scaffold code may reach (or be reached by) %s", (_, from, to) => {
     expect(violation(at(from), to, to.startsWith("src/") ? at(to) : undefined)).not.toBe("scaffoldLeaf");
   });

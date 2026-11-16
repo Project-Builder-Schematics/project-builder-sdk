@@ -1,12 +1,12 @@
 // REQ-SEC-01 type leg (design § 4.6: "unit+type"): StdioEngineClient must satisfy the
 // EngineClient port with the EXACT signatures — no shape change (D2). Characterization pin:
-// the behavioural conformance was RED-driven in test/transport/stdio-engine-client.unit.test.ts;
+// the behavioural conformance was RED-driven in test/acl/irwire/stdio-engine-client.unit.test.ts;
 // this locks the compile-time contract so a future signature drift fails here by name.
 import { describe, it } from "bun:test";
 import { expectTypeOf } from "expect-type";
 import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
 import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { StdioEngineClient } from "../../src/transport/stdio-engine-client.ts";
+import { StdioEngineClient } from "../../src/acl/irwire/stdio-engine-client.ts";
 
 describe("REQ-SEC-01 — StdioEngineClient port conformance (type level)", () => {
   it("an instance is assignable to EngineClient", () => {

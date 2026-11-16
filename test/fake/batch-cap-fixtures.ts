@@ -3,7 +3,7 @@
 // arithmetic on JSON-escaping ratios, so the tests stay reproducible.
 
 import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { EMIT_BATCH_BUDGET_BYTES } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../src/shared-kernel/batch-cap.ts";
 
 // Fixed multi-byte + escaping prefix: 3-byte "€" plus an escaped quote, backslash, and
 // newline. Present in every fixture so a UTF-16-code-unit measurer AND a measurer that

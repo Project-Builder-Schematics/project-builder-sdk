@@ -8,7 +8,7 @@ import {
   isStructurallyValidGreeting,
   versionMatches,
   isReverseMethod,
-} from "../../src/transport/wire-protocol.ts";
+} from "../../src/shared-kernel/wire-protocol.ts";
 
 describe("REQ-WPS-02 — versioned ready handshake, fail-at-greeting", () => {
   describe("Scenario REQ-WPS-02.1: matching versions proceed", () => {

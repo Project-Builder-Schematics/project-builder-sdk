@@ -6,8 +6,8 @@
 // `sendReady()` explicitly (mirrors FrameHost's own convention) so a run can be held
 // genuinely "in flight" (SEC-02's overlap tests, fit-35) before it proceeds.
 
-import { encodeFrame } from "../../src/transport/framing.ts";
-import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
+import { encodeFrame } from "../../src/shared-kernel/framing.ts";
+import { WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
 import type { RunnerIo } from "../../src/transport/runner.ts";
 import { dispatchToFake } from "../fake/fake-engine-harness.ts";
 import { ContractFake } from "../../src/testing/contract-fake.ts";

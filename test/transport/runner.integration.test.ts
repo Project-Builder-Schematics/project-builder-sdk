@@ -6,8 +6,8 @@
 // semantics, FEH-01 posture).
 
 import { describe, it, expect } from "bun:test";
-import { encodeFrame } from "../../src/transport/framing.ts";
-import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../src/transport/wire-protocol.ts";
+import { encodeFrame } from "../../src/shared-kernel/framing.ts";
+import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
 import { runRunner, type RunnerIo } from "../../src/transport/runner.ts";
 import { enterBridge, BridgeVersionMismatchError, type BridgeProtection } from "../../src/transport/bootstrap-bridge.ts";
 import { dispatchToFake } from "../fake/fake-engine-harness.ts";

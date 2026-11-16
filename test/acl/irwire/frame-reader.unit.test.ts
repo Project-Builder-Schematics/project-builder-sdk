@@ -2,10 +2,10 @@
 // here — the full split/coalesced/EOF-mid-frame fault matrix (SEC-10) lands in S-001.
 
 import { describe, it, expect } from "bun:test";
-import { encodeFrame, LENGTH_PREFIX_BYTES } from "../../src/transport/framing.ts";
-import { FrameReader, FrameFault } from "../../src/transport/frame-reader.ts";
-import { TransportFault } from "../../src/transport/stdio-engine-client.ts";
-import { BATCH_CAP_BYTES } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { encodeFrame, LENGTH_PREFIX_BYTES } from "../../../src/shared-kernel/framing.ts";
+import { FrameReader, FrameFault } from "../../../src/acl/irwire/frame-reader.ts";
+import { TransportFault } from "../../../src/acl/irwire/stdio-engine-client.ts";
+import { BATCH_CAP_BYTES } from "../../../src/shared-kernel/batch-cap.ts";
 
 async function* chunksOf(...buffers: Buffer[]): AsyncGenerator<Buffer> {
   for (const buf of buffers) yield buf;

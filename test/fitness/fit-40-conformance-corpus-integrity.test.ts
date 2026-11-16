@@ -23,7 +23,7 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import packageJson from "../../package.json" with { type: "json" };
-import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
+import { WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
 import { IMPORT_SPECIFIER_RE, stripComments } from "../support/import-scan.ts";
 import { loadCorpus, listSubdirectories, type Case, type LoadedFixture } from "../support/conformance-fixture-loader.ts";
 import {
@@ -137,7 +137,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
       expect(checkWireSpecVersionAgreement(fixtures, corpus.wireSpecVersion)).toEqual([]);
     });
 
-    it("REQ-CCR-07.2: the agreed value equals WIRE_PROTOCOL_VERSION (src/transport/wire-protocol.ts)", () => {
+    it("REQ-CCR-07.2: the agreed value equals WIRE_PROTOCOL_VERSION (src/shared-kernel/wire-protocol.ts)", () => {
       expect(corpus.wireSpecVersion).toBe(WIRE_PROTOCOL_VERSION);
     });
   });

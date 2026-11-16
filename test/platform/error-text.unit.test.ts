@@ -17,7 +17,7 @@ import {
   composeWithToken,
   scrubAbsolutePaths,
   hostAnchors,
-} from "../../src/transport/error-text.ts";
+} from "../../src/platform/error-text.ts";
 
 describe("REQ-WPS-07 — bounded, no-echo, project-relative error text", () => {
   describe("Scenario REQ-WPS-07.1: error text is bounded under the documented ceiling", () => {

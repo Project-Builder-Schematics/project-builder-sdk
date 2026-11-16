@@ -5,6 +5,8 @@
 // the LEGACY table, by dominant role with the other roles listed in `mixed`; the table
 // shrinks as slices move files into the target tree.
 
+import { REPLACED_CORE_FILES } from "../replaced-core.ts";
+
 export const CONTEXTS = ["authoring", "runner-hosting"] as const;
 export const ACL_COUNTERPARTS = ["irwire"] as const;
 const DOMAIN_FOLDERS = new Set(["aggregates", "entities", "valueobjects", "services", "ports"]);
@@ -23,13 +25,15 @@ export type Class =
 
 // `dialect` names the dialect folder a file sits in (adapter files and public barrels alike);
 // `useCase` names the application/usecases/<name>/ folder; `scaffoldPart` marks the files the
-// scaffold use case is built from outside its own folder.
+// scaffold use case is built from outside its own folder; `formerCore` marks a file that moved
+// out of src/core (test/support/replaced-core.ts).
 export type Classified = Class & {
   legacy: boolean;
   mixed?: readonly string[];
   dialect?: string;
   useCase?: string;
   scaffoldPart?: true;
+  formerCore?: true;
 };
 
 type LegacyRow = { path: string; class: Class; mixed?: readonly string[] };
@@ -42,16 +46,10 @@ const runnerHosting = (layer: Layer): Class => ({ kind: "context", context: "run
 export const LEGACY: readonly LegacyRow[] = [
   { path: "src/commons/", class: authoring("application") },
   { path: "src/core/", class: authoring("domain") },
-  { path: "src/core/emit-rejection.ts", class: { kind: "acl", counterpart: "irwire" } },
   { path: "src/dialects/", class: authoring("infrastructure-out") },
   { path: "src/testing/", class: authoring("testing") },
   { path: "src/conformance/", class: authoring("testing") },
   { path: "src/transport/", class: runnerHosting("infrastructure-in") },
-  { path: "src/transport/stdio-engine-client.ts", class: { kind: "acl", counterpart: "irwire" } },
-  { path: "src/transport/frame-reader.ts", class: { kind: "acl", counterpart: "irwire" } },
-  { path: "src/transport/framing.ts", class: { kind: "shared-kernel" } },
-  { path: "src/transport/wire-protocol.ts", class: { kind: "shared-kernel" } },
-  { path: "src/transport/error-text.ts", class: { kind: "platform" } },
   { path: "bin/emit-type.ts", class: authoring("infrastructure-in") },
   { path: "bin/project-codegen.ts", class: authoring("infrastructure-in") },
 ];
@@ -109,13 +107,16 @@ export const SCAFFOLD_PARTS: ReadonlySet<string> = new Set([
   "src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts",
 ]);
 
-function unitOf(path: string): Pick<Classified, "dialect" | "useCase" | "scaffoldPart"> {
+const FORMER_CORE = new Set(REPLACED_CORE_FILES.map((file) => `src/${file}`));
+
+function unitOf(path: string): Pick<Classified, "dialect" | "useCase" | "scaffoldPart" | "formerCore"> {
   const dialect = /^src\/(?:dialects|bounded-contexts\/authoring\/infrastructure\/out\/dialects)\/([^/]+)\/./.exec(path);
   const useCase = /^src\/bounded-contexts\/[^/]+\/application\/usecases\/([^/]+)\/./.exec(path);
   return {
     ...(dialect ? { dialect: dialect[1]! } : {}),
     ...(useCase ? { useCase: useCase[1]! } : {}),
     ...(SCAFFOLD_PARTS.has(path) ? { scaffoldPart: true as const } : {}),
+    ...(FORMER_CORE.has(path) ? { formerCore: true as const } : {}),
   };
 }
 

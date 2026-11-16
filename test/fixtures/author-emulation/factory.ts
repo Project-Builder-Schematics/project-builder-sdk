@@ -18,7 +18,8 @@ import { findReservedSibling } from "../../../src/bounded-contexts/authoring/inf
 import { rejectionForReservedName } from "../../../src/bounded-contexts/authoring/domain/services/schema/input-rejection.ts";
 import { create, copyIn, scaffold } from "../../../src/commons/index.ts";
 import type { ScaffoldOptions } from "../../../src/commons/index.ts";
-import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { serializedBatchSize } from "../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES } from "../../../src/shared-kernel/batch-cap.ts";
 import type { Directive } from "../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { materializeByteFill, materializeGitHostileFixtures } from "../../support/author-emulation-setup.ts";
 import type { Input } from "./schema.generated.ts";

@@ -5,7 +5,7 @@
 against `docs/engine-sdk-wire-design.md` (that file is now the historical decision record,
 reconciled to rev 3 alongside this doc's creation — see its header).
 **Reconciled against BUILT code**: `stdio-engine-client` (2026-07-15) — every shape below is
-read directly off the shipped SDK code (`src/transport/**`, `src/bounded-contexts/authoring/domain/valueobjects/wire.ts`), not proposed
+read directly off the shipped SDK code (`src/acl/irwire/**`, `src/shared-kernel/**`, `src/bounded-contexts/authoring/domain/valueobjects/wire.ts`), not proposed
 from first principles. A value that drifts from here fails `fit-33`/`fit-34` at build/test
 time, never a runtime desync (REQ-WPS-06/WPS-11).
 
@@ -25,7 +25,7 @@ Every message — in both directions — travels as:
 The prefix is the UTF-8 SERIALIZED byte length of the body — never the JS string's UTF-16
 `.length` — so multi-byte payloads (e.g. non-ASCII characters) round-trip exactly. There is no
 delimiter byte and no newline framing; the length prefix is the only frame boundary signal.
-Single owner in the SDK: `src/transport/framing.ts`'s `encodeFrame`/`decodeFrameBody`.
+Single owner in the SDK: `src/shared-kernel/framing.ts`'s `encodeFrame`/`decodeFrameBody`.
 
 Fault posture on a received frame: a body that fails to parse as JSON rejects the ONE pending
 call (classified `malformed`) but does NOT tear the connection down — the body's boundary was
@@ -176,7 +176,7 @@ const EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES = 82; // fixed ir.emit envelope allowa
 const EMIT_BATCH_BUDGET_BYTES = BATCH_CAP_BYTES - EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES; // 4194222
 ```
 
-`BATCH_CAP_BYTES` (SDK, `src/bounded-contexts/authoring/domain/valueobjects/wire.ts`) MUST equal the engine's `MaxMessageBytes` BY VALUE
+`BATCH_CAP_BYTES` (SDK, `src/shared-kernel/batch-cap.ts`) MUST equal the engine's `MaxMessageBytes` BY VALUE
 — a shared cross-repo constant-naming contract, not merely a coincidental match. The cap
 applies to the ENCODED FRAME BODY — the serialized JSON the length prefix counts — on both
 legs:
@@ -197,7 +197,7 @@ legs:
   IDENTICAL budget through the same `exceedsEmitBatchBudget` measurer — the fake and the real
   transport cannot diverge on the same batch.
 
-`fit-34` (`FEH-06`) fails the SDK's own test suite the moment `src/bounded-contexts/authoring/domain/valueobjects/wire.ts`'s exported
+`fit-34` (`FEH-06`) fails the SDK's own test suite the moment `src/shared-kernel/batch-cap.ts`'s exported
 values drift from the `4194304` / `82` literals pinned here — a build/test-time failure, never
 a runtime desync against a live engine.
 

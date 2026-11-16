@@ -11,7 +11,7 @@ import { join, relative } from "node:path";
 import { frameHostFactory } from "../support/frame-host.ts";
 import { serveSpawnedRunner } from "./fake-engine-harness.ts";
 import { ContractFake } from "../../src/testing/contract-fake.ts";
-import { BRIDGE_CONTRACT_VERSION } from "../../src/transport/wire-protocol.ts";
+import { BRIDGE_CONTRACT_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const RUNNER_BIN = new URL("../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;

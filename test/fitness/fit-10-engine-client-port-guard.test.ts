@@ -16,7 +16,7 @@
  *
  * Allow-list (ADR-01, stdio-engine-client change): `src/testing/contract-fake.ts` (REQ-TES-07,
  * post-relocation ADR-0035 — the original legitimate `EngineClient` implementer / `EmitRejection`
- * thrower) PLUS `src/transport/stdio-engine-client.ts` — the first REAL `EngineClient`
+ * thrower) PLUS `src/acl/irwire/stdio-engine-client.ts` — the first REAL `EngineClient`
  * implementer, extending the allow-list by EXACTLY one path. A structural `implements
  * EngineClient` exception was rejected at design time (spoofable by a planted bypass); a path
  * allow-list cannot be spoofed. The facade `src/testing/index.ts` is explicitly RULED OFF this
@@ -43,7 +43,7 @@ const CORE_DIRS: readonly string[] = [
   join(SRC_ROOT, "bounded-contexts/authoring/application/usecases/run-factory"),
 ];
 
-const ALLOW_LISTED_PATHS: readonly string[] = ["src/testing/contract-fake.ts", "src/transport/stdio-engine-client.ts"];
+const ALLOW_LISTED_PATHS: readonly string[] = ["src/testing/contract-fake.ts", "src/acl/irwire/stdio-engine-client.ts"];
 
 const PORT_SYMBOL_PATTERN = /\b(?:EngineClient|EmitRejection)\b/;
 const PORT_CALL_PATTERN = /\.(emit|commit|discard)\(/g;
@@ -132,8 +132,8 @@ export function bypass(): never {
 
   // ADR-01 (stdio-engine-client change): the FIT-10 allow-list is widened by EXACTLY one
   // path — the first real EngineClient implementer.
-  it("src/transport/stdio-engine-client.ts (real source) is allow-listed clean", () => {
-    const relPath = "src/transport/stdio-engine-client.ts";
+  it("src/acl/irwire/stdio-engine-client.ts (real source) is allow-listed clean", () => {
+    const relPath = "src/acl/irwire/stdio-engine-client.ts";
     const source = readFileSync(join(PROJECT_ROOT, relPath), "utf-8");
     const violations = scanPortBleed(source, relPath);
     expect(violations).toEqual([]);
@@ -210,7 +210,7 @@ export function describe(directive: Directive): JsonValue {
 
   describe("REQ-TES-07 — allow-list transition post fake relocation", () => {
     it("REQ-TES-07.1 (ADR-01 amendment): the allow-list is exactly these two paths", () => {
-      expect(ALLOW_LISTED_PATHS).toEqual(["src/testing/contract-fake.ts", "src/transport/stdio-engine-client.ts"]);
+      expect(ALLOW_LISTED_PATHS).toEqual(["src/testing/contract-fake.ts", "src/acl/irwire/stdio-engine-client.ts"]);
     });
 
     // RED-PROOF (REQ-TES-07.2): the facade is NOT on the allow-list — naming EngineClient

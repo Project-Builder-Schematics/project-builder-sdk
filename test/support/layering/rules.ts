@@ -23,7 +23,7 @@ export const RULES = {
   dialectIsolation:
     "a dialect adapter imports only domain/, shared-kernel/, platform/, its own folder, the siblings ALLOWED_SIBLINGS lists and no runtime I/O; only composition, its public barrel and those siblings import it (proposal 3.2)",
   scaffoldLeaf:
-    "only the scaffold use case, its parts and the entry points import the scaffold use case; scaffold code imports only itself, domain/, platform/, the run-factory use case and node: builtins",
+    "only the scaffold use case, its parts and the entry points import the scaffold use case; scaffold code imports only itself, domain/, platform/, the run-factory use case, files that left src/core and node: builtins",
   noClosedDialectSet: "domain/ and application/ never name a dialect: no string literal equal to a dialect folder name or a declared extension (proposal 3.2)",
 } as const;
 
@@ -79,7 +79,7 @@ function scaffoldLeaf(from: Classified, to: string, toClass: Classified | undefi
   if (toClass?.useCase === "scaffold" && !inScaffold(from) && !isEntry(from)) return true;
   if (!inScaffold(from)) return false;
   if (toClass === undefined) return !(to.startsWith("node:") || to.startsWith("process."));
-  return !(inScaffold(toClass) || isLayer(toClass, "domain") || toClass.kind === "platform" || toClass.useCase === "run-factory");
+  return !(inScaffold(toClass) || isLayer(toClass, "domain") || toClass.kind === "platform" || toClass.useCase === "run-factory" || toClass.formerCore === true);
 }
 
 /** The rule `from → to` breaks, or undefined. `toClass` is undefined for an external module. */

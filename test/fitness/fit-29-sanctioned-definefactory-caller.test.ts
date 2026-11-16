@@ -118,7 +118,7 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
   it("[red-proof] ADR-07: a planted defineFactory import from an unrelated src/transport/** file is flagged", () => {
     const fakeSource = `import { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";`;
     const fakeDir = join(SRC_DIR, "transport");
-    expect(isAllowlisted(join(SRC_DIR, "transport/framing.ts"))).toBe(false);
+    expect(isAllowlisted(join(SRC_DIR, "transport/bootstrap-bridge.ts"))).toBe(false);
     expect(specifiersResolvingInto(definesFactoryImportLines(fakeSource), fakeDir, CONTEXT_FILE)).toEqual([
       "../bounded-contexts/authoring/application/usecases/run-factory/context.ts",
     ]);

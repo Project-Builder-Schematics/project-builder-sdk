@@ -20,16 +20,16 @@ import { defineFactory } from "../bounded-contexts/authoring/application/usecase
 import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { locateFirstJsonSyntaxError } from "../bounded-contexts/authoring/domain/services/schema/schema-locate.ts";
 import { formatLocator } from "../bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
-import { FrameReader, FrameFault } from "./frame-reader.ts";
-import { WIRE_PROTOCOL_VERSION, isStructurallyValidGreeting, versionMatches } from "./wire-protocol.ts";
+import { FrameReader, FrameFault } from "../acl/irwire/frame-reader.ts";
+import { WIRE_PROTOCOL_VERSION, isStructurallyValidGreeting, versionMatches } from "../shared-kernel/wire-protocol.ts";
 import {
   StdioEngineClient,
   TransportFault,
   IntentRejectedError,
   OverlappingRunError,
   type FrameChannel,
-} from "./stdio-engine-client.ts";
-import { boundMessage, composeWithToken, scrubAbsolutePaths, toProjectRelativePath } from "./error-text.ts";
+} from "../acl/irwire/stdio-engine-client.ts";
+import { boundMessage, composeWithToken, scrubAbsolutePaths, toProjectRelativePath } from "../platform/error-text.ts";
 import { parseFactoryPointer, validateFactoryUrl, resolveFactoryExport } from "./factory-pointer.ts";
 import { probeSingleInstance } from "./single-instance-probe.ts";
 import { classifyExitCode } from "./exit-codes.ts";

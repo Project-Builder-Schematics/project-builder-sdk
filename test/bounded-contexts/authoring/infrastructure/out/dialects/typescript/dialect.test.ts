@@ -22,7 +22,7 @@ import * as ts from "../../../../../../../src/dialects/typescript/index.ts";
 import { detectNewLineKind, parse, print } from "../../../../../../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
 import { addImport } from "../../../../../../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ops.ts";
 import type { Directive } from "../../../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { BATCH_CAP_BYTES } from "../../../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { BATCH_CAP_BYTES } from "../../../../../../../src/shared-kernel/batch-cap.ts";
 import { makeSpyClient, collectModifies } from "../../../../../../support/spy-client.ts";
 import { golden } from "../../../../../../support/golden.ts";
 

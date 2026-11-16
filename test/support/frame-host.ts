@@ -12,9 +12,9 @@
 import { afterEach } from "bun:test";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
-import { encodeFrame } from "../../src/transport/framing.ts";
-import { FrameReader } from "../../src/transport/frame-reader.ts";
-import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
+import { encodeFrame } from "../../src/shared-kernel/framing.ts";
+import { FrameReader } from "../../src/acl/irwire/frame-reader.ts";
+import { WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
 
 const KILL_WAIT_TIMEOUT_MS = 2000;
 

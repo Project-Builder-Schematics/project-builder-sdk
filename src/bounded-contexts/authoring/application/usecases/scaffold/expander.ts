@@ -31,7 +31,8 @@ import { currentContext, requirePackageAnchors } from "../run-factory/context.ts
 import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
 import { forceEntry } from "../../../domain/services/directive-factory.ts";
 import type { JsonValue } from "../../../domain/valueobjects/wire.ts";
-import { EMIT_BATCH_BUDGET_BYTES, serializedBatchSize } from "../../../domain/valueobjects/wire.ts";
+import { serializedBatchSize } from "../../../domain/valueobjects/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../../../../shared-kernel/batch-cap.ts";
 import { walkFolder } from "../../../infrastructure/out/fs/walk.ts";
 import {
   runFilenamePipeline,

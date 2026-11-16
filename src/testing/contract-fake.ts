@@ -8,8 +8,9 @@
 import { posix as path } from "node:path";
 import type { EngineClient } from "../bounded-contexts/authoring/domain/ports/engine-client.ts";
 import type { Batch, Directive } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { EMIT_BATCH_BUDGET_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES, exceedsEmitBatchBudget } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { EmitRejection } from "../core/emit-rejection.ts";
+import { exceedsEmitBatchBudget } from "../bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { EMIT_BATCH_BUDGET_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES } from "../shared-kernel/batch-cap.ts";
+import { EmitRejection } from "../bounded-contexts/authoring/domain/ports/emit-rejection.ts";
 import { deepEqual } from "../platform/deep-equal.ts";
 import {
   CONTRACT_FAKE_PREFIX,

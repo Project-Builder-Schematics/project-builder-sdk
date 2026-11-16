@@ -10,7 +10,7 @@
 // preservation falls out of the classifier's own narrowness, not a special case.
 
 import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { TransportFault, IntentRejectedError } from "./stdio-engine-client.ts";
+import { TransportFault, IntentRejectedError } from "../acl/irwire/stdio-engine-client.ts";
 
 export type ExitCode = 0 | 1 | 2 | 3 | 4;
 

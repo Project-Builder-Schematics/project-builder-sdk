@@ -6,7 +6,8 @@
 // Deterministic by construction: the filler is plain ASCII, sized by measuring the probe
 // directive's own serialized envelope — no randomness, no environment dependence.
 import { create } from "../../../../src/index.ts";
-import { BATCH_CAP_BYTES, serializedBatchSize, type Directive } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { serializedBatchSize, type Directive } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { BATCH_CAP_BYTES } from "../../../../src/shared-kernel/batch-cap.ts";
 
 const PATH = "boundary.txt";
 

@@ -9,7 +9,7 @@ import { describe, it, expect } from "bun:test";
 import type { EngineClient } from "../../../../../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
 import { Session } from "../../../../../../src/bounded-contexts/authoring/domain/aggregates/session/session.ts";
 import { AuthoringError } from "../../../../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { TransportFault } from "../../../../../../src/transport/stdio-engine-client.ts";
+import { TransportFault } from "../../../../../../src/acl/irwire/stdio-engine-client.ts";
 
 function rejectingClient(rejection: unknown): EngineClient {
   return {

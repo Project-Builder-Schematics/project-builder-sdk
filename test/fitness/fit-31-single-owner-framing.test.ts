@@ -15,12 +15,13 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { collectTsFiles } from "../support/import-scan.ts";
-import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
+import { transportScopeFiles } from "../support/replaced-transport.ts";
+import { WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const TRANSPORT_DIR = join(PROJECT_ROOT, "src/transport");
-const FRAMING_FILE = join(TRANSPORT_DIR, "framing.ts");
+const FRAMING_FILE = join(PROJECT_ROOT, "src/shared-kernel/framing.ts");
+const FRAME_READER_FILE = join(PROJECT_ROOT, "src/acl/irwire/frame-reader.ts");
 const DESIGN_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-design.md");
 const WIRE_SPEC_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-spec.md");
 
@@ -102,12 +103,12 @@ function missingMandatedSections(text: string): string[] {
 describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconciliation", () => {
   describe("single-owner-of-framing — only framing.ts constructs a length-prefix frame", () => {
     it("the walk reaches the real transport modules (non-vacuous)", () => {
-      const files = collectTsFiles(TRANSPORT_DIR);
+      const files = transportScopeFiles(PROJECT_ROOT);
       expect(files).toContain(FRAMING_FILE);
-      expect(files).toContain(join(TRANSPORT_DIR, "frame-reader.ts"));
+      expect(files).toContain(FRAME_READER_FILE);
     });
 
-    for (const file of collectTsFiles(TRANSPORT_DIR)) {
+    for (const file of transportScopeFiles(PROJECT_ROOT)) {
       it(`${file.replace(PROJECT_ROOT, "")} holds no re-implemented frame-encode length prefix`, () => {
         expect(frameEncodeViolations(readFileSync(file, "utf-8"), file)).toEqual([]);
       });
@@ -119,9 +120,9 @@ describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconcili
     });
 
     it("[red-proof] frame-reader.ts's legitimate readUInt32BE length-prefix peek is NOT flagged", () => {
-      const source = readFileSync(join(TRANSPORT_DIR, "frame-reader.ts"), "utf-8");
+      const source = readFileSync(FRAME_READER_FILE, "utf-8");
       expect(source).toContain("readUInt32BE");
-      expect(frameEncodeViolations(source, join(TRANSPORT_DIR, "frame-reader.ts"))).toEqual([]);
+      expect(frameEncodeViolations(source, FRAME_READER_FILE)).toEqual([]);
     });
   });
 

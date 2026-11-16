@@ -1,8 +1,11 @@
 {
   "nodes": [
+    "acl/irwire/frame-reader.js",
+    "acl/irwire/stdio-engine-client.js",
     "bin/pbuilder-runner.js",
     "bounded-contexts/authoring/application/usecases/run-factory/context.js",
     "bounded-contexts/authoring/domain/aggregates/session/session.js",
+    "bounded-contexts/authoring/domain/ports/emit-rejection.js",
     "bounded-contexts/authoring/domain/services/directive-factory.js",
     "bounded-contexts/authoring/domain/services/run-context.js",
     "bounded-contexts/authoring/domain/services/schema/input-rejection.js",
@@ -13,23 +16,61 @@
     "bounded-contexts/authoring/domain/valueobjects/schema-model.js",
     "bounded-contexts/authoring/domain/valueobjects/wire.js",
     "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
-    "core/emit-rejection.js",
+    "platform/error-text.js",
     "platform/fs-errors.js",
-    "transport/error-text.js",
+    "shared-kernel/batch-cap.js",
+    "shared-kernel/framing.js",
+    "shared-kernel/wire-protocol.js",
     "transport/exit-codes.js",
     "transport/factory-pointer.js",
-    "transport/frame-reader.js",
-    "transport/framing.js",
     "transport/runner.js",
-    "transport/single-instance-probe.js",
-    "transport/stdio-engine-client.js",
-    "transport/wire-protocol.js"
+    "transport/single-instance-probe.js"
   ],
   "edges": [
     {
+      "from": "acl/irwire/frame-reader.js",
+      "to": "acl/irwire/stdio-engine-client.js",
+      "specifier": "./stdio-engine-client.js"
+    },
+    {
+      "from": "acl/irwire/frame-reader.js",
+      "to": "shared-kernel/framing.js",
+      "specifier": "../../shared-kernel/framing.js"
+    },
+    {
+      "from": "acl/irwire/stdio-engine-client.js",
+      "to": "bounded-contexts/authoring/domain/ports/emit-rejection.js",
+      "specifier": "../../bounded-contexts/authoring/domain/ports/emit-rejection.js"
+    },
+    {
+      "from": "acl/irwire/stdio-engine-client.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/wire.js",
+      "specifier": "../../bounded-contexts/authoring/domain/valueobjects/wire.js"
+    },
+    {
+      "from": "acl/irwire/stdio-engine-client.js",
+      "to": "platform/error-text.js",
+      "specifier": "../../platform/error-text.js"
+    },
+    {
+      "from": "acl/irwire/stdio-engine-client.js",
+      "to": "shared-kernel/framing.js",
+      "specifier": "../../shared-kernel/framing.js"
+    },
+    {
       "from": "bin/pbuilder-runner.js",
-      "to": "transport/error-text.js",
-      "specifier": "../transport/error-text.js"
+      "to": "acl/irwire/stdio-engine-client.js",
+      "specifier": "../acl/irwire/stdio-engine-client.js"
+    },
+    {
+      "from": "bin/pbuilder-runner.js",
+      "to": "platform/error-text.js",
+      "specifier": "../platform/error-text.js"
+    },
+    {
+      "from": "bin/pbuilder-runner.js",
+      "to": "shared-kernel/framing.js",
+      "specifier": "../shared-kernel/framing.js"
     },
     {
       "from": "bin/pbuilder-runner.js",
@@ -38,18 +79,8 @@
     },
     {
       "from": "bin/pbuilder-runner.js",
-      "to": "transport/framing.js",
-      "specifier": "../transport/framing.js"
-    },
-    {
-      "from": "bin/pbuilder-runner.js",
       "to": "transport/runner.js",
       "specifier": "../transport/runner.js"
-    },
-    {
-      "from": "bin/pbuilder-runner.js",
-      "to": "transport/stdio-engine-client.js",
-      "specifier": "../transport/stdio-engine-client.js"
     },
     {
       "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
@@ -128,8 +159,13 @@
     },
     {
       "from": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
-      "to": "core/emit-rejection.js",
-      "specifier": "../../../../core/emit-rejection.js"
+      "to": "bounded-contexts/authoring/domain/ports/emit-rejection.js",
+      "specifier": "../ports/emit-rejection.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/domain/valueobjects/wire.js",
+      "to": "shared-kernel/batch-cap.js",
+      "specifier": "../../../../shared-kernel/batch-cap.js"
     },
     {
       "from": "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
@@ -142,14 +178,19 @@
       "specifier": "../../../../../platform/fs-errors.js"
     },
     {
-      "from": "transport/exit-codes.js",
-      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
-      "specifier": "../bounded-contexts/authoring/domain/valueobjects/authoring-error.js"
+      "from": "shared-kernel/framing.js",
+      "to": "shared-kernel/batch-cap.js",
+      "specifier": "./batch-cap.js"
     },
     {
       "from": "transport/exit-codes.js",
-      "to": "transport/stdio-engine-client.js",
-      "specifier": "./stdio-engine-client.js"
+      "to": "acl/irwire/stdio-engine-client.js",
+      "specifier": "../acl/irwire/stdio-engine-client.js"
+    },
+    {
+      "from": "transport/exit-codes.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+      "specifier": "../bounded-contexts/authoring/domain/valueobjects/authoring-error.js"
     },
     {
       "from": "transport/factory-pointer.js",
@@ -157,19 +198,14 @@
       "specifier": "../bounded-contexts/authoring/application/usecases/run-factory/context.js"
     },
     {
-      "from": "transport/frame-reader.js",
-      "to": "transport/framing.js",
-      "specifier": "./framing.js"
+      "from": "transport/runner.js",
+      "to": "acl/irwire/frame-reader.js",
+      "specifier": "../acl/irwire/frame-reader.js"
     },
     {
-      "from": "transport/frame-reader.js",
-      "to": "transport/stdio-engine-client.js",
-      "specifier": "./stdio-engine-client.js"
-    },
-    {
-      "from": "transport/framing.js",
-      "to": "bounded-contexts/authoring/domain/valueobjects/wire.js",
-      "specifier": "../bounded-contexts/authoring/domain/valueobjects/wire.js"
+      "from": "transport/runner.js",
+      "to": "acl/irwire/stdio-engine-client.js",
+      "specifier": "../acl/irwire/stdio-engine-client.js"
     },
     {
       "from": "transport/runner.js",
@@ -193,8 +229,13 @@
     },
     {
       "from": "transport/runner.js",
-      "to": "transport/error-text.js",
-      "specifier": "./error-text.js"
+      "to": "platform/error-text.js",
+      "specifier": "../platform/error-text.js"
+    },
+    {
+      "from": "transport/runner.js",
+      "to": "shared-kernel/wire-protocol.js",
+      "specifier": "../shared-kernel/wire-protocol.js"
     },
     {
       "from": "transport/runner.js",
@@ -208,48 +249,13 @@
     },
     {
       "from": "transport/runner.js",
-      "to": "transport/frame-reader.js",
-      "specifier": "./frame-reader.js"
-    },
-    {
-      "from": "transport/runner.js",
       "to": "transport/single-instance-probe.js",
       "specifier": "./single-instance-probe.js"
     },
     {
-      "from": "transport/runner.js",
-      "to": "transport/stdio-engine-client.js",
-      "specifier": "./stdio-engine-client.js"
-    },
-    {
-      "from": "transport/runner.js",
-      "to": "transport/wire-protocol.js",
-      "specifier": "./wire-protocol.js"
-    },
-    {
       "from": "transport/single-instance-probe.js",
-      "to": "transport/error-text.js",
-      "specifier": "./error-text.js"
-    },
-    {
-      "from": "transport/stdio-engine-client.js",
-      "to": "bounded-contexts/authoring/domain/valueobjects/wire.js",
-      "specifier": "../bounded-contexts/authoring/domain/valueobjects/wire.js"
-    },
-    {
-      "from": "transport/stdio-engine-client.js",
-      "to": "core/emit-rejection.js",
-      "specifier": "../core/emit-rejection.js"
-    },
-    {
-      "from": "transport/stdio-engine-client.js",
-      "to": "transport/error-text.js",
-      "specifier": "./error-text.js"
-    },
-    {
-      "from": "transport/stdio-engine-client.js",
-      "to": "transport/framing.js",
-      "specifier": "./framing.js"
+      "to": "platform/error-text.js",
+      "specifier": "../platform/error-text.js"
     }
   ],
   "builtins": [

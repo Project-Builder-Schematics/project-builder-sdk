@@ -57,6 +57,21 @@ If any of these has changed on your side, tell us — several of them are load-b
 > beyond its relative import specifiers; the third-party, dynamic-import, resolution and
 > environment rows above still hold.
 
+> **SDK note, 2026-11-16 (engine client and frame codec).** The closure is now **25 `.js` files**,
+> so the manifest carries **26 records** with `package.json`. The new file is
+> `shared-kernel/batch-cap.js`: the batch byte cap and its comparison moved out of
+> `domain/valueobjects/wire.js`, which imports it. Six files changed path:
+> `transport/{stdio-engine-client,frame-reader}.js` → `acl/irwire/`, `transport/{framing,wire-protocol}.js`
+> → `shared-kernel/`, `transport/error-text.js` → `platform/` and `core/emit-rejection.js` →
+> `bounded-contexts/authoring/domain/ports/`. The per-folder split is `bin/`×1, `transport/`×4,
+> `acl/irwire/`×2, `shared-kernel/`×3, `platform/`×2 and under `bounded-contexts/authoring/`:
+> `application/usecases/run-factory/`×1, `domain/aggregates/session/`×1, `domain/ports/`×1,
+> `domain/services/`×2, `domain/services/schema/`×4, `domain/valueobjects/`×3 and
+> `infrastructure/out/fs/`×1. Apart from the cap moving into its own module and the file-path
+> comment on the first line of `frame-reader.js` and `wire-protocol.js`, no file's content changed
+> beyond its relative import specifiers; the third-party, dynamic-import, resolution and
+> environment rows above still hold.
+
 ---
 
 ## Deliverable — `dist/runner-manifest.json`
