@@ -4,7 +4,7 @@
 // bind the second writer to the FIRST capture's stub, silently sending every frame of the
 // second run to stderr. Spawned by framing-capture.e2e.test.ts (never imported into bun
 // test's shared process — the capture mutates global process state).
-import { captureFd1FrameWriter } from "../../src/transport/framing.ts";
+import { captureFd1FrameWriter } from "../../src/shared-kernel/framing.ts";
 
 const first = captureFd1FrameWriter();
 first({ marker: "first-capture" });

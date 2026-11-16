@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { toAuthoringError, AuthoringError, type AuthoringReason, type AuthoringVerb } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { EmitRejection, type EmitRejectionCode } from "../../src/core/emit-rejection.ts";
+import { EmitRejection, type EmitRejectionCode } from "../../src/bounded-contexts/authoring/domain/ports/emit-rejection.ts";
 import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { batchOf, createOp, modifyOp, deleteOp, renameOp, copyOp, moveOp, copyInOp } from "../fake/directive-builders.ts";
 

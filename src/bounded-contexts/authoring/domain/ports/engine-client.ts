@@ -7,7 +7,7 @@ import type { Batch } from "../valueobjects/wire.ts";
 
 export interface EngineClient {
   // ADR-0022 rejection convention: an implementation MUST reject with an `EmitRejection`
-  // (src/core/emit-rejection.ts) carrying `{ code, failedIndex?, appliedCount }` — never a
+  // (domain/ports/emit-rejection.ts) carrying `{ code, failedIndex?, appliedCount }` — never a
   // bare Error — so `toAuthoringError` can attribute the actual offending directive
   // without reading message text. The signature stays `Promise<void>`; this is a
   // documented convention on the rejection VALUE, not a type-level contract. Stage 6's

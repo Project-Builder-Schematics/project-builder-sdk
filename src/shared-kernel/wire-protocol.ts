@@ -1,4 +1,4 @@
-// src/transport/wire-protocol.ts — wire-level constants, frame shapes, and structural
+// src/shared-kernel/wire-protocol.ts — wire-level constants, frame shapes, and structural
 // guards (WPS-02/03/05/09). design.md § 4.3 Data Model gives these signatures verbatim.
 
 export const WIRE_PROTOCOL_VERSION = 1; // ready.protocolVersion (transport) — DISTINCT from Batch.protocolVersion (IR)

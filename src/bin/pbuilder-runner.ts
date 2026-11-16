@@ -14,10 +14,10 @@
 // src/ -> bin/ imports, so the shared root cannot live here).
 
 import { runRunner } from "../transport/runner.ts";
-import { captureFd1FrameWriter, redirectConsoleToStderr } from "../transport/framing.ts";
+import { captureFd1FrameWriter, redirectConsoleToStderr } from "../shared-kernel/framing.ts";
 import { classifyExitCode } from "../transport/exit-codes.ts";
-import { TransportFault } from "../transport/stdio-engine-client.ts";
-import { boundMessage } from "../transport/error-text.ts";
+import { TransportFault } from "../acl/irwire/stdio-engine-client.ts";
+import { boundMessage } from "../platform/error-text.ts";
 
 if (import.meta.main) {
   const writeFrame = captureFd1FrameWriter();

@@ -8,8 +8,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { frameHostFactory } from "./frame-host.ts";
 
-const FRAMING_PATH = new URL("../../src/transport/framing.ts", import.meta.url).pathname;
-const FRAME_READER_PATH = new URL("../../src/transport/frame-reader.ts", import.meta.url).pathname;
+const FRAMING_PATH = new URL("../../src/shared-kernel/framing.ts", import.meta.url).pathname;
+const FRAME_READER_PATH = new URL("../../src/acl/irwire/frame-reader.ts", import.meta.url).pathname;
 
 // A minimal standalone fixture (not production code): reads each framed message from stdin
 // and echoes it straight back framed on stdout. Self-contained via absolute imports of the

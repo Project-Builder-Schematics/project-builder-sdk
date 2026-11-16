@@ -27,5 +27,6 @@ export const REPLACED_CORE_FILES: readonly string[] = [
   "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts",
   "platform/fs-errors.ts",
   "shared-kernel/batch-cap.ts",
+  "bounded-contexts/authoring/domain/ports/emit-rejection.ts",
   "bounded-contexts/authoring/application/usecases/run-factory/context.ts",
 ];

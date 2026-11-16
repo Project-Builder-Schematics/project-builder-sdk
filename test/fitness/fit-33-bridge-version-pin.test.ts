@@ -1,6 +1,6 @@
 /**
  * fit-33 (design § 4.7, bridge-version pin — S-005, stdio-engine-client change):
- * `BRIDGE_CONTRACT_VERSION` (`src/transport/wire-protocol.ts`) MUST equal the value declared
+ * `BRIDGE_CONTRACT_VERSION` (`src/shared-kernel/wire-protocol.ts`) MUST equal the value declared
  * in the normative wire-spec doc's Bridge Contract (BRB-01) section — co-versioned with, but
  * tracked INDEPENDENTLY of, `WIRE_PROTOCOL_VERSION` (BRB-01 independence).
  *
@@ -10,7 +10,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BRIDGE_CONTRACT_VERSION, WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
+import { BRIDGE_CONTRACT_VERSION, WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const WIRE_SPEC_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-spec.md");

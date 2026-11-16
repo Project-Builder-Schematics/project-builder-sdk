@@ -1,4 +1,4 @@
-// src/transport/frame-reader.ts — streaming reassembler over raw chunks (e.g. stdin) into
+// src/acl/irwire/frame-reader.ts — streaming reassembler over raw chunks (e.g. stdin) into
 // logical frames. Owns chunk-boundary handling (split/coalesced/EOF-mid-frame, SEC-10);
 // never byte-scans for a delimiter — length-prefixed only. Delegates body decoding AND the
 // inbound reject-before-alloc cap check to framing.ts (single owner of the codec, fit-31 /
@@ -11,7 +11,7 @@
 // (a structurally-odd-but-valid-JSON object, e.g. `{type:"notification"}`, is WPS-03's job,
 // never a frame-reader fail-closed fault).
 
-import { decodeFrameBody, isOversizeDeclaredLength, LENGTH_PREFIX_BYTES } from "./framing.ts";
+import { decodeFrameBody, isOversizeDeclaredLength, LENGTH_PREFIX_BYTES } from "../../shared-kernel/framing.ts";
 import { TransportFault } from "./stdio-engine-client.ts";
 
 // REQ-SEC-08.1: the per-frame fault marker. A malformed BODY is fully consumed by the time

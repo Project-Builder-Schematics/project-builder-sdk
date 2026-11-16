@@ -3,27 +3,27 @@
 // guard, rejection-mapping edge cases, timeout, fail-closed) land in S-001/S-003.
 
 import { describe, it, expect } from "bun:test";
-import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
-import { EmitRejection } from "../../src/core/emit-rejection.ts";
-import { serializedBatchBytes, type Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { BATCH_CAP_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES } from "../../src/shared-kernel/batch-cap.ts";
-import { ContractFake } from "../../src/testing/contract-fake.ts";
+import type { EngineClient } from "../../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import { EmitRejection } from "../../../src/bounded-contexts/authoring/domain/ports/emit-rejection.ts";
+import { serializedBatchBytes, type Batch } from "../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { BATCH_CAP_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES } from "../../../src/shared-kernel/batch-cap.ts";
+import { ContractFake } from "../../../src/testing/contract-fake.ts";
 import {
   FIXTURE_PATH,
   batchOfSerializedBytes,
   batchOverSerializedBytes,
   batchAtEmitBudget,
   batchOverEmitBudget,
-} from "../fake/batch-cap-fixtures.ts";
-import { encodeFrame, encodeFrameBody } from "../../src/transport/framing.ts";
-import { FrameReader, FrameFault } from "../../src/transport/frame-reader.ts";
-import { pushableByteSource } from "../support/pushable-byte-source.ts";
+} from "../../fake/batch-cap-fixtures.ts";
+import { encodeFrame, encodeFrameBody } from "../../../src/shared-kernel/framing.ts";
+import { FrameReader, FrameFault } from "../../../src/acl/irwire/frame-reader.ts";
+import { pushableByteSource } from "../../support/pushable-byte-source.ts";
 import {
   StdioEngineClient,
   IntentRejectedError,
   TransportFault,
   type FrameChannel,
-} from "../../src/transport/stdio-engine-client.ts";
+} from "../../../src/acl/irwire/stdio-engine-client.ts";
 
 // Scripted in-memory double: replies to the LAST written request via a per-method responder
 // table. Single-in-flight only (ADR-03) — matches the client's own sequential contract.

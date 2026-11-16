@@ -1,11 +1,12 @@
 /**
  * fit-32 (design § 4.7, cap-single-source — S-001, stdio-engine-client change):
- * `BATCH_CAP_BYTES` is imported from `src/core/wire.ts` and never re-declared as a numeric
- * literal, and the `>` cap comparison lives ONLY inside `wire.ts`'s `exceedsBatchCap` —
- * across transport (`src/transport/**`), the fake (`src/testing/contract-fake.ts`), and the
- * harness (`test/fake/**`). `wire.ts` itself is outside the scanned scope (it lives in
- * `src/core/`), so no exemption list is needed: the one legitimate `>` comparison and the
- * one legitimate numeric literal both live structurally outside what this check scans.
+ * `BATCH_CAP_BYTES` is imported from `src/shared-kernel/batch-cap.ts` and never re-declared as
+ * a numeric literal, and the `>` cap comparison lives ONLY inside `batch-cap.ts`'s
+ * `exceedsBatchCap` — across transport (`src/transport/**` and the files that moved out of it,
+ * `test/support/replaced-transport.ts`), the domain `wire.ts` that delegates to it, the fake
+ * (`src/testing/contract-fake.ts`), and the harness (`test/fake/**`). `batch-cap.ts` itself is
+ * outside the scanned scope, so no exemption list is needed: the one legitimate `>` comparison
+ * and the one legitimate numeric literal both live structurally outside what this check scans.
  *
  * Red-proof: inline planted fixtures (fit-10/fit-29/fit-30's established no-fixture-file
  * pattern).
@@ -14,9 +15,9 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { collectTsFiles } from "../support/import-scan.ts";
+import { transportScopeFiles } from "../support/replaced-transport.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
-const TRANSPORT_DIR = join(PROJECT_ROOT, "src/transport");
 const CONTRACT_FAKE_FILE = join(PROJECT_ROOT, "src/testing/contract-fake.ts");
 const HARNESS_DIR = join(PROJECT_ROOT, "test/fake");
 
@@ -38,8 +39,12 @@ function capSourceViolations(source: string, relPath: string): string[] {
   return violations;
 }
 
-function scanDir(dir: string): { file: string; violations: string[] }[] {
-  return collectTsFiles(dir).map((file) => ({
+// wire.ts held the cap until it moved to shared-kernel/batch-cap.ts (the one home, outside this
+// scan); it now only delegates, so it is scanned like the rest.
+const WIRE_VO_FILE = join(PROJECT_ROOT, "src/bounded-contexts/authoring/domain/valueobjects/wire.ts");
+
+function scan(files: readonly string[]): { file: string; violations: string[] }[] {
+  return files.map((file) => ({
     file,
     violations: capSourceViolations(readFileSync(file, "utf-8"), file.replace(PROJECT_ROOT, "")),
   }));
@@ -47,15 +52,16 @@ function scanDir(dir: string): { file: string; violations: string[] }[] {
 
 describe("fit-32 — cap-single-source (BATCH_CAP_BYTES imported, exceedsBatchCap the sole comparison)", () => {
   it("the walk reaches the real transport/fake/harness modules (non-vacuous)", () => {
-    const transportFiles = collectTsFiles(TRANSPORT_DIR);
-    expect(transportFiles).toContain(join(TRANSPORT_DIR, "framing.ts"));
-    expect(transportFiles).toContain(join(TRANSPORT_DIR, "frame-reader.ts"));
-    expect(transportFiles).toContain(join(TRANSPORT_DIR, "stdio-engine-client.ts"));
+    const transportFiles = transportScopeFiles(PROJECT_ROOT);
+    expect(transportFiles).toContain(join(PROJECT_ROOT, "src/shared-kernel/framing.ts"));
+    expect(transportFiles).toContain(join(PROJECT_ROOT, "src/acl/irwire/frame-reader.ts"));
+    expect(transportFiles).toContain(join(PROJECT_ROOT, "src/acl/irwire/stdio-engine-client.ts"));
+    expect(transportFiles).not.toContain(join(PROJECT_ROOT, "src/shared-kernel/batch-cap.ts"));
     expect(collectTsFiles(HARNESS_DIR)).toContain(join(HARNESS_DIR, "batch-cap-fixtures.ts"));
   });
 
-  describe("production scan — src/transport/**", () => {
-    for (const { file, violations } of scanDir(TRANSPORT_DIR)) {
+  describe("production scan — src/transport/** and the files that left it, plus wire.ts", () => {
+    for (const { file, violations } of scan([...transportScopeFiles(PROJECT_ROOT), WIRE_VO_FILE])) {
       it(`${file.replace(PROJECT_ROOT, "")} holds no re-derived cap comparison or spelled-out literal`, () => {
         expect(violations).toEqual([]);
       });
@@ -68,7 +74,7 @@ describe("fit-32 — cap-single-source (BATCH_CAP_BYTES imported, exceedsBatchCa
   });
 
   describe("harness scan — test/fake/**", () => {
-    for (const { file, violations } of scanDir(HARNESS_DIR)) {
+    for (const { file, violations } of scan(collectTsFiles(HARNESS_DIR))) {
       it(`${file.replace(PROJECT_ROOT, "")} holds no re-derived cap comparison or spelled-out literal`, () => {
         expect(violations).toEqual([]);
       });

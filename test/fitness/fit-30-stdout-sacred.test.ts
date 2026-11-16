@@ -10,11 +10,11 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { collectTsFiles } from "../support/import-scan.ts";
+import { transportScopeFiles } from "../support/replaced-transport.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const TRANSPORT_DIR = join(PROJECT_ROOT, "src/transport");
-const FRAMING_FILE = join(TRANSPORT_DIR, "framing.ts");
+const FRAMING_FILE = join(PROJECT_ROOT, "src/shared-kernel/framing.ts");
 
 // Exactly ONE exemption — the file owning the captured-fd-1 writer. Its write-site count is
 // separately pinned to 1 below, so the exemption cannot hide a second writer.
@@ -30,7 +30,7 @@ function stdoutViolations(source: string, absPath: string): string[] {
 }
 
 describe("fit-30 — stdout is the wire (stdout-protocol-sacred, src/transport/**)", () => {
-  const files = collectTsFiles(TRANSPORT_DIR);
+  const files = transportScopeFiles(PROJECT_ROOT);
 
   it("the walk reaches the real transport modules (non-vacuous)", () => {
     expect(files).toContain(join(TRANSPORT_DIR, "runner.ts"));

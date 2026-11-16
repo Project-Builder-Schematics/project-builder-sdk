@@ -46,16 +46,10 @@ const runnerHosting = (layer: Layer): Class => ({ kind: "context", context: "run
 export const LEGACY: readonly LegacyRow[] = [
   { path: "src/commons/", class: authoring("application") },
   { path: "src/core/", class: authoring("domain") },
-  { path: "src/core/emit-rejection.ts", class: { kind: "acl", counterpart: "irwire" } },
   { path: "src/dialects/", class: authoring("infrastructure-out") },
   { path: "src/testing/", class: authoring("testing") },
   { path: "src/conformance/", class: authoring("testing") },
   { path: "src/transport/", class: runnerHosting("infrastructure-in") },
-  { path: "src/transport/stdio-engine-client.ts", class: { kind: "acl", counterpart: "irwire" } },
-  { path: "src/transport/frame-reader.ts", class: { kind: "acl", counterpart: "irwire" } },
-  { path: "src/transport/framing.ts", class: { kind: "shared-kernel" } },
-  { path: "src/transport/wire-protocol.ts", class: { kind: "shared-kernel" } },
-  { path: "src/transport/error-text.ts", class: { kind: "platform" } },
   { path: "bin/emit-type.ts", class: authoring("infrastructure-in") },
   { path: "bin/project-codegen.ts", class: authoring("infrastructure-in") },
 ];

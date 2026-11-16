@@ -24,8 +24,8 @@
 // (mirrors single-instance-probe.ts's injectable resolver).
 
 import { runRunner, type RunnerIo } from "./runner.ts";
-import { captureFd1FrameWriter, redirectConsoleToStderr } from "./framing.ts";
-import { BRIDGE_CONTRACT_VERSION } from "./wire-protocol.ts";
+import { captureFd1FrameWriter, redirectConsoleToStderr } from "../shared-kernel/framing.ts";
+import { BRIDGE_CONTRACT_VERSION } from "../shared-kernel/wire-protocol.ts";
 
 export class BridgeVersionMismatchError extends Error {
   constructor(expected: number, actual: number) {

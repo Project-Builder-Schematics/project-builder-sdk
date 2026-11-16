@@ -13,7 +13,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { runRunner, type RunnerIo } from "../../src/transport/runner.ts";
-import { OverlappingRunError } from "../../src/transport/stdio-engine-client.ts";
+import { OverlappingRunError } from "../../src/acl/irwire/stdio-engine-client.ts";
 import { makeInProcessHost } from "../support/in-process-host.ts";
 
 const HAPPY_POINTER = `file://${new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;

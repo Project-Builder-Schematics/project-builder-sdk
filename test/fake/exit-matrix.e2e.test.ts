@@ -17,10 +17,10 @@ import { join, relative } from "node:path";
 import { frameHostFactory } from "../support/frame-host.ts";
 import { serveSpawnedRunner } from "./fake-engine-harness.ts";
 import { ContractFake } from "../../src/testing/contract-fake.ts";
-import { encodeFrame } from "../../src/transport/framing.ts";
-import { FrameReader } from "../../src/transport/frame-reader.ts";
-import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../src/transport/wire-protocol.ts";
-import { OUTSIDE_PROJECT_TOKEN } from "../../src/transport/error-text.ts";
+import { encodeFrame } from "../../src/shared-kernel/framing.ts";
+import { FrameReader } from "../../src/acl/irwire/frame-reader.ts";
+import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
+import { OUTSIDE_PROJECT_TOKEN } from "../../src/platform/error-text.ts";
 import { canaryToken } from "../support/canary.ts";
 import { posixCanaryPath, posixSpaceCanaryPath, projectGluedMessage } from "../fixtures/frame-runner/canary-path-leak/factory.ts";
 

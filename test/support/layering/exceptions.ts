@@ -10,7 +10,6 @@ export type Exception = { from: string; to: string; rule: Rule; reason: string; 
 const SCAFFOLD_FS = "scaffold use case reads the source folder directly (V3); it goes through the package-files port";
 
 export const EXCEPTIONS: readonly Exception[] = [
-  { from: "src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts", to: "src/core/emit-rejection.ts", rule: "domainImports", reason: "the domain error model decodes engine rejections; acl/irwire takes the decoding and maps it onto AuthoringError (Q7)", removedBy: "S5" },
   { from: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", to: "node:fs", rule: "noRuntimeIo", reason: "run boundary reads the package directory (V1); moves behind the package-files port", removedBy: "S9" },
   { from: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", to: "process.cwd", rule: "noRuntimeIo", reason: "run boundary resolves the package directory from the working directory (V1); moves into the package-files adapter", removedBy: "S9" },
   { from: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts", rule: "applicationImports", reason: "run use case calls the schema.json finder directly (V2); goes through the package-files port", removedBy: "S9" },
@@ -29,5 +28,5 @@ export const EXCEPTIONS: readonly Exception[] = [
 ];
 
 // 18 at S0a. S1b added 4 interim rows and removed the handle → context row (21); S4 removed
-// the 4 interim rows (17).
-export const CEILING = 17;
+// the 4 interim rows (17); S5 removed authoring-error → emit-rejection and framing → wire (15).
+export const CEILING = 15;

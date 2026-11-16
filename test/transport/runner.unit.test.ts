@@ -7,11 +7,11 @@ import { describe, it, expect, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, truncateSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
-import { encodeFrame } from "../../src/transport/framing.ts";
-import { WIRE_PROTOCOL_VERSION } from "../../src/transport/wire-protocol.ts";
+import { encodeFrame } from "../../src/shared-kernel/framing.ts";
+import { WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
 import { runRunner, type RunnerIo } from "../../src/transport/runner.ts";
-import { OverlappingRunError } from "../../src/transport/stdio-engine-client.ts";
-import { MESSAGE_CEILING_CHARS } from "../../src/transport/error-text.ts";
+import { OverlappingRunError } from "../../src/acl/irwire/stdio-engine-client.ts";
+import { MESSAGE_CEILING_CHARS } from "../../src/platform/error-text.ts";
 import { makeInProcessHost } from "../support/in-process-host.ts";
 
 const HAPPY_FIXTURE_DIR = new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname;

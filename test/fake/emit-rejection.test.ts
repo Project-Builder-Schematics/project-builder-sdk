@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { ContractFake } from "../support/contract-fake.ts";
-import { EmitRejection } from "../../src/core/emit-rejection.ts";
+import { EmitRejection } from "../../src/bounded-contexts/authoring/domain/ports/emit-rejection.ts";
 import { toAuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { type JsonValue } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { BATCH_CAP_BYTES } from "../../src/shared-kernel/batch-cap.ts";
