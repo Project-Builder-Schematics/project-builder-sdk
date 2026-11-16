@@ -35,7 +35,7 @@ const ALLOWLISTED_ROOTS = [
   join(SRC_DIR, "core"),
   join(SRC_DIR, "testing"),
   join(SRC_DIR, "conformance"),
-  join(SRC_DIR, "transport/runner.ts"),
+  join(SRC_DIR, "bounded-contexts/runner-hosting/infrastructure/in/runner.ts"),
 ];
 
 function isAllowlisted(absPath: string): boolean {
@@ -114,23 +114,23 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
   });
 
   // RED-PROOF (ADR-07): the runner.ts entry is a FILE allow-list, not a directory one — a
-  // planted defineFactory import from an UNRELATED src/transport/** file is still flagged.
-  it("[red-proof] ADR-07: a planted defineFactory import from an unrelated src/transport/** file is flagged", () => {
-    const fakeSource = `import { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";`;
-    const fakeDir = join(SRC_DIR, "transport");
-    expect(isAllowlisted(join(SRC_DIR, "transport/bootstrap-bridge.ts"))).toBe(false);
+  // planted defineFactory import from an UNRELATED file beside runner.ts is still flagged.
+  it("[red-proof] ADR-07: a planted defineFactory import from an unrelated file beside runner.ts is flagged", () => {
+    const fakeSource = `import { defineFactory } from "../../../authoring/application/usecases/run-factory/context.ts";`;
+    const fakeDir = join(SRC_DIR, "bounded-contexts/runner-hosting/infrastructure/in");
+    expect(isAllowlisted(join(SRC_DIR, "bounded-contexts/runner-hosting/infrastructure/in/bootstrap-bridge.ts"))).toBe(false);
     expect(specifiersResolvingInto(definesFactoryImportLines(fakeSource), fakeDir, CONTEXT_FILE)).toEqual([
-      "../bounded-contexts/authoring/application/usecases/run-factory/context.ts",
+      "../../../authoring/application/usecases/run-factory/context.ts",
     ]);
   });
 
   // Positive control (ADR-07): runner.ts's own real defineFactory import IS detected by the
   // scanner — allowlisting, not blindness, keeps it green (same posture as the
   // testing/conformance positive controls above).
-  it("positive control: the scanner detects src/transport/runner.ts's own defineFactory import", () => {
-    const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "transport/runner.ts"));
-    expect(offenders).toEqual(["../bounded-contexts/authoring/application/usecases/run-factory/context.ts"]);
-    expect(isAllowlisted(join(SRC_DIR, "transport/runner.ts"))).toBe(true);
+  it("positive control: the scanner detects the runner-hosting runner.ts's own defineFactory import", () => {
+    const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "bounded-contexts/runner-hosting/infrastructure/in/runner.ts"));
+    expect(offenders).toEqual(["../../../authoring/application/usecases/run-factory/context.ts"]);
+    expect(isAllowlisted(join(SRC_DIR, "bounded-contexts/runner-hosting/infrastructure/in/runner.ts"))).toBe(true);
   });
 
   // RED-PROOF: a planted defineFactory import from src/commons/** is flagged.

@@ -33,7 +33,7 @@ describe("fit-30 — stdout is the wire (stdout-protocol-sacred, src/transport/*
   const files = transportScopeFiles(PROJECT_ROOT);
 
   it("the walk reaches the real transport modules (non-vacuous)", () => {
-    expect(files).toContain(join(TRANSPORT_DIR, "runner.ts"));
+    expect(files).toContain(join(PROJECT_ROOT, "src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts"));
     expect(files).toContain(FRAMING_FILE);
   });
 

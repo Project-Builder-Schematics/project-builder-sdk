@@ -6,19 +6,19 @@
 // semantics, FEH-01 posture).
 
 import { describe, it, expect } from "bun:test";
-import { encodeFrame } from "../../src/shared-kernel/framing.ts";
-import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
-import { runRunner, type RunnerIo } from "../../src/transport/runner.ts";
-import { enterBridge, BridgeVersionMismatchError, type BridgeProtection } from "../../src/transport/bootstrap-bridge.ts";
-import { dispatchToFake } from "../fake/fake-engine-harness.ts";
-import { ContractFake } from "../../src/testing/contract-fake.ts";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import frameRunnerSchemaFactory from "../fixtures/frame-runner/schema/factory.ts";
-import { pushableByteSource } from "../support/pushable-byte-source.ts";
-import { makeInProcessHost } from "../support/in-process-host.ts";
+import { encodeFrame } from "../../../../../src/shared-kernel/framing.ts";
+import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../../../../src/shared-kernel/wire-protocol.ts";
+import { runRunner, type RunnerIo } from "../../../../../src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts";
+import { enterBridge, BridgeVersionMismatchError, type BridgeProtection } from "../../../../../src/bounded-contexts/runner-hosting/infrastructure/in/bootstrap-bridge.ts";
+import { dispatchToFake } from "../../../../fake/fake-engine-harness.ts";
+import { ContractFake } from "../../../../../src/testing/contract-fake.ts";
+import { runFactoryForTest } from "../../../../../src/testing/index.ts";
+import frameRunnerSchemaFactory from "../../../../fixtures/frame-runner/schema/factory.ts";
+import { pushableByteSource } from "../../../../support/pushable-byte-source.ts";
+import { makeInProcessHost } from "../../../../support/in-process-host.ts";
 
-const HAPPY_FIXTURE_DIR = new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname;
-const SCHEMA_FIXTURE_DIR = new URL("../fixtures/frame-runner/schema/", import.meta.url).pathname;
+const HAPPY_FIXTURE_DIR = new URL("../../../../fixtures/frame-runner/happy/", import.meta.url).pathname;
+const SCHEMA_FIXTURE_DIR = new URL("../../../../fixtures/frame-runner/schema/", import.meta.url).pathname;
 const HAPPY_POINTER = `file://${HAPPY_FIXTURE_DIR}factory.ts`;
 const SCHEMA_POINTER = `file://${SCHEMA_FIXTURE_DIR}factory.ts`;
 

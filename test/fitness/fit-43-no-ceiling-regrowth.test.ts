@@ -24,7 +24,7 @@ const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = `${PROJECT_ROOT}src`;
 const TEST_DIR = `${PROJECT_ROOT}test`;
 const RED_ROOT = `${PROJECT_ROOT}test/fixtures/red/src-invariant-scans`;
-const SINGLE_INSTANCE_PROBE_PATH = `${SRC_DIR}/transport/single-instance-probe.ts`;
+const SINGLE_INSTANCE_PROBE_PATH = `${SRC_DIR}/bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.ts`;
 const CONTEXT_TS_PATH = `${SRC_DIR}/bounded-contexts/authoring/application/usecases/run-factory/context.ts`;
 const CORE_CONTEXT_DTS_PATH = `${PROJECT_ROOT}test/fitness/dts-baseline/core.context.d.ts`;
 

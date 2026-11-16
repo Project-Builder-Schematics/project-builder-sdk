@@ -8,7 +8,7 @@
 
 import { encodeFrame } from "../../src/shared-kernel/framing.ts";
 import { WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
-import type { RunnerIo } from "../../src/transport/runner.ts";
+import type { RunnerIo } from "../../src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts";
 import { dispatchToFake } from "../fake/fake-engine-harness.ts";
 import { ContractFake } from "../../src/testing/contract-fake.ts";
 import { pushableByteSource } from "./pushable-byte-source.ts";

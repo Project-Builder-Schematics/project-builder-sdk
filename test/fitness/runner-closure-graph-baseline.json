@@ -16,15 +16,15 @@
     "bounded-contexts/authoring/domain/valueobjects/schema-model.js",
     "bounded-contexts/authoring/domain/valueobjects/wire.js",
     "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
+    "bounded-contexts/runner-hosting/infrastructure/in/exit-codes.js",
+    "bounded-contexts/runner-hosting/infrastructure/in/factory-pointer.js",
+    "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
+    "bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.js",
     "platform/error-text.js",
     "platform/fs-errors.js",
     "shared-kernel/batch-cap.js",
     "shared-kernel/framing.js",
-    "shared-kernel/wire-protocol.js",
-    "transport/exit-codes.js",
-    "transport/factory-pointer.js",
-    "transport/runner.js",
-    "transport/single-instance-probe.js"
+    "shared-kernel/wire-protocol.js"
   ],
   "edges": [
     {
@@ -64,6 +64,16 @@
     },
     {
       "from": "bin/pbuilder-runner.js",
+      "to": "bounded-contexts/runner-hosting/infrastructure/in/exit-codes.js",
+      "specifier": "../bounded-contexts/runner-hosting/infrastructure/in/exit-codes.js"
+    },
+    {
+      "from": "bin/pbuilder-runner.js",
+      "to": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
+      "specifier": "../bounded-contexts/runner-hosting/infrastructure/in/runner.js"
+    },
+    {
+      "from": "bin/pbuilder-runner.js",
       "to": "platform/error-text.js",
       "specifier": "../platform/error-text.js"
     },
@@ -71,16 +81,6 @@
       "from": "bin/pbuilder-runner.js",
       "to": "shared-kernel/framing.js",
       "specifier": "../shared-kernel/framing.js"
-    },
-    {
-      "from": "bin/pbuilder-runner.js",
-      "to": "transport/exit-codes.js",
-      "specifier": "../transport/exit-codes.js"
-    },
-    {
-      "from": "bin/pbuilder-runner.js",
-      "to": "transport/runner.js",
-      "specifier": "../transport/runner.js"
     },
     {
       "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
@@ -178,84 +178,84 @@
       "specifier": "../../../../../platform/fs-errors.js"
     },
     {
-      "from": "shared-kernel/framing.js",
-      "to": "shared-kernel/batch-cap.js",
-      "specifier": "./batch-cap.js"
-    },
-    {
-      "from": "transport/exit-codes.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/exit-codes.js",
       "to": "acl/irwire/stdio-engine-client.js",
-      "specifier": "../acl/irwire/stdio-engine-client.js"
+      "specifier": "../../../../acl/irwire/stdio-engine-client.js"
     },
     {
-      "from": "transport/exit-codes.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/exit-codes.js",
       "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
-      "specifier": "../bounded-contexts/authoring/domain/valueobjects/authoring-error.js"
+      "specifier": "../../../authoring/domain/valueobjects/authoring-error.js"
     },
     {
-      "from": "transport/factory-pointer.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/factory-pointer.js",
       "to": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
-      "specifier": "../bounded-contexts/authoring/application/usecases/run-factory/context.js"
+      "specifier": "../../../authoring/application/usecases/run-factory/context.js"
     },
     {
-      "from": "transport/runner.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
       "to": "acl/irwire/frame-reader.js",
-      "specifier": "../acl/irwire/frame-reader.js"
+      "specifier": "../../../../acl/irwire/frame-reader.js"
     },
     {
-      "from": "transport/runner.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
       "to": "acl/irwire/stdio-engine-client.js",
-      "specifier": "../acl/irwire/stdio-engine-client.js"
+      "specifier": "../../../../acl/irwire/stdio-engine-client.js"
     },
     {
-      "from": "transport/runner.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
       "to": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
-      "specifier": "../bounded-contexts/authoring/application/usecases/run-factory/context.js"
+      "specifier": "../../../authoring/application/usecases/run-factory/context.js"
     },
     {
-      "from": "transport/runner.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
       "to": "bounded-contexts/authoring/domain/services/schema/schema-locate.js",
-      "specifier": "../bounded-contexts/authoring/domain/services/schema/schema-locate.js"
+      "specifier": "../../../authoring/domain/services/schema/schema-locate.js"
     },
     {
-      "from": "transport/runner.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
       "to": "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
-      "specifier": "../bounded-contexts/authoring/domain/services/schema/schema-parse.js"
+      "specifier": "../../../authoring/domain/services/schema/schema-parse.js"
     },
     {
-      "from": "transport/runner.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
       "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
-      "specifier": "../bounded-contexts/authoring/domain/valueobjects/authoring-error.js"
+      "specifier": "../../../authoring/domain/valueobjects/authoring-error.js"
     },
     {
-      "from": "transport/runner.js",
-      "to": "platform/error-text.js",
-      "specifier": "../platform/error-text.js"
-    },
-    {
-      "from": "transport/runner.js",
-      "to": "shared-kernel/wire-protocol.js",
-      "specifier": "../shared-kernel/wire-protocol.js"
-    },
-    {
-      "from": "transport/runner.js",
-      "to": "transport/exit-codes.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
+      "to": "bounded-contexts/runner-hosting/infrastructure/in/exit-codes.js",
       "specifier": "./exit-codes.js"
     },
     {
-      "from": "transport/runner.js",
-      "to": "transport/factory-pointer.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
+      "to": "bounded-contexts/runner-hosting/infrastructure/in/factory-pointer.js",
       "specifier": "./factory-pointer.js"
     },
     {
-      "from": "transport/runner.js",
-      "to": "transport/single-instance-probe.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
+      "to": "bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.js",
       "specifier": "./single-instance-probe.js"
     },
     {
-      "from": "transport/single-instance-probe.js",
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
       "to": "platform/error-text.js",
-      "specifier": "../platform/error-text.js"
+      "specifier": "../../../../platform/error-text.js"
+    },
+    {
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
+      "to": "shared-kernel/wire-protocol.js",
+      "specifier": "../../../../shared-kernel/wire-protocol.js"
+    },
+    {
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.js",
+      "to": "platform/error-text.js",
+      "specifier": "../../../../platform/error-text.js"
+    },
+    {
+      "from": "shared-kernel/framing.js",
+      "to": "shared-kernel/batch-cap.js",
+      "specifier": "./batch-cap.js"
     }
   ],
   "builtins": [

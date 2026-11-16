@@ -3,10 +3,10 @@
 // double-fault (EXC-02) can never override the original error's (E1's) class.
 
 import { describe, it, expect } from "bun:test";
-import { classifyExitCode } from "../../src/transport/exit-codes.ts";
-import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { TransportFault, IntentRejectedError } from "../../src/acl/irwire/stdio-engine-client.ts";
-import { BridgeVersionMismatchError } from "../../src/transport/bootstrap-bridge.ts";
+import { classifyExitCode } from "../../../../../src/bounded-contexts/runner-hosting/infrastructure/in/exit-codes.ts";
+import { AuthoringError } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { TransportFault, IntentRejectedError } from "../../../../../src/acl/irwire/stdio-engine-client.ts";
+import { BridgeVersionMismatchError } from "../../../../../src/bounded-contexts/runner-hosting/infrastructure/in/bootstrap-bridge.ts";
 
 describe("REQ-EXC-01 — exit code taxonomy", () => {
   describe("Scenario REQ-EXC-01.2/.3: four failure classes map to four distinct codes", () => {

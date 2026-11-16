@@ -22,7 +22,7 @@ const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DOC_PATH = join(PROJECT_ROOT, "docs/runner-integrity-invariants.md");
 const DOCS_INDEX_PATH = join(PROJECT_ROOT, "docs/README.md");
 const SECURITY_PATH = join(PROJECT_ROOT, "SECURITY.md");
-const PROBE_PATH = join(PROJECT_ROOT, "src/transport/single-instance-probe.ts");
+const PROBE_PATH = join(PROJECT_ROOT, "src/bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.ts");
 const FITNESS_DIR = join(PROJECT_ROOT, "test/fitness");
 
 const doc = (): string => readFileSync(DOC_PATH, "utf-8");

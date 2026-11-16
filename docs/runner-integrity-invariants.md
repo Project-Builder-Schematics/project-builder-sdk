@@ -94,7 +94,7 @@ runner for startup performance."
 - enforced-by: fit-42
 
 The closure contains exactly one dynamic `import()`: the author-factory import in
-`src/transport/runner.ts`, marked `SANCTIONED-FACTORY-IMPORT`. That one site is the deliberate
+`src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts`, marked `SANCTIONED-FACTORY-IMPORT`. That one site is the deliberate
 author-code boundary. The sanction attaches to the site, not to the file — a second `import()`
 inside `runner.ts` fails the build exactly as one anywhere else would, because living in the
 sanctioned file does not make a call sanctioned.
@@ -120,7 +120,7 @@ closure walk and covered by no digest. The full denied-primitives register is el
 `eval`, `Function`, `createRequire`, `Bun.plugin`, `process.binding`, `node:vm`,
 `node:child_process`, `node:worker_threads`, `WebAssembly`, `module.register` and
 `module.registerHooks`. `createRequire` alone carries a single anchored exemption, proven on
-`src/transport/single-instance-probe.ts` specifically: its one binding must be unaliased and used
+`src/bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.ts` specifically: its one binding must be unaliased and used
 resolution-only, never executed, and never laundered through a re-export or an anchor that has
 drifted out of the closure — any other arrangement forfeits the exemption and denies every use of
 it.

@@ -5,8 +5,8 @@
 // since IT — not bootstrap-bridge.ts itself — owns this process (engram discovery obs
 // #2205: the bridge module must never call process.exit).
 
-import { enterBridge, type BridgeParams } from "../../src/transport/bootstrap-bridge.ts";
-import { classifyExitCode } from "../../src/transport/exit-codes.ts";
+import { enterBridge, type BridgeParams } from "../../src/bounded-contexts/runner-hosting/infrastructure/in/bootstrap-bridge.ts";
+import { classifyExitCode } from "../../src/bounded-contexts/runner-hosting/infrastructure/in/exit-codes.ts";
 
 function parseStubArgv(argv: string[]): { bridgeVersion: number; params: BridgeParams } {
   let bridgeVersion: number | undefined;
