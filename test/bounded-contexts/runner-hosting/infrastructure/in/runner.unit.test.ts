@@ -7,24 +7,24 @@ import { describe, it, expect, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, truncateSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
-import { encodeFrame } from "../../src/shared-kernel/framing.ts";
-import { WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
-import { runRunner, type RunnerIo } from "../../src/transport/runner.ts";
-import { OverlappingRunError } from "../../src/acl/irwire/stdio-engine-client.ts";
-import { MESSAGE_CEILING_CHARS } from "../../src/platform/error-text.ts";
-import { makeInProcessHost } from "../support/in-process-host.ts";
+import { encodeFrame } from "../../../../../src/shared-kernel/framing.ts";
+import { WIRE_PROTOCOL_VERSION } from "../../../../../src/shared-kernel/wire-protocol.ts";
+import { runRunner, type RunnerIo } from "../../../../../src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts";
+import { OverlappingRunError } from "../../../../../src/acl/irwire/stdio-engine-client.ts";
+import { MESSAGE_CEILING_CHARS } from "../../../../../src/platform/error-text.ts";
+import { makeInProcessHost } from "../../../../support/in-process-host.ts";
 
-const HAPPY_FIXTURE_DIR = new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname;
+const HAPPY_FIXTURE_DIR = new URL("../../../../fixtures/frame-runner/happy/", import.meta.url).pathname;
 const HAPPY_POINTER = `file://${HAPPY_FIXTURE_DIR}factory.ts`;
-const IMPORT_CRASH_POINTER = `file://${new URL("../fixtures/frame-runner/import-crash/", import.meta.url).pathname}factory.ts`;
-const SYNTAX_ERROR_POINTER = `file://${new URL("../fixtures/red/frame-runner-syntax-error/", import.meta.url).pathname}factory.ts`;
-const PLAIN_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/plain-error/", import.meta.url).pathname}factory.ts`;
-const THROW_NON_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/throw-non-error/", import.meta.url).pathname}factory.ts`;
-const CURATED_AUTHORING_POINTER = `file://${new URL("../fixtures/frame-runner/curated-authoring/", import.meta.url).pathname}factory.ts`;
-const CURATED_TRANSPORT_POINTER = `file://${new URL("../fixtures/frame-runner/curated-transport/", import.meta.url).pathname}factory.ts`;
-const CURATED_INTENT_POINTER = `file://${new URL("../fixtures/frame-runner/curated-intent/", import.meta.url).pathname}factory.ts`;
-const LONG_PLAIN_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/long-plain-error/", import.meta.url).pathname}factory.ts`;
-const SECRET_ERROR_POINTER = `file://${new URL("../fixtures/frame-runner/secret-error/", import.meta.url).pathname}factory.ts`;
+const IMPORT_CRASH_POINTER = `file://${new URL("../../../../fixtures/frame-runner/import-crash/", import.meta.url).pathname}factory.ts`;
+const SYNTAX_ERROR_POINTER = `file://${new URL("../../../../fixtures/red/frame-runner-syntax-error/", import.meta.url).pathname}factory.ts`;
+const PLAIN_ERROR_POINTER = `file://${new URL("../../../../fixtures/frame-runner/plain-error/", import.meta.url).pathname}factory.ts`;
+const THROW_NON_ERROR_POINTER = `file://${new URL("../../../../fixtures/frame-runner/throw-non-error/", import.meta.url).pathname}factory.ts`;
+const CURATED_AUTHORING_POINTER = `file://${new URL("../../../../fixtures/frame-runner/curated-authoring/", import.meta.url).pathname}factory.ts`;
+const CURATED_TRANSPORT_POINTER = `file://${new URL("../../../../fixtures/frame-runner/curated-transport/", import.meta.url).pathname}factory.ts`;
+const CURATED_INTENT_POINTER = `file://${new URL("../../../../fixtures/frame-runner/curated-intent/", import.meta.url).pathname}factory.ts`;
+const LONG_PLAIN_ERROR_POINTER = `file://${new URL("../../../../fixtures/frame-runner/long-plain-error/", import.meta.url).pathname}factory.ts`;
+const SECRET_ERROR_POINTER = `file://${new URL("../../../../fixtures/frame-runner/secret-error/", import.meta.url).pathname}factory.ts`;
 
 // Stub io whose `writeFrame` always throws `guard`: every gate under test must reject
 // before the runner ever writes a frame.
@@ -211,7 +211,7 @@ describe("REQ-RUN-02 — factory URL scheme + host allowlist (runtime no-import 
   // already use: IMPORT_CRASH_POINTER's factory throws unconditionally at module top level,
   // so if the runner ever actually reached `import()` for it, the run would crash (exit 4,
   // proven by REQ-RUN-07.2 above) instead of the pre-import gate's exit 1.
-  const importCrashUrl = new URL("../fixtures/frame-runner/import-crash/", import.meta.url).pathname;
+  const importCrashUrl = new URL("../../../../fixtures/frame-runner/import-crash/", import.meta.url).pathname;
 
   it("Scenario REQ-RUN-02.2: a non-file scheme pointing at a throw-on-import fixture never imports it", async () => {
     const nonFilePointer = `https://evil.example${importCrashUrl}factory.ts`;

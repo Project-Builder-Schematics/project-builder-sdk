@@ -12,7 +12,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { probeSingleInstance } from "../../src/transport/single-instance-probe.ts";
+import { probeSingleInstance } from "../../../../../src/bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.ts";
 
 describe("REQ-SEC-07 — single-instance realpath probe", () => {
   it("Scenario REQ-SEC-07.1: matching SDK copies proceed — the factory's resolved @pbuilder/sdk lands in the SAME package root as the runner's own", () => {
@@ -87,7 +87,7 @@ describe("REQ-SEC-07 — single-instance realpath probe", () => {
     // EXACT shape `test/fixtures/frame-runner/**` factories are in (this repo dogfoods
     // itself as the SDK it ships) — the runner's real happy-path e2e/integration tests
     // depend on this fallback firing correctly.
-    const anchor = new URL("../fixtures/frame-runner/happy/factory.ts", import.meta.url).href;
+    const anchor = new URL("../../../../fixtures/frame-runner/happy/factory.ts", import.meta.url).href;
     expect(probeSingleInstance(anchor)).toEqual({ ok: true });
   });
 

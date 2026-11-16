@@ -834,7 +834,7 @@ describe("FIT-42N S-003 — Constraint 2: the sanction is per-SITE, not per-file
       [
         "runner-manifest: src/transport/session.ts — dynamic import() outside the sanctioned factory-import site.",
         "  found: import(specifier)     (emitted: dist/transport/session.js:1)",
-        "  rule:  Constraint 2 — the closure contains exactly one dynamic import(): the author-factory import in src/transport/runner.ts, marked SANCTIONED-FACTORY-IMPORT.",
+        "  rule:  Constraint 2 — the closure contains exactly one dynamic import(): the author-factory import in src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts, marked SANCTIONED-FACTORY-IMPORT.",
         "  why:   a dynamic import() admits code no digest covers into the bootstrap; the one sanctioned site is the deliberate author-code boundary.",
         "  fix:   use a static import if the target is already in the closure, or move the lazy load to the far side of the factory boundary. A second boundary is a contract change: docs/runner-integrity-invariants.md#constraint-2, agreed with the engine first.",
         "",
@@ -853,10 +853,10 @@ describe("FIT-42N S-003 — Constraint 2: the sanction is per-SITE, not per-file
     const rendered = renderedFor(root, SANCTIONED_DYNAMIC_IMPORT_FILE);
     expect(rendered).toBe(
       [
-        "runner-manifest: src/transport/runner.ts — second dynamic import() inside the factory-import file.",
-        "  found: import(pluginUrl)     (emitted: dist/transport/runner.js:2)",
+        "runner-manifest: src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts — second dynamic import() inside the factory-import file.",
+        "  found: import(pluginUrl)     (emitted: dist/bounded-contexts/runner-hosting/infrastructure/in/runner.js:2)",
         "  rule:  Constraint 2 — the sanction is per-SITE, not per-file. Living in runner.ts does not make an import() sanctioned.",
-        "  why:   src/transport/runner.ts:SANCTIONED-FACTORY-IMPORT is the author-code boundary; this is a different site, and it admits code no digest covers exactly as one anywhere else would.",
+        "  why:   src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts:SANCTIONED-FACTORY-IMPORT is the author-code boundary; this is a different site, and it admits code no digest covers exactly as one anywhere else would.",
         "  fix:   remove this import(), or route the work through the sanctioned site. If the runner needs a second dynamic boundary, that is a contract change: docs/runner-integrity-invariants.md#constraint-2, agreed with the engine first.",
         "",
         "No manifest was written; dist/runner-manifest.json does not exist.",

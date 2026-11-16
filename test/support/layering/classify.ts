@@ -39,7 +39,6 @@ export type Classified = Class & {
 type LegacyRow = { path: string; class: Class; mixed?: readonly string[] };
 
 const authoring = (layer: Layer): Class => ({ kind: "context", context: "authoring", layer });
-const runnerHosting = (layer: Layer): Class => ({ kind: "context", context: "runner-hosting", layer });
 
 // Longest matching path wins; a path ending in "/" covers its folder. Sources for each role:
 // the current-state map in odd/tasks/hexagonal-layout-proposal.md section 2.1.
@@ -49,7 +48,6 @@ export const LEGACY: readonly LegacyRow[] = [
   { path: "src/dialects/", class: authoring("infrastructure-out") },
   { path: "src/testing/", class: authoring("testing") },
   { path: "src/conformance/", class: authoring("testing") },
-  { path: "src/transport/", class: runnerHosting("infrastructure-in") },
   { path: "bin/emit-type.ts", class: authoring("infrastructure-in") },
   { path: "bin/project-codegen.ts", class: authoring("infrastructure-in") },
 ];

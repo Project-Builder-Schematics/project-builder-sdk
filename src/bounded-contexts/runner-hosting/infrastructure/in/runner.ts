@@ -1,4 +1,4 @@
-// The runner composition root (design § 4.2, ADR-01): lives in src/transport/ — NOT bin/ —
+// The runner composition root (design § 4.2, ADR-01): lives in src/bounded-contexts/runner-hosting/infrastructure/in/ — NOT bin/ —
 // so BOTH entry paths (argv spawn via src/bin/pbuilder-runner.ts, in-process bridge in S-003)
 // share this ONE validation-gate chokepoint (FIT-15 bars src/->bin/ imports).
 //
@@ -16,20 +16,20 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, statSync } from "node:fs";
-import { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts";
-import { AuthoringError } from "../bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { locateFirstJsonSyntaxError } from "../bounded-contexts/authoring/domain/services/schema/schema-locate.ts";
-import { formatLocator } from "../bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
-import { FrameReader, FrameFault } from "../acl/irwire/frame-reader.ts";
-import { WIRE_PROTOCOL_VERSION, isStructurallyValidGreeting, versionMatches } from "../shared-kernel/wire-protocol.ts";
+import { defineFactory } from "../../../authoring/application/usecases/run-factory/context.ts";
+import { AuthoringError } from "../../../authoring/domain/valueobjects/authoring-error.ts";
+import { locateFirstJsonSyntaxError } from "../../../authoring/domain/services/schema/schema-locate.ts";
+import { formatLocator } from "../../../authoring/domain/services/schema/schema-parse.ts";
+import { FrameReader, FrameFault } from "../../../../acl/irwire/frame-reader.ts";
+import { WIRE_PROTOCOL_VERSION, isStructurallyValidGreeting, versionMatches } from "../../../../shared-kernel/wire-protocol.ts";
 import {
   StdioEngineClient,
   TransportFault,
   IntentRejectedError,
   OverlappingRunError,
   type FrameChannel,
-} from "../acl/irwire/stdio-engine-client.ts";
-import { boundMessage, composeWithToken, scrubAbsolutePaths, toProjectRelativePath } from "../platform/error-text.ts";
+} from "../../../../acl/irwire/stdio-engine-client.ts";
+import { boundMessage, composeWithToken, scrubAbsolutePaths, toProjectRelativePath } from "../../../../platform/error-text.ts";
 import { parseFactoryPointer, validateFactoryUrl, resolveFactoryExport } from "./factory-pointer.ts";
 import { probeSingleInstance } from "./single-instance-probe.ts";
 import { classifyExitCode } from "./exit-codes.ts";

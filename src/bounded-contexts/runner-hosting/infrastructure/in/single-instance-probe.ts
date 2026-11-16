@@ -31,7 +31,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { toProjectRelativePath } from "../platform/error-text.ts";
+import { toProjectRelativePath } from "../../../../platform/error-text.ts";
 
 const SDK_SPECIFIER = "@pbuilder/sdk";
 

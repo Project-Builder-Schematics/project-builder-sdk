@@ -58,7 +58,7 @@ export interface ScrubAnchor {
   path: string;
 }
 
-// This module sits at <sdk>/src/transport/ in source and <sdk>/dist/transport/ in the build.
+// This module sits at <sdk>/src/platform/ in source and <sdk>/dist/platform/ in the build.
 // dirname rather than a "../.." URL: that form keeps a trailing slash, which never matches
 // as a whole segment.
 const SDK_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));

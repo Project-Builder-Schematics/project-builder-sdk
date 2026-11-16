@@ -575,7 +575,7 @@ function derivedFromSnapshot(): ClosureDerivation {
 }
 
 describe("FIT-42 S-003 — the real tree honours Constraints 2, 4 and 5", () => {
-  it("REQ-CST-03.3: exactly one dynamic import() in the closure, and it is in transport/runner.js", () => {
+  it("REQ-CST-03.3: exactly one dynamic import() in the closure, and it is in the runner-hosting runner.js", () => {
     const counts = derivedFromSnapshot()
       .nodes.map((node) => ({
         node,
@@ -586,7 +586,7 @@ describe("FIT-42 S-003 — the real tree honours Constraints 2, 4 and 5", () => 
   });
 
   it("REQ-CST-03.3: the sanctioned site carries the SANCTIONED-FACTORY-IMPORT marker in source", () => {
-    const source = readFileSync(join(PROJECT_ROOT, "src/transport/runner.ts"), "utf-8");
+    const source = readFileSync(join(PROJECT_ROOT, "src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts"), "utf-8");
     expect(source).toContain("SANCTIONED-FACTORY-IMPORT");
   });
 

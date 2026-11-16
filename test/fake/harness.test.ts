@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { encodeFrame } from "../../src/shared-kernel/framing.ts";
 import { WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
-import { runRunner, type RunnerIo } from "../../src/transport/runner.ts";
+import { runRunner, type RunnerIo } from "../../src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts";
 import { dispatchToFake, serveSpawnedRunner } from "./fake-engine-harness.ts";
 import { ContractFake } from "../../src/testing/contract-fake.ts";
 import { pushableByteSource } from "../support/pushable-byte-source.ts";

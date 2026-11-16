@@ -9,13 +9,13 @@
 // REQ-RUN-08: the fd-1 frame writer is captured AND console.* is redirected to stderr
 // FIRST, before the composition root can import any factory code — the SAME defence-in-
 // depth guarantee the bridge path gives (BRB-02/03), belt-and-suspenders alongside the
-// engine's own pre-import fd dup (A2). All real work lives in src/transport/runner.ts, the
+// engine's own pre-import fd dup (A2). All real work lives in src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts, the
 // ONE validation-gate chokepoint both this entry and the bridge share (FIT-15 bars
 // src/ -> bin/ imports, so the shared root cannot live here).
 
-import { runRunner } from "../transport/runner.ts";
+import { runRunner } from "../bounded-contexts/runner-hosting/infrastructure/in/runner.ts";
 import { captureFd1FrameWriter, redirectConsoleToStderr } from "../shared-kernel/framing.ts";
-import { classifyExitCode } from "../transport/exit-codes.ts";
+import { classifyExitCode } from "../bounded-contexts/runner-hosting/infrastructure/in/exit-codes.ts";
 import { TransportFault } from "../acl/irwire/stdio-engine-client.ts";
 import { boundMessage } from "../platform/error-text.ts";
 

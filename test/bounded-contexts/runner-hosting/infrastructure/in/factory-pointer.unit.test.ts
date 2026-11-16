@@ -5,12 +5,12 @@
 // of this same file.
 
 import { describe, it, expect } from "bun:test";
-import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
+import { defineFactory } from "../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import {
   parseFactoryPointer,
   validateFactoryUrl,
   resolveFactoryExport,
-} from "../../src/transport/factory-pointer.ts";
+} from "../../../../../src/bounded-contexts/runner-hosting/infrastructure/in/factory-pointer.ts";
 
 describe("REQ-WPS-08 — factory-pointer syntax", () => {
   describe("Scenario REQ-WPS-08.1: pointer grammar parses both forms", () => {

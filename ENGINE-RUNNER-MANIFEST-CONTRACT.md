@@ -72,6 +72,20 @@ If any of these has changed on your side, tell us — several of them are load-b
 > beyond its relative import specifiers; the third-party, dynamic-import, resolution and
 > environment rows above still hold.
 
+> **SDK note, 2026-11-16 (runner bootstrap).** The runner bootstrap moved into the Runner hosting
+> context: `transport/{runner,factory-pointer,exit-codes,single-instance-probe}.js` →
+> `bounded-contexts/runner-hosting/infrastructure/in/`. The count stays **25 `.js` files** and **26 records**; `transport/` no longer
+> exists. The one dynamic `import()` (the row above) is now in `bounded-contexts/runner-hosting/infrastructure/in/runner.js`,
+> and the `createRequire` anchor is `bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.js`. The per-folder
+> split is `bin/`×1, `acl/irwire/`×2, `shared-kernel/`×3, `platform/`×2 and, under
+> `bounded-contexts/`: `runner-hosting/infrastructure/in/`×4, `authoring/application/usecases/run-factory/`×1,
+> `authoring/domain/aggregates/session/`×1, `authoring/domain/ports/`×1, `authoring/domain/services/`×2,
+> `authoring/domain/services/schema/`×4, `authoring/domain/valueobjects/`×3 and
+> `authoring/infrastructure/out/fs/`×1. Apart from a comment naming a file path in
+> `bin/pbuilder-runner.js`, `runner.js`, `platform/error-text.js` and `shared-kernel/framing.js`, no
+> file's content changed beyond its relative import specifiers; the third-party, dynamic-import,
+> resolution and environment rows above still hold.
+
 ---
 
 ## Deliverable — `dist/runner-manifest.json`

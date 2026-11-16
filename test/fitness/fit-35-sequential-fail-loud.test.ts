@@ -12,7 +12,7 @@
  * unrelated check — design § 4.7 numbering note, resolved at plan-verify iteration 2.)
  */
 import { describe, it, expect } from "bun:test";
-import { runRunner, type RunnerIo } from "../../src/transport/runner.ts";
+import { runRunner, type RunnerIo } from "../../src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts";
 import { OverlappingRunError } from "../../src/acl/irwire/stdio-engine-client.ts";
 import { makeInProcessHost } from "../support/in-process-host.ts";
 

@@ -25,14 +25,14 @@ import {
  * per-SITE: the FIRST dynamic `import()` here is the author-code boundary, a second one is
  * a violation, and one anywhere else is a violation.
  */
-export const SANCTIONED_DYNAMIC_IMPORT_FILE: ClosurePath = "transport/runner.js";
+export const SANCTIONED_DYNAMIC_IMPORT_FILE: ClosurePath = "bounded-contexts/runner-hosting/infrastructure/in/runner.js";
 
 /**
  * The anchored `createRequire` site's file (ADR-04), distRoot-relative. Its import binding
  * and its FIRST use are exempt from the outright Constraint-4 ban; every further reference,
  * here or anywhere else in the closure, is a violation.
  */
-export const CREATE_REQUIRE_ANCHOR_FILE: ClosurePath = "transport/single-instance-probe.js";
+export const CREATE_REQUIRE_ANCHOR_FILE: ClosurePath = "bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.js";
 
 // Closure-identity path constants, single-sourced here so the build script, the baseline
 // writer, and the fitness test cannot drift apart on what the runner closure even is.
@@ -412,14 +412,14 @@ const RULE_BODIES: Record<ViolationRule, (detail: string) => RuleBody> = {
   }),
   "constraint-2-dynamic-import": () => ({
     summary: "dynamic import() outside the sanctioned factory-import site",
-    rule: "Constraint 2 — the closure contains exactly one dynamic import(): the author-factory import in src/transport/runner.ts, marked SANCTIONED-FACTORY-IMPORT.",
+    rule: "Constraint 2 — the closure contains exactly one dynamic import(): the author-factory import in src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts, marked SANCTIONED-FACTORY-IMPORT.",
     why: "a dynamic import() admits code no digest covers into the bootstrap; the one sanctioned site is the deliberate author-code boundary.",
     fix: "use a static import if the target is already in the closure, or move the lazy load to the far side of the factory boundary. A second boundary is a contract change: docs/runner-integrity-invariants.md#constraint-2, agreed with the engine first.",
   }),
   "constraint-2-second-site": () => ({
     summary: "second dynamic import() inside the factory-import file",
     rule: "Constraint 2 — the sanction is per-SITE, not per-file. Living in runner.ts does not make an import() sanctioned.",
-    why: "src/transport/runner.ts:SANCTIONED-FACTORY-IMPORT is the author-code boundary; this is a different site, and it admits code no digest covers exactly as one anywhere else would.",
+    why: "src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts:SANCTIONED-FACTORY-IMPORT is the author-code boundary; this is a different site, and it admits code no digest covers exactly as one anywhere else would.",
     fix: "remove this import(), or route the work through the sanctioned site. If the runner needs a second dynamic boundary, that is a contract change: docs/runner-integrity-invariants.md#constraint-2, agreed with the engine first.",
   }),
   "constraint-4-undecidable-callee": (detail) => ({

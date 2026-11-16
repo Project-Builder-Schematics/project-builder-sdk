@@ -54,7 +54,7 @@ export function isOversizeDeclaredLength(bodyLength: number): boolean {
 }
 
 /**
- * The ONE sanctioned stdout reference in `src/transport/**` (fit-30 stdout-protocol-sacred):
+ * The ONE sanctioned stdout reference in the runner and engine-client code (fit-30 stdout-protocol-sacred):
  * captures the process's fd-1 write handle AT CALL TIME — call it before any factory import
  * — so later author-code reassignment of `process.stdout` cannot hijack the wire (the
  * BRB-02/RUN-08 defence, e2e-proven in S-003).
