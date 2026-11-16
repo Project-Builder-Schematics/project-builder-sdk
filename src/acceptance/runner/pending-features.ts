@@ -15,8 +15,6 @@ export interface PendingFeature {
  * lands, and a row whose feature has no undefined step left fails as stale.
  */
 export const PENDING_FEATURES: readonly PendingFeature[] = [
-  { feature: "bounded-contexts/authoring/rules/json-dialect.feature", slice: "R1" },
-  { feature: "bounded-contexts/authoring/rules/yaml-dialect.feature", slice: "R1" },
   { feature: "bounded-contexts/authoring/rules/chaining-rules.feature", slice: "R2" },
   { feature: "bounded-contexts/authoring/rules/content-as-truth.feature", slice: "R2" },
   { feature: "bounded-contexts/authoring/rules/dialects.feature", slice: "R2" },
@@ -26,13 +24,12 @@ export const PENDING_FEATURES: readonly PendingFeature[] = [
   { feature: "bounded-contexts/authoring/rules/react-dialect.feature", slice: "R3" },
   { feature: "bounded-contexts/authoring/rules/css-dialect.feature", slice: "R4" },
   { feature: "bounded-contexts/authoring/rules/angular-dialect.feature", slice: "R4" },
-  { feature: "bounded-contexts/authoring/rules/nestjs-dialect.feature", slice: "R4" },
   // Its steps need the dialect kit, which is not a public entry until sdk#103.
   { feature: "bounded-contexts/authoring/rules/dialect-composition.feature", slice: "sdk#103" },
 ];
 
 /** The list may only shrink: lower this when a row leaves, never raise it. */
-export const PENDING_CEILING = 13;
+export const PENDING_CEILING = 10;
 
 /**
  * The strict pass must select at least this many scenarios (pending ones included), so a pin
