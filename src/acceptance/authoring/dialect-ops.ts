@@ -1,11 +1,13 @@
 import { expect } from "bun:test";
 import * as json from "../../dialects/json/index.ts";
 import * as nestjs from "../../dialects/nestjs/index.ts";
+import * as react from "../../dialects/react/index.ts";
+import * as typescript from "../../dialects/typescript/index.ts";
 import * as yaml from "../../dialects/yaml/index.ts";
 import type { StepDefinition, World } from "../runner/steps.ts";
 import { endedRun, factoryRun } from "../shared/factory-run.ts";
 
-const DIALECTS: Record<string, { find(path: string): unknown }> = { json, nestjs, yaml };
+const DIALECTS: Record<string, { find(path: string): unknown }> = { json, nestjs, react, typescript, yaml };
 
 // CATALOG: the values JSON text cannot hold, and the functions an `fn` argument names.
 const NAMED_FUNCTIONS: Record<string, (current: unknown) => unknown> = {
@@ -37,7 +39,7 @@ function dialectState(world: World): DialectState {
 }
 
 /** The message of the run's dialect error; every dialect failure is a plain Error with this prefix. */
-function dialectFailure(world: World): string {
+export function dialectFailure(world: World): string {
   factoryRun(world).failureExpected = true;
   const error = endedRun(world).error;
   expect(error).toBeInstanceOf(Error);
@@ -97,8 +99,26 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
     },
   },
   {
+    phrase: 'the factory fails naming the binding "{name}"',
+    run: (world, [name]) => void expect(dialectFailure(world)).toContain(`binding named ${JSON.stringify(name)}`),
+  },
+  {
+    phrase: 'the factory fails naming the file "{path}"',
+    run: (world, [path]) => void expect(dialectFailure(world)).toContain(JSON.stringify(path)),
+  },
+  {
+    phrase: "the factory fails because a pending edit would be lost",
+    run: (world) => void expect(dialectFailure(world)).toContain("the pending edit would be lost"),
+  },
+  {
     phrase: "the factory fails because the dialect does not declare the extension of the file",
-    run: (world) => void expect(dialectFailure(world)).toContain("the file's extension is not one this dialect declares"),
+    // Each dialect words it its own way, so the step checks that find rejected the opened file's extension.
+    run: (world) => {
+      const message = dialectFailure(world);
+      expect(message).toContain("find(");
+      const extensions = [...dialectState(world).dialectOf.keys()].map((path) => /\.[^./]+$/.exec(path)?.[0] ?? path);
+      expect(extensions.some((extension) => message.includes(extension))).toBe(true);
+    },
   },
   {
     phrase: 'the factory fails because the value holds "{kind}", which JSON cannot represent',
