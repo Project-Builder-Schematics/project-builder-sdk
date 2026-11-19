@@ -2,11 +2,11 @@ import { describe, expect, it } from "bun:test";
 import type { PickleStep } from "@cucumber/messages";
 import { DIALECT_OP_STEPS } from "../../../src/acceptance/authoring/dialect-ops.ts";
 import { matchStep, type World } from "../../../src/acceptance/runner/steps.ts";
-import { factoryRun } from "../../../src/acceptance/shared/factory-run.ts";
+import { FACTORY_RUN_STEPS, factoryRun } from "../../../src/acceptance/shared/factory-run.ts";
 import type { RunResult } from "../../../src/testing/index.ts";
 
 async function runStep(world: World, text: string, table?: string[][]): Promise<void> {
-  const match = matchStep(DIALECT_OP_STEPS, text);
+  const match = matchStep([...DIALECT_OP_STEPS, ...FACTORY_RUN_STEPS], text);
   if (match.kind !== "defined") throw new Error(`no single definition for: ${text}`);
   await match.definition.run(world, table === undefined ? match.args : [...match.args, table], { text } as PickleStep);
 }
@@ -79,6 +79,12 @@ describe("the refused-argument failure step", () => {
     await runStep(world, STEP);
   });
 
+  it("passes when the op refuses an option that excludes another", async () => {
+    const step = 'the factory fails because the argument "required" is not one the op accepts';
+    const message = "`required` and `initial` cannot be combined — drop one, or use `.modify()` to make this edit directly.";
+    await runStep(await failedWith("a.component.ts", message, "angular"), step);
+  });
+
   it("fails on another error that only mentions the argument", async () => {
     const world = await failedWith("a.ts", "the binding `name` is already claimed in a.ts");
     await expect(runStep(world, STEP)).rejects.toThrow();
@@ -134,6 +140,77 @@ describe("the component failure step", () => {
 
   it("fails on another error that only mentions the name", async () => {
     const world = await failedWith("a.tsx", "the binding `Card` is already claimed in a.tsx", "react");
+    await expect(runStep(world, STEP)).rejects.toThrow();
+  });
+});
+
+/**
+ * A css run that applied getDeclaration. With `returned`, the query's action ran against a handle
+ * that answers it and the run succeeded; without it, the run ended with no action run.
+ */
+async function queryRun(returned?: { readonly value: unknown }): Promise<World> {
+  const world: World = {};
+  await runStep(world, 'the author opens the Dialect handle "a" of the dialect "css" on the file "a.css"');
+  await runStep(world, 'the author applies the query "getDeclaration" through the Dialect handle "a" with the arguments:', [
+    ["argument", "value"],
+    ["target", '{"atRule": "theme"}'],
+    ["property", '"color"'],
+  ]);
+  const run = factoryRun(world);
+  if (returned !== undefined) {
+    await run.actions.at(-1)!(new Map([["a", { getDeclaration: async () => returned.value }]]));
+    run.ran = run.actions.length;
+  }
+  run.result = { error: undefined } as unknown as RunResult;
+  return world;
+}
+
+describe("the query steps", () => {
+  it("keep nothing until the query's action runs", async () => {
+    await expect(runStep(await queryRun(), "the query returned nothing")).rejects.toThrow();
+    const counted = await queryRun();
+    factoryRun(counted).ran = factoryRun(counted).actions.length;
+    await expect(runStep(counted, "the query returned nothing")).rejects.toThrow("no query ran");
+  });
+
+  it("read nothing when the query found nothing", async () => {
+    await runStep(await queryRun({ value: undefined }), "the query returned nothing");
+  });
+
+  it("refuse nothing when the query returned a declaration", async () => {
+    const world = await queryRun({ value: { value: "red", important: true } });
+    await expect(runStep(world, "the query returned nothing")).rejects.toThrow();
+  });
+
+  it("read the declaration and its importance exactly", async () => {
+    const world = await queryRun({ value: { value: "red", important: true } });
+    await runStep(world, 'the query returned the declaration "red" with importance "true"');
+    await expect(runStep(world, 'the query returned the declaration "red" with importance "false"')).rejects.toThrow();
+    await expect(runStep(world, 'the query returned the declaration "re" with importance "true"')).rejects.toThrow();
+  });
+
+  it("refuse a query whose run failed", async () => {
+    const world = await queryRun({ value: undefined });
+    factoryRun(world).result = { error: new Error("dialect operation failed: getDeclaration") } as unknown as RunResult;
+    await expect(runStep(world, "the query returned nothing")).rejects.toThrow();
+  });
+});
+
+describe("the failure-contains step", () => {
+  const STEP = 'the failure of the factory contains "./app/app.config"';
+
+  it("passes when the failure's message contains the text", async () => {
+    const world = await failedWith("main.ts", 'addRootProvider — no "appConfig" imported from "./app/app.config" was found', "angular");
+    await runStep(world, STEP);
+  });
+
+  it("fails when the failure's message does not contain the text", async () => {
+    const world = await failedWith("main.ts", "addRootProvider — bootstrapApplication was not found", "angular");
+    await expect(runStep(world, STEP)).rejects.toThrow();
+  });
+
+  it("fails when the factory did not fail", async () => {
+    const world = await queryRun({ value: undefined });
     await expect(runStep(world, STEP)).rejects.toThrow();
   });
 });

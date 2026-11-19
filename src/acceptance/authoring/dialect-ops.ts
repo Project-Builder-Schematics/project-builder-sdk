@@ -185,7 +185,8 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
   },
   {
     phrase: 'the factory fails because the argument "{argument}" is not one the op accepts',
-    // "`kind` must be ...", or the refused value echoed: "`name` \"await\" is a reserved word ...".
+    // "`kind` must be ...", the refused value echoed: "`name` \"await\" is a reserved word ...", or an option
+    // that excludes another: "`required` and `initial` cannot be combined".
     run: (world, [argument]) => {
       const message = dialectFailure(world);
       const named = `\`${argument as string}\``;
@@ -193,7 +194,11 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
         const cell = cells.get(argument as string);
         return cell === undefined ? [] : [JSON.stringify(JSON.parse(cell))];
       });
-      expect(message.includes(`${named} must `) || values.some((value) => message.includes(`${named} ${value} is `))).toBe(true);
+      const refused =
+        message.includes(`${named} must `) ||
+        values.some((value) => message.includes(`${named} ${value} is `)) ||
+        new RegExp(`${RegExp.escape(named)} and \`[^\`]+\` cannot be combined`).test(message);
+      expect(refused).toBe(true);
     },
   },
   {
