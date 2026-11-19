@@ -112,12 +112,15 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
   },
   {
     phrase: "the factory fails because the dialect does not declare the extension of the file",
-    // Each dialect words it its own way, so the step checks that find rejected the opened file's extension.
+    // Each dialect words it its own way: the kit speaks of the declared extensions, React may name the rejected
+    // one. The quoted path is cut out first, so an unrelated find error that names the file does not count.
     run: (world) => {
       const message = dialectFailure(world);
       expect(message).toContain("find(");
-      const extensions = [...dialectState(world).dialectOf.keys()].map((path) => /\.[^./]+$/.exec(path)?.[0] ?? path);
-      expect(extensions.some((extension) => message.includes(extension))).toBe(true);
+      const paths = [...dialectState(world).dialectOf.keys()];
+      const rest = paths.reduce((text, path) => text.replaceAll(JSON.stringify(path), ""), message);
+      const extensions = paths.map((path) => /\.[^./]+$/.exec(path)?.[0] ?? path);
+      expect(rest.includes("extension") || extensions.some((extension) => rest.includes(extension))).toBe(true);
     },
   },
   {
