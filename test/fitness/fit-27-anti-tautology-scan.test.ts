@@ -17,8 +17,7 @@
  *
  * Red-proof: `test/fixtures/red/author-emulation/corpus-write-in-support.ts` — a
  * test/support-shaped module that writes directly to the corpus dir. Never imported by
- * anything real; the scan FUNCTION is called directly against its source (same idiom as
- * FIT-21's red-proof).
+ * anything real; the scan FUNCTION is called directly against its source.
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";

@@ -81,6 +81,11 @@ describe("fit-49 — liveness (the scan reaches the real tree)", () => {
     expect(entries.testKitEntries).toEqual(new Set(["src/testing/index.ts", "src/conformance/index.ts"]));
   });
 
+  it("finds the files handleDirection names, and the run-factory folder it guards", () => {
+    expect(graph.files).toContain("src/bounded-contexts/authoring/domain/entities/dialect-handle.ts");
+    expect(graph.files).toContain("src/bounded-contexts/authoring/application/usecases/run-factory/context.ts");
+  });
+
   it("reads every dialect folder and the extensions the dialects declare", () => {
     for (const name of ["typescript", "react", "json", "yaml", "css", "nestjs", "angular"]) expect(vocabulary.names).toContain(name);
     for (const ext of [".ts", ".tsx", ".jsx", ".json", ".jsonc", ".yaml", ".yml", ".css"]) expect(vocabulary.extensions).toContain(ext);
@@ -156,7 +161,7 @@ describe("fit-49 — test/ mirrors src/ by folder (Q9)", () => {
 const SYNTHETIC_ENTRIES: Entries = {
   publicEntries: new Set(["src/commons/index.ts", "src/testing/index.ts", "src/dialects/css/index.ts", "src/dialects/react/index.ts"]),
   testKitEntries: new Set(["src/testing/index.ts"]),
-  processEntries: new Set(["src/bin/pbuilder-runner.ts"]),
+  processEntries: new Set(["src/bin/pbuilder-runner.ts", "bin/pbuilder-codegen.ts"]),
 };
 const A = "src/bounded-contexts/authoring";
 const R = "src/bounded-contexts/runner-hosting";
@@ -187,6 +192,12 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, "node:fs"],
     ["dialectIsolation", "src/commons/index.ts", `${A}/infrastructure/out/dialects/css/ops.ts`],
     ["dialectIsolation", "src/dialects/react/index.ts", `${A}/infrastructure/out/dialects/css/ops.ts`],
+    ["dialectIsolation", `${A}/infrastructure/out/dialects/typescript/ops.ts`, `${A}/infrastructure/out/dialects/react/ops.ts`],
+    ["dialectIsolation", `${A}/infrastructure/out/dialects/nestjs/ops.ts`, `${A}/infrastructure/out/dialects/react/ops.ts`],
+    ["binImporters", `${A}/domain/services/x.ts`, "bin/pbuilder-codegen.ts"],
+    ["binImporters", "src/commons/index.ts", "bin/pbuilder-codegen.ts"],
+    ["binImporters", "src/bin/pbuilder-runner.ts", "bin/pbuilder-codegen.ts"],
+    ["handleDirection", `${A}/application/usecases/run-factory/context.ts`, `${A}/domain/entities/dialect-handle.ts`],
     ["scaffoldLeaf", `${A}/domain/services/x.ts`, `${A}/application/usecases/scaffold/expander.ts`],
     ["scaffoldLeaf", `${A}/application/usecases/pending-directives/render.ts`, `${A}/application/usecases/scaffold/expander.ts`],
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, `${A}/application/usecases/pending-directives/render.ts`],
@@ -231,7 +242,7 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
   });
 
   it.each([
-    ["the sibling fit-02 allows", `${A}/infrastructure/out/dialects/react/ops.ts`, `${A}/infrastructure/out/dialects/typescript/ast.ts`],
+    ["a sibling ALLOWED_SIBLINGS lists", `${A}/infrastructure/out/dialects/react/ops.ts`, `${A}/infrastructure/out/dialects/typescript/ast.ts`],
     ["its own folder", `${A}/infrastructure/out/dialects/css/adapter.ts`, `${A}/infrastructure/out/dialects/css/ops.ts`],
     ["the domain kit", `${A}/infrastructure/out/dialects/css/adapter.ts`, `${A}/domain/ports/dialect-contract.ts`],
     ["platform/", `${A}/infrastructure/out/dialects/json/ops.ts`, "src/platform/deep-equal.ts"],

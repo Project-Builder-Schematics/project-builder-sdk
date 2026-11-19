@@ -6,7 +6,7 @@
 // `import.meta.main` entry point so generateSchema() itself stays containment-agnostic.
 //
 // Authoring's codegen driving adapter: it calls the domain's schema services, and
-// bin/pbuilder-codegen.ts runs it as the process entry (FIT-15: bin->src only, never src->bin).
+// bin/pbuilder-codegen.ts runs it as the process entry (fit-49 binImporters: bin->src only, never src->bin).
 
 import {
   readFileSync, writeFileSync, existsSync, realpathSync, lstatSync, statSync,

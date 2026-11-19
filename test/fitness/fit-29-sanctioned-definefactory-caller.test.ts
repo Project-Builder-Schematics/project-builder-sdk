@@ -7,14 +7,14 @@
  * ~85 deep-import sentinel files and the wrap-parity harness import `defineFactory`
  * directly by design, with no annotation convention required).
  *
- * Mirrors FIT-15/FIT-21's resolved-path idiom (`specifiersResolvingInto`), narrowed to
+ * Uses import-scan's resolved-path idiom (`specifiersResolvingInto`), narrowed to
  * import/export lines that actually BIND the name `defineFactory` — a file importing OTHER
  * names from context.ts (e.g. `currentContext`, `requirePackageAnchors`, both legitimately
  * imported outside the allowlist by src/commons/ and src/scaffold/) is not a violation; a
  * plain specifier-resolution scan over the whole file would false-positive on those.
  *
  * Red-proof: a planted `defineFactory` import from `src/commons/**` (inline fixture string,
- * per FIT-15's established no-fixture-file pattern — never a new file under src/commons/).
+ * never a new file under src/commons/).
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
