@@ -9,7 +9,7 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const SOURCE = readFileSync(join(import.meta.dir, "../../src/commons/index.ts"), "utf-8");
+const SOURCE = readFileSync(join(import.meta.dir, "../../src/bounded-contexts/authoring/infrastructure/in/commons/index.ts"), "utf-8");
 
 describe("REQ-TES-10.1 — src/commons/index.ts JSDoc carries zero defineFactory tokens", () => {
   it("the literal token 'defineFactory' does not appear anywhere in the file", () => {

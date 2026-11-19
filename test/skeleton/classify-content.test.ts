@@ -46,7 +46,7 @@ const CLASSIFY_CONTENT_SOURCE = readFileSync(
   join(PROJECT_ROOT, "src/bounded-contexts/authoring/domain/services/classify-content.ts"),
   "utf-8"
 );
-const COMMONS_SOURCE = readFileSync(join(PROJECT_ROOT, "src", "commons", "index.ts"), "utf-8");
+const COMMONS_SOURCE = readFileSync(join(PROJECT_ROOT, "src", "bounded-contexts", "authoring", "infrastructure", "in", "commons", "index.ts"), "utf-8");
 
 describe("classifyContent — doc discoverability (REQ-RT-03)", () => {
   it("carries a branching @example over the three ContentState cases fed by a read() result (REQ-RT-03.1)", () => {

@@ -78,7 +78,7 @@ function findBreakingRemovals(baseline: string[], current: string[]): string[] {
 const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }> = [
   {
     baselineFile: join(BASELINE_DIR, "commons.index.d.ts"),
-    distFile: join(DIST_DIR, "commons/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/infrastructure/in/commons/index.d.ts"),
     label: "commons",
   },
   {

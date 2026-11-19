@@ -197,8 +197,8 @@ export function describe(directive: Directive): JsonValue {
       expect(violations).toEqual([]);
     });
 
-    it("src/commons/index.ts and src/conformance/index.ts are included in the scan and pass clean", () => {
-      const commonsPath = join(SRC_ROOT, "commons", "index.ts");
+    it("the commons facade and src/conformance/index.ts are included in the scan and pass clean", () => {
+      const commonsPath = join(SRC_ROOT, "bounded-contexts/authoring/infrastructure/in/commons/index.ts");
       const conformancePath = join(SRC_ROOT, "conformance", "index.ts");
 
       // Cleanliness for these two paths is already proven above (they're members of

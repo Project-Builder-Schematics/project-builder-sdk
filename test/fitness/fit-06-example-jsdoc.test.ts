@@ -27,7 +27,7 @@ const ROOT = new URL("../../src", import.meta.url).pathname;
 // verb `find` is gate-covered by this SAME fitness function, not left to convention). Entries
 // that are `export *` barrels are scanned at the kit or adapter they re-export.
 const PUBLIC_PATHS = [
-  join(ROOT, "commons/index.ts"),
+  join(ROOT, "bounded-contexts/authoring/infrastructure/in/commons/index.ts"),
   join(ROOT, "bounded-contexts/authoring/testing/conformance/index.ts"),
   join(ROOT, "bounded-contexts/authoring/testing/harness/index.ts"),
   join(ROOT, "bounded-contexts/authoring/infrastructure/out/dialects/typescript/index.ts"),

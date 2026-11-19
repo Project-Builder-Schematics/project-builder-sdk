@@ -18,7 +18,7 @@ import { join } from "node:path";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const BASELINE_FILE = join(PROJECT_ROOT, "test/fitness/dts-baseline/commons.index.d.ts");
-const COMMONS_SOURCE_FILE = join(PROJECT_ROOT, "src/commons/index.ts");
+const COMMONS_SOURCE_FILE = join(PROJECT_ROOT, "src/bounded-contexts/authoring/infrastructure/in/commons/index.ts");
 
 // Extracts the JSDoc comment block immediately preceding `export function pendingDirectives(`.
 function extractPendingDirectivesJsDoc(source: string): string {

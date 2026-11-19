@@ -24,7 +24,7 @@ const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = join(PROJECT_ROOT, "src");
 const DIRECTIVE_FACTORY_FILE = join(SRC_DIR, "bounded-contexts/authoring/domain/services/directive-factory.ts");
 const CLASSIFY_TRANSPORT_FILE = join(SRC_DIR, "bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts");
-const COMMONS_FILE = join(SRC_DIR, "commons", "index.ts");
+const COMMONS_FILE = join(SRC_DIR, "bounded-contexts/authoring/infrastructure/in/commons/index.ts");
 const EXPANDER_FILE = join(SRC_DIR, "bounded-contexts/authoring/application/usecases/scaffold/expander.ts");
 const ALLOWED_FILES = new Set([DIRECTIVE_FACTORY_FILE, CLASSIFY_TRANSPORT_FILE]);
 
@@ -70,7 +70,7 @@ describe("fit-39 — single-encode-site (encodeOptions confined to directive-fac
     }
   });
 
-  it("src/commons/index.ts holds no encode site (verb layer funnels through the factory)", () => {
+  it("the commons facade holds no encode site (verb layer funnels through the factory)", () => {
     expect(siteViolations(readFileSync(COMMONS_FILE, "utf-8"))).toEqual([]);
   });
 

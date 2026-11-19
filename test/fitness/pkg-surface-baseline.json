@@ -139,6 +139,8 @@
     "dist/bounded-contexts/authoring/domain/valueobjects/schema-model.js",
     "dist/bounded-contexts/authoring/domain/valueobjects/wire.d.ts",
     "dist/bounded-contexts/authoring/domain/valueobjects/wire.js",
+    "dist/bounded-contexts/authoring/infrastructure/in/commons/index.d.ts",
+    "dist/bounded-contexts/authoring/infrastructure/in/commons/index.js",
     "dist/bounded-contexts/authoring/infrastructure/out/dialects/angular/index.d.ts",
     "dist/bounded-contexts/authoring/infrastructure/out/dialects/angular/index.js",
     "dist/bounded-contexts/authoring/infrastructure/out/dialects/angular/ops.d.ts",
