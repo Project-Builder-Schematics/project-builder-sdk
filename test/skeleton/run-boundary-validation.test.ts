@@ -10,6 +10,7 @@ import { chmodSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { defineFactory, currentContext } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
+import type { PackageFiles } from "../../src/bounded-contexts/authoring/domain/ports/package-files.ts";
 import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { seedSchema } from "../support/canary.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
@@ -300,5 +301,33 @@ describe("run-boundary read failures — full messages", () => {
     } finally {
       warnSpy.mockRestore();
     }
+  });
+});
+
+// Only a PackageReadFailure becomes a run-boundary message; anything else the port throws is a
+// defect in the adapter and must reach the caller unchanged.
+describe("run-boundary reads — unexpected port errors propagate unchanged", () => {
+  const unexpected = new TypeError("adapter defect");
+  const throwing = (): never => {
+    throw unexpected;
+  };
+  const files = (overrides: Partial<PackageFiles>): PackageFiles => ({ ...nodePackageFiles, ...overrides });
+
+  async function runWith(packageFiles: PackageFiles): Promise<unknown> {
+    const run = defineFactory<unknown>(() => {}, { packageDir: scratchDir(), packageFiles });
+    try {
+      await run({}, { client: new ContractFake({ seed: {} }) });
+      return undefined;
+    } catch (err) {
+      return err;
+    }
+  }
+
+  it("from the reserved-name scan", async () => {
+    expect(await runWith(files({ findReservedSibling: throwing }))).toBe(unexpected);
+  });
+
+  it("from the schema.json read", async () => {
+    expect(await runWith(files({ findReservedSibling: () => undefined, readText: throwing }))).toBe(unexpected);
   });
 });
