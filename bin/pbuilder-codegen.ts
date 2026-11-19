@@ -15,7 +15,7 @@ import {
 import { join, dirname, basename, resolve, sep } from "node:path";
 import { parseSchema, SchemaParseFailure, formatLocator } from "../src/bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
 import { computeSchemaDigest } from "../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
-import { schemaPathFor } from "../src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts";
+import { schemaPathFor } from "../src/bounded-contexts/authoring/domain/services/schema/schema-files.ts";
 import { checkSufficiency, type SufficiencyFinding } from "../src/bounded-contexts/authoring/domain/services/schema/schema-sufficiency.ts";
 import { isErrnoException } from "../src/platform/fs-errors.ts";
 import { emitInputType, UnrecognizedPropertyTypeError } from "./emit-type.ts";

@@ -10,6 +10,7 @@ import type { Batch, Directive } from "../../domain/valueobjects/wire.ts";
 import type { AuthoringError } from "../../domain/valueobjects/authoring-error.ts";
 import { defineFactory } from "../../application/usecases/run-factory/context.ts";
 import { ContractFake } from "../contract-fake.ts";
+import { nodePackageFiles } from "../../infrastructure/out/fs/package-files.ts";
 
 interface RecordingClient {
   emit(batch: Batch): Promise<void>;
@@ -123,7 +124,7 @@ export async function runFactoryForTest<O>(
 
   const run = defineFactory<O>(
     fn,
-    options?.packageDir !== undefined ? { packageDir: options.packageDir } : undefined
+    options?.packageDir !== undefined ? { packageDir: options.packageDir, packageFiles: nodePackageFiles } : undefined
   );
 
   let error: AuthoringError | unknown;

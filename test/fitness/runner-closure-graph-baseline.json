@@ -6,16 +6,18 @@
     "bounded-contexts/authoring/application/usecases/run-factory/context.js",
     "bounded-contexts/authoring/domain/aggregates/session/session.js",
     "bounded-contexts/authoring/domain/ports/emit-rejection.js",
+    "bounded-contexts/authoring/domain/ports/package-files.js",
     "bounded-contexts/authoring/domain/services/directive-factory.js",
     "bounded-contexts/authoring/domain/services/run-context.js",
     "bounded-contexts/authoring/domain/services/schema/input-rejection.js",
+    "bounded-contexts/authoring/domain/services/schema/schema-files.js",
     "bounded-contexts/authoring/domain/services/schema/schema-locate.js",
     "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
     "bounded-contexts/authoring/domain/services/schema/schema-validate.js",
     "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
     "bounded-contexts/authoring/domain/valueobjects/schema-model.js",
     "bounded-contexts/authoring/domain/valueobjects/wire.js",
-    "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
+    "bounded-contexts/authoring/infrastructure/out/fs/package-files.js",
     "bounded-contexts/runner-hosting/infrastructure/in/exit-codes.js",
     "bounded-contexts/runner-hosting/infrastructure/in/factory-pointer.js",
     "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
@@ -89,6 +91,11 @@
     },
     {
       "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/domain/ports/package-files.js",
+      "specifier": "../../../domain/ports/package-files.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
       "to": "bounded-contexts/authoring/domain/services/directive-factory.js",
       "specifier": "../../../domain/services/directive-factory.js"
     },
@@ -104,6 +111,11 @@
     },
     {
       "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/domain/services/schema/schema-files.js",
+      "specifier": "../../../domain/services/schema/schema-files.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
       "to": "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
       "specifier": "../../../domain/services/schema/schema-parse.js"
     },
@@ -116,16 +128,6 @@
       "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
       "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
       "specifier": "../../../domain/valueobjects/authoring-error.js"
-    },
-    {
-      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
-      "to": "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
-      "specifier": "../../../infrastructure/out/fs/schema-discovery.js"
-    },
-    {
-      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
-      "to": "platform/fs-errors.js",
-      "specifier": "../../../../../platform/fs-errors.js"
     },
     {
       "from": "bounded-contexts/authoring/domain/aggregates/session/session.js",
@@ -168,12 +170,17 @@
       "specifier": "../../../../shared-kernel/batch-cap.js"
     },
     {
-      "from": "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
+      "from": "bounded-contexts/authoring/infrastructure/out/fs/package-files.js",
+      "to": "bounded-contexts/authoring/domain/ports/package-files.js",
+      "specifier": "../../../domain/ports/package-files.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/infrastructure/out/fs/package-files.js",
       "to": "bounded-contexts/authoring/domain/valueobjects/schema-model.js",
       "specifier": "../../../domain/valueobjects/schema-model.js"
     },
     {
-      "from": "bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js",
+      "from": "bounded-contexts/authoring/infrastructure/out/fs/package-files.js",
       "to": "platform/fs-errors.js",
       "specifier": "../../../../../platform/fs-errors.js"
     },
@@ -221,6 +228,11 @@
       "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
       "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
       "specifier": "../../../authoring/domain/valueobjects/authoring-error.js"
+    },
+    {
+      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
+      "to": "bounded-contexts/authoring/infrastructure/out/fs/package-files.js",
+      "specifier": "../../../authoring/infrastructure/out/fs/package-files.js"
     },
     {
       "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",

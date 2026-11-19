@@ -16,7 +16,7 @@
  */
 import { describe, it, expect } from "bun:test";
 import { join } from "node:path";
-import { findReservedSibling } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts";
+import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 import { ALWAYS_ON_SCAN_ROOTS } from "../support/scan-roots.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
@@ -27,25 +27,25 @@ describe("FIT-16 — always-on reserved-name scan (walk over ALWAYS_ON_SCAN_ROOT
     it(`${root}: has no reserved-lifecycle-name sibling (green)`, () => {
       const packageDir = join(PROJECT_ROOT, root);
 
-      expect(findReservedSibling(packageDir)).toBeUndefined();
+      expect(nodePackageFiles.findReservedSibling(packageDir)).toBeUndefined();
     });
   }
 });
 
 describe("FIT-16 — red-proofs (direct check-function call against test/fixtures/red/reserved/**, never walked)", () => {
   it("REQ-RLN-01.1: a pre-execute.ts sibling is flagged, naming pre-execute", () => {
-    expect(findReservedSibling(join(RED_ROOT, "pre-execute-file"))).toEqual("pre-execute");
+    expect(nodePackageFiles.findReservedSibling(join(RED_ROOT, "pre-execute-file"))).toEqual("pre-execute");
   });
 
   it("REQ-RLN-01.3: a post-execute.ts sibling is flagged independently, naming post-execute (pair triangulation)", () => {
-    expect(findReservedSibling(join(RED_ROOT, "post-execute-file"))).toEqual("post-execute");
+    expect(nodePackageFiles.findReservedSibling(join(RED_ROOT, "post-execute-file"))).toEqual("post-execute");
   });
 
   it("dir-form: a pre-execute/ directory sibling is flagged (ADR-0028)", () => {
-    expect(findReservedSibling(join(RED_ROOT, "pre-execute-dir"))).toEqual("pre-execute");
+    expect(nodePackageFiles.findReservedSibling(join(RED_ROOT, "pre-execute-dir"))).toEqual("pre-execute");
   });
 
   it("case-insensitive: a PRE-EXECUTE.TS sibling is flagged (TW-M2)", () => {
-    expect(findReservedSibling(join(RED_ROOT, "pre-execute-case"))).toEqual("pre-execute");
+    expect(nodePackageFiles.findReservedSibling(join(RED_ROOT, "pre-execute-case"))).toEqual("pre-execute");
   });
 });

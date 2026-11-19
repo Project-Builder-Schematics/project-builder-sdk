@@ -14,12 +14,13 @@ import { defineFactory } from "../../src/bounded-contexts/authoring/application/
 import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const scratchDir = scratchDirFactory("rln-");
 
 async function runAgainst(packageDir: string): Promise<unknown> {
   const fake = new ContractFake({ seed: {} });
-  const run = defineFactory<void>(() => {}, { packageDir });
+  const run = defineFactory<void>(() => {}, { packageDir, packageFiles: nodePackageFiles });
   try {
     await run(undefined, { client: fake });
     return undefined;

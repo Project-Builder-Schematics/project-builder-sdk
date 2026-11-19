@@ -33,6 +33,7 @@ import { boundMessage, composeWithToken, scrubAbsolutePaths, toProjectRelativePa
 import { parseFactoryPointer, validateFactoryUrl, resolveFactoryExport } from "./factory-pointer.ts";
 import { probeSingleInstance } from "./single-instance-probe.ts";
 import { classifyExitCode } from "./exit-codes.ts";
+import { nodePackageFiles } from "../../../authoring/infrastructure/out/fs/package-files.ts";
 
 export interface RunnerIo {
   /** Raw inbound byte stream (stdin on the spawned path; injectable for in-process tests). */
@@ -312,7 +313,7 @@ async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
   // the factory's own directory — schema-derived validation and reserved-name checks apply
   // identically on both vehicles.
   const packageDir = dirname(fileURLToPath(new URL(moduleUrl)));
-  const run = defineFactory(exportResolution.fn, { packageDir });
+  const run = defineFactory(exportResolution.fn, { packageDir, packageFiles: nodePackageFiles });
 
   const channel: FrameChannel = {
     write: io.writeFrame,

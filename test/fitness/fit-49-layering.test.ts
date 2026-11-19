@@ -171,6 +171,8 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["testingImporters", "src/commons/index.ts", `${A}/testing/contract-fake.ts`],
     ["compositionImporters", `${A}/infrastructure/in/x.ts`, `${A}/composition.ts`],
     ["crossContext", `${R}/infrastructure/in/x.ts`, `${A}/domain/valueobjects/x.ts`],
+    ["crossContext", `${R}/infrastructure/in/x.ts`, `${A}/infrastructure/out/fs/walk.ts`],
+    ["crossContext", `${R}/infrastructure/out/x.ts`, `${A}/infrastructure/out/fs/package-files.ts`],
     ["platformImporters", `${A}/domain/services/x.ts`, "src/platform/x.ts"],
     ["platformImports", "src/platform/x.ts", `${A}/domain/services/x.ts`],
     ["sharedKernelImports", "src/shared-kernel/x.ts", `${A}/domain/services/x.ts`],
@@ -212,6 +214,9 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
   it("allowed edges stay allowed", () => {
     expect(violation(at("src/testing/index.ts"), `${A}/testing/contract-fake.ts`, at(`${A}/testing/contract-fake.ts`))).toBeUndefined();
     expect(violation(at(`${R}/infrastructure/in/x.ts`), `${A}/application/usecases/run-factory.ts`, at(`${A}/application/usecases/run-factory.ts`))).toBeUndefined();
+    const packageFiles = `${A}/infrastructure/out/fs/package-files.ts`;
+    expect(violation(at(`${R}/infrastructure/in/x.ts`), packageFiles, at(packageFiles))).toBeUndefined();
+    expect(violation(at(`${A}/testing/harness/index.ts`), packageFiles, at(packageFiles))).toBeUndefined();
     expect(violation(at(`${A}/domain/services/x.ts`), "node:path", undefined)).toBeUndefined();
     expect(violation(at(`${A}/infrastructure/out/fs/x.ts`), "node:fs", undefined)).toBeUndefined();
   });

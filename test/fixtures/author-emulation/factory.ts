@@ -14,7 +14,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { currentContext } from "../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
-import { findReservedSibling } from "../../../src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts";
+import { nodePackageFiles } from "../../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 import { rejectionForReservedName } from "../../../src/bounded-contexts/authoring/domain/services/schema/input-rejection.ts";
 import { create, copyIn, scaffold } from "../../../src/commons/index.ts";
 import type { ScaffoldOptions } from "../../../src/commons/index.ts";
@@ -155,7 +155,7 @@ export const runM06 = (input: Input): void => {
  * ambient run `runFactoryForTest`/`captureRun` already established: it installs the
  * scratch dir itself as `packageAnchors.packageDir` (ADR-0077: `packageDir` is the sole
  * run anchor — no separate ceiling to resolve), replicates the SAME wrap primitive's own
- * reserved-name check via the SAME exported utilities it calls (`findReservedSibling` +
+ * reserved-name check via the SAME exported utilities it calls (`nodePackageFiles.findReservedSibling` +
  * `rejectionForReservedName` — never a private reimplementation), then temporarily installs
  * those anchors on the CURRENT `SessionContext` for the duration of `body`'s execution,
  * restoring the previous value (`undefined` for every caller today, since these scenarios
@@ -174,7 +174,7 @@ function scratchFactoryRunner(
     const dir = mkdtempSync(join(tmpdir(), "author-emulation-scratch-"));
     try {
       setup(dir);
-      const reserved = findReservedSibling(dir);
+      const reserved = nodePackageFiles.findReservedSibling(dir);
       if (reserved !== undefined) {
         throw rejectionForReservedName(reserved);
       }

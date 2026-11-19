@@ -20,6 +20,7 @@ import { ContractFake } from "../../support/contract-fake.ts";
 import { createRunVehicle } from "../../../src/bounded-contexts/authoring/testing/run-vehicle.ts";
 import { PACKAGE_DIR } from "../../fixtures/author-emulation/factory.ts";
 import type { EngineClient } from "../../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import { nodePackageFiles } from "../../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 type Verdict = "accepted" | "rejected";
 
@@ -30,7 +31,7 @@ type Verdict = "accepted" | "rejected";
 const SCHEMA_SATISFYING_INPUT = { name: "Widgets" };
 
 async function driveVerdict(client: EngineClient, factoryBody: () => void): Promise<Verdict> {
-  const run = defineFactory<typeof SCHEMA_SATISFYING_INPUT>(factoryBody, { packageDir: PACKAGE_DIR });
+  const run = defineFactory<typeof SCHEMA_SATISFYING_INPUT>(factoryBody, { packageDir: PACKAGE_DIR, packageFiles: nodePackageFiles });
   try {
     await run(SCHEMA_SATISFYING_INPUT, { client });
     return "accepted";

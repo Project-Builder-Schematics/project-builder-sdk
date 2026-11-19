@@ -11,18 +11,14 @@ const SCAFFOLD_FS = "scaffold use case reads the source folder directly (V3); it
 const TESTING_PLATFORM = "CODE-LAYOUT:127 does not list testing/ among platform/ importers; project-builder-architecture#75 proposes it, and the row goes in the slice after it lands";
 
 export const EXCEPTIONS: readonly Exception[] = [
-  { from: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", to: "node:fs", rule: "noRuntimeIo", reason: "run boundary reads the package directory (V1); moves behind the package-files port", removedBy: "S9" },
-  { from: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", to: "process.cwd", rule: "noRuntimeIo", reason: "run boundary resolves the package directory from the working directory (V1); moves into the package-files adapter", removedBy: "S9" },
-  { from: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts", rule: "applicationImports", reason: "run use case calls the schema.json finder directly (V2); goes through the package-files port", removedBy: "S9" },
-  { from: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", to: "src/platform/fs-errors.ts", rule: "platformImporters", reason: "run use case maps filesystem error codes itself (V1); the package-files adapter owns them", removedBy: "S9" },
   { from: "src/core/index.ts", to: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", rule: "domainImports", reason: "the internal kit barrel (ADR-0009) re-exports defineFactory and currentContext from the run boundary; it goes when the legacy tree is empty", removedBy: "S14" },
   { from: "src/bounded-contexts/authoring/application/usecases/scaffold/expander.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/walk.ts", rule: "applicationImports", reason: SCAFFOLD_FS, removedBy: "S10" },
   { from: "src/bounded-contexts/authoring/application/usecases/scaffold/expander.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts", rule: "applicationImports", reason: SCAFFOLD_FS, removedBy: "S10" },
   { from: "src/bounded-contexts/authoring/application/usecases/scaffold/expander.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/path-guards.ts", rule: "applicationImports", reason: SCAFFOLD_FS, removedBy: "S10" },
   { from: "src/bounded-contexts/authoring/application/usecases/scaffold/index.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/path-guards.ts", rule: "applicationImports", reason: SCAFFOLD_FS, removedBy: "S10" },
   { from: "src/bounded-contexts/authoring/application/usecases/scaffold/index.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts", rule: "applicationImports", reason: SCAFFOLD_FS, removedBy: "S10" },
-  { from: "src/bounded-contexts/authoring/testing/contract-fake.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S9" },
-  { from: "src/bounded-contexts/authoring/testing/conformance/index.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S9" },
+  { from: "src/bounded-contexts/authoring/testing/contract-fake.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S10" },
+  { from: "src/bounded-contexts/authoring/testing/conformance/index.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S10" },
   { from: "src/bounded-contexts/runner-hosting/infrastructure/in/exit-codes.ts", to: "src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts", rule: "crossContext", reason: "runner maps Authoring's error type to exit codes; it reaches the type through Authoring's run-factory use case", removedBy: "S11" },
   { from: "src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts", to: "src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts", rule: "crossContext", reason: "runner reaches Authoring's error type directly; it goes through the run-factory use case and the types it exposes", removedBy: "S11" },
   { from: "src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts", to: "src/bounded-contexts/authoring/domain/services/schema/schema-locate.ts", rule: "crossContext", reason: "runner calls Authoring's schema services directly; it goes through the run-factory use case", removedBy: "S11" },
@@ -32,5 +28,6 @@ export const EXCEPTIONS: readonly Exception[] = [
 // 18 at S0a. S1b added 4 interim rows and removed the handle → context row (21); S4 removed
 // the 4 interim rows (17); S5 removed authoring-error → emit-rejection and framing → wire (15).
 // S7 moved the conformance kit out of its public entry, so its existing deep-equal import
-// became a testing/ → platform/ edge (16).
-export const CEILING = 16;
+// became a testing/ → platform/ edge (16). S9 put the run boundary's reads behind the
+// package-files port, removing the four context.ts rows (12).
+export const CEILING = 12;

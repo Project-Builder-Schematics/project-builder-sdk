@@ -30,6 +30,7 @@ import { BATCH_CAP_BYTES } from "../../src/shared-kernel/batch-cap.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 import { expectAuthoringReason } from "../support/expect-reason.ts";
+import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const scratchDir = scratchDirFactory("scaffold-e2e-");
 
@@ -43,7 +44,7 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
       create("dest.ts", { templateFile: "tpl.ts.template", options: { x: 1 } });
 
       expect(pendingDirectives()).toEqual([{ verb: "create", path: "dest.ts", kind: "rendered" }]);
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -97,7 +98,7 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
 
     const run = defineFactory<void>(() => {
       create("dest.ts", { templateFile: "bom.ts.template", options: {} });
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -172,7 +173,7 @@ describe("e2e — create({ templateFile }) walking skeleton", () => {
 
       const run = defineFactory<void>(() => {
         create("dest.ts", { templateFile: "tpl.ts.template", options: { x: 1 } });
-      }, { packageDir: dir });
+      }, { packageDir: dir, packageFiles: nodePackageFiles });
 
       await run(undefined, { client: fake });
 
@@ -268,7 +269,7 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
         { verb: "create", path: "out/a.ts", kind: "rendered" },
         { verb: "create", path: "out/nested/b.ts", kind: "rendered" },
       ]);
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -289,7 +290,7 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
 
     const run = defineFactory<void>(() => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -304,7 +305,7 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
     const run = defineFactory<void>(() => {
       scaffold({ from: "empty", to: "out" });
       expect(pendingDirectives()).toEqual([]);
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -341,7 +342,7 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
         { verb: "copyIn", path: "files/asset.png", kind: "copied" },
         { verb: "create", path: "out/text.ts", kind: "rendered" },
       ]);
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -437,7 +438,7 @@ describe("e2e — copyIn(from, to, { force }) never-render copy (S-003)", () => 
       expect(result).toBeUndefined(); // REQ-FEH-04.3: copyIn returns void
 
       expect(pendingDirectives()).toEqual([{ verb: "copyIn", path: "literal.txt", kind: "copied" }]);
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 

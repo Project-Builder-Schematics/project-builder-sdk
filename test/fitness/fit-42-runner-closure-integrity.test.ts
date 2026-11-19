@@ -141,8 +141,8 @@ describe("FIT-42 S-000 — the build emits a runner manifest", () => {
     expect(manifest.algorithm).toBe("sha256");
   });
 
-  it("REQ-RME-01.1: the manifest carries 26 file records — the 25 closure files plus package.json", () => {
-    expect(manifest.files.length).toBe(26);
+  it("REQ-RME-01.1: the manifest carries 28 file records — the 27 closure files plus package.json", () => {
+    expect(manifest.files.length).toBe(28);
   });
 
   it("REQ-RME-01.1: `entry` names the runner and appears exactly once among the file records", () => {
@@ -175,15 +175,15 @@ describe("FIT-42 S-000 — the build emits a runner manifest", () => {
     });
     expect(result.status).toBe(0);
     const [first, second, ...rest] = result.stdout.trimEnd().split("\n");
-    expect(first).toBe("runner-manifest: 26 files -> dist/runner-manifest.json");
+    expect(first).toBe("runner-manifest: 28 files -> dist/runner-manifest.json");
     expect(second).toMatch(/^runner-manifest-sha256: [\da-f]{64}$/);
     expect(rest).toEqual([]);
   });
 });
 
 describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
-  it("REQ-RCD-02.2: the closure derived from the real dist/ is exactly 25 files", () => {
-    expect(derivedFromDistDir().nodes.length).toBe(25);
+  it("REQ-RCD-02.2: the closure derived from the real dist/ is exactly 27 files", () => {
+    expect(derivedFromDistDir().nodes.length).toBe(27);
   });
 
   // RP-12 — the inverse red-proof. `removeComments` is unset, so both files' JSDoc
@@ -209,7 +209,7 @@ describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
   });
 
   // engine-client.ts is reachable only via `import type`, so tsc erases the edge: a SOURCE
-  // walk yields 26 nodes, the emitted walk 25. This is the 25-vs-26 proof, by name.
+  // walk yields 28 nodes, the emitted walk 27. This is the 27-vs-28 proof, by name.
   it("REQ-RCD-02.1: dist/bounded-contexts/authoring/domain/ports/engine-client.js exists on disk but is absent from the closure", () => {
     expect(existsSync(join(distDir, "bounded-contexts/authoring/domain/ports/engine-client.js"))).toBe(true);
     expect(derivedFromDistDir().nodes).not.toContain(
@@ -311,10 +311,10 @@ describe("FIT-42 S-002 — the manifest's shape, exclusions, hygiene and orderin
     expect(offenders).toEqual([]);
   });
 
-  it("REQ-RME-01.2: exactly one record is package.json and the other 25 start with dist/", () => {
+  it("REQ-RME-01.2: exactly one record is package.json and the other 27 start with dist/", () => {
     const paths = manifest.files.map((record) => record.path);
     expect(paths.filter((path) => path === "package.json").length).toBe(1);
-    expect(paths.filter((path) => path.startsWith("dist/")).length).toBe(25);
+    expect(paths.filter((path) => path.startsWith("dist/")).length).toBe(27);
   });
 
   it("REQ-RME-03.1: no record matches an excluded tree, a .d.ts, or the manifest itself", () => {
@@ -368,7 +368,7 @@ describe("FIT-42 S-002 — the closure's own bytes are line-ending and BOM clean
 
   it("REQ-RMD-03.2: no emitted closure file contains a CRLF pair", () => {
     const emitted = closureFileBytes().filter(({ path }) => path.startsWith("dist/"));
-    expect(emitted.length).toBe(25);
+    expect(emitted.length).toBe(27);
     expect(findCrlfOffenders(emitted)).toEqual([]);
   });
 
@@ -635,7 +635,7 @@ describe("FIT-42 S-003 — the closure graph is the one the sources describe", (
 
   it("REQ-BDI-02.1: every closure file's specifier multiset survives emission unchanged", () => {
     const entries = emitComparison();
-    expect(entries.length).toBe(25);
+    expect(entries.length).toBe(27);
     expect(findGraphEmitMismatches(entries)).toEqual([]);
   });
 

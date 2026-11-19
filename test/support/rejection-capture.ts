@@ -4,6 +4,7 @@
 
 import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import type { ContractFake } from "./contract-fake.ts";
+import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 /**
@@ -16,7 +17,10 @@ export async function rejectedRun(
   fn: () => void | Promise<void>,
   options?: { packageDir?: string }
 ): Promise<unknown> {
-  const run = defineFactory<void>(fn, options);
+  const run = defineFactory<void>(
+    fn,
+    options?.packageDir !== undefined ? { packageDir: options.packageDir, packageFiles: nodePackageFiles } : undefined
+  );
   try {
     await run(undefined, { client: fake });
     return undefined;
