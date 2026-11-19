@@ -21,6 +21,12 @@ export type PackageSource =
   | { kind: "other" }
   | { kind: "unreadable"; detail: "permission or I/O error" | "symlink cycle" | "path contains an invalid character" };
 
+/** Why a path under the package could not be inspected: it is gone, a segment is not a folder, or anything else. */
+export type PackageEntryFailure = "missing" | "not-a-directory" | "unreadable";
+
+/** What a path holds without following a final symlink, or why it could not be inspected. */
+export type PackageEntry = { kind: "symlink" | "directory" | "other" } | { failure: PackageEntryFailure };
+
 export interface PackageFiles {
   /** The file's UTF-8 text, or `undefined` when nothing exists at `path`. */
   readText(path: string): string | undefined;
@@ -35,4 +41,10 @@ export interface PackageFiles {
   statSource(packageDir: string, relPath: string): PackageSource;
   /** The bytes of `relPath` under `packageDir`; any failure throws PackageReadFailure. */
   readBytes(packageDir: string, relPath: string): Uint8Array;
+  /** What `path` holds, not following a final symlink; never throws. */
+  entryAt(path: string): PackageEntry;
+  /** The names in folder `dir`, in no particular order, or why it could not be listed; never throws. */
+  namesIn(dir: string): string[] | { failure: PackageEntryFailure };
+  /** Whether `path` is a folder once symlinks are followed; `false` on any failure. */
+  isFolder(path: string): boolean;
 }

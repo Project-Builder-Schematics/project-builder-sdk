@@ -25,7 +25,7 @@ import * as fs from "node:fs";
 import { join } from "node:path";
 import { ContractFake } from "../../../../support/contract-fake.ts";
 import { scaffold, AuthoringError } from "../../../../../src/commons/index.ts";
-import { walkFolder } from "../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/walk.ts";
+import { walkFolder } from "../../../../../src/bounded-contexts/authoring/application/usecases/scaffold/walk.ts";
 import { detectDestinationCollisions, type PipelineResult } from "../../../../../src/bounded-contexts/authoring/domain/services/filename-pipeline.ts";
 import { classifyTransport } from "../../../../../src/bounded-contexts/authoring/application/usecases/scaffold/classify-transport.ts";
 import { scratchDirFactory } from "../../../../support/scratch-dir.ts";
@@ -77,7 +77,7 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
     writeFileSync(join(dir, "b.ts"), "B", "utf-8");
 
     // 2 real entries > bound of 1
-    expectReason(() => walkFolder(dir, 1), "invalid-input");
+    expectReason(() => walkFolder(nodePackageFiles, dir, 1), "invalid-input");
   });
 
   it("the compile-time union pin still counts exactly eleven members — none of these modes minted a new reason", () => {

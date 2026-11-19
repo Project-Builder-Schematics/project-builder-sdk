@@ -1,9 +1,15 @@
 // The node:fs adapter of the package-files port. ENOENT is absence; any other failure is
 // described in author vocabulary, never by its raw errno message.
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { PackageReadFailure, type PackageFiles, type PackageSource } from "../../../domain/ports/package-files.ts";
+import {
+  PackageReadFailure,
+  type PackageEntry,
+  type PackageEntryFailure,
+  type PackageFiles,
+  type PackageSource,
+} from "../../../domain/ports/package-files.ts";
 import { RESERVED_LIFECYCLE_NAMES } from "../../../domain/valueobjects/schema-model.ts";
 import { isErrnoException } from "../../../../../platform/fs-errors.ts";
 
@@ -73,6 +79,39 @@ function statSource(packageDir: string, relPath: string): PackageSource {
   }
 }
 
+// The walk names a vanished entry and a non-folder root differently from every other failure.
+function entryFailure(err: unknown): PackageEntryFailure {
+  if (isErrnoException(err) && err.code === "ENOENT") return "missing";
+  if (isErrnoException(err) && err.code === "ENOTDIR") return "not-a-directory";
+  return "unreadable";
+}
+
+function entryAt(path: string): PackageEntry {
+  try {
+    const stat = lstatSync(path);
+    if (stat.isSymbolicLink()) return { kind: "symlink" };
+    return { kind: stat.isDirectory() ? "directory" : "other" };
+  } catch (err) {
+    return { failure: entryFailure(err) };
+  }
+}
+
+function namesIn(dir: string): string[] | { failure: PackageEntryFailure } {
+  try {
+    return readdirSync(dir);
+  } catch (err) {
+    return { failure: entryFailure(err) };
+  }
+}
+
+function isFolder(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 export const nodePackageFiles: PackageFiles = {
   readText: (path) => unlessAbsent(() => readFileSync(path, "utf-8")),
   findReservedSibling: (packageDir) => {
@@ -88,4 +127,7 @@ export const nodePackageFiles: PackageFiles = {
       throw new PackageReadFailure(describeReadFailure(err));
     }
   },
+  entryAt,
+  namesIn,
+  isFolder,
 };
