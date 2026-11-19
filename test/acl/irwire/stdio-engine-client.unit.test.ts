@@ -7,14 +7,14 @@ import type { EngineClient } from "../../../src/bounded-contexts/authoring/domai
 import { EmitRejection } from "../../../src/bounded-contexts/authoring/domain/ports/emit-rejection.ts";
 import { serializedBatchBytes, type Batch } from "../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { BATCH_CAP_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES } from "../../../src/shared-kernel/batch-cap.ts";
-import { ContractFake } from "../../../src/testing/contract-fake.ts";
+import { ContractFake } from "../../../src/bounded-contexts/authoring/testing/contract-fake.ts";
 import {
   FIXTURE_PATH,
   batchOfSerializedBytes,
   batchOverSerializedBytes,
   batchAtEmitBudget,
   batchOverEmitBudget,
-} from "../../fake/batch-cap-fixtures.ts";
+} from "../../bounded-contexts/authoring/testing/batch-cap-fixtures.ts";
 import { encodeFrame, encodeFrameBody } from "../../../src/shared-kernel/framing.ts";
 import { FrameReader, FrameFault } from "../../../src/acl/irwire/frame-reader.ts";
 import { pushableByteSource } from "../../support/pushable-byte-source.ts";

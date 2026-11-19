@@ -44,10 +44,9 @@ describe("REQ-FPS-05.2 (re-aim, bare-factory-migration) — defineFactory's JSDo
     expect(DEFINE_FACTORY_DOC).toMatch(/(?:^|\*|\s)@internal(?:\s|$)/m);
   });
 
-  it("names the three sanctioned caller roots (enforced by FIT-29)", () => {
+  it("names the sanctioned caller roots (enforced by FIT-29)", () => {
     expect(DEFINE_FACTORY_DOC).toContain("src/core/");
-    expect(DEFINE_FACTORY_DOC).toContain("src/testing/");
-    expect(DEFINE_FACTORY_DOC).toContain("src/conformance/");
+    expect(DEFINE_FACTORY_DOC).toContain("src/bounded-contexts/authoring/testing/");
   });
 
   it("still carries a valid @example even though marked @internal (FIT-06's cascade obligation survives)", () => {

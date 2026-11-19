@@ -46,8 +46,6 @@ export const LEGACY: readonly LegacyRow[] = [
   { path: "src/commons/", class: authoring("application") },
   { path: "src/core/", class: authoring("domain") },
   { path: "src/dialects/", class: authoring("infrastructure-out") },
-  { path: "src/testing/", class: authoring("testing") },
-  { path: "src/conformance/", class: authoring("testing") },
   { path: "bin/emit-type.ts", class: authoring("infrastructure-in") },
   { path: "bin/project-codegen.ts", class: authoring("infrastructure-in") },
 ];

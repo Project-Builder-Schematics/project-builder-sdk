@@ -9,11 +9,11 @@
  * `error === E1` with `error.cause === E2`).
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { runFactoryForTest, type RunResult } from "../../src/testing/index.ts";
-import { ContractFake } from "../../src/testing/contract-fake.ts";
-import * as ts from "../../src/dialects/typescript/index.ts";
-import { golden } from "../support/golden.ts";
-import { runViaManualWrap, FaultyDiscardFake } from "../support/wrap-parity-support.ts";
+import { runFactoryForTest, type RunResult } from "../../../../src/testing/index.ts";
+import { ContractFake } from "../../../../src/bounded-contexts/authoring/testing/contract-fake.ts";
+import * as ts from "../../../../src/dialects/typescript/index.ts";
+import { golden } from "../../../support/golden.ts";
+import { runViaManualWrap, FaultyDiscardFake } from "../../../support/wrap-parity-support.ts";
 
 describe("REQ-ATH-19.1 — happy-path parity, including dialect drain→flush ordering", () => {
   it("runFactoryForTest and a manual defineFactory+client wrap yield identical {tree, emitted, error} for a dialect-using factory", async () => {

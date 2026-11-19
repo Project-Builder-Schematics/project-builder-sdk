@@ -8,7 +8,7 @@
  * would spuriously collide against a seed entry that was never there.
  */
 import { describe, it, expect } from "bun:test";
-import { ContractFake } from "../support/contract-fake.ts";
+import { ContractFake } from "../../../support/contract-fake.ts";
 import { batchOf, createOp } from "./directive-builders.ts";
 
 describe("REQ-PSS-01 — seed lookup is prototype-chain safe", () => {

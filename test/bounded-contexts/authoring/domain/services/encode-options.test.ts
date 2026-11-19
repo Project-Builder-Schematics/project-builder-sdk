@@ -83,7 +83,7 @@ describe("REQ-TOE-03 — scalar and null option values pass through verbatim", (
   // REQ-TOE-03.3: non-finite numbers (NaN/Infinity) are `typeof "number"` and deliberately
   // pass the plain-JSON predicate, at any depth. Rejecting them at scheduling time would make
   // Stage-2 REQ-14.3's flush-time `unrepresentable-content` guard unreachable for create
-  // options; that guard rejects them instead (test/fake/encode-recorded-batch.test.ts).
+  // options; that guard rejects them instead (test/bounded-contexts/authoring/testing/encode-recorded-batch.test.ts).
   it("[characterization] Scenario REQ-TOE-03.3: a top-level non-finite number (NaN) passes the predicate and coerces to wire null (REQ-TOE-03 carve-out)", () => {
     const result = encodeOptions({ n: NaN }) as { n: unknown };
     expect(result.n).toBeNaN();

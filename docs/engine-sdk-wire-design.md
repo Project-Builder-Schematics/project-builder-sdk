@@ -11,7 +11,7 @@ CURRENT wire shape. Three of this record's original decisions were superseded du
 (chain of responsibility, cross-language contracts, platform hazards) still holds. The wire
 methods (`ir.emit` / `tree.read`) are not yet on the engine (ROADMAP §6); no real client ships
 in `src/` at the time this record was authored (the normative implementation was the contract
-fake, `src/testing/contract-fake.ts` — `stdio-engine-client` later added the first real
+fake, `src/bounded-contexts/authoring/testing/contract-fake.ts` — `stdio-engine-client` later added the first real
 `EngineClient`, `StdioEngineClient`). Contributor-facing; not part of the author reading path
 in `docs/README.md`.
 

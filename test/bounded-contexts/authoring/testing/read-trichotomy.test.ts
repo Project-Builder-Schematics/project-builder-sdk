@@ -8,7 +8,7 @@
  * `content || undefined` mutant would coalesce them to undefined and these cases would catch it.
  */
 import { describe, it, expect } from "bun:test";
-import { ContractFake } from "../support/contract-fake.ts";
+import { ContractFake } from "../../../support/contract-fake.ts";
 
 describe("read trichotomy — contract level (fake driven directly)", () => {
   // REQ-RD-01.1

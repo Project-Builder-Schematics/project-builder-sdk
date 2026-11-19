@@ -1,4 +1,4 @@
-import type { Dialect, Handle, OpPack } from "../bounded-contexts/authoring/domain/services/define-dialect.ts";
+import type { Dialect, Handle, OpPack } from "../../domain/services/define-dialect.ts";
 /**
  * Runtime module contract; native namespace exports also preserve upstream types.
  *

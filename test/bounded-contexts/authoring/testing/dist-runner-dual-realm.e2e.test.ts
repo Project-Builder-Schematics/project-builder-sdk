@@ -9,13 +9,13 @@
 
 import { describe, it, expect, beforeAll } from "bun:test";
 import { join } from "node:path";
-import { frameHostFactory } from "../support/frame-host.ts";
+import { frameHostFactory } from "../../../support/frame-host.ts";
 import { serveSpawnedRunner } from "./fake-engine-harness.ts";
-import { ContractFake } from "../../src/testing/contract-fake.ts";
-import { ensureTscBuild, requireDistArtifacts } from "../support/shared-build.ts";
+import { ContractFake } from "../../../../src/bounded-contexts/authoring/testing/contract-fake.ts";
+import { ensureTscBuild, requireDistArtifacts } from "../../../support/shared-build.ts";
 
-const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
-const HAPPY_POINTER = `file://${new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;
+const PROJECT_ROOT = new URL("../../../../", import.meta.url).pathname;
+const HAPPY_POINTER = `file://${new URL("../../../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;
 
 const spawnFrameHost = frameHostFactory();
 

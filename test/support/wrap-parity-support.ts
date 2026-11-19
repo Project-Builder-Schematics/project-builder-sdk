@@ -8,7 +8,7 @@
 import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import type { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { ContractFake, type ContractFakeOptions } from "../../src/testing/contract-fake.ts";
+import { ContractFake, type ContractFakeOptions } from "../../src/bounded-contexts/authoring/testing/contract-fake.ts";
 
 export interface ManualRunResult {
   tree: ReadonlyMap<string, string>;

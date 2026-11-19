@@ -79,7 +79,7 @@ describe("REQ-MFB-01.2 — all three read verbs commit with no collection.json a
 
     // copyIn leg: emitted-directive-shape assertion ONLY (spec V3.2 re-pin, B5) — the
     // contract fake and run vehicle deliberately never materialize copyIn bytes
-    // (`src/testing/contract-fake.ts:237-247`), so no test may assert copyIn's committed
+    // (`src/bounded-contexts/authoring/testing/contract-fake.ts:237-247`), so no test may assert copyIn's committed
     // byte content.
     const copyInDirectives = result.emitted.flatMap((batch) =>
       batch.instructions.filter((instruction) => instruction.op === "copyIn")

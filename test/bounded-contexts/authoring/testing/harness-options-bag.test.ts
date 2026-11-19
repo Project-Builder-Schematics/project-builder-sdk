@@ -15,10 +15,10 @@
  */
 import { describe, it, expect } from "bun:test";
 import { join } from "node:path";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { create, AuthoringError } from "../../src/commons/index.ts";
+import { runFactoryForTest } from "../../../../src/testing/index.ts";
+import { create, AuthoringError } from "../../../../src/commons/index.ts";
 
-const FIXTURE_DIR = join(import.meta.dir, "../fixtures/harness-opted-in");
+const FIXTURE_DIR = join(import.meta.dir, "../../../fixtures/harness-opted-in");
 
 describe("REQ-ATH-01.4 — seed survives the options-bag migration", () => {
   it("[characterization] REQ-ATH-01.4: options.seed reaches ContractFake and is read on the collision path", async () => {

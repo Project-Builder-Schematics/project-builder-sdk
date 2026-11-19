@@ -16,10 +16,10 @@
  * facade's own wrapping introduces no new leak.
  */
 import { describe, it, expect } from "bun:test";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { create, find, AuthoringError } from "../../src/commons/index.ts";
-import { BATCH_CAP_BYTES } from "../../src/shared-kernel/batch-cap.ts";
-import * as rejectionMessages from "../../src/testing/rejection-messages.ts";
+import { runFactoryForTest } from "../../../../src/testing/index.ts";
+import { create, find, AuthoringError } from "../../../../src/commons/index.ts";
+import { BATCH_CAP_BYTES } from "../../../../src/shared-kernel/batch-cap.ts";
+import * as rejectionMessages from "../../../../src/bounded-contexts/authoring/testing/rejection-messages.ts";
 
 const LEAK_DICTIONARY: readonly string[] = Object.values(rejectionMessages).filter(
   (value) => typeof value === "string"

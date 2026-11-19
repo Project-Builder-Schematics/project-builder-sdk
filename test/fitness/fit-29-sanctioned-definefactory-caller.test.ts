@@ -2,7 +2,7 @@
  * FIT-29 (NEW, ADR-A): sanctioned-`defineFactory`-caller guard. `defineFactory` graduates
  * to core-internal vocabulary — this guard confines PRODUCTION imports of the
  * `defineFactory` BINDING (resolving into the run-factory `context.ts` or the kit barrel
- * `src/core/index.ts`) to `src/core/**`, `src/testing/**`, `src/conformance/**`. Scan
+ * `src/core/index.ts`) to `src/core/**` and `src/bounded-contexts/authoring/testing/**`. Scan
  * surface: `src/**` + `bin/**` — `test/**` is categorically OUTSIDE this scan's domain (the
  * ~85 deep-import sentinel files and the wrap-parity harness import `defineFactory`
  * directly by design, with no annotation convention required).
@@ -33,8 +33,7 @@ const CORE_INDEX_FILE = join(SRC_DIR, "core/index.ts");
 // (see the ADR-07 red-proof below). Matched by isAllowlisted's `absPath === root` branch.
 const ALLOWLISTED_ROOTS = [
   join(SRC_DIR, "core"),
-  join(SRC_DIR, "testing"),
-  join(SRC_DIR, "conformance"),
+  join(SRC_DIR, "bounded-contexts/authoring/testing"),
   join(SRC_DIR, "bounded-contexts/runner-hosting/infrastructure/in/runner.ts"),
 ];
 
@@ -77,9 +76,9 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
   const unsanctionedFiles = scanFiles.filter((f) => !isAllowlisted(f));
 
   it("the walk reaches real files, including allowlisted and non-allowlisted roots (sanity)", () => {
-    expect(scanFiles).toContain(join(SRC_DIR, "testing/index.ts"));
+    expect(scanFiles).toContain(join(SRC_DIR, "bounded-contexts/authoring/testing/harness/index.ts"));
     expect(scanFiles).toContain(join(SRC_DIR, "commons/index.ts"));
-    expect(unsanctionedFiles).not.toContain(join(SRC_DIR, "testing/index.ts"));
+    expect(unsanctionedFiles).not.toContain(join(SRC_DIR, "bounded-contexts/authoring/testing/harness/index.ts"));
   });
 
   // Guards against a silent self-neutering: if ALLOWLISTED_ROOTS is ever widened to cover
@@ -98,19 +97,19 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
   }
 
   // Positive control: the scanner DOES detect the real production defineFactory import
-  // shape (src/testing/index.ts's own internal `import { defineFactory } from
-  // "../bounded-contexts/authoring/application/usecases/run-factory/context.ts"`, used to delegate — bare-factory-migration S-006 removed the
+  // shape (the ./testing kit's own internal `import { defineFactory } from
+  // "../../application/usecases/run-factory/context.ts"`, used to delegate — bare-factory-migration S-006 removed the
   // public `export { defineFactory } from "../bounded-contexts/authoring/application/usecases/run-factory/context.ts"` re-export this file used to
   // ALSO carry, so only the one internal import line resolves here now) — proving
   // allowlisting, not scanner blindness, is what keeps sanctioned callers green.
-  it("positive control: the scanner detects src/testing/index.ts's own internal defineFactory import (allowlisting, not blindness, keeps it green)", () => {
-    const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "testing/index.ts"));
-    expect(offenders).toEqual(["../bounded-contexts/authoring/application/usecases/run-factory/context.ts"]);
+  it("positive control: the scanner detects the ./testing kit's own internal defineFactory import (allowlisting, not blindness, keeps it green)", () => {
+    const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "bounded-contexts/authoring/testing/harness/index.ts"));
+    expect(offenders).toEqual(["../../application/usecases/run-factory/context.ts"]);
   });
 
-  it("positive control: the scanner detects src/conformance/index.ts's own defineFactory import too", () => {
-    const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "conformance/index.ts"));
-    expect(offenders).toEqual(["../bounded-contexts/authoring/application/usecases/run-factory/context.ts"]);
+  it("positive control: the scanner detects the ./conformance kit's own defineFactory import too", () => {
+    const offenders = unsanctionedDefineFactoryImports(join(SRC_DIR, "bounded-contexts/authoring/testing/conformance/index.ts"));
+    expect(offenders).toEqual(["../../application/usecases/run-factory/context.ts"]);
   });
 
   // RED-PROOF (ADR-07): the runner.ts entry is a FILE allow-list, not a directory one — a

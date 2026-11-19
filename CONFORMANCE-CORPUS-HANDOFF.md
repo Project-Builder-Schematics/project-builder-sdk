@@ -46,7 +46,7 @@ from its dir name are all HARD failures engine-side, not skips.
   needs `"factory": {"module": "factory.ts", "export": "name"}` in the manifest — avoid unless
   necessary.
 - Import the SDK via relative source path (e.g. `../../src/index.ts`) — same convention as
-  `test/fake/conformance-corpus.ts`. The factory is loaded from SOURCE by Bun; it is NOT part of
+  `test/bounded-contexts/authoring/testing/conformance-corpus.ts`. The factory is loaded from SOURCE by Bun; it is NOT part of
   `bun run build` output.
 - Factories author REPRESENTABLE ops only: `modify`, `delete`, `rename`, `move`. A wire `create`
   appears exactly once in the whole corpus — as `m2-create-composition`'s deliberate reject probe.
