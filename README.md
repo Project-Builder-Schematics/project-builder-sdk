@@ -812,9 +812,9 @@ bun test
 bun run typecheck
 ```
 
-Packaging note: `dist/core/**` ships in the tarball, documented, not stripped —
-`./testing`'s runtime imports it, so it must be physically present; `@pbuilder/sdk/core`
-stays unreachable via `package.json#exports` regardless (the boundary is
+Packaging note: the internal kit under `dist/bounded-contexts/**` ships in the tarball,
+documented, not stripped — `./testing`'s runtime imports it, so it must be physically present;
+it stays unreachable via `package.json#exports` regardless (the boundary is
 advisory-by-convention, not enforced by tarball exclusion).
 
 `conformance/` — SDK↔engine live conformance corpus, consumed by `project-builder-engine` as a

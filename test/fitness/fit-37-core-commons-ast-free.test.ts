@@ -17,8 +17,8 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, dirname, resolve } from "node:path";
+import { REPLACED_CORE_FILES } from "../support/replaced-core.ts";
 
-const CORE_DIR = new URL("../../src/core", import.meta.url).pathname;
 const COMMONS_DIR = new URL("../../src/commons", import.meta.url).pathname;
 const ROOT_SRC = new URL("../../src", import.meta.url).pathname;
 const TRANSITIVE_FIXTURE_DIR = new URL("../fixtures/red/fit-37-transitive", import.meta.url).pathname;
@@ -120,8 +120,8 @@ function collectTs(dir: string): string[] {
 }
 
 describe("FIT-37 — src/core/** and src/commons/** import zero AST libraries", () => {
-  it("no AST-library import is reachable from src/core/**, at any transitive depth", () => {
-    const entryFiles = collectTs(CORE_DIR);
+  it("no AST-library import is reachable from the files that left src/core, at any transitive depth", () => {
+    const entryFiles = REPLACED_CORE_FILES.map((file) => join(ROOT_SRC, file));
     const violations = walkForAstLibraries(entryFiles).map((v) => ({
       file: v.file.replace(ROOT_SRC, "src"),
       specifier: v.specifier,

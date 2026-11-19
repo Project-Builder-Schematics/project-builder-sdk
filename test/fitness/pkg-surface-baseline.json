@@ -243,8 +243,6 @@
     "dist/commons/index.js",
     "dist/conformance/index.d.ts",
     "dist/conformance/index.js",
-    "dist/core/index.d.ts",
-    "dist/core/index.js",
     "dist/dialects/angular/index.d.ts",
     "dist/dialects/angular/index.js",
     "dist/dialects/css/index.d.ts",

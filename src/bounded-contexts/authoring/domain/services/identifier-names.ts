@@ -3,8 +3,7 @@
 // `validatedOp`, the validate-before-mutate wrapper (design §4.4/ADR-02) that makes mutation
 // code (`body`) structurally unreachable before every declared arg validates. The React-only
 // JSX grammars build on these checks in the React adapter (`dialects/react/jsx-names.ts`).
-// Kit-internal: no barrel/subpath export (dialect-error.ts/deep-equal.ts precedent — see
-// src/core/index.ts, which does not re-export this module).
+// Kit-internal: no barrel/subpath export (dialect-error.ts/deep-equal.ts precedent).
 //
 // Set-key-safety clause (ADR-02): `propName`/`elementName` are NEVER used as plain-object
 // keys anywhere in this file or the React adapter (infrastructure/out/dialects/react/) — no `record[name]`, no `{[name]: …}`,

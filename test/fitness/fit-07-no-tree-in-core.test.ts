@@ -1,9 +1,8 @@
 /**
  * FIT-07: No Map<path,*>/tree field in core (ADR-0008).
- * RECURSIVELY globs src/core/** and scans every file that moved out of it into the target layout
- * (test/support/replaced-core.ts; ARCH-1, stage-4-typed-options design §4.7 — a non-recursive
- * scan would silently exempt the schema/ subdirectory) for prohibited path-keyed collection
- * patterns.
+ * Scans every file that moved out of src/core into the target layout
+ * (test/support/replaced-core.ts; ARCH-1, stage-4-typed-options design §4.7) for prohibited
+ * path-keyed collection patterns. src/core itself is gone.
  *
  * ContractFake lives at src/bounded-contexts/authoring/testing/contract-fake.ts (relocated from test/support/ in
  * stage-4b S-000, ADR-0035) — it IS compiled into dist/bounded-contexts/authoring/testing/ now, but its `#tree:
@@ -21,33 +20,14 @@
  * Red-proof: a class with Map<string,> or Record<string,> fields fires the detector.
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPLACED_CORE_FILES } from "../support/replaced-core.ts";
 
 const SRC_DIR = new URL("../../src", import.meta.url).pathname;
-// The production core: what is left of src/core, plus the files that moved out of it.
-const CORE_ROOT = "core";
-
-// Returns every .ts file under dir, recursively, as src-relative posix paths
-// (e.g. "bounded-contexts/authoring/domain/services/schema/schema-parse.ts") — never truncated
-// to top-level-only.
-function walk(dir: string, prefix: string): string[] {
-  const entries = readdirSync(dir, { withFileTypes: true });
-  const files: string[] = [];
-  for (const entry of entries) {
-    const relPath = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
-    if (entry.isDirectory()) {
-      files.push(...walk(join(dir, entry.name), relPath));
-    } else if (entry.name.endsWith(".ts")) {
-      files.push(relPath);
-    }
-  }
-  return files;
-}
-
-function getProductionCoreFiles(): string[] {
-  return [...walk(join(SRC_DIR, CORE_ROOT), CORE_ROOT), ...REPLACED_CORE_FILES];
+// The production core: the files that moved out of src/core.
+function getProductionCoreFiles(): readonly string[] {
+  return REPLACED_CORE_FILES;
 }
 
 function readCoreFile(relPath: string): string {
@@ -87,19 +67,18 @@ function hasProhibitedPattern(source: string): boolean {
 describe("FIT-07 — no Map<path,*>/tree field in production core", () => {
   const files = getProductionCoreFiles();
 
-  // ARCH-1 (stage-4-typed-options design §4.7): a non-recursive scan silently exempts the
-  // whole src/core/schema/ subdirectory from this guard. Recursion must actually reach it.
+  // ARCH-1 (stage-4-typed-options design §4.7): the schema services that left
+  // src/core/schema/ stay in scope.
   it("covers the schema services that moved out of src/core/schema/", () => {
     expect(files).toContain("bounded-contexts/authoring/domain/services/schema/schema-parse.ts");
     expect(files).toContain("bounded-contexts/authoring/domain/services/schema/input-rejection.ts");
   });
 
-  // SEC-M2 non-regression (ADR-0034 guard 4): the glob stays pinned to src/core/**, never
+  // SEC-M2 non-regression (ADR-0034 guard 4): the scan stays pinned to the production core, never
   // widened to src/bounded-contexts/authoring/testing/**. ContractFake's own #tree: Map<string, string> field (its
   // legitimate job, not a production-core violation) would trip this detector if the scan
   // were ever widened to reach it.
   it("the glob stays pinned to the production core — src/bounded-contexts/authoring/testing/contract-fake.ts is never scanned", () => {
-    expect(CORE_ROOT).toBe("core");
     expect(files.some((f) => f.includes("testing"))).toBe(false);
   });
 

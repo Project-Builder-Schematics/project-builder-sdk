@@ -173,8 +173,8 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     expect(baseline.tarball.filter((path) => path.endsWith(".d.ts.map"))).toEqual([]);
   });
 
-  it("REQ-FPS-06.1: the committed baseline still includes dist/core/** entries (documented, not stripped)", () => {
-    expect(baseline.tarball.some((path) => path.startsWith("dist/core/"))).toBe(true);
+  it("the committed baseline ships no dist/core/** entries (the kit barrel is gone)", () => {
+    expect(baseline.tarball.filter((path) => path.startsWith("dist/core/"))).toEqual([]);
   });
 
   it("REQ-FPS-07.1: the fresh tarball listing is positively scanned and contains no secret-like filenames", () => {

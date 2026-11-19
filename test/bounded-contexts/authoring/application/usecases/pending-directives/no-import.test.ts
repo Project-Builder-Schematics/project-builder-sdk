@@ -7,7 +7,7 @@
  * REQ-05.1: the pending-directives module must be AST-blind and core-blind by construction.
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, resolve } from "node:path";
 import { REPLACED_CORE_FILES } from "../../../../../support/replaced-core.ts";
 
@@ -62,18 +62,13 @@ function extractRuntimeImports(source: string): string[] {
   return runtime;
 }
 
-/**
- * Returns true if the specifier is a relative path into src/core/.
- */
-const CORE_DIR = join(ROOT_SRC, "core");
 const REPLACED_CORE = new Set(REPLACED_CORE_FILES.map((path) => join(ROOT_SRC, path)));
 
-// A relative import from src/pending-directives/ that resolves into src/core/** or to a file
-// that moved out of it.
+// A relative import from the use case that resolves to a file that moved out of src/core.
 function isCoreRuntimeImport(specifier: string): boolean {
   if (!specifier.startsWith(".")) return false;
   const resolved = resolve(PENDING_DIRECTIVES_DIR, specifier);
-  return resolved === CORE_DIR || resolved.startsWith(`${CORE_DIR}/`) || REPLACED_CORE.has(resolved);
+  return REPLACED_CORE.has(resolved);
 }
 
 /**
@@ -88,6 +83,13 @@ describe("FIT-pending-directives-no-import — renderer has no core runtime or A
 
   it("the pending-directives use case contains at least one file to scan", () => {
     expect(pendingDirectivesFiles.length).toBeGreaterThan(0);
+  });
+
+  // The core check matches resolved paths against the files that left src/core, so a listed
+  // path that no longer exists would make it pass against nothing.
+  it("every file that left src/core still exists, so the core check matches real paths", () => {
+    expect(REPLACED_CORE.size).toBeGreaterThanOrEqual(30);
+    expect([...REPLACED_CORE].filter((path) => !existsSync(path))).toEqual([]);
   });
 
   it("the pending-directives use case has no runtime import from src/core/**", () => {
@@ -131,12 +133,12 @@ describe("FIT-pending-directives-no-import — renderer has no core runtime or A
     expect(runtimeImports.filter(isCoreRuntimeImport)).toEqual([specifier]);
   });
 
-  // RED-PROOF: a source with a runtime import from ../core/session is detected.
-  it("[red-proof] a runtime import from ../core/session is flagged as a violation", () => {
-    const fixtureSource = `import { Session } from "../../../../../core/session.ts";`;
-    const runtimeImports = extractRuntimeImports(fixtureSource);
-    const violations = runtimeImports.filter(isCoreRuntimeImport);
-    expect(violations).toContain("../../../../../core/session.ts");
+  // RED-PROOF: a runtime import planted into a real use-case file is flagged.
+  it("[red-proof] a runtime import planted into render.ts is flagged", () => {
+    const renderPath = join(PENDING_DIRECTIVES_DIR, "render.ts");
+    const specifier = "../../../domain/aggregates/session/session.ts";
+    const planted = `import { Session } from "${specifier}";\n${readFileSync(renderPath, "utf-8")}`;
+    expect(extractRuntimeImports(planted).filter(isCoreRuntimeImport)).toEqual([specifier]);
   });
 
   // RED-PROOF: a type-only import from ../core/wire is NOT flagged (type imports are erased).

@@ -1,8 +1,8 @@
 /**
  * FIT-29 (NEW, ADR-A): sanctioned-`defineFactory`-caller guard. `defineFactory` graduates
  * to core-internal vocabulary — this guard confines PRODUCTION imports of the
- * `defineFactory` BINDING (resolving into the run-factory `context.ts` or the kit barrel
- * `src/core/index.ts`) to `src/core/**` and `src/bounded-contexts/authoring/testing/**`. Scan
+ * `defineFactory` BINDING (resolving into the run-factory `context.ts`) to
+ * `src/bounded-contexts/authoring/testing/**` and the runner. Scan
  * surface: `src/**` + `bin/**` — `test/**` is categorically OUTSIDE this scan's domain (the
  * ~85 deep-import sentinel files and the wrap-parity harness import `defineFactory`
  * directly by design, with no annotation convention required).
@@ -25,14 +25,12 @@ const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = join(PROJECT_ROOT, "src");
 const BIN_DIR = join(PROJECT_ROOT, "bin");
 const CONTEXT_FILE = join(SRC_DIR, "bounded-contexts/authoring/application/usecases/run-factory/context.ts");
-const CORE_INDEX_FILE = join(SRC_DIR, "core/index.ts");
 
 // ADR-07 (stdio-engine-client): + the FILE src/transport/runner.ts — the production runner
 // that context.ts's own @internal note names as a legitimate defineFactory wrapper (RUN-05).
 // The FILE, never the src/transport directory: every other transport file stays scanned
 // (see the ADR-07 red-proof below). Matched by isAllowlisted's `absPath === root` branch.
 const ALLOWLISTED_ROOTS = [
-  join(SRC_DIR, "core"),
   join(SRC_DIR, "bounded-contexts/authoring/testing"),
   join(SRC_DIR, "bounded-contexts/runner-hosting/infrastructure/in/runner.ts"),
 ];
@@ -67,7 +65,6 @@ function unsanctionedDefineFactoryImports(file: string): string[] {
   if (narrowed === "") return [];
   return [
     ...specifiersResolvingInto(narrowed, fromDir, CONTEXT_FILE),
-    ...specifiersResolvingInto(narrowed, fromDir, CORE_INDEX_FILE),
   ];
 }
 
@@ -138,17 +135,6 @@ describe("FIT-29 — defineFactory importable only from sanctioned production ca
     const fakeDir = join(SRC_DIR, "commons");
     expect(specifiersResolvingInto(definesFactoryImportLines(fakeSource), fakeDir, CONTEXT_FILE)).toEqual([
       "../bounded-contexts/authoring/application/usecases/run-factory/context.ts",
-    ]);
-  });
-
-  // RED-PROOF: a planted defineFactory import resolving through the core BARREL
-  // (src/core/index.ts) from an unsanctioned caller is also flagged, not just the direct
-  // context.ts route.
-  it("[red-proof] a planted defineFactory import via the core barrel (src/core/index.ts) is flagged", () => {
-    const fakeSource = `import { defineFactory } from "../core/index.ts";`;
-    const fakeDir = join(SRC_DIR, "commons");
-    expect(specifiersResolvingInto(definesFactoryImportLines(fakeSource), fakeDir, CORE_INDEX_FILE)).toEqual([
-      "../core/index.ts",
     ]);
   });
 
