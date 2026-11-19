@@ -11,8 +11,8 @@ const TESTING_PLATFORM = "CODE-LAYOUT:127 does not list testing/ among platform/
 
 export const EXCEPTIONS: readonly Exception[] = [
   { from: "src/core/index.ts", to: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", rule: "domainImports", reason: "the internal kit barrel (ADR-0009) re-exports defineFactory and currentContext from the run boundary; it goes when the legacy tree is empty", removedBy: "S14" },
-  { from: "src/bounded-contexts/authoring/testing/contract-fake.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S12" },
-  { from: "src/bounded-contexts/authoring/testing/conformance/index.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S12" },
+  { from: "src/bounded-contexts/authoring/testing/contract-fake.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S13" },
+  { from: "src/bounded-contexts/authoring/testing/conformance/index.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S13" },
 ];
 
 // 18 at S0a. S1b added 4 interim rows and removed the handle → context row (21); S4 removed
