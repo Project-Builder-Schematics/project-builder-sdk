@@ -15,8 +15,9 @@
  * Wildcard ban by form (SEC-M1, design rev 4/GAP-4): ANY `export *`/`export * as ns`
  * statement on any scanned path is a violation BY FORM regardless of specifier — allowlisted
  * paths enumerate names exhaustively, so a wildcard can never be validated against one — with
- * the root's exact commons umbrella and each registered dialect's own native runtime
- * `astLibrary` namespace as the only exemptions.
+ * the root's exact commons umbrella, each registered dialect's own native runtime
+ * `astLibrary` namespace, and each dialect or test-kit entry's plain wildcard over its own
+ * adapter or kit (scanned with the entry's allowlist) as the only exemptions.
  *
  * Strategy: per scanned path, scan for (a) any wildcard re-export statement (banned by form,
  * minus the exact exemptions) and (b) any named export brace list containing a KIT_SYMBOL_NAMES
@@ -45,18 +46,25 @@ function adapterOf(entrypoint: string): string {
   return join(ROOT, "..", entrypoint.replace(/^src\/dialects\//, "src/bounded-contexts/authoring/infrastructure/out/dialects/"));
 }
 
+// The ./testing and ./conformance entries are barrels over their kit's index in the same way.
+const TEST_KIT_ROOT = join(ROOT, "bounded-contexts/authoring/testing");
+const TEST_KITS = [
+  { entry: join(ROOT, "testing/index.ts"), kit: join(TEST_KIT_ROOT, "harness/index.ts") },
+  { entry: join(ROOT, "conformance/index.ts"), kit: join(TEST_KIT_ROOT, "conformance/index.ts") },
+];
+
+const TESTING_ALLOW = { valueAllow: ["runFactoryForTest"], typeAllow: ["Batch", "Directive"] };
+
 // Per-path allowlist data model (REQ-TES-03): the FIT-08 equivalent of the old flat
 // AUTHOR_SUBPATHS list, now with per-path value/type allowances. `./testing` MUST be a
 // member of this set (REQ-TES-03.3) — allowlisted, never removed from scanning.
 const SCANNED: ScannedPath[] = [
   { path: join(ROOT, "commons/index.ts"), valueAllow: [], typeAllow: [] },
   { path: join(ROOT, "index.ts"), valueAllow: [], typeAllow: [] },
-  { path: join(ROOT, "conformance/index.ts"), valueAllow: [], typeAllow: [] },
-  {
-    path: join(ROOT, "testing/index.ts"),
-    valueAllow: ["runFactoryForTest"],
-    typeAllow: ["Batch", "Directive"],
-  },
+  { path: TEST_KITS[1]!.entry, valueAllow: [], typeAllow: [] },
+  { path: TEST_KITS[1]!.kit, valueAllow: [], typeAllow: [] },
+  { path: TEST_KITS[0]!.entry, ...TESTING_ALLOW },
+  { path: TEST_KITS[0]!.kit, ...TESTING_ALLOW },
   ...DIALECT_MODULES.flatMap((entry) => [
     { path: join(ROOT, "..", entry.entrypoint), valueAllow: [], typeAllow: [] },
     { path: adapterOf(entry.entrypoint), valueAllow: [], typeAllow: [] },
@@ -95,8 +103,10 @@ function findWildcardViolations(source: string, filePath: string): string[] {
     const isUmbrellaExemption = !typeOnly && !alias && filePath === UMBRELLA_PATH && specifier === UMBRELLA_EXEMPT_SPECIFIER;
     const isLibraryExemption = !typeOnly && alias === "astLibrary" && DIALECT_MODULES.some((entry) =>
       filePath === adapterOf(entry.entrypoint) && specifier === entry.specifier);
-    const isBarrelExemption = !typeOnly && !alias && DIALECT_MODULES.some((entry) =>
-      filePath === join(ROOT, "..", entry.entrypoint) && resolve(dirname(filePath), specifier ?? "") === adapterOf(entry.entrypoint));
+    const target = resolve(dirname(filePath), specifier ?? "");
+    const isBarrelExemption = !typeOnly && !alias && (
+      DIALECT_MODULES.some((entry) => filePath === join(ROOT, "..", entry.entrypoint) && target === adapterOf(entry.entrypoint)) ||
+      TEST_KITS.some((kit) => filePath === kit.entry && target === kit.kit));
     if (!isUmbrellaExemption && !isLibraryExemption && !isBarrelExemption) {
       violations.push(`wildcard re-export banned by form: ${match[0].trim()}`);
     }
@@ -169,6 +179,20 @@ describe("FIT-08 — no author subpath re-exports a kit symbol beyond its allowl
       `export type * from "${own}";`,
     ]) expect(findWildcardViolations(source, barrel)).toHaveLength(1);
     expect(findWildcardViolations(`export * from "${own}";`, join(ROOT, "..", json.entrypoint))).toHaveLength(1);
+  });
+
+  it("a test-kit entry may re-export only its own kit, and only as a plain wildcard", () => {
+    const [testing, conformance] = TEST_KITS as [(typeof TEST_KITS)[number], (typeof TEST_KITS)[number]];
+    const own = "../bounded-contexts/authoring/testing/harness/index.ts";
+    expect(findWildcardViolations(`export * from "${own}";`, testing.entry)).toEqual([]);
+    for (const source of [
+      'export * from "../bounded-contexts/authoring/testing/conformance/index.ts";',
+      'export * from "../bounded-contexts/authoring/testing/contract-fake.ts";',
+      `export * as testing from "${own}";`,
+      `export type * from "${own}";`,
+    ]) expect(findWildcardViolations(source, testing.entry)).toHaveLength(1);
+    expect(findWildcardViolations(`export * from "${own}";`, conformance.entry)).toHaveLength(1);
+    expect(findWildcardViolations(`export * from "./index.ts";`, testing.kit)).toHaveLength(1);
   });
 
   it("the root exemption does not permit namespace or type-only variants", () => {

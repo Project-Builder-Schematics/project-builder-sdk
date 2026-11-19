@@ -8,6 +8,7 @@ import type { Rule } from "./rules.ts";
 export type Exception = { from: string; to: string; rule: Rule; reason: string; removedBy: `S${number}${string}` };
 
 const SCAFFOLD_FS = "scaffold use case reads the source folder directly (V3); it goes through the package-files port";
+const TESTING_PLATFORM = "CODE-LAYOUT:127 does not list testing/ among platform/ importers; project-builder-architecture#75 proposes it, and the row goes in the slice after it lands";
 
 export const EXCEPTIONS: readonly Exception[] = [
   { from: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", to: "node:fs", rule: "noRuntimeIo", reason: "run boundary reads the package directory (V1); moves behind the package-files port", removedBy: "S9" },
@@ -20,7 +21,8 @@ export const EXCEPTIONS: readonly Exception[] = [
   { from: "src/bounded-contexts/authoring/application/usecases/scaffold/expander.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/path-guards.ts", rule: "applicationImports", reason: SCAFFOLD_FS, removedBy: "S10" },
   { from: "src/bounded-contexts/authoring/application/usecases/scaffold/index.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/path-guards.ts", rule: "applicationImports", reason: SCAFFOLD_FS, removedBy: "S10" },
   { from: "src/bounded-contexts/authoring/application/usecases/scaffold/index.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts", rule: "applicationImports", reason: SCAFFOLD_FS, removedBy: "S10" },
-  { from: "src/bounded-contexts/authoring/testing/contract-fake.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: "CODE-LAYOUT:127 does not list testing/ among platform/ importers; project-builder-architecture#75 proposes it, and the row goes in the slice after it lands", removedBy: "S8" },
+  { from: "src/bounded-contexts/authoring/testing/contract-fake.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S8" },
+  { from: "src/bounded-contexts/authoring/testing/conformance/index.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S8" },
   { from: "src/bounded-contexts/runner-hosting/infrastructure/in/exit-codes.ts", to: "src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts", rule: "crossContext", reason: "runner maps Authoring's error type to exit codes; it reaches the type through Authoring's run-factory use case", removedBy: "S11" },
   { from: "src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts", to: "src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts", rule: "crossContext", reason: "runner reaches Authoring's error type directly; it goes through the run-factory use case and the types it exposes", removedBy: "S11" },
   { from: "src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts", to: "src/bounded-contexts/authoring/domain/services/schema/schema-locate.ts", rule: "crossContext", reason: "runner calls Authoring's schema services directly; it goes through the run-factory use case", removedBy: "S11" },
@@ -29,4 +31,6 @@ export const EXCEPTIONS: readonly Exception[] = [
 
 // 18 at S0a. S1b added 4 interim rows and removed the handle → context row (21); S4 removed
 // the 4 interim rows (17); S5 removed authoring-error → emit-rejection and framing → wire (15).
-export const CEILING = 15;
+// S7 moved the conformance kit out of its public entry, so its existing deep-equal import
+// became a testing/ → platform/ edge (16).
+export const CEILING = 16;
