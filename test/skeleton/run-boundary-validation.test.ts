@@ -249,3 +249,55 @@ describe("REQ-RBV-05 — fail-closed on malformed/unreadable/empty schema", () =
     }
   });
 });
+
+// The run boundary's read failures pin their whole message, so moving the reads behind the
+// package-files port cannot change what an author sees.
+describe("run-boundary read failures — full messages", () => {
+  const requireNonRoot = (): void => {
+    if (process.getuid?.() === 0) {
+      throw new Error("must run as non-root: chmod fixtures are bypassed by root");
+    }
+  };
+
+  it("an unreadable schema.json names the permission problem", async () => {
+    requireNonRoot();
+    const dir = scratchDir();
+    seedSchema(dir, PORT_SCHEMA);
+    chmodSync(join(dir, "schema.json"), 0o000);
+
+    const err = await runAgainst(dir, { port: 8080 });
+
+    expect((err as Error).message).toEqual(
+      `[pbuilder] factory at ${relative(process.cwd(), dir)}: schema.json could not be read: permission denied (position unknown)`
+    );
+  });
+
+  it("a schema.json that is a directory says so", async () => {
+    const dir = scratchDir();
+    mkdirSync(join(dir, "schema.json"), { recursive: true });
+
+    const err = await runAgainst(dir, { port: 8080 });
+
+    expect((err as Error).message).toEqual(
+      `[pbuilder] factory at ${relative(process.cwd(), dir)}: schema.json could not be read: is a directory, not a file (position unknown)`
+    );
+  });
+
+  it("a package folder that cannot be listed fails the reserved-name scan closed", async () => {
+    requireNonRoot();
+    const dir = scratchDir();
+    chmodSync(dir, 0o300);
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const err = await runAgainst(dir, {});
+
+      expect((err as Error).message).toEqual(
+        `[pbuilder] factory at ${relative(process.cwd(), dir)}: could not scan for reserved lifecycle names: permission denied`
+      );
+      expect(err).not.toBeInstanceOf(AuthoringError);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+});
