@@ -1,20 +1,19 @@
 /**
  * The strict pass over `@sdk @status:implemented`: an undefined, ambiguous or failing step fails
- * the run. Scenarios of a pending feature are skipped and counted. Run with `bun run rules:implemented`.
+ * the run. Scenarios a pending row covers are skipped and counted. Run with `bun run rules:implemented`.
  */
 import { expect, test } from "bun:test";
 import { STEP_DEFINITIONS } from "../step-definitions.ts";
 import { loadPickles, requireArchitecture } from "./features.ts";
-import { IMPLEMENTED_FLOOR, PENDING_CEILING, PENDING_FEATURES, stalePendingRows } from "./pending-features.ts";
+import { IMPLEMENTED_FLOOR, isPending, PENDING_CEILING, PENDING_FEATURES, stalePendingRows } from "./pending-features.ts";
 import { runScenario } from "./scenario.ts";
 import { IMPLEMENTED, select } from "./selection.ts";
 
 if (requireArchitecture()) {
   const implemented = select(loadPickles(), IMPLEMENTED);
-  const pending = new Set(PENDING_FEATURES.map((row) => row.feature));
-  const skipped = implemented.filter((pickle) => pending.has(pickle.feature)).length;
+  const skipped = implemented.filter((pickle) => isPending(PENDING_FEATURES, pickle)).length;
   console.log(
-    `rules:implemented: ${implemented.length} selected, ${implemented.length - skipped} run, ${skipped} pending in ${pending.size} features`
+    `rules:implemented: ${implemented.length} selected, ${implemented.length - skipped} run, ${skipped} pending in ${PENDING_FEATURES.length} rows`
   );
 
   test(`the pass selects at least ${IMPLEMENTED_FLOOR} scenarios`, () => {
@@ -31,7 +30,7 @@ if (requireArchitecture()) {
 
   implemented.forEach((pickle, index) => {
     const name = `${pickle.feature} #${index}: ${pickle.name}`;
-    if (pending.has(pickle.feature)) test.skip(name, () => {});
+    if (isPending(PENDING_FEATURES, pickle)) test.skip(name, () => {});
     else test(name, () => runScenario(pickle, STEP_DEFINITIONS));
   });
 }
