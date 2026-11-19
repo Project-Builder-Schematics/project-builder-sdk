@@ -135,4 +135,33 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
     phrase: 'the factory fails because the file "{path}" is not valid YAML',
     run: (world, [path]) => parseFailure(world, path as string, "yaml"),
   },
+  {
+    phrase: 'the factory fails because the file "{path}" is not valid TypeScript',
+    run: (world, [path]) => parseFailure(world, path as string, "typescript"),
+  },
+  {
+    phrase: 'the factory fails because the argument "{argument}" is not one the op accepts',
+    run: (world, [argument]) => void expect(dialectFailure(world)).toContain(`\`${argument as string}\``),
+  },
+  {
+    phrase: 'the factory fails because the op "{op}" is not available for the file',
+    run: (world, [op]) => void expect(dialectFailure(world)).toContain(op as string),
+  },
+  {
+    phrase: "the factory fails because the target does not match exactly one element",
+    run: (world) => {
+      const message = dialectFailure(world);
+      const tags = [...dialectState(world).lastArguments.values()].flatMap((cells) => {
+        const target = cells.get("target");
+        if (target === undefined) return [];
+        const value = JSON.parse(target) as string | { tag: string };
+        return [typeof value === "string" ? value : value.tag];
+      });
+      expect(tags.some((tag) => message.includes(tag))).toBe(true);
+    },
+  },
+  {
+    phrase: 'the factory fails naming the component "{component}"',
+    run: (world, [component]) => void expect(dialectFailure(world)).toContain(`\`${component as string}\``),
+  },
 ];

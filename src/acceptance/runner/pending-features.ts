@@ -34,8 +34,6 @@ export const PENDING_FEATURES: readonly PendingFeature[] = [
     slice: CONFORMANCE,
   },
   { feature: DIALECTS_FEATURE, scenario: "A Dialect that accepts an undeclared extension is rejected", slice: CONFORMANCE },
-  { feature: "bounded-contexts/authoring/rules/typescript-dialect.feature", slice: "R3" },
-  { feature: "bounded-contexts/authoring/rules/react-dialect.feature", slice: "R3" },
   { feature: "bounded-contexts/authoring/rules/css-dialect.feature", slice: "R4" },
   { feature: "bounded-contexts/authoring/rules/angular-dialect.feature", slice: "R4" },
   // Its steps need the dialect kit, which is not a public entry until sdk#103.
@@ -43,7 +41,7 @@ export const PENDING_FEATURES: readonly PendingFeature[] = [
 ];
 
 /** The list may only shrink: lower this when a row leaves, never raise it. */
-export const PENDING_CEILING = 10;
+export const PENDING_CEILING = 8;
 
 /** Whether a row covers the scenario: its whole feature, or that one scenario of it. */
 export function isPending(rows: readonly PendingFeature[], pickle: RulePickle): boolean {
