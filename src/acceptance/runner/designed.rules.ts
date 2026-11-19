@@ -3,6 +3,7 @@
  * scenario ends, but never fails. Run with `bun run rules:designed`.
  */
 import { afterAll, test } from "bun:test";
+import { removeScratch } from "../shared/scratch.ts";
 import { STEP_DEFINITIONS } from "../step-definitions.ts";
 import { loadPickles, requireArchitecture } from "./features.ts";
 import { firstUndefinedStep, runScenario } from "./scenario.ts";
@@ -27,6 +28,8 @@ if (requireArchitecture()) {
       }
     });
   });
+
+  afterAll(removeScratch);
 
   afterAll(() => {
     console.log(
