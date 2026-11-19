@@ -76,3 +76,17 @@ describe("locateFirstJsonSyntaxError — fallback (bounded fidelity, ADR-0032)",
     expect(locateFirstJsonSyntaxError(raw)).toBeUndefined();
   });
 });
+
+describe("locateFirstJsonSyntaxError — nesting too deep for the recursive scanner", () => {
+  it("returns undefined instead of overflowing the call stack", () => {
+    const raw = readFixture("deep-nesting");
+    expect(() => JSON.parse(raw)).toThrow(SyntaxError);
+    expect(locateFirstJsonSyntaxError(raw)).toBeUndefined();
+  });
+});
+
+describe("locateFirstJsonSyntaxError — only a stack overflow is absorbed", () => {
+  it("lets any other scanner failure propagate", () => {
+    expect(() => locateFirstJsonSyntaxError(null as unknown as string)).toThrow(TypeError);
+  });
+});
