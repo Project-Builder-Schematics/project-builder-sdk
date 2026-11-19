@@ -10,6 +10,7 @@ import { chmodSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { defineFactory, currentContext } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
+import { copyIn } from "../../src/commons/index.ts";
 import type { PackageFiles } from "../../src/bounded-contexts/authoring/domain/ports/package-files.ts";
 import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { seedSchema } from "../support/canary.ts";
@@ -329,5 +330,31 @@ describe("run-boundary reads — unexpected port errors propagate unchanged", ()
 
   it("from the schema.json read", async () => {
     expect(await runWith(files({ findReservedSibling: () => undefined, readText: throwing }))).toBe(unexpected);
+  });
+});
+
+// A run opened with `packageDir` always carries its adapter; a run that lost it is a wiring
+// defect, and must never surface as the author-facing "pass packageDir" rejection.
+describe("package-local reads — an anchor without its adapter", () => {
+  it("fails as a wiring defect, not as author misuse", async () => {
+    let caught: unknown;
+    const run = defineFactory<void>(
+      () => {
+        currentContext().packageFiles = undefined;
+        try {
+          copyIn("a.txt", "out/a.txt");
+        } catch (err) {
+          caught = err;
+        }
+      },
+      { packageDir: scratchDir(), packageFiles: nodePackageFiles }
+    );
+    await run(undefined, { client: new ContractFake({ seed: {} }) });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught).not.toBeInstanceOf(AuthoringError);
+    expect((caught as Error).message).toEqual(
+      "[pbuilder] internal error: the run has a package directory but no package-files adapter"
+    );
   });
 });

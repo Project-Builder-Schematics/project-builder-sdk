@@ -9,6 +9,18 @@ export class PackageReadFailure extends Error {
   }
 }
 
+/**
+ * What a package-local source path holds, following symlinks. `unreadable` carries the
+ * author-facing category; the path is resolved lexically against the package folder, never
+ * canonicalized on disk.
+ */
+export type PackageSource =
+  | { kind: "file"; size: number }
+  | { kind: "missing" }
+  | { kind: "directory" }
+  | { kind: "other" }
+  | { kind: "unreadable"; detail: "permission or I/O error" | "symlink cycle" | "path contains an invalid character" };
+
 export interface PackageFiles {
   /** The file's UTF-8 text, or `undefined` when nothing exists at `path`. */
   readText(path: string): string | undefined;
@@ -19,4 +31,8 @@ export interface PackageFiles {
   findReservedSibling(packageDir: string): string | undefined;
   /** `path` relative to the working directory, for messages that must not leak an absolute path. */
   relativeToCwd(path: string): string;
+  /** What `relPath` under `packageDir` holds; never throws. */
+  statSource(packageDir: string, relPath: string): PackageSource;
+  /** The bytes of `relPath` under `packageDir`; any failure throws PackageReadFailure. */
+  readBytes(packageDir: string, relPath: string): Uint8Array;
 }

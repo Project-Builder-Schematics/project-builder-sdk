@@ -23,7 +23,7 @@ import { collectTsFiles, stripComments } from "../support/import-scan.ts";
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = join(PROJECT_ROOT, "src");
 const DIRECTIVE_FACTORY_FILE = join(SRC_DIR, "bounded-contexts/authoring/domain/services/directive-factory.ts");
-const CLASSIFY_TRANSPORT_FILE = join(SRC_DIR, "bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts");
+const CLASSIFY_TRANSPORT_FILE = join(SRC_DIR, "bounded-contexts/authoring/application/usecases/scaffold/classify-transport.ts");
 const COMMONS_FILE = join(SRC_DIR, "bounded-contexts/authoring/infrastructure/in/commons/index.ts");
 const AUTHORING_VERBS_FILE = join(SRC_DIR, "bounded-contexts/authoring/application/usecases/authoring-verbs/index.ts");
 const EXPANDER_FILE = join(SRC_DIR, "bounded-contexts/authoring/application/usecases/scaffold/expander.ts");

@@ -41,8 +41,8 @@ import {
   translateTokens,
   checkSourceNames,
 } from "../../../domain/services/filename-pipeline.ts";
-import { classifyTransport } from "../../../infrastructure/out/fs/classify-transport.ts";
-import { validateDestinationLexical, validateSourceLexical } from "../../../infrastructure/out/fs/path-guards.ts";
+import { classifyTransport } from "./classify-transport.ts";
+import { validateDestinationLexical, validateSourceLexical } from "./path-guards.ts";
 
 /**
  * Argument shape for the `scaffold` author verb (REQ-FSC-01). `from`/`to` are mandatory;
@@ -153,7 +153,7 @@ export function runScaffold(args: ScaffoldArgs): void {
 
   const ctx = currentContext();
   const { session, factory } = ctx;
-  const { packageDir } = requirePackageAnchors(noResolutionAnchorMessage());
+  const { packageDir, files } = requirePackageAnchors(noResolutionAnchorMessage());
 
   // judgment-day round 3 fix (F4): destination validated AFTER context resolution (`ctx`/
   // `packageDir` above), not before it — round 2 placed this call at the very top of the
@@ -235,6 +235,7 @@ export function runScaffold(args: ScaffoldArgs): void {
     // pathTemplate/options/force this loop will put on that directive below.
     const destPath = posix.join(toPrefix, result.destRelPath);
     const verdict = classifyTransport({
+      files,
       packageDir,
       relPath: sourceRelPath,
       isTemplateMarked: result.isTemplateMarked,

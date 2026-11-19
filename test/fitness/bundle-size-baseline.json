@@ -2,7 +2,7 @@
   ".": 19947,
   "./commons": 19947,
   "./conformance": 17999,
-  "./testing": 16707,
+  "./testing": 17329,
   "./typescript": 29375,
   "./react": 40106,
   "./json": 19400,
@@ -10,6 +10,6 @@
   "./angular": 37939,
   "./yaml": 27650,
   "./css": 12210,
-  "probe:commons#create": 10299,
+  "probe:commons#create": 9967,
   "probe:css#find": 12173
 }
