@@ -84,3 +84,9 @@ describe("locateFirstJsonSyntaxError — nesting too deep for the recursive scan
     expect(locateFirstJsonSyntaxError(raw)).toBeUndefined();
   });
 });
+
+describe("locateFirstJsonSyntaxError — only a stack overflow is absorbed", () => {
+  it("lets any other scanner failure propagate", () => {
+    expect(() => locateFirstJsonSyntaxError(null as unknown as string)).toThrow(TypeError);
+  });
+});

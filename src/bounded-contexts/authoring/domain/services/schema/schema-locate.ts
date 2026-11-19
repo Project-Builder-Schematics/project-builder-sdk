@@ -163,8 +163,11 @@ export function locateFirstJsonSyntaxError(raw: string): { line: number; column:
   let result: ScanResult;
   try {
     result = scanValue(raw, 0);
-  } catch {
-    return undefined;
+  } catch (err) {
+    // Only the recursion's stack overflow means "too deep to locate"; anything else is a
+    // scanner defect and must surface.
+    if (err instanceof RangeError) return undefined;
+    throw err;
   }
   if (!result.ok) {
     return offsetToLineColumn(raw, result.offset);
