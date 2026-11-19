@@ -193,6 +193,8 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, `${A}/application/usecases/pending-directives/render.ts`],
     ["scaffoldLeaf", `${R}/infrastructure/in/x.ts`, `${A}/application/usecases/scaffold/index.ts`],
     ["scaffoldLeaf", `${A}/infrastructure/out/x.ts`, `${A}/application/usecases/scaffold/index.ts`],
+    ["scaffoldLeaf", `${A}/infrastructure/in/codegen/x.ts`, `${A}/application/usecases/scaffold/index.ts`],
+    ["scaffoldLeaf", `${A}/infrastructure/in/x.ts`, `${A}/application/usecases/scaffold/index.ts`],
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "zod"],
     ["scaffoldLeaf", `${A}/infrastructure/out/fs/walk.ts`, "zod"],
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "src/acl/irwire/index.ts"],
@@ -246,7 +248,7 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["platform/", `${A}/infrastructure/out/fs/walk.ts`, "src/platform/fs-errors.ts"],
     ["a node: builtin", `${A}/infrastructure/out/fs/walk.ts`, "node:fs"],
     ["the public entry importing it", "src/commons/index.ts", `${A}/application/usecases/scaffold/expander.ts`],
-    ["Authoring's driving adapter importing it", `${A}/infrastructure/in/commons/index.ts`, `${A}/application/usecases/scaffold/index.ts`],
+    ["Authoring's commons facade importing it", `${A}/infrastructure/in/commons/index.ts`, `${A}/application/usecases/scaffold/index.ts`],
     ["a file that left src/core", `${A}/application/usecases/scaffold/expander.ts`, "src/shared-kernel/batch-cap.ts"],
   ])("scaffold code may reach (or be reached by) %s", (_, from, to) => {
     expect(violation(at(from), to, to.startsWith("src/") ? at(to) : undefined)).not.toBe("scaffoldLeaf");

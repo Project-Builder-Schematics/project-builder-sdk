@@ -32,6 +32,7 @@ export type Classified = Class & {
   mixed?: readonly string[];
   dialect?: string;
   useCase?: string;
+  drivingAdapter?: string;
   scaffoldPart?: true;
   formerCore?: true;
 };
@@ -104,12 +105,14 @@ export const SCAFFOLD_PARTS: ReadonlySet<string> = new Set([
 
 const FORMER_CORE = new Set(REPLACED_CORE_FILES.map((file) => `src/${file}`));
 
-function unitOf(path: string): Pick<Classified, "dialect" | "useCase" | "scaffoldPart" | "formerCore"> {
+function unitOf(path: string): Pick<Classified, "dialect" | "useCase" | "drivingAdapter" | "scaffoldPart" | "formerCore"> {
   const dialect = /^src\/(?:dialects|bounded-contexts\/authoring\/infrastructure\/out\/dialects)\/([^/]+)\/./.exec(path);
   const useCase = /^src\/bounded-contexts\/[^/]+\/application\/usecases\/([^/]+)\/./.exec(path);
+  const drivingAdapter = /^src\/bounded-contexts\/[^/]+\/infrastructure\/in\/([^/]+)\/./.exec(path);
   return {
     ...(dialect ? { dialect: dialect[1]! } : {}),
     ...(useCase ? { useCase: useCase[1]! } : {}),
+    ...(drivingAdapter ? { drivingAdapter: drivingAdapter[1]! } : {}),
     ...(SCAFFOLD_PARTS.has(path) ? { scaffoldPart: true as const } : {}),
     ...(FORMER_CORE.has(path) ? { formerCore: true as const } : {}),
   };
