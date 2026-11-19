@@ -22,6 +22,8 @@ export interface FactoryRun {
   failureExpected: boolean;
   /** The pending Directives, written `verb path`, once the last action of the last replay ran. */
   pending?: readonly string[];
+  /** The schematic's package, for the verbs that read package files. */
+  packageDir?: string;
 }
 
 export function factoryRun(world: World): FactoryRun {
@@ -44,7 +46,7 @@ async function replay(run: FactoryRun): Promise<{ result: RunResult; ran: number
       run.pending = pendingDirectives().map((entry) => `${entry.verb} ${entry.path}`);
     },
     {},
-    { seed: { ...run.seed } }
+    { seed: { ...run.seed }, packageDir: run.packageDir }
   );
   return { result, ran };
 }

@@ -2,7 +2,8 @@
  * The strict pass over `@sdk @status:implemented`: an undefined, ambiguous or failing step fails
  * the run. Scenarios a pending row covers are skipped and counted. Run with `bun run rules:implemented`.
  */
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
+import { removeScratch } from "../shared/scratch.ts";
 import { STEP_DEFINITIONS } from "../step-definitions.ts";
 import { loadPickles, requireArchitecture } from "./features.ts";
 import { IMPLEMENTED_FLOOR, isPending, PENDING_CEILING, PENDING_FEATURES, stalePendingRows } from "./pending-features.ts";
@@ -27,6 +28,8 @@ if (requireArchitecture()) {
   test(`the pending-features list has at most ${PENDING_CEILING} rows`, () => {
     expect(PENDING_FEATURES.length).toBeLessThanOrEqual(PENDING_CEILING);
   });
+
+  afterAll(removeScratch);
 
   implemented.forEach((pickle, index) => {
     const name = `${pickle.feature} #${index}: ${pickle.name}`;
