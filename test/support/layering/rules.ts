@@ -23,7 +23,7 @@ export const RULES = {
   dialectIsolation:
     "a dialect adapter imports only domain/, shared-kernel/, platform/, its own folder, the siblings ALLOWED_SIBLINGS lists and no runtime I/O; only composition, its public barrel and those siblings import it (proposal 3.2)",
   scaffoldLeaf:
-    "only the scaffold use case, its parts, the entry points and Authoring's infrastructure/in (CODE-LAYOUT:125) import the scaffold use case; scaffold code imports only itself, domain/, platform/, the run-factory use case, files that left src/core and node: builtins",
+    "only the scaffold use case, its parts, the entry points and Authoring's commons facade in infrastructure/in/commons/ (CODE-LAYOUT:125) import the scaffold use case; scaffold code imports only itself, domain/, platform/, the run-factory use case, files that left src/core and node: builtins",
   noClosedDialectSet: "domain/ and application/ never name a dialect: no string literal equal to a dialect folder name or a declared extension (proposal 3.2)",
 } as const;
 
@@ -71,13 +71,15 @@ function dialectIsolation(from: Classified, to: string, toClass: Classified | un
 }
 
 const inScaffold = (c: Classified): boolean => c.useCase === "scaffold" || c.scaffoldPart === true;
-const isAuthoringDrivingAdapter = (c: Classified): boolean => isLayer(c, "infrastructure-in") && c.kind === "context" && c.context === "authoring";
+// The commons facade is the scaffold use case's public driving adapter; other driving adapters are not.
+const isCommonsFacade = (c: Classified): boolean =>
+  isLayer(c, "infrastructure-in") && c.kind === "context" && c.context === "authoring" && c.drivingAdapter === "commons";
 
 // The scaffold use case is a leaf. The layer rules already keep it off legacy
 // code, other contexts and dialects; this adds what they allow: a sibling use case or the domain
 // reaching into scaffold, scaffold reaching a sibling use case, and third-party packages.
 function scaffoldLeaf(from: Classified, to: string, toClass: Classified | undefined): boolean {
-  if (toClass?.useCase === "scaffold" && !inScaffold(from) && !isEntry(from) && !isAuthoringDrivingAdapter(from)) return true;
+  if (toClass?.useCase === "scaffold" && !inScaffold(from) && !isEntry(from) && !isCommonsFacade(from)) return true;
   if (!inScaffold(from)) return false;
   if (toClass === undefined) return !(to.startsWith("node:") || to.startsWith("process."));
   return !(inScaffold(toClass) || isLayer(toClass, "domain") || toClass.kind === "platform" || toClass.useCase === "run-factory" || toClass.formerCore === true);

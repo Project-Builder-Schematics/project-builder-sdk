@@ -85,7 +85,7 @@ authoring/infrastructure-in -> dialect-css: dialectIsolation
 authoring/infrastructure-in -> dialect-typescript: dialectIsolation
 authoring/infrastructure-in -> dialect-react: dialectIsolation
 authoring/infrastructure-in -> dialect-css-barrel: dialectIsolation
-authoring/infrastructure-in -> scaffold-use-case: ok
+authoring/infrastructure-in -> scaffold-use-case: scaffoldLeaf
 authoring/infrastructure-in -> scaffold-part: ok
 authoring/infrastructure-in -> run-factory: ok
 authoring/infrastructure-in -> sibling-use-case: ok
