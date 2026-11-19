@@ -25,6 +25,7 @@ const SRC_DIR = join(PROJECT_ROOT, "src");
 const DIRECTIVE_FACTORY_FILE = join(SRC_DIR, "bounded-contexts/authoring/domain/services/directive-factory.ts");
 const CLASSIFY_TRANSPORT_FILE = join(SRC_DIR, "bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts");
 const COMMONS_FILE = join(SRC_DIR, "bounded-contexts/authoring/infrastructure/in/commons/index.ts");
+const AUTHORING_VERBS_FILE = join(SRC_DIR, "bounded-contexts/authoring/application/usecases/authoring-verbs/index.ts");
 const EXPANDER_FILE = join(SRC_DIR, "bounded-contexts/authoring/application/usecases/scaffold/expander.ts");
 const ALLOWED_FILES = new Set([DIRECTIVE_FACTORY_FILE, CLASSIFY_TRANSPORT_FILE]);
 
@@ -50,6 +51,7 @@ describe("fit-39 — single-encode-site (encodeOptions confined to directive-fac
     expect(files).toContain(DIRECTIVE_FACTORY_FILE);
     expect(files).toContain(CLASSIFY_TRANSPORT_FILE);
     expect(files).toContain(COMMONS_FILE);
+    expect(files).toContain(AUTHORING_VERBS_FILE);
     expect(files).toContain(EXPANDER_FILE);
   });
 
@@ -70,8 +72,9 @@ describe("fit-39 — single-encode-site (encodeOptions confined to directive-fac
     }
   });
 
-  it("the commons facade holds no encode site (verb layer funnels through the factory)", () => {
+  it("the commons facade and the authoring-verbs use case hold no encode site (verb layer funnels through the factory)", () => {
     expect(siteViolations(readFileSync(COMMONS_FILE, "utf-8"))).toEqual([]);
+    expect(siteViolations(readFileSync(AUTHORING_VERBS_FILE, "utf-8"))).toEqual([]);
   });
 
   it("the scaffold expander holds no encode site (verb layer funnels through the factory)", () => {

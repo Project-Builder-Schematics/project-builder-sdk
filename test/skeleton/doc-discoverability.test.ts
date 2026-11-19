@@ -18,7 +18,11 @@ import { jsDocBefore, PROJECT_ROOT } from "../support/jsdoc-scan.ts";
 const SRC_ROOT = join(PROJECT_ROOT, "src");
 
 const AUTHORING_ERROR_SOURCE = readFileSync(join(SRC_ROOT, "bounded-contexts/authoring/domain/valueobjects/authoring-error.ts"), "utf-8");
-const COMMONS_SOURCE = readFileSync(join(SRC_ROOT, "bounded-contexts", "authoring", "infrastructure", "in", "commons", "index.ts"), "utf-8");
+// The public verbs are declared in the commons facade and the authoring-verbs use case it re-exports.
+const COMMONS_SOURCE = [
+  join(SRC_ROOT, "bounded-contexts", "authoring", "infrastructure", "in", "commons", "index.ts"),
+  join(SRC_ROOT, "bounded-contexts", "authoring", "application", "usecases", "authoring-verbs", "index.ts"),
+].map((file) => readFileSync(file, "utf-8")).join("\n");
 
 describe("REQ-AEC-03.2 — appliedCount JSDoc states diagnostic-not-persistence", () => {
   it("the emitted JSDoc scopes the count to the failing flush and states a rejected run discards everything", () => {

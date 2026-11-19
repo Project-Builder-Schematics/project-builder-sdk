@@ -21,7 +21,7 @@
  * (`dist/commons/index.d.ts` → `commons.index.d.ts`, `dist/core/base-handle.d.ts` →
  * `core.base-handle.d.ts`, `dist/core/handle-state.d.ts` → `core.handle-state.d.ts`,
  * `dist/bounded-contexts/authoring/testing/harness/index.d.ts` → `testing.index.d.ts`, `dist/dialects/typescript/index.d.ts` →
- * `typescript.index.d.ts`, `dist/dialects/react/index.d.ts` → `react.index.d.ts`).
+ * `typescript.index.d.ts`, `dist/dialects/react/index.d.ts` → `react.index.d.ts`, and each other pair below the same way).
  *
  * Red-proof: simulating a baseline drift (a removed export) triggers the gate.
  * Activates in S-004 (build pipeline produces .d.ts; baseline committed here).
@@ -80,6 +80,12 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     baselineFile: join(BASELINE_DIR, "commons.index.d.ts"),
     distFile: join(DIST_DIR, "bounded-contexts/authoring/infrastructure/in/commons/index.d.ts"),
     label: "commons",
+  },
+  {
+    // The verbs the commons facade re-exports unchanged are declared here (S8).
+    baselineFile: join(BASELINE_DIR, "commons.authoring-verbs.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/application/usecases/authoring-verbs/index.d.ts"),
+    label: "commons/authoring-verbs",
   },
   {
     baselineFile: join(BASELINE_DIR, "index.d.ts"),

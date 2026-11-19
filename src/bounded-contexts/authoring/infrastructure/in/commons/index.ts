@@ -1,10 +1,8 @@
 // Author surface: positional + trailing options, frozen public API (KIT-03/SKEL-01/KIT-04).
 // No AST imports. All handle write-ops wired (S-003).
 
-import { posix } from "node:path";
 import type { JsonValue } from "../../../domain/valueobjects/wire.ts";
-import { currentContext } from "../../../application/usecases/run-factory/context.ts";
-import { forceEntry } from "../../../domain/services/directive-factory.ts";
+import * as verbs from "../../../application/usecases/authoring-verbs/index.ts";
 import type { FoundHandle, WritableHandle } from "../../../domain/entities/handle-state.ts";
 import { AuthoringError } from "../../../domain/valueobjects/authoring-error.ts";
 import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../../../domain/valueobjects/authoring-error.ts";
@@ -20,10 +18,13 @@ export { AuthoringError };
 export type { AuthoringVerb, AuthoringReason, AuthoringOrigin };
 
 // 2.3 (CQ-1, droppable): classifyContent + ContentState give authors a named,
-// branchable read-result classification (see find()'s JSDoc pointer below). Severable
+// branchable read-result classification (see find()'s JSDoc in the authoring-verbs use case). Severable
 // from the AuthoringError cluster above — no other component references it.
 export { classifyContent } from "../../../domain/services/classify-content.ts";
 export type { ContentState } from "../../../domain/services/classify-content.ts";
+
+// The verbs that need no adapting are the use case's own functions.
+export { find, replaceContent, remove, rename, move, copy, pendingDirectives } from "../../../application/usecases/authoring-verbs/index.ts";
 
 /**
  * Options for the `create` author verb.
@@ -59,91 +60,6 @@ export interface CreateFromTemplateFileOptions {
   templateFile: string;
   options: JsonValue;
   force?: boolean;
-}
-
-// Pure factory for WritableHandle. Returned by every write verb.
-function buildWritableHandle(path: string): WritableHandle {
-  return {
-    read(): Promise<string | undefined> {
-      const { session } = currentContext();
-      return session.read(path);
-    },
-    replaceContent(content: string): WritableHandle {
-      const { session, factory } = currentContext();
-      session.buffer(factory.modify({ path, content }));
-      return buildWritableHandle(path);
-    },
-    rename(newName: string, opts?: { force?: boolean }): WritableHandle {
-      const { session, factory } = currentContext();
-      session.buffer(factory.rename({ path, newName, ...forceEntry(opts?.force) }));
-      const dir = posix.dirname(path);
-      return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
-    },
-    move(toDir: string, opts?: { force?: boolean }): WritableHandle {
-      const { session, factory } = currentContext();
-      session.buffer(factory.move({ path, toDir, ...forceEntry(opts?.force) }));
-      return buildWritableHandle(posix.join(toDir, posix.basename(path)));
-    },
-    copy(to: string, opts?: { force?: boolean }): WritableHandle {
-      const { session, factory } = currentContext();
-      session.buffer(factory.copy({ from: path, to, ...forceEntry(opts?.force) }));
-      return buildWritableHandle(to);
-    },
-  };
-}
-
-// FoundHandle factory. Returned exclusively by find(). Has remove().
-function buildFoundHandle(path: string): FoundHandle {
-  return {
-    read(): Promise<string | undefined> {
-      const { session } = currentContext();
-      return session.read(path);
-    },
-    replaceContent(content: string): WritableHandle {
-      const { session, factory } = currentContext();
-      session.buffer(factory.modify({ path, content }));
-      return buildWritableHandle(path);
-    },
-    rename(newName: string, opts?: { force?: boolean }): WritableHandle {
-      const { session, factory } = currentContext();
-      session.buffer(factory.rename({ path, newName, ...forceEntry(opts?.force) }));
-      const dir = posix.dirname(path);
-      return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
-    },
-    move(toDir: string, opts?: { force?: boolean }): WritableHandle {
-      const { session, factory } = currentContext();
-      session.buffer(factory.move({ path, toDir, ...forceEntry(opts?.force) }));
-      return buildWritableHandle(posix.join(toDir, posix.basename(path)));
-    },
-    copy(to: string, opts?: { force?: boolean }): WritableHandle {
-      const { session, factory } = currentContext();
-      session.buffer(factory.copy({ from: path, to, ...forceEntry(opts?.force) }));
-      return buildWritableHandle(to);
-    },
-    remove(): void {
-      const { session, factory } = currentContext();
-      session.buffer(factory.remove({ path }));
-    },
-  };
-}
-
-/**
- * Locates an existing file and returns a `FoundHandle` for reading or removing it.
- *
- * `read()` resolves `string | undefined`: the content, `undefined` when the path does not
- * exist, or `""` when the file exists but is empty. Branch on the three outcomes with strict
- * `=== undefined` / `=== ""` — NEVER `if (!content)`, which would merge `undefined`, `""`,
- * `"0"` and `"false"` and reintroduce the absent-vs-empty bug. Prefer `classifyContent()`
- * over manual comparisons — it names the trichotomy and gives exhaustive-switch parity.
- *
- * @example
- * const c = await find("src/config.ts").read();
- * if (c === undefined) create("src/config.ts", { template, options });
- * else if (c === "") replaceContent("src/config.ts", seedContent);
- * else replaceContent("src/config.ts", patch(c));
- */
-export function find(path: string): FoundHandle {
-  return buildFoundHandle(path);
 }
 
 /**
@@ -191,19 +107,9 @@ export function create<S>(
 export function create(path: string, opts: CreateOptions): WritableHandle;
 export function create(path: string, opts: CreateFromTemplateFileOptions): WritableHandle;
 export function create(path: string, opts: CreateOptions | CreateFromTemplateFileOptions): WritableHandle {
-  const { session, factory } = currentContext();
-  // The wire requires `options`, and an omitted bag (untyped callers) would vanish in JSON and
-  // fail the batch's round-trip check as unrepresentable content.
-  const options = opts.options === undefined ? {} : opts.options;
-  const template =
-    "templateFile" in opts ? readTemplateFile(opts.templateFile, path, options, opts.force) : opts.template;
-  session.buffer(factory.create({
-    pathTemplate: path,
-    template,
-    options,
-    ...forceEntry(opts.force),
-  }));
-  return buildWritableHandle(path);
+  return verbs.create(path, opts, (options) =>
+    "templateFile" in opts ? readTemplateFile(opts.templateFile, path, options, opts.force) : opts.template
+  );
 }
 
 /**
@@ -297,113 +203,8 @@ export function copyIn(from: string, to: string, opts?: { force?: boolean }): vo
   runCopyIn({ from, to, force: opts?.force });
 }
 
-/**
- * Schedules an in-place content replacement for an existing file and returns a `WritableHandle`.
- * A rejected Session (e.g. the target does not exist) throws `AuthoringError`.
- *
- * @example
- * replaceContent("src/config.json", '{ "version": "2.0.0" }');
- */
-export function replaceContent(path: string, content: string): WritableHandle {
-  const { session, factory } = currentContext();
-  session.buffer(factory.modify({ path, content }));
-  return buildWritableHandle(path);
-}
-
-/**
- * Schedules a file deletion. Idempotent — deleting an absent file is not an error.
- *
- * @example
- * remove("src/legacy.ts");
- */
-export function remove(path: string): void {
-  const { session, factory } = currentContext();
-  session.buffer(factory.remove({ path }));
-}
-
-/**
- * Schedules a file rename (basename only) and returns a `WritableHandle` for the new path.
- * Renaming onto an existing path is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
- * rejected Session throws `AuthoringError`.
- *
- * @example
- * rename("src/foo.ts", "bar.ts");
- */
-export function rename(path: string, newName: string, opts?: { force?: boolean }): WritableHandle {
-  const { session, factory } = currentContext();
-  session.buffer(factory.rename({ path, newName, ...forceEntry(opts?.force) }));
-  const dir = posix.dirname(path);
-  return buildWritableHandle(dir === "." ? newName : posix.join(dir, newName));
-}
-
-/**
- * Schedules a file move to a different directory and returns a `WritableHandle`.
- * Moving onto an existing destination is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
- * rejected Session throws `AuthoringError`.
- * A move whose destination equals its source is a no-op, never a collision
- * (ADR-0017 self-move amendment).
- *
- * @example
- * move("src/utils/helper.ts", "src/shared");
- */
-export function move(path: string, toDir: string, opts?: { force?: boolean }): WritableHandle {
-  const { session, factory } = currentContext();
-  session.buffer(factory.move({ path, toDir, ...forceEntry(opts?.force) }));
-  return buildWritableHandle(posix.join(toDir, posix.basename(path)));
-}
-
-/**
- * Schedules a file copy to a new path and returns a `WritableHandle` for the destination.
- * Copying onto an existing destination is rejected at the engine seam unless
- * `{ force: true }` is passed (overwrite-on-collision, ADR-0017 fail-closed) — a
- * rejected Session throws `AuthoringError`.
- *
- * @example
- * copy("src/template.ts", "src/generated/output.ts");
- */
-export function copy(from: string, to: string, opts?: { force?: boolean }): WritableHandle {
-  const { session, factory } = currentContext();
-  session.buffer(factory.copy({ from, to, ...forceEntry(opts?.force) }));
-  return buildWritableHandle(to);
-}
-
 // --- Stage 3: pending Directives exposure (REQ-DRE-01..04) ---
-import { renderPendingDirectives } from "../../../application/usecases/pending-directives/index.ts";
 import type { PendingDirective } from "../../../application/usecases/pending-directives/render.ts";
 
 export type { PendingDirective };
 
-/**
- * Returns the Directives still pending in the active Session's buffer, rendered in
- * author vocabulary.
- *
- * Only what is still pending appears — the honest answer to "what will this Session
- * still emit", not "what has this Session emitted in total." A `read()` (or any flush)
- * drains the pending buffer, so Directives already sent no longer appear.
- *
- * Entries carry verb and path — no content or byte preview — plus an optional `kind`
- * (`"rendered" | "copied"`) present only on the package-local-read verbs whose transport
- * is classified: `create` (inline or `templateFile`, `kind: "rendered"`) and `copyIn`
- * (`kind: "copied"`). The tree→tree `copy` verb also materializes content but predates
- * this axis and is never package-local-read/classified, so it carries no `kind`.
- *
- * Call it inside an active factory invocation, like every other `./commons` verb.
- *
- * @example
- * const run = () => {
- *   create("src/index.ts", { template: "export const version = '1.0.0';", options: {} });
- *   find("src/legacy.ts").remove();
- *   for (const entry of pendingDirectives()) {
- *     console.log(entry.verb, entry.path); // "create src/index.ts", then "remove src/legacy.ts"
- *   }
- * };
- *
- * @throws When called outside an active factory invocation, propagates the standard
- * error — authoring verbs "can only be used while a schematic is running" (ADR-0026: the
- * message no longer enumerates individual verbs, so it covers `pendingDirectives` too).
- */
-export function pendingDirectives(): PendingDirective[] {
-  return renderPendingDirectives(currentContext().session.pendingDirectives());
-}

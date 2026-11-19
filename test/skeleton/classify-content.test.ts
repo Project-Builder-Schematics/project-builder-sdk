@@ -46,7 +46,11 @@ const CLASSIFY_CONTENT_SOURCE = readFileSync(
   join(PROJECT_ROOT, "src/bounded-contexts/authoring/domain/services/classify-content.ts"),
   "utf-8"
 );
-const COMMONS_SOURCE = readFileSync(join(PROJECT_ROOT, "src", "bounded-contexts", "authoring", "infrastructure", "in", "commons", "index.ts"), "utf-8");
+// The public verbs are declared in the commons facade and the authoring-verbs use case it re-exports.
+const COMMONS_SOURCE = [
+  join(PROJECT_ROOT, "src", "bounded-contexts", "authoring", "infrastructure", "in", "commons", "index.ts"),
+  join(PROJECT_ROOT, "src", "bounded-contexts", "authoring", "application", "usecases", "authoring-verbs", "index.ts"),
+].map((file) => readFileSync(file, "utf-8")).join("\n");
 
 describe("classifyContent — doc discoverability (REQ-RT-03)", () => {
   it("carries a branching @example over the three ContentState cases fed by a read() result (REQ-RT-03.1)", () => {

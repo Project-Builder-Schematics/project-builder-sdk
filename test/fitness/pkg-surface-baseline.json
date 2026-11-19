@@ -81,6 +81,8 @@
     "dist/bin/pbuilder-codegen.js",
     "dist/bin/pbuilder-runner.d.ts",
     "dist/bin/pbuilder-runner.js",
+    "dist/bounded-contexts/authoring/application/usecases/authoring-verbs/index.d.ts",
+    "dist/bounded-contexts/authoring/application/usecases/authoring-verbs/index.js",
     "dist/bounded-contexts/authoring/application/usecases/pending-directives/index.d.ts",
     "dist/bounded-contexts/authoring/application/usecases/pending-directives/index.js",
     "dist/bounded-contexts/authoring/application/usecases/pending-directives/render.d.ts",
