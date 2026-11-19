@@ -6,13 +6,10 @@ import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runFactoryForTest } from "../../../../../../src/testing/index.ts";
 import { scaffold } from "../../../../../../src/commons/index.ts";
-import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
+import { requireNonRoot, scratchDirFactory } from "../../../../../support/scratch-dir.ts";
 
 const scratchDir = scratchDirFactory("walk-messages-");
 
-function requireNonRoot(): void {
-  if (process.getuid?.() === 0) throw new Error("must run as non-root: chmod fixtures are bypassed by root");
-}
 
 async function scaffoldIn(packageDir: string, from: string) {
   return runFactoryForTest(() => scaffold({ from, to: "out" }), {}, { packageDir });
@@ -78,10 +75,13 @@ describe("scaffold walk entries", () => {
     }
   });
 
-  it("more than 10,000 enumerated entries", async () => {
+  it("exactly 10,000 enumerated entries pass; one more exceeds the bound", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
-    for (let i = 0; i <= 10_000; i++) mkdirSync(join(dir, "files", `d${i}`));
+    for (let i = 0; i < 10_000; i++) mkdirSync(join(dir, "files", `d${i}`));
+    expect(await messageOf(dir, "files")).toBeUndefined();
+
+    mkdirSync(join(dir, "files", "d10000"));
     expect(await messageOf(dir, "files")).toEqual("invalid input: scaffold walk exceeded the 10000-entry bound");
   });
 
