@@ -7,13 +7,10 @@ import { join } from "node:path";
 import { runFactoryForTest } from "../../../../../../src/testing/index.ts";
 import { copyIn, create, scaffold } from "../../../../../../src/commons/index.ts";
 import { EMIT_BATCH_BUDGET_BYTES } from "../../../../../../src/shared-kernel/batch-cap.ts";
-import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
+import { requireNonRoot, scratchDirFactory } from "../../../../../support/scratch-dir.ts";
 
 const scratchDir = scratchDirFactory("source-read-");
 
-function requireNonRoot(): void {
-  if (process.getuid?.() === 0) throw new Error("must run as non-root: chmod fixtures are bypassed by root");
-}
 
 async function messageOf(packageDir: string, run: () => void): Promise<string | undefined> {
   const { error } = await runFactoryForTest(run, {}, { packageDir });
