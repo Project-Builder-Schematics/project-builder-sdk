@@ -12,7 +12,7 @@ export const RULES = {
   compositionImporters: "nothing inside a context imports composition; only entry points do (CODE-LAYOUT:129)",
   crossContext:
     "a context reaches another only through acl/ or that context's application layer (CODE-LAYOUT:132); the one exception is runner-hosting's driving adapters passing Authoring's package-files adapter to the run use case",
-  platformImporters: "only infrastructure/, composition and the entry points import platform/ (CODE-LAYOUT:127)",
+  platformImporters: "only infrastructure/, a context's testing/, composition and the entry points import platform/ (CODE-LAYOUT:127)",
   platformImports: "platform/ imports no bounded context, acl/ or application layer (CODE-LAYOUT:127)",
   sharedKernelImports: "shared-kernel/ imports no bounded context, acl/ or platform/ (CODE-LAYOUT:131, :127)",
   domainImports: "domain/ imports only domain/ and shared-kernel/ (CODE-LAYOUT:123)",
@@ -113,7 +113,7 @@ export function violation(from: Classified, to: string, toClass: Classified | un
   ) {
     return "crossContext";
   }
-  if (toClass.kind === "platform" && !(isLayer(from, "infrastructure-in", "infrastructure-out", "composition") || from.kind === "acl" || from.kind === "platform")) {
+  if (toClass.kind === "platform" && !(isLayer(from, "infrastructure-in", "infrastructure-out", "testing", "composition") || from.kind === "acl" || from.kind === "platform")) {
     return "platformImporters";
   }
 

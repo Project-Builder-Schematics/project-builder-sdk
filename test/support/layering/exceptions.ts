@@ -7,12 +7,8 @@ import type { Rule } from "./rules.ts";
 
 export type Exception = { from: string; to: string; rule: Rule; reason: string; removedBy: `S${number}${string}` };
 
-const TESTING_PLATFORM = "CODE-LAYOUT:127 does not list testing/ among platform/ importers; project-builder-architecture#75 proposes it, and the row goes in the slice after it lands";
-
 export const EXCEPTIONS: readonly Exception[] = [
   { from: "src/core/index.ts", to: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", rule: "domainImports", reason: "the internal kit barrel (ADR-0009) re-exports defineFactory and currentContext from the run boundary; it goes when the legacy tree is empty", removedBy: "S14" },
-  { from: "src/bounded-contexts/authoring/testing/contract-fake.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S13" },
-  { from: "src/bounded-contexts/authoring/testing/conformance/index.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S13" },
 ];
 
 // 18 at S0a. S1b added 4 interim rows and removed the handle → context row (21); S4 removed
@@ -22,5 +18,7 @@ export const EXCEPTIONS: readonly Exception[] = [
 // package-files port, removing the four context.ts rows (12). S10a did the same for the
 // scaffold use case's source stat and read, removing four of its five fs rows (8); S10b moved
 // its folder walk behind the port, removing the last (7). S11 sent the runner through Authoring's
-// application layer for its error origin and JSON syntax message, removing four rows (3).
-export const CEILING = 3;
+// application layer for its error origin and JSON syntax message, removing four rows (3). The
+// v0.19.0 pin let a context's testing/ import platform/ (CODE-LAYOUT:127), removing the two
+// deep-equal rows (1).
+export const CEILING = 1;

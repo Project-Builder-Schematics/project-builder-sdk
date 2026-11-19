@@ -217,6 +217,7 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     const packageFiles = `${A}/infrastructure/out/fs/package-files.ts`;
     expect(violation(at(`${R}/infrastructure/in/x.ts`), packageFiles, at(packageFiles))).toBeUndefined();
     expect(violation(at(`${A}/testing/harness/index.ts`), packageFiles, at(packageFiles))).toBeUndefined();
+    expect(violation(at(`${A}/testing/contract-fake.ts`), "src/platform/deep-equal.ts", at("src/platform/deep-equal.ts"))).toBeUndefined();
     expect(violation(at(`${A}/domain/services/x.ts`), "node:path", undefined)).toBeUndefined();
     expect(violation(at(`${A}/infrastructure/out/fs/x.ts`), "node:fs", undefined)).toBeUndefined();
   });
