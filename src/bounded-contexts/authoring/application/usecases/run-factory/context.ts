@@ -93,8 +93,13 @@ export function currentContext(): SessionContext {
 // `packageDir`.
 export function requirePackageAnchors(missingAnchorMessage: string): { packageDir: string; files: PackageFiles } {
   const { packageAnchors, packageFiles } = currentContext();
-  if (packageAnchors === undefined || packageFiles === undefined) {
+  if (packageAnchors === undefined) {
     throw invalidInput(missingAnchorMessage);
+  }
+  // defineFactory sets both together; an anchor without its adapter is an SDK defect, so it
+  // must not read as the author forgetting `packageDir`.
+  if (packageFiles === undefined) {
+    throw new Error("[pbuilder] internal error: the run has a package directory but no package-files adapter");
   }
   return { packageDir: packageAnchors.packageDir, files: packageFiles };
 }
