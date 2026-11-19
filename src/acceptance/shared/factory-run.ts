@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { pendingDirectives } from "../../commons/index.ts";
 import { runFactoryForTest, type RunResult } from "../../testing/index.ts";
 import type { StepDefinition, World } from "../runner/steps.ts";
 
@@ -19,6 +20,8 @@ export interface FactoryRun {
   again?: { readonly result: RunResult; readonly ran: number };
   /** Set by a failure step, so `has its original content` cannot pass on an unexpected failure. */
   failureExpected: boolean;
+  /** The pending Directives, written `verb path`, once the last action of the last replay ran. */
+  pending?: readonly string[];
 }
 
 export function factoryRun(world: World): FactoryRun {
@@ -32,10 +35,13 @@ async function replay(run: FactoryRun): Promise<{ result: RunResult; ran: number
   const result = await runFactoryForTest(
     async () => {
       run.handles.clear();
+      run.pending = undefined;
       for (const action of run.actions) {
         await action(run.handles);
         ran += 1;
       }
+      // A pure copy of the Session buffer, so reading it here changes nothing the steps check.
+      run.pending = pendingDirectives().map((entry) => `${entry.verb} ${entry.path}`);
     },
     {},
     { seed: { ...run.seed } }
