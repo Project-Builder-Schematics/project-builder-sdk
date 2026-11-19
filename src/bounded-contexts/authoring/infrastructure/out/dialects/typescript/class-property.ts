@@ -1,7 +1,7 @@
 import { Node, SyntaxKind, type ClassDeclaration, type SourceFile } from "ts-morph";
 import { dialectError } from "../../../../domain/valueobjects/dialect-error.ts";
 import { handlePathFor } from "../../../../domain/entities/dialect-handle.ts";
-import { assertValidImportBinding } from "../../../../domain/services/jsx-name-validator.ts";
+import { assertValidImportBinding } from "../../../../domain/services/identifier-names.ts";
 import { elementNameEcho } from "../../../../domain/services/reject-tail.ts";
 import { elementText, tokensOf } from "./array-element.ts";
 import { parse } from "./ast.ts";

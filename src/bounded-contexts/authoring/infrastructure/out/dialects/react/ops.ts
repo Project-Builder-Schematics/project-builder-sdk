@@ -18,13 +18,10 @@ import {
   type TypeLiteralNode,
 } from "ts-morph";
 import { dialectError } from "../../../../domain/valueobjects/dialect-error.ts";
-import {
-  assertValidAttributeName,
-  assertValidElementName,
-  assertValidImportBinding,
-  validatedOp,
-} from "../../../../domain/services/jsx-name-validator.ts";
-import { elementNameEcho, multiMatchTail, zeroMatchTail } from "../../../../domain/services/reject-tail.ts";
+import { assertValidImportBinding, validatedOp } from "../../../../domain/services/identifier-names.ts";
+import { elementNameEcho } from "../../../../domain/services/reject-tail.ts";
+import { assertValidAttributeName, assertValidElementName } from "./jsx-names.ts";
+import { multiMatchTail, zeroMatchTail } from "./match-tails.ts";
 import { parse } from "./ast.ts";
 
 type JsxTag = JsxOpeningElement | JsxSelfClosingElement;

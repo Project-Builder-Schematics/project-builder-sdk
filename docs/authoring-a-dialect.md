@@ -502,8 +502,9 @@ resolves to the line count, `"x"` included. See its JSDoc `@example` in
 
 If your op takes a name or identifier-shaped argument that gets SPLICED into generated source —
 an attribute name, an import binding, anything your AST library writes as raw text — validate
-that argument BEFORE any mutation runs, not after. `@pbuilder/sdk/react`'s
-`src/bounded-contexts/authoring/domain/services/jsx-name-validator.ts` is the reference implementation: `validatedOp(validators, body)`
+that argument BEFORE any mutation runs, not after. The shared
+`src/bounded-contexts/authoring/domain/services/identifier-names.ts`, with `@pbuilder/sdk/react`'s JSX grammars in
+`src/bounded-contexts/authoring/infrastructure/out/dialects/react/jsx-names.ts`, is the reference implementation: `validatedOp(validators, body)`
 is the single validate-before-mutate CHOKEPOINT — it wraps an op so `body` (the actual AST
 mutation) is structurally unreachable until `validators` has run and thrown on every invalid
 argument. Register a per-argument grammar for each such
