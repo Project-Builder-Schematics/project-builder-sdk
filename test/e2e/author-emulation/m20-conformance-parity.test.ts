@@ -17,7 +17,7 @@ import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { copyIn, AuthoringError } from "../../../src/commons/index.ts";
 import { ContractFake } from "../../support/contract-fake.ts";
-import { createRunVehicle } from "../../../src/conformance/run-vehicle.ts";
+import { createRunVehicle } from "../../../src/bounded-contexts/authoring/testing/run-vehicle.ts";
 import { PACKAGE_DIR } from "../../fixtures/author-emulation/factory.ts";
 import type { EngineClient } from "../../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
 

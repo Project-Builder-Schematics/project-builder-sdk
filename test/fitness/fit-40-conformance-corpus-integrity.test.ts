@@ -191,7 +191,7 @@ describe("FIT-40 — conformance corpus structural integrity", () => {
   });
 
   describe("REQ-CFX-01 — factory authoring surface allow-list", () => {
-    const BANNED_SRC_SUBSTRINGS = ["/src/core/", "/src/transport/", "/src/testing/"];
+    const BANNED_SRC_SUBSTRINGS = ["/src/core/", "/src/transport/", "/src/testing/", "/src/bounded-contexts/authoring/testing/"];
     const BANNED_BUILTINS = ["node:fs", "node:net", "node:child_process"];
 
     it("REQ-CFX-01.1/.2: every factory.ts imports the SDK ONLY via ../../src/index.ts, no banned builtins", () => {

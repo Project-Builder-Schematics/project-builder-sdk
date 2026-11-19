@@ -11,7 +11,7 @@ import {
 } from "../../src/shared-kernel/framing.ts";
 import { exceedsBatchCap } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { BATCH_CAP_BYTES } from "../../src/shared-kernel/batch-cap.ts";
-import { batchOfSerializedBytes, batchOverSerializedBytes } from "../fake/batch-cap-fixtures.ts";
+import { batchOfSerializedBytes, batchOverSerializedBytes } from "../bounded-contexts/authoring/testing/batch-cap-fixtures.ts";
 
 describe("REQ-WPS-01 — frame envelope structure", () => {
   describe("Scenario REQ-WPS-01.1: round-trip frame integrity", () => {

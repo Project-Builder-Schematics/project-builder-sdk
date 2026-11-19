@@ -5,10 +5,10 @@
  * scan would silently exempt the schema/ subdirectory) for prohibited path-keyed collection
  * patterns.
  *
- * ContractFake lives at src/testing/contract-fake.ts (relocated from test/support/ in
- * stage-4b S-000, ADR-0035) — it IS compiled into dist/testing/ now, but its `#tree:
+ * ContractFake lives at src/bounded-contexts/authoring/testing/contract-fake.ts (relocated from test/support/ in
+ * stage-4b S-000, ADR-0035) — it IS compiled into dist/bounded-contexts/authoring/testing/ now, but its `#tree:
  * Map<string, string>` field is exactly the ADR-0008 shape this guard bans. The glob stays
- * PINNED to the production core, never widened to src/testing/** (ADR-0034 guard 4, SEC-M2
+ * PINNED to the production core, never widened to src/bounded-contexts/authoring/testing/** (ADR-0034 guard 4, SEC-M2
  * non-regression note): the fake's own path-keyed tree is its legitimate job, not a
  * production-core violation, and widening the scan would wrongly flag it.
  * Every file in the production core is a production type — no exclusions needed.
@@ -95,16 +95,16 @@ describe("FIT-07 — no Map<path,*>/tree field in production core", () => {
   });
 
   // SEC-M2 non-regression (ADR-0034 guard 4): the glob stays pinned to src/core/**, never
-  // widened to src/testing/**. ContractFake's own #tree: Map<string, string> field (its
+  // widened to src/bounded-contexts/authoring/testing/**. ContractFake's own #tree: Map<string, string> field (its
   // legitimate job, not a production-core violation) would trip this detector if the scan
   // were ever widened to reach it.
-  it("the glob stays pinned to the production core — src/testing/contract-fake.ts is never scanned", () => {
+  it("the glob stays pinned to the production core — src/bounded-contexts/authoring/testing/contract-fake.ts is never scanned", () => {
     expect(CORE_ROOT).toBe("core");
     expect(files.some((f) => f.includes("testing"))).toBe(false);
   });
 
   it("[characterization] ContractFake's own Map<string,string> tree field would trip this detector if in scope", () => {
-    const fakeSource = readFileSync(new URL("../../src/testing/contract-fake.ts", import.meta.url).pathname, "utf-8");
+    const fakeSource = readFileSync(new URL("../../src/bounded-contexts/authoring/testing/contract-fake.ts", import.meta.url).pathname, "utf-8");
     expect(hasProhibitedPattern(fakeSource)).toEqual(true);
   });
 

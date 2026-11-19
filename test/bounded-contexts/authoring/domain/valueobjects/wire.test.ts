@@ -5,7 +5,7 @@
 // `>` comparison locally.
 
 import { describe, it, expect } from "bun:test";
-import { batchOfSerializedBytes, batchOverSerializedBytes, batchAtEmitBudget, batchOverEmitBudget } from "../../../../fake/batch-cap-fixtures.ts";
+import { batchOfSerializedBytes, batchOverSerializedBytes, batchAtEmitBudget, batchOverEmitBudget } from "../../testing/batch-cap-fixtures.ts";
 import { exceedsBatchCap, exceedsEmitBatchBudget, serializedBatchBytes, serializedBatchSize } from "../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES } from "../../../../../src/shared-kernel/batch-cap.ts";
 

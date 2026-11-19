@@ -34,7 +34,7 @@ enforces this table structurally, so keep it in sync with the directories it nam
 |---|---|---|---|
 | unit | `test/golden-ir` | Yes | `test/golden-ir/golden-ir.test.ts` |
 | fitness | `test/fitness` | Yes | `test/fitness/fit-08-no-kit-bleed.test.ts` |
-| integration | `test/fake` | Yes | `test/fake/move-fail-closed.test.ts` |
+| integration | `test/bounded-contexts/authoring/testing` | Yes | `test/bounded-contexts/authoring/testing/move-fail-closed.test.ts` |
 | e2e | `test/e2e` | Yes | `test/e2e/author-to-tree.e2e.test.ts` |
 
 Every layer runs against `ContractFake` (`test/support/contract-fake.ts`) — a real engine is
@@ -49,9 +49,9 @@ behavior through `defineFactory`) and `test/types` (compile-time contract pins).
 
 | Contribution type | Layer(s) | Home |
 |---|---|---|
-| New verb / wire op | unit + integration | `test/golden-ir` (directive shape) + `test/fake` (fake seam behavior) |
+| New verb / wire op | unit + integration | `test/golden-ir` (directive shape) + `test/bounded-contexts/authoring/testing` (fake seam behavior) |
 | New fitness invariant | fitness | `test/fitness` |
-| Cross-module / handle behavior | integration | `test/fake` or `test/skeleton` |
+| Cross-module / handle behavior | integration | `test/bounded-contexts/authoring/testing` or `test/skeleton` |
 | Full author-facing story | e2e | `test/e2e` |
 
 ## Architecture

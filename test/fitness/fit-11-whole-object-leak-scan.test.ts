@@ -25,7 +25,7 @@ import { describe, it, expect } from "bun:test";
 import { toAuthoringError, AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { EmitRejection } from "../../src/bounded-contexts/authoring/domain/ports/emit-rejection.ts";
 import { currentContext } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
-import { batchOf, createOp } from "../fake/directive-builders.ts";
+import { batchOf, createOp } from "../bounded-contexts/authoring/testing/directive-builders.ts";
 import * as rejectionMessages from "../support/rejection-messages.ts";
 import {
   CONTRACT_FAKE_PREFIX,

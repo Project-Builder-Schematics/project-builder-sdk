@@ -1,7 +1,7 @@
 /**
  * REQ-FSP-01..04 (file: fit-18-fake-single-source-parity.test.ts — 18th fitness file, next
  * free after stage-4's FIT-16, TW-m4): `ContractFake` and its message dictionary MUST have
- * exactly ONE physical implementation each, relocated under `src/testing/` (ADR-0035).
+ * exactly ONE physical implementation each, relocated under `src/bounded-contexts/authoring/testing/` (ADR-0035).
  * `test/support/contract-fake.ts` / `test/support/rejection-messages.ts` are pure re-export
  * shims. Detection is by reference/value IDENTITY (`===`), never a behavioural diff suite —
  * a behavioural suite could pass on two independently-drifting implementations; identity
@@ -10,9 +10,9 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
-import { ContractFake as RelocatedContractFake } from "../../src/testing/contract-fake.ts";
+import { ContractFake as RelocatedContractFake } from "../../src/bounded-contexts/authoring/testing/contract-fake.ts";
 import { ContractFake as ShimContractFake } from "../support/contract-fake.ts";
-import * as relocatedMessages from "../../src/testing/rejection-messages.ts";
+import * as relocatedMessages from "../../src/bounded-contexts/authoring/testing/rejection-messages.ts";
 import * as shimMessages from "../support/rejection-messages.ts";
 
 const PROJECT_ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
@@ -84,7 +84,7 @@ function checkReExportIdentity(label: string, shimExport: unknown, sourceExport:
 }
 
 describe("REQ-FSP-01 — single ContractFake source", () => {
-  it("REQ-FSP-01.1: exactly one class body with the characteristic method set exists, under src/testing/", () => {
+  it("REQ-FSP-01.1: exactly one class body with the characteristic method set exists, under src/bounded-contexts/authoring/testing/", () => {
     // Single, exact, documented exemption (mirrors FIT-10's ALLOW_LISTED_PATH precedent):
     // this spec file's OWN fixture template-literal strings (below) textually contain
     // "class X { ... }" bodies for triangulation — a regex-based scan can't distinguish
@@ -103,7 +103,7 @@ describe("REQ-FSP-01 — single ContractFake source", () => {
     }
 
     expect(matches.length).toEqual(1);
-    expect(matches[0]?.relPath).toEqual("src/testing/contract-fake.ts");
+    expect(matches[0]?.relPath).toEqual("src/bounded-contexts/authoring/testing/contract-fake.ts");
     expect(matches[0]?.className).toEqual("ContractFake");
   });
 

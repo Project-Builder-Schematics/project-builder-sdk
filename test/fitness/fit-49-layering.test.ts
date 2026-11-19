@@ -125,15 +125,13 @@ describe("fit-49 — the dependency rule holds, up to the shrinking EXCEPTIONS t
 });
 
 // Q9: unit tests mirror src/ by folder. These test-only folders hold no unit tests of one
-// source folder; `fake` tests src/testing/ until S7 moves both.
+// source folder.
 const TEST_ONLY_FOLDERS = new Set(["fitness", "fixtures", "support", "skeleton", "e2e", "types", "docs", "golden-ir", "security", "pyramid", "build"]);
-const TEST_FOLDER_ALIASES: Record<string, string> = { fake: "testing" };
 
 function mirrorViolation(testFile: string, srcDirExists: (dir: string) => boolean): string | undefined {
   const segments = posix.dirname(testFile.replace(/^test\//, "")).split("/");
   if (segments[0] === ".") return `${testFile}: test files belong in a folder that mirrors src/`;
   if (TEST_ONLY_FOLDERS.has(segments[0]!) || segments.includes("planted") || segments.includes("fixtures")) return undefined;
-  segments[0] = TEST_FOLDER_ALIASES[segments[0]!] ?? segments[0]!;
   const dir = segments.join("/");
   return srcDirExists(dir) ? undefined : `${testFile}: test/${dir}/ mirrors no src/${dir}/`;
 }
@@ -153,7 +151,6 @@ describe("fit-49 — test/ mirrors src/ by folder (Q9)", () => {
   it("[red-proof] a test folder whose src/ folder is gone fails; a fitness test passes", () => {
     expect(mirrorViolation("test/core/x.test.ts", () => false)).toContain("mirrors no src/core/");
     expect(mirrorViolation("test/fitness/x.test.ts", () => false)).toBeUndefined();
-    expect(mirrorViolation("test/fake/x.test.ts", (d) => d === "testing")).toBeUndefined();
   });
 });
 

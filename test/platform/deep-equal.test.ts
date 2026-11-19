@@ -1,7 +1,7 @@
 /**
  * S-000 — src/core/deep-equal.ts (kit-internal, no barrel/subpath). Structural equality —
  * `Object.is`-based, not `===` — proven standalone before S-005 wires it into
- * src/conformance/index.ts and src/testing/contract-fake.ts as their shared implementation.
+ * src/conformance/index.ts and src/bounded-contexts/authoring/testing/contract-fake.ts as their shared implementation.
  */
 import { describe, it, expect } from "bun:test";
 import { deepEqual } from "../../src/platform/deep-equal.ts";

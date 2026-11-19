@@ -6,7 +6,7 @@
  *
  * Verdict, not reason: `run-vehicle.ts` is architecturally BARRED from importing
  * `EmitRejection`/`EngineClient` (FIT-10's structural port guard, `fit-10-engine-client-
- * port-guard.test.ts` — the allow-list is EXACTLY `src/testing/contract-fake.ts`), so its
+ * port-guard.test.ts` — the allow-list is EXACTLY `src/bounded-contexts/authoring/testing/contract-fake.ts`), so its
  * `copyIn` collision case throws a plain `Error`, not an `EmitRejection`. Through
  * `Session.flush()`'s `toAuthoringError` translation, a non-`EmitRejection` rejection
  * degrades to `reason: "unknown"` — an architecturally-forced divergence from the fake's
@@ -26,7 +26,7 @@ import { writeFileSync } from "node:fs";
 import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { copyIn, AuthoringError } from "../../src/commons/index.ts";
 import { ContractFake } from "../support/contract-fake.ts";
-import { createRunVehicle } from "../../src/conformance/run-vehicle.ts";
+import { createRunVehicle } from "../../src/bounded-contexts/authoring/testing/run-vehicle.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
 
