@@ -476,6 +476,17 @@ describe("FIT-42N S-000 — the deny-scan seals the closure's executed surface",
   });
 });
 
+describe("FIT-42N — node:fs admits reads, never writes", () => {
+  it("an lstatSync read is admitted; a writeFileSync is still an inadmissible origin", () => {
+    const root = plantTree({
+      "entry.js": 'import "./read.js";\nimport "./write.js";\n',
+      "read.js": `import { lstatSync } from "node:fs";\nexport const kind = lstatSync(target).isSymbolicLink();\n${bind("target")}`,
+      "write.js": `import { writeFileSync } from "node:fs";\nwriteFileSync(target, data);\n${bind("target", "data")}`,
+    });
+    expect(classifiedAs(root)).toEqual([{ rule: "constraint-4-inadmissible-origin", file: "write.js" }]);
+  });
+});
+
 describe("FIT-42N S-002 — walk shapes S-000 never exercised", () => {
   it("REQ-RCD-01.3: a cyclic import graph terminates at its reachable set", () => {
     const root = plantTree({

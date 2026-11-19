@@ -33,3 +33,9 @@ export function scratchDirFactory(prefix: string): () => string {
     return dir;
   };
 }
+
+// Root bypasses permission bits, so a chmod fixture proves nothing there; fail loud rather
+// than skip, so a bypassed proof can never read as green.
+export function requireNonRoot(): void {
+  if (process.getuid?.() === 0) throw new Error("must run as non-root: chmod fixtures are bypassed by root");
+}

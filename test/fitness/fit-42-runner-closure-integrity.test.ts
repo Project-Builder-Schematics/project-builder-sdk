@@ -851,6 +851,14 @@ describe("FIT-42 S-001 — the closed unions are pinned by exact membership", ()
     );
   });
 
+  // node:fs admits reads only. lstatSync is the read that does not follow a final symlink, which
+  // the scaffold walk needs to tell a symlink from what it points at.
+  it("REQ-CAP-04.4: node:fs admits exactly its pinned read-only names", () => {
+    expect([...ADMITTED_NODE_SURFACES.get("node:fs")!].sort()).toEqual(
+      ["existsSync", "lstatSync", "readFileSync", "readdirSync", "realpathSync", "statSync"].sort()
+    );
+  });
+
   // REQ-CAP-04.6, plan-verify iteration-2/3: 30-member set, not design.md's originally
   // probe-recorded 28 — same e6dcde2-vs-HEAD provenance note as ADMITTED_GLOBALS above (the
   // two JSDoc-only diffs cannot move a member-path count either). Cross-checked directly

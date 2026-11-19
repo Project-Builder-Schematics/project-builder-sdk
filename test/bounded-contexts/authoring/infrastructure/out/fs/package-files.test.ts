@@ -3,13 +3,10 @@ import { chmodSync, existsSync, mkdirSync, statSync, writeFileSync } from "node:
 import { join, relative, resolve } from "node:path";
 import { PackageReadFailure } from "../../../../../../src/bounded-contexts/authoring/domain/ports/package-files.ts";
 import { nodePackageFiles, reservedSiblingIn } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
-import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
+import { requireNonRoot, scratchDirFactory } from "../../../../../support/scratch-dir.ts";
 
 const scratchDir = scratchDirFactory("package-files-");
 
-function requireNonRoot(): void {
-  if (process.getuid?.() === 0) throw new Error("must run as non-root: chmod fixtures are bypassed by root");
-}
 
 function failureOf(read: () => unknown): unknown {
   try {

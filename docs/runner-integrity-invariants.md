@@ -125,6 +125,12 @@ resolution-only, never executed, and never laundered through a re-export or an a
 drifted out of the closure — any other arrangement forfeits the exemption and denies every use of
 it.
 
+The admitted `node:fs` names are reads only: `existsSync`, `lstatSync`, `readFileSync`,
+`readdirSync`, `realpathSync` and `statSync`. `lstatSync` (admitted 2026-11-20, agreed with the
+engine) lets the scaffold walk tell a symlink from what it points at without following it. That is
+defence in depth: the engine's `copyIn` read gate (no-follow plus the link fence) stays the
+authority at commit time.
+
 **What is default-deny, and what is not.** Read this before relying on the constraint for anything.
 Earlier revisions of this page said "the default for anything unrecognised is a violation, never a
 silent pass". That is retracted: it is true of one half of the decision and false of the other two,

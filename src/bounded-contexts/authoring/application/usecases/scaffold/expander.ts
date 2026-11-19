@@ -33,7 +33,7 @@ import { forceEntry } from "../../../domain/services/directive-factory.ts";
 import type { JsonValue } from "../../../domain/valueobjects/wire.ts";
 import { serializedBatchSize } from "../../../domain/valueobjects/wire.ts";
 import { EMIT_BATCH_BUDGET_BYTES } from "../../../../../shared-kernel/batch-cap.ts";
-import { walkFolder } from "../../../infrastructure/out/fs/walk.ts";
+import { walkFolder } from "./walk.ts";
 import {
   runFilenamePipeline,
   isIncluded,
@@ -185,7 +185,7 @@ export function runScaffold(args: ScaffoldArgs): void {
   validateSourceLexical(args.from);
 
   const fromAbs = join(packageDir, args.from);
-  const walked = walkFolder(fromAbs, undefined, args.from);
+  const walked = walkFolder(files, fromAbs, undefined, args.from);
   if (walked.length === 0) {
     return; // REQ-FSC-04.1: a truly-empty source folder is a silent no-op.
   }

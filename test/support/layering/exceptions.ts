@@ -7,12 +7,10 @@ import type { Rule } from "./rules.ts";
 
 export type Exception = { from: string; to: string; rule: Rule; reason: string; removedBy: `S${number}${string}` };
 
-const SCAFFOLD_FS = "scaffold use case reads the source folder directly (V3); it goes through the package-files port";
 const TESTING_PLATFORM = "CODE-LAYOUT:127 does not list testing/ among platform/ importers; project-builder-architecture#75 proposes it, and the row goes in the slice after it lands";
 
 export const EXCEPTIONS: readonly Exception[] = [
   { from: "src/core/index.ts", to: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", rule: "domainImports", reason: "the internal kit barrel (ADR-0009) re-exports defineFactory and currentContext from the run boundary; it goes when the legacy tree is empty", removedBy: "S14" },
-  { from: "src/bounded-contexts/authoring/application/usecases/scaffold/expander.ts", to: "src/bounded-contexts/authoring/infrastructure/out/fs/walk.ts", rule: "applicationImports", reason: SCAFFOLD_FS, removedBy: "S10" },
   { from: "src/bounded-contexts/authoring/testing/contract-fake.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S11" },
   { from: "src/bounded-contexts/authoring/testing/conformance/index.ts", to: "src/platform/deep-equal.ts", rule: "platformImporters", reason: TESTING_PLATFORM, removedBy: "S11" },
   { from: "src/bounded-contexts/runner-hosting/infrastructure/in/exit-codes.ts", to: "src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts", rule: "crossContext", reason: "runner maps Authoring's error type to exit codes; it reaches the type through Authoring's run-factory use case", removedBy: "S11" },
@@ -26,5 +24,6 @@ export const EXCEPTIONS: readonly Exception[] = [
 // S7 moved the conformance kit out of its public entry, so its existing deep-equal import
 // became a testing/ → platform/ edge (16). S9 put the run boundary's reads behind the
 // package-files port, removing the four context.ts rows (12). S10a did the same for the
-// scaffold use case's source stat and read, removing four of its five fs rows (8).
-export const CEILING = 8;
+// scaffold use case's source stat and read, removing four of its five fs rows (8); S10b moved
+// its folder walk behind the port, removing the last (7).
+export const CEILING = 7;

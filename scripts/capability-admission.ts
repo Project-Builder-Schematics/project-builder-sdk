@@ -79,12 +79,15 @@ export const ADMITTED_GLOBALS: ReadonlySet<string> = new Set([
  * Admitted `node:` module surfaces — per module, the admitted named exports. `node:module`
  * is present as a key (its bare specifier is not register-denied) but its admitted-name set
  * is deliberately EMPTY: `createRequire` is a `DENIED_CAPABILITY_PRIMITIVES` member, gated by
- * the anchor exemption proof, never blanket-admitted through this table.
+ * the anchor exemption proof, never blanket-admitted through this table. `node:fs` admits reads only;
+ * `lstatSync` lets the scaffold walk tell a symlink from its target without following it, as
+ * defence in depth — the engine's `copyIn` read gate (no-follow plus the link fence) stays the
+ * authority at commit time.
  */
 export const ADMITTED_NODE_SURFACES: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ["node:async_hooks", new Set(["AsyncLocalStorage"])],
   ["node:console", new Set(["Console"])],
-  ["node:fs", new Set(["existsSync", "readFileSync", "readdirSync", "realpathSync", "statSync"])],
+  ["node:fs", new Set(["existsSync", "lstatSync", "readFileSync", "readdirSync", "realpathSync", "statSync"])],
   ["node:module", new Set()],
   ["node:path", new Set(["dirname", "isAbsolute", "join", "relative"])],
   ["node:url", new Set(["fileURLToPath"])],

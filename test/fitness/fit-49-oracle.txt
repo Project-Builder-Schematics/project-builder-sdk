@@ -22,7 +22,7 @@ authoring/domain -> dialect-typescript: dialectIsolation
 authoring/domain -> dialect-react: dialectIsolation
 authoring/domain -> dialect-css-barrel: dialectIsolation
 authoring/domain -> scaffold-use-case: scaffoldLeaf
-authoring/domain -> scaffold-part: domainImports
+authoring/domain -> scaffold-part: ok
 authoring/domain -> run-factory: domainImports
 authoring/domain -> sibling-use-case: domainImports
 authoring/domain -> acceptance: acceptance
@@ -54,7 +54,7 @@ authoring/application -> dialect-typescript: dialectIsolation
 authoring/application -> dialect-react: dialectIsolation
 authoring/application -> dialect-css-barrel: dialectIsolation
 authoring/application -> scaffold-use-case: scaffoldLeaf
-authoring/application -> scaffold-part: applicationImports
+authoring/application -> scaffold-part: ok
 authoring/application -> run-factory: ok
 authoring/application -> sibling-use-case: ok
 authoring/application -> acceptance: acceptance
@@ -406,7 +406,7 @@ acl -> dialect-typescript: dialectIsolation
 acl -> dialect-react: dialectIsolation
 acl -> dialect-css-barrel: dialectIsolation
 acl -> scaffold-use-case: scaffoldLeaf
-acl -> scaffold-part: aclImports
+acl -> scaffold-part: ok
 acl -> run-factory: ok
 acl -> sibling-use-case: ok
 acl -> acceptance: acceptance
@@ -598,7 +598,7 @@ legacy-domain -> dialect-typescript: dialectIsolation
 legacy-domain -> dialect-react: dialectIsolation
 legacy-domain -> dialect-css-barrel: dialectIsolation
 legacy-domain -> scaffold-use-case: scaffoldLeaf
-legacy-domain -> scaffold-part: domainImports
+legacy-domain -> scaffold-part: ok
 legacy-domain -> run-factory: domainImports
 legacy-domain -> sibling-use-case: domainImports
 legacy-domain -> acceptance: acceptance
@@ -630,7 +630,7 @@ dialect-css -> dialect-typescript: dialectIsolation
 dialect-css -> dialect-react: dialectIsolation
 dialect-css -> dialect-css-barrel: infrastructureImports
 dialect-css -> scaffold-use-case: dialectIsolation
-dialect-css -> scaffold-part: dialectIsolation
+dialect-css -> scaffold-part: ok
 dialect-css -> run-factory: dialectIsolation
 dialect-css -> sibling-use-case: dialectIsolation
 dialect-css -> acceptance: acceptance
@@ -662,7 +662,7 @@ dialect-typescript -> dialect-typescript: ok
 dialect-typescript -> dialect-react: dialectIsolation
 dialect-typescript -> dialect-css-barrel: dialectIsolation
 dialect-typescript -> scaffold-use-case: dialectIsolation
-dialect-typescript -> scaffold-part: dialectIsolation
+dialect-typescript -> scaffold-part: ok
 dialect-typescript -> run-factory: dialectIsolation
 dialect-typescript -> sibling-use-case: dialectIsolation
 dialect-typescript -> acceptance: acceptance
@@ -694,7 +694,7 @@ dialect-react -> dialect-typescript: ok
 dialect-react -> dialect-react: ok
 dialect-react -> dialect-css-barrel: dialectIsolation
 dialect-react -> scaffold-use-case: dialectIsolation
-dialect-react -> scaffold-part: dialectIsolation
+dialect-react -> scaffold-part: ok
 dialect-react -> run-factory: dialectIsolation
 dialect-react -> sibling-use-case: dialectIsolation
 dialect-react -> acceptance: acceptance
@@ -758,7 +758,7 @@ scaffold-use-case -> dialect-typescript: dialectIsolation
 scaffold-use-case -> dialect-react: dialectIsolation
 scaffold-use-case -> dialect-css-barrel: dialectIsolation
 scaffold-use-case -> scaffold-use-case: ok
-scaffold-use-case -> scaffold-part: applicationImports
+scaffold-use-case -> scaffold-part: ok
 scaffold-use-case -> run-factory: ok
 scaffold-use-case -> sibling-use-case: scaffoldLeaf
 scaffold-use-case -> acceptance: acceptance
@@ -780,7 +780,7 @@ scaffold-part -> runner-hosting/composition: scaffoldLeaf
 scaffold-part -> runner-hosting/testing: scaffoldLeaf
 scaffold-part -> acl: scaffoldLeaf
 scaffold-part -> shared-kernel: scaffoldLeaf
-scaffold-part -> platform: ok
+scaffold-part -> platform: platformImporters
 scaffold-part -> public-entry: scaffoldLeaf
 scaffold-part -> public-test-entry: scaffoldLeaf
 scaffold-part -> process-entry: scaffoldLeaf
@@ -789,13 +789,13 @@ scaffold-part -> dialect-css: dialectIsolation
 scaffold-part -> dialect-typescript: dialectIsolation
 scaffold-part -> dialect-react: dialectIsolation
 scaffold-part -> dialect-css-barrel: dialectIsolation
-scaffold-part -> scaffold-use-case: ok
+scaffold-part -> scaffold-use-case: domainImports
 scaffold-part -> scaffold-part: ok
-scaffold-part -> run-factory: ok
+scaffold-part -> run-factory: domainImports
 scaffold-part -> sibling-use-case: scaffoldLeaf
 scaffold-part -> acceptance: acceptance
-scaffold-part -> node:fs: ok
-scaffold-part -> process.env: ok
+scaffold-part -> node:fs: noRuntimeIo
+scaffold-part -> process.env: noRuntimeIo
 scaffold-part -> node:path: ok
 scaffold-part -> ts-morph: scaffoldLeaf
 run-factory -> authoring/domain: ok
@@ -822,7 +822,7 @@ run-factory -> dialect-typescript: dialectIsolation
 run-factory -> dialect-react: dialectIsolation
 run-factory -> dialect-css-barrel: dialectIsolation
 run-factory -> scaffold-use-case: scaffoldLeaf
-run-factory -> scaffold-part: applicationImports
+run-factory -> scaffold-part: ok
 run-factory -> run-factory: ok
 run-factory -> sibling-use-case: ok
 run-factory -> acceptance: acceptance
@@ -854,7 +854,7 @@ sibling-use-case -> dialect-typescript: dialectIsolation
 sibling-use-case -> dialect-react: dialectIsolation
 sibling-use-case -> dialect-css-barrel: dialectIsolation
 sibling-use-case -> scaffold-use-case: scaffoldLeaf
-sibling-use-case -> scaffold-part: applicationImports
+sibling-use-case -> scaffold-part: ok
 sibling-use-case -> run-factory: ok
 sibling-use-case -> sibling-use-case: ok
 sibling-use-case -> acceptance: acceptance

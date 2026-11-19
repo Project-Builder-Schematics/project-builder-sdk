@@ -1,20 +1,18 @@
-// src/scaffold/walk.ts (ADR-0044): folder enumeration for `scaffold` — lstat-based
+// Scaffold's folder walk (ADR-0044): enumeration for `scaffold` — lstat-based
 // symlinked-directory non-descent (REQ-FSC-09.1) and a 10 000-entry bound (REQ-FSC-09.2).
 // Pure enumeration only: source/destination eligibility and the by-value/by-reference
-// verdict are NOT this module's concern (classify-transport.ts + path-guards.ts).
+// verdict are NOT this module's concern (classify-transport.ts + path-guards.ts). Every
+// read goes through the package-files port.
 
-import { lstatSync, readdirSync, statSync } from "node:fs";
 import { join, posix, resolve } from "node:path";
 import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
-import { isErrnoException } from "../../../../../platform/fs-errors.ts";
+import type { PackageEntryFailure, PackageFiles } from "../../../domain/ports/package-files.ts";
 
 export const DEFAULT_WALK_ENTRY_BOUND = 10_000;
 
 export interface WalkEntry {
   /** Source-relative path, posix-separated, relative to the walked `from` root. */
   relPath: string;
-  /** Absolute filesystem path — `join(fromAbs, relPath)`. */
-  absPath: string;
 }
 
 function boundExceededMessage(bound: number): string {
@@ -81,17 +79,16 @@ function rootIsSymlinkMessage(rootRelPath: string | undefined): string {
   );
 }
 
-// Never re-throws the raw Node error (no-echo, REQ-AEC-05/FIT-11 posture already held by
-// every other scaffold-family rejection): ENOTDIR (the root resolves to a non-directory —
-// most commonly a regular file) and ENOENT (the root doesn't exist) each mint their own
-// `AuthoringError` naming ONLY the package-relative `rootRelPath`; any other errno (e.g.
-// EACCES) still fails closed the same way — a generic "could not be read" — rather than ever
-// leaking `err.message`'s absolute path.
-function rootReadFailure(err: unknown, rootRelPath: string | undefined): Error {
-  if (isErrnoException(err) && err.code === "ENOTDIR") {
+// Never echoes a raw Node error (no-echo, REQ-AEC-05/FIT-11 posture already held by every
+// other scaffold-family rejection): a root that is not a folder (most commonly a regular
+// file) and a missing root each mint their own `AuthoringError` naming ONLY the
+// package-relative `rootRelPath`; any other failure (e.g. a permission error) still fails
+// closed the same way — a generic "could not be read".
+function rootReadFailure(failure: PackageEntryFailure, rootRelPath: string | undefined): Error {
+  if (failure === "not-a-directory") {
     return invalidInput(rootNotDirectoryMessage(rootRelPath));
   }
-  if (isErrnoException(err) && err.code === "ENOENT") {
+  if (failure === "missing") {
     return invalidInput(rootNotFoundMessage(rootRelPath));
   }
   return invalidInput(rootUnreadableMessage(rootRelPath));
@@ -123,23 +120,11 @@ function entryDisappearedMessage(entryRelPath: string | undefined): string {
   );
 }
 
-function entryReadFailure(err: unknown, entryRelPath: string | undefined): Error {
-  if (isErrnoException(err) && err.code === "ENOENT") {
+function entryReadFailure(failure: PackageEntryFailure, entryRelPath: string | undefined): Error {
+  if (failure === "missing") {
     return invalidInput(entryDisappearedMessage(entryRelPath));
   }
   return invalidInput(entryUnreadableMessage(entryRelPath));
-}
-
-// A symlink's OWN type (lstat) is always "symbolic link" — this asks what the link's
-// TARGET is, via `statSync` (follows the link), ONLY to decide non-descent (REQ-FSC-09.1).
-// NOT a containment check: a broken symlink (target absent) is treated as a
-// (later-failing) file candidate rather than silently vanishing from the walk.
-function symlinkTargetIsDirectory(absPath: string): boolean {
-  try {
-    return statSync(absPath).isDirectory();
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -162,6 +147,7 @@ function symlinkTargetIsDirectory(absPath: string): boolean {
  * (the entry vanished, or an EACCES mid-tree, REQ-FSC-10.4).
  */
 export function walkFolder(
+  files: PackageFiles,
   fromAbs: string,
   bound: number = DEFAULT_WALK_ENTRY_BOUND,
   rootRelPath?: string
@@ -195,27 +181,25 @@ export function walkFolder(
       // missing/non-directory root still reaches `rootReadFailure` unchanged (lstat fails
       // with the identical errno readdir would have), and a symlinked root rejects
       // explicitly instead of either being followed or silently skipped.
-      let rootLst: ReturnType<typeof lstatSync>;
-      try {
-        rootLst = lstatSync(absDir);
-      } catch (err) {
-        throw rootReadFailure(err, rootRelPath);
+      const rootEntry = files.entryAt(absDir);
+      if ("failure" in rootEntry) {
+        throw rootReadFailure(rootEntry.failure, rootRelPath);
       }
-      if (rootLst.isSymbolicLink()) {
+      if (rootEntry.kind === "symlink") {
         throw invalidInput(rootIsSymlinkMessage(rootRelPath));
       }
-      try {
-        names = readdirSync(absDir).sort();
-      } catch (err) {
-        throw rootReadFailure(err, rootRelPath);
+      const listed = files.namesIn(absDir);
+      if (!Array.isArray(listed)) {
+        throw rootReadFailure(listed.failure, rootRelPath);
       }
+      names = listed.sort();
     } else {
-      try {
-        names = readdirSync(absDir).sort();
-      } catch (err) {
+      const listed = files.namesIn(absDir);
+      if (!Array.isArray(listed)) {
         const entryX = rootRelPath === undefined ? undefined : posix.join(rootRelPath, relDir);
-        throw entryReadFailure(err, entryX);
+        throw entryReadFailure(listed.failure, entryX);
       }
+      names = listed.sort();
     }
 
     for (const name of names) {
@@ -229,25 +213,26 @@ export function walkFolder(
 
       const relPath = relDir === "" ? name : `${relDir}/${name}`;
       const absPath = join(absDir, name);
-      let lst: ReturnType<typeof lstatSync>;
-      try {
-        lst = lstatSync(absPath);
-      } catch (err) {
+      const entry = files.entryAt(absPath);
+      if ("failure" in entry) {
         const entryX = rootRelPath === undefined ? undefined : posix.join(rootRelPath, relPath);
-        throw entryReadFailure(err, entryX);
+        throw entryReadFailure(entry.failure, entryX);
       }
 
-      if (lst.isSymbolicLink()) {
-        if (symlinkTargetIsDirectory(absPath)) {
+      if (entry.kind === "symlink") {
+        // Asks what the link's TARGET is, only to decide non-descent (REQ-FSC-09.1). Not a
+        // containment check: a broken symlink is a (later-failing) file candidate rather than
+        // silently vanishing from the walk.
+        if (files.isFolder(absPath)) {
           continue; // REQ-FSC-09.1: never descended, no error for the skip
         }
         // symlinked file (or broken symlink): walkable entry, eligibility deferred.
-      } else if (lst.isDirectory()) {
+      } else if (entry.kind === "directory") {
         dirStack.push(relPath);
         continue;
       }
 
-      entries.push({ relPath, absPath });
+      entries.push({ relPath });
     }
   }
 

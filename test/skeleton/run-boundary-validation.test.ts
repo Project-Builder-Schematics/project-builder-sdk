@@ -14,7 +14,7 @@ import { copyIn } from "../../src/commons/index.ts";
 import type { PackageFiles } from "../../src/bounded-contexts/authoring/domain/ports/package-files.ts";
 import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { seedSchema } from "../support/canary.ts";
-import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { requireNonRoot, scratchDirFactory } from "../support/scratch-dir.ts";
 import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
@@ -256,12 +256,6 @@ describe("REQ-RBV-05 — fail-closed on malformed/unreadable/empty schema", () =
 // The run boundary's read failures pin their whole message, so moving the reads behind the
 // package-files port cannot change what an author sees.
 describe("run-boundary read failures — full messages", () => {
-  const requireNonRoot = (): void => {
-    if (process.getuid?.() === 0) {
-      throw new Error("must run as non-root: chmod fixtures are bypassed by root");
-    }
-  };
-
   it("an unreadable schema.json names the permission problem", async () => {
     requireNonRoot();
     const dir = scratchDir();
