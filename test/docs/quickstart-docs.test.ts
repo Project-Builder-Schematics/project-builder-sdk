@@ -191,7 +191,7 @@ describe("REQ-AOD-01/07 — quickstart machine leg (schema -> codegen -> typed f
     }
 
     // REQ-AOD-01.1: the shown codegen invocation matches the bin's real contract — ONE
-    // positional argument, NO flags (bin/pbuilder-codegen.ts:171-174).
+    // positional argument, NO flags (the codegen adapter's runCli).
     const shownCommand = extractCodegenCommand(doc);
     expect(shownCommand).toMatch(/^pbuilder-codegen\s+\S+$/);
     expect(shownCommand).not.toMatch(/\s--?\w/);

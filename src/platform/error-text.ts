@@ -17,7 +17,7 @@ export const OUTSIDE_PROJECT_TOKEN = "<outside-project>";
 
 // REQ-WPS-07.3: an echoed host-controlled identifier (e.g. an unrecognized argv flag, a
 // malformed export name) is truncated to this per-token max BEFORE composition — names
-// surface, values never (bin/pbuilder-codegen.ts's describeSufficiencyFinding precedent).
+// surface, values never (the codegen adapter's describeSufficiencyFinding precedent).
 export function truncateToken(token: string): string {
   return token.length > TOKEN_CEILING_CHARS ? token.slice(0, TOKEN_CEILING_CHARS) : token;
 }
