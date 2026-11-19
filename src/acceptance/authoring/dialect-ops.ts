@@ -1,13 +1,23 @@
 import { expect } from "bun:test";
+import * as angular from "../../dialects/angular/index.ts";
+import * as css from "../../dialects/css/index.ts";
 import * as json from "../../dialects/json/index.ts";
 import * as nestjs from "../../dialects/nestjs/index.ts";
 import * as react from "../../dialects/react/index.ts";
 import * as typescript from "../../dialects/typescript/index.ts";
 import * as yaml from "../../dialects/yaml/index.ts";
 import type { StepDefinition, World } from "../runner/steps.ts";
-import { endedRun, factoryRun } from "../shared/factory-run.ts";
+import { endedRun, expectSuccess, factoryRun } from "../shared/factory-run.ts";
 
-const DIALECTS: Record<string, { find(path: string): unknown }> = { json, nestjs, react, typescript, yaml };
+const DIALECTS: Record<string, { find(path: string): unknown }> = {
+  angular,
+  css,
+  json,
+  nestjs,
+  react,
+  typescript,
+  yaml,
+};
 
 // CATALOG: the values JSON text cannot hold, and the functions an `fn` argument names.
 const NAMED_FUNCTIONS: Record<string, (current: unknown) => unknown> = {
@@ -31,6 +41,8 @@ interface DialectState {
   readonly dialectOf: Map<string, string>;
   /** The table cells of the last call of each op, by argument name. */
   readonly lastArguments: Map<string, Map<string, string>>;
+  /** What the last query returned, once its action ran. */
+  queried?: { readonly value: unknown };
 }
 
 function dialectState(world: World): DialectState {
@@ -46,6 +58,23 @@ export function dialectFailure(world: World): string {
   const message = (error as Error).message;
   expect(message).toStartWith("dialect operation failed: ");
   return message;
+}
+
+/** Records the table of one op or query call and returns its arguments in row order. */
+function callArguments(world: World, op: string, table: string[][]): unknown[] {
+  const cells = new Map(table.slice(1).map(([argument, cell]) => [argument!, cell!]));
+  dialectState(world).lastArguments.set(op, cells);
+  return [...cells].map(([argument, cell]) => argumentValue(argument, cell));
+}
+
+type OpTarget = Record<string, (...args: unknown[]) => PromiseLike<unknown>>;
+
+/** The value the last query returned, after checking the run succeeded and the query ran. */
+function queried(world: World): unknown {
+  expectSuccess(world);
+  const result = dialectState(world).queried;
+  if (result === undefined) throw new Error("no query ran");
+  return result.value;
 }
 
 function parseFailure(world: World, path: string, dialect: string): void {
@@ -67,14 +96,29 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
     // The tables list their arguments in the op's own order, so they are passed in row order.
     phrase: 'the author applies the op "{op}" through the Dialect handle "{handle}" with the arguments:',
     run: (world, [op, handle, table]) => {
-      const cells = new Map((table as string[][]).slice(1).map(([argument, cell]) => [argument!, cell!]));
-      dialectState(world).lastArguments.set(op as string, cells);
-      const args = [...cells].map(([argument, cell]) => argumentValue(argument, cell));
+      const args = callArguments(world, op as string, table as string[][]);
       factoryRun(world).actions.push(async (handles) => {
-        const target = handles.get(handle as string) as Record<string, (...args: unknown[]) => PromiseLike<unknown>>;
-        await target[op as string]!(...args);
+        await (handles.get(handle as string) as OpTarget)[op as string]!(...args);
       });
     },
+  },
+  {
+    phrase: 'the author applies the query "{op}" through the Dialect handle "{handle}" with the arguments:',
+    run: (world, [op, handle, table]) => {
+      const args = callArguments(world, op as string, table as string[][]);
+      factoryRun(world).actions.push(async (handles) => {
+        const value = await (handles.get(handle as string) as OpTarget)[op as string]!(...args);
+        dialectState(world).queried = { value };
+      });
+    },
+  },
+  {
+    phrase: "the query returned nothing",
+    run: (world) => void expect(queried(world)).toBeUndefined(),
+  },
+  {
+    phrase: 'the query returned the declaration "{value}" with importance "{important}"',
+    run: (world, [value, important]) => void expect(queried(world)).toEqual({ value, important: important === "true" }),
   },
   {
     phrase: 'the factory fails with a dialect error naming the op "{op}"',
@@ -141,7 +185,8 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
   },
   {
     phrase: 'the factory fails because the argument "{argument}" is not one the op accepts',
-    // "`kind` must be ...", or the refused value echoed: "`name` \"await\" is a reserved word ...".
+    // "`kind` must be ...", the refused value echoed: "`name` \"await\" is a reserved word ...", or an option
+    // that excludes another: "`required` and `initial` cannot be combined".
     run: (world, [argument]) => {
       const message = dialectFailure(world);
       const named = `\`${argument as string}\``;
@@ -149,7 +194,11 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
         const cell = cells.get(argument as string);
         return cell === undefined ? [] : [JSON.stringify(JSON.parse(cell))];
       });
-      expect(message.includes(`${named} must `) || values.some((value) => message.includes(`${named} ${value} is `))).toBe(true);
+      const refused =
+        message.includes(`${named} must `) ||
+        values.some((value) => message.includes(`${named} ${value} is `)) ||
+        new RegExp(`${RegExp.escape(named)} and \`[^\`]+\` cannot be combined`).test(message);
+      expect(refused).toBe(true);
     },
   },
   {
