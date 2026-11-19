@@ -40,7 +40,7 @@ const flatComment = (text: string): string =>
 // --- Frozen strings — design.md §9. Copied verbatim; do not paraphrase. -------------------
 
 const SCOPE_PULL_QUOTE =
-  "the manifest covers the runner's pre-factory bootstrap — 27 closure files plus " +
+  "the manifest covers the runner's pre-factory bootstrap — 28 closure files plus " +
   "`package.json` — and nothing that loads after it.";
 
 const EXCLUDED_TREES = [
@@ -78,8 +78,8 @@ const LINK_DEGRADES =
   "wrong-artefact detector and nothing more.";
 
 const ENTRY_24_REASON =
-  '`package.json` is entry #28 because its `"type": "module"` field governs the parse mode of ' +
-  'all 27 closure files: flipping it to `"commonjs"` reinterprets every hashed byte without ' +
+  '`package.json` is entry #29 because its `"type": "module"` field governs the parse mode of ' +
+  'all 28 closure files: flipping it to `"commonjs"` reinterprets every hashed byte without ' +
   "editing one. It is **not** included because of `packageRootFor()` — hashing content cannot " +
   "constrain a topology walk.";
 
@@ -99,7 +99,7 @@ const SECURITY_SUBSECTION_HEADING = "## Runner integrity manifest";
 
 const SECURITY_SUBSECTION =
   "Published releases carry `dist/runner-manifest.json`, which lets the engine check that the " +
-  "runner's pre-factory bootstrap — 27 files plus `package.json` — is the code we published. " +
+  "runner's pre-factory bootstrap — 28 files plus `package.json` — is the code we published. " +
   "It is not a sandbox, not a signature, and not a check on the dialect, op-pack, or " +
   "`node_modules` code that loads afterwards; those remain governed by the trust model above. " +
   "See [docs/runner-integrity-invariants.md](./docs/runner-integrity-invariants.md).";
@@ -248,12 +248,12 @@ describe("REQ-IID-03 — the justification states the real value", () => {
   });
 });
 
-describe("REQ-IID-04..07 — portability, entry #28, bun link, and the known gaps", () => {
+describe("REQ-IID-04..07 — portability, entry #29, bun link, and the known gaps", () => {
   it("IID-04: records one manifest per published package with its evidence", () => {
     expect(flat(doc())).toContain(flat(PORTABILITY_ANSWER));
   });
 
-  it("IID-05: justifies entry #28 by `type: module`, and rules out packageRootFor()", () => {
+  it("IID-05: justifies entry #29 by `type: module`, and rules out packageRootFor()", () => {
     expect(flat(doc())).toContain(flat(ENTRY_24_REASON));
   });
 
@@ -367,7 +367,7 @@ describe("REQ-DLV-01 — documentation counts derived from the live derivation, 
   });
 
   it("DLV-01.2 [red-proof]: a mutant total-entry count is caught, naming the claim and the live value", () => {
-    const mutant = doc().replace("entry #28 because", "entry #29 because");
+    const mutant = doc().replace("entry #29 because", "entry #30 because");
     expect(findStaleCountClaims(mutant, closureFileCount)).toEqual([
       { label: "`entry #N because` heading justification", liveValue: closureFileCount + 1 },
     ]);
@@ -376,7 +376,7 @@ describe("REQ-DLV-01 — documentation counts derived from the live derivation, 
   // Sibling red-proof: the check above only exercises the TOTAL-entry leg; a mutant on the
   // CLOSURE-file leg is caught independently, proving both templates arrays are live, not one.
   it("DLV-01.2 [red-proof]: a mutant closure-file count is caught, naming the claim and the live value", () => {
-    const mutant = doc().replace("27 closure files plus", "26 closure files plus");
+    const mutant = doc().replace("28 closure files plus", "27 closure files plus");
     expect(findStaleCountClaims(mutant, closureFileCount)).toEqual([
       { label: "`N closure files plus package.json` pull-quote", liveValue: closureFileCount },
     ]);

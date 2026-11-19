@@ -9,7 +9,7 @@
 // classifier never looks past the error it is handed, E2 can never override E1's class —
 // preservation falls out of the classifier's own narrowness, not a special case.
 
-import { AuthoringError } from "../../../authoring/domain/valueobjects/authoring-error.ts";
+import { authoringOrigin } from "../../../authoring/application/usecases/run-factory/driving.ts";
 import { TransportFault, IntentRejectedError } from "../../../../acl/irwire/stdio-engine-client.ts";
 
 export type ExitCode = 0 | 1 | 2 | 3 | 4;
@@ -20,8 +20,9 @@ export type ExitCode = 0 | 1 | 2 | 3 | 4;
 // "the host refused a write or an advisory commit/discard intent" — the host-refusal
 // family, distinct from a wire-level fault (3) and from an unclassified crash (4).
 export function classifyExitCode(err: unknown): 1 | 2 | 3 | 4 {
-  if (err instanceof AuthoringError) {
-    return err.origin === "authoring-rejected" ? 1 : 2;
+  const origin = authoringOrigin(err);
+  if (origin !== undefined) {
+    return origin === "authoring-rejected" ? 1 : 2;
   }
   if (err instanceof IntentRejectedError) {
     return 2;

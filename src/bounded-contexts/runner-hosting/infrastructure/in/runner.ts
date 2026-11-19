@@ -17,9 +17,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, statSync } from "node:fs";
 import { defineFactory } from "../../../authoring/application/usecases/run-factory/context.ts";
-import { AuthoringError } from "../../../authoring/domain/valueobjects/authoring-error.ts";
-import { locateFirstJsonSyntaxError } from "../../../authoring/domain/services/schema/schema-locate.ts";
-import { formatLocator } from "../../../authoring/domain/services/schema/schema-parse.ts";
+import { authoringOrigin, describeJsonSyntaxError } from "../../../authoring/application/usecases/run-factory/driving.ts";
 import { FrameReader, FrameFault } from "../../../../acl/irwire/frame-reader.ts";
 import { WIRE_PROTOCOL_VERSION, isStructurallyValidGreeting, versionMatches } from "../../../../shared-kernel/wire-protocol.ts";
 import {
@@ -136,11 +134,7 @@ function resolveInput(input: ParsedInput): ResolvedInput {
   try {
     return { ok: true, value: JSON.parse(raw) };
   } catch {
-    const locator = locateFirstJsonSyntaxError(raw);
-    return {
-      ok: false,
-      message: `pbuilder-runner: --input-file is not valid JSON ${formatLocator(locator?.line, locator?.column)}`,
-    };
+    return { ok: false, message: `pbuilder-runner: --input-file is not valid JSON ${describeJsonSyntaxError(raw)}` };
   }
 }
 
@@ -341,7 +335,8 @@ async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
     // (judgment-day F3): the host's refusal message surfaces — bounded by note() — instead
     // of being swallowed into a generic "run failed".
     const label =
-      err instanceof AuthoringError || err instanceof TransportFault || err instanceof IntentRejectedError
+      err instanceof Error &&
+      (authoringOrigin(err) !== undefined || err instanceof TransportFault || err instanceof IntentRejectedError)
         ? err.message
         : err instanceof Error
           ? scrubAbsolutePaths(err.message)

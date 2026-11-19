@@ -122,6 +122,17 @@ describe("REQ-RUN-04 — input-file size cap + fail-closed parse", () => {
     expect(io.stderrText()).toEqual("pbuilder-runner: --input-file is not valid JSON (position unknown)\n");
   });
 
+  it("an input-file that is not valid JSON is rejected, naming where it breaks", async () => {
+    const path = scratchFile("broken.json");
+    writeFileSync(path, "{\n  \"a\": oops\n}\n");
+
+    const io = unreachedIo();
+    const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input-file", path], io);
+
+    expect(exitCode).toEqual(1);
+    expect(io.stderrText()).toEqual("pbuilder-runner: --input-file is not valid JSON (line 2, column 8)\n");
+  });
+
   it("Scenario REQ-RUN-04.1: an input-file over the 10 MiB cap is rejected before its contents are read", async () => {
     const path = scratchFile("oversized.json");
     // Sparse file: logical size over the cap, written instantly (no 10MB of real I/O). If
