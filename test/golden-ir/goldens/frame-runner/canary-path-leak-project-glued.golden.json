@@ -1,0 +1,7 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "Error",
+    "message": "Cannot resolve module<repo>/pir/secret.json"
+  }
+}

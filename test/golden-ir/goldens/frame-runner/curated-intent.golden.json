@@ -1,0 +1,7 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "IntentRejectedError",
+    "message": "curated-intent fixture: known IntentRejectedError message"
+  }
+}

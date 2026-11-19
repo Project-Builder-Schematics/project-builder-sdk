@@ -1,0 +1,7 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "Error",
+    "message": "ENOENT: no such file, open '/home/pbuilder-canary-user/Application Support/pir-secret-dir/app.module.ts'"
+  }
+}

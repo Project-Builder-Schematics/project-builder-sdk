@@ -1,0 +1,7 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "Error",
+    "message": "EACCES: permission denied, open '\\\\server\\share\\pir\\config.json'"
+  }
+}

@@ -1,0 +1,19 @@
+[
+  {
+    "emitted": [
+      {
+        "protocolVersion": 1,
+        "force": false,
+        "instructions": [
+          {
+            "op": "modify",
+            "modify": {
+              "path": "services.txt",
+              "content": "payments\norders"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

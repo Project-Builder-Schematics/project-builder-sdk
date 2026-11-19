@@ -1,0 +1,35 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out.txt",
+            "template": "first",
+            "options": {}
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out.txt",
+            "template": "second",
+            "options": {}
+          }
+        }
+      ]
+    }
+  ],
+  "error": {
+    "name": "AuthoringError",
+    "verb": "create",
+    "path": "out.txt",
+    "reason": "path-collision",
+    "origin": "write-rejected",
+    "appliedCount": 1,
+    "message": "create failed at out.txt: path-collision"
+  }
+}

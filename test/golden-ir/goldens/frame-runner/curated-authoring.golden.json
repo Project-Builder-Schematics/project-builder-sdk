@@ -1,0 +1,10 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "AuthoringError",
+    "reason": "invalid-input",
+    "origin": "authoring-rejected",
+    "appliedCount": 0,
+    "message": "curated-authoring fixture: known AuthoringError message"
+  }
+}

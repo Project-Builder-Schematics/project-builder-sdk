@@ -1,0 +1,7 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "TypeError",
+    "message": "frame-runner crash fixture: author code throws mid-run"
+  }
+}

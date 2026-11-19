@@ -1,0 +1,7 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "TransportFault",
+    "message": "curated-transport fixture: known TransportFault message"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "m03-out/{= .name | dasherize =}.controller.ts",
+            "template": "<sha256:b6e07fc4813282c0b5fc5460ffe6e9acf9e61784bd32119d44b301feb3799a8a:372>",
+            "options": {
+              "name": "user-profile"
+            }
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "m03-out/{= .name | singular | dasherize =}.entity.ts",
+            "template": "<sha256:b1e20ebcb169d55d0b5099f0862ea00c5feda7e5aa08b87c055479eedf06998a:537>",
+            "options": {
+              "name": "user-profile"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

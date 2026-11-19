@@ -1,0 +1,10 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "AuthoringError",
+    "reason": "invalid-input",
+    "origin": "authoring-rejected",
+    "appliedCount": 0,
+    "message": "invalid input: scaffold destination collision — \"collide.ts\" ← README.md.template, __name@dasherize__.controller.ts.template"
+  }
+}

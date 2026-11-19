@@ -1,0 +1,7 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "Error",
+    "message": "ENOENT: no such file, open 'C:\\Users\\dev\\Program Files\\pir-project\\app.module.ts'"
+  }
+}
