@@ -9,7 +9,7 @@ import { beforeAll, describe, expect, it } from "bun:test";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
-import { generateSchema } from "../../bin/pbuilder-codegen.ts";
+import { generateSchema } from "../../src/bounded-contexts/authoring/infrastructure/in/codegen/cli.ts";
 
 const ROOT = new URL("../../", import.meta.url).pathname;
 const FIXTURES = join(ROOT, "test/fixtures");

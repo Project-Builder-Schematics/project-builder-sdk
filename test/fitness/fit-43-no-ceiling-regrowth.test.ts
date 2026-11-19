@@ -47,6 +47,19 @@ function packageAnchorsFields(dtsContent: string): string[] {
 const PACKAGE_ROOT_FOR_ALLOWLIST = new Set([`${SINGLE_INSTANCE_PROBE_PATH}#packageRootFor`]);
 const EMPTY_ALLOWLIST = new Set<string>();
 
+// Codegen's walks run in the author's `pbuilder-codegen` process, outside the runner closure
+// (fit-42), so none of them is the run-boundary ceiling ADR-0077 deleted.
+const CODEGEN_DIR = `${SRC_DIR}/bounded-contexts/authoring/infrastructure/in/codegen`;
+const ANCESTOR_WALK_ALLOWLIST = new Set([
+  ...PACKAGE_ROOT_FOR_ALLOWLIST,
+  // The invoking process's project root, the anchor of codegen's write containment.
+  `${CODEGEN_DIR}/cli.ts#findProjectRoot`,
+  // Canonicalises an output path that does not exist yet through its nearest existing ancestor.
+  `${CODEGEN_DIR}/cli.ts#realpathNearestExisting`,
+  // Finds the project-builder.json at or above the working directory for `--project`.
+  `${CODEGEN_DIR}/project-codegen.ts#discoverProject`,
+]);
+
 function realTestHelperFiles() {
   // Clause (d) scopes to shared fixture/helper modules (scratch-dir.ts's own kind), never
   // one-off *.test.ts assertions (e.g. run-boundary.test.ts's deliberate, single-case
@@ -74,7 +87,17 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
 
   describe("clause (b) — no ancestor-walk idiom in src/**, symbol-scoped allowlist", () => {
     it("the real src/** tree has zero non-allowlisted offenders", () => {
-      expect(findAncestorWalkIdiom(realSrcFileSnapshot(), PACKAGE_ROOT_FOR_ALLOWLIST)).toEqual([]);
+      expect(findAncestorWalkIdiom(realSrcFileSnapshot(), ANCESTOR_WALK_ALLOWLIST)).toEqual([]);
+    });
+
+    it("[red-proof] a walk outside the allowlisted symbols still fails, in another folder or beside them", () => {
+      const walk = readFileSync(`${RED_ROOT}/ancestor-walk.ts`, "utf-8");
+      const elsewhere = { path: `${SRC_DIR}/bounded-contexts/authoring/application/usecases/x.ts`, content: walk };
+      const beside = { path: `${CODEGEN_DIR}/x.ts`, content: walk };
+      expect(findAncestorWalkIdiom([...realSrcFileSnapshot(), elsewhere, beside], ANCESTOR_WALK_ALLOWLIST)).toEqual([
+        { file: elsewhere.path, symbol: "regrownAncestorWalk" },
+        { file: beside.path, symbol: "regrownAncestorWalk" },
+      ]);
     });
 
     it("[red-proof] REQ-FTG-06.1 — a fixture reintroducing the idiom is caught", () => {

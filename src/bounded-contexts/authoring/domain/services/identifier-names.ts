@@ -7,7 +7,7 @@
 // src/core/index.ts, which does not re-export this module).
 //
 // Set-key-safety clause (ADR-02): `propName`/`elementName` are NEVER used as plain-object
-// keys anywhere in this file or src/dialects/react/** — no `record[name]`, no `{[name]: …}`,
+// keys anywhere in this file or the React adapter (infrastructure/out/dialects/react/) — no `record[name]`, no `{[name]: …}`,
 // no `counts[tag]++`. Set/Map/`===` only. This, not denylist width, is the real Stage-4b
 // `__proto__` defence (test/bounded-contexts/authoring/infrastructure/out/dialects/react/name-validation.test.ts pins it via static scan).
 

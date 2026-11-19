@@ -10,7 +10,7 @@
 
 import { FORBIDDEN_KEYS, isPlainObject } from "../../valueobjects/schema-model.ts";
 
-// Exported as the single canonical allow-list — `emitPropertyType` (bin/emit-type.ts) reuses
+// Exported as the single canonical allow-list — `emitPropertyType` (the codegen adapter's emit-type.ts) reuses
 // this same Set as its last-line-of-defence guard against an unrecognized `type`, rather than
 // duplicating the recognized-kind vocabulary at the emit boundary.
 export const RECOGNIZED_KINDS = new Set(["string", "number", "boolean", "enum"]);

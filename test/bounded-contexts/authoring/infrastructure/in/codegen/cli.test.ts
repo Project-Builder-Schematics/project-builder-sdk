@@ -1,5 +1,5 @@
 /**
- * bin/pbuilder-codegen.ts core unit coverage — the generate() function (discover -> read
+ * cli.ts core unit coverage — the generate() function (discover -> read
  * -> parse -> emit -> write). S-000 scope only: this proves the core is correct; the full
  * CLI argv/exit/stream matrix (TFO-03/04/05, FPS-01/05) is S-001's `codegen-cli.test.ts`,
  * spawning the built artifact — this file drives the function directly instead.
@@ -8,9 +8,9 @@ import { describe, it, expect, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateSchema } from "../../bin/pbuilder-codegen.ts";
-import { computeSchemaDigest } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
-import { GENERATED_HEADER } from "../../bin/emit-type.ts";
+import { generateSchema } from "../../../../../../src/bounded-contexts/authoring/infrastructure/in/codegen/cli.ts";
+import { computeSchemaDigest } from "../../../../../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
+import { GENERATED_HEADER } from "../../../../../../src/bounded-contexts/authoring/infrastructure/in/codegen/emit-type.ts";
 
 let workDir: string | undefined;
 

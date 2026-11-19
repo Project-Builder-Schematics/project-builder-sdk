@@ -46,8 +46,6 @@ const authoring = (layer: Layer): Class => ({ kind: "context", context: "authori
 export const LEGACY: readonly LegacyRow[] = [
   { path: "src/core/", class: authoring("domain") },
   { path: "src/dialects/", class: authoring("infrastructure-out") },
-  { path: "bin/emit-type.ts", class: authoring("infrastructure-in") },
-  { path: "bin/project-codegen.ts", class: authoring("infrastructure-in") },
 ];
 
 export class ClassificationError extends Error {}

@@ -93,7 +93,7 @@ type ResolvedInput = { ok: true; value: unknown } | { ok: false; message: string
 
 // REQ-RUN-04: size-cap check BEFORE reading contents; fail-closed on any JSON parse error,
 // reporting ONLY the parse failure's line/column (never raw file content — mirrors
-// `formatParseError`, bin/pbuilder-codegen.ts:126).
+// the codegen adapter's `formatParseError`).
 function resolveInput(input: ParsedInput): ResolvedInput {
   if (input.kind === "inline") {
     try {

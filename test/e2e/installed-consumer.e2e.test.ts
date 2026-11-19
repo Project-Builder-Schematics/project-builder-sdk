@@ -49,7 +49,7 @@ import {
   repoLockfileHashAtPackTime,
 } from "../support/scratch-consumer.ts";
 import { spawnCapture } from "../support/canary.ts";
-import { emitInputType } from "../../bin/emit-type.ts";
+import { emitInputType } from "../../src/bounded-contexts/authoring/infrastructure/in/codegen/emit-type.ts";
 import { parseSchema } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
 import { computeSchemaDigest } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
 

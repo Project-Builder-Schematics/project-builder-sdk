@@ -1,12 +1,12 @@
 /**
- * bin/emit-type.ts unit coverage — Schema + digest -> `export type Input` text
+ * emit-type.ts unit coverage — Schema + digest -> `export type Input` text
  * (design §4.3/§4.4, ADR-0027 Gap-4 emission table). Written correctly from the start
  * (constraint 2) — S-001 adds the adversarial hostile-schema CLI-level red-proof against
  * this already-correct implementation.
  */
 import { describe, it, expect } from "bun:test";
-import { emitInputType, GENERATED_HEADER } from "../../bin/emit-type.ts";
-import type { Schema, SchemaKind } from "../../src/bounded-contexts/authoring/domain/valueobjects/schema-model.ts";
+import { emitInputType, GENERATED_HEADER } from "../../../../../../src/bounded-contexts/authoring/infrastructure/in/codegen/emit-type.ts";
+import type { Schema, SchemaKind } from "../../../../../../src/bounded-contexts/authoring/domain/valueobjects/schema-model.ts";
 
 describe("emitInputType", () => {
   it("emits the AUTO-GENERATED header and an embedded schema-digest line", () => {

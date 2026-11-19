@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { computeSchemaDigest } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
-import { generateSchema } from "../../bin/pbuilder-codegen.ts";
+import { generateSchema } from "../../src/bounded-contexts/authoring/infrastructure/in/codegen/cli.ts";
 import { ALWAYS_ON_SCAN_ROOTS } from "../support/scan-roots.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;

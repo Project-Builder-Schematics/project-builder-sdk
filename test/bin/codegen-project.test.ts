@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, relative } from "node:path";
-import { GENERATED_FILENAME, runCli, USAGE, SUCCESS_LINE } from "../../bin/pbuilder-codegen.ts";
-import { emitInputType } from "../../bin/emit-type.ts";
+import { GENERATED_FILENAME, runCli, USAGE, SUCCESS_LINE } from "../../src/bounded-contexts/authoring/infrastructure/in/codegen/cli.ts";
+import { emitInputType } from "../../src/bounded-contexts/authoring/infrastructure/in/codegen/emit-type.ts";
 import { parseSchema } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
 import { computeSchemaDigest } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
 
