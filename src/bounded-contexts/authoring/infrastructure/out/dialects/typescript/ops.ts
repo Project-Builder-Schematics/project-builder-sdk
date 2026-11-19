@@ -22,7 +22,7 @@
 // fires on import-vs-import and type-only claims, which are not value declarations, F10).
 //
 // ts-addimport-collision/S-002: REQ-TSD-13's injection-safety validation gate lands here —
-// `assertValidImportBinding` (reused verbatim from `src/core/jsx-name-validator.ts`, ADR-02)
+// `assertValidImportBinding` (reused verbatim from `domain/services/identifier-names.ts`, ADR-02)
 // runs INLINE as `addImport`'s first statement, strictly BEFORE Step 1/2/3/4 ever evaluate
 // `name` (REQ-TSD-13.6 precedence pin). Its PATH-LESS reject shape is deliberately distinct
 // from Step 2's path-ful `dialectError` tail below — see `addImport`'s own JSDoc.
@@ -39,9 +39,9 @@ import {
 import { dialectError } from "../../../../domain/valueobjects/dialect-error.ts";
 import { handlePathFor } from "../../../../domain/entities/dialect-handle.ts";
 import { elementNameEcho } from "../../../../domain/services/reject-tail.ts";
-// A misnomer surviving from its JSX-only origin (`jsx-name-validator.ts`) — this dialect is
-// its first non-JSX consumer, sharpening ARCH-2's now-realised "one consumer" debt (ADR-02).
-import { assertValidImportBinding } from "../../../../domain/services/jsx-name-validator.ts";
+// The identifier rules every dialect shares; the JSX-only grammars live in the React adapter
+// (ARCH-2, ADR-0071).
+import { assertValidImportBinding } from "../../../../domain/services/identifier-names.ts";
 import { closeGapAfter, sortedPlacement, sortedSpecifierIndex } from "./import-order.ts";
 
 // Ported verbatim from `react/ops.ts` (design §4.3 data model) — a bound name, tagged with
@@ -180,7 +180,7 @@ function directiveInsertIndex(ast: SourceFile, directiveCount: number): number {
  * 0. Validation (REQ-TSD-13, runs FIRST, strictly before Step 1): `name` MUST be a valid
  *    plain-JS identifier, MUST NOT be a reserved or strict-mode-restricted word, and MUST
  *    NOT be a denylisted name (`assertValidImportBinding`, reused verbatim from
- *    `src/core/jsx-name-validator.ts`) — REJECTS via a PATH-LESS `dialectError` before Step
+ *    `domain/services/identifier-names.ts`) — REJECTS via a PATH-LESS `dialectError` before Step
  *    1/2/3/4 ever evaluate `name`, even when `name` would ALSO collide under Step 2
  *    (REQ-TSD-13.6, precedence pinned: validation wins, never the collision message).
  * 1. Already-bound (idempotency, SAME module only): if an EXISTING declaration for `from`

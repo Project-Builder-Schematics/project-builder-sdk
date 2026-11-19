@@ -3,7 +3,9 @@
 // src/bounded-contexts/ or src/platform/ counts as core.
 export const REPLACED_CORE_FILES: readonly string[] = [
   "bounded-contexts/authoring/domain/services/define-dialect.ts",
-  "bounded-contexts/authoring/domain/services/jsx-name-validator.ts",
+  "bounded-contexts/authoring/domain/services/identifier-names.ts",
+  "bounded-contexts/authoring/infrastructure/out/dialects/react/jsx-names.ts",
+  "bounded-contexts/authoring/infrastructure/out/dialects/react/match-tails.ts",
   "bounded-contexts/authoring/domain/services/reject-tail.ts",
   "bounded-contexts/authoring/domain/services/run-context.ts",
   "bounded-contexts/authoring/domain/entities/dialect-handle.ts",

@@ -12,7 +12,7 @@ import {
 import { dialectError } from "../../../../domain/valueobjects/dialect-error.ts";
 import { handlePathFor } from "../../../../domain/entities/dialect-handle.ts";
 import { elementNameEcho } from "../../../../domain/services/reject-tail.ts";
-import { assertValidImportBinding, assertValidPropertyKey } from "../../../../domain/services/jsx-name-validator.ts";
+import { assertValidImportBinding, assertValidPropertyKey } from "../../../../domain/services/identifier-names.ts";
 import { parse } from "./ast.ts";
 
 /** A string is an object key; `{ key: "value" }` selects the only array element whose `key` is that string. */
