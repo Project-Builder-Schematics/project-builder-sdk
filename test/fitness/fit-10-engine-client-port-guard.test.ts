@@ -38,7 +38,6 @@ const SRC_ROOT = join(PROJECT_ROOT, "src");
 // case hands the Session its client and commits or discards the run; `src/core` keeps the legacy
 // kit barrel until the legacy tree is empty.
 const CORE_DIRS: readonly string[] = [
-  join(SRC_ROOT, "core"),
   join(SRC_ROOT, "bounded-contexts/authoring/domain"),
   join(SRC_ROOT, "bounded-contexts/authoring/application/usecases/run-factory"),
 ];

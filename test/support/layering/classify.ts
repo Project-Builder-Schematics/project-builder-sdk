@@ -1,9 +1,7 @@
 // fit-49's classifier. Target-layout paths (CODE-LAYOUT, as the SDK names them:
 // `src/bounded-contexts/<ctx>/…`, `src/acl/<counterpart>/`, `src/shared-kernel/`,
 // `src/platform/`, `src/acceptance/`) are classified from the path and fail closed on any context, layer,
-// domain folder or counterpart the layout does not know. Today's folders are classified by
-// the LEGACY table, by dominant role with the other roles listed in `mixed`; the table
-// shrinks as slices move files into the target tree.
+// domain folder or counterpart the layout does not know.
 
 import { REPLACED_CORE_FILES } from "../replaced-core.ts";
 
@@ -28,25 +26,12 @@ export type Class =
 // scaffold use case is built from outside its own folder; `formerCore` marks a file that moved
 // out of src/core (test/support/replaced-core.ts).
 export type Classified = Class & {
-  legacy: boolean;
-  mixed?: readonly string[];
   dialect?: string;
   useCase?: string;
   drivingAdapter?: string;
   scaffoldPart?: true;
   formerCore?: true;
 };
-
-type LegacyRow = { path: string; class: Class; mixed?: readonly string[] };
-
-const authoring = (layer: Layer): Class => ({ kind: "context", context: "authoring", layer });
-
-// Longest matching path wins; a path ending in "/" covers its folder. Sources for each role:
-// the current-state map in odd/tasks/hexagonal-layout-proposal.md section 2.1.
-export const LEGACY: readonly LegacyRow[] = [
-  { path: "src/core/", class: authoring("domain") },
-  { path: "src/dialects/", class: authoring("infrastructure-out") },
-];
 
 export class ClassificationError extends Error {}
 
@@ -83,15 +68,6 @@ function classifyTarget(path: string): Class | undefined {
   throw new ClassificationError(`${path}: not a CODE-LAYOUT slot of bounded context "${context}"`);
 }
 
-function classifyLegacy(path: string): LegacyRow | undefined {
-  let best: LegacyRow | undefined;
-  for (const row of LEGACY) {
-    const hit = row.path.endsWith("/") ? path.startsWith(row.path) : path === row.path;
-    if (hit && (best === undefined || row.path.length > best.path.length)) best = row;
-  }
-  return best;
-}
-
 export type Entries = { publicEntries: ReadonlySet<string>; testKitEntries: ReadonlySet<string>; processEntries: ReadonlySet<string> };
 
 export const SCAFFOLD_PARTS: ReadonlySet<string> = new Set([
@@ -116,14 +92,12 @@ function unitOf(path: string): Pick<Classified, "dialect" | "useCase" | "driving
 /** Classifies one repo-relative path; throws ClassificationError for anything unknown. */
 export function classify(path: string, entries: Entries): Classified {
   if (entries.publicEntries.has(path)) {
-    return { kind: "public-entry", testKit: entries.testKitEntries.has(path), legacy: false, ...unitOf(path) };
+    return { kind: "public-entry", testKit: entries.testKitEntries.has(path), ...unitOf(path) };
   }
-  if (entries.processEntries.has(path)) return { kind: "process-entry", legacy: false };
+  if (entries.processEntries.has(path)) return { kind: "process-entry" };
   const target = classifyTarget(path);
-  if (target !== undefined) return { ...target, legacy: false, ...unitOf(path) };
-  const row = classifyLegacy(path);
-  if (row !== undefined) return { ...row.class, legacy: true, ...(row.mixed ? { mixed: row.mixed } : {}), ...unitOf(path) };
-  throw new ClassificationError(`${path}: unclassified — add it to the target layout or the LEGACY table`);
+  if (target !== undefined) return { ...target, ...unitOf(path) };
+  throw new ClassificationError(`${path}: unclassified — add it to the target layout`);
 }
 
 const TEST_KIT_SUBPATHS = new Set(["./testing", "./conformance"]);

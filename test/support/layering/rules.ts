@@ -20,7 +20,6 @@ export const RULES = {
   infrastructureImports: "infrastructure/ imports application/, domain/, its own infrastructure/, acl/, shared-kernel/ and platform/ (CODE-LAYOUT:125)",
   aclImports: "acl/ imports the domain/ and application/ it translates, shared-kernel/, platform/ and itself",
   acceptance: "acceptance/ imports only the public entries and itself, and nothing outside acceptance/ imports it (CODE-LAYOUT:118, :130)",
-  targetNeverImportsLegacy: "target-layout code never imports the legacy tree (proposal section 4)",
   dialectIsolation:
     "a dialect adapter imports only domain/, shared-kernel/, platform/, its own folder, the siblings ALLOWED_SIBLINGS lists and no runtime I/O; only composition, its public barrel and those siblings import it (proposal 3.2)",
   scaffoldLeaf:
@@ -79,8 +78,8 @@ const inScaffold = (c: Classified): boolean => c.useCase === "scaffold" || c.sca
 const isCommonsFacade = (c: Classified): boolean =>
   isLayer(c, "infrastructure-in") && c.kind === "context" && c.context === "authoring" && c.drivingAdapter === "commons";
 
-// The scaffold use case is a leaf. The layer rules already keep it off legacy
-// code, other contexts and dialects; this adds what they allow: a sibling use case or the domain
+// The scaffold use case is a leaf. The layer rules already keep it off other contexts and
+// dialects; this adds what they allow: a sibling use case or the domain
 // reaching into scaffold, scaffold reaching a sibling use case, and third-party packages.
 function scaffoldLeaf(from: Classified, to: string, toClass: Classified | undefined): boolean {
   if (toClass?.useCase === "scaffold" && !inScaffold(from) && !isEntry(from) && !isCommonsFacade(from)) return true;
@@ -144,6 +143,5 @@ export function violation(from: Classified, to: string, toClass: Classified | un
       break;
   }
 
-  if (!from.legacy && toClass.legacy) return "targetNeverImportsLegacy";
   return undefined;
 }

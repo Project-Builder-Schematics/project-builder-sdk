@@ -4,7 +4,7 @@
  * bin-invocation-to-typed-call workflow, REQ-FPS-05.2) and `@remarks` naming BOTH reserved
  * lifecycle tokens (REQ-FPS-05.3). `fit-06-example-jsdoc.test.ts` is LEFT UNTOUCHED — its
  * `PUBLIC_PATHS` scans only `src/commons`/`src/conformance`, and `defineFactory` is exported
- * from the internal-kit root `src/core/index.ts` (ADR-0009); broadening FIT-06 would wrongly
+ * only inside the internal kit (ADR-0009); broadening FIT-06 would wrongly
  * impose `@example` on every internal-kit export, so this dedicated, symbol-targeted
  * assertion is the pin instead. Also carries REQ-FPS-05.4 (README qualifying line,
  * byte-for-byte, Gap 13) — same discoverability REQ family, same slice, no dedicated home

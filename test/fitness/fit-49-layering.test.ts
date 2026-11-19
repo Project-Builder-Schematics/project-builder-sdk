@@ -1,8 +1,7 @@
 /**
  * fit-49 (S0a, odd/tasks/hexagonal-layout.md): the dependency rule of project-builder-architecture
  * CODE-LAYOUT.md (origin/main 16c3df0, lines 122-132), enforced over every `.ts` file in `src/`
- * and `bin/`. Every file is classified (target layout from its path, today's folders from the
- * LEGACY table); every edge that breaks a rule must match one EXCEPTIONS row, and every row must
+ * and `bin/`. Every file is classified from its path; every edge that breaks a rule must match one EXCEPTIONS row, and every row must
  * still match a violating edge. String literals in domain/ and application/ that name a dialect
  * count as violations too (proposal 3.2). A sibling check keeps `test/` mirroring `src/` by
  * folder (Q9).
@@ -180,7 +179,6 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["applicationImports", `${A}/application/usecases/x.ts`, `${A}/infrastructure/out/x.ts`],
     ["infrastructureImports", `${A}/infrastructure/out/x.ts`, "src/commons/index.ts"],
     ["aclImports", "src/acl/irwire/index.ts", `${A}/infrastructure/out/x.ts`],
-    ["targetNeverImportsLegacy", `${A}/domain/services/x.ts`, "src/core/session.ts"],
     ["dialectIsolation", `${A}/application/usecases/x.ts`, `${A}/infrastructure/out/dialects/css/ops.ts`],
     ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, `${A}/infrastructure/out/dialects/typescript/ast.ts`],
     ["dialectIsolation", "src/bounded-contexts/authoring/infrastructure/out/dialects/json/ops.ts", "src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/ast.ts"],
@@ -190,7 +188,6 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["dialectIsolation", "src/commons/index.ts", `${A}/infrastructure/out/dialects/css/ops.ts`],
     ["dialectIsolation", "src/dialects/react/index.ts", `${A}/infrastructure/out/dialects/css/ops.ts`],
     ["scaffoldLeaf", `${A}/domain/services/x.ts`, `${A}/application/usecases/scaffold/expander.ts`],
-    ["scaffoldLeaf", "src/core/session.ts", `${A}/application/usecases/scaffold/expander.ts`],
     ["scaffoldLeaf", `${A}/application/usecases/pending-directives/render.ts`, `${A}/application/usecases/scaffold/expander.ts`],
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, `${A}/application/usecases/pending-directives/render.ts`],
     ["scaffoldLeaf", `${R}/infrastructure/in/x.ts`, `${A}/application/usecases/scaffold/index.ts`],
@@ -202,7 +199,7 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "src/acl/irwire/index.ts"],
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, "src/shared-kernel/framing.ts"],
     ["acceptance", "src/acceptance/runner/x.ts", `${A}/application/usecases/x.ts`],
-    ["acceptance", "src/acceptance/runner/x.ts", "src/core/session.ts"],
+    ["acceptance", "src/acceptance/runner/x.ts", `${A}/domain/services/x.ts`],
     ["acceptance", "src/commons/index.ts", "src/acceptance/runner/x.ts"],
     ["acceptance", "src/testing/index.ts", "src/acceptance/runner/x.ts"],
   ];
@@ -314,7 +311,6 @@ const REPRESENTATIVES: Record<string, string> = Object.fromEntries([
   ["public-entry", "src/commons/index.ts"],
   ["public-test-entry", "src/testing/index.ts"],
   ["process-entry", "src/bin/pbuilder-runner.ts"],
-  ["legacy-domain", "src/core/session.ts"],
   ["dialect-css", `${A}/infrastructure/out/dialects/css/ops.ts`],
   ["dialect-typescript", `${A}/infrastructure/out/dialects/typescript/ast.ts`],
   ["dialect-react", `${A}/infrastructure/out/dialects/react/ops.ts`],

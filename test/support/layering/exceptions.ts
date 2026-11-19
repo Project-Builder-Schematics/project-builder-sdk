@@ -8,7 +8,6 @@ import type { Rule } from "./rules.ts";
 export type Exception = { from: string; to: string; rule: Rule; reason: string; removedBy: `S${number}${string}` };
 
 export const EXCEPTIONS: readonly Exception[] = [
-  { from: "src/core/index.ts", to: "src/bounded-contexts/authoring/application/usecases/run-factory/context.ts", rule: "domainImports", reason: "the internal kit barrel (ADR-0009) re-exports defineFactory and currentContext from the run boundary; it goes when the legacy tree is empty", removedBy: "S14" },
 ];
 
 // 18 at S0a. S1b added 4 interim rows and removed the handle → context row (21); S4 removed
@@ -20,5 +19,5 @@ export const EXCEPTIONS: readonly Exception[] = [
 // its folder walk behind the port, removing the last (7). S11 sent the runner through Authoring's
 // application layer for its error origin and JSON syntax message, removing four rows (3). The
 // v0.19.0 pin let a context's testing/ import platform/ (CODE-LAYOUT:127), removing the two
-// deep-equal rows (1).
-export const CEILING = 1;
+// deep-equal rows (1). S14a deleted the unimported kit barrel src/core/index.ts, the last row (0).
+export const CEILING = 0;

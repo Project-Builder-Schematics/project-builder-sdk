@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { ts } from "ts-morph";
 import { collectFiles } from "../import-scan.ts";
 
-// Public barrels stay in the legacy folder after the adapters move (Q2), so both roots are read.
+// Public barrels stay in src/dialects/ after the adapters move (Q2), so both roots are read.
 export const DIALECT_ROOTS = ["src/dialects", "src/bounded-contexts/authoring/infrastructure/out/dialects"] as const;
 
 // A dialect that extends another one's ops declares that edge here. An edge is one-way:

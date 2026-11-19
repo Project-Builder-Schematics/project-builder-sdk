@@ -126,11 +126,11 @@ describe("REQ-AOD-06 — pendingDirectives usage: ./commons function, not a subp
   });
 });
 
-describe("REQ-FPS-06.2 — dist/core document-not-strip rationale", () => {
+describe("REQ-FPS-06.2 — internal-kit document-not-strip rationale", () => {
   const readme = readDoc("README.md");
 
-  it("README states dist/core ships intentionally and stays unreachable via exports", () => {
-    expect(readme).toContain("dist/core");
+  it("README states the internal kit ships intentionally and stays unreachable via exports", () => {
+    expect(readme).toContain("dist/bounded-contexts/**");
     expect(readme).toMatch(/\.\/testing/);
     expect(readme).toMatch(/exports/);
   });

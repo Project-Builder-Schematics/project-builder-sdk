@@ -62,18 +62,13 @@ function extractRuntimeImports(source: string): string[] {
   return runtime;
 }
 
-/**
- * Returns true if the specifier is a relative path into src/core/.
- */
-const CORE_DIR = join(ROOT_SRC, "core");
 const REPLACED_CORE = new Set(REPLACED_CORE_FILES.map((path) => join(ROOT_SRC, path)));
 
-// A relative import from src/pending-directives/ that resolves into src/core/** or to a file
-// that moved out of it.
+// A relative import from the use case that resolves to a file that moved out of src/core.
 function isCoreRuntimeImport(specifier: string): boolean {
   if (!specifier.startsWith(".")) return false;
   const resolved = resolve(PENDING_DIRECTIVES_DIR, specifier);
-  return resolved === CORE_DIR || resolved.startsWith(`${CORE_DIR}/`) || REPLACED_CORE.has(resolved);
+  return REPLACED_CORE.has(resolved);
 }
 
 /**
@@ -129,14 +124,6 @@ describe("FIT-pending-directives-no-import — renderer has no core runtime or A
     const specifier = "../../../domain/valueobjects/authoring-error.ts";
     const runtimeImports = extractRuntimeImports(`import { AuthoringError } from "${specifier}";`);
     expect(runtimeImports.filter(isCoreRuntimeImport)).toEqual([specifier]);
-  });
-
-  // RED-PROOF: a source with a runtime import from ../core/session is detected.
-  it("[red-proof] a runtime import from ../core/session is flagged as a violation", () => {
-    const fixtureSource = `import { Session } from "../../../../../core/session.ts";`;
-    const runtimeImports = extractRuntimeImports(fixtureSource);
-    const violations = runtimeImports.filter(isCoreRuntimeImport);
-    expect(violations).toContain("../../../../../core/session.ts");
   });
 
   // RED-PROOF: a type-only import from ../core/wire is NOT flagged (type imports are erased).

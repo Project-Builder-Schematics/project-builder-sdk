@@ -16,7 +16,6 @@ authoring/domain -> platform: platformImporters
 authoring/domain -> public-entry: domainImports
 authoring/domain -> public-test-entry: domainImports
 authoring/domain -> process-entry: domainImports
-authoring/domain -> legacy-domain: targetNeverImportsLegacy
 authoring/domain -> dialect-css: dialectIsolation
 authoring/domain -> dialect-typescript: dialectIsolation
 authoring/domain -> dialect-react: dialectIsolation
@@ -48,7 +47,6 @@ authoring/application -> platform: platformImporters
 authoring/application -> public-entry: applicationImports
 authoring/application -> public-test-entry: applicationImports
 authoring/application -> process-entry: applicationImports
-authoring/application -> legacy-domain: targetNeverImportsLegacy
 authoring/application -> dialect-css: dialectIsolation
 authoring/application -> dialect-typescript: dialectIsolation
 authoring/application -> dialect-react: dialectIsolation
@@ -80,7 +78,6 @@ authoring/infrastructure-in -> platform: ok
 authoring/infrastructure-in -> public-entry: infrastructureImports
 authoring/infrastructure-in -> public-test-entry: infrastructureImports
 authoring/infrastructure-in -> process-entry: infrastructureImports
-authoring/infrastructure-in -> legacy-domain: targetNeverImportsLegacy
 authoring/infrastructure-in -> dialect-css: dialectIsolation
 authoring/infrastructure-in -> dialect-typescript: dialectIsolation
 authoring/infrastructure-in -> dialect-react: dialectIsolation
@@ -112,7 +109,6 @@ authoring/infrastructure-out -> platform: ok
 authoring/infrastructure-out -> public-entry: infrastructureImports
 authoring/infrastructure-out -> public-test-entry: infrastructureImports
 authoring/infrastructure-out -> process-entry: infrastructureImports
-authoring/infrastructure-out -> legacy-domain: targetNeverImportsLegacy
 authoring/infrastructure-out -> dialect-css: dialectIsolation
 authoring/infrastructure-out -> dialect-typescript: dialectIsolation
 authoring/infrastructure-out -> dialect-react: dialectIsolation
@@ -144,7 +140,6 @@ authoring/composition -> platform: ok
 authoring/composition -> public-entry: ok
 authoring/composition -> public-test-entry: ok
 authoring/composition -> process-entry: ok
-authoring/composition -> legacy-domain: targetNeverImportsLegacy
 authoring/composition -> dialect-css: ok
 authoring/composition -> dialect-typescript: ok
 authoring/composition -> dialect-react: ok
@@ -176,7 +171,6 @@ authoring/testing -> platform: ok
 authoring/testing -> public-entry: ok
 authoring/testing -> public-test-entry: ok
 authoring/testing -> process-entry: ok
-authoring/testing -> legacy-domain: targetNeverImportsLegacy
 authoring/testing -> dialect-css: dialectIsolation
 authoring/testing -> dialect-typescript: dialectIsolation
 authoring/testing -> dialect-react: dialectIsolation
@@ -208,7 +202,6 @@ runner-hosting/domain -> platform: platformImporters
 runner-hosting/domain -> public-entry: domainImports
 runner-hosting/domain -> public-test-entry: domainImports
 runner-hosting/domain -> process-entry: domainImports
-runner-hosting/domain -> legacy-domain: crossContext
 runner-hosting/domain -> dialect-css: dialectIsolation
 runner-hosting/domain -> dialect-typescript: dialectIsolation
 runner-hosting/domain -> dialect-react: dialectIsolation
@@ -240,7 +233,6 @@ runner-hosting/application -> platform: platformImporters
 runner-hosting/application -> public-entry: applicationImports
 runner-hosting/application -> public-test-entry: applicationImports
 runner-hosting/application -> process-entry: applicationImports
-runner-hosting/application -> legacy-domain: crossContext
 runner-hosting/application -> dialect-css: dialectIsolation
 runner-hosting/application -> dialect-typescript: dialectIsolation
 runner-hosting/application -> dialect-react: dialectIsolation
@@ -272,7 +264,6 @@ runner-hosting/infrastructure-in -> platform: ok
 runner-hosting/infrastructure-in -> public-entry: infrastructureImports
 runner-hosting/infrastructure-in -> public-test-entry: infrastructureImports
 runner-hosting/infrastructure-in -> process-entry: infrastructureImports
-runner-hosting/infrastructure-in -> legacy-domain: crossContext
 runner-hosting/infrastructure-in -> dialect-css: dialectIsolation
 runner-hosting/infrastructure-in -> dialect-typescript: dialectIsolation
 runner-hosting/infrastructure-in -> dialect-react: dialectIsolation
@@ -304,7 +295,6 @@ runner-hosting/infrastructure-out -> platform: ok
 runner-hosting/infrastructure-out -> public-entry: infrastructureImports
 runner-hosting/infrastructure-out -> public-test-entry: infrastructureImports
 runner-hosting/infrastructure-out -> process-entry: infrastructureImports
-runner-hosting/infrastructure-out -> legacy-domain: crossContext
 runner-hosting/infrastructure-out -> dialect-css: dialectIsolation
 runner-hosting/infrastructure-out -> dialect-typescript: dialectIsolation
 runner-hosting/infrastructure-out -> dialect-react: dialectIsolation
@@ -336,7 +326,6 @@ runner-hosting/composition -> platform: ok
 runner-hosting/composition -> public-entry: ok
 runner-hosting/composition -> public-test-entry: ok
 runner-hosting/composition -> process-entry: ok
-runner-hosting/composition -> legacy-domain: crossContext
 runner-hosting/composition -> dialect-css: dialectIsolation
 runner-hosting/composition -> dialect-typescript: dialectIsolation
 runner-hosting/composition -> dialect-react: dialectIsolation
@@ -368,7 +357,6 @@ runner-hosting/testing -> platform: ok
 runner-hosting/testing -> public-entry: ok
 runner-hosting/testing -> public-test-entry: ok
 runner-hosting/testing -> process-entry: ok
-runner-hosting/testing -> legacy-domain: crossContext
 runner-hosting/testing -> dialect-css: dialectIsolation
 runner-hosting/testing -> dialect-typescript: dialectIsolation
 runner-hosting/testing -> dialect-react: dialectIsolation
@@ -400,7 +388,6 @@ acl -> platform: ok
 acl -> public-entry: aclImports
 acl -> public-test-entry: aclImports
 acl -> process-entry: aclImports
-acl -> legacy-domain: targetNeverImportsLegacy
 acl -> dialect-css: dialectIsolation
 acl -> dialect-typescript: dialectIsolation
 acl -> dialect-react: dialectIsolation
@@ -432,7 +419,6 @@ shared-kernel -> platform: platformImporters
 shared-kernel -> public-entry: ok
 shared-kernel -> public-test-entry: ok
 shared-kernel -> process-entry: ok
-shared-kernel -> legacy-domain: sharedKernelImports
 shared-kernel -> dialect-css: dialectIsolation
 shared-kernel -> dialect-typescript: dialectIsolation
 shared-kernel -> dialect-react: dialectIsolation
@@ -464,7 +450,6 @@ platform -> platform: ok
 platform -> public-entry: ok
 platform -> public-test-entry: ok
 platform -> process-entry: ok
-platform -> legacy-domain: platformImports
 platform -> dialect-css: dialectIsolation
 platform -> dialect-typescript: dialectIsolation
 platform -> dialect-react: dialectIsolation
@@ -496,7 +481,6 @@ public-entry -> platform: ok
 public-entry -> public-entry: ok
 public-entry -> public-test-entry: ok
 public-entry -> process-entry: ok
-public-entry -> legacy-domain: ok
 public-entry -> dialect-css: dialectIsolation
 public-entry -> dialect-typescript: dialectIsolation
 public-entry -> dialect-react: dialectIsolation
@@ -528,7 +512,6 @@ public-test-entry -> platform: ok
 public-test-entry -> public-entry: ok
 public-test-entry -> public-test-entry: ok
 public-test-entry -> process-entry: ok
-public-test-entry -> legacy-domain: ok
 public-test-entry -> dialect-css: dialectIsolation
 public-test-entry -> dialect-typescript: dialectIsolation
 public-test-entry -> dialect-react: dialectIsolation
@@ -560,7 +543,6 @@ process-entry -> platform: ok
 process-entry -> public-entry: ok
 process-entry -> public-test-entry: ok
 process-entry -> process-entry: ok
-process-entry -> legacy-domain: ok
 process-entry -> dialect-css: dialectIsolation
 process-entry -> dialect-typescript: dialectIsolation
 process-entry -> dialect-react: dialectIsolation
@@ -574,38 +556,6 @@ process-entry -> node:fs: ok
 process-entry -> process.env: ok
 process-entry -> node:path: ok
 process-entry -> ts-morph: ok
-legacy-domain -> authoring/domain: ok
-legacy-domain -> authoring/application: domainImports
-legacy-domain -> authoring/infrastructure-in: domainImports
-legacy-domain -> authoring/infrastructure-out: domainImports
-legacy-domain -> authoring/composition: compositionImporters
-legacy-domain -> authoring/testing: testingImporters
-legacy-domain -> runner-hosting/domain: crossContext
-legacy-domain -> runner-hosting/application: domainImports
-legacy-domain -> runner-hosting/infrastructure-in: crossContext
-legacy-domain -> runner-hosting/infrastructure-out: crossContext
-legacy-domain -> runner-hosting/composition: compositionImporters
-legacy-domain -> runner-hosting/testing: testingImporters
-legacy-domain -> acl: domainImports
-legacy-domain -> shared-kernel: ok
-legacy-domain -> platform: platformImporters
-legacy-domain -> public-entry: domainImports
-legacy-domain -> public-test-entry: domainImports
-legacy-domain -> process-entry: domainImports
-legacy-domain -> legacy-domain: ok
-legacy-domain -> dialect-css: dialectIsolation
-legacy-domain -> dialect-typescript: dialectIsolation
-legacy-domain -> dialect-react: dialectIsolation
-legacy-domain -> dialect-css-barrel: dialectIsolation
-legacy-domain -> scaffold-use-case: scaffoldLeaf
-legacy-domain -> scaffold-part: ok
-legacy-domain -> run-factory: domainImports
-legacy-domain -> sibling-use-case: domainImports
-legacy-domain -> acceptance: acceptance
-legacy-domain -> node:fs: noRuntimeIo
-legacy-domain -> process.env: noRuntimeIo
-legacy-domain -> node:path: ok
-legacy-domain -> ts-morph: ok
 dialect-css -> authoring/domain: ok
 dialect-css -> authoring/application: dialectIsolation
 dialect-css -> authoring/infrastructure-in: dialectIsolation
@@ -624,7 +574,6 @@ dialect-css -> platform: ok
 dialect-css -> public-entry: dialectIsolation
 dialect-css -> public-test-entry: dialectIsolation
 dialect-css -> process-entry: dialectIsolation
-dialect-css -> legacy-domain: targetNeverImportsLegacy
 dialect-css -> dialect-css: ok
 dialect-css -> dialect-typescript: dialectIsolation
 dialect-css -> dialect-react: dialectIsolation
@@ -656,7 +605,6 @@ dialect-typescript -> platform: ok
 dialect-typescript -> public-entry: dialectIsolation
 dialect-typescript -> public-test-entry: dialectIsolation
 dialect-typescript -> process-entry: dialectIsolation
-dialect-typescript -> legacy-domain: targetNeverImportsLegacy
 dialect-typescript -> dialect-css: dialectIsolation
 dialect-typescript -> dialect-typescript: ok
 dialect-typescript -> dialect-react: dialectIsolation
@@ -688,7 +636,6 @@ dialect-react -> platform: ok
 dialect-react -> public-entry: dialectIsolation
 dialect-react -> public-test-entry: dialectIsolation
 dialect-react -> process-entry: dialectIsolation
-dialect-react -> legacy-domain: targetNeverImportsLegacy
 dialect-react -> dialect-css: dialectIsolation
 dialect-react -> dialect-typescript: ok
 dialect-react -> dialect-react: ok
@@ -720,7 +667,6 @@ dialect-css-barrel -> platform: ok
 dialect-css-barrel -> public-entry: ok
 dialect-css-barrel -> public-test-entry: ok
 dialect-css-barrel -> process-entry: ok
-dialect-css-barrel -> legacy-domain: ok
 dialect-css-barrel -> dialect-css: ok
 dialect-css-barrel -> dialect-typescript: dialectIsolation
 dialect-css-barrel -> dialect-react: dialectIsolation
@@ -752,7 +698,6 @@ scaffold-use-case -> platform: platformImporters
 scaffold-use-case -> public-entry: scaffoldLeaf
 scaffold-use-case -> public-test-entry: scaffoldLeaf
 scaffold-use-case -> process-entry: scaffoldLeaf
-scaffold-use-case -> legacy-domain: targetNeverImportsLegacy
 scaffold-use-case -> dialect-css: dialectIsolation
 scaffold-use-case -> dialect-typescript: dialectIsolation
 scaffold-use-case -> dialect-react: dialectIsolation
@@ -784,7 +729,6 @@ scaffold-part -> platform: platformImporters
 scaffold-part -> public-entry: scaffoldLeaf
 scaffold-part -> public-test-entry: scaffoldLeaf
 scaffold-part -> process-entry: scaffoldLeaf
-scaffold-part -> legacy-domain: targetNeverImportsLegacy
 scaffold-part -> dialect-css: dialectIsolation
 scaffold-part -> dialect-typescript: dialectIsolation
 scaffold-part -> dialect-react: dialectIsolation
@@ -816,7 +760,6 @@ run-factory -> platform: platformImporters
 run-factory -> public-entry: applicationImports
 run-factory -> public-test-entry: applicationImports
 run-factory -> process-entry: applicationImports
-run-factory -> legacy-domain: targetNeverImportsLegacy
 run-factory -> dialect-css: dialectIsolation
 run-factory -> dialect-typescript: dialectIsolation
 run-factory -> dialect-react: dialectIsolation
@@ -848,7 +791,6 @@ sibling-use-case -> platform: platformImporters
 sibling-use-case -> public-entry: applicationImports
 sibling-use-case -> public-test-entry: applicationImports
 sibling-use-case -> process-entry: applicationImports
-sibling-use-case -> legacy-domain: targetNeverImportsLegacy
 sibling-use-case -> dialect-css: dialectIsolation
 sibling-use-case -> dialect-typescript: dialectIsolation
 sibling-use-case -> dialect-react: dialectIsolation
@@ -880,7 +822,6 @@ acceptance -> platform: acceptance
 acceptance -> public-entry: ok
 acceptance -> public-test-entry: ok
 acceptance -> process-entry: acceptance
-acceptance -> legacy-domain: acceptance
 acceptance -> dialect-css: acceptance
 acceptance -> dialect-typescript: acceptance
 acceptance -> dialect-react: acceptance
