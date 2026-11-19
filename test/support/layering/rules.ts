@@ -10,7 +10,8 @@ export const RULES = {
   noRuntimeIo: "domain/ and application/ never import runtime I/O (CODE-LAYOUT:126)",
   testingImporters: "testing/ is imported only by its own context's testing/ and the public test-kit entries (CODE-LAYOUT:130)",
   compositionImporters: "nothing inside a context imports composition; only entry points do (CODE-LAYOUT:129)",
-  crossContext: "a context reaches another only through acl/ or that context's application layer (CODE-LAYOUT:132)",
+  crossContext:
+    "a context reaches another only through acl/ or that context's application layer (CODE-LAYOUT:132); the one exception is runner-hosting's driving adapters passing Authoring's package-files adapter to the run use case",
   platformImporters: "only infrastructure/, composition and the entry points import platform/ (CODE-LAYOUT:127)",
   platformImports: "platform/ imports no bounded context, acl/ or application layer (CODE-LAYOUT:127)",
   sharedKernelImports: "shared-kernel/ imports no bounded context, acl/ or platform/ (CODE-LAYOUT:131, :127)",
@@ -70,6 +71,9 @@ function dialectIsolation(from: Classified, to: string, toClass: Classified | un
   return isAdapter && !(isLayer(toClass, "domain") || toClass.kind === "shared-kernel" || toClass.kind === "platform");
 }
 
+// The run use case takes the package-files adapter from its caller (S9); the runner is one caller.
+const AUTHORING_PACKAGE_FILES = "src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
+
 const inScaffold = (c: Classified): boolean => c.useCase === "scaffold" || c.scaffoldPart === true;
 // The commons facade is the scaffold use case's public driving adapter; other driving adapters are not.
 const isCommonsFacade = (c: Classified): boolean =>
@@ -103,7 +107,10 @@ export function violation(from: Classified, to: string, toClass: Classified | un
   }
   if (isLayer(toClass, "composition") && !isEntry(from)) return "compositionImporters";
   if (isEntry(from)) return undefined;
-  if (from.kind === "context" && toClass.kind === "context" && from.context !== toClass.context && toClass.layer !== "application") {
+  if (
+    from.kind === "context" && toClass.kind === "context" && from.context !== toClass.context && toClass.layer !== "application" &&
+    !(isLayer(from, "infrastructure-in") && from.context === "runner-hosting" && to === AUTHORING_PACKAGE_FILES)
+  ) {
     return "crossContext";
   }
   if (toClass.kind === "platform" && !(isLayer(from, "infrastructure-in", "infrastructure-out", "composition") || from.kind === "acl" || from.kind === "platform")) {

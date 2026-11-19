@@ -1,4 +1,5 @@
 import type { EngineClient } from "../../../domain/ports/engine-client.ts";
+import { type PackageFiles } from "../../../domain/ports/package-files.ts";
 import { DirectiveFactory } from "../../../domain/services/directive-factory.ts";
 import { Session } from "../../../domain/aggregates/session/session.ts";
 export interface DialectRegistry {
@@ -37,12 +38,14 @@ export declare function requirePackageAnchors(missingAnchorMessage: string): {
  * `defineFactory(fn)` call is the untyped opt-out and runs exactly as before this option
  * existed (REQ-TFO-02).
  *
- * @internal Sanctioned callers only — `src/core/**`, `src/testing/**`, and
- * `src/conformance/**` (enforced by `test/fitness/fit-29-sanctioned-definefactory-caller.test.ts`).
+ * @internal Sanctioned callers only — `src/core/**` and
+ * `src/bounded-contexts/authoring/testing/**` (enforced by `test/fitness/fit-29-sanctioned-definefactory-caller.test.ts`).
  * Author code never imports this directly; it calls `runFactoryForTest` (test-time) or the
  * future production runner instead — both wrap this SAME seam internally.
  *
  * @param fn - the authoring logic; receives the resolved, schema-validated input.
+ * @param options.packageFiles - the package-files adapter the two reads go through; every
+ * caller passes it with `packageDir`.
  * @param options.packageDir - opts into schema-derived input validation and reserved-name
  * enforcement (both structural checks against this package's `schema.json`/sibling files).
  * Pass `import.meta.dir` (a directory) — NOT `import.meta.url` (a file URL; a common
@@ -74,7 +77,8 @@ export declare function requirePackageAnchors(missingAnchorMessage: string): {
  * await runner(input, { client });
  */
 export declare function defineFactory<O>(fn: (o: O) => void | Promise<void>, options?: {
-    packageDir?: string | URL;
+    packageDir: string | URL;
+    packageFiles: PackageFiles;
 }): (o: O, deps: {
     client: EngineClient;
 }) => Promise<void>;

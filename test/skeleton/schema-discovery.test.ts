@@ -1,5 +1,5 @@
 /**
- * schema-discovery.ts unit coverage — locates the adjacent schema.json (REQ-FPS-01.1,
+ * Package discovery coverage — schemaPathFor locates the adjacent schema.json (REQ-FPS-01.1,
  * ADR-0031: canonical shape, no path argument/configuration), and (S-004) the reserved-
  * lifecycle-name sibling scan (REQ-RLN-01, ADR-0028: kebab, case-insensitive, dir-form).
  */
@@ -7,7 +7,9 @@ import { describe, it, expect, afterEach } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { schemaPathFor, findReservedSibling } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.ts";
+import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
+import { PackageReadFailure } from "../../src/bounded-contexts/authoring/domain/ports/package-files.ts";
+import { schemaPathFor } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-files.ts";
 
 describe("schemaPathFor", () => {
   it("resolves schema.json adjacent to the given package directory", () => {
@@ -17,7 +19,7 @@ describe("schemaPathFor", () => {
   });
 });
 
-describe("findReservedSibling", () => {
+describe("nodePackageFiles.findReservedSibling", () => {
   let dir: string | undefined;
 
   afterEach(() => {
@@ -36,21 +38,21 @@ describe("findReservedSibling", () => {
     dir = mkdtempSync(join(tmpdir(), "reserved-scan-"));
     writeFileSync(join(dir, "factory.ts"), "export {};", "utf-8");
 
-    expect(findReservedSibling(dir)).toBeUndefined();
+    expect(nodePackageFiles.findReservedSibling(dir)).toBeUndefined();
   });
 
   it("REQ-RLN-01.1: finds a pre-execute.ts sibling, naming pre-execute", () => {
     dir = mkdtempSync(join(tmpdir(), "reserved-scan-"));
     writeFileSync(join(dir, "pre-execute.ts"), "export {};", "utf-8");
 
-    expect(findReservedSibling(dir)).toEqual("pre-execute");
+    expect(nodePackageFiles.findReservedSibling(dir)).toEqual("pre-execute");
   });
 
   it("REQ-RLN-01.3: finds a post-execute.ts sibling independently, naming post-execute", () => {
     dir = mkdtempSync(join(tmpdir(), "reserved-scan-"));
     writeFileSync(join(dir, "post-execute.ts"), "export {};", "utf-8");
 
-    expect(findReservedSibling(dir)).toEqual("post-execute");
+    expect(nodePackageFiles.findReservedSibling(dir)).toEqual("post-execute");
   });
 
   it("dir-form: a pre-execute/ directory sibling is found (ADR-0028)", () => {
@@ -58,14 +60,14 @@ describe("findReservedSibling", () => {
     mkdirSync(join(dir, "pre-execute"));
     writeFileSync(join(dir, "pre-execute", "index.ts"), "export {};", "utf-8");
 
-    expect(findReservedSibling(dir)).toEqual("pre-execute");
+    expect(nodePackageFiles.findReservedSibling(dir)).toEqual("pre-execute");
   });
 
   it("case-insensitive: a PRE-EXECUTE.TS sibling is found (TW-M2)", () => {
     dir = mkdtempSync(join(tmpdir(), "reserved-scan-"));
     writeFileSync(join(dir, "PRE-EXECUTE.TS"), "export {};", "utf-8");
 
-    expect(findReservedSibling(dir)).toEqual("pre-execute");
+    expect(nodePackageFiles.findReservedSibling(dir)).toEqual("pre-execute");
   });
 
   it("a schema.json declaring a property named pre-execute does NOT trigger this scan (module structure only, REQ-RLN-01.4)", () => {
@@ -76,11 +78,11 @@ describe("findReservedSibling", () => {
       "utf-8"
     );
 
-    expect(findReservedSibling(dir)).toBeUndefined();
+    expect(nodePackageFiles.findReservedSibling(dir)).toBeUndefined();
   });
 
   it("a non-existent package directory (ENOENT) returns undefined — not a failure", () => {
-    expect(findReservedSibling(join(tmpdir(), "reserved-scan-does-not-exist"))).toBeUndefined();
+    expect(nodePackageFiles.findReservedSibling(join(tmpdir(), "reserved-scan-does-not-exist"))).toBeUndefined();
   });
 
   it("constraint 4: a non-ENOENT unreadable directory fails closed (throws, never silently 'no reserved siblings')", () => {
@@ -92,6 +94,6 @@ describe("findReservedSibling", () => {
     dir = mkdtempSync(join(tmpdir(), "reserved-scan-"));
     chmodSync(dir, 0o000);
 
-    expect(() => findReservedSibling(dir!)).toThrow();
+    expect(() => nodePackageFiles.findReservedSibling(dir!)).toThrow(PackageReadFailure);
   });
 });

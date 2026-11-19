@@ -25,6 +25,7 @@ import { scaffold, pendingDirectives, AuthoringError } from "../../../../../../s
 import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
 import { rejectedRun } from "../../../../../support/rejection-capture.ts";
 import { expectAuthoringReason, expectReason } from "../../../../../support/expect-reason.ts";
+import { nodePackageFiles } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const scratchDir = scratchDirFactory("expander-");
 
@@ -38,7 +39,7 @@ describe("REQ-FSC-02.1 — nested folder structure mirrors exactly under `to`", 
 
     const run = defineFactory<void>(() => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -60,7 +61,7 @@ describe("REQ-FSC-04 — zero-files-after-filter vs empty-source-folder are dist
     const run = defineFactory<void>(() => {
       scaffold({ from: "empty", to: "out" });
       expect(pendingDirectives()).toEqual([]);
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -151,7 +152,7 @@ describe("REQ-FSC-06.1 — force: true passes to every emitted directive", () =>
 
     const run = defineFactory<void>(() => {
       scaffold({ from: "files", to: "out", force: true });
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -199,7 +200,7 @@ describe("REQ-FSC-06.2 — scaffold-level collision: mixed by-value/by-reference
     const fakeForce = new ContractFake({ seed: { "out/binary.png": "pre-existing", "out/text.ts": "stale" } });
     const runForce = defineFactory<void>(() => {
       scaffold({ from: "files", to: "out", force: true });
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await runForce(undefined, { client: fakeForce });
 
@@ -358,7 +359,7 @@ describe("REQ-BRC-02.1 — no SDK-resolved root value appears on the wire as aut
 
     const run = defineFactory<void>(() => {
       scaffold({ from: "files", to: "out" });
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 

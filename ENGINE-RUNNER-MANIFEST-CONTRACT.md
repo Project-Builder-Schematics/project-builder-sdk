@@ -86,6 +86,25 @@ If any of these has changed on your side, tell us — several of them are load-b
 > file's content changed beyond its relative import specifiers; the third-party, dynamic-import,
 > resolution and environment rows above still hold.
 
+> **SDK note, 2026-11-20 (package-files port).** The run boundary's two reads — the reserved
+> lifecycle-name scan and the `schema.json` read — now go through a port, so the closure is
+> **27 `.js` files** and the manifest carries **28 records** with `package.json`. Two files are new:
+> `bounded-contexts/authoring/domain/ports/package-files.js` (the port and its `PackageReadFailure`
+> class) and `bounded-contexts/authoring/domain/services/schema/schema-files.js` (`schemaPathFor`).
+> `bounded-contexts/authoring/infrastructure/out/fs/schema-discovery.js` is replaced by
+> `bounded-contexts/authoring/infrastructure/out/fs/package-files.js`, the `node:fs` adapter: it holds
+> the reads, the reserved-name match and the mapping of filesystem errors to the problem text.
+> `run-factory/context.js` no longer imports `node:fs` or `platform/fs-errors.js`; it takes the
+> adapter from its caller, and `bounded-contexts/runner-hosting/infrastructure/in/runner.js` imports
+> the adapter and passes it. These are content changes, not only paths: the reads, their order and
+> every message are the same, pinned by tests. The builtin set is unchanged. The per-folder split
+> is `bin/`×1, `acl/irwire/`×2, `shared-kernel/`×3, `platform/`×2 and, under `bounded-contexts/`:
+> `runner-hosting/infrastructure/in/`×4, `authoring/application/usecases/run-factory/`×1,
+> `authoring/domain/aggregates/session/`×1, `authoring/domain/ports/`×2, `authoring/domain/services/`×2,
+> `authoring/domain/services/schema/`×5, `authoring/domain/valueobjects/`×3 and
+> `authoring/infrastructure/out/fs/`×1. The third-party, dynamic-import, resolution and environment
+> rows above still hold.
+
 ---
 
 ## Deliverable — `dist/runner-manifest.json`

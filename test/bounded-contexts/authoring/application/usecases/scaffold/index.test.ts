@@ -17,6 +17,7 @@ import { scaffold, copyIn, create, pendingDirectives } from "../../../../../../s
 import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
 import { rejectedRun } from "../../../../../support/rejection-capture.ts";
 import { expectAuthoringReason } from "../../../../../support/expect-reason.ts";
+import { nodePackageFiles } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const scratchDir = scratchDirFactory("scaffold-index-");
 
@@ -65,7 +66,7 @@ describe("REQ-FSC-01.2 — optional args default correctly", () => {
       scaffold({ from: "files", to: "out" });
       const pending = pendingDirectives();
       expect(pending.map((e) => e.path).sort()).toEqual(["out/a.ts", "out/b.ts"]);
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -89,7 +90,7 @@ describe("REQ-FEH-03.1 — copyIn on a text file still copies verbatim, unrender
 
       const pending = pendingDirectives();
       expect(pending).toEqual([{ verb: "copyIn", path: "literal.txt", kind: "copied" }]);
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -132,7 +133,7 @@ describe("REQ-FEH-04 — copyIn's mandatory args and void return", () => {
     const run = defineFactory<void>(() => {
       const result = copyIn("asset.svg", "dest/asset.svg");
       expect(result).toBeUndefined();
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
   });

@@ -2,19 +2,17 @@
 // defineFactory returns a runner that builds the context and runs fn inside the ALS.
 // The EngineClient is injected by the caller (test passes the fake) — no module global.
 
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { relative } from "node:path";
 import type { EngineClient } from "../../../domain/ports/engine-client.ts";
+import { PackageReadFailure, type PackageFiles } from "../../../domain/ports/package-files.ts";
 import { DirectiveFactory } from "../../../domain/services/directive-factory.ts";
 import { Session } from "../../../domain/aggregates/session/session.ts";
 import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
 import { currentRun, getSessionAls } from "../../../domain/services/run-context.ts";
-import { schemaPathFor, findReservedSibling } from "../../../infrastructure/out/fs/schema-discovery.ts";
+import { schemaPathFor } from "../../../domain/services/schema/schema-files.ts";
 import { parseSchema, SchemaParseFailure, formatLocator } from "../../../domain/services/schema/schema-parse.ts";
 import { validateInput } from "../../../domain/services/schema/schema-validate.ts";
 import { rejectionFor, rejectionForReservedName } from "../../../domain/services/schema/input-rejection.ts";
-import { isErrnoException } from "../../../../../platform/fs-errors.ts";
 
 // ADR-0037: the run-boundary join registry. A dialect handle self-registers here at its
 // first op; `defineFactory` drains it (awaits every registered `settle()`) BEFORE
@@ -103,21 +101,12 @@ function resolvePackageDir(packageDir: string | URL): string {
   return typeof packageDir === "string" ? packageDir : fileURLToPath(packageDir);
 }
 
-// `<dir>` token (all runtime warning/error literals, Executor Context pin): project-root-
-// relative, never absolute — tests run from the repo root, so this is deterministic and
-// leaks no absolute path.
-function relativeDir(packageDir: string): string {
-  return relative(process.cwd(), packageDir);
-}
+// The package folder a run reads, with the port that reads it. Every runtime warning and
+// error names the folder relative to the working directory, never absolute.
+type PackageRun = { files: PackageFiles; dir: string };
 
-// Author-vocabulary description of a non-ENOENT read failure — never the raw errno
-// message (no-echo). ENOENT is handled by its own opt-out branch and never reaches this.
-function describeReadFailure(err: unknown): string {
-  if (isErrnoException(err)) {
-    if (err.code === "EACCES" || err.code === "EPERM") return "permission denied";
-    if (err.code === "EISDIR") return "is a directory, not a file";
-  }
-  return "unreadable";
+function relativeDir({ files, dir }: PackageRun): string {
+  return files.relativeToCwd(dir);
 }
 
 // RBV-05.1 runtime literal (slices load-bearing literals, design §4.4): ONE literal covers
@@ -126,20 +115,20 @@ function describeReadFailure(err: unknown): string {
 // "could not be read" vocabulary, since both are "the run boundary could not establish
 // what this factory's schema contract is" failures.
 function malformedSchemaMessage(
-  packageDir: string,
+  pkg: PackageRun,
   problem: string,
   line: number | undefined,
   column: number | undefined
 ): string {
-  return `[pbuilder] factory at ${relativeDir(packageDir)}: schema.json could not be read: ${problem} ${formatLocator(line, column)}`;
+  return `[pbuilder] factory at ${relativeDir(pkg)}: schema.json could not be read: ${problem} ${formatLocator(line, column)}`;
 }
 
-function noSchemaWarning(packageDir: string): string {
-  return `[pbuilder] factory at ${relativeDir(packageDir)}: no schema.json found — running WITHOUT schema-derived input validation`;
+function noSchemaWarning(pkg: PackageRun): string {
+  return `[pbuilder] factory at ${relativeDir(pkg)}: no schema.json found — running WITHOUT schema-derived input validation`;
 }
 
-function emptySchemaWarning(packageDir: string): string {
-  return `[pbuilder] factory at ${relativeDir(packageDir)}: schema.json declares zero properties — no input validation performed`;
+function emptySchemaWarning(pkg: PackageRun): string {
+  return `[pbuilder] factory at ${relativeDir(pkg)}: schema.json declares zero properties — no input validation performed`;
 }
 
 // Pre-`als.run` schema-conformance check (ADR-0029, REQ-RBV-01/03/05): validates BEFORE
@@ -152,17 +141,19 @@ function emptySchemaWarning(packageDir: string): string {
 // a corrupt/unreadable schema file, only for author-input rejections (invalid-input /
 // reserved-name). A parsed-but-empty schema (zero declared properties) is distinct from no
 // schema at all (REQ-RBV-05.2) — it warns and skips validation, it does not opt out.
-function validateAtRunBoundary(packageDir: string, input: unknown): void {
-  const schemaPath = schemaPathFor(packageDir);
-  let raw: string;
+function validateAtRunBoundary(pkg: PackageRun, input: unknown): void {
+  let raw: string | undefined;
   try {
-    raw = readFileSync(schemaPath, "utf-8");
+    raw = pkg.files.readText(schemaPathFor(pkg.dir));
   } catch (err) {
-    if (isErrnoException(err) && err.code === "ENOENT") {
-      console.warn(noSchemaWarning(packageDir));
-      return;
+    if (err instanceof PackageReadFailure) {
+      throw new Error(malformedSchemaMessage(pkg, err.problem, undefined, undefined));
     }
-    throw new Error(malformedSchemaMessage(packageDir, describeReadFailure(err), undefined, undefined));
+    throw err;
+  }
+  if (raw === undefined) {
+    console.warn(noSchemaWarning(pkg));
+    return;
   }
 
   let schema: ReturnType<typeof parseSchema>;
@@ -170,13 +161,13 @@ function validateAtRunBoundary(packageDir: string, input: unknown): void {
     schema = parseSchema(raw);
   } catch (err) {
     if (err instanceof SchemaParseFailure) {
-      throw new Error(malformedSchemaMessage(packageDir, err.problem, err.line, err.column));
+      throw new Error(malformedSchemaMessage(pkg, err.problem, err.line, err.column));
     }
     throw err;
   }
 
   if (schema.properties.length === 0) {
-    console.warn(emptySchemaWarning(packageDir));
+    console.warn(emptySchemaWarning(pkg));
     return;
   }
 
@@ -192,13 +183,14 @@ function validateAtRunBoundary(packageDir: string, input: unknown): void {
 // resolved run-time inputs (that is REQ-RBV-01.5's territory) or from `schema.json` field
 // names (REQ-RLN-01.4). Non-ENOENT scan failures fail closed, same read-path posture as
 // `validateAtRunBoundary` (constraint 4).
-function checkReservedNames(packageDir: string): void {
+function checkReservedNames(pkg: PackageRun): void {
   let reserved: string | undefined;
   try {
-    reserved = findReservedSibling(packageDir);
+    reserved = pkg.files.findReservedSibling(pkg.dir);
   } catch (err) {
+    if (!(err instanceof PackageReadFailure)) throw err;
     throw new Error(
-      `[pbuilder] factory at ${relativeDir(packageDir)}: could not scan for reserved lifecycle names: ${describeReadFailure(err)}`
+      `[pbuilder] factory at ${relativeDir(pkg)}: could not scan for reserved lifecycle names: ${err.problem}`
     );
   }
   if (reserved !== undefined) {
@@ -226,6 +218,8 @@ function checkReservedNames(packageDir: string): void {
  * future production runner instead — both wrap this SAME seam internally.
  *
  * @param fn - the authoring logic; receives the resolved, schema-validated input.
+ * @param options.packageFiles - the package-files adapter the two reads go through; every
+ * caller passes it with `packageDir`.
  * @param options.packageDir - opts into schema-derived input validation and reserved-name
  * enforcement (both structural checks against this package's `schema.json`/sibling files).
  * Pass `import.meta.dir` (a directory) — NOT `import.meta.url` (a file URL; a common
@@ -258,17 +252,17 @@ function checkReservedNames(packageDir: string): void {
  */
 export function defineFactory<O>(
   fn: (o: O) => void | Promise<void>,
-  options?: { packageDir?: string | URL }
+  options?: { packageDir: string | URL; packageFiles: PackageFiles }
 ): (o: O, deps: { client: EngineClient }) => Promise<void> {
   const wrapped = async (o: O, { client }: { client: EngineClient }): Promise<void> => {
     let packageAnchors: SessionContext["packageAnchors"];
-    if (options?.packageDir !== undefined) {
-      const resolvedDir = resolvePackageDir(options.packageDir);
+    if (options !== undefined) {
+      const pkg: PackageRun = { files: options.packageFiles, dir: resolvePackageDir(options.packageDir) };
       // REQ-RBV-06: exactly TWO reads, in this order — reserved-name check, then schema
       // validation. No third (containment-ceiling) read exists (ADR-0077 §C).
-      checkReservedNames(resolvedDir);
-      validateAtRunBoundary(resolvedDir, o);
-      packageAnchors = { packageDir: resolvedDir };
+      checkReservedNames(pkg);
+      validateAtRunBoundary(pkg, o);
+      packageAnchors = { packageDir: pkg.dir };
     }
     const ctx: SessionContext = {
       session: new Session(client),

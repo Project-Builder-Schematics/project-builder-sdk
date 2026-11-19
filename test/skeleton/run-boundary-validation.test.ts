@@ -13,6 +13,7 @@ import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { seedSchema } from "../support/canary.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
+import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const PORT_SCHEMA = { properties: { port: { type: "number", label: "Port", required: true } } };
@@ -21,7 +22,7 @@ const scratchDir = scratchDirFactory("rbv-");
 
 async function runAgainst(packageDir: string, input: unknown): Promise<unknown> {
   const fake = new ContractFake({ seed: {} });
-  const run = defineFactory<unknown>(() => {}, { packageDir });
+  const run = defineFactory<unknown>(() => {}, { packageDir, packageFiles: nodePackageFiles });
   try {
     await run(input, { client: fake });
     return undefined;
@@ -133,13 +134,13 @@ describe("REQ-RBV-03 — no-schema opt-out signal", () => {
     try {
       const dir = scratchDir(); // no schema.json seeded — legitimate opt-out
       const fake = new ContractFake({ seed: {} });
-      const run = defineFactory<void>(() => {}, { packageDir: dir });
+      const run = defineFactory<void>(() => {}, { packageDir: dir, packageFiles: nodePackageFiles });
 
       await run(undefined, { client: fake });
       await run(undefined, { client: fake }); // 2nd run, same factory — proves statelessness
 
       const dir2 = scratchDir();
-      const run2 = defineFactory<void>(() => {}, { packageDir: dir2 });
+      const run2 = defineFactory<void>(() => {}, { packageDir: dir2, packageFiles: nodePackageFiles });
       await run2(undefined, { client: fake }); // 2nd, DIFFERENT factory — proves per-factory
 
       expect(warnSpy).toHaveBeenCalledTimes(3);
@@ -162,7 +163,7 @@ describe("REQ-MFB-01.3 — packageAnchors carries only packageDir (runtime posit
 
     const run = defineFactory<void>(() => {
       observedAnchors = currentContext().packageAnchors;
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 

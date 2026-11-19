@@ -9,6 +9,7 @@ import { defineFactory } from "../../src/bounded-contexts/authoring/application/
 import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import type { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import { ContractFake, type ContractFakeOptions } from "../../src/bounded-contexts/authoring/testing/contract-fake.ts";
+import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 export interface ManualRunResult {
   tree: ReadonlyMap<string, string>;
@@ -67,7 +68,7 @@ export async function runViaManualWrap<O>(
 
   const run = defineFactory<O>(
     fn,
-    options?.packageDir !== undefined ? { packageDir: options.packageDir } : undefined
+    options?.packageDir !== undefined ? { packageDir: options.packageDir, packageFiles: nodePackageFiles } : undefined
   );
 
   let error: AuthoringError | unknown;

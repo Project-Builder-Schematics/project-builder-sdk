@@ -29,6 +29,7 @@ import { ContractFake } from "../support/contract-fake.ts";
 import { createRunVehicle } from "../../src/bounded-contexts/authoring/testing/run-vehicle.ts";
 import { scratchDirFactory } from "../support/scratch-dir.ts";
 import type { EngineClient } from "../../src/bounded-contexts/authoring/domain/ports/engine-client.ts";
+import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const scratchDir = scratchDirFactory("copyin-parity-");
 
@@ -45,7 +46,7 @@ async function driveVerdict(
   packageDir: string,
   factoryBody: () => void
 ): Promise<DriveResult> {
-  const run = defineFactory<void>(factoryBody, { packageDir });
+  const run = defineFactory<void>(factoryBody, { packageDir, packageFiles: nodePackageFiles });
   try {
     await run(undefined, { client });
     return { verdict: "accepted" };

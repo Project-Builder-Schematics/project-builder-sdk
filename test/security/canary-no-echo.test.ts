@@ -27,6 +27,7 @@ import { makeSpyClient } from "../support/spy-client.ts";
 import { scaffold, copyIn, create } from "../../src/commons/index.ts";
 import { classifyTransport } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
+import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DIST_BIN = join(PROJECT_ROOT, "dist/bin/pbuilder-codegen.js");
@@ -69,7 +70,7 @@ afterEach(() => {
 
 async function runAgainst(packageDir: string, input: unknown): Promise<Error> {
   const fake = new ContractFake({ seed: {} });
-  const run = defineFactory<unknown>(() => {}, { packageDir });
+  const run = defineFactory<unknown>(() => {}, { packageDir, packageFiles: nodePackageFiles });
   try {
     await run(input, { client: fake });
     throw new Error("expected the run to reject, but it succeeded");

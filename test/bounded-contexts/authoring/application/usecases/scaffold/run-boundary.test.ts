@@ -17,6 +17,7 @@ import { defineFactory } from "../../../../../../src/bounded-contexts/authoring/
 import { ContractFake } from "../../../../../support/contract-fake.ts";
 import { create } from "../../../../../../src/commons/index.ts";
 import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
+import { nodePackageFiles } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const scratchDir = scratchDirFactory("run-boundary-");
 
@@ -27,7 +28,7 @@ describe("REQ-MFB-01.1 — a missing collection.json ancestor no longer pre-empt
 
     const run = defineFactory<void>(() => {
       throw new Error("body-ran");
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await expect(run(undefined, { client: fake })).rejects.toThrow("body-ran");
   });
@@ -41,7 +42,7 @@ describe("REQ-MFB-01 — positive control: a run proceeds identically whether or
 
     const run = defineFactory<void>(() => {
       create("dest.ts", { template: "content", options: {} });
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -54,7 +55,7 @@ describe("REQ-MFB-01 — positive control: a run proceeds identically whether or
 
     const run = defineFactory<void>(() => {
       create("dest.ts", { template: "content", options: {} });
-    }, { packageDir: dir });
+    }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });
 
@@ -72,7 +73,7 @@ describe("REQ-RBV-06.2 — no ancestor-marker read exists anywhere in the bootst
       const run = defineFactory<void>(() => {
         create("a.ts", { template: "A", options: {} });
         create("b.ts", { template: "B", options: {} });
-      }, { packageDir: dir });
+      }, { packageDir: dir, packageFiles: nodePackageFiles });
 
       await run(undefined, { client: fake });
 

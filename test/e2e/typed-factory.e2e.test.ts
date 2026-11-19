@@ -11,11 +11,12 @@ import { defineFactory } from "../../src/bounded-contexts/authoring/application/
 import { ContractFake } from "../support/contract-fake.ts";
 import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 import type { Input } from "../fixtures/typed-factory/schema.generated.ts";
+import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 // REQ-FPS-04.1 (bare-factory-migration): the fixture's own export is bare — this e2e test
 // performs the ONE `defineFactory<Input>` wrap itself, exactly the runner/harness-internal
 // usage the migration relocates `defineFactory` to.
-const wrappedRun = defineFactory<Input>(run, { packageDir: PACKAGE_DIR });
+const wrappedRun = defineFactory<Input>(run, { packageDir: PACKAGE_DIR, packageFiles: nodePackageFiles });
 
 describe("e2e — typed factory (schema-derived Input, run-boundary rejection)", () => {
   it("runs to completion and commits when the resolved input satisfies the schema", async () => {
