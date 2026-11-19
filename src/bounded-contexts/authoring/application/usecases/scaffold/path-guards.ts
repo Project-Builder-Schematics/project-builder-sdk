@@ -1,4 +1,4 @@
-// src/scaffold/path-guards.ts (ADR-0077): replaces containment.ts. The SDK no longer
+// Scaffold's source and destination guards (ADR-0077): replaces containment.ts. The SDK no longer
 // enforces a containment ceiling — `package-root-containment` is retired wholesale. The
 // SDK's remaining obligation for package-local sources is IO HYGIENE (does this resolve to
 // a readable regular file?) and IR WELL-FORMEDNESS (is the literal path shape emittable?) —
@@ -7,15 +7,13 @@
 //  1. `validateSourceLexical` — segment-aware `../`/absolute screen for a SOURCE path
 //     (`ir-path-well-formedness` REQ-IPF-01). Zero fs calls. Called at EXACTLY three sites.
 //  2. `statSourceForRead` — IO hygiene, TOTAL guard (`package-source-io-hygiene`
-//     REQ-PSH-01/02/03). LEXICAL resolution only — no disk-canonicalization pass, no
-//     ceiling.
+//     REQ-PSH-01/02/03), over the package-files port's `statSource`. LEXICAL resolution
+//     only — no disk-canonicalization pass, no ceiling.
 //  3. `validateDestinationLexical` — lexical-only guard for a `to` destination
 //     (`ir-path-well-formedness` REQ-IPF-02). Reuses the EXISTING `invalid-input` reason.
 
-import { statSync, type Stats } from "node:fs";
-import { join, resolve } from "node:path";
 import { AuthoringError, invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
-import { isErrnoException } from "../../../../../platform/fs-errors.ts";
+import type { PackageFiles, PackageSource } from "../../../domain/ports/package-files.ts";
 
 // Lexical `../`/absolute screen shared by BOTH the source guard (REQ-IPF-01) and the
 // destination guard (REQ-IPF-02, symmetric by design): a literal ".." segment or an
@@ -51,11 +49,9 @@ export function validateSourceLexical(relPath: string): void {
 
 // The variant selector (design §4 Q1) — a CLOSED enum mapping (reason, detail) to the
 // exact REQ-AEC-11 template.
-type RejectionDetail =
-  | "directory" // source-not-regular-file, actionable variant
-  | "permission or I/O error" // source-unreadable category 1
-  | "symlink cycle" // source-unreadable category 2
-  | "path contains an invalid character"; // source-unreadable category 3
+// `directory` is source-not-regular-file's actionable variant; the rest are the port's
+// source-unreadable categories.
+type RejectionDetail = "directory" | Extract<PackageSource, { kind: "unreadable" }>["detail"];
 
 const UNPRINTABLE_SOURCE_PATH_PLACEHOLDER = "<unprintable source path>";
 
@@ -100,52 +96,26 @@ export function sourceRejection(
 }
 
 /**
- * IO hygiene, TOTAL guard (`package-source-io-hygiene` REQ-PSH-01/02/03). `absPath =
- * resolve(join(packageDir, relPath))` — LEXICAL, never disk-canonicalized. `statSync` (follows
- * symlinks) → allow-list `isFile()`. The returned `stat` is reused by
- * `classify-transport.ts` for the CCL-06 size gate. The `try` wraps BOTH the path
- * computation AND the `statSync` call — no raw Node error ever escapes.
+ * IO hygiene, TOTAL guard (`package-source-io-hygiene` REQ-PSH-01/02/03): the source must be a
+ * readable regular file. The port resolves the path lexically and follows symlinks; this maps
+ * what it found to the author-facing rejection. Returns the size `classify-transport.ts` reuses
+ * for the CCL-06 gate.
  */
-export function statSourceForRead(params: { packageDir: string; relPath: string }): { absPath: string; stat: Stats } {
-  const { packageDir, relPath } = params;
-
-  let absPath: string;
-  let stat: Stats;
-  try {
-    absPath = resolve(join(packageDir, relPath));
-    stat = statSync(absPath);
-  } catch (err) {
-    if (isErrnoException(err)) {
-      // ENOTDIR/ENAMETOOLONG (judgment-day G4(ii)): both mean the path, AS GIVEN, does not
-      // exist — a segment along the way turned out to be a regular file, or the resolved
-      // string exceeded the filesystem's name-length limit. Neither is a permission/IO
-      // failure on an existing path; `source-not-found` is the honest category (the spec's
-      // own table scopes it to "does not exist"), same as a plain ENOENT.
-      if (err.code === "ENOENT" || err.code === "ENOTDIR" || err.code === "ENAMETOOLONG") {
-        throw sourceRejection("source-not-found", relPath);
-      }
-      if (err.code === "ELOOP") {
-        throw sourceRejection("source-unreadable", relPath, "symlink cycle");
-      }
-      if (err.code === "ERR_INVALID_ARG_VALUE") {
-        throw sourceRejection("source-unreadable", relPath, "path contains an invalid character");
-      }
-      // EACCES/EPERM/EMFILE/ENFILE/EINTR/… — deliberately never interpolates the errno.
-      throw sourceRejection("source-unreadable", relPath, "permission or I/O error");
-    }
-    // No `.code` at all — an unclassifiable failure. Safest generic category, never a
-    // raw error message.
-    throw sourceRejection("source-unreadable", relPath, "permission or I/O error");
+export function statSourceForRead(params: { files: PackageFiles; packageDir: string; relPath: string }): { size: number } {
+  const { files, packageDir, relPath } = params;
+  const source = files.statSource(packageDir, relPath);
+  switch (source.kind) {
+    case "file":
+      return { size: source.size };
+    case "missing":
+      throw sourceRejection("source-not-found", relPath);
+    case "directory":
+      throw sourceRejection("source-not-regular-file", relPath, "directory");
+    case "other":
+      throw sourceRejection("source-not-regular-file", relPath);
+    case "unreadable":
+      throw sourceRejection("source-unreadable", relPath, source.detail);
   }
-
-  if (stat.isDirectory()) {
-    throw sourceRejection("source-not-regular-file", relPath, "directory");
-  }
-  if (!stat.isFile()) {
-    throw sourceRejection("source-not-regular-file", relPath);
-  }
-
-  return { absPath, stat };
 }
 
 function destinationEscapeMessage(relPath: string): string {

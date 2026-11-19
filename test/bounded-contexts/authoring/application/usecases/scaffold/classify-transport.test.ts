@@ -21,7 +21,7 @@ import { describe, it, expect, spyOn } from "bun:test";
 import { writeFileSync, statSync, mkdirSync } from "node:fs";
 import * as fs from "node:fs";
 import { join } from "node:path";
-import { classifyTransport } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts";
+import { classifyTransport } from "../../../../../../src/bounded-contexts/authoring/application/usecases/scaffold/classify-transport.ts";
 import { serializedBatchSize } from "../../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 import { BATCH_CAP_BYTES, EMIT_BATCH_BUDGET_BYTES } from "../../../../../../src/shared-kernel/batch-cap.ts";
 import type { Directive } from "../../../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
@@ -31,6 +31,7 @@ import { runFactoryForTest } from "../../../../../../src/testing/index.ts";
 import { collectOps } from "../../../../../support/spy-client.ts";
 import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
 import { expectReason } from "../../../../../support/expect-reason.ts";
+import { nodePackageFiles } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const scratchDir = scratchDirFactory("classify-transport-");
 
@@ -40,6 +41,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     writeFileSync(join(dir, "a.ts"), "export const a = 1;", "utf-8");
 
     const result = classifyTransport({
+      files: nodePackageFiles,
       packageDir: dir,
       relPath: "a.ts",
       isTemplateMarked: false,
@@ -55,6 +57,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     writeFileSync(join(dir, "bad.bin"), Buffer.from([0xff, 0xfe, 0x00, 0x01]));
 
     const result = classifyTransport({
+      files: nodePackageFiles,
       packageDir: dir,
       relPath: "bad.bin",
       isTemplateMarked: false,
@@ -76,6 +79,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
       writeFileSync(join(dir, name), Buffer.from(bytes));
       expect(bytes.includes(0x00)).toBe(false);
       const result = classifyTransport({
+        files: nodePackageFiles,
         packageDir: dir,
         relPath: name,
         isTemplateMarked: false,
@@ -92,6 +96,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     writeFileSync(join(dir, "multibyte.ts"), content, "utf-8");
 
     const result = classifyTransport({
+      files: nodePackageFiles,
       packageDir: dir,
       relPath: "multibyte.ts",
       isTemplateMarked: false,
@@ -108,6 +113,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     writeFileSync(join(dir, "bom.ts"), content, "utf-8");
 
     const result = classifyTransport({
+      files: nodePackageFiles,
       packageDir: dir,
       relPath: "bom.ts",
       isTemplateMarked: false,
@@ -124,6 +130,7 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     writeFileSync(join(dir, "empty.ts"), "", "utf-8");
 
     const result = classifyTransport({
+      files: nodePackageFiles,
       packageDir: dir,
       relPath: "empty.ts",
       isTemplateMarked: false,
@@ -160,6 +167,7 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
 
     expect(
       classifyTransport({
+        files: nodePackageFiles,
         packageDir: dir,
         relPath: "under.ts",
         isTemplateMarked: false,
@@ -169,6 +177,7 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
     ).toEqual("by-value");
     expect(
       classifyTransport({
+        files: nodePackageFiles,
         packageDir: dir,
         relPath: "over.ts",
         isTemplateMarked: false,
@@ -193,6 +202,7 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
     expect(soloDirectiveBatchSize(destPath, content)).toBeGreaterThan(BATCH_CAP_BYTES);
 
     const result = classifyTransport({
+      files: nodePackageFiles,
       packageDir: dir,
       relPath: "escapes.ts",
       isTemplateMarked: false,
@@ -290,6 +300,7 @@ describe("REQ-CCL-02.4 — composite-valued option measured in its native wire f
     expect(serializedBatchSize([doubleEncodedDirective])).toBeGreaterThan(EMIT_BATCH_BUDGET_BYTES);
 
     const result = classifyTransport({
+      files: nodePackageFiles,
       packageDir: dir,
       relPath: "small.ts",
       isTemplateMarked: false,
@@ -332,6 +343,7 @@ describe("REQ-CCL-03 — whole-file null-byte/UTF-8 scan (tail detection)", () =
     writeFileSync(join(dir, "tail-null.bin"), buf);
 
     const result = classifyTransport({
+      files: nodePackageFiles,
       packageDir: dir,
       relPath: "tail-null.bin",
       isTemplateMarked: false,
@@ -348,6 +360,7 @@ describe("REQ-CCL-03 — whole-file null-byte/UTF-8 scan (tail detection)", () =
     writeFileSync(join(dir, "big-tail-null.bin"), buf);
 
     const result = classifyTransport({
+      files: nodePackageFiles,
       packageDir: dir,
       relPath: "big-tail-null.bin",
       isTemplateMarked: false,
@@ -376,6 +389,7 @@ describe("REQ-CCL-06 — stat-size gate before any content read", () => {
     const readSpy = spyOn(fs, "readFileSync");
     try {
       const result = classifyTransport({
+        files: nodePackageFiles,
         packageDir: dir,
         relPath: "huge.bin",
         isTemplateMarked: false,
@@ -400,6 +414,7 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
     const err = expectReason(
       () =>
         classifyTransport({
+          files: nodePackageFiles,
           packageDir: dir,
           relPath: "logo.svg",
           isTemplateMarked: true,
@@ -418,6 +433,7 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
     expectReason(
       () =>
         classifyTransport({
+          files: nodePackageFiles,
           packageDir: dir,
           relPath: "huge.template",
           isTemplateMarked: true,
@@ -433,6 +449,7 @@ describe("REQ-CCL-05 — .template render-request fail-loud carve-out (never deg
     writeFileSync(join(dir, "ok.ts.template"), "export const x = {= x =};", "utf-8");
 
     const result = classifyTransport({
+      files: nodePackageFiles,
       packageDir: dir,
       relPath: "ok.ts.template",
       isTemplateMarked: true,

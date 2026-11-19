@@ -8,8 +8,8 @@ import { currentContext, requirePackageAnchors } from "../run-factory/context.ts
 import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
 import { forceEntry } from "../../../domain/services/directive-factory.ts";
 import type { JsonValue } from "../../../domain/valueobjects/wire.ts";
-import { validateSourceLexical, statSourceForRead, validateDestinationLexical } from "../../../infrastructure/out/fs/path-guards.ts";
-import { classifyTransport } from "../../../infrastructure/out/fs/classify-transport.ts";
+import { validateSourceLexical, statSourceForRead, validateDestinationLexical } from "./path-guards.ts";
+import { classifyTransport } from "./classify-transport.ts";
 
 // S-001: the folder-scaffold orchestrator lives in expander.ts (the single owner of the
 // walk → filename-pipeline → classify → emit fan-out, ADR-0044); re-exported here so
@@ -35,7 +35,7 @@ function templateFileOversizedMessage(relPath: string): string {
 // REQ-CCL-01's whole-file sniff — moved into `classify-transport.ts` (the classify leaf)
 // to break the `index → expander → classify-transport → index` import cycle; re-exported
 // so this module's surface is unchanged.
-export { isSniffableText } from "../../../infrastructure/out/fs/classify-transport.ts";
+export { isSniffableText } from "./classify-transport.ts";
 
 /**
  * Reads a package-local file (relative to the active Session's `packageDir`) and returns its
@@ -61,9 +61,10 @@ export { isSniffableText } from "../../../infrastructure/out/fs/classify-transpo
  * never the template content alone.
  */
 export function readTemplateFile(relPath: string, destPath: string, options: JsonValue, force?: boolean): string {
-  const { packageDir } = requirePackageAnchors(noResolutionAnchorMessage(relPath));
+  const { packageDir, files } = requirePackageAnchors(noResolutionAnchorMessage(relPath));
   validateSourceLexical(relPath);
   return classifyTransport({
+    files,
     packageDir,
     relPath,
     isTemplateMarked: false,
@@ -110,13 +111,13 @@ export function runCopyIn(args: { from: string | undefined; to: string | undefin
   }
 
   const { session, factory } = currentContext();
-  const { packageDir } = requirePackageAnchors(noResolutionAnchorForCopyInMessage());
+  const { packageDir, files } = requirePackageAnchors(noResolutionAnchorForCopyInMessage());
 
   // design §4 Q2 — pinned statement order: destination BEFORE source. A both-escape
   // fixture must yield the DESTINATION template, never the source one (REQ-AEC-11.2).
   validateDestinationLexical(args.to);
   validateSourceLexical(args.from);
-  statSourceForRead({ packageDir, relPath: args.from });
+  statSourceForRead({ files, packageDir, relPath: args.from });
 
   session.buffer(factory.copyIn({ from: args.from, to: args.to, ...forceEntry(args.force) }));
 }

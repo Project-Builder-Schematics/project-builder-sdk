@@ -99,8 +99,6 @@ export type Entries = { publicEntries: ReadonlySet<string>; testKitEntries: Read
 export const SCAFFOLD_PARTS: ReadonlySet<string> = new Set([
   "src/bounded-contexts/authoring/domain/services/filename-pipeline.ts",
   "src/bounded-contexts/authoring/infrastructure/out/fs/walk.ts",
-  "src/bounded-contexts/authoring/infrastructure/out/fs/path-guards.ts",
-  "src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts",
 ]);
 
 const FORMER_CORE = new Set(REPLACED_CORE_FILES.map((file) => `src/${file}`));

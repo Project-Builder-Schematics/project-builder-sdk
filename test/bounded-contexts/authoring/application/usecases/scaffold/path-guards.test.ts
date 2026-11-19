@@ -21,14 +21,15 @@
  * source strings, both symlink-accept scenarios, and the lexical screens themselves.
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import * as fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { statSourceForRead, validateSourceLexical, validateDestinationLexical } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/path-guards.ts";
+import { statSourceForRead, validateSourceLexical, validateDestinationLexical } from "../../../../../../src/bounded-contexts/authoring/application/usecases/scaffold/path-guards.ts";
 import { expectReason } from "../../../../../support/expect-reason.ts";
 import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
+import { nodePackageFiles } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const originalStatSync = fs.statSync;
 
@@ -68,7 +69,7 @@ describe("statSourceForRead — TOTAL guard, design §4 mapping row 1 (existence
     const dir = scratchDir();
     symlinkSync(join(dir, "never-created.txt"), join(dir, "broken.txt"));
 
-    const err = expectReason(() => statSourceForRead({ packageDir: dir, relPath: "broken.txt" }), "source-not-found");
+    const err = expectReason(() => statSourceForRead({ files: nodePackageFiles, packageDir: dir, relPath: "broken.txt" }), "source-not-found");
 
     expect(err.message).toEqual("source file not found: broken.txt does not exist in the package");
     expect(err.message).not.toContain(dir);
@@ -80,7 +81,7 @@ describe("statSourceForRead — TOTAL guard, design §4 mapping row 2a (ELOOP)",
     const dir = scratchDir();
     symlinkSync("loop", join(dir, "loop")); // self-referential — statSync throws ELOOP
 
-    const err = expectReason(() => statSourceForRead({ packageDir: dir, relPath: "loop" }), "source-unreadable");
+    const err = expectReason(() => statSourceForRead({ files: nodePackageFiles, packageDir: dir, relPath: "loop" }), "source-unreadable");
 
     expect(err.message).toEqual("source file unreadable: loop could not be read (symlink cycle)");
     expect(err.message).not.toContain(dir);
@@ -92,7 +93,7 @@ describe("statSourceForRead — TOTAL guard, design §4 mapping row 2b (embedded
     const dir = scratchDir();
     const relPath = "a\0b";
 
-    const err = expectReason(() => statSourceForRead({ packageDir: dir, relPath }), "source-unreadable");
+    const err = expectReason(() => statSourceForRead({ files: nodePackageFiles, packageDir: dir, relPath }), "source-unreadable");
 
     expect(err.message).toEqual(
       "source file unreadable: <unprintable source path> could not be read (path contains an invalid character)"
@@ -118,7 +119,7 @@ describe("statSourceForRead — TOTAL guard, design §4 mapping row 2c (resource
       }) as typeof fs.statSync);
 
       try {
-        const err = expectReason(() => statSourceForRead({ packageDir: dir, relPath: "target.ts" }), "source-unreadable");
+        const err = expectReason(() => statSourceForRead({ files: nodePackageFiles, packageDir: dir, relPath: "target.ts" }), "source-unreadable");
         expect(err.message).toEqual("source file unreadable: target.ts could not be read (permission or I/O error)");
         expect(err.message).not.toContain(code);
       } finally {
@@ -139,7 +140,7 @@ describe("statSourceForRead — TOTAL guard, design §4 mapping row 2c (resource
     }) as typeof fs.statSync);
 
     try {
-      const err = expectReason(() => statSourceForRead({ packageDir: dir, relPath: "target.ts" }), "source-unreadable");
+      const err = expectReason(() => statSourceForRead({ files: nodePackageFiles, packageDir: dir, relPath: "target.ts" }), "source-unreadable");
       expect(err.message).toEqual("source file unreadable: target.ts could not be read (permission or I/O error)");
     } finally {
       statSpy.mockRestore();
@@ -155,7 +156,7 @@ describe("REQ-PSH-01.1 — FIFO (non-regular, non-directory) rejects via the all
     const readSpy = spyOn(fs, "readFileSync");
 
     try {
-      const err = expectReason(() => statSourceForRead({ packageDir: dir, relPath: "pipe" }), "source-not-regular-file");
+      const err = expectReason(() => statSourceForRead({ files: nodePackageFiles, packageDir: dir, relPath: "pipe" }), "source-not-regular-file");
       expect(err.message).toEqual("source file invalid: pipe is not a regular file");
       expect(readSpy).not.toHaveBeenCalled();
     } finally {
@@ -169,7 +170,7 @@ describe("REQ-PSH-01.3 — degenerate source strings resolve to packageDir itsel
     it(`relPath ${JSON.stringify(relPath)} resolves to packageDir and rejects source-not-regular-file (directory), never a crash`, () => {
       const dir = scratchDir();
 
-      const err = expectReason(() => statSourceForRead({ packageDir: dir, relPath }), "source-not-regular-file");
+      const err = expectReason(() => statSourceForRead({ files: nodePackageFiles, packageDir: dir, relPath }), "source-not-regular-file");
 
       expect(err.message).toContain("is a directory, not a regular file");
       expect(err.message).not.toContain(dir);
@@ -178,15 +179,15 @@ describe("REQ-PSH-01.3 — degenerate source strings resolve to packageDir itsel
 });
 
 describe("REQ-PSH-03 — symlink resolution follows targets, in-package accepted", () => {
-  it("REQ-PSH-03.1: an in-package symlink to an in-package regular file is accepted — statSync follows it, isFile true", () => {
+  it("REQ-PSH-03.1: an in-package symlink to an in-package regular file is accepted — the stat follows it to a regular file", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "real.txt"), "hello", "utf-8");
     symlinkSync(join(dir, "real.txt"), join(dir, "link.txt"));
 
-    const { absPath, stat } = statSourceForRead({ packageDir: dir, relPath: "link.txt" });
+    const { size } = statSourceForRead({ files: nodePackageFiles, packageDir: dir, relPath: "link.txt" });
 
-    expect(stat.isFile()).toBe(true);
-    expect(readFileSync(absPath, "utf-8")).toEqual("hello");
+    expect(size).toEqual("hello".length);
+    expect(new TextDecoder().decode(nodePackageFiles.readBytes(dir, "link.txt"))).toEqual("hello");
   });
 });
 
@@ -198,12 +199,12 @@ describe("REQ-PSH-04.1 — in-package symlink to an OUTSIDE regular file is acce
       writeFileSync(join(external, "secret.txt"), "outside-content", "utf-8");
       symlinkSync(join(external, "secret.txt"), join(dir, "escape.txt"));
 
-      const { absPath, stat } = statSourceForRead({ packageDir: dir, relPath: "escape.txt" });
+      const { size } = statSourceForRead({ files: nodePackageFiles, packageDir: dir, relPath: "escape.txt" });
 
       // Regression tripwire (design §4): a regrown realpath-based containment check would
       // fail this exact assertion — its own pass IS the residual's proof.
-      expect(stat.isFile()).toBe(true);
-      expect(readFileSync(absPath, "utf-8")).toEqual("outside-content");
+      expect(size).toEqual("outside-content".length);
+      expect(new TextDecoder().decode(nodePackageFiles.readBytes(dir, "escape.txt"))).toEqual("outside-content");
     } finally {
       rmSync(external, { recursive: true, force: true });
     }
