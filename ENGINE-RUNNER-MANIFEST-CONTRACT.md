@@ -113,6 +113,13 @@ If any of these has changed on your side, tell us — several of them are load-b
 > the working directory; it does not call `path.resolve`, which is not an admitted origin in the
 > closure. The import graph and the builtin set are unchanged.
 
+> **SDK note, 2026-11-20 (lstatSync admitted).** `lstatSync` joins the admitted `node:fs` reads in
+> the runner closure (`scripts/capability-admission.ts`), with the engine's agreement: the engine's
+> closure check (FF-39) does not enumerate `node:fs` calls, and the change fits ADR-0036's
+> link-fence stance. The scaffold walk uses it to tell a symlink from what it points at without
+> following it; that is defence in depth, and the engine's `copyIn` read gate (no-follow plus the
+> link fence) stays the authority at commit time.
+
 ---
 
 ## Deliverable — `dist/runner-manifest.json`
