@@ -89,6 +89,8 @@
     "dist/bounded-contexts/authoring/application/usecases/pending-directives/render.js",
     "dist/bounded-contexts/authoring/application/usecases/run-factory/context.d.ts",
     "dist/bounded-contexts/authoring/application/usecases/run-factory/context.js",
+    "dist/bounded-contexts/authoring/application/usecases/run-factory/driving.d.ts",
+    "dist/bounded-contexts/authoring/application/usecases/run-factory/driving.js",
     "dist/bounded-contexts/authoring/application/usecases/scaffold/classify-transport.d.ts",
     "dist/bounded-contexts/authoring/application/usecases/scaffold/classify-transport.js",
     "dist/bounded-contexts/authoring/application/usecases/scaffold/expander.d.ts",

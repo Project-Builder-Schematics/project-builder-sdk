@@ -4,6 +4,7 @@
     "acl/irwire/stdio-engine-client.js",
     "bin/pbuilder-runner.js",
     "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+    "bounded-contexts/authoring/application/usecases/run-factory/driving.js",
     "bounded-contexts/authoring/domain/aggregates/session/session.js",
     "bounded-contexts/authoring/domain/ports/emit-rejection.js",
     "bounded-contexts/authoring/domain/ports/package-files.js",
@@ -130,6 +131,21 @@
       "specifier": "../../../domain/valueobjects/authoring-error.js"
     },
     {
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/driving.js",
+      "to": "bounded-contexts/authoring/domain/services/schema/schema-locate.js",
+      "specifier": "../../../domain/services/schema/schema-locate.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/driving.js",
+      "to": "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
+      "specifier": "../../../domain/services/schema/schema-parse.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/driving.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+      "specifier": "../../../domain/valueobjects/authoring-error.js"
+    },
+    {
       "from": "bounded-contexts/authoring/domain/aggregates/session/session.js",
       "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
       "specifier": "../../valueobjects/authoring-error.js"
@@ -191,8 +207,8 @@
     },
     {
       "from": "bounded-contexts/runner-hosting/infrastructure/in/exit-codes.js",
-      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
-      "specifier": "../../../authoring/domain/valueobjects/authoring-error.js"
+      "to": "bounded-contexts/authoring/application/usecases/run-factory/driving.js",
+      "specifier": "../../../authoring/application/usecases/run-factory/driving.js"
     },
     {
       "from": "bounded-contexts/runner-hosting/infrastructure/in/factory-pointer.js",
@@ -216,18 +232,8 @@
     },
     {
       "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
-      "to": "bounded-contexts/authoring/domain/services/schema/schema-locate.js",
-      "specifier": "../../../authoring/domain/services/schema/schema-locate.js"
-    },
-    {
-      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
-      "to": "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
-      "specifier": "../../../authoring/domain/services/schema/schema-parse.js"
-    },
-    {
-      "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",
-      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
-      "specifier": "../../../authoring/domain/valueobjects/authoring-error.js"
+      "to": "bounded-contexts/authoring/application/usecases/run-factory/driving.js",
+      "specifier": "../../../authoring/application/usecases/run-factory/driving.js"
     },
     {
       "from": "bounded-contexts/runner-hosting/infrastructure/in/runner.js",

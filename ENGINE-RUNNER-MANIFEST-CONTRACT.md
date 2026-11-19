@@ -120,6 +120,14 @@ If any of these has changed on your side, tell us — several of them are load-b
 > following it; that is defence in depth, and the engine's `copyIn` read gate (no-follow plus the
 > link fence) stays the authority at commit time.
 
+> **SDK note, 2026-11-20 (runner reaches Authoring through its application layer).** The closure is
+> now **28 `.js` files**, so the manifest carries **29 records** with `package.json`. The new file is
+> `bounded-contexts/authoring/application/usecases/run-factory/driving.js`, which gives the runner an
+> Authoring rejection's origin and the position text for rejected input JSON;
+> `bounded-contexts/runner-hosting/infrastructure/in/runner.js` and `exit-codes.js` import it instead
+> of Authoring's `authoring-error.js`, `schema-locate.js` and `schema-parse.js`, which stay in the
+> closure through it. Exit codes and messages are unchanged. The builtin set is unchanged.
+
 ---
 
 ## Deliverable — `dist/runner-manifest.json`
