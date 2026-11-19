@@ -156,10 +156,16 @@ function offsetToLineColumn(raw: string, offset: number): { line: number; column
  * Re-scans `raw` (text already rejected by `JSON.parse`) to pin the 1-based `{line, column}`
  * of the first JSON-grammar deviation. Returns `undefined` when the scanner completes without
  * finding one — either an in-string escape violation (bounded fidelity, ADR-0032) or a
- * defensive scanner/`JSON.parse` divergence. Pure; no I/O.
+ * defensive scanner/`JSON.parse` divergence — and when the document is nested too deeply for
+ * the recursive scanner, whose stack overflow is not a grammar finding. Pure; no I/O.
  */
 export function locateFirstJsonSyntaxError(raw: string): { line: number; column: number } | undefined {
-  const result = scanValue(raw, 0);
+  let result: ScanResult;
+  try {
+    result = scanValue(raw, 0);
+  } catch {
+    return undefined;
+  }
   if (!result.ok) {
     return offsetToLineColumn(raw, result.offset);
   }

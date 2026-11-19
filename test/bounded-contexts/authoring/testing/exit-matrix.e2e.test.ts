@@ -28,6 +28,7 @@ const PROJECT_ROOT = new URL("../../../../", import.meta.url).pathname;
 const RUNNER_BIN = new URL("../../../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;
 const BRIDGE_STUB = new URL("../../../fixtures/bridge-bootstrap-stub.ts", import.meta.url).pathname;
 const HAPPY_POINTER = `file://${new URL("../../../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;
+const DEEP_NESTING_JSON = new URL("../../../fixtures/red/schema/deep-nesting/schema.json", import.meta.url).pathname;
 const COLLIDE_POINTER = `file://${new URL("../../../fixtures/frame-runner/collide/", import.meta.url).pathname}factory.ts`;
 const CRASH_POINTER = `file://${new URL("../../../fixtures/frame-runner/crash/", import.meta.url).pathname}factory.ts`;
 const SECRET_ERROR_POINTER = `file://${new URL("../../../fixtures/frame-runner/secret-error/", import.meta.url).pathname}factory.ts`;
@@ -53,6 +54,14 @@ describe("REQ-EXC-01.2 — four failure classes map to four distinct exit codes"
     const { code } = await host.waitExit();
     expect(code).toEqual(1);
     expect(host.stderrText()).toContain("--input-file");
+  });
+
+  it("(a2) an --input-file nested too deeply to locate its JSON error: exit 1, not a crash", async () => {
+    const host = spawnRunner(["--factory", HAPPY_POINTER, "--input-file", DEEP_NESTING_JSON]);
+    host.sendReady();
+    const { code } = await host.waitExit();
+    expect(code).toEqual(1);
+    expect(host.stderrText()).toContain("pbuilder-runner: --input-file is not valid JSON (position unknown)");
   });
 
   it("(b) a factory write collision: exit 2 (emit-rejection)", async () => {

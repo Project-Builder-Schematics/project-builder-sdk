@@ -16,6 +16,7 @@ import { makeInProcessHost } from "../../../../support/in-process-host.ts";
 
 const HAPPY_FIXTURE_DIR = new URL("../../../../fixtures/frame-runner/happy/", import.meta.url).pathname;
 const HAPPY_POINTER = `file://${HAPPY_FIXTURE_DIR}factory.ts`;
+const DEEP_NESTING_JSON = new URL("../../../../fixtures/red/schema/deep-nesting/schema.json", import.meta.url).pathname;
 const IMPORT_CRASH_POINTER = `file://${new URL("../../../../fixtures/frame-runner/import-crash/", import.meta.url).pathname}factory.ts`;
 const SYNTAX_ERROR_POINTER = `file://${new URL("../../../../fixtures/red/frame-runner-syntax-error/", import.meta.url).pathname}factory.ts`;
 const PLAIN_ERROR_POINTER = `file://${new URL("../../../../fixtures/frame-runner/plain-error/", import.meta.url).pathname}factory.ts`;
@@ -110,6 +111,16 @@ describe("REQ-RUN-04 — input-file size cap + fail-closed parse", () => {
     dirs.push(dir);
     return join(dir, name);
   }
+
+  // The locator is recursive; a deeply nested document must degrade to "(position unknown)"
+  // like a schema.json does, never escape as a raw RangeError.
+  it("an input-file nested too deeply to locate its JSON error is still an input error", async () => {
+    const io = unreachedIo();
+    const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input-file", DEEP_NESTING_JSON], io);
+
+    expect(exitCode).toEqual(1);
+    expect(io.stderrText()).toEqual("pbuilder-runner: --input-file is not valid JSON (position unknown)\n");
+  });
 
   it("Scenario REQ-RUN-04.1: an input-file over the 10 MiB cap is rejected before its contents are read", async () => {
     const path = scratchFile("oversized.json");
