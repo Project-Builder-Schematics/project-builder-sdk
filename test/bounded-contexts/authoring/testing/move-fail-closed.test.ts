@@ -6,7 +6,7 @@
  * required.
  */
 import { describe, it, expect } from "bun:test";
-import { ContractFake } from "../support/contract-fake.ts";
+import { ContractFake } from "../../../support/contract-fake.ts";
 import { batch, moveOp } from "./directive-builders.ts";
 
 describe("REQ-FAKE-04.m1 — move onto an existing destination rejects without force", () => {

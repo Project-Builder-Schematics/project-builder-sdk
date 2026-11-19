@@ -14,21 +14,21 @@ import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { encodeFrame } from "../../src/shared-kernel/framing.ts";
-import { WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
-import { runRunner, type RunnerIo } from "../../src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts";
+import { encodeFrame } from "../../../../src/shared-kernel/framing.ts";
+import { WIRE_PROTOCOL_VERSION } from "../../../../src/shared-kernel/wire-protocol.ts";
+import { runRunner, type RunnerIo } from "../../../../src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts";
 import { dispatchToFake, serveSpawnedRunner } from "./fake-engine-harness.ts";
-import { ContractFake } from "../../src/testing/contract-fake.ts";
-import { pushableByteSource } from "../support/pushable-byte-source.ts";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { frameHostFactory } from "../support/frame-host.ts";
-import { collectTsFiles } from "../support/import-scan.ts";
-import * as rejectionMessages from "../../src/testing/rejection-messages.ts";
+import { ContractFake } from "../../../../src/bounded-contexts/authoring/testing/contract-fake.ts";
+import { pushableByteSource } from "../../../support/pushable-byte-source.ts";
+import { runFactoryForTest } from "../../../../src/testing/index.ts";
+import { AuthoringError } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { frameHostFactory } from "../../../support/frame-host.ts";
+import { collectTsFiles } from "../../../support/import-scan.ts";
+import * as rejectionMessages from "../../../../src/bounded-contexts/authoring/testing/rejection-messages.ts";
 import { CONFORMANCE_CORPUS } from "./conformance-corpus.ts";
 
-const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
-const RUNNER_BIN = new URL("../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;
+const PROJECT_ROOT = new URL("../../../../", import.meta.url).pathname.replace(/\/$/, "");
+const RUNNER_BIN = new URL("../../../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;
 const HARNESS_SOURCE_PATH = new URL("./fake-engine-harness.ts", import.meta.url).pathname;
 const HARNESS_TEST_PATH = new URL("./harness.test.ts", import.meta.url).pathname;
 
@@ -38,7 +38,7 @@ function spawnRunner(args: string[], opts?: { env?: NodeJS.ProcessEnv }) {
   return spawnFrameHost("bun", ["run", RUNNER_BIN, ...args], { cwd: PROJECT_ROOT, env: opts?.env });
 }
 
-const HAPPY_POINTER = `file://${new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;
+const HAPPY_POINTER = `file://${new URL("../../../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;
 
 describe("REQ-WPS-09 — run bootstrap is argv/bridge-only, no host-issued request method", () => {
   it("[characterization] Scenario REQ-WPS-09.2: a host-issued request frame arriving mid-run is discarded — never dispatches a run, the run still completes", async () => {
@@ -101,7 +101,7 @@ describe("REQ-WPS-09 — run bootstrap is argv/bridge-only, no host-issued reque
     const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], io);
 
     expect(exitCode).toEqual(0);
-    // dispatchToFake (test/fake/fake-engine-harness.ts) only ever constructs
+    // dispatchToFake (test/bounded-contexts/authoring/testing/fake-engine-harness.ts) only ever constructs
     // `{type:"response", ...}` frames — there is no code path anywhere in this harness that
     // emits a host-issued `{type:"request", ...}` frame during a normal run, matching
     // WPS-09.1's claim structurally over a REAL executed run, not just by absence of a

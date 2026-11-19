@@ -1,16 +1,16 @@
 // Transport shell over the ONE ContractFake (design § 4.2, FEH-01 posture): framing/dispatch
 // only, ZERO re-implemented engine semantics — every method delegates to the normative
-// ContractFake (src/testing/contract-fake.ts) and only shapes the WPS-10 response envelope.
+// ContractFake (src/bounded-contexts/authoring/testing/contract-fake.ts) and only shapes the WPS-10 response envelope.
 // `ir.emit`'s error-shaping leg (S-002, EXC-01.2 item b): a ContractFake rejection is
 // caught and shaped into the WPS-08 wire error envelope, same as a real engine host would
 // — read/commit/discard stay happy-dispatch-only (their own error legs are S-003+ scope,
 // no REQ in this slice needs them). Shared by the in-process integration test AND the
 // spawned e2e, so the dispatch exists exactly once.
 
-import type { ContractFake } from "../../src/testing/contract-fake.ts";
-import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import type { FrameHost } from "../support/frame-host.ts";
-import { EmitRejection } from "../../src/bounded-contexts/authoring/domain/ports/emit-rejection.ts";
+import type { ContractFake } from "../../../../src/bounded-contexts/authoring/testing/contract-fake.ts";
+import type { Batch } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import type { FrameHost } from "../../../support/frame-host.ts";
+import { EmitRejection } from "../../../../src/bounded-contexts/authoring/domain/ports/emit-rejection.ts";
 
 export interface HostRequestFrame {
   id: string;

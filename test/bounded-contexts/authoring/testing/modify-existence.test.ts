@@ -6,7 +6,7 @@
  * eagerly in array order.
  */
 import { describe, it, expect } from "bun:test";
-import { ContractFake } from "../support/contract-fake.ts";
+import { ContractFake } from "../../../support/contract-fake.ts";
 import { batchOf as batch, modifyOp, createOp } from "./directive-builders.ts";
 
 describe("REQ-FAKE-07.1 — modify of an untouched path rejects and never materializes", () => {

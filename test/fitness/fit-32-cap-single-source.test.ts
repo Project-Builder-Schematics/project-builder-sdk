@@ -4,7 +4,7 @@
  * a numeric literal, and the `>` cap comparison lives ONLY inside `batch-cap.ts`'s
  * `exceedsBatchCap` — across transport (`src/transport/**` and the files that moved out of it,
  * `test/support/replaced-transport.ts`), the domain `wire.ts` that delegates to it, the fake
- * (`src/testing/contract-fake.ts`), and the harness (`test/fake/**`). `batch-cap.ts` itself is
+ * (`src/bounded-contexts/authoring/testing/contract-fake.ts`), and the harness (`test/bounded-contexts/authoring/testing/**`). `batch-cap.ts` itself is
  * outside the scanned scope, so no exemption list is needed: the one legitimate `>` comparison
  * and the one legitimate numeric literal both live structurally outside what this check scans.
  *
@@ -18,8 +18,8 @@ import { collectTsFiles } from "../support/import-scan.ts";
 import { transportScopeFiles } from "../support/replaced-transport.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
-const CONTRACT_FAKE_FILE = join(PROJECT_ROOT, "src/testing/contract-fake.ts");
-const HARNESS_DIR = join(PROJECT_ROOT, "test/fake");
+const CONTRACT_FAKE_FILE = join(PROJECT_ROOT, "src/bounded-contexts/authoring/testing/contract-fake.ts");
+const HARNESS_DIR = join(PROJECT_ROOT, "test/bounded-contexts/authoring/testing");
 
 // `>` (optionally spaced) immediately adjacent to BATCH_CAP_BYTES, in either operand
 // position — a re-derived comparison, never the shared `exceedsBatchCap` call.
@@ -71,12 +71,12 @@ describe("fit-32 — cap-single-source (BATCH_CAP_BYTES imported, exceedsBatchCa
     }
   });
 
-  it("src/testing/contract-fake.ts holds no re-derived cap comparison or spelled-out literal", () => {
+  it("src/bounded-contexts/authoring/testing/contract-fake.ts holds no re-derived cap comparison or spelled-out literal", () => {
     const source = readFileSync(CONTRACT_FAKE_FILE, "utf-8");
-    expect(capSourceViolations(source, "src/testing/contract-fake.ts")).toEqual([]);
+    expect(capSourceViolations(source, "src/bounded-contexts/authoring/testing/contract-fake.ts")).toEqual([]);
   });
 
-  describe("harness scan — test/fake/**", () => {
+  describe("harness scan — test/bounded-contexts/authoring/testing/**", () => {
     for (const { file, violations } of scan(collectTsFiles(HARNESS_DIR))) {
       it(`${file.replace(PROJECT_ROOT, "")} holds no re-derived cap comparison or spelled-out literal`, () => {
         expect(violations).toEqual([]);

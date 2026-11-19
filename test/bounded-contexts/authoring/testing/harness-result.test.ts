@@ -4,7 +4,7 @@
  * the full commit/reject/throw/seed surface. Drives the facade through its real public
  * entry (`src/testing/index.ts`), never the raw kit internals directly — this suite proves
  * the re-export chain works, not just the underlying mechanics (those already have their
- * own coverage in test/fake/commit-discard.test.ts etc.).
+ * own coverage in test/bounded-contexts/authoring/testing/commit-discard.test.ts etc.).
  *
  * ATH-01.3 (ContractFake not exported by name) is FIT-08's red-proof — S-003 scope, not here.
  *
@@ -17,10 +17,10 @@
  * own regression cases.
  */
 import { describe, it, expect } from "bun:test";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { create, find, replaceContent, AuthoringError } from "../../src/commons/index.ts";
-import { EMIT_BATCH_BUDGET_BYTES } from "../../src/shared-kernel/batch-cap.ts";
-import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { runFactoryForTest } from "../../../../src/testing/index.ts";
+import { create, find, replaceContent, AuthoringError } from "../../../../src/commons/index.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../../../src/shared-kernel/batch-cap.ts";
+import type { Batch } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 describe("REQ-ATH-01 — runFactoryForTest result shape", () => {
   it("REQ-ATH-01.1: happy-path shape — tree, single emitted batch, no error", async () => {
@@ -240,7 +240,7 @@ describe("REQ-ATH-09 — emission-validity boundaries", () => {
 
   // Cost note (QA-M4, spec Suite Cost Acknowledgement): these fixtures deliberately
   // approach the ~4 MiB BATCH_CAP_BYTES boundary. Byte-precise, mirroring
-  // test/fake/batch-cap-fixtures.ts's technique but adapted to the `create` verb's wire
+  // test/bounded-contexts/authoring/testing/batch-cap-fixtures.ts's technique but adapted to the `create` verb's wire
   // shape (extra `options` field) since the spec literal pins `create`, not `modify`.
   describe("REQ-ATH-09.2: batch-cap boundary (single `create`)", () => {
     const CAP_FIXTURE_PATH = "cap-fixture-create.ts";

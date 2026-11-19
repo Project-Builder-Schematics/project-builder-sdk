@@ -7,17 +7,17 @@
  * of its own — only the fake (engine stand-in) judges size, matching ADR-0018.
  */
 import { describe, it, expect, spyOn } from "bun:test";
-import { AuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { ContractFake } from "../support/contract-fake.ts";
-import { EMIT_BATCH_BUDGET_BYTES } from "../../src/shared-kernel/batch-cap.ts";
-import { replaceContent } from "../../src/commons/index.ts";
+import { AuthoringError } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { ContractFake } from "../../../support/contract-fake.ts";
+import { EMIT_BATCH_BUDGET_BYTES } from "../../../../src/shared-kernel/batch-cap.ts";
+import { replaceContent } from "../../../../src/commons/index.ts";
 import {
   batchOfSerializedBytes,
   batchOverSerializedBytes,
   rawContentBytes,
   FIXTURE_PATH,
 } from "./batch-cap-fixtures.ts";
-import { rejectedRun } from "../support/rejection-capture.ts";
+import { rejectedRun } from "../../../support/rejection-capture.ts";
 
 // `replaceContent` requires an existing target (ADR-0017 rule 2) — these fixtures exercise
 // the size cap, not modify-existence, so every fake here is seeded with FIXTURE_PATH present.

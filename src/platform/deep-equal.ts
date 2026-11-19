@@ -1,7 +1,7 @@
 // S-000: kit-internal shared structural-equality helper (row-146, ADR-0012 amendment clause
 // 4). Sibling of ./dialect-error.ts — same kit-internal-shared-in-core pattern, one decision
 // covers both, no separate ADR. Not re-exported from src/core/index.ts, no barrel/subpath:
-// no public symbol. src/conformance/index.ts and src/testing/contract-fake.ts each carry
+// no public symbol. src/bounded-contexts/authoring/testing/conformance/index.ts and src/bounded-contexts/authoring/testing/contract-fake.ts each carry
 // their OWN duplicated copy today (FIT-17 forbids ./conformance -> ./testing); extracting
 // both onto this shared module is S-005's task, not this one's.
 

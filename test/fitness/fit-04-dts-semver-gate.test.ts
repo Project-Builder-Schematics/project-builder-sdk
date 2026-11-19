@@ -20,7 +20,7 @@
  * `dist/**\/*.d.ts` over its committed counterpart in `test/fitness/dts-baseline/`
  * (`dist/commons/index.d.ts` → `commons.index.d.ts`, `dist/core/base-handle.d.ts` →
  * `core.base-handle.d.ts`, `dist/core/handle-state.d.ts` → `core.handle-state.d.ts`,
- * `dist/testing/index.d.ts` → `testing.index.d.ts`, `dist/dialects/typescript/index.d.ts` →
+ * `dist/bounded-contexts/authoring/testing/harness/index.d.ts` → `testing.index.d.ts`, `dist/dialects/typescript/index.d.ts` →
  * `typescript.index.d.ts`, `dist/dialects/react/index.d.ts` → `react.index.d.ts`).
  *
  * Red-proof: simulating a baseline drift (a removed export) triggers the gate.
@@ -88,7 +88,7 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
   },
   {
     baselineFile: join(BASELINE_DIR, "conformance.index.d.ts"),
-    distFile: join(DIST_DIR, "conformance/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/testing/conformance/index.d.ts"),
     label: "conformance",
   },
   {
@@ -116,7 +116,7 @@ const DTS_PAIRS: Array<{ baselineFile: string; distFile: string; label: string }
     // re-export lines live in this file's index.d.ts, so entry-only still catches their
     // removal (REQ-TES-05.2) without churning on internal fake refactors.
     baselineFile: join(BASELINE_DIR, "testing.index.d.ts"),
-    distFile: join(DIST_DIR, "testing/index.d.ts"),
+    distFile: join(DIST_DIR, "bounded-contexts/authoring/testing/harness/index.d.ts"),
     label: "testing",
   },
   {
@@ -191,7 +191,7 @@ describe("FIT-04 kit-internal baseline set — checked, NOT semver-gated as publ
 
 // Companion negative declaration-scan (SEC-M2, ADR-0034 guard 6): FIT-10 scans SOURCES only
 // and FIT-04 above is removal-only, so declaration emit could resurface a port-internal name
-// undetected by either. Housed here because this file already reads dist/testing/index.d.ts
+// undetected by either. Housed here because this file already reads dist/bounded-contexts/authoring/testing/harness/index.d.ts
 // via ensureTscBuild().
 const PORT_SYMBOL_PATTERN = /\b(?:EngineClient|EmitRejection)\b/;
 
@@ -207,11 +207,11 @@ describe("FIT-04 — public .d.ts semver gate (baseline diff)", () => {
     });
   }
 
-  // SEC-M2 companion assert: dist/testing/index.d.ts must never resurface a port-internal
+  // SEC-M2 companion assert: dist/bounded-contexts/authoring/testing/harness/index.d.ts must never resurface a port-internal
   // name — declaration emit is a distinct surface from FIT-10's source scan and FIT-04's
   // removal-only diff above, so neither alone would catch it.
-  it("testing: dist/testing/index.d.ts does not resurface EngineClient or EmitRejection", () => {
-    const dts = readFileSync(join(DIST_DIR, "testing/index.d.ts"), "utf-8");
+  it("testing: dist/bounded-contexts/authoring/testing/harness/index.d.ts does not resurface EngineClient or EmitRejection", () => {
+    const dts = readFileSync(join(DIST_DIR, "bounded-contexts/authoring/testing/harness/index.d.ts"), "utf-8");
     expect(PORT_SYMBOL_PATTERN.test(dts)).toBe(false);
   });
 
@@ -221,8 +221,8 @@ describe("FIT-04 — public .d.ts semver gate (baseline diff)", () => {
   // diff (this file's removal-only check above) would pass even if the signature had been
   // silently laundered into something else entirely, as long as no baseline line survived
   // unmatched; this pins the actual replacement shape.
-  it("REQ-TES-05.3: dist/testing/index.d.ts reflects runFactoryForTest's new bare-fn + options-bag signature", () => {
-    const dts = readFileSync(join(DIST_DIR, "testing/index.d.ts"), "utf-8");
+  it("REQ-TES-05.3: dist/bounded-contexts/authoring/testing/harness/index.d.ts reflects runFactoryForTest's new bare-fn + options-bag signature", () => {
+    const dts = readFileSync(join(DIST_DIR, "bounded-contexts/authoring/testing/harness/index.d.ts"), "utf-8");
     expect(dts).toContain(
       "export declare function runFactoryForTest<O>(fn: (input: O) => void | Promise<void>, input: O, options?: {"
     );

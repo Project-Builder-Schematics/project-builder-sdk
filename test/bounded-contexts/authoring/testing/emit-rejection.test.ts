@@ -4,14 +4,14 @@
  * attribution layer can classify by CODE, never by reading message text.
  */
 import { describe, it, expect } from "bun:test";
-import { ContractFake } from "../support/contract-fake.ts";
-import { EmitRejection } from "../../src/bounded-contexts/authoring/domain/ports/emit-rejection.ts";
-import { toAuthoringError } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
-import { type JsonValue } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
-import { BATCH_CAP_BYTES } from "../../src/shared-kernel/batch-cap.ts";
+import { ContractFake } from "../../../support/contract-fake.ts";
+import { EmitRejection } from "../../../../src/bounded-contexts/authoring/domain/ports/emit-rejection.ts";
+import { toAuthoringError } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import { type JsonValue } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { BATCH_CAP_BYTES } from "../../../../src/shared-kernel/batch-cap.ts";
 import { batchOf, createOp, modifyOp } from "./directive-builders.ts";
 import { batchOverSerializedBytes, FIXTURE_PATH } from "./batch-cap-fixtures.ts";
-import { rejectedEmit } from "../support/rejection-capture.ts";
+import { rejectedEmit } from "../../../support/rejection-capture.ts";
 
 describe("REQ-ERM-01.1 — directive-level rejection carries code + failedIndex", () => {
   it("a collision at index 2 of a 3-directive batch carries code:collision, failedIndex:2, appliedCount:2", async () => {

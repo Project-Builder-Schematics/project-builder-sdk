@@ -1,7 +1,7 @@
 // REQ-RUN-05 (+ the skeleton's in-process happy flow and WPS-02's runner-side fail-at-
 // greeting): drives runRunner IN PROCESS over an injectable io — no subprocess (spawn-
 // dependent tests as late as possible; the spawned leg is fake-engine-harness.e2e.test.ts).
-// The host side dispatches through test/fake/fake-engine-harness.ts's dispatchToFake —
+// The host side dispatches through test/bounded-contexts/authoring/testing/fake-engine-harness.ts's dispatchToFake —
 // the ONE transport shell over ContractFake, shared with the e2e (zero re-implemented
 // semantics, FEH-01 posture).
 
@@ -10,8 +10,8 @@ import { encodeFrame } from "../../../../../src/shared-kernel/framing.ts";
 import { WIRE_PROTOCOL_VERSION, BRIDGE_CONTRACT_VERSION } from "../../../../../src/shared-kernel/wire-protocol.ts";
 import { runRunner, type RunnerIo } from "../../../../../src/bounded-contexts/runner-hosting/infrastructure/in/runner.ts";
 import { enterBridge, BridgeVersionMismatchError, type BridgeProtection } from "../../../../../src/bounded-contexts/runner-hosting/infrastructure/in/bootstrap-bridge.ts";
-import { dispatchToFake } from "../../../../fake/fake-engine-harness.ts";
-import { ContractFake } from "../../../../../src/testing/contract-fake.ts";
+import { dispatchToFake } from "../../../authoring/testing/fake-engine-harness.ts";
+import { ContractFake } from "../../../../../src/bounded-contexts/authoring/testing/contract-fake.ts";
 import { runFactoryForTest } from "../../../../../src/testing/index.ts";
 import frameRunnerSchemaFactory from "../../../../fixtures/frame-runner/schema/factory.ts";
 import { pushableByteSource } from "../../../../support/pushable-byte-source.ts";

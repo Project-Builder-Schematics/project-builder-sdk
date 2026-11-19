@@ -207,7 +207,7 @@ Engine `PC-PROTO-01` MUST build against THIS wire-spec version (`1`) and
 `docs/engine-sdk-wire-design.md` rev 3 — NOT rev 2 (rev 2 described NDJSON framing, a
 single-initiator model, and a `session.init` handshake, all superseded — see that document's
 `## Superseded (historical)` section). Conformance is measured by the Go side passing the same
-wire vectors this repo's fake-engine harness already encodes (`test/fake/harness.test.ts` +
-`test/fake/*.e2e.test.ts`) — a spawned-process, real-stdio proof requiring no Go toolchain on
+wire vectors this repo's fake-engine harness already encodes (`test/bounded-contexts/authoring/testing/harness.test.ts` +
+`test/bounded-contexts/authoring/testing/*.e2e.test.ts`) — a spawned-process, real-stdio proof requiring no Go toolchain on
 the SDK side. Engine `MaxMessageBytes` MUST equal SDK `BATCH_CAP_BYTES` (`4194304`, 4 MiB) per
 the Frame-Cap Constant clause above.

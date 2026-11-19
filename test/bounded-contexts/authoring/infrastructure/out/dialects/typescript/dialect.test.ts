@@ -325,7 +325,7 @@ describe("TypeScript dialect — REQ-TSD-03 edge scenarios (S-003)", () => {
   // (JSON-stringified) bytes — a block comment's `"` characters need no TS-level escaping
   // (ts-morph round-trips them verbatim in a comment) but cost 2 JSON-serialized bytes each
   // (`\"`) once printed content becomes a modify directive's `content` field. Deterministic
-  // arithmetic (Stage-1 lesson, mirrors test/fake/batch-cap-fixtures.ts's `"`-padding
+  // arithmetic (Stage-1 lesson, mirrors test/bounded-contexts/authoring/testing/batch-cap-fixtures.ts's `"`-padding
   // technique), no search/iteration — proves the cap check trips on the SERIALIZED side,
   // never on raw content size, and that the run rejects cleanly (never silently truncates).
   it("REQ-TSD-03.7: 4 MiB boundary — accepted under the cap, or rejected AT the cap, never silently truncated", async () => {

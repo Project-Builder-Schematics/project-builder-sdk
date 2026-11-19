@@ -21,7 +21,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CONTRACT_FAKE_PREFIX } from "../../src/testing/rejection-messages.ts";
+import { CONTRACT_FAKE_PREFIX } from "../../src/bounded-contexts/authoring/testing/rejection-messages.ts";
 import { ensureMinifiedEntry } from "../support/shared-build.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;

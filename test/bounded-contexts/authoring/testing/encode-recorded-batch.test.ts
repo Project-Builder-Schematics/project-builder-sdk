@@ -2,16 +2,16 @@
  * REQ-TOE-07: `@pbuilder/sdk/testing`'s recorded batches show composite option values as the
  * native arrays/objects the author passed — the wire form since ADR-0082 — whether recorded
  * via a live `create()`/`scaffold()` call OR constructed via the test-side parallel builder
- * (`test/fake/directive-builders.ts`'s `createOp`).
+ * (`test/bounded-contexts/authoring/testing/directive-builders.ts`'s `createOp`).
  *
  * TOE-07.2 is proven by an EQUIVALENCE test against a HAND-WRITTEN anchor (ADR-03) —
  * `createOp` stays RAW and is never made to call `encodeOptions` itself, so a bug in the real
  * path cannot corrupt both sides of the comparison identically.
  */
 import { describe, it, expect } from "bun:test";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { create, AuthoringError } from "../../src/commons/index.ts";
-import { collectOps } from "../support/spy-client.ts";
+import { runFactoryForTest } from "../../../../src/testing/index.ts";
+import { create, AuthoringError } from "../../../../src/commons/index.ts";
+import { collectOps } from "../../../support/spy-client.ts";
 import { createOp } from "./directive-builders.ts";
 
 describe("REQ-TOE-07.1 — a recorded batch's create.options shows the native value", () => {

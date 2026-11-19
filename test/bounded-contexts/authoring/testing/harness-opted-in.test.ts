@@ -7,7 +7,7 @@
  * REQ-ATH-13 (schema-invalid/valid rejection through the harness) was REPEALED by spec V2
  * — the migration structurally inverts its "packageDir lives in the factory's definition"
  * premise. The observable guarantee it protected relocates to REQ-ATH-17.1/.2 (executed,
- * pinned in `test/fake/harness-options-bag.test.ts`, S-000); this file keeps the additional
+ * pinned in `test/bounded-contexts/authoring/testing/harness-options-bag.test.ts`, S-000); this file keeps the additional
  * input-shape variety below as plain regression coverage of the SAME REQ-ATH-17 guarantee,
  * not a second, independent REQ.
  *
@@ -23,11 +23,11 @@
 import { describe, it, expect, spyOn } from "bun:test";
 import { join } from "node:path";
 import * as fs from "node:fs";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { create, AuthoringError } from "../../src/commons/index.ts";
-import { instrumentHarnessIO, type IoEvent } from "../support/harness-io-instrumentation.ts";
+import { runFactoryForTest } from "../../../../src/testing/index.ts";
+import { create, AuthoringError } from "../../../../src/commons/index.ts";
+import { instrumentHarnessIO, type IoEvent } from "../../../support/harness-io-instrumentation.ts";
 
-const FIXTURE_DIR = join(import.meta.dir, "../fixtures/harness-opted-in");
+const FIXTURE_DIR = join(import.meta.dir, "../../../fixtures/harness-opted-in");
 const SCHEMA_PATH = join(FIXTURE_DIR, "schema.json");
 
 // The ONLY node:fs events an opted-in factory's OWN declared behaviour is allowed to

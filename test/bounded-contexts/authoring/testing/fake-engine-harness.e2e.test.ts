@@ -8,16 +8,16 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { frameHostFactory } from "../support/frame-host.ts";
+import { frameHostFactory } from "../../../support/frame-host.ts";
 import { serveSpawnedRunner } from "./fake-engine-harness.ts";
-import { ContractFake } from "../../src/testing/contract-fake.ts";
-import { BRIDGE_CONTRACT_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
+import { ContractFake } from "../../../../src/bounded-contexts/authoring/testing/contract-fake.ts";
+import { BRIDGE_CONTRACT_VERSION } from "../../../../src/shared-kernel/wire-protocol.ts";
 
-const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
-const RUNNER_BIN = new URL("../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;
-const BRIDGE_STUB = new URL("../fixtures/bridge-bootstrap-stub.ts", import.meta.url).pathname;
-const HAPPY_POINTER = `file://${new URL("../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;
-const SABOTAGE_POINTER = `file://${new URL("../fixtures/frame-runner/sabotage/", import.meta.url).pathname}factory.ts`;
+const PROJECT_ROOT = new URL("../../../../", import.meta.url).pathname;
+const RUNNER_BIN = new URL("../../../../src/bin/pbuilder-runner.ts", import.meta.url).pathname;
+const BRIDGE_STUB = new URL("../../../fixtures/bridge-bootstrap-stub.ts", import.meta.url).pathname;
+const HAPPY_POINTER = `file://${new URL("../../../fixtures/frame-runner/happy/", import.meta.url).pathname}factory.ts`;
+const SABOTAGE_POINTER = `file://${new URL("../../../fixtures/frame-runner/sabotage/", import.meta.url).pathname}factory.ts`;
 
 const spawnFrameHost = frameHostFactory();
 
@@ -32,7 +32,7 @@ describe("input-file admission before greeting", () => {
           execFileSync("mkfifo", [fifo], { timeout: 2000 });
           const path = mode === "symlink-to-FIFO" ? join(dir, "input-link") : fifo;
           if (path !== fifo) symlinkSync(fifo, path);
-          const pointer = new URL("../fixtures/frame-runner/import-crash/factory.ts", import.meta.url).href;
+          const pointer = new URL("../../../fixtures/frame-runner/import-crash/factory.ts", import.meta.url).href;
           const args = ["run", RUNNER_BIN, "--factory", pointer, "--input-file", path];
           if (mode === "conflicting FIFO") args.push("--input", "{}");
           const host = spawnFrameHost("bun", args, { cwd: PROJECT_ROOT });

@@ -4,8 +4,8 @@
  * Tests the two-phase staging→committed model described in ADR-01.
  */
 import { describe, it, expect } from "bun:test";
-import { ContractFake } from "../support/contract-fake.ts";
-import type { Batch } from "../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
+import { ContractFake } from "../../../support/contract-fake.ts";
+import type { Batch } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
 function makeBatch(pathTemplate: string, template: string): Batch {
   return {

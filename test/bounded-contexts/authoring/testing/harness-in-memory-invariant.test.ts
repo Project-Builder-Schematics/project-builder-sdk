@@ -35,10 +35,10 @@ import { describe, it, expect } from "bun:test";
 import * as fs from "node:fs";
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { create, replaceContent, find, remove, rename, move, copy, scaffold } from "../../src/commons/index.ts";
-import { scratchDirFactory } from "../support/scratch-dir.ts";
-import { instrumentHarnessIO, type IoEvent } from "../support/harness-io-instrumentation.ts";
+import { runFactoryForTest } from "../../../../src/testing/index.ts";
+import { create, replaceContent, find, remove, rename, move, copy, scaffold } from "../../../../src/commons/index.ts";
+import { scratchDirFactory } from "../../../support/scratch-dir.ts";
+import { instrumentHarnessIO, type IoEvent } from "../../../support/harness-io-instrumentation.ts";
 
 const scratchDir = scratchDirFactory("harness-in-memory-invariant-");
 

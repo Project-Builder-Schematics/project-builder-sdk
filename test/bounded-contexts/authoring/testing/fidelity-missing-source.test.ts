@@ -8,7 +8,7 @@
  * "lib/foo.ts", not "lib//foo.ts".
  */
 import { describe, it, expect } from "bun:test";
-import { ContractFake } from "../support/contract-fake.ts";
+import { ContractFake } from "../../../support/contract-fake.ts";
 import { batch, renameOp, copyOp, moveOp } from "./directive-builders.ts";
 
 // ─── C2: missing-source errors ───────────────────────────────────────────────

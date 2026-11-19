@@ -24,11 +24,12 @@ const ROOT = new URL("../../src", import.meta.url).pathname;
 // REQ-TSD-02 — the widening cascades to defineFactory's origin in core/context.ts and to
 // Batch/Directive's origin in core/wire.ts, both re-exported through src/testing/index.ts;
 // ./typescript added per stage-5-first-dialect REQ-FIT-06 — the new dialect subpath's entry
-// verb `find` is gate-covered by this SAME fitness function, not left to convention)
+// verb `find` is gate-covered by this SAME fitness function, not left to convention). Entries
+// that are `export *` barrels are scanned at the kit or adapter they re-export.
 const PUBLIC_PATHS = [
   join(ROOT, "commons/index.ts"),
-  join(ROOT, "conformance/index.ts"),
-  join(ROOT, "testing/index.ts"),
+  join(ROOT, "bounded-contexts/authoring/testing/conformance/index.ts"),
+  join(ROOT, "bounded-contexts/authoring/testing/harness/index.ts"),
   join(ROOT, "bounded-contexts/authoring/infrastructure/out/dialects/typescript/index.ts"),
 ];
 
@@ -326,13 +327,13 @@ export interface UndocumentedHandle {
   // `@param seed` became `@param options.seed` in the SAME commit as this regex update, so
   // the guard never goes green-on-stale or red-on-correct.
   it("REQ-TSD-02.1: runFactoryForTest's JSDoc carries an @param options.seed tag", () => {
-    const source = readFileSync(join(ROOT, "testing/index.ts"), "utf-8");
+    const source = readFileSync(join(ROOT, "bounded-contexts/authoring/testing/harness/index.ts"), "utf-8");
     const jsdoc = jsDocBefore(source, /^export async function runFactoryForTest</);
     expect(jsdoc).toMatch(/@param\s+options\.seed\b/);
   });
 
   it("REQ-TSD-02.1: runFactoryForTest's @example is a complete author test — bare factory, invocation, and an assertion on the result, zero defineFactory tokens", () => {
-    const source = readFileSync(join(ROOT, "testing/index.ts"), "utf-8");
+    const source = readFileSync(join(ROOT, "bounded-contexts/authoring/testing/harness/index.ts"), "utf-8");
     const jsdoc = jsDocBefore(source, /^export async function runFactoryForTest</);
     const exampleIdx = jsdoc.indexOf("@example");
     expect(exampleIdx).toBeGreaterThan(-1);
@@ -346,7 +347,7 @@ export interface UndocumentedHandle {
   // REQ-TSD-02.2: stability-language TOKEN-LEVEL assert (design rev 4 §4.6, GAP-5 pinned
   // token set) — `runFactoryForTest`'s JSDoc must state the 0.x/semver-exempt exemption.
   it("REQ-TSD-02.2: runFactoryForTest's JSDoc states the 0.x semver-exempt exemption", () => {
-    const source = readFileSync(join(ROOT, "testing/index.ts"), "utf-8");
+    const source = readFileSync(join(ROOT, "bounded-contexts/authoring/testing/harness/index.ts"), "utf-8");
     const jsdoc = jsDocBefore(source, /^export async function runFactoryForTest</);
     expect(jsdoc).toContain("0.x");
     expect(jsdoc).toContain("semver-exempt");

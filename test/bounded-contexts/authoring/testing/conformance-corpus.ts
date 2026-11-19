@@ -8,13 +8,13 @@
 // leg) are two views of the SAME fixture file under test/fixtures/frame-runner/ — not two
 // independent definitions of "the same" scenario.
 
-import happyFactory from "../fixtures/frame-runner/happy/factory.ts";
-import collideFactory from "../fixtures/frame-runner/collide/factory.ts";
-import capBoundaryFactory from "../fixtures/frame-runner/cap-boundary/factory.ts";
-import type { AuthoringReason } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
+import happyFactory from "../../../fixtures/frame-runner/happy/factory.ts";
+import collideFactory from "../../../fixtures/frame-runner/collide/factory.ts";
+import capBoundaryFactory from "../../../fixtures/frame-runner/cap-boundary/factory.ts";
+import type { AuthoringReason } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 
 function pointerFor(dir: string): string {
-  return `file://${new URL(`../fixtures/frame-runner/${dir}/`, import.meta.url).pathname}factory.ts`;
+  return `file://${new URL(`../../../fixtures/frame-runner/${dir}/`, import.meta.url).pathname}factory.ts`;
 }
 
 export interface ConformanceScenario {

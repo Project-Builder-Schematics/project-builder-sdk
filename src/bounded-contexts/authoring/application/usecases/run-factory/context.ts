@@ -220,8 +220,8 @@ function checkReservedNames(packageDir: string): void {
  * `defineFactory(fn)` call is the untyped opt-out and runs exactly as before this option
  * existed (REQ-TFO-02).
  *
- * @internal Sanctioned callers only — `src/core/**`, `src/testing/**`, and
- * `src/conformance/**` (enforced by `test/fitness/fit-29-sanctioned-definefactory-caller.test.ts`).
+ * @internal Sanctioned callers only — `src/core/**` and
+ * `src/bounded-contexts/authoring/testing/**` (enforced by `test/fitness/fit-29-sanctioned-definefactory-caller.test.ts`).
  * Author code never imports this directly; it calls `runFactoryForTest` (test-time) or the
  * future production runner instead — both wrap this SAME seam internally.
  *

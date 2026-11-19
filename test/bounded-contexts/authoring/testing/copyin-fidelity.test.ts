@@ -9,10 +9,10 @@
 import { describe, it, expect } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runFactoryForTest } from "../../src/testing/index.ts";
-import { copyIn, AuthoringError } from "../../src/commons/index.ts";
-import { scratchDirFactory } from "../support/scratch-dir.ts";
-import { collectOps } from "../support/spy-client.ts";
+import { runFactoryForTest } from "../../../../src/testing/index.ts";
+import { copyIn, AuthoringError } from "../../../../src/commons/index.ts";
+import { scratchDirFactory } from "../../../support/scratch-dir.ts";
+import { collectOps } from "../../../support/spy-client.ts";
 
 const scratchDir = scratchDirFactory("copyin-fidelity-");
 

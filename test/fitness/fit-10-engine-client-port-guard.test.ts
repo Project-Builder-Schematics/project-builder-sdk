@@ -14,7 +14,7 @@
  * the false positive of a bare EventEmitter `.emit(` call in a file that has nothing to do
  * with the port.
  *
- * Allow-list (ADR-01, stdio-engine-client change): `src/testing/contract-fake.ts` (REQ-TES-07,
+ * Allow-list (ADR-01, stdio-engine-client change): `src/bounded-contexts/authoring/testing/contract-fake.ts` (REQ-TES-07,
  * post-relocation ADR-0035 — the original legitimate `EngineClient` implementer / `EmitRejection`
  * thrower) PLUS `src/acl/irwire/stdio-engine-client.ts` — the first REAL `EngineClient`
  * implementer, extending the allow-list by EXACTLY one path. A structural `implements
@@ -43,7 +43,7 @@ const CORE_DIRS: readonly string[] = [
   join(SRC_ROOT, "bounded-contexts/authoring/application/usecases/run-factory"),
 ];
 
-const ALLOW_LISTED_PATHS: readonly string[] = ["src/testing/contract-fake.ts", "src/acl/irwire/stdio-engine-client.ts"];
+const ALLOW_LISTED_PATHS: readonly string[] = ["src/bounded-contexts/authoring/testing/contract-fake.ts", "src/acl/irwire/stdio-engine-client.ts"];
 
 const PORT_SYMBOL_PATTERN = /\b(?:EngineClient|EmitRejection)\b/;
 const PORT_CALL_PATTERN = /\.(emit|commit|discard)\(/g;
@@ -123,8 +123,8 @@ export function bypass(): never {
     expect(violations.some((v) => v.includes("EmitRejection"))).toBe(true);
   });
 
-  it("src/testing/contract-fake.ts (real source) is allow-listed clean", () => {
-    const relPath = "src/testing/contract-fake.ts";
+  it("src/bounded-contexts/authoring/testing/contract-fake.ts (real source) is allow-listed clean", () => {
+    const relPath = "src/bounded-contexts/authoring/testing/contract-fake.ts";
     const source = readFileSync(join(PROJECT_ROOT, relPath), "utf-8");
     const violations = scanPortBleed(source, relPath);
     expect(violations).toEqual([]);
@@ -210,7 +210,7 @@ export function describe(directive: Directive): JsonValue {
 
   describe("REQ-TES-07 — allow-list transition post fake relocation", () => {
     it("REQ-TES-07.1 (ADR-01 amendment): the allow-list is exactly these two paths", () => {
-      expect(ALLOW_LISTED_PATHS).toEqual(["src/testing/contract-fake.ts", "src/acl/irwire/stdio-engine-client.ts"]);
+      expect(ALLOW_LISTED_PATHS).toEqual(["src/bounded-contexts/authoring/testing/contract-fake.ts", "src/acl/irwire/stdio-engine-client.ts"]);
     });
 
     // RED-PROOF (REQ-TES-07.2): the facade is NOT on the allow-list — naming EngineClient

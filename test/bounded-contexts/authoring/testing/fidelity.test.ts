@@ -9,7 +9,7 @@
  * Must NOT assert engine internals (tombstones, opLog, commit pass, ConflictError taxonomy).
  */
 import { describe, it, expect } from "bun:test";
-import { ContractFake } from "../support/contract-fake.ts";
+import { ContractFake } from "../../../support/contract-fake.ts";
 import { batch, createOp, modifyOp, deleteOp, renameOp, copyOp } from "./directive-builders.ts";
 
 // ─── FAKE-01: eager batch apply in array order ────────────────────────────────
