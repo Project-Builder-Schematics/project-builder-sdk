@@ -1,0 +1,34 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out/a.ts",
+            "template": "export const marker = \"a.ts\";\n",
+            "options": {}
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out/b.ts",
+            "template": "export const marker = \"b.ts\";\n",
+            "options": {}
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out/c.ts",
+            "template": "export const marker = \"c.ts\";\n",
+            "options": {}
+          }
+        }
+      ]
+    }
+  ]
+}

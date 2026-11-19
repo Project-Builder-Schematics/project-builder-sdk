@@ -1,0 +1,25 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "m11-over-cap.txt",
+            "template": "<sha256:8cc069d4c8d2f4023b399e3b8a8ec0cbf7d8d65bf36f5c42cdc08467ced79d75:4194083>",
+            "options": {}
+          }
+        }
+      ]
+    }
+  ],
+  "error": {
+    "name": "AuthoringError",
+    "reason": "changes-too-large",
+    "origin": "write-rejected",
+    "appliedCount": 0,
+    "message": "changes could not be applied: changes-too-large"
+  }
+}

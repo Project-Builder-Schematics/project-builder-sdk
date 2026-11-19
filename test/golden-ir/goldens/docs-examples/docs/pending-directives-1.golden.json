@@ -1,0 +1,26 @@
+[
+  {
+    "emitted": [
+      {
+        "protocolVersion": 1,
+        "force": false,
+        "instructions": [
+          {
+            "op": "create",
+            "create": {
+              "pathTemplate": "src/index.ts",
+              "template": "export const version = '1.0.0';",
+              "options": {}
+            }
+          },
+          {
+            "op": "delete",
+            "delete": {
+              "path": "src/legacy.ts"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

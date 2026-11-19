@@ -1,0 +1,25 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "boundary.txt",
+            "template": "<sha256:983994a9eb3f8b46d72775302a5a55715e46ab56be3133ac723d66a333598239:4194168>",
+            "options": {}
+          }
+        }
+      ]
+    }
+  ],
+  "error": {
+    "name": "AuthoringError",
+    "reason": "changes-too-large",
+    "origin": "write-rejected",
+    "appliedCount": 0,
+    "message": "changes could not be applied: changes-too-large"
+  }
+}

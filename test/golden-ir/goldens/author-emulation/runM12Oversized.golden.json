@@ -1,0 +1,10 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "AuthoringError",
+    "reason": "invalid-input",
+    "origin": "authoring-rejected",
+    "appliedCount": 0,
+    "message": "invalid input: templateFile \"files/huge-template.txt\" is too large to render inline (over the 4 MiB limit)"
+  }
+}

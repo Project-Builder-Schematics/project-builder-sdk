@@ -1,0 +1,10 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "AuthoringError",
+    "reason": "invalid-input",
+    "origin": "authoring-rejected",
+    "appliedCount": 0,
+    "message": "source path invalid: ../m16-traversal-outside.txt must not contain a '..' segment or be absolute — everything a schematic reads lives inside its package (packageDir)"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "AuthoringError",
+    "reason": "invalid-input",
+    "origin": "authoring-rejected",
+    "appliedCount": 0,
+    "message": "invalid input: source \"assets/blob.bin.template\" is marked .template but is not valid text (binary content) — render requests never silently fall back to a copy"
+  }
+}

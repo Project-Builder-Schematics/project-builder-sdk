@@ -1,0 +1,17 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "copyIn",
+          "copyIn": {
+            "from": "assets/logo.png",
+            "to": "m06-out/logo.png"
+          }
+        }
+      ]
+    }
+  ]
+}

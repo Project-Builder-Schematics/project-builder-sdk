@@ -1,0 +1,29 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "m05-out/note.txt",
+            "template": "A small by-value text file (REQ-CCL-01.1) — scaffolded alongside a binary sibling in the\nSAME call so one scaffold emits both a `create` and a `copyIn` directive (M-05).\n",
+            "options": {
+              "name": "user-profile"
+            },
+            "force": true
+          }
+        },
+        {
+          "op": "copyIn",
+          "copyIn": {
+            "from": "files-mixed/photo.png",
+            "to": "m05-out/photo.png",
+            "force": true
+          }
+        }
+      ]
+    }
+  ]
+}

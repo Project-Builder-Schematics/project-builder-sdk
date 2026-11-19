@@ -1,0 +1,10 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "AuthoringError",
+    "reason": "invalid-input",
+    "origin": "authoring-rejected",
+    "appliedCount": 0,
+    "message": "invalid input: scaffold filters eliminated every entry — include: [\"*.nonexistent-ext\"], exclude: []"
+  }
+}

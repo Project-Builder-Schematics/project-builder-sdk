@@ -1,0 +1,11 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "AuthoringError",
+    "path": "missing.txt",
+    "reason": "source-not-found",
+    "origin": "authoring-rejected",
+    "appliedCount": 0,
+    "message": "source file not found: missing.txt does not exist in the package"
+  }
+}

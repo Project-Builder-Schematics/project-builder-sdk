@@ -1,0 +1,17 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "copyIn",
+          "copyIn": {
+            "from": "files/huge.bin",
+            "to": "out/huge.bin"
+          }
+        }
+      ]
+    }
+  ]
+}

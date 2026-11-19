@@ -1,0 +1,64 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out/big-0.txt",
+            "template": "<sha256:6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf:838860>",
+            "options": {}
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out/big-1.txt",
+            "template": "<sha256:6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf:838860>",
+            "options": {}
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out/big-2.txt",
+            "template": "<sha256:6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf:838860>",
+            "options": {}
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out/big-3.txt",
+            "template": "<sha256:6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf:838860>",
+            "options": {}
+          }
+        }
+      ]
+    },
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out/big-4.txt",
+            "template": "<sha256:6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf:838860>",
+            "options": {}
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "out/big-5.txt",
+            "template": "<sha256:6dc816db34e7afd1ac572ae61e5c016cbb93f89a548d3f34e0c79c0277014fcf:838860>",
+            "options": {}
+          }
+        }
+      ]
+    }
+  ]
+}

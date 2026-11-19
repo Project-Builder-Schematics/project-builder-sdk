@@ -1,0 +1,7 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "Error",
+    "message": "Could not locate the imports array closing in src/app.module.ts"
+  }
+}

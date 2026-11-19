@@ -1,0 +1,20 @@
+[
+  {
+    "emitted": [
+      {
+        "protocolVersion": 1,
+        "force": false,
+        "instructions": [
+          {
+            "op": "create",
+            "create": {
+              "pathTemplate": "src/services/payments.ts",
+              "template": "export const serviceName = \"payments\";",
+              "options": {}
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "m10-giant.txt",
+            "template": "<sha256:27221c65522b42c242a397517b334594ed84a2eec00c0099900b4e9f554289c2:4195191>",
+            "options": {}
+          }
+        }
+      ]
+    }
+  ],
+  "error": {
+    "name": "AuthoringError",
+    "reason": "changes-too-large",
+    "origin": "write-rejected",
+    "appliedCount": 0,
+    "message": "changes could not be applied: changes-too-large"
+  }
+}

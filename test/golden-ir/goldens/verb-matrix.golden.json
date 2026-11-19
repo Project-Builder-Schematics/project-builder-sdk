@@ -1,0 +1,228 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "created/plain.ts",
+            "template": "export const name = '{= .name =}';",
+            "options": {
+              "name": "orders"
+            }
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "created/forced.ts",
+            "template": "forced",
+            "options": {},
+            "force": true
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "created/no-options.ts",
+            "template": "no options",
+            "options": {}
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "created/from-file.ts",
+            "template": "export const greeting = 'hello {= .name =}';\n",
+            "options": {
+              "name": "orders"
+            }
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "scaffolded/README.md",
+            "template": "# {= .name =}\n",
+            "options": {
+              "name": "orders"
+            }
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "scaffolded/nested/{= .name =}.ts",
+            "template": "export const nested = '{= .name =}';\n",
+            "options": {
+              "name": "orders"
+            }
+          }
+        },
+        {
+          "op": "copyIn",
+          "copyIn": {
+            "from": "assets/note.txt",
+            "to": "copied/note.txt"
+          }
+        },
+        {
+          "op": "modify",
+          "modify": {
+            "path": "seed/replace.txt",
+            "content": "replaced"
+          }
+        },
+        {
+          "op": "delete",
+          "delete": {
+            "path": "seed/remove.txt"
+          }
+        },
+        {
+          "op": "rename",
+          "rename": {
+            "path": "root-rename.txt",
+            "newName": "root-renamed.txt"
+          }
+        },
+        {
+          "op": "rename",
+          "rename": {
+            "path": "seed/rename.txt",
+            "newName": "renamed.txt",
+            "force": true
+          }
+        },
+        {
+          "op": "move",
+          "move": {
+            "path": "seed/move.txt",
+            "toDir": "moved",
+            "force": true
+          }
+        },
+        {
+          "op": "copy",
+          "copy": {
+            "from": "seed/copy.txt",
+            "to": "copied/copy.txt",
+            "force": true
+          }
+        }
+      ]
+    },
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "modify",
+          "modify": {
+            "path": "seed/f-replace.txt",
+            "content": "found replaced"
+          }
+        },
+        {
+          "op": "rename",
+          "rename": {
+            "path": "seed/f-rename.txt",
+            "newName": "f-renamed.txt",
+            "force": true
+          }
+        },
+        {
+          "op": "move",
+          "move": {
+            "path": "seed/f-move.txt",
+            "toDir": "found-moved",
+            "force": true
+          }
+        },
+        {
+          "op": "copy",
+          "copy": {
+            "from": "seed/f-copy.txt",
+            "to": "found-copied/f-copy.txt",
+            "force": true
+          }
+        },
+        {
+          "op": "delete",
+          "delete": {
+            "path": "seed/f-remove.txt"
+          }
+        },
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "chain/start.txt",
+            "template": "start",
+            "options": {}
+          }
+        }
+      ]
+    },
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "modify",
+          "modify": {
+            "path": "chain/start.txt",
+            "content": "chained"
+          }
+        },
+        {
+          "op": "rename",
+          "rename": {
+            "path": "chain/start.txt",
+            "newName": "renamed.txt",
+            "force": true
+          }
+        },
+        {
+          "op": "move",
+          "move": {
+            "path": "chain/renamed.txt",
+            "toDir": "chain-moved",
+            "force": true
+          }
+        },
+        {
+          "op": "copy",
+          "copy": {
+            "from": "chain-moved/renamed.txt",
+            "to": "chain-copied/renamed.txt",
+            "force": true
+          }
+        }
+      ]
+    }
+  ],
+  "observed": [
+    "seeded f-read",
+    "start",
+    [
+      {
+        "verb": "modify",
+        "path": "chain/start.txt"
+      },
+      {
+        "verb": "rename",
+        "path": "chain/start.txt"
+      },
+      {
+        "verb": "move",
+        "path": "chain/renamed.txt"
+      },
+      {
+        "verb": "copy",
+        "path": "chain-moved/renamed.txt"
+      }
+    ]
+  ]
+}
