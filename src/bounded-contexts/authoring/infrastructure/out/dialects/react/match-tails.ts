@@ -8,7 +8,7 @@ import { elementNameEcho } from "../../../../domain/services/reject-tail.ts";
 // refusing to — deliberate UX (naming which element wasn't found / matched), sanctioned by
 // design §4.4. `elementName` is grammar-constrained (no quotes, no newlines — never an
 // injection vector), but the grammar has no LENGTH ceiling, so the echo routes through
-// `elementNameEcho` (the wide, marked 100-char bound above) — NOT `boundedFragment`'s 16-char
+// `elementNameEcho` (reject-tail.ts's wide, marked 100-char bound) — NOT `boundedFragment`'s 16-char
 // hostile-value cap — keeping every react reject message bounded without mangling ordinary
 // names.
 
