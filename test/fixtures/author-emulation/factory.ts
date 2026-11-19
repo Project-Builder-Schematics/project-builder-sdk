@@ -180,11 +180,14 @@ function scratchFactoryRunner(
       }
       const ctx = currentContext();
       const previousAnchors = ctx.packageAnchors;
+      const previousFiles = ctx.packageFiles;
       ctx.packageAnchors = { packageDir: dir };
+      ctx.packageFiles = nodePackageFiles;
       try {
         await body(input);
       } finally {
         ctx.packageAnchors = previousAnchors;
+        ctx.packageFiles = previousFiles;
       }
     } finally {
       teardown?.(dir);
