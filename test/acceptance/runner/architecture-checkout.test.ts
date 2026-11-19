@@ -46,7 +46,7 @@ if (requireArchitecture()) {
   });
 
   describe("the step catalog", () => {
-    // Just under the 638 phrases at v0.17.0, so a table format change cannot empty the catalog
+    // Just under the 645 phrases at v0.18.0, so a table format change cannot empty the catalog
     // and pass the checks below vacuously.
     it("reads at least 600 phrases", () => {
       expect(catalog.length).toBeGreaterThanOrEqual(600);

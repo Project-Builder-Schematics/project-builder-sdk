@@ -54,9 +54,9 @@ const rowName = (row: PendingFeature): string => (row.scenario === undefined ? r
 
 /**
  * The strict pass must select at least this many scenarios (pending ones included), so a pin
- * bump or a retag that drops scenarios fails instead of passing on fewer. Measured at v0.17.0.
+ * bump or a retag that drops scenarios fails instead of passing on fewer. Measured at v0.18.0.
  */
-export const IMPLEMENTED_FLOOR = 346;
+export const IMPLEMENTED_FLOOR = 407;
 
 /** Rows that are no longer true: an unknown feature or scenario, a duplicate, or one with every step defined. */
 export function stalePendingRows(
