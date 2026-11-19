@@ -24,7 +24,7 @@ export const PENDING_FEATURES: readonly PendingFeature[] = [
   {
     feature: "bounded-contexts/authoring/rules/content-as-truth.feature",
     scenario: "A single handle chains its ops into one content write and reads the file once",
-    slice: "pending: read counter (issue TBD)",
+    slice: "sdk#193",
   },
   { feature: DIALECTS_FEATURE, scenario: "A conforming Dialect passes the conformance fixture", slice: CONFORMANCE },
   { feature: DIALECTS_FEATURE, scenario: "A Dialect whose print changes an unedited file is rejected", slice: CONFORMANCE },
