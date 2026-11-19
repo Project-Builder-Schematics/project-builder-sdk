@@ -172,7 +172,7 @@ authoring/testing -> runner-hosting/composition: compositionImporters
 authoring/testing -> runner-hosting/testing: testingImporters
 authoring/testing -> acl: ok
 authoring/testing -> shared-kernel: ok
-authoring/testing -> platform: platformImporters
+authoring/testing -> platform: ok
 authoring/testing -> public-entry: ok
 authoring/testing -> public-test-entry: ok
 authoring/testing -> process-entry: ok
@@ -364,7 +364,7 @@ runner-hosting/testing -> runner-hosting/composition: compositionImporters
 runner-hosting/testing -> runner-hosting/testing: ok
 runner-hosting/testing -> acl: ok
 runner-hosting/testing -> shared-kernel: ok
-runner-hosting/testing -> platform: platformImporters
+runner-hosting/testing -> platform: ok
 runner-hosting/testing -> public-entry: ok
 runner-hosting/testing -> public-test-entry: ok
 runner-hosting/testing -> process-entry: ok
