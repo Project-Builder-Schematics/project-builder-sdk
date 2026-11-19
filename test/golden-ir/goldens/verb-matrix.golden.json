@@ -15,12 +15,26 @@
           }
         },
         {
+          "op": "modify",
+          "modify": {
+            "path": "created/plain.ts",
+            "content": "plain returned"
+          }
+        },
+        {
           "op": "create",
           "create": {
             "pathTemplate": "created/forced.ts",
             "template": "forced",
             "options": {},
             "force": true
+          }
+        },
+        {
+          "op": "modify",
+          "modify": {
+            "path": "created/forced.ts",
+            "content": "forced returned"
           }
         },
         {
@@ -32,6 +46,13 @@
           }
         },
         {
+          "op": "modify",
+          "modify": {
+            "path": "created/no-options.ts",
+            "content": "no options returned"
+          }
+        },
+        {
           "op": "create",
           "create": {
             "pathTemplate": "created/from-file.ts",
@@ -39,6 +60,13 @@
             "options": {
               "name": "orders"
             }
+          }
+        },
+        {
+          "op": "modify",
+          "modify": {
+            "path": "created/from-file.ts",
+            "content": "from file returned"
           }
         },
         {
@@ -76,6 +104,13 @@
           }
         },
         {
+          "op": "modify",
+          "modify": {
+            "path": "seed/replace.txt",
+            "content": "replace returned"
+          }
+        },
+        {
           "op": "delete",
           "delete": {
             "path": "seed/remove.txt"
@@ -89,11 +124,25 @@
           }
         },
         {
+          "op": "modify",
+          "modify": {
+            "path": "root-renamed.txt",
+            "content": "root rename returned"
+          }
+        },
+        {
           "op": "rename",
           "rename": {
             "path": "seed/rename.txt",
             "newName": "renamed.txt",
             "force": true
+          }
+        },
+        {
+          "op": "modify",
+          "modify": {
+            "path": "seed/renamed.txt",
+            "content": "rename returned"
           }
         },
         {
@@ -105,11 +154,25 @@
           }
         },
         {
+          "op": "modify",
+          "modify": {
+            "path": "moved/move.txt",
+            "content": "move returned"
+          }
+        },
+        {
           "op": "copy",
           "copy": {
             "from": "seed/copy.txt",
             "to": "copied/copy.txt",
             "force": true
+          }
+        },
+        {
+          "op": "modify",
+          "modify": {
+            "path": "copied/copy.txt",
+            "content": "copy returned"
           }
         }
       ]
@@ -126,11 +189,25 @@
           }
         },
         {
+          "op": "modify",
+          "modify": {
+            "path": "seed/f-replace.txt",
+            "content": "found replace returned"
+          }
+        },
+        {
           "op": "rename",
           "rename": {
             "path": "seed/f-rename.txt",
             "newName": "f-renamed.txt",
             "force": true
+          }
+        },
+        {
+          "op": "modify",
+          "modify": {
+            "path": "seed/f-renamed.txt",
+            "content": "found rename returned"
           }
         },
         {
@@ -142,11 +219,25 @@
           }
         },
         {
+          "op": "modify",
+          "modify": {
+            "path": "found-moved/f-move.txt",
+            "content": "found move returned"
+          }
+        },
+        {
           "op": "copy",
           "copy": {
             "from": "seed/f-copy.txt",
             "to": "found-copied/f-copy.txt",
             "force": true
+          }
+        },
+        {
+          "op": "modify",
+          "modify": {
+            "path": "found-copied/f-copy.txt",
+            "content": "found copy returned"
           }
         },
         {
@@ -199,6 +290,13 @@
             "to": "chain-copied/renamed.txt",
             "force": true
           }
+        },
+        {
+          "op": "modify",
+          "modify": {
+            "path": "chain-copied/renamed.txt",
+            "content": "chain returned"
+          }
         }
       ]
     }
@@ -222,6 +320,10 @@
       {
         "verb": "copy",
         "path": "chain-moved/renamed.txt"
+      },
+      {
+        "verb": "modify",
+        "path": "chain-copied/renamed.txt"
       }
     ]
   ]
