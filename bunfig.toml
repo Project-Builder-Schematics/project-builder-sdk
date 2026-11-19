@@ -1,0 +1,4 @@
+[test]
+# The architecture submodule ships its own script tests, which need its own dependencies; CI's
+# suite job never checks it out, so a local run skips them too.
+pathIgnorePatterns = ["third_party/**"]
