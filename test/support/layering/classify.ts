@@ -97,7 +97,9 @@ export function classify(path: string, entries: Entries): Classified {
   if (entries.processEntries.has(path)) return { kind: "process-entry" };
   const target = classifyTarget(path);
   if (target !== undefined) return { ...target, ...unitOf(path) };
-  throw new ClassificationError(`${path}: unclassified — add it to the target layout`);
+  throw new ClassificationError(
+    `${path}: unclassified — it is no package entry and sits outside the target layout (src/bounded-contexts/, src/acl/, src/shared-kernel/, src/platform/, src/acceptance/)`
+  );
 }
 
 const TEST_KIT_SUBPATHS = new Set(["./testing", "./conformance"]);

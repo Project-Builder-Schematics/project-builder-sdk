@@ -7,7 +7,7 @@
  * REQ-05.1: the pending-directives module must be AST-blind and core-blind by construction.
  */
 import { describe, it, expect } from "bun:test";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, resolve } from "node:path";
 import { REPLACED_CORE_FILES } from "../../../../../support/replaced-core.ts";
 
@@ -85,6 +85,13 @@ describe("FIT-pending-directives-no-import — renderer has no core runtime or A
     expect(pendingDirectivesFiles.length).toBeGreaterThan(0);
   });
 
+  // The core check matches resolved paths against the files that left src/core, so a listed
+  // path that no longer exists would make it pass against nothing.
+  it("every file that left src/core still exists, so the core check matches real paths", () => {
+    expect(REPLACED_CORE.size).toBeGreaterThanOrEqual(30);
+    expect([...REPLACED_CORE].filter((path) => !existsSync(path))).toEqual([]);
+  });
+
   it("the pending-directives use case has no runtime import from src/core/**", () => {
     const violations: Array<{ file: string; specifier: string }> = [];
 
@@ -124,6 +131,14 @@ describe("FIT-pending-directives-no-import — renderer has no core runtime or A
     const specifier = "../../../domain/valueobjects/authoring-error.ts";
     const runtimeImports = extractRuntimeImports(`import { AuthoringError } from "${specifier}";`);
     expect(runtimeImports.filter(isCoreRuntimeImport)).toEqual([specifier]);
+  });
+
+  // RED-PROOF: a runtime import planted into a real use-case file is flagged.
+  it("[red-proof] a runtime import planted into render.ts is flagged", () => {
+    const renderPath = join(PENDING_DIRECTIVES_DIR, "render.ts");
+    const specifier = "../../../domain/aggregates/session/session.ts";
+    const planted = `import { Session } from "${specifier}";\n${readFileSync(renderPath, "utf-8")}`;
+    expect(extractRuntimeImports(planted).filter(isCoreRuntimeImport)).toEqual([specifier]);
   });
 
   // RED-PROOF: a type-only import from ../core/wire is NOT flagged (type imports are erased).
