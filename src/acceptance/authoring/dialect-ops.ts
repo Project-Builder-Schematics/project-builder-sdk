@@ -135,4 +135,51 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
     phrase: 'the factory fails because the file "{path}" is not valid YAML',
     run: (world, [path]) => parseFailure(world, path as string, "yaml"),
   },
+  {
+    phrase: 'the factory fails because the file "{path}" is not valid TypeScript',
+    run: (world, [path]) => parseFailure(world, path as string, "typescript"),
+  },
+  {
+    phrase: 'the factory fails because the argument "{argument}" is not one the op accepts',
+    // "`kind` must be ...", or the refused value echoed: "`name` \"await\" is a reserved word ...".
+    run: (world, [argument]) => {
+      const message = dialectFailure(world);
+      const named = `\`${argument as string}\``;
+      const values = [...dialectState(world).lastArguments.values()].flatMap((cells) => {
+        const cell = cells.get(argument as string);
+        return cell === undefined ? [] : [JSON.stringify(JSON.parse(cell))];
+      });
+      expect(message.includes(`${named} must `) || values.some((value) => message.includes(`${named} ${value} is `))).toBe(true);
+    },
+  },
+  {
+    phrase: 'the factory fails because the op "{op}" is not available for the file',
+    run: (world, [op]) => {
+      const message = dialectFailure(world);
+      const extensions = [...dialectState(world).dialectOf.keys()].map((path) => /\.[^./]+$/.exec(path)?.[0] ?? path);
+      expect(extensions.some((extension) => message.includes(`${op as string} is not available for ${extension} files`))).toBe(true);
+    },
+  },
+  {
+    phrase: "the factory fails because the target does not match exactly one element",
+    run: (world) => {
+      const message = dialectFailure(world);
+      const tags = [...dialectState(world).lastArguments.values()].flatMap((cells) => {
+        const target = cells.get("target");
+        if (target === undefined) return [];
+        const value = JSON.parse(target) as string | { tag: string };
+        return [typeof value === "string" ? value : value.tag];
+      });
+      // No match: "no element named `Button` was found"; several: "`B` matched 2 elements", props between.
+      const named = (tag: string) =>
+        message.includes(`no element named \`${tag}\``) || new RegExp(`\`${RegExp.escape(tag)}\`[^—]* matched \\d+ elements`).test(message);
+      expect(tags.some(named)).toBe(true);
+    },
+  },
+  {
+    phrase: 'the factory fails naming the component "{component}"',
+    // "component `Card` has ...", "no component named `Card`", "prop `title` already exists on `Card`".
+    run: (world, [component]) =>
+      void expect(dialectFailure(world)).toMatch(new RegExp(`(?:component|named|on) \`${RegExp.escape(component as string)}\``)),
+  },
 ];
