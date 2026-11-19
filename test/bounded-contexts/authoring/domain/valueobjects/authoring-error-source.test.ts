@@ -27,10 +27,11 @@ import { ContractFake } from "../../../../support/contract-fake.ts";
 import { scaffold, AuthoringError } from "../../../../../src/commons/index.ts";
 import { walkFolder } from "../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/walk.ts";
 import { detectDestinationCollisions, type PipelineResult } from "../../../../../src/bounded-contexts/authoring/domain/services/filename-pipeline.ts";
-import { classifyTransport } from "../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts";
+import { classifyTransport } from "../../../../../src/bounded-contexts/authoring/application/usecases/scaffold/classify-transport.ts";
 import { scratchDirFactory } from "../../../../support/scratch-dir.ts";
 import { rejectedRun } from "../../../../support/rejection-capture.ts";
 import { expectAuthoringReason, expectReason } from "../../../../support/expect-reason.ts";
+import { nodePackageFiles } from "../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const scratchDir = scratchDirFactory("aec-12-");
 
@@ -111,6 +112,7 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the three surviving source-* reasons class
     const err = expectReason(
       () =>
         classifyTransport({
+          files: nodePackageFiles,
           packageDir: dir,
           relPath: "missing.ts",
           isTemplateMarked: false,
@@ -137,6 +139,7 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the three surviving source-* reasons class
     const err = expectReason(
       () =>
         classifyTransport({
+          files: nodePackageFiles,
           packageDir: dir,
           relPath: "pipe",
           isTemplateMarked: false,
@@ -155,6 +158,7 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the three surviving source-* reasons class
     const err = expectReason(
       () =>
         classifyTransport({
+          files: nodePackageFiles,
           packageDir: dir,
           relPath: "adir",
           isTemplateMarked: false,

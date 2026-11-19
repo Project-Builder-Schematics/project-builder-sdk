@@ -66,6 +66,9 @@ export interface SessionContext {
   // never a differently-shaped regrowth (REQ-FTG-06 guards this statically and at
   // runtime, REQ-MFB-01.3).
   packageAnchors?: { packageDir: string };
+  // The package-files adapter the run was given with `packageDir`, kept beside the anchor
+  // (never inside it) for the package-local reads of scaffold, copyIn and templateFile.
+  packageFiles?: PackageFiles;
 }
 
 // ADR-04 (stdio-engine-client, REQ-RUN-06): a non-enumerable, non-configurable brand
@@ -85,14 +88,15 @@ export function currentContext(): SessionContext {
 }
 
 // The one gate every package-local read verb (`scaffold`/`copyIn`/`create({templateFile})`)
-// passes through: returns the run's sole anchor or throws the verb's own
-// no-resolution-anchor `invalid-input` when the run opted out of `packageDir`.
-export function requirePackageAnchors(missingAnchorMessage: string): { packageDir: string } {
-  const { packageAnchors } = currentContext();
-  if (packageAnchors === undefined) {
+// passes through: returns the run's sole anchor and the adapter that reads under it, or
+// throws the verb's own no-resolution-anchor `invalid-input` when the run opted out of
+// `packageDir`.
+export function requirePackageAnchors(missingAnchorMessage: string): { packageDir: string; files: PackageFiles } {
+  const { packageAnchors, packageFiles } = currentContext();
+  if (packageAnchors === undefined || packageFiles === undefined) {
     throw invalidInput(missingAnchorMessage);
   }
-  return packageAnchors;
+  return { packageDir: packageAnchors.packageDir, files: packageFiles };
 }
 
 // packageDir accepts a directory URL (import.meta.dir is a Bun string; import.meta.url
@@ -256,6 +260,7 @@ export function defineFactory<O>(
 ): (o: O, deps: { client: EngineClient }) => Promise<void> {
   const wrapped = async (o: O, { client }: { client: EngineClient }): Promise<void> => {
     let packageAnchors: SessionContext["packageAnchors"];
+    let packageFiles: SessionContext["packageFiles"];
     if (options !== undefined) {
       const pkg: PackageRun = { files: options.packageFiles, dir: resolvePackageDir(options.packageDir) };
       // REQ-RBV-06: exactly TWO reads, in this order — reserved-name check, then schema
@@ -263,12 +268,14 @@ export function defineFactory<O>(
       checkReservedNames(pkg);
       validateAtRunBoundary(pkg, o);
       packageAnchors = { packageDir: pkg.dir };
+      packageFiles = pkg.files;
     }
     const ctx: SessionContext = {
       session: new Session(client),
       factory: new DirectiveFactory(),
       dialects: new DialectRegistryImpl(),
       packageAnchors,
+      packageFiles,
     };
     // ADR-01: no `finally` — success (commit) and failure (discard) are distinct paths.
     // The final flush is INSIDE the try, so a flush-time emit rejection (already an

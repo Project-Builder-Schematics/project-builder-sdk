@@ -11,7 +11,7 @@ import { readScanFiles, realSrcFileSnapshot, findLexicalEscapePredicates, findCa
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const SRC_DIR = `${PROJECT_ROOT}src`;
 const RED_ROOT = `${PROJECT_ROOT}test/fixtures/red/src-invariant-scans`;
-const PATH_GUARDS_PATH = `${SRC_DIR}/bounded-contexts/authoring/infrastructure/out/fs/path-guards.ts`;
+const PATH_GUARDS_PATH = `${SRC_DIR}/bounded-contexts/authoring/application/usecases/scaffold/path-guards.ts`;
 
 describe("FIT-NEW-C (fit-45) — exactly one lexical predicate implementation", () => {
   describe("clause (a) — exactly one (file, function) pair implements the idiom", () => {

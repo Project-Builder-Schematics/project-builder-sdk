@@ -25,7 +25,7 @@ import { canaryToken, seedSchema, spawnCapture } from "../support/canary.ts";
 import * as react from "../../src/dialects/react/index.ts";
 import { makeSpyClient } from "../support/spy-client.ts";
 import { scaffold, copyIn, create } from "../../src/commons/index.ts";
-import { classifyTransport } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/classify-transport.ts";
+import { classifyTransport } from "../../src/bounded-contexts/authoring/application/usecases/scaffold/classify-transport.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
@@ -360,7 +360,7 @@ describe("REQ-RBV-04.1 — path-guards baseline branches never leak the absolute
 
     let caught: unknown;
     try {
-      classifyTransport({ packageDir: dir, relPath: "a\0b", isTemplateMarked: false, destPath: "out/x", options: {} });
+      classifyTransport({ files: nodePackageFiles, packageDir: dir, relPath: "a\0b", isTemplateMarked: false, destPath: "out/x", options: {} });
     } catch (err) {
       caught = err;
     }

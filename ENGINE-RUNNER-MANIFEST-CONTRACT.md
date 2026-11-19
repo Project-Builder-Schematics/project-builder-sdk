@@ -105,6 +105,14 @@ If any of these has changed on your side, tell us — several of them are load-b
 > `authoring/infrastructure/out/fs/`×1. The third-party, dynamic-import, resolution and environment
 > rows above still hold.
 
+> **SDK note, 2026-11-20 (scaffold source reads).** The count stays **27 `.js` files** and
+> **28 records**; only the bytes of
+> `bounded-contexts/authoring/infrastructure/out/fs/package-files.js` change. The adapter now also
+> stats and reads scaffold's package-local sources (`copyIn`, `create({ templateFile })`,
+> `scaffold`). It joins those paths lexically and lets the operating system resolve them against
+> the working directory; it does not call `path.resolve`, which is not an admitted origin in the
+> closure. The import graph and the builtin set are unchanged.
+
 ---
 
 ## Deliverable — `dist/runner-manifest.json`
