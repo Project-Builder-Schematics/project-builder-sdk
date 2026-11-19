@@ -43,7 +43,6 @@ const authoring = (layer: Layer): Class => ({ kind: "context", context: "authori
 // Longest matching path wins; a path ending in "/" covers its folder. Sources for each role:
 // the current-state map in odd/tasks/hexagonal-layout-proposal.md section 2.1.
 export const LEGACY: readonly LegacyRow[] = [
-  { path: "src/commons/", class: authoring("application") },
   { path: "src/core/", class: authoring("domain") },
   { path: "src/dialects/", class: authoring("infrastructure-out") },
   { path: "bin/emit-type.ts", class: authoring("infrastructure-in") },

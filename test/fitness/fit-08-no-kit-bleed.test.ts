@@ -16,8 +16,8 @@
  * statement on any scanned path is a violation BY FORM regardless of specifier — allowlisted
  * paths enumerate names exhaustively, so a wildcard can never be validated against one — with
  * the root's exact commons umbrella, each registered dialect's own native runtime
- * `astLibrary` namespace, and each dialect or test-kit entry's plain wildcard over its own
- * adapter or kit (scanned with the entry's allowlist) as the only exemptions.
+ * `astLibrary` namespace, and each dialect, commons or test-kit entry's plain wildcard over its own
+ * adapter, facade or kit (scanned with the entry's allowlist) as the only exemptions.
  *
  * Strategy: per scanned path, scan for (a) any wildcard re-export statement (banned by form,
  * minus the exact exemptions) and (b) any named export brace list containing a KIT_SYMBOL_NAMES
@@ -53,13 +53,18 @@ const TEST_KITS = [
   { entry: join(ROOT, "conformance/index.ts"), kit: join(TEST_KIT_ROOT, "conformance/index.ts") },
 ];
 
+// ./commons is a barrel over Authoring's driving adapter, the facade.
+const COMMONS = { entry: join(ROOT, "commons/index.ts"), kit: join(ROOT, "bounded-contexts/authoring/infrastructure/in/commons/index.ts") };
+const ENTRY_BARRELS = [COMMONS, ...TEST_KITS];
+
 const TESTING_ALLOW = { valueAllow: ["runFactoryForTest"], typeAllow: ["Batch", "Directive"] };
 
 // Per-path allowlist data model (REQ-TES-03): the FIT-08 equivalent of the old flat
 // AUTHOR_SUBPATHS list, now with per-path value/type allowances. `./testing` MUST be a
 // member of this set (REQ-TES-03.3) — allowlisted, never removed from scanning.
 const SCANNED: ScannedPath[] = [
-  { path: join(ROOT, "commons/index.ts"), valueAllow: [], typeAllow: [] },
+  { path: COMMONS.entry, valueAllow: [], typeAllow: [] },
+  { path: COMMONS.kit, valueAllow: [], typeAllow: [] },
   { path: join(ROOT, "index.ts"), valueAllow: [], typeAllow: [] },
   { path: TEST_KITS[1]!.entry, valueAllow: [], typeAllow: [] },
   { path: TEST_KITS[1]!.kit, valueAllow: [], typeAllow: [] },
@@ -106,7 +111,7 @@ function findWildcardViolations(source: string, filePath: string): string[] {
     const target = resolve(dirname(filePath), specifier ?? "");
     const isBarrelExemption = !typeOnly && !alias && (
       DIALECT_MODULES.some((entry) => filePath === join(ROOT, "..", entry.entrypoint) && target === adapterOf(entry.entrypoint)) ||
-      TEST_KITS.some((kit) => filePath === kit.entry && target === kit.kit));
+      ENTRY_BARRELS.some((barrel) => filePath === barrel.entry && target === barrel.kit));
     if (!isUmbrellaExemption && !isLibraryExemption && !isBarrelExemption) {
       violations.push(`wildcard re-export banned by form: ${match[0].trim()}`);
     }
@@ -193,6 +198,17 @@ describe("FIT-08 — no author subpath re-exports a kit symbol beyond its allowl
     ]) expect(findWildcardViolations(source, testing.entry)).toHaveLength(1);
     expect(findWildcardViolations(`export * from "${own}";`, conformance.entry)).toHaveLength(1);
     expect(findWildcardViolations(`export * from "./index.ts";`, testing.kit)).toHaveLength(1);
+  });
+
+  it("the ./commons entry may re-export only its facade, and only as a plain wildcard", () => {
+    const own = "../bounded-contexts/authoring/infrastructure/in/commons/index.ts";
+    expect(findWildcardViolations(`export * from "${own}";`, COMMONS.entry)).toEqual([]);
+    for (const source of [
+      'export * from "../bounded-contexts/authoring/application/usecases/scaffold/index.ts";',
+      `export * as commons from "${own}";`,
+      `export type * from "${own}";`,
+    ]) expect(findWildcardViolations(source, COMMONS.entry)).toHaveLength(1);
+    expect(findWildcardViolations(`export * from "${own}";`, TEST_KITS[0]!.entry)).toHaveLength(1);
   });
 
   it("the root exemption does not permit namespace or type-only variants", () => {

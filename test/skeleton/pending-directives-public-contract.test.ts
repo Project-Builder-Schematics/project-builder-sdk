@@ -1,7 +1,7 @@
 /**
  * REQ-DRE-02.1/.2, REQ-DRE-03.1, REQ-DRE-04.1–.3+(d) — public-contract gate for `pendingDirectives`.
  *
- * `.d.ts` scan against the committed dts-baseline (`test/fitness/dts-baseline/commons.index.d.ts`):
+ * `.d.ts` scan against the committed dts-baseline (`test/fitness/dts-baseline/commons.authoring-verbs.d.ts`):
  *   - REQ-DRE-03.1 (export presence) — [must-fail-first]: genuinely RED against the
  *     pre-regen baseline (no `pendingDirectives` export exists yet); GREEN once the export lands
  *     and the baseline regens in this same slice (design §4.8 constraint 2).
@@ -17,8 +17,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
-const BASELINE_FILE = join(PROJECT_ROOT, "test/fitness/dts-baseline/commons.index.d.ts");
-const COMMONS_SOURCE_FILE = join(PROJECT_ROOT, "src/commons/index.ts");
+// pendingDirectives is declared in the authoring-verbs use case and re-exported by the commons facade.
+const BASELINE_FILE = join(PROJECT_ROOT, "test/fitness/dts-baseline/commons.authoring-verbs.d.ts");
+const COMMONS_SOURCE_FILE = join(PROJECT_ROOT, "src/bounded-contexts/authoring/application/usecases/authoring-verbs/index.ts");
 
 // Extracts the JSDoc comment block immediately preceding `export function pendingDirectives(`.
 function extractPendingDirectivesJsDoc(source: string): string {

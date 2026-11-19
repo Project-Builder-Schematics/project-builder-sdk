@@ -52,25 +52,26 @@ const verbs = new Proxy(commons, {
 }) as typeof commons;
 
 export async function verbMatrix(input: { name: string }): Promise<void> {
-  verbs.create("created/plain.ts", { template: "export const name = '{= .name =}';", options: { name: input.name } });
-  verbs.create("created/forced.ts", { template: "forced", options: {}, force: true });
-  verbs.create("created/no-options.ts", { template: "no options" } as unknown as { template: string; options: object });
-  verbs.create("created/from-file.ts", { templateFile: "templates/greeting.ts.template", options: { name: input.name } });
+  // Every returned handle writes once more, so the path it points at is part of the golden.
+  verbs.create("created/plain.ts", { template: "export const name = '{= .name =}';", options: { name: input.name } }).replaceContent("plain returned");
+  verbs.create("created/forced.ts", { template: "forced", options: {}, force: true }).replaceContent("forced returned");
+  verbs.create("created/no-options.ts", { template: "no options" } as unknown as { template: string; options: object }).replaceContent("no options returned");
+  verbs.create("created/from-file.ts", { templateFile: "templates/greeting.ts.template", options: { name: input.name } }).replaceContent("from file returned");
   verbs.scaffold({ from: "files", to: "scaffolded", options: { name: input.name } });
   verbs.copyIn("assets/note.txt", "copied/note.txt");
 
-  verbs.replaceContent("seed/replace.txt", "replaced");
+  verbs.replaceContent("seed/replace.txt", "replaced").replaceContent("replace returned");
   verbs.remove("seed/remove.txt");
-  verbs.rename("root-rename.txt", "root-renamed.txt");
-  verbs.rename("seed/rename.txt", "renamed.txt", { force: true });
-  verbs.move("seed/move.txt", "moved", { force: true });
-  verbs.copy("seed/copy.txt", "copied/copy.txt", { force: true });
+  verbs.rename("root-rename.txt", "root-renamed.txt").replaceContent("root rename returned");
+  verbs.rename("seed/rename.txt", "renamed.txt", { force: true }).replaceContent("rename returned");
+  verbs.move("seed/move.txt", "moved", { force: true }).replaceContent("move returned");
+  verbs.copy("seed/copy.txt", "copied/copy.txt", { force: true }).replaceContent("copy returned");
 
   observed.push(await verbs.find("seed/f-read.txt").read());
-  verbs.find("seed/f-replace.txt").replaceContent("found replaced");
-  verbs.find("seed/f-rename.txt").rename("f-renamed.txt", { force: true });
-  verbs.find("seed/f-move.txt").move("found-moved", { force: true });
-  verbs.find("seed/f-copy.txt").copy("found-copied/f-copy.txt", { force: true });
+  verbs.find("seed/f-replace.txt").replaceContent("found replaced").replaceContent("found replace returned");
+  verbs.find("seed/f-rename.txt").rename("f-renamed.txt", { force: true }).replaceContent("found rename returned");
+  verbs.find("seed/f-move.txt").move("found-moved", { force: true }).replaceContent("found move returned");
+  verbs.find("seed/f-copy.txt").copy("found-copied/f-copy.txt", { force: true }).replaceContent("found copy returned");
   verbs.find("seed/f-remove.txt").remove();
 
   const written = verbs.create("chain/start.txt", { template: "start", options: {} });
@@ -79,7 +80,8 @@ export async function verbMatrix(input: { name: string }): Promise<void> {
     .replaceContent("chained")
     .rename("renamed.txt", { force: true })
     .move("chain-moved", { force: true })
-    .copy("chain-copied/renamed.txt", { force: true });
+    .copy("chain-copied/renamed.txt", { force: true })
+    .replaceContent("chain returned");
 
   observed.push(verbs.pendingDirectives());
 }
