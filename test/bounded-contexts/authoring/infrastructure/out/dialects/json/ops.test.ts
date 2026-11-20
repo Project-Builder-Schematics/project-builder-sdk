@@ -250,6 +250,17 @@ describe("REQ-JSD-09 — relocation, copy, key position, key order", () => {
     await expectRejected('{ "a": [] }', (h) => h.sortKeys(["a"]), "not an object");
   });
 
+  it("sortKeys keeps the spacing of an object written on one line (A-38)", async () => {
+    expect(await edited('{"b": 1, "B": 2, "a": 3}\n', (h) => h.sortKeys([]))).toBe('{"B": 2, "a": 3, "b": 1}\n');
+    expect(await edited('{"b": 1, "a": {"d": 1, "c": 2}}\n', (h) => h.sortKeys([], { recursive: true }))).toBe(
+      '{"a": {"c": 2, "d": 1}, "b": 1}\n'
+    );
+  });
+
+  it("sortKeys on one line moves a member's comment with it and leaves the spacing in place", async () => {
+    expect(await edited('{"b": 1, /* ay */ "a": 2}\n', (h) => h.sortKeys([]))).toBe('{/* ay */ "a": 2, "b": 1}\n');
+  });
+
   it("sortKeys uses code-point order", async () => {
     expect(Object.keys(value(await edited('{ "b": 1, "B": 2, "\u{1F600}": 3, "￿": 4 }', (h) => h.sortKeys([]))) as object)).toEqual([
       "B",
