@@ -73,5 +73,5 @@ Publication is manual-only and requires the canonical repository's main ref plus
 the `npm` environment's required-reviewer approval. Do not remove this protection
 or use a token fallback. Self-review, where allowed, is not independent review.
 Preparation does not establish live activation, and a failed publish can have
-unknown registry effects. Follow the [release runbook](CONTRIBUTING.md#publishing-a-release)
+unknown registry effects. Follow the [release runbook](handbook/releasing.md#publishing-a-release)
 for separate first-live authorization, registry confirmation and recovery.

@@ -293,14 +293,14 @@ describe("release validator CLI", () => {
 
 describe("release operator guidance", () => {
   it("separates preparation, first-live authorization and uncertain-effect recovery", () => {
-    const text = readFileSync(join(ROOT, "CONTRIBUTING.md"), "utf8");
+    const text = readFileSync(join(ROOT, "handbook/releasing.md"), "utf8");
     for (const phrase of ["## Publishing a release", "separate first-live authorization", "environment `npm`", "Inconclusive inspection never authorizes a retry", "provenance source SHA/run", "self-review is not independent review"]) expect(text).toContain(phrase);
   });
   it("retains required reviewers for manual-only publication", () => {
     const text = readFileSync(join(ROOT, "SECURITY.md"), "utf8");
     expect(text).toContain("manual-only");
     expect(text).toContain("required-reviewer approval");
-    expect(text).toContain("CONTRIBUTING.md#publishing-a-release");
+    expect(text).toContain("handbook/releasing.md#publishing-a-release");
   });
   it("amends the rehearsal decision without removing approval protection", () => {
     const text = readFileSync(join(ROOT, "docs/adr/0042-publish-rehearsal-interlock.md"), "utf8");
