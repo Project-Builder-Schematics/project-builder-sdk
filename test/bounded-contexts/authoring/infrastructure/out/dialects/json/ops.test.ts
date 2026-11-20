@@ -326,3 +326,23 @@ describe("trailing line comments stay with their member", () => {
     );
   });
 });
+
+describe("content written into an empty object on one line (A-23)", () => {
+  const seed = '{\n  "name": "app",\n  "jest": {}\n}\n';
+
+  it("merge expands it with the file's indentation", async () => {
+    expect(await edited(seed, (h) => h.merge([], { jest: { moduleNameMapper: { k: "v" } } }))).toBe(
+      '{\n  "name": "app",\n  "jest": {\n    "moduleNameMapper": {\n      "k": "v"\n    }\n  }\n}\n'
+    );
+  });
+
+  it("setValue expands the parents it creates", async () => {
+    expect(await edited(seed, (h) => h.setValue(["jest", "moduleNameMapper", "k"], "v"))).toBe(
+      '{\n  "name": "app",\n  "jest": {\n    "moduleNameMapper": {\n      "k": "v"\n    }\n  }\n}\n'
+    );
+  });
+
+  it("keeps a file written on one line on one line", async () => {
+    expect(await edited('{"jest": {}}\n', (h) => h.setValue(["jest", "k"], "v"))).toBe('{"jest": {"k": "v"}}\n');
+  });
+});

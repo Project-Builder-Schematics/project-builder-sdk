@@ -126,10 +126,11 @@ function detectFormatting(text: string): FormattingOptions {
 }
 
 // jsonc-parser formats every line an edit touches, which would explode a one-line container
-// into many lines; edits inside one-line containers therefore stay unformatted.
+// into many lines; edits inside one-line containers therefore stay unformatted. An empty
+// container (`{}`) has no layout of its own, so the container that holds it decides.
 function formattingFor(text: string, located: Located, path: JsonPath): FormattingOptions | undefined {
-  const ancestors = located.nodes.slice(0, Math.max(path.length, 1));
-  const container = ancestors.findLast((node) => node !== undefined);
+  const ancestors = located.nodes.slice(0, Math.max(path.length, 1)).filter((node) => node !== undefined);
+  const container = ancestors.findLast((node) => node.children?.length !== 0) ?? ancestors.at(-1);
   if (container === undefined) return detectFormatting(text);
   return text.slice(container.offset, container.offset + container.length).includes("\n")
     ? detectFormatting(text)
