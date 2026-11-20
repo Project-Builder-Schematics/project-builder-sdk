@@ -96,11 +96,20 @@ function assertLocator(locator: unknown): asserts locator is ArrayLocator {
   }
 }
 
+type ScriptExtension = ".ts" | ".tsx" | ".jsx";
+
+// The extension the author's code is parsed as: that of the file it goes into, so JSX is
+// accepted in `.tsx` and `.jsx`, and type syntax is not in `.jsx`.
+function scriptExtension(node: Node): ScriptExtension {
+  const extension = node.getSourceFile().getExtension();
+  return extension === ".tsx" || extension === ".jsx" ? extension : ".ts";
+}
+
 // The only element of `[text]`, or undefined when `text` is not exactly one plain element.
-function parseElement(text: string): Node | undefined {
+function parseElement(text: string, extension: ScriptExtension): Node | undefined {
   let parsed: SourceFile;
   try {
-    parsed = parse(`[${text}]`);
+    parsed = parse(`[${text}]`, extension);
   } catch {
     return undefined;
   }
@@ -114,17 +123,17 @@ function parseElement(text: string): Node | undefined {
 }
 
 // Returns the element's parsed node once it is proven to be a single array element.
-function elementNode(element: unknown): Node {
+function elementNode(element: unknown, extension: ScriptExtension): Node {
   if (typeof element === "string") {
     assertValidImportBinding(element, "element");
-    return parseElement(element)!;
+    return parseElement(element, extension)!;
   }
   if (!isPlainObject(element) || !hasExactKeys(element, ["expression"]) || typeof element.expression !== "string") {
     throw dialectError(ELEMENT_SHAPE);
   }
   // Wrapping in brackets and requiring exactly one plain element blocks every breakout: a
   // closed bracket, a comma, or a comment that swallows `]` yields a different parse.
-  const node = parseElement(element.expression.trim());
+  const node = parseElement(element.expression.trim(), extension);
   if (node === undefined) throw dialectError(EXPRESSION_RULE);
   return node;
 }
@@ -154,7 +163,7 @@ function sameTokens(a: string[], b: string[]): boolean {
 
 /** True when `node` and the validated `element` are the same code, compared token by token. */
 export function isSameElement(node: Node, element: unknown): boolean {
-  return sameTokens(tokensOf(node), tokensOf(elementNode(element)));
+  return sameTokens(tokensOf(node), tokensOf(elementNode(element, scriptExtension(node))));
 }
 
 export function unwrap(node: Expression): Expression {
@@ -318,9 +327,12 @@ export function addArrayElement(ast: SourceFile, locator: ArrayLocator, element:
   appendArrayElement(ast, locator, element, `addArrayElement(${locatorEcho(locator)})`);
 }
 
-/** The validated source text of `element`; rejects like `addArrayElement` does. */
-export function elementText(element: unknown): string {
-  return elementNode(element).getText();
+/**
+ * The validated source text of `element`, parsed as code of the file `ast` belongs to; rejects
+ * like `addArrayElement` does.
+ */
+export function elementText(element: unknown, ast?: SourceFile): string {
+  return elementNode(element, ast === undefined ? ".ts" : scriptExtension(ast)).getText();
 }
 
 /**
@@ -328,7 +340,7 @@ export function elementText(element: unknown): string {
  * tail in place of `addArrayElement(<locator>)`.
  */
 export function appendArrayElement(ast: SourceFile, locator: ArrayLocator, element: unknown, label: string): void {
-  const node = elementNode(element);
+  const node = elementNode(element, scriptExtension(ast));
   const item = node.getText();
   const fail = (reason: string): never => {
     throw dialectError(`${label} on "${handlePathFor(ast)}" — ${reason}. Edit it with .modify().`);

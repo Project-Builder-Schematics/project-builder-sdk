@@ -100,7 +100,7 @@ export function addClassProperty(
   assertGrammar("name", name, IMPORT_BINDING_GRAMMAR, "be a valid JavaScript identifier");
   assertNotDenylisted("name", name);
   assertClassPropertyOptions(options);
-  const value = elementText({ expression: initializer });
+  const value = elementText({ expression: initializer }, ast);
   const fail = (reason: string): never => {
     throw dialectError(
       `addClassProperty("${elementNameEcho(className)}", "${elementNameEcho(name)}") on "${handlePathFor(ast)}" — ${reason}. Edit it with .modify().`
