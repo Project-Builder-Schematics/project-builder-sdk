@@ -19,6 +19,7 @@
 import { describe, it, expect } from "bun:test";
 import { runFactoryForTest } from "../../../../src/testing/index.ts";
 import { create, find, replaceContent, AuthoringError } from "../../../../src/commons/index.ts";
+import * as typescript from "../../../../src/dialects/typescript/index.ts";
 import { EMIT_BATCH_BUDGET_BYTES } from "../../../../src/shared-kernel/batch-cap.ts";
 import type { Batch } from "../../../../src/bounded-contexts/authoring/domain/valueobjects/wire.ts";
 
@@ -39,12 +40,12 @@ describe("REQ-ATH-01 — runFactoryForTest result shape", () => {
     expect(result.error).toBeUndefined();
   });
 
-  it("REQ-ATH-01.2: result exposes no field beyond the three", async () => {
+  it("REQ-ATH-01.2: result exposes no field beyond the four", async () => {
     const run = (): void => {};
 
     const result = await runFactoryForTest(run, undefined);
 
-    expect(Object.keys(result).sort()).toEqual(["emitted", "error", "tree"]);
+    expect(Object.keys(result).sort()).toEqual(["emitted", "error", "reads", "tree"]);
   });
 });
 
@@ -329,5 +330,35 @@ describe("REQ-ATH-18 — non-function export and zero-argument factory: current-
 
     expect(result.tree.get("zero-arg.ts")).toEqual("no-input-read");
     expect(result.error).toBeUndefined();
+  });
+});
+
+describe("the reads the engine served", () => {
+  it("counts each path's reads, absent paths included, and leaves unread paths out", async () => {
+    const run = async (): Promise<void> => {
+      await find("a.ts").read();
+      await find("missing.ts").read();
+    };
+
+    const result = await runFactoryForTest(run, undefined, { seed: { "a.ts": "a", "b.ts": "b" } });
+
+    expect(result.error).toBeUndefined();
+    expect([...result.reads]).toEqual([
+      ["a.ts", 1],
+      ["missing.ts", 1],
+    ]);
+  });
+
+  it("serves a file once to a handle that chains its ops", async () => {
+    const run = async (): Promise<void> => {
+      const handle = typescript.find("routes.ts");
+      await handle.addImport("x", "./x");
+      await handle.addImport("y", "./y");
+    };
+
+    const result = await runFactoryForTest(run, undefined, { seed: { "routes.ts": "export const routes = [];\n" } });
+
+    expect(result.error).toBeUndefined();
+    expect(result.reads.get("routes.ts")).toBe(1);
   });
 });
