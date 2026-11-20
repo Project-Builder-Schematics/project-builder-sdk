@@ -88,4 +88,14 @@ describe("FIT-13 — schema-sufficiency hard-fail matrix", () => {
     expect(findings).toContainEqual({ key: "__proto__", reason: "forbidden-key" });
     expect(findings.filter((f) => f.key === "port")).toEqual([]);
   });
+  for (const [kind, choice] of [["number", 1], ["boolean", true], ["null", null], ["object", { a: "b" }]] as const) {
+    it(`an enum choice that is a ${kind}, not a string, fails, naming the property`, () => {
+      const findings = checkSufficiency(schemaJson({ mode: { type: "enum", label: "Mode", choices: ["a", choice] } }));
+      expect(findings).toEqual([{ key: "mode", reason: "enum-non-string-choices" }]);
+    });
+  }
+
+  it("enum choices that are all strings pass", () => {
+    expect(checkSufficiency(schemaJson({ mode: { type: "enum", label: "Mode", choices: ["a", "b"] } }))).toEqual([]);
+  });
 });

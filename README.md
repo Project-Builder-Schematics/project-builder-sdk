@@ -141,7 +141,7 @@ following; every property needs a `label` (codegen fails without it):
 ```
 
 Property types are `string`, `number`, `boolean`, and `enum` (which requires a non-empty
-`choices` array); `default` and `description` are optional.
+`choices` array of strings); `default` and `description` are optional.
 
 **4. Regenerate the input types:**
 
