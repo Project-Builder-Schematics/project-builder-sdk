@@ -1,6 +1,6 @@
 // Walks the EMITTED dist/**.js graph — never src/**.ts (a source walk yields 24:
 // engine-client.ts is import-type-only and tsc erases it). The source-realm walker is
-// test/support/import-scan.ts (FIT-15/FIT-21); they are not interchangeable.
+// test/support/import-scan.ts; they are not interchangeable.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join, posix, sep } from "node:path";

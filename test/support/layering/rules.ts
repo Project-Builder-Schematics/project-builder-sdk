@@ -24,6 +24,9 @@ export const RULES = {
     "a dialect adapter imports only domain/, shared-kernel/, platform/, its own folder, the siblings ALLOWED_SIBLINGS lists and no runtime I/O; only composition, its public barrel and those siblings import it (proposal 3.2)",
   scaffoldLeaf:
     "only the scaffold use case, its parts, the entry points and Authoring's commons facade in infrastructure/in/commons/ (CODE-LAYOUT:125) import the scaffold use case; scaffold code imports only itself, domain/, platform/, the run-factory use case, files that left src/core and node: builtins",
+  binImporters: "nothing imports the repo-root bin/: it holds only the codegen process entry, which imports src/ (REQ-FPS-03)",
+  handleDirection:
+    "the run-factory use case never imports the dialect handle: the handle reaches the run one way, through run-context.ts and currentContext() (ADR-0037 F2)",
   noClosedDialectSet: "domain/ and application/ never name a dialect: no string literal equal to a dialect folder name or a declared extension (proposal 3.2)",
 } as const;
 
@@ -72,6 +75,7 @@ function dialectIsolation(from: Classified, to: string, toClass: Classified | un
 
 // The run use case takes the package-files adapter from its caller (S9); the runner is one caller.
 const AUTHORING_PACKAGE_FILES = "src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
+const DIALECT_HANDLE = "src/bounded-contexts/authoring/domain/entities/dialect-handle.ts";
 
 const inScaffold = (c: Classified): boolean => c.useCase === "scaffold" || c.scaffoldPart === true;
 // The commons facade is the scaffold use case's public driving adapter; other driving adapters are not.
@@ -90,6 +94,8 @@ function scaffoldLeaf(from: Classified, to: string, toClass: Classified | undefi
 
 /** The rule `from → to` breaks, or undefined. `toClass` is undefined for an external module. */
 export function violation(from: Classified, to: string, toClass: Classified | undefined): Rule | undefined {
+  if (toClass !== undefined && to.startsWith("bin/")) return "binImporters";
+  if (from.kind === "context" && from.context === "authoring" && from.useCase === "run-factory" && to === DIALECT_HANDLE) return "handleDirection";
   if (from.kind === "acceptance") {
     return toClass === undefined || toClass.kind === "public-entry" || toClass.kind === "acceptance" ? undefined : "acceptance";
   }

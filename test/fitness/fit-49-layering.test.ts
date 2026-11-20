@@ -9,8 +9,9 @@
  * Red-proofs run the same rule engine over in-memory synthetic graphs, one per rule, so they
  * need no planted files on disk.
  */
-import { describe, it, expect } from "bun:test";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, posix, relative, sep } from "node:path";
 import { buildGraph, type Edge } from "../support/layering/graph.ts";
 import { classify, entriesFrom, ClassificationError, type Classified, type Entries, CONTEXTS } from "../support/layering/classify.ts";
@@ -70,6 +71,10 @@ describe("fit-49 — liveness (the scan reaches the real tree)", () => {
     expect(graph.edges.length).toBeGreaterThanOrEqual(MIN_EDGES);
   });
 
+  it("resolves every relative import to a scanned file", () => {
+    expect(graph.unresolved).toEqual([]);
+  });
+
   it("sees the known engine-client edge", () => {
     expect(graph.edges.some((e) => key(e) === key(KNOWN_EDGE))).toBe(true);
   });
@@ -79,6 +84,11 @@ describe("fit-49 — liveness (the scan reaches the real tree)", () => {
       expect(graph.files).toContain(path);
     }
     expect(entries.testKitEntries).toEqual(new Set(["src/testing/index.ts", "src/conformance/index.ts"]));
+  });
+
+  it("finds the files handleDirection names, and the run-factory folder it guards", () => {
+    expect(graph.files).toContain("src/bounded-contexts/authoring/domain/entities/dialect-handle.ts");
+    expect(graph.files).toContain("src/bounded-contexts/authoring/application/usecases/run-factory/context.ts");
   });
 
   it("reads every dialect folder and the extensions the dialects declare", () => {
@@ -156,7 +166,7 @@ describe("fit-49 — test/ mirrors src/ by folder (Q9)", () => {
 const SYNTHETIC_ENTRIES: Entries = {
   publicEntries: new Set(["src/commons/index.ts", "src/testing/index.ts", "src/dialects/css/index.ts", "src/dialects/react/index.ts"]),
   testKitEntries: new Set(["src/testing/index.ts"]),
-  processEntries: new Set(["src/bin/pbuilder-runner.ts"]),
+  processEntries: new Set(["src/bin/pbuilder-runner.ts", "bin/pbuilder-codegen.ts"]),
 };
 const A = "src/bounded-contexts/authoring";
 const R = "src/bounded-contexts/runner-hosting";
@@ -187,6 +197,13 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["dialectIsolation", `${A}/infrastructure/out/dialects/css/ops.ts`, "node:fs"],
     ["dialectIsolation", "src/commons/index.ts", `${A}/infrastructure/out/dialects/css/ops.ts`],
     ["dialectIsolation", "src/dialects/react/index.ts", `${A}/infrastructure/out/dialects/css/ops.ts`],
+    ["dialectIsolation", `${A}/infrastructure/out/dialects/typescript/ops.ts`, `${A}/infrastructure/out/dialects/react/ops.ts`],
+    ["dialectIsolation", `${A}/infrastructure/out/dialects/nestjs/ops.ts`, `${A}/infrastructure/out/dialects/react/ops.ts`],
+    ["binImporters", `${A}/domain/services/x.ts`, "bin/pbuilder-codegen.ts"],
+    ["binImporters", "src/commons/index.ts", "bin/pbuilder-codegen.ts"],
+    ["binImporters", "src/bin/pbuilder-runner.ts", "bin/pbuilder-codegen.ts"],
+    ["handleDirection", `${A}/application/usecases/run-factory/context.ts`, `${A}/domain/entities/dialect-handle.ts`],
+    ["crossContext", `${R}/application/usecases/run-factory/x.ts`, `${A}/domain/entities/dialect-handle.ts`],
     ["scaffoldLeaf", `${A}/domain/services/x.ts`, `${A}/application/usecases/scaffold/expander.ts`],
     ["scaffoldLeaf", `${A}/application/usecases/pending-directives/render.ts`, `${A}/application/usecases/scaffold/expander.ts`],
     ["scaffoldLeaf", `${A}/application/usecases/scaffold/expander.ts`, `${A}/application/usecases/pending-directives/render.ts`],
@@ -204,11 +221,12 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["acceptance", "src/testing/index.ts", "src/acceptance/runner/x.ts"],
   ];
   it.each(cases)("%s: %s -> %s", (rule, from, to) => {
-    const toClass = to.startsWith("src/") ? at(to) : undefined;
+    const toClass = to.startsWith("src/") || to.startsWith("bin/") ? at(to) : undefined;
     expect(violation(at(from), to, toClass)).toBe(rule);
   });
 
   it("allowed edges stay allowed", () => {
+    expect(violation(at(`${A}/infrastructure/out/x.ts`), "bin/x", undefined)).toBeUndefined();
     expect(violation(at("src/testing/index.ts"), `${A}/testing/contract-fake.ts`, at(`${A}/testing/contract-fake.ts`))).toBeUndefined();
     expect(violation(at(`${R}/infrastructure/in/x.ts`), `${A}/application/usecases/run-factory.ts`, at(`${A}/application/usecases/run-factory.ts`))).toBeUndefined();
     const packageFiles = `${A}/infrastructure/out/fs/package-files.ts`;
@@ -231,7 +249,7 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
   });
 
   it.each([
-    ["the sibling fit-02 allows", `${A}/infrastructure/out/dialects/react/ops.ts`, `${A}/infrastructure/out/dialects/typescript/ast.ts`],
+    ["a sibling ALLOWED_SIBLINGS lists", `${A}/infrastructure/out/dialects/react/ops.ts`, `${A}/infrastructure/out/dialects/typescript/ast.ts`],
     ["its own folder", `${A}/infrastructure/out/dialects/css/adapter.ts`, `${A}/infrastructure/out/dialects/css/ops.ts`],
     ["the domain kit", `${A}/infrastructure/out/dialects/css/adapter.ts`, `${A}/domain/ports/dialect-contract.ts`],
     ["platform/", `${A}/infrastructure/out/dialects/json/ops.ts`, "src/platform/deep-equal.ts"],
@@ -338,5 +356,25 @@ describe("fit-49 — oracle matrix", () => {
   it("matches test/fitness/fit-49-oracle.txt", () => {
     if (process.env.FIT49_WRITE_ORACLE === "1") writeFileSync(ORACLE_FILE, oracle());
     expect(oracle()).toEqual(readFileSync(ORACLE_FILE, "utf-8"));
+  });
+});
+
+describe("fit-49 — [red-proof] relative imports resolve or are reported", () => {
+  let root: string;
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), "fit49-graph-"));
+    mkdirSync(join(root, "src"));
+    mkdirSync(join(root, "bin"));
+    writeFileSync(join(root, "src/b.ts"), "export const b = 1;\n");
+    writeFileSync(join(root, "src/a.ts"), 'import { b } from "./b.js";\nimport { c } from "./missing.ts";\nexport const a = b + c;\n');
+  });
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  it("a .js specifier reaches the .ts file it names, so the rules see the edge", () => {
+    expect(buildGraph(root).edges).toContainEqual({ from: "src/a.ts", to: "src/b.ts" });
+  });
+
+  it("a relative import naming no scanned file is reported, never treated as a package", () => {
+    expect(buildGraph(root).unresolved).toEqual([{ from: "src/a.ts", specifier: "./missing.ts" }]);
   });
 });
