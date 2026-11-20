@@ -62,7 +62,7 @@ The codebase is split into three layers:
 - `src/commons/` — the author-facing public surface (`@pbuilder/sdk` and `@pbuilder/sdk/commons`).
 - `src/conformance/` — the ecosystem test scaffold (`@pbuilder/sdk/conformance`).
 
-Dialect and op-pack authors consume `src/commons/`. Contributor kit details are in `docs/authoring-a-dialect.md`.
+Dialect and op-pack authors consume `src/commons/`. Contributor kit details are in `docs/guides/authoring-a-dialect.md`.
 
 ## Pull request guidelines
 

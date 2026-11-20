@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { BRIDGE_CONTRACT_VERSION, WIRE_PROTOCOL_VERSION } from "../../src/shared-kernel/wire-protocol.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
-const WIRE_SPEC_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-spec.md");
+const WIRE_SPEC_DOC_PATH = join(PROJECT_ROOT, "docs/contracts/engine-sdk-wire-spec.md");
 
 // Deliberately NOT `/m` + a `^`/`$` line-anchor pair: under `/m`, `$` matches before EVERY
 // line's newline (not just end-of-string), which truncates the lazy capture at the section

@@ -121,7 +121,7 @@ const DOCS_SPECIFIERS: Record<string, string> = {
 };
 
 /**
- * The ```ts blocks of README.md and docs/*.md that import the SDK and pass runFactoryForTest a
+ * The ```ts blocks of README.md and docs/guides/*.md that import the SDK and pass runFactoryForTest a
  * factory they define themselves; the rest are fragments of a larger program.
  */
 export function runnableDocsExamples(files: ReadonlyArray<{ path: string; text: string }>): Array<{ id: string; source: string }> {
@@ -140,7 +140,7 @@ export function runnableDocsExamples(files: ReadonlyArray<{ path: string; text: 
 }
 
 function docsScenarios(): Scenario[] {
-  const files = ["README.md", ...readdirSync(join(ROOT, "docs")).filter((f) => f.endsWith(".md")).sort().map((f) => `docs/${f}`)].map((path) => ({
+  const files = ["README.md", ...readdirSync(join(ROOT, "docs/guides")).filter((f) => f.endsWith(".md")).sort().map((f) => `docs/guides/${f}`)].map((path) => ({
     path,
     text: readFileSync(join(ROOT, path), "utf-8"),
   }));
@@ -221,7 +221,7 @@ describe("P-IR — recorded batches match the goldens", () => {
   });
 
   it("the docs examples run and are found", () => {
-    expect(scenarioIds.filter((id) => id.startsWith("docs-examples/"))).toEqual(["docs-examples/README-1", "docs-examples/README-2", "docs-examples/docs/pending-directives-1"]);
+    expect(scenarioIds.filter((id) => id.startsWith("docs-examples/"))).toEqual(["docs-examples/README-1", "docs-examples/README-2", "docs-examples/docs/guides/pending-directives-1"]);
   });
 
   it("the verb matrix commits", async () => {

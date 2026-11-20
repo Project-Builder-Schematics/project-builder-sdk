@@ -15,7 +15,7 @@ no code relationship between `conformance/` and `./conformance`.
 This SDK repo has no runner-driven execution path. Every case's `outcome` (exit code,
 rejection code, `writtenPaths`) and `transcript` (reverse-callback sequence) is a
 **declaration** — traced from runner source and hand-authored against
-`CONFORMANCE-CORPUS-HANDOFF.md` — never SDK-proven. Runner-driven outcomes are
+`docs/contracts/CONFORMANCE-CORPUS-HANDOFF.md` — never SDK-proven. Runner-driven outcomes are
 **engine-authoritative**: the first real proof that a fixture produces these exact bytes,
 exit codes, and callbacks happens only when the engine's Go harness runs it. The structural
 self-check (`test/fitness/fit-40-conformance-corpus-integrity.test.ts`) proves the
@@ -39,7 +39,7 @@ declaration is internally consistent and well-formed — it never proves engine 
   beyond the documented schema — at any level (top-level, `factory`, `lowering`, `cases[]`,
   `outcome`, `transcript`) — is a HARD engine-side failure, never ignored. Never add a field
   the schema does not list; fit-40 checks shape, not unknown keys, so there is no local
-  warning. New keys go through `CONFORMANCE-CORPUS-HANDOFF.md` BEFORE a fixture ships them.
+  warning. New keys go through `docs/contracts/CONFORMANCE-CORPUS-HANDOFF.md` BEFORE a fixture ships them.
 
 ## How to add a fixture (mirrors exactly what fit-40 enforces)
 

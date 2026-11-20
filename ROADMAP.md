@@ -219,7 +219,7 @@ will be **restated in the public SDK docs** — a public library cannot point au
 - **Bun** as runtime, package manager, test runner — TypeScript runs directly, no transpile step.
 - **Publish gate:** no public release until the dialect-contract names/shape and the
   `remove`/`find`/`read` naming are written into `docs/adr/`, a stub
-  `docs/authoring-a-dialect.md` exists, and (for an *engine-backed* release) §6 has landed.
+  `docs/guides/authoring-a-dialect.md` exists, and (for an *engine-backed* release) §6 has landed.
 - **Public-repo standards** — LICENSE (MIT), CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, issue/PR templates,
   CI that runs on forks/PRs.
 - **Strict TDD** — tests precede implementation.

@@ -524,7 +524,7 @@ engine's execution, and the per-factory-invocation aggregate is the Session, not
   **Migration**: pass the actual imported dialect entrypoint, independently resolved
   adapter-library evidence, and a byte-exact editing exercise. Export the library with
   native namespace forwarding, not a curated object or type-only export. See
-  [fixture migration](./docs/authoring-a-dialect.md#mandatory-module-export-and-fixture-migration)
+  [fixture migration](./docs/guides/authoring-a-dialect.md#mandatory-module-export-and-fixture-migration)
   for a complete example. `testOpPack` and application callbacks need no migration.
 
 ### Project-wide type generation
