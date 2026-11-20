@@ -66,6 +66,22 @@ verbs](./authoring-verbs.md#package-local-reads-the-boundary) and
 [SECURITY.md](../../SECURITY.md)). Migration: drop the `case "source-outside-package":`
 arm from any exhaustive `switch (err.reason)` — TypeScript will point at it.
 
+### Option values `create` cannot encode
+
+`create` (and every file `scaffold` renders) rejects an `options` value the engine cannot
+render with `reason: "invalid-input"`, `verb: "create"` and `path` set to the file's path. The
+message names the top-level option key and where the value sits:
+
+```
+option "d" is not a plain-JSON value the engine can render (BigInt at d.size). Options must be strings, numbers, booleans, null, arrays, or plain objects.
+```
+
+Rejected values: `undefined`, a function, a symbol, a BigInt, a circular reference, a `Date`,
+a `Map`, a class instance, and an object with a `toJSON` method. Options are plain data, so
+a `toJSON` is not called; convert the value yourself before passing it. A getter or proxy that
+throws, or a value nested too deeply to walk, rejects the same way, and the message never
+repeats what was thrown.
+
 ## Catching and recovering
 
 Same shape as above, now exhaustive — every `reason` value gets a case:

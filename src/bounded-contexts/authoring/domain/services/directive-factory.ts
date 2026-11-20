@@ -1,6 +1,7 @@
 // KIT-03: pure args→Directive; never renders templates, never touches AST.
 
 import type { Directive, JsonValue } from "../valueobjects/wire.ts";
+import { AuthoringError } from "../valueobjects/authoring-error.ts";
 
 export interface CreateArgs {
   pathTemplate: string;
@@ -69,17 +70,30 @@ function kindOf(value: object): string {
   return "a class instance";
 }
 
-// REQ-TOE-04, ADR-03: plain Error (interim — full AuthoringError attribution is a
-// registered followup, ADR-03 Consequence). Message template pinned verbatim (slices.md
-// Executor Context, TW-F1): names the top-level offending key, the offending kind + a
-// dotted/indexed location, and echoes docs §8's allowed set for actionability. NEVER raw
-// serializer text (no "Do not know how to serialize a BigInt", no "Converting circular
-// structure to JSON").
+// REQ-TOE-04: an `invalid-input` AuthoringError on the `create` that carries the options.
+// Message template pinned verbatim (slices.md Executor Context, TW-F1): names the top-level
+// offending key, the offending kind + a dotted/indexed location, and echoes docs §8's allowed
+// set for actionability. NEVER raw serializer text (no "Do not know how to serialize a
+// BigInt", no "Converting circular structure to JSON").
+class OptionRejection extends Error {}
+
 function rejectOption(optionKey: string, detail: string): never {
-  throw new Error(
+  throw new OptionRejection(
     `option "${optionKey}" is not a plain-JSON value the engine can render (${detail}). ` +
       "Options must be strings, numbers, booleans, null, arrays, or plain objects."
   );
+}
+
+// A getter or proxy trap that throws, or nesting deep enough to overflow the walk, would
+// otherwise surface its own error; it rejects like any other value the engine cannot render,
+// without echoing what it threw.
+function encodeOption(value: unknown, optionKey: string): JsonValue {
+  try {
+    return assertEncodable(value, optionKey);
+  } catch (err) {
+    if (err instanceof OptionRejection) throw err;
+    return rejectOption(optionKey, err instanceof RangeError ? `a value nested too deeply at ${optionKey}` : `a value that could not be read at ${optionKey}`);
+  }
 }
 
 // REQ-TOE-04: recursively rejects any value (top-level or nested inside a composite) that
@@ -111,6 +125,8 @@ function assertEncodable(
 
   if (Array.isArray(value) || isPlainObject(value)) {
     if (ancestors.has(value)) rejectOption(optionKey, `a circular reference at ${path}`);
+    // JSON.stringify would call it, but options are plain data: code that runs to produce them is not.
+    if (typeof (value as { toJSON?: unknown }).toJSON === "function") rejectOption(optionKey, `an object with a toJSON method at ${path}`);
     ancestors.add(value);
     try {
       if (Array.isArray(value)) {
@@ -139,9 +155,14 @@ function copyEntries(
 // ADR-0082: composites reach the wire as native JSON. The copy snapshots the author's value
 // at scheduling time and keeps nested non-finite numbers, so the flush-time round-trip
 // guard sees them (REQ-TOE-03.3).
-export function encodeOptions(options: JsonValue): JsonValue {
-  if (!isPlainObject(options)) return options;
-  return copyEntries(options, ([key, value]) => assertEncodable(value, key));
+export function encodeOptions(options: JsonValue, pathTemplate?: string): JsonValue {
+  try {
+    if (!isPlainObject(options)) return options;
+    return copyEntries(options, ([key, value]) => encodeOption(value, key));
+  } catch (err) {
+    if (!(err instanceof OptionRejection)) throw err;
+    throw new AuthoringError({ verb: "create", path: pathTemplate, reason: "invalid-input", appliedCount: 0, message: err.message });
+  }
 }
 
 export class DirectiveFactory {
@@ -151,7 +172,7 @@ export class DirectiveFactory {
       create: {
         pathTemplate: a.pathTemplate,
         template: a.template,
-        options: encodeOptions(a.options),
+        options: encodeOptions(a.options, a.pathTemplate),
         ...forceEntry(a.force),
       },
     };
