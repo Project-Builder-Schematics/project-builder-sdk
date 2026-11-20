@@ -20,11 +20,7 @@
  *
  * S-004 — REQ-TSD-01.25 (CORRECTED at V3.2) pins the match-cardinality asymmetry: `addImport`
  * merges into ONLY the first declaration; `removeImport` SEARCHES every declaration matching
- * `from` but REMOVES the binding from only the first one it finds it in. REQ-TSD-01.33 pins
- * ADR-03's pre-authorized FALLBACK: a shebang file rejects HANDLE-contained and fail-closed on
- * the fresh-create-no-directive path only — the sole branch that inserts at the very top of the
- * file; merge and directive-prologue creates succeed on shebang files with the shebang intact.
- * Shebang-aware top-of-file insertion is deferred as a followup, NOT built this change.
+ * `from` but REMOVES the binding from only the first one it finds it in.
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -500,32 +496,34 @@ describe("addImport / removeImport — REQ-TSD-01.25 match-cardinality asymmetry
   });
 });
 
-describe("addImport — REQ-TSD-01.33 shebang fallback (S-004, ts-addimport-collision, ADR-03)", () => {
-  it("REQ-TSD-01.33: a shebang file stays a HANDLE-contained fail-closed reject — pinned message, .cause undefined, zero directives, byte-unchanged (ADR-03 fallback; shebang-aware insertion deferred)", async () => {
-    const seed = "#!/usr/bin/env node\nconst x = 1;\n";
-    const { client, emitted } = makeSpyClient({ "a.ts": seed });
+describe("addImport — a fresh import goes after a shebang line (A-57)", () => {
+  it("writes the import right after the shebang, before the code", async () => {
+    await expectSingleModify(
+      "#!/usr/bin/env node\nconst x = 1;\n",
+      async () => {
+        await ts.find("a.ts").addImport("X", "m");
+      },
+      '#!/usr/bin/env node\nimport { X } from "m";\n\nconst x = 1;\n'
+    );
+  });
 
-    const run = defineFactory<void>(async () => {
-      await ts.find("a.ts").addImport("readFileSync", "node:fs");
-    });
+  it("keeps the shebang first for the other import ops too", async () => {
+    await expectSingleModify(
+      "#!/usr/bin/env node\nconst x = 1;\n",
+      async () => {
+        await ts.find("a.ts").addDefaultImport("D", "m");
+      },
+      '#!/usr/bin/env node\nimport D from "m";\n\nconst x = 1;\n'
+    );
+  });
 
-    let caught: unknown;
-    try {
-      await run(undefined, { client });
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBeInstanceOf(Error);
-    const err = caught as Error;
-    // Same generic foreign-wrap tail #invokeContained uses for any uncaught internal error
-    // (dialect-handle.ts:248-258) — ts-morph's ManipulationError propagates out of addImport
-    // itself (top-of-file insertion collides with the shebang's leading trivia) and is caught
-    // + branded at the HANDLE boundary, never inside the op. This reject is specific to the
-    // fresh-create-no-directive branch: with a directive prologue or a mergeable import
-    // present, addImport takes a different branch and succeeds with the shebang preserved.
-    expect(err.message).toBe('dialect operation failed: addImport() on "a.ts" threw');
-    expect(err.cause).toBeUndefined();
-    expect(collectModifies(emitted)).toHaveLength(0);
-    expect(await client.read("a.ts")).toBe(seed);
+  it("writes the import after the shebang of a file with no statements", async () => {
+    await expectSingleModify(
+      "#!/usr/bin/env node\n",
+      async () => {
+        await ts.find("a.ts").addImport("X", "m");
+      },
+      '#!/usr/bin/env node\nimport { X } from "m";\n'
+    );
   });
 });
