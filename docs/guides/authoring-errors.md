@@ -63,7 +63,7 @@ error if a value is missed:
 `source-outside-package` was removed in `@pbuilder/sdk` `0.2.0` — the SDK no longer
 re-derives a containment ceiling for package-local sources (see [Authoring
 verbs](./authoring-verbs.md#package-local-reads-the-boundary) and
-[SECURITY.md](../SECURITY.md)). Migration: drop the `case "source-outside-package":`
+[SECURITY.md](../../SECURITY.md)). Migration: drop the `case "source-outside-package":`
 arm from any exhaustive `switch (err.reason)` — TypeScript will point at it.
 
 ## Catching and recovering

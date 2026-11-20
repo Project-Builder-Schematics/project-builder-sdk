@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PROJECT_ROOT } from "../../../../../../support/jsdoc-scan.ts";
 
-const doc = readFileSync(join(PROJECT_ROOT, "docs/json-dialect.md"), "utf-8");
+const doc = readFileSync(join(PROJECT_ROOT, "docs/guides/json-dialect.md"), "utf-8");
 const index = readFileSync(join(PROJECT_ROOT, "src/bounded-contexts/authoring/infrastructure/out/dialects/json/index.ts"), "utf-8");
 
 const OPS = [
@@ -24,7 +24,7 @@ const OPS = [
   "sortKeys",
 ];
 
-describe("docs/json-dialect.md — author guide", () => {
+describe("docs/guides/json-dialect.md — author guide", () => {
   it("has one heading per named op, each with an example", () => {
     for (const op of OPS) {
       const start = doc.indexOf(`### \`${op}(`);

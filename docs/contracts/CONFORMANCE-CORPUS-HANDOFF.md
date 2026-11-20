@@ -50,7 +50,7 @@ from its dir name are all HARD failures engine-side, not skips.
   `bun run build` output.
 - Factories author REPRESENTABLE ops only: `modify`, `delete`, `rename`, `move`. A wire `create`
   appears exactly once in the whole corpus — as `m2-create-composition`'s deliberate reject probe.
-- Exit-code taxonomy (already in `docs/engine-sdk-wire-spec.md`, EXC-01): `0` success, `1`
+- Exit-code taxonomy (already in `docs/contracts/engine-sdk-wire-spec.md`, EXC-01): `0` success, `1`
   greeting/validation failure, `2` host refusal (`IntentRejectedError`).
 
 ## `manifest.json` schema (per fixture)
@@ -196,7 +196,7 @@ it. No lockstep coordination gate.
 
 The SDK stops deriving and enforcing a package-local containment ceiling
 (`package-root-containment`, retired — see
-[ADR-0077](./docs/adr/0077-relocate-containment-boundary-out-of-sdk.md)).
+[ADR-0077](../adr/0077-relocate-containment-boundary-out-of-sdk.md)).
 `AuthoringReason` narrows from twelve members to eleven: `source-outside-package` is
 removed. Every corpus fixture already declares its outcomes without depending on that
 reason (verified: `rg -n "source-outside-package" conformance/` returns zero hits), so no

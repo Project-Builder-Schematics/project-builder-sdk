@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { PROJECT_ROOT } from "../../../../../../support/jsdoc-scan.ts";
 import { extractSection } from "../../../../../../support/markdown-section.ts";
 
-const doc = readFileSync(join(PROJECT_ROOT, "docs/yaml-dialect.md"), "utf-8");
+const doc = readFileSync(join(PROJECT_ROOT, "docs/guides/yaml-dialect.md"), "utf-8");
 
 const SIGNATURES = [
   "setValue(path, value, options?)",
@@ -34,7 +34,7 @@ const SIGNATURES = [
   "setTag(path, tag, options?)",
 ];
 
-describe("docs/yaml-dialect.md — author guide", () => {
+describe("docs/guides/yaml-dialect.md — author guide", () => {
   it.each(SIGNATURES)("documents %s under its own heading", (signature) => {
     expect(() => extractSection(doc, `### \`${signature}\``)).not.toThrow();
   });

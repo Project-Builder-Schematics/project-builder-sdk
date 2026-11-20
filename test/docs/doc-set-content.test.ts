@@ -48,7 +48,7 @@ function assertNoWireInternalTerms(doc: string): void {
 }
 
 describe("REQ-AOD-03 — six-verb reference with read-trichotomy", () => {
-  const doc = readDoc("docs/authoring-verbs.md");
+  const doc = readDoc("docs/guides/authoring-verbs.md");
 
   it("REQ-AOD-03.1: all six author verbs are documented", () => {
     // author-write-surface S-004: `modify` retired in favour of `replaceContent` — the
@@ -68,7 +68,7 @@ describe("REQ-AOD-03 — six-verb reference with read-trichotomy", () => {
 });
 
 describe("REQ-AOD-04 — dialect usage linked, not duplicated", () => {
-  const index = readDoc("docs/README.md");
+  const index = readDoc("docs/guides/README.md");
 
   it("REQ-AOD-04.1: the doc index links authoring-a-dialect.md rather than re-authoring it", () => {
     expect(index).toContain("authoring-a-dialect.md");
@@ -80,7 +80,7 @@ describe("REQ-AOD-04 — dialect usage linked, not duplicated", () => {
 });
 
 describe("REQ-AOD-05 — error contract in author vocabulary", () => {
-  const doc = readDoc("docs/authoring-errors.md");
+  const doc = readDoc("docs/guides/authoring-errors.md");
 
   it("REQ-AOD-05.1: AuthoringError's verb/path/reason fields are named", () => {
     expect(doc).toContain("AuthoringError");
@@ -99,12 +99,12 @@ describe("REQ-AOD-05 — error contract in author vocabulary", () => {
 // author-facing docs describe the SDK, not just the error-contract page).
 describe("wire-internal terms banned across the full author-facing doc set", () => {
   const AUTHOR_FACING_DOCS = [
-    "docs/quickstart.md",
-    "docs/authoring-verbs.md",
-    "docs/authoring-errors.md",
-    "docs/create-templates.md",
-    "docs/pending-directives.md",
-    "docs/README.md",
+    "docs/guides/quickstart.md",
+    "docs/guides/authoring-verbs.md",
+    "docs/guides/authoring-errors.md",
+    "docs/guides/create-templates.md",
+    "docs/guides/pending-directives.md",
+    "docs/guides/README.md",
   ];
 
   for (const relPath of AUTHOR_FACING_DOCS) {
@@ -115,7 +115,7 @@ describe("wire-internal terms banned across the full author-facing doc set", () 
 });
 
 describe("REQ-AOD-06 — pendingDirectives usage: ./commons function, not a subpath", () => {
-  const doc = readDoc("docs/pending-directives.md");
+  const doc = readDoc("docs/guides/pending-directives.md");
 
   it("REQ-AOD-06.1: imports pendingDirectives from @pbuilder/sdk/commons", () => {
     expect(doc).toMatch(/import\s*\{\s*pendingDirectives\s*\}\s*from\s*["']@pbuilder\/sdk\/commons["']/);
@@ -150,11 +150,11 @@ describe("README front-door", () => {
   const readme = readDoc("README.md");
 
   it("links the quickstart", () => {
-    expect(readme).toContain("docs/quickstart.md");
+    expect(readme).toContain("docs/guides/quickstart.md");
   });
 
   it("links the dialect doc as the front door for dialect usage", () => {
-    expect(readme).toContain("docs/authoring-a-dialect.md");
+    expect(readme).toContain("docs/guides/authoring-a-dialect.md");
   });
 });
 

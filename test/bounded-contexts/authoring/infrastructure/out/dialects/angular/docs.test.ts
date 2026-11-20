@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { PROJECT_ROOT } from "../../../../../../support/jsdoc-scan.ts";
 import { extractSection } from "../../../../../../support/markdown-section.ts";
 
-const doc = readFileSync(join(PROJECT_ROOT, "docs/angular-dialect.md"), "utf-8");
+const doc = readFileSync(join(PROJECT_ROOT, "docs/guides/angular-dialect.md"), "utf-8");
 const readme = readFileSync(join(PROJECT_ROOT, "README.md"), "utf-8");
 
 const SIGNATURES = [
@@ -23,7 +23,7 @@ const SIGNATURES = [
 
 const NGMODULE_OPS = ["addNgModuleImport", "addDeclaration", "addNgModuleProvider", "addNgModuleExport", "addBootstrap"];
 
-describe("docs/angular-dialect.md — author guide", () => {
+describe("docs/guides/angular-dialect.md — author guide", () => {
   it.each(SIGNATURES)("documents %s under its own heading", (signature) => {
     expect(() => extractSection(doc, `### \`${signature}\``)).not.toThrow();
   });
@@ -44,6 +44,6 @@ describe("docs/angular-dialect.md — author guide", () => {
 
   it("the README has a section linking the guide", () => {
     const section = extractSection(readme, "### `@pbuilder/sdk/angular`");
-    expect(section).toContain("./docs/angular-dialect.md");
+    expect(section).toContain("./docs/guides/angular-dialect.md");
   });
 });

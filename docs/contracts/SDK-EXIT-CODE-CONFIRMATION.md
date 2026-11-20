@@ -8,7 +8,7 @@ you decide the caveat warrants one.
 
 **Historical as of 2026-07-28**: the `authoring-rejected` list below lost
 `source-outside-package` (`AuthoringReason` narrows from twelve members to eleven,
-ADR-0077); see [CHANGELOG 0.2.0](./CHANGELOG.md#020).
+ADR-0077); see [CHANGELOG 0.2.0](../../CHANGELOG.md#020).
 
 ---
 

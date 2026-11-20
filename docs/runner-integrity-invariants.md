@@ -4,7 +4,7 @@
 reads it before every spawn and verifies the bytes it is about to execute. This page records what
 that covers, why it is worth having, the five properties the guarantee rests on, and the gaps we
 know about. It is the contributor-facing counterpart to
-[the engine ↔ SDK wire spec](./engine-sdk-wire-spec.md).
+[the engine ↔ SDK wire spec](./contracts/engine-sdk-wire-spec.md).
 
 ## What the manifest covers — and what it does not
 

@@ -7,7 +7,7 @@
  * over every `src/**` file's JSDoc/comments; Pattern B (bare `.raw`, word-boundary, NO paren
  * required — catches paren-less prose mentions, strictly wider than Pattern A) UNIFORMLY over
  * every markdown file in scope: `*.md` at the repo root (non-recursive glob — no hand-pinned
- * file list) plus every `docs/**` file. Pattern B is the widened predicate slices.md's
+ * file list) plus every `docs/**` and `handbook/**` file. Pattern B is the widened predicate slices.md's
  * "Sweep Implementation Spec" section calls for (nit 2) — Pattern A alone misses ROADMAP's
  * paren-less mentions. Both patterns MUST return zero hits — no exclusions; `.raw` no longer
  * exists anywhere on `Handle` (S-000), so every remaining occurrence in scope is retired
@@ -15,7 +15,7 @@
  *
  * **Sweep 2 — free `modify(` retirement.** Bans the OLD commons string-form call
  * `modify(path, content)` as a FREE call (i.e. NOT preceded by `.` or another identifier
- * character) across the same uniform markdown scope (root `*.md` + `docs/**`) and every
+ * character) across the same uniform markdown scope (root `*.md` + `docs/**` + `handbook/**`) and every
  * JSDoc/comment under `src/**`. Two exclusions, both by CONSTRUCTION of the "not preceded
  * by `.`" predicate, never a separate allowlist: `.modify(fn)` (the dialect AST escape
  * hatch) and `factory.modify(` (the kit-internal `DirectiveFactory` method, REQ-KIT-03's
@@ -77,9 +77,10 @@ function maskToCommentsOnly(source: string): string {
 
 const SRC_ROOT = join(PROJECT_ROOT, "src");
 const DOCS_ROOT = join(PROJECT_ROOT, "docs");
+const HANDBOOK_ROOT = join(PROJECT_ROOT, "handbook");
 
 /** Non-recursive by design — recursing from the repo root would sweep node_modules and test
- * fixtures; `docs/**` recurses via `collectFiles`. */
+ * fixtures; `docs/**` and `handbook/**` recurse via `collectFiles`. */
 const ROOT_MARKDOWN_FILES = readdirSync(PROJECT_ROOT)
   .filter((entry) => extname(entry) === ".md")
   .map((entry) => join(PROJECT_ROOT, entry));
@@ -136,6 +137,7 @@ const ADR_ROOT = join(DOCS_ROOT, "adr");
 const MARKDOWN_TEXTS: ScanText[] = [
   ...ROOT_MARKDOWN_FILES,
   ...collectFiles(DOCS_ROOT, ".md").filter((file) => !file.startsWith(`${ADR_ROOT}/`)),
+  ...collectFiles(HANDBOOK_ROOT, ".md"),
 ].map((file) => ({
   file,
   text: readFileSync(file, "utf-8"),
@@ -162,7 +164,7 @@ describe("REQ-KIT-03 — `.raw` retirement sweep (S-004)", () => {
     expect(describeViolations(violations)).toEqual([]);
   });
 
-  it("Pattern B: zero bare `.raw` occurrences across root *.md and docs/**", () => {
+  it("Pattern B: zero bare `.raw` occurrences across root *.md, docs/** and handbook/**", () => {
     const violations = MARKDOWN_TEXTS.flatMap(({ file, text }) => findMatches(text, file, RAW_BARE_PATTERN));
     expect(describeViolations(violations)).toEqual([]);
   });
@@ -194,7 +196,7 @@ describe("REQ-KIT-03 — `.raw` retirement sweep (S-004)", () => {
 });
 
 describe("REQ-KIT-03 — free `modify(` retirement sweep (S-004)", () => {
-  it("zero free `modify(` calls across root *.md, docs/**, src/**'s comments", () => {
+  it("zero free `modify(` calls across root *.md, docs/**, handbook/**, src/**'s comments", () => {
     const violations = [
       ...MARKDOWN_TEXTS.flatMap(({ file, text }) => findMatches(text, file, FREE_MODIFY_CALL_PATTERN)),
       ...SRC_COMMENT_TEXTS.flatMap(({ file, text }) => findMatches(text, file, FREE_MODIFY_CALL_PATTERN)),
