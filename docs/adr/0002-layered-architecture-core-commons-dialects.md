@@ -1,6 +1,6 @@
 # ADR-0002: Layered architecture — core / commons / dialects, centralized Session + DirectiveFactory
 
-- Status: Accepted
+- Status: **Superseded by ADR-0083** (2026-11-20, change `hexagonal-layout`)
 - Date: 2026-06-21
 - Deciders: Daniel (Hyperxq)
 - Builds on: ADR-0001 (this repo); roadmap §7 (commons vs dialects behind one dialect contract).
