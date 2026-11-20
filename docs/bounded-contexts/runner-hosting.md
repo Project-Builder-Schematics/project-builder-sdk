@@ -5,7 +5,7 @@ Runner hosting is the SDK side of the runtime a factory runs in: the runner boot
 - **Strategic model:** [Runner hosting](https://github.com/Project-Builder-Schematics/project-builder-architecture/blob/v0.19.0/bounded-contexts/runner-hosting/README.md) in project-builder-architecture v0.19.0 (also at `third_party/project-builder-architecture/bounded-contexts/runner-hosting/README.md`).
 - **Layout rules:** [CODE-LAYOUT](https://github.com/Project-Builder-Schematics/project-builder-architecture/blob/v0.19.0/CODE-LAYOUT.md) and [ADR-0083](../adr/0083-hexagonal-layout.md).
 - **Runner manifest and integrity constraints:** [runner-integrity-invariants.md](../runner-integrity-invariants.md).
-- **Drawing:** `docs/bounded-contexts/sdk.hexa`, a [domainrings](https://diagrams.pbuilder.dev/) map of both contexts. Open it with **Open…** in the app's toolbar, or make a link with `npx -y @pbuilder/domainrings link docs/bounded-contexts/sdk.hexa --open`.
+- **Drawing:** `docs/bounded-contexts/sdk.hexa`, a [domainrings](https://diagrams.pbuilder.dev/) map of both contexts; the link and the flow images are in [Authoring's Diagram section](./authoring.md#diagram).
 
 ## Responsibility
 

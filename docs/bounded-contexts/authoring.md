@@ -4,7 +4,7 @@ Authoring is where a schematic is written: the factory, its input schema and the
 
 - **Strategic model:** [Authoring](https://github.com/Project-Builder-Schematics/project-builder-architecture/blob/v0.19.0/bounded-contexts/authoring/README.md) in project-builder-architecture v0.19.0 (also at `third_party/project-builder-architecture/bounded-contexts/authoring/README.md`).
 - **Layout rules:** [CODE-LAYOUT](https://github.com/Project-Builder-Schematics/project-builder-architecture/blob/v0.19.0/CODE-LAYOUT.md) and [ADR-0083](../adr/0083-hexagonal-layout.md).
-- **Drawing:** `docs/bounded-contexts/sdk.hexa`, a [domainrings](https://diagrams.pbuilder.dev/) map of both contexts. Open it with **Open…** in the app's toolbar, or make a link with `npx -y @pbuilder/domainrings link docs/bounded-contexts/sdk.hexa --open`.
+- **Drawing:** `docs/bounded-contexts/sdk.hexa`, a [domainrings](https://diagrams.pbuilder.dev/) map of both contexts; see [Diagram](#diagram).
 
 ## Responsibility
 
@@ -88,6 +88,29 @@ fit-49 (`test/fitness/fit-49-layering.test.ts`, rules in `test/support/layering/
 | `aclImports`, `crossContext` | contexts meeting only through `acl/` or an application layer |
 
 How to read a failure and where new code goes: [handbook/conventions.md](../../handbook/conventions.md).
+
+## Diagram
+
+[Open the map of both contexts](https://diagrams.pbuilder.dev/#s=RK9KR1FlKQM,WHqNsuuHHkkTQbukTIQV_w), drawn from `sdk.hexa`. The link encodes the file, so it goes stale when `sdk.hexa` changes. After editing the file, regenerate the link and the images:
+
+```sh
+npx -y @pbuilder/domainrings link docs/bounded-contexts/sdk.hexa
+npx -y @pbuilder/domainrings render docs/bounded-contexts/sdk.hexa --flow all --out docs/bounded-contexts/flows --format svg
+```
+
+One image per Authoring use case:
+
+![The run-factory flow](./flows/authoring-run-factory.svg)
+*Running a factory: the run boundary, the Session and the engine client.*
+
+![The authoring-verbs flow](./flows/authoring-authoring-verbs.svg)
+*The authoring verbs, lowered to directives.*
+
+![The scaffold flow](./flows/authoring-scaffold.svg)
+*Scaffold: expanding a template folder through the package-files port.*
+
+![The pending-directives flow](./flows/authoring-pending-directives.svg)
+*Pending directives: previewing what a run would commit.*
 
 ## History
 
