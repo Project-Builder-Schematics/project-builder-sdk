@@ -15,12 +15,14 @@ function toPosix(path: string): string {
   return path.split(sep).join("/");
 }
 
-function resolveRelative(fromFile: string, specifier: string, files: ReadonlySet<string>): string {
+// A `.js` specifier names the `.ts` file it compiles from (NodeNext style). Undefined when no
+// scanned file matches, so the caller reports it instead of treating it as a package.
+function resolveRelative(fromFile: string, specifier: string, files: ReadonlySet<string>): string | undefined {
   const base = posix.normalize(posix.join(posix.dirname(fromFile), specifier));
-  for (const candidate of [base, `${base}.ts`, `${base}/index.ts`]) {
+  for (const candidate of [base, `${base}.ts`, `${base}/index.ts`, base.replace(/\.js$/, ".ts")]) {
     if (files.has(candidate)) return candidate;
   }
-  return base;
+  return undefined;
 }
 
 // `process.stdin`/`stdout`/`env`/`cwd` are runtime I/O without an import (CODE-LAYOUT:126),
@@ -49,18 +51,27 @@ export function graphFiles(root: string): string[] {
     .sort();
 }
 
-export function buildGraph(root: string): { files: string[]; edges: Edge[] } {
+export type Unresolved = { from: string; specifier: string };
+
+export function buildGraph(root: string): { files: string[]; edges: Edge[]; unresolved: Unresolved[] } {
   const files = graphFiles(root);
   const known = new Set(files);
   // One edge per (from, to): a file that both imports and re-exports a module is one dependency.
   const edges = new Map<string, Edge>();
   const add = (from: string, to: string): void => void edges.set(`${from} -> ${to}`, { from, to });
+  const unresolved: Unresolved[] = [];
   for (const from of files) {
     const source = readFileSync(join(root, from), "utf-8");
     for (const { fileName } of ts.preProcessFile(source, true, true).importedFiles) {
-      add(from, fileName.startsWith(".") ? resolveRelative(from, fileName, known) : fileName);
+      if (!fileName.startsWith(".")) {
+        add(from, fileName);
+        continue;
+      }
+      const to = resolveRelative(from, fileName, known);
+      if (to === undefined) unresolved.push({ from, specifier: fileName });
+      else add(from, to);
     }
     for (const member of processIoMembers(from, source)) add(from, member);
   }
-  return { files, edges: [...edges.values()] };
+  return { files, edges: [...edges.values()], unresolved };
 }

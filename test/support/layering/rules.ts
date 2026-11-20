@@ -94,8 +94,8 @@ function scaffoldLeaf(from: Classified, to: string, toClass: Classified | undefi
 
 /** The rule `from → to` breaks, or undefined. `toClass` is undefined for an external module. */
 export function violation(from: Classified, to: string, toClass: Classified | undefined): Rule | undefined {
-  if (to.startsWith("bin/")) return "binImporters";
-  if (from.useCase === "run-factory" && to === DIALECT_HANDLE) return "handleDirection";
+  if (toClass !== undefined && to.startsWith("bin/")) return "binImporters";
+  if (from.kind === "context" && from.context === "authoring" && from.useCase === "run-factory" && to === DIALECT_HANDLE) return "handleDirection";
   if (from.kind === "acceptance") {
     return toClass === undefined || toClass.kind === "public-entry" || toClass.kind === "acceptance" ? undefined : "acceptance";
   }
