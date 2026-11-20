@@ -23,7 +23,7 @@ establish tested-versus-final byte identity.
 The owner separately authorizes first live activation after merge and confirms the
 registry version, latest target and provenance source SHA/run. An attempted command
 with a failed or uncertain result requires registry inspection, not an assumption
-that nothing was published. See [the release runbook](../../CONTRIBUTING.md#publishing-a-release).
+that nothing was published. See [the release runbook](../../handbook/releasing.md#publishing-a-release).
 Fixture tests cannot establish external reviewer enforcement or live OIDC trust.
 
 ## Historical context (2026-07)

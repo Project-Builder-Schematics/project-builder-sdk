@@ -15,7 +15,7 @@ pair for `.tsx`/JSX authoring: `setJsxProp` and `addImport`.
 
 ## Two audiences
 
-Per [ADR-0009](adr/0009-two-audiences-contributor-kit.md), this SDK has two
+Per [ADR-0009](../adr/0009-two-audiences-contributor-kit.md), this SDK has two
 distinct audiences:
 
 - **Authors** consume a published dialect (e.g. `@pbuilder/sdk/typescript`) inside a schematic —
@@ -521,7 +521,7 @@ It hands your callback the SAME live AST instance the named ops mutate — anyth
 could do, `.modify()` can do too, without waiting for a named op to exist.
 
 `.modify()` executes your callback with full process privilege — it is not a sandbox. Read
-[SECURITY.md](../SECURITY.md) before importing any third-party dialect or op-pack that uses it.
+[SECURITY.md](../../SECURITY.md) before importing any third-party dialect or op-pack that uses it.
 
 ### Use the dialect's own AST library
 
@@ -703,6 +703,6 @@ duplicates it.
 
 ## Publishing and trust
 
-Read [SECURITY.md](../SECURITY.md) before publishing or importing a dialect or op-pack: importing
+Read [SECURITY.md](../../SECURITY.md) before publishing or importing a dialect or op-pack: importing
 any dialect or op-pack runs its code with full process privilege, and there is no sandbox or
 signing in v1.

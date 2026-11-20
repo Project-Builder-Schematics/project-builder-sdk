@@ -2,7 +2,7 @@
 
 **Wire-spec version**: 1 (engine build target: PC-PROTO-01; matches `WIRE_PROTOCOL_VERSION`)
 **Status**: normative — both repos build and conformance-test against this document, not
-against `docs/engine-sdk-wire-design.md` (that file is now the historical decision record,
+against `docs/contracts/engine-sdk-wire-design.md` (that file is now the historical decision record,
 reconciled to rev 3 alongside this doc's creation — see its header).
 **Reconciled against BUILT code**: `stdio-engine-client` (2026-07-15) — every shape below is
 read directly off the shipped SDK code (`src/acl/irwire/**`, `src/shared-kernel/**`, `src/bounded-contexts/authoring/domain/valueobjects/wire.ts`), not proposed
@@ -204,7 +204,7 @@ a runtime desync against a live engine.
 ## Cross-Repo Build Target
 
 Engine `PC-PROTO-01` MUST build against THIS wire-spec version (`1`) and
-`docs/engine-sdk-wire-design.md` rev 3 — NOT rev 2 (rev 2 described NDJSON framing, a
+`docs/contracts/engine-sdk-wire-design.md` rev 3 — NOT rev 2 (rev 2 described NDJSON framing, a
 single-initiator model, and a `session.init` handshake, all superseded — see that document's
 `## Superseded (historical)` section). Conformance is measured by the Go side passing the same
 wire vectors this repo's fake-engine harness already encodes (`test/bounded-contexts/authoring/testing/harness.test.ts` +
