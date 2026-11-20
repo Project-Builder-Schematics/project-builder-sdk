@@ -88,6 +88,14 @@ export function assertValidImportBinding(name: string, argName: string = "name")
 }
 
 /**
+ * A name an op only looks up and never writes. A reserved word can be found (`{ default as x }`),
+ * so only the grammar applies.
+ */
+export function assertValidLookupName(name: string, argName: string = "name"): void {
+  assertGrammar(argName, name, IMPORT_BINDING_GRAMMAR, "be a valid JavaScript identifier");
+}
+
+/**
  * A plain-identifier object key. Reserved words are legal keys (`{ default: 1 }`), so only the
  * grammar and the denylist apply: a created `__proto__: [...]` would set the prototype.
  */

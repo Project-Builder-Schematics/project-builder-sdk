@@ -9,6 +9,12 @@ import { defineFactory } from "../../../../../../../src/bounded-contexts/authori
 
 type Handle = ReturnType<typeof ts.find>;
 
+// The argument each op reports a rejected name under; the rest report `name`.
+const ARGUMENT_NAME: Record<string, string> = { "addExportAll as": "as", "removeExportAll as": "as" };
+
+// Ops that only look a name up, never write it: a reserved word is a name they can find (A-55).
+const LOOKUP_OPS = new Set(["removeImport", "removeExport", "removeExportAll as"]);
+
 const NAME_BEARING_OPS: Record<string, (handle: Handle, name: string) => PromiseLike<unknown>> = {
   addImport: (handle, name) => handle.addImport(name, "m"),
   addDefaultImport: (handle, name) => handle.addDefaultImport(name, "m"),
@@ -58,25 +64,60 @@ async function rejectionOf(seed: string, apply: (handle: Handle) => PromiseLike<
   return { err: caught as Error, modifies: collectModifies(emitted).length };
 }
 
+async function expectContent(seed: string, apply: (handle: Handle) => PromiseLike<unknown>, expected: string): Promise<void> {
+  const { client, emitted } = makeSpyClient({ "a.ts": seed });
+  await defineFactory<void>(async () => {
+    await apply(ts.find("a.ts"));
+  })(undefined, { client });
+  const modifies = collectModifies(emitted);
+  expect(modifies).toHaveLength(1);
+  expect(modifies[0]?.modify.content).toBe(expected);
+}
+
 describe("name-position validation across every name-bearing op", () => {
   for (const [opName, apply] of Object.entries(NAME_BEARING_OPS)) {
+    const argument = ARGUMENT_NAME[opName] ?? "name";
     for (const [shape, payload] of Object.entries(INJECTION_SHAPES)) {
       it(`${opName} rejects a ${shape} name before any mutation, without echoing it`, async () => {
         const { err, modifies } = await rejectionOf('import { y } from "m";\n', (handle) => apply(handle, payload));
         expect(err.message).toBe(
-          "dialect operation failed: `name` must be a valid JavaScript identifier — fix the name, or use `.modify()` to make this edit directly."
+          `dialect operation failed: \`${argument}\` must be a valid JavaScript identifier — fix the name, or use \`.modify()\` to make this edit directly.`
         );
         expect(modifies).toBe(0);
       });
     }
 
+    if (LOOKUP_OPS.has(opName)) continue;
     for (const reserved of RESERVED_NAMES) {
       it(`${opName} rejects the reserved name "${reserved}" before any mutation`, async () => {
         const { err, modifies } = await rejectionOf("", (handle) => apply(handle, reserved));
-        expect(err.message).toContain(`\`name\` "${reserved}"`);
+        expect(err.message).toContain(`\`${argument}\` "${reserved}"`);
         expect(modifies).toBe(0);
       });
     }
+  }
+
+  it("removeImport finds a binding whose imported name is a reserved word", async () => {
+    await expectContent('import { default as x, y } from "m";\n', (handle) => handle.removeImport("default", "m"), 'import { y } from "m";\n');
+  });
+
+  it("removeExport finds a re-export whose name is a reserved word", async () => {
+    await expectContent('export { default, y } from "m";\n', (handle) => handle.removeExport("default", "m"), 'export { y } from "m";\n');
+  });
+
+  it("removeExportAll finds a namespace export named by a reserved word", async () => {
+    await expectContent('export * as default from "m";\nconst x = 1;\n', (handle) => handle.removeExportAll("m", { as: "default" }), "const x = 1;\n");
+  });
+
+  for (const op of ["addExportAll", "removeExportAll"] as const) {
+    it(`${op} rejects a null \`as\` before any mutation, never reading it as absent`, async () => {
+      const seed = 'export * from "m";\n';
+      const { err, modifies } = await rejectionOf(seed, (handle) => handle[op]("m", { as: null as unknown as string }));
+      expect(err.message).toBe(
+        "dialect operation failed: `as` must be a valid JavaScript identifier — fix the name, or use `.modify()` to make this edit directly."
+      );
+      expect(modifies).toBe(0);
+    });
   }
 
   it("removeImport validates before its absent-binding no-op", async () => {
