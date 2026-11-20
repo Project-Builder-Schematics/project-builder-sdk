@@ -9,7 +9,7 @@ import { Node, Project, NewLineKind, QuoteKind, IndentationText, type SourceFile
 // In-memory-only path fed to ts-morph's virtual file system — never a real disk path; the
 // dialect handle (src/core/dialect-handle.ts) owns the AUTHOR-FACING path, this is purely an
 // internal identifier ts-morph's Project API requires.
-const VIRTUAL_PATH = "dialect-source.ts";
+const VIRTUAL_STEM = "dialect-source";
 
 const BOM = "﻿";
 
@@ -74,12 +74,15 @@ function detectQuoteKind(sourceFile: SourceFile): QuoteKind {
  * frozen contained-error prefix; this function's own thrown message is never surfaced
  * directly to the author.
  *
+ * `extension` sets the script kind, for author code parsed as the file it goes into would be; the
+ * dialect itself parses with the default.
+ *
  * Row-139 (stage-5b, executor-latitude, no REQ of its own): classification below reads off
  * `getSyntacticDiagnostics()`'s own diagnostic objects — never an assumption about a caught
  * error's own-enumerable-properties or call-stack shape. Verified already in this shape; no
  * heuristic-based classification exists in this function to sweep out.
  */
-export function parse(source: string): SourceFile {
+export function parse(source: string, extension: ".ts" | ".tsx" | ".jsx" = ".ts"): SourceFile {
   const startsWithBom = source.startsWith(BOM);
   const body = startsWithBom ? source.slice(BOM.length) : source;
   const project = new Project({
@@ -91,7 +94,7 @@ export function parse(source: string): SourceFile {
       usePrefixAndSuffixTextForRename: false,
     },
   });
-  const sourceFile = project.createSourceFile(VIRTUAL_PATH, body);
+  const sourceFile = project.createSourceFile(`${VIRTUAL_STEM}${extension}`, body);
   project.manipulationSettings.set({ quoteKind: detectQuoteKind(sourceFile) });
   if (startsWithBom) hadBom.set(sourceFile, true);
 
