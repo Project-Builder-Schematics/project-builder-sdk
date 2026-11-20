@@ -36,15 +36,16 @@ describe("REQ-TOE-01.8 — options entirely absent does not crash", () => {
 });
 
 describe("REQ-TOE-04 (integration) — rejection surfaces at create() scheduling, before any directive enters the batch", () => {
-  it("a create() call with a non-plain-JSON option value throws the plain Error naming the key — never an AuthoringError, and no directive is ever staged", async () => {
+  it("a create() call with a non-plain-JSON option value throws an invalid-input AuthoringError naming the key, and no directive is ever staged", async () => {
     const fake = new ContractFake({ seed: {} });
 
     const caught = await rejectedRun(fake, () => {
       create("src/bad.ts", { template: "content", options: { when: new Date() } as unknown as JsonValue });
     });
 
-    expect(caught).toBeInstanceOf(Error);
-    expect(caught).not.toBeInstanceOf(AuthoringError);
+    expect(caught).toBeInstanceOf(AuthoringError);
+    expect((caught as AuthoringError).reason).toBe("invalid-input");
+    expect((caught as AuthoringError).path).toBe("src/bad.ts");
     expect((caught as Error).message).toEqual(
       'option "when" is not a plain-JSON value the engine can render (Date at when). ' +
         "Options must be strings, numbers, booleans, null, arrays, or plain objects."

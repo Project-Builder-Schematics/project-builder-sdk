@@ -295,7 +295,9 @@ export function defineFactory<O>(
       await ctx.dialects.drain();
       await ctx.session.flush();
       await ctx.session.commit();
-    } catch (err) {
+    } catch (thrown) {
+      // A thrown `undefined` or `null` would read as success to anyone testing the error.
+      const err = thrown ?? new Error(`the factory threw ${String(thrown)}`);
       // REQ-10: double-fault preservation. A discard() rejection (E2) must never replace
       // or swallow the factory's original error (E1) — attach it as cause and re-throw E1.
       try {
