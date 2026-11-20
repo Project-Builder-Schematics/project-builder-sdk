@@ -1,0 +1,121 @@
+{
+  "app": "domainrings",
+  "version": 5,
+  "kind": "hexagonal",
+  "title": "@pbuilder/sdk",
+  "contexts": [
+    { "id": "c-authoring", "name": "Authoring" },
+    { "id": "c-runnerhosting", "name": "Runner hosting" },
+    { "id": "c-execution", "name": "Execution" }
+  ],
+  "hexagons": [
+    {
+      "id": "h-authoring",
+      "contextId": "c-authoring",
+      "cell": { "q": 0, "r": 0 },
+      "title": "Authoring",
+      "subtitle": "src/bounded-contexts/authoring",
+      "domain": [
+        { "id": "d-session", "name": "Session", "type": "aggregate", "note": "The pending-directive buffer and the flush policy; holds the EngineClient." },
+        { "id": "d-handle", "name": "DialectHandle", "type": "entity", "parentId": "d-session", "note": "Identity is the normalized path; the live AST is a cache. BaseHandle and HandleState sit beside it in entities/." },
+        { "id": "d-directive", "name": "Directive", "type": "valueObject", "note": "valueobjects/wire.ts, with Batch. Conformist to the IR wire's directive shape." },
+        { "id": "d-schema", "name": "SchemaModel", "type": "valueObject" },
+        { "id": "d-errors", "name": "AuthoringError, DialectError", "type": "valueObject" },
+        { "id": "d-json", "name": "JsonValue", "type": "valueObject" },
+        { "id": "d-factory", "name": "DirectiveFactory", "type": "domainService", "note": "Lowers author verbs to Directives." },
+        { "id": "d-dialectkit", "name": "define-dialect", "type": "domainService", "note": "defineDialect, defineOpPack, withOps and the Dialect contract types, in one file of domain/services/." },
+        { "id": "d-schemasvc", "name": "schema/*", "type": "domainService", "note": "Parse, validate, sufficiency, locate, digest, input rejection." },
+        { "id": "d-names", "name": "filename-pipeline, identifier-names, reject-tail", "type": "domainService" },
+        { "id": "d-runcontext", "name": "run-context", "type": "domainService" }
+      ],
+      "useCases": [
+        { "id": "uc-run", "name": "run-factory", "note": "defineFactory: opens the Session, runs the factory, flushes or discards. driving.ts offers what another context needs. There is no composition.ts: callers pass the adapters in." },
+        { "id": "uc-verbs", "name": "authoring-verbs", "note": "find, create, replaceContent, remove, rename, move, copy, pendingDirectives." },
+        { "id": "uc-scaffold", "name": "scaffold", "note": "copyIn, templateFile reads and the folder scaffold." },
+        { "id": "uc-pending", "name": "pending-directives" }
+      ],
+      "ports": [
+        { "id": "p-verbs", "name": "author verbs", "side": "driving", "wall": "w", "useCaseIds": ["uc-verbs", "uc-scaffold", "uc-pending"], "note": "Plain exported functions; no interface in front." },
+        { "id": "p-run", "name": "defineFactory", "side": "driving", "wall": "sw", "useCaseId": "uc-run", "note": "The run-factory use case, called directly; Runner hosting reaches Authoring here." },
+        { "id": "p-schema", "name": "schema services", "side": "driving", "wall": "nw", "note": "Codegen calls the schema domain services directly; no use case sits between them." },
+        { "id": "p-engine", "name": "EngineClient", "side": "driven", "wall": "e", "useCaseIds": ["uc-run", "uc-verbs", "uc-scaffold"], "note": "domain/ports/engine-client.ts: emit a batch, read a path." },
+        { "id": "p-rejection", "name": "EmitRejection", "side": "driven", "wall": "ne", "useCaseId": "uc-run", "note": "domain/ports/emit-rejection.ts: the closed rejection shape every EngineClient rejects with." },
+        { "id": "p-files", "name": "PackageFiles", "side": "driven", "wall": "se", "useCaseIds": ["uc-run", "uc-scaffold"], "note": "domain/ports/package-files.ts: reads under the factory package folder." },
+        { "id": "p-dialect", "name": "Dialect contract", "side": "driven", "wall": "ne", "useCaseId": "uc-verbs", "note": "Still in domain/services/define-dialect.ts, not domain/ports/." }
+      ],
+      "adapters": [
+        { "id": "a-commons", "name": "in/commons facade", "portId": "p-verbs", "note": "Behind @pbuilder/sdk and @pbuilder/sdk/commons." },
+        { "id": "a-codegen", "name": "in/codegen", "portId": "p-schema", "note": "cli.ts, emit-type.ts, project-codegen.ts; bin/pbuilder-codegen.ts runs runCli." },
+        { "id": "a-harness", "name": "testing/harness runFactoryForTest", "portId": "p-run", "note": "The test kit behind @pbuilder/sdk/testing." },
+        { "id": "a-stdio", "name": "acl/irwire StdioEngineClient", "portId": "p-engine", "note": "JSON-RPC over stdio, with frame-reader.ts and the shared-kernel framing." },
+        { "id": "a-fake", "name": "testing ContractFake", "portId": "p-engine", "note": "In-memory test copy of Execution's contract." },
+        { "id": "a-rejection", "name": "acl/irwire rejection decoding", "portId": "p-rejection", "note": "StdioEngineClient turns a wire error into an EmitRejection." },
+        { "id": "a-fs", "name": "out/fs nodePackageFiles", "portId": "p-files" },
+        { "id": "a-dialects", "name": "out/dialects packs", "portId": "p-dialect", "note": "typescript, react, angular, nestjs, json, yaml, css. Each folder's index.ts assembles its pack; ast.ts is the only parser importer." }
+      ],
+      "actors": [
+        { "id": "act-author", "name": "Factory code", "adapterId": "a-commons" },
+        { "id": "act-codegen", "name": "pbuilder-codegen", "adapterId": "a-codegen" },
+        { "id": "act-tests", "name": "Factory tests", "adapterId": "a-harness" }
+      ],
+      "externals": [
+        { "id": "ext-package", "name": "Factory package folder", "adapterId": "a-fs" },
+        { "id": "ext-ast", "name": "ts-morph, yaml, jsonc-parser, postcss", "adapterId": "a-dialects" }
+      ]
+    },
+    {
+      "id": "h-runnerhosting",
+      "contextId": "c-runnerhosting",
+      "cell": { "q": 0, "r": 1 },
+      "title": "Runner hosting",
+      "subtitle": "infrastructure/in only",
+      "domain": [],
+      "useCases": [],
+      "ports": [
+        { "id": "p-spawn", "name": "runRunner", "side": "driving", "wall": "w", "note": "The runner's single validation chokepoint, shared by both entries." },
+        { "id": "p-bridge", "name": "enterBridge", "side": "driving", "wall": "sw", "note": "The versioned in-process entry, gated by BRIDGE_CONTRACT_VERSION." },
+        { "id": "p-rh-run", "name": "Authoring run-factory", "side": "driven", "wall": "e", "note": "No interface: runner.ts calls defineFactory and driving.ts directly, passing StdioEngineClient and nodePackageFiles." }
+      ],
+      "adapters": [
+        { "id": "a-runner", "name": "runner", "portId": "p-spawn" },
+        { "id": "a-factorypointer", "name": "factory-pointer", "portId": "p-spawn", "note": "Parses and validates <url>#<export>." },
+        { "id": "a-probe", "name": "single-instance-probe", "portId": "p-spawn" },
+        { "id": "a-exitcodes", "name": "exit-codes", "portId": "p-spawn" },
+        { "id": "a-bridge", "name": "bootstrap-bridge", "portId": "p-bridge", "note": "Never calls process.exit." }
+      ],
+      "actors": [
+        { "id": "act-engine-spawn", "name": "Engine (spawns src/bin/pbuilder-runner.ts)", "adapterId": "a-runner" },
+        { "id": "act-engine-embed", "name": "Engine (imports the bridge)", "adapterId": "a-bridge" }
+      ],
+      "externals": []
+    },
+    {
+      "id": "h-execution",
+      "contextId": "c-execution",
+      "cell": { "q": 1, "r": 0 },
+      "title": "Execution",
+      "subtitle": "project-builder-engine; not in this repository",
+      "domain": [],
+      "useCases": [],
+      "ports": [
+        { "id": "p-irwire", "name": "IR wire", "side": "driving", "wall": "w", "note": "The Published Language; Execution is the Open Host Service." }
+      ],
+      "adapters": [],
+      "actors": [],
+      "externals": []
+    }
+  ],
+  "links": [
+    {
+      "id": "link1",
+      "from": { "hexagonId": "h-runnerhosting", "portId": "p-rh-run" },
+      "to": { "hexagonId": "h-authoring", "portId": "p-run" }
+    },
+    {
+      "id": "link2",
+      "from": { "hexagonId": "h-authoring", "portId": "p-engine", "adapterId": "a-stdio" },
+      "to": { "hexagonId": "h-execution", "portId": "p-irwire" },
+      "pattern": "acl"
+    }
+  ]
+}
