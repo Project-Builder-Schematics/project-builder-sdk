@@ -39,6 +39,11 @@ export interface RunResult {
   /** One `Batch` per `emit()` call, in call order. */
   emitted: Batch[];
   /**
+   * How many reads of each path the fake engine served, in first-read order. A read of an absent
+   * path counts; a path the factory never read is not present.
+   */
+  reads: ReadonlyMap<string, number>;
+  /**
    * `undefined` on success. On a rejected write, the attributed `AuthoringError` from the
    * emit seam. On a factory throw, the original thrown value, unmodified.
    */
@@ -106,12 +111,14 @@ export async function runFactoryForTest<O>(
 ): Promise<RunResult> {
   const fake = new ContractFake({ seed: options?.seed ?? {} });
   const emitted: Batch[] = [];
+  const reads = new Map<string, number>();
   const client: RecordingClient = {
     emit(batch) {
       emitted.push(batch);
       return fake.emit(batch);
     },
     read(path) {
+      reads.set(path, (reads.get(path) ?? 0) + 1);
       return fake.read(path);
     },
     commit() {
@@ -134,5 +141,5 @@ export async function runFactoryForTest<O>(
     error = caught;
   }
 
-  return { tree: fake.committedTree(), emitted, error };
+  return { tree: fake.committedTree(), emitted, reads, error };
 }

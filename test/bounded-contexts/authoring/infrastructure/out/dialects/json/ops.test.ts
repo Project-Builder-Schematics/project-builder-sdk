@@ -250,6 +250,17 @@ describe("REQ-JSD-09 — relocation, copy, key position, key order", () => {
     await expectRejected('{ "a": [] }', (h) => h.sortKeys(["a"]), "not an object");
   });
 
+  it("sortKeys keeps the spacing of an object written on one line (A-38)", async () => {
+    expect(await edited('{"b": 1, "B": 2, "a": 3}\n', (h) => h.sortKeys([]))).toBe('{"B": 2, "a": 3, "b": 1}\n');
+    expect(await edited('{"b": 1, "a": {"d": 1, "c": 2}}\n', (h) => h.sortKeys([], { recursive: true }))).toBe(
+      '{"a": {"c": 2, "d": 1}, "b": 1}\n'
+    );
+  });
+
+  it("sortKeys on one line moves a member's comment with it and leaves the spacing in place", async () => {
+    expect(await edited('{"b": 1, /* ay */ "a": 2}\n', (h) => h.sortKeys([]))).toBe('{/* ay */ "a": 2, "b": 1}\n');
+  });
+
   it("sortKeys uses code-point order", async () => {
     expect(Object.keys(value(await edited('{ "b": 1, "B": 2, "\u{1F600}": 3, "￿": 4 }', (h) => h.sortKeys([]))) as object)).toEqual([
       "B",
@@ -313,5 +324,25 @@ describe("trailing line comments stay with their member", () => {
     expect(await edited('{\n  "a": 1,\n  // about c\n  "c": 3\n}\n', (h) => h.addKey(["b"], 2, { before: "c" }))).toBe(
       '{\n  "a": 1,\n  "b": 2,\n  // about c\n  "c": 3\n}\n'
     );
+  });
+});
+
+describe("content written into an empty object on one line (A-23)", () => {
+  const seed = '{\n  "name": "app",\n  "jest": {}\n}\n';
+
+  it("merge expands it with the file's indentation", async () => {
+    expect(await edited(seed, (h) => h.merge([], { jest: { moduleNameMapper: { k: "v" } } }))).toBe(
+      '{\n  "name": "app",\n  "jest": {\n    "moduleNameMapper": {\n      "k": "v"\n    }\n  }\n}\n'
+    );
+  });
+
+  it("setValue expands the parents it creates", async () => {
+    expect(await edited(seed, (h) => h.setValue(["jest", "moduleNameMapper", "k"], "v"))).toBe(
+      '{\n  "name": "app",\n  "jest": {\n    "moduleNameMapper": {\n      "k": "v"\n    }\n  }\n}\n'
+    );
+  });
+
+  it("keeps a file written on one line on one line", async () => {
+    expect(await edited('{"jest": {}}\n', (h) => h.setValue(["jest", "k"], "v"))).toBe('{"jest": {"k": "v"}}\n');
   });
 });

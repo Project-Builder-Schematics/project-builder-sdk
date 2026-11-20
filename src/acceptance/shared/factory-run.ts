@@ -164,6 +164,13 @@ export const FACTORY_RUN_STEPS: readonly StepDefinition[] = [
     },
   },
   {
+    phrase: 'the number of reads of the file "{path}" served by the engine is "{n}"',
+    run: (world, [path, n]) => {
+      if (!factoryRun(world).failureExpected) expectSuccess(world);
+      expect(endedRun(world).reads.get(path as string) ?? 0).toBe(Number(n));
+    },
+  },
+  {
     phrase: 'the file "{path}" has its original content',
     run: (world, [path]) => {
       if (!factoryRun(world).failureExpected) expectSuccess(world);
