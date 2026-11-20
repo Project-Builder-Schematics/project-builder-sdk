@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing. This document covers how to set up the project, run the test suite, and submit changes.
 
-The test pyramid lives in [testing.md](testing.md) and the release runbook in [releasing.md](releasing.md).
+The test pyramid lives in [testing.md](testing.md), the code conventions in [conventions.md](conventions.md) and the release runbook in [releasing.md](releasing.md).
 
 ## Prerequisites
 
@@ -29,13 +29,14 @@ All four commands must pass before submitting a pull request. CI enforces them.
 
 ## Architecture
 
-The codebase is split into three layers:
+The code follows project-builder-architecture's bounded-context layout ([ADR-0083](../docs/adr/0083-hexagonal-layout.md)):
 
-- `src/core/` — internal kit (extraction-ready; not exposed in package exports).
-- `src/commons/` — the author-facing public surface (`@pbuilder/sdk` and `@pbuilder/sdk/commons`).
-- `src/conformance/` — the ecosystem test scaffold (`@pbuilder/sdk/conformance`).
+- `src/bounded-contexts/authoring/` — the factory, its schema and its edits: [Authoring](../docs/bounded-contexts/authoring.md).
+- `src/bounded-contexts/runner-hosting/` — the runner bootstrap the engine starts: [Runner hosting](../docs/bounded-contexts/runner-hosting.md).
+- `src/acl/irwire/`, `src/shared-kernel/`, `src/platform/` — the engine client, the code both contexts share, and helpers with no domain rules.
+- `src/index.ts`, `src/commons/`, `src/testing/`, `src/conformance/`, `src/dialects/<name>/` — the public entries, thin barrels over the contexts.
 
-Dialect and op-pack authors consume `src/commons/`. Contributor kit details are in `docs/guides/authoring-a-dialect.md`.
+The layering rule, where new code goes and how to read a fit-49 failure are in [conventions.md](conventions.md). Writing a dialect is in [authoring-a-dialect.md](../docs/guides/authoring-a-dialect.md).
 
 ## Pull request guidelines
 
