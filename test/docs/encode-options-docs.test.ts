@@ -1,5 +1,5 @@
 /**
- * REQ-TOE-09 (S-003, typed-options-feeder): `docs/create-templates.md` teaches native
+ * REQ-TOE-09 (S-003, typed-options-feeder): `docs/guides/create-templates.md` teaches native
  * arrays/objects with zero `JSON.stringify` mentions, and the testing-observability note
  * (that `@pbuilder/sdk/testing` recorded batches show composite options as the native values
  * the author passed, REQ-TOE-07, ADR-0082) is present.
@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
-const DOC_PATH = join(PROJECT_ROOT, "docs/create-templates.md");
+const DOC_PATH = join(PROJECT_ROOT, "docs/guides/create-templates.md");
 
 function readDoc(): string {
   return readFileSync(DOC_PATH, "utf-8");

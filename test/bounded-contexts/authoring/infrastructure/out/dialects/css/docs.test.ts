@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { PROJECT_ROOT } from "../../../../../../support/jsdoc-scan.ts";
 import { extractSection } from "../../../../../../support/markdown-section.ts";
 
-const doc = readFileSync(join(PROJECT_ROOT, "docs/css-dialect.md"), "utf-8");
+const doc = readFileSync(join(PROJECT_ROOT, "docs/guides/css-dialect.md"), "utf-8");
 
-describe("docs/css-dialect.md — author guide", () => {
+describe("docs/guides/css-dialect.md — author guide", () => {
   it.each(["setDeclaration(target, property, value, options?)", "removeDeclaration(target, property)"])(
     "documents %s under its own heading",
     (signature) => {

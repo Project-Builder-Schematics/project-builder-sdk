@@ -1,5 +1,5 @@
 /**
- * S-004 — REQ-RXD-09 doc guard: `docs/authoring-a-dialect.md` must gain a second worked
+ * S-004 — REQ-RXD-09 doc guard: `docs/guides/authoring-a-dialect.md` must gain a second worked
  * example for `@pbuilder/sdk/react` (the coalesced `addImport` + `setJsxProp` journey), the
  * `value` trust boundary, the spread-precedence warning, the named-only `addImport`
  * limitation, the explicit-`.tsx`-extension requirement, and the two-dialect reframe (the doc
@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { PROJECT_ROOT } from "../../../../../../support/jsdoc-scan.ts";
 import { extractSection } from "../../../../../../support/markdown-section.ts";
 
-const DOC_PATH = join(PROJECT_ROOT, "docs/authoring-a-dialect.md");
+const DOC_PATH = join(PROJECT_ROOT, "docs/guides/authoring-a-dialect.md");
 const README_PATH = join(PROJECT_ROOT, "README.md");
 const REACT_INDEX_PATH = join(PROJECT_ROOT, "src/bounded-contexts/authoring/infrastructure/out/dialects/react/index.ts");
 

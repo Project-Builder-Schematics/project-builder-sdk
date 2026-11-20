@@ -56,7 +56,7 @@ Symlink escape from `packageDir` is an accepted, documented residual (`package-s
 Windows UNC and drive-relative source forms are not screened SDK-side — that is the engine's obligation (`by-reference-copy-wire` REQ-BRC-08).
 
 See [ADR-0077](./docs/adr/0077-relocate-containment-boundary-out-of-sdk.md) and
-[Authoring verbs](./docs/authoring-verbs.md#package-local-reads-the-boundary) for the full
+[Authoring verbs](./docs/guides/authoring-verbs.md#package-local-reads-the-boundary) for the full
 context and the per-path-class boundary table.
 
 ## Runner integrity manifest
@@ -73,5 +73,5 @@ Publication is manual-only and requires the canonical repository's main ref plus
 the `npm` environment's required-reviewer approval. Do not remove this protection
 or use a token fallback. Self-review, where allowed, is not independent review.
 Preparation does not establish live activation, and a failed publish can have
-unknown registry effects. Follow the [release runbook](CONTRIBUTING.md#publishing-a-release)
+unknown registry effects. Follow the [release runbook](handbook/releasing.md#publishing-a-release)
 for separate first-live authorization, registry confirmation and recovery.

@@ -5,7 +5,7 @@
 BEFORE `stdio-engine-client` built the wire; it is preserved as the decision trail (why
 alternatives were rejected, what the tradeoffs were), not as the current contract. **The
 normative text both repos now build and conformance-test against is
-[`docs/engine-sdk-wire-spec.md`](./engine-sdk-wire-spec.md)** — read that document for the
+[`docs/contracts/engine-sdk-wire-spec.md`](./engine-sdk-wire-spec.md)** — read that document for the
 CURRENT wire shape. Three of this record's original decisions were superseded during the
 `stdio-engine-client` build (see `## Superseded (historical)` below); everything else here
 (chain of responsibility, cross-language contracts, platform hazards) still holds. The wire
@@ -13,7 +13,7 @@ methods (`ir.emit` / `tree.read`) are not yet on the engine (ROADMAP §6); no re
 in `src/` at the time this record was authored (the normative implementation was the contract
 fake, `src/bounded-contexts/authoring/testing/contract-fake.ts` — `stdio-engine-client` later added the first real
 `EngineClient`, `StdioEngineClient`). Contributor-facing; not part of the author reading path
-in `docs/README.md`.
+in `docs/guides/README.md`.
 
 ## Topology
 
@@ -44,12 +44,12 @@ These are independent; conflating them is the classic source of confusion here:
 
 > **Superseded by rev 3** (`stdio-engine-client`, 2026-07-15, REQ-WPS-11). The three decisions
 > below were the pre-implementation proposal; the SHIPPED wire replaced all three. See
-> `docs/engine-sdk-wire-spec.md` for what actually built. Kept here, unedited except for this
+> `docs/contracts/engine-sdk-wire-spec.md` for what actually built. Kept here, unedited except for this
 > banner, as the historical record of what was considered and why.
 >
 > | Proposed here (superseded) | Shipped instead |
 > |---|---|
-> | Newline-delimited JSON (NDJSON) framing | 4-byte big-endian length-prefix framing (`docs/engine-sdk-wire-spec.md` § Frame Grammar, WPS-01) |
+> | Newline-delimited JSON (NDJSON) framing | 4-byte big-endian length-prefix framing (`docs/contracts/engine-sdk-wire-spec.md` § Frame Grammar, WPS-01) |
 > | Single-initiator directionality (the SDK initiates every request, the engine only responds) | Host-initiated topology with exactly 4 allowlisted SDK→host reverse callbacks (§ Reverse-Callback Method Schemas, WPS-05/WPS-09/WPS-10) |
 > | `session.init` handshake | Versioned `ready` greeting, fail-at-greeting on mismatch (§ Ready Handshake, WPS-02) |
 
@@ -207,10 +207,10 @@ with the protocol, and conformance-tested on both sides:
   `archive/2026-07-15-bare-factory-migration` graduated it to core-internal, removed from
   `./testing`'s public exports (ADR-0050).
 - ~~Exit-code taxonomy for the runner (validation failure vs. emit rejection vs. crash).~~
-  **RESOLVED** — `docs/engine-sdk-wire-spec.md` § Exit-Code Taxonomy (EXC-01), implemented in
+  **RESOLVED** — `docs/contracts/engine-sdk-wire-spec.md` § Exit-Code Taxonomy (EXC-01), implemented in
   `src/transport/exit-codes.ts`.
 - Final call on `--input-file` threshold and whether the engine always uses it. **PARTIALLY
   RESOLVED**: the SDK-side cap (`10 MiB`, `src/transport/runner.ts`) is set; whether the engine
   always routes through `--input-file` vs. inline `--input` is still an engine-side call.
 - ~~Where the wire spec (method names, error shapes, pointer syntax) lives so both codebases
-  test against one normative text.~~ **RESOLVED** — `docs/engine-sdk-wire-spec.md`.
+  test against one normative text.~~ **RESOLVED** — `docs/contracts/engine-sdk-wire-spec.md`.

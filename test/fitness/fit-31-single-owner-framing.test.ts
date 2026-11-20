@@ -22,8 +22,8 @@ const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const TRANSPORT_DIR = join(PROJECT_ROOT, "src/transport");
 const FRAMING_FILE = join(PROJECT_ROOT, "src/shared-kernel/framing.ts");
 const FRAME_READER_FILE = join(PROJECT_ROOT, "src/acl/irwire/frame-reader.ts");
-const DESIGN_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-design.md");
-const WIRE_SPEC_DOC_PATH = join(PROJECT_ROOT, "docs/engine-sdk-wire-spec.md");
+const DESIGN_DOC_PATH = join(PROJECT_ROOT, "docs/contracts/engine-sdk-wire-design.md");
+const WIRE_SPEC_DOC_PATH = join(PROJECT_ROOT, "docs/contracts/engine-sdk-wire-spec.md");
 
 const DESIGN_DOC_TEXT = readFileSync(DESIGN_DOC_PATH, "utf-8");
 
@@ -127,7 +127,7 @@ describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconcili
   });
 
   describe("REQ-WPS-11.1 — zero live references to the superseded design outside a superseded section", () => {
-    it("docs/engine-sdk-wire-design.md holds no live NDJSON/single-initiator/session.init reference outside its Superseded section", () => {
+    it("docs/contracts/engine-sdk-wire-design.md holds no live NDJSON/single-initiator/session.init reference outside its Superseded section", () => {
       expect(supersededTermViolations(DESIGN_DOC_TEXT)).toEqual([]);
     });
 
@@ -148,7 +148,7 @@ describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconcili
   });
 
   describe("REQ-WPS-11.2 — header stamps the wire-spec version target", () => {
-    it("docs/engine-sdk-wire-design.md's header stamps a version matching WIRE_PROTOCOL_VERSION", () => {
+    it("docs/contracts/engine-sdk-wire-design.md's header stamps a version matching WIRE_PROTOCOL_VERSION", () => {
       expect(extractHeaderStamp(DESIGN_DOC_TEXT)).toEqual(WIRE_PROTOCOL_VERSION);
     });
 
@@ -158,7 +158,7 @@ describe("fit-31 — single-owner-of-framing (encode) + REQ-WPS-11 doc reconcili
   });
 
   describe("REQ-WPS-11.3 — the normative wire-spec doc carries every mandated section", () => {
-    it("docs/engine-sdk-wire-spec.md is missing zero mandated sections", () => {
+    it("docs/contracts/engine-sdk-wire-spec.md is missing zero mandated sections", () => {
       expect(missingMandatedSections(readFileSync(WIRE_SPEC_DOC_PATH, "utf-8"))).toEqual([]);
     });
 

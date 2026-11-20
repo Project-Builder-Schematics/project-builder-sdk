@@ -2,18 +2,18 @@
  * Pyramid REQ-01/02/03: the test-pyramid doc-table + CI-coverage structural contract
  * (test-pyramid-codification spec, contributor half of O2 row 11).
  *
- * Strategy: static text-scan over `CONTRIBUTING.md` and `.github/workflows/ci.yml` —
+ * Strategy: static text-scan over `handbook/testing.md` and `.github/workflows/ci.yml` —
  * same convention as FIT-08/FIT-09 (readFileSync + regex, no markdown/yaml parser
- * dependency). Naturally red until `CONTRIBUTING.md` carries both tables.
+ * dependency). Naturally red until `handbook/testing.md` carries both tables.
  */
 import { describe, it, expect } from "bun:test";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = new URL("../..", import.meta.url).pathname;
-const CONTRIBUTING_PATH = join(ROOT, "CONTRIBUTING.md");
+const TESTING_PATH = join(ROOT, "handbook/testing.md");
 const CI_PATH = join(ROOT, ".github/workflows/ci.yml");
-const CONTRIBUTING_DOC = readFileSync(CONTRIBUTING_PATH, "utf-8");
+const TESTING_DOC = readFileSync(TESTING_PATH, "utf-8");
 
 const LAYER_HEADER = /^\|\s*Layer\s*\|\s*Directory\s*\|\s*Runs without engine\?\s*\|\s*Example test\s*\|\s*$/;
 const DECISION_HEADER = /^\|\s*Contribution type\s*\|\s*Layer\(s\)\s*\|\s*Home\s*\|\s*$/;
@@ -71,7 +71,7 @@ function ciCommandExcludesDirectory(command: string, directory: string): boolean
 
 describe("pyramid REQ-01 — four-layer table maps to real directories", () => {
   it("the table exists with exactly unit/fitness/integration/e2e, each naming an existing directory with ≥1 test file", () => {
-    const rows = extractTable(CONTRIBUTING_DOC, LAYER_HEADER);
+    const rows = extractTable(TESTING_DOC, LAYER_HEADER);
 
     expect(rows.length).toEqual(4);
 
@@ -90,7 +90,7 @@ describe("pyramid REQ-01 — four-layer table maps to real directories", () => {
 
 describe("pyramid REQ-02 — contribution decision table covers the four change kinds", () => {
   it("has a row for new verb, new fitness invariant, cross-module behavior, and full author story", () => {
-    const rows = extractTable(CONTRIBUTING_DOC, DECISION_HEADER);
+    const rows = extractTable(TESTING_DOC, DECISION_HEADER);
 
     expect(rows.length).toEqual(4);
 
@@ -103,7 +103,7 @@ describe("pyramid REQ-02 — contribution decision table covers the four change 
 
 describe("pyramid REQ-03 — CI's test step covers every mapped directory", () => {
   it("no directory named in the doc's layer table is excluded from CI's test invocation", () => {
-    const rows = extractTable(CONTRIBUTING_DOC, LAYER_HEADER);
+    const rows = extractTable(TESTING_DOC, LAYER_HEADER);
     // Ties this check to the doc's mapping actually existing — an empty table must not
     // make this pass vacuously.
     expect(rows.length).toEqual(4);

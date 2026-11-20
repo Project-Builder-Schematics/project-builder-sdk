@@ -1,6 +1,6 @@
 /**
  * Quickstart docs-as-test (S-003, REQ-AOD-01/02/07/11): the machine leg extracts
- * `docs/quickstart.md`'s `schema.json`/`factory.ts`/`factory.test.ts` fenced blocks, runs
+ * `docs/guides/quickstart.md`'s `schema.json`/`factory.ts`/`factory.test.ts` fenced blocks, runs
  * the REAL codegen bin, and runs the REAL test — all inside a `bun link`-installed scratch
  * consumer. Per REQ-AOD-07's fence, the swap target is the LINKED/INSTALLED package, NEVER
  * a relative `src/` substitution — that is `testing-story-docs.test.ts`'s own mechanism for
@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { PROJECT_ROOT, ensureLinkedConsumer, unlinkSdk, cleanScratchDir } from "../support/scratch-consumer.ts";
 import { spawnCapture } from "../support/canary.ts";
 
-const QUICKSTART_PATH = join(PROJECT_ROOT, "docs/quickstart.md");
+const QUICKSTART_PATH = join(PROJECT_ROOT, "docs/guides/quickstart.md");
 const MACHINE_SCRATCH_DIR = join(PROJECT_ROOT, ".tmp-quickstart-machine-leg");
 const TSC_SCRATCH_DIR = join(PROJECT_ROOT, ".tmp-quickstart-tsc-leg");
 

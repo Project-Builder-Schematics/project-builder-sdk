@@ -115,9 +115,9 @@ describe("REQ-TSD-03 — README qualifying-line revert (sequence-gated)", () => 
 });
 
 describe("REQ-TSD-05 — author-facing reference docs reflect the bare contract (bare-factory-migration)", () => {
-  const PENDING_DIRECTIVES_PATH = join(PROJECT_ROOT, "docs/pending-directives.md");
-  const AUTHORING_VERBS_PATH = join(PROJECT_ROOT, "docs/authoring-verbs.md");
-  const AUTHORING_ERRORS_PATH = join(PROJECT_ROOT, "docs/authoring-errors.md");
+  const PENDING_DIRECTIVES_PATH = join(PROJECT_ROOT, "docs/guides/pending-directives.md");
+  const AUTHORING_VERBS_PATH = join(PROJECT_ROOT, "docs/guides/authoring-verbs.md");
+  const AUTHORING_ERRORS_PATH = join(PROJECT_ROOT, "docs/guides/authoring-errors.md");
 
   it("REQ-TSD-05.3 [red-proof]: zero defineFactory tokens across the 3 doc files", () => {
     for (const path of [PENDING_DIRECTIVES_PATH, AUTHORING_VERBS_PATH, AUTHORING_ERRORS_PATH]) {
@@ -157,7 +157,7 @@ describe("REQ-TSD-05 — author-facing reference docs reflect the bare contract 
       });
       if (result.status !== 0) {
         throw new Error(
-          `docs/pending-directives.md's code fence did not fence-compile:\n${result.stdout}\n${result.stderr}`
+          `docs/guides/pending-directives.md's code fence did not fence-compile:\n${result.stdout}\n${result.stderr}`
         );
       }
     } finally {

@@ -1,5 +1,5 @@
 /**
- * S-005 — SECURITY.md + docs/authoring-a-dialect.md guard (REQ-STD-01, REQ-DAS-01/02,
+ * S-005 — SECURITY.md + docs/guides/authoring-a-dialect.md guard (REQ-STD-01, REQ-DAS-01/02,
  * REQ-TSD-06.2). The frozen strings below are copied VERBATIM from design.md §4.4b — this
  * file is the enforcement mechanism, not the source of truth; if a string here ever diverges
  * from design.md, design.md wins and this test is wrong, not the other way around.
@@ -14,12 +14,12 @@ import { PROJECT_ROOT } from "../support/jsdoc-scan.ts";
 import { extractSection } from "../support/markdown-section.ts";
 
 const SECURITY_PATH = join(PROJECT_ROOT, "SECURITY.md");
-const DOC_PATH = join(PROJECT_ROOT, "docs/authoring-a-dialect.md");
+const DOC_PATH = join(PROJECT_ROOT, "docs/guides/authoring-a-dialect.md");
 const PUBLISH_WORKFLOW_PATH = join(PROJECT_ROOT, ".github/workflows/publish.yml");
-const AUTHORING_ERRORS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-errors.md");
-const PENDING_DIRECTIVES_DOC_PATH = join(PROJECT_ROOT, "docs/pending-directives.md");
+const AUTHORING_ERRORS_DOC_PATH = join(PROJECT_ROOT, "docs/guides/authoring-errors.md");
+const PENDING_DIRECTIVES_DOC_PATH = join(PROJECT_ROOT, "docs/guides/pending-directives.md");
 const AUTHORING_ERROR_SRC_PATH = join(PROJECT_ROOT, "src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts");
-const AUTHORING_VERBS_DOC_PATH = join(PROJECT_ROOT, "docs/authoring-verbs.md");
+const AUTHORING_VERBS_DOC_PATH = join(PROJECT_ROOT, "docs/guides/authoring-verbs.md");
 
 const security = () => readFileSync(SECURITY_PATH, "utf-8");
 const doc = () => readFileSync(DOC_PATH, "utf-8");
@@ -142,15 +142,15 @@ describe("REQ-DAS-02.1 — contributor section has no author-style demo", () => 
 // check (mirrors REQ-DAS-01.3's own pattern), not a byte-exact pin — design.md states this
 // requirement as SUBSTANCE only, no verbatim sentence is prescribed.
 //
-// Fourth surface, `docs/authoring-verbs.md` (spec.md:40-42, REQ-AEC-13's "Documentation
+// Fourth surface, `docs/guides/authoring-verbs.md` (spec.md:40-42, REQ-AEC-13's "Documentation
 // surfaces" list): the rationale breadcrumb belongs on the `replaceContent` entry itself, not
 // only in JSDoc — a reader of the published docs site never sees JSDoc.
 describe("REQ-AEC-13.3 — the shared `\"modify\"` wire label is documented in all 4 surfaces", () => {
   const surfaces = [
-    { name: "docs/authoring-errors.md", read: () => readFileSync(AUTHORING_ERRORS_DOC_PATH, "utf-8") },
-    { name: "docs/pending-directives.md", read: () => readFileSync(PENDING_DIRECTIVES_DOC_PATH, "utf-8") },
+    { name: "docs/guides/authoring-errors.md", read: () => readFileSync(AUTHORING_ERRORS_DOC_PATH, "utf-8") },
+    { name: "docs/guides/pending-directives.md", read: () => readFileSync(PENDING_DIRECTIVES_DOC_PATH, "utf-8") },
     { name: "src/core/authoring-error.ts (AuthoringVerb JSDoc)", read: () => readFileSync(AUTHORING_ERROR_SRC_PATH, "utf-8") },
-    { name: "docs/authoring-verbs.md (replaceContent entry)", read: () => readFileSync(AUTHORING_VERBS_DOC_PATH, "utf-8") },
+    { name: "docs/guides/authoring-verbs.md (replaceContent entry)", read: () => readFileSync(AUTHORING_VERBS_DOC_PATH, "utf-8") },
   ];
 
   for (const surface of surfaces) {
