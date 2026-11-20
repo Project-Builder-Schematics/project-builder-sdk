@@ -151,6 +151,11 @@
       "specifier": "../../valueobjects/authoring-error.js"
     },
     {
+      "from": "bounded-contexts/authoring/domain/services/directive-factory.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+      "specifier": "../valueobjects/authoring-error.js"
+    },
+    {
       "from": "bounded-contexts/authoring/domain/services/run-context.js",
       "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
       "specifier": "../valueobjects/authoring-error.js"
