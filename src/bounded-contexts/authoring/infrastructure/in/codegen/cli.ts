@@ -201,6 +201,8 @@ function describeSufficiencyFinding(finding: SufficiencyFinding): string {
       return `unrecognized property type for "${finding.key}"`;
     case "enum-missing-choices":
       return `enum property "${finding.key}" is missing choices`;
+    case "enum-non-string-choices":
+      return `enum property "${finding.key}" has a choice that is not a string`;
     case "missing-label":
       return `property "${finding.key}" is missing a label`;
   }

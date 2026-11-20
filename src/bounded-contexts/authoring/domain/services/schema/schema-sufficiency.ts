@@ -20,6 +20,7 @@ export type SufficiencyReason =
   | "missing-type"
   | "nonsensical-type"
   | "enum-missing-choices"
+  | "enum-non-string-choices"
   | "missing-label";
 
 export interface SufficiencyFinding {
@@ -30,8 +31,9 @@ export interface SufficiencyFinding {
 
 /**
  * Hard-fail rules over the raw `schema.json` `"properties"` map (REQ-SCP-02): missing
- * `type`; an unrecognized `type` value; an enum property missing (or empty) `choices`; a
- * missing `label`; or a `__proto__`/`constructor`/`prototype` property key. Does NOT fail
+ * `type`; an unrecognized `type` value; an enum property missing (or empty) `choices`, or with
+ * a choice that is not a string (the run-boundary validator accepts only strings); a missing
+ * `label`; or a `__proto__`/`constructor`/`prototype` property key. Does NOT fail
  * for a property missing `default`, `required`, or `description` (advisory only, SCP-02.6).
  *
  * Assumes `raw` is syntactically valid JSON (JSON-validity is schema-parse.ts's/RBV-05's
@@ -61,6 +63,8 @@ export function checkSufficiency(raw: string): SufficiencyFinding[] {
       findings.push({ key, reason: "nonsensical-type", detail: String(type) });
     } else if (type === "enum" && (!Array.isArray(value.choices) || value.choices.length === 0)) {
       findings.push({ key, reason: "enum-missing-choices" });
+    } else if (type === "enum" && !(value.choices as unknown[]).every((choice) => typeof choice === "string")) {
+      findings.push({ key, reason: "enum-non-string-choices" });
     }
 
     if (typeof value.label !== "string") {
