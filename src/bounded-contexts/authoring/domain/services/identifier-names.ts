@@ -48,7 +48,7 @@ export const IMPORT_RESERVED_WORDS: ReadonlySet<string> = new Set([
 
 // Verbatim from the shared contract (slices.md rev 2, "Name grammars + denylist"): an import
 // binding is a plain JS identifier (no alias handling).
-const IMPORT_BINDING_GRAMMAR = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+export const IMPORT_BINDING_GRAMMAR = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 // Denylist reject: MAY echo the fixed literal (it's the rule's own vocabulary, not author
 // data, and every denylisted name is well under the 16-char `boundedFragment` ceiling).
