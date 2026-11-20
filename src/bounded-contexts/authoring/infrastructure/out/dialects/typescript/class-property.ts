@@ -1,7 +1,7 @@
 import { Node, SyntaxKind, type ClassDeclaration, type SourceFile } from "ts-morph";
 import { dialectError } from "../../../../domain/valueobjects/dialect-error.ts";
 import { handlePathFor } from "../../../../domain/entities/dialect-handle.ts";
-import { assertValidImportBinding } from "../../../../domain/services/identifier-names.ts";
+import { assertGrammar, assertNotDenylisted, assertValidImportBinding, IMPORT_BINDING_GRAMMAR } from "../../../../domain/services/identifier-names.ts";
 import { elementNameEcho } from "../../../../domain/services/reject-tail.ts";
 import { elementText, tokensOf } from "./array-element.ts";
 import { parse } from "./ast.ts";
@@ -96,7 +96,9 @@ export function addClassProperty(
   options?: ClassPropertyOptions
 ): void {
   assertValidImportBinding(className, "className");
-  assertValidImportBinding(name, "name");
+  // A reserved word is a valid property name (`default = 2`), so only the grammar and the denylist apply.
+  assertGrammar("name", name, IMPORT_BINDING_GRAMMAR, "be a valid JavaScript identifier");
+  assertNotDenylisted("name", name);
   assertClassPropertyOptions(options);
   const value = elementText({ expression: initializer });
   const fail = (reason: string): never => {
