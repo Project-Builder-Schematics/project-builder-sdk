@@ -163,3 +163,13 @@ describe("angular addInput / addModel / addOutput", () => {
     expect(error.message).toContain("`options` must be { type?, imports? }");
   });
 });
+
+describe("angular member ops — a taken import binding", () => {
+  it("is rejected naming the op the author called", async () => {
+    const seed = `const X = 1;\n${COMPONENT}`;
+    const err = await expectReject(seed, () => angular.find(PATH).addOutput("saved", { imports: [{ name: "X", from: "./x" }] }));
+    expect(err.message).toStartWith(
+      `dialect operation failed: addOutput("X") on "${PATH}" — a value or import binding named "X" already exists;`
+    );
+  });
+});
