@@ -141,9 +141,7 @@ function isValueNamespaceClaimed(ast: SourceFile, name: string): boolean {
 // `ExpressionStatement`s starting at statement 0, stopping at the first non-directive
 // statement (a directive is only live when first-in-scope; a string literal appearing
 // later in the file is an ordinary expression statement, not a directive). A shebang is
-// SourceFile leading trivia, never a statement, so it never contributes here — the Create
-// branch below falls through to its pre-existing `addImportDeclaration` path for a shebang
-// file, leaving REQ-TSD-01.33's fail-closed containment untouched (ADR-03).
+// SourceFile leading trivia, never a statement, so it never contributes here.
 function leadingDirectiveCount(ast: SourceFile): number {
   let count = 0;
   for (const statement of ast.getStatements()) {
@@ -318,9 +316,21 @@ function insertImport(ast: SourceFile, structure: OptionalKind<ImportDeclaration
     index !== undefined
       ? ast.insertImportDeclaration(index, structure)
       : directiveCount === 0
-        ? ast.addImportDeclaration(structure)
+        ? addFirstImport(ast, structure)
         : ast.insertImportDeclaration(directiveInsertIndex(ast, directiveCount), structure);
   return dropSemicolon ? (inserted.replaceWithText(inserted.getText().slice(0, -1)) as ImportDeclaration) : inserted;
+}
+
+// ts-morph cannot put the first import of a file below a shebang: it throws when code follows the
+// shebang and drops the shebang when nothing does. The shebang is lifted out, the import added to
+// the rest, and the shebang put back above it.
+function addFirstImport(ast: SourceFile, structure: OptionalKind<ImportDeclarationStructure>): ImportDeclaration {
+  const shebang = /^#![^\n]*\n?/.exec(ast.getFullText())?.[0];
+  if (shebang === undefined || ast.getImportDeclarations().length > 0) return ast.addImportDeclaration(structure);
+  ast.removeText(0, shebang.length);
+  ast.addImportDeclaration(structure);
+  ast.insertText(0, shebang.endsWith("\n") ? shebang : `${shebang}\n`);
+  return ast.getImportDeclarations()[0]!;
 }
 
 // A fresh import keeps the file's statement-terminating semicolon style: ts-morph always
