@@ -31,6 +31,7 @@ import {
   Node,
   SyntaxKind,
   type ExportDeclaration,
+  type ExportDeclarationStructure,
   type ImportDeclaration,
   type ImportDeclarationStructure,
   type OptionalKind,
@@ -43,6 +44,7 @@ import { elementNameEcho, nameRuleTail } from "../../../../domain/services/rejec
 // (ARCH-2, ADR-0071).
 import { assertValidImportBinding, assertValidLookupName } from "../../../../domain/services/identifier-names.ts";
 import { closeGapAfter, sortedPlacement, sortedSpecifierIndex } from "./import-order.ts";
+import { omitsSemicolons } from "./ast.ts";
 
 // Ported verbatim from `react/ops.ts` (design §4.3 data model) — a bound name, tagged with
 // enough shape to answer BOTH "does this SAME-MODULE binding satisfy idempotency" (Step 1)
@@ -325,7 +327,11 @@ function insertImport(ast: SourceFile, structure: OptionalKind<ImportDeclaration
       : directiveCount === 0
         ? addFirstImport(ast, structure)
         : ast.insertImportDeclaration(directiveInsertIndex(ast, directiveCount), structure);
-  return dropSemicolon ? (inserted.replaceWithText(inserted.getText().slice(0, -1)) as ImportDeclaration) : inserted;
+  return dropSemicolon ? withoutSemicolon(inserted) : inserted;
+}
+
+function withoutSemicolon<T extends Node>(statement: T): T {
+  return statement.replaceWithText(statement.getText().slice(0, -1)) as T;
 }
 
 // ts-morph cannot put the first import of a file below a shebang: it throws when code follows the
@@ -338,25 +344,6 @@ function addFirstImport(ast: SourceFile, structure: OptionalKind<ImportDeclarati
   ast.addImportDeclaration(structure);
   ast.insertText(0, shebang.endsWith("\n") ? shebang : `${shebang}\n`);
   return ast.getImportDeclarations()[0]!;
-}
-
-// A fresh import keeps the file's statement-terminating semicolon style: ts-morph always
-// prints one, so it is dropped only when the file's terminable top-level statements mostly
-// omit it (a file with no such statements, or a tie, keeps it).
-function omitsSemicolons(ast: SourceFile): boolean {
-  const terminable = ast
-    .getStatements()
-    .filter(
-      (statement) =>
-        Node.isImportDeclaration(statement) ||
-        Node.isExportDeclaration(statement) ||
-        Node.isExportAssignment(statement) ||
-        Node.isVariableStatement(statement) ||
-        Node.isExpressionStatement(statement) ||
-        Node.isTypeAliasDeclaration(statement)
-    );
-  const terminated = terminable.filter((statement) => statement.getText().endsWith(";")).length;
-  return terminable.length - terminated > terminated;
 }
 
 // The value-bound (not whole-declaration type-only) declarations importing `from`.
@@ -540,7 +527,7 @@ export function addVariable(
     );
   }
   assertNoCollision(ast, name, "addVariable");
-  ast.addStatements(`${exportPrefixFor(options)}${kind} ${name} = ${initializer};`);
+  ast.addStatements(`${exportPrefixFor(options)}${kind} ${name} = ${initializer}${omitsSemicolons(ast) ? "" : ";"}`);
 }
 
 /**
@@ -651,6 +638,12 @@ function assertNotExported(ast: SourceFile, name: string, opName: string): void 
   );
 }
 
+function addExport(ast: SourceFile, structure: OptionalKind<ExportDeclarationStructure>): void {
+  const dropSemicolon = omitsSemicolons(ast);
+  const added = ast.addExportDeclaration(structure);
+  if (dropSemicolon) withoutSemicolon(added);
+}
+
 function exportsOf(ast: SourceFile, from: string): ExportDeclaration[] {
   return ast.getExportDeclarations().filter((decl) => decl.getModuleSpecifierValue() === from);
 }
@@ -696,7 +689,7 @@ export function addReExport(ast: SourceFile, name: string, from: string): void {
     mergeTarget.addNamedExport(name);
     return;
   }
-  ast.addExportDeclaration({ moduleSpecifier: from, namedExports: [name] });
+  addExport(ast, { moduleSpecifier: from, namedExports: [name] });
 }
 
 /**
@@ -710,7 +703,7 @@ export function addExportAll(ast: SourceFile, from: string, options?: { as?: str
   if (exportsOf(ast, from).some((decl) => isExportAll(decl, as))) return;
   if (as !== undefined) assertNotExported(ast, as, "addExportAll");
 
-  ast.addExportDeclaration(as === undefined ? { moduleSpecifier: from } : { moduleSpecifier: from, namespaceExport: as });
+  addExport(ast, as === undefined ? { moduleSpecifier: from } : { moduleSpecifier: from, namespaceExport: as });
 }
 
 /**
