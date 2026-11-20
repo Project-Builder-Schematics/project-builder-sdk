@@ -20,7 +20,7 @@ import { ensureRealClosureDerivation } from "../support/shared-build.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DOC_PATH = join(PROJECT_ROOT, "docs/runner-integrity-invariants.md");
-const DOCS_INDEX_PATH = join(PROJECT_ROOT, "docs/README.md");
+const DOCS_INDEX_PATH = join(PROJECT_ROOT, "docs/guides/README.md");
 const SECURITY_PATH = join(PROJECT_ROOT, "SECURITY.md");
 const PROBE_PATH = join(PROJECT_ROOT, "src/bounded-contexts/runner-hosting/infrastructure/in/single-instance-probe.ts");
 const FITNESS_DIR = join(PROJECT_ROOT, "test/fitness");
@@ -282,7 +282,7 @@ describe("REQ-IID-08 + docs index + SECURITY.md", () => {
     const index = readFileSync(DOCS_INDEX_PATH, "utf-8");
     const contributorNotes = index.slice(index.indexOf("## Contributor notes"));
     expect(index).toContain("## Contributor notes");
-    expect(contributorNotes).toContain("./runner-integrity-invariants.md");
+    expect(contributorNotes).toContain("../runner-integrity-invariants.md");
   });
 
   it("SECURITY.md carries the three-sentence subsection verbatim, under its own heading", () => {

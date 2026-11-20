@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { PROJECT_ROOT } from "../../../../../../support/jsdoc-scan.ts";
 import { extractSection } from "../../../../../../support/markdown-section.ts";
 
-const doc = readFileSync(join(PROJECT_ROOT, "docs/nestjs-dialect.md"), "utf-8");
+const doc = readFileSync(join(PROJECT_ROOT, "docs/guides/nestjs-dialect.md"), "utf-8");
 const readme = readFileSync(join(PROJECT_ROOT, "README.md"), "utf-8");
 
 const SIGNATURES = [
@@ -14,7 +14,7 @@ const SIGNATURES = [
   "addExport(name, from)",
 ];
 
-describe("docs/nestjs-dialect.md — author guide", () => {
+describe("docs/guides/nestjs-dialect.md — author guide", () => {
   it.each(SIGNATURES)("documents %s under its own heading", (signature) => {
     expect(() => extractSection(doc, `### \`${signature}\``)).not.toThrow();
   });
@@ -30,6 +30,6 @@ describe("docs/nestjs-dialect.md — author guide", () => {
 
   it("the README has a section linking the guide", () => {
     const section = extractSection(readme, "### `@pbuilder/sdk/nestjs`");
-    expect(section).toContain("./docs/nestjs-dialect.md");
+    expect(section).toContain("./docs/guides/nestjs-dialect.md");
   });
 });

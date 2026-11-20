@@ -28,7 +28,7 @@ absolute form) before touching disk — it does **not** re-derive a containment 
 against the resolved filesystem target. A source path with no literal `..` segment that
 resolves, through an in-package symlink, to a file outside the package is read
 successfully, not rejected — this is a deliberate, documented residual (see
-[SECURITY.md](../SECURITY.md)), not an oversight. For a path that crosses the wire
+[SECURITY.md](../../SECURITY.md)), not an oversight. For a path that crosses the wire
 by-reference (`copyIn`, a by-reference `scaffold` entry), the engine independently
 re-derives its own containment ceiling at apply time (`by-reference-copy-wire`
 REQ-BRC-02) — that check, not this SDK-side screen, is what a by-reference consumer
@@ -216,7 +216,7 @@ copyIn("assets/logo.svg", "src/generated/logo.svg");
   regular-file-ness, surfacing `reason: "source-not-found" | "source-not-regular-file" |
   "source-unreadable"` — the same three reasons `create({ templateFile })` and `scaffold`
   share. The SDK does **not** re-check that the resolved source stays inside the package
-  (see [SECURITY.md](../SECURITY.md)) — a source path with no literal `..` segment that
+  (see [SECURITY.md](../../SECURITY.md)) — a source path with no literal `..` segment that
   resolves through an in-package symlink to a file outside the package is read
   successfully, not rejected.
 - A destination collision without `{ force: true }` rejects `reason: "path-collision"`,

@@ -183,7 +183,7 @@ export default async (input: Input) => {
 The engine invokes the module's **default export** — that's the factory. (This one builds
 its output strings in TypeScript; the template language below is the declarative
 alternative. And if your editor flags the `.ts`-extension import or `bun:test`, that's
-just missing tsconfig settings — the [quickstart](./docs/quickstart.md) ships one; Bun
+just missing tsconfig settings — the [quickstart](./docs/guides/quickstart.md) ships one; Bun
 itself runs fine without it.)
 
 **6. Execute it** — `default:hello` is `<collection>:<schematic>` as registered in
@@ -214,9 +214,9 @@ as it was.
 **7. Test it** without the CLI or a running engine — see
 [Testing your factory](#testing-your-factory) below.
 
-From here: [Authoring verbs](./docs/authoring-verbs.md) is the full reference for
+From here: [Authoring verbs](./docs/guides/authoring-verbs.md) is the full reference for
 everything you can do inside a factory, and the
-[quickstart](./docs/quickstart.md) covers the standalone-package setup (tsconfig
+[quickstart](./docs/guides/quickstart.md) covers the standalone-package setup (tsconfig
 included) in more depth.
 
 ## Project-wide type generation
@@ -300,13 +300,13 @@ Everything a factory can do to the tree is one of seven mutation verbs, all impo
 
 | Verb | What it schedules |
 |---|---|
-| [`create(path, opts)`](./docs/authoring-verbs.md#create) | A new file. `path` and `template` are template strings rendered against one `options` object; the `templateFile` overload renders a package-local file instead. |
-| [`replaceContent(path, content)`](./docs/authoring-verbs.md#replacecontent) | Wholesale replacement of an existing file's content. |
-| [`remove(path)`](./docs/authoring-verbs.md#remove) | A deletion. Idempotent on an absent path. |
-| [`rename(path, newName)`](./docs/authoring-verbs.md#rename) | A basename-only rename in place. |
-| [`move(path, toDir)`](./docs/authoring-verbs.md#move) | A move to a different directory. |
-| [`copy(from, to)`](./docs/authoring-verbs.md#copy) | A tree-to-tree copy, chainable via the returned handle. |
-| [`copyIn(from, to)`](./docs/authoring-verbs.md#copyin) | A package-local file copied into the tree **verbatim** — never rendered. |
+| [`create(path, opts)`](./docs/guides/authoring-verbs.md#create) | A new file. `path` and `template` are template strings rendered against one `options` object; the `templateFile` overload renders a package-local file instead. |
+| [`replaceContent(path, content)`](./docs/guides/authoring-verbs.md#replacecontent) | Wholesale replacement of an existing file's content. |
+| [`remove(path)`](./docs/guides/authoring-verbs.md#remove) | A deletion. Idempotent on an absent path. |
+| [`rename(path, newName)`](./docs/guides/authoring-verbs.md#rename) | A basename-only rename in place. |
+| [`move(path, toDir)`](./docs/guides/authoring-verbs.md#move) | A move to a different directory. |
+| [`copy(from, to)`](./docs/guides/authoring-verbs.md#copy) | A tree-to-tree copy, chainable via the returned handle. |
+| [`copyIn(from, to)`](./docs/guides/authoring-verbs.md#copyin) | A package-local file copied into the tree **verbatim** — never rendered. |
 
 The verbs that write to a new path — `create`, `rename`, `move`, `copy`, `copyIn`, and
 `scaffold` — are fail-closed on collision and accept `{ force: true }` for a deliberate
@@ -315,12 +315,12 @@ trailing argument.
 
 Three companions round out the surface:
 
-- [`find(path).read()`](./docs/authoring-verbs.md#the-read-trichotomy-findpathread) — read
+- [`find(path).read()`](./docs/guides/authoring-verbs.md#the-read-trichotomy-findpathread) — read
   a file back from the staging tree.
-- [`scaffold({ from, to, options })`](./docs/authoring-verbs.md#scaffold) — mirror an
+- [`scaffold({ from, to, options })`](./docs/guides/authoring-verbs.md#scaffold) — mirror an
   entire package-local folder into the tree, with dynamic file names. The workhorse for
   multi-file generators — see [Scaffolding a folder of templates](#scaffolding-a-folder-of-templates).
-- [`pendingDirectives()`](./docs/pending-directives.md) — inspect the directives still **pending**. A `read()`
+- [`pendingDirectives()`](./docs/guides/pending-directives.md) — inspect the directives still **pending**. A `read()`
   drains the buffer, so call it before reading if you want the full picture.
 
 ### What to keep in mind
@@ -346,7 +346,7 @@ Rules that save you real debugging time — each one is a mistake we've watched 
 - **Errors are structured.** A rejected run surfaces an `AuthoringError` with
   `verb`/`path`/`reason` fields telling you which directive failed and why (one label
   quirk: content replacement reports `verb: "modify"` — including plain
-  `replaceContent()`) — see the [error contract](./docs/authoring-errors.md).
+  `replaceContent()`) — see the [error contract](./docs/guides/authoring-errors.md).
 
 ## How templates work
 
@@ -414,7 +414,7 @@ never `eq .count 2`).
 If templating gets in your way, there is always a way out: build the final
 strings in TypeScript and pass a token-free template — it renders verbatim. For the full
 language — `with`, variables, whitespace rules, output-path templating, sandbox limits, and
-the error taxonomy — see [Authoring `create` templates](./docs/create-templates.md).
+the error taxonomy — see [Authoring `create` templates](./docs/guides/create-templates.md).
 
 ## Scaffolding a folder of templates
 
@@ -482,7 +482,7 @@ placeholder if the folder's presence matters) while `include`/`exclude` filters 
 eliminate every entry reject loudly, nested symlinked directories are skipped
 silently while a symlinked `from` root rejects outright, and a single call caps at 10,000
 entries. Full edge-and-error semantics:
-[`scaffold` in Authoring verbs](./docs/authoring-verbs.md#scaffold).
+[`scaffold` in Authoring verbs](./docs/guides/authoring-verbs.md#scaffold).
 
 `scaffold`, `copyIn`, and `create({ templateFile })` resolve **package-local** files
 (relative to your schematic's folder), so the run must know where that package is — the CLI
@@ -561,7 +561,7 @@ conformance-tests a *dialect or op-pack* implementation — not the same audienc
 
 When string-level mutation isn't enough — "add an import to this module", "set a prop on
 this JSX element" — **dialects** provide structured, AST-aware operations for one file
-type: see [authoring a dialect](./docs/authoring-a-dialect.md) for the full story. Seven
+type: see [authoring a dialect](./docs/guides/authoring-a-dialect.md) for the full story. Seven
 ship today: `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`, `@pbuilder/sdk/nestjs`,
 `@pbuilder/sdk/angular`, `@pbuilder/sdk/json`, `@pbuilder/sdk/yaml`, and `@pbuilder/sdk/css`.
 
@@ -659,7 +659,7 @@ await json
 Named ops: `setValue`, `addKey`, `removeKey`, `renameKey`, `insertItem`, `appendItem`,
 `removeItem`, `removeValue`, `replaceItem`, `moveItem`, `merge`, `updateValue`, `moveValue`,
 `copyValue`, `sortKeys`. `.modify(fn)` exposes [jsonc-parser](https://github.com/microsoft/node-jsonc-parser).
-See [the JSON dialect guide](./docs/json-dialect.md).
+See [the JSON dialect guide](./docs/guides/json-dialect.md).
 
 ### `@pbuilder/sdk/yaml`
 
@@ -678,7 +678,7 @@ await yaml
 
 Extra named ops: `setComment`, `removeComment`, `setAnchor`, `removeAnchor`, `setAlias`,
 `addMergeKey`, `setStyle`, `setTag`, `addDocument`, `removeDocument`. `.modify(fn)` exposes
-[yaml](https://eemeli.org/yaml/). See [the YAML dialect guide](./docs/yaml-dialect.md).
+[yaml](https://eemeli.org/yaml/). See [the YAML dialect guide](./docs/guides/yaml-dialect.md).
 
 ### `@pbuilder/sdk/css`
 
@@ -698,7 +698,7 @@ await css
 Named ops: `setDeclaration`, `removeDeclaration`, and the query `getDeclaration(target, property)`,
 which ends the chain and resolves to `{ value, important }` (also exported as
 `getDeclaration(root, target, property)` for use inside `.modify(fn)`). `.modify(fn)` exposes
-[postcss](https://postcss.org/). See [the CSS dialect guide](./docs/css-dialect.md).
+[postcss](https://postcss.org/). See [the CSS dialect guide](./docs/guides/css-dialect.md).
 
 ### `@pbuilder/sdk/nestjs`
 
@@ -715,7 +715,7 @@ await nestjs
 ```
 
 Extra named ops: `addProvider`, `addController`, `addModuleImport`, `addExport`. `.modify(fn)`
-exposes ts-morph. See [the NestJS dialect guide](./docs/nestjs-dialect.md).
+exposes ts-morph. See [the NestJS dialect guide](./docs/guides/nestjs-dialect.md).
 
 ### `@pbuilder/sdk/angular`
 
@@ -737,7 +737,7 @@ Extra named ops: `addComponentImport`, `addComponentProvider`, `addRootProvider`
 `addLazyRoute`, `addInjection`, `addInput`, `addModel`, `addOutput`, `addSignal`, `addComputed`,
 `addNgModuleImport`, `addDeclaration`, `addNgModuleProvider`, `addNgModuleExport`, `addBootstrap`.
 `.modify(fn)` exposes ts-morph. See
-[the Angular dialect guide](./docs/angular-dialect.md).
+[the Angular dialect guide](./docs/guides/angular-dialect.md).
 
 ### `.modify()` — the universal escape hatch
 
@@ -776,7 +776,7 @@ still flushes as a **single** write. Two things to respect:
 ### Going deeper
 
 Everything dialect-related lives in one reference page —
-[Authoring a dialect](./docs/authoring-a-dialect.md): the complete method-by-method
+[Authoring a dialect](./docs/guides/authoring-a-dialect.md): the complete method-by-method
 contracts of both shipped dialects (collision rules, idempotency, rejection semantics),
 how coalescing turns chained edits into one directive, async usage, and building a dialect
 of your own with `defineDialect`/`defineOpPack`, validated by the conformance kit (the
@@ -786,14 +786,14 @@ is written down.
 
 ## Documentation
 
-The full reading path lives in [`docs/`](./docs/README.md):
+The full reading path lives in [`docs/guides/`](./docs/guides/README.md):
 
-1. [Quickstart](./docs/quickstart.md) — standalone factory package, tsconfig, codegen, test.
-2. [Authoring verbs](./docs/authoring-verbs.md) — the seven verbs + `find().read()` in full.
-3. [Authoring `create` templates](./docs/create-templates.md) — the template language.
-4. [Error contract](./docs/authoring-errors.md) — `AuthoringError` and recovery.
-5. [Pending Directives](./docs/pending-directives.md) — previewing pending changes.
-6. [Authoring a dialect](./docs/authoring-a-dialect.md) — AST-aware mutation per file type.
+1. [Quickstart](./docs/guides/quickstart.md) — standalone factory package, tsconfig, codegen, test.
+2. [Authoring verbs](./docs/guides/authoring-verbs.md) — the seven verbs + `find().read()` in full.
+3. [Authoring `create` templates](./docs/guides/create-templates.md) — the template language.
+4. [Error contract](./docs/guides/authoring-errors.md) — `AuthoringError` and recovery.
+5. [Pending Directives](./docs/guides/pending-directives.md) — previewing pending changes.
+6. [Authoring a dialect](./docs/guides/authoring-a-dialect.md) — AST-aware mutation per file type.
 
 ## Design at a glance
 
@@ -818,7 +818,7 @@ it stays unreachable via `package.json#exports` regardless (the boundary is
 advisory-by-convention, not enforced by tarball exclusion).
 
 `conformance/` — SDK↔engine live conformance corpus, consumed by `project-builder-engine` as a
-pinned git submodule; see `conformance/README.md` and `CONFORMANCE-CORPUS-HANDOFF.md`.
+pinned git submodule; see `conformance/README.md` and `docs/contracts/CONFORMANCE-CORPUS-HANDOFF.md`.
 
 ### Local registry (Verdaccio)
 

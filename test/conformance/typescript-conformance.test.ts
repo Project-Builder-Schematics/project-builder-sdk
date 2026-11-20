@@ -247,7 +247,7 @@ describe("REQ-DC-07 — leaf rule: no cross-dialect / AST-library import (docume
   // is a documentation-pointer assertion, not a duplicate check. The load-bearing proof for the
   // SDK's own shipped TypeScript dialect is FIT-01's PRE-EXISTING transitive import-graph walk
   // (test/fitness/fit-01-commons-no-ast.test.ts), unmodified by this slice. Third-party dialect
-  // authors self-run their OWN static check — see docs/authoring-a-dialect.md.
+  // authors self-run their OWN static check — see docs/guides/authoring-a-dialect.md.
   it("REQ-DC-07.1: FIT-01's transitive import-graph walk is the shipped dialect's leaf-isolation proof", () => {
     const fit01Path = new URL("../fitness/fit-01-commons-no-ast.test.ts", import.meta.url).pathname;
     expect(existsSync(fit01Path)).toBe(true);
