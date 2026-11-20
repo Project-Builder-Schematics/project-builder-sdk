@@ -121,7 +121,7 @@ const DOCS_SPECIFIERS: Record<string, string> = {
 };
 
 /**
- * The ```ts blocks of README.md and docs/guides/*.md that import the SDK and pass runFactoryForTest a
+ * The ```ts blocks of the docs `docsExampleFiles` lists that import the SDK and pass runFactoryForTest a
  * factory they define themselves; the rest are fragments of a larger program.
  */
 export function runnableDocsExamples(files: ReadonlyArray<{ path: string; text: string }>): Array<{ id: string; source: string }> {
@@ -139,8 +139,17 @@ export function runnableDocsExamples(files: ReadonlyArray<{ path: string; text: 
   return examples;
 }
 
+/** README.md and every Markdown file under docs/ and handbook/, so no runnable example escapes P-IR. */
+export function docsExampleFiles(root: string): string[] {
+  const under = (dir: string): string[] =>
+    existsSync(join(root, dir))
+      ? readdirSync(join(root, dir), { recursive: true, encoding: "utf-8" }).filter((f) => f.endsWith(".md")).map((f) => `${dir}/${f.split("\\").join("/")}`)
+      : [];
+  return ["README.md", ...[...under("docs"), ...under("handbook")].sort()];
+}
+
 function docsScenarios(): Scenario[] {
-  const files = ["README.md", ...readdirSync(join(ROOT, "docs/guides")).filter((f) => f.endsWith(".md")).sort().map((f) => `docs/guides/${f}`)].map((path) => ({
+  const files = docsExampleFiles(ROOT).map((path) => ({
     path,
     text: readFileSync(join(ROOT, path), "utf-8"),
   }));
@@ -245,6 +254,29 @@ describe("P-IR — the verb matrix covers the whole commons surface", () => {
     expect(handleMethods.writable.size).toBeGreaterThan(0);
     expect([...calledHandleMethods.found].sort()).toEqual([...handleMethods.found].sort());
     expect([...calledHandleMethods.writable].sort()).toEqual([...handleMethods.writable].sort());
+  });
+
+  it("scans the guides, the contracts and the handbook", () => {
+    const files = docsExampleFiles(ROOT);
+    expect(files).toContain("docs/guides/pending-directives.md");
+    expect(files).toContain("docs/contracts/engine-sdk-wire-spec.md");
+    expect(files).toContain("handbook/README.md");
+  });
+
+  it("[red-proof] a runnable example outside docs/guides/ is found", () => {
+    const root = mkdtempSync(join(tmpdir(), "p-ir-docs-files-"));
+    try {
+      mkdirSync(join(root, "docs/contracts"), { recursive: true });
+      mkdirSync(join(root, "handbook"));
+      const block = '```ts\nimport { runFactoryForTest } from "@pbuilder/sdk/testing";\nconst run = () => {};\nawait runFactoryForTest(run, {});\n```\n';
+      writeFileSync(join(root, "README.md"), "# x\n");
+      writeFileSync(join(root, "docs/contracts/x.md"), block);
+      writeFileSync(join(root, "handbook/y.md"), block);
+      const files = docsExampleFiles(root).map((path) => ({ path, text: readFileSync(join(root, path), "utf-8") }));
+      expect(runnableDocsExamples(files).map((e) => e.id)).toEqual(["docs-examples/docs/contracts/x-1", "docs-examples/handbook/y-1"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("[red-proof] only a block that defines the factory it runs is a scenario", () => {
