@@ -590,9 +590,13 @@ function sortedText(text: string, node: Node, recursive: boolean): string {
       slice(lines.at(-1)!.lineEnd, nodeEnd)
     );
   }
+  // The whitespace before a member belongs to its position; a comment moves with its member.
+  const spacing = (lead: string) => /^\s*/.exec(lead)![0];
   return (
     "{" +
-    sorted.map((member, index) => members[index]!.separator + member.lead + member.body).join("") +
+    sorted
+      .map((member, index) => members[index]!.separator + spacing(members[index]!.lead) + member.lead.trimStart() + member.body)
+      .join("") +
     slice(last.offset + last.length, nodeEnd)
   );
 }
