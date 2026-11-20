@@ -150,6 +150,7 @@
 ./testing RunResult interface: RunResult
   .tree: ReadonlyMap<string, string>
   .emitted: Batch[]
+  .reads: ReadonlyMap<string, number>
   .error: unknown
 ./typescript astLibrary namespace: typeof import("ts-morph")
 ./typescript find function: (path: string) => Handle<"found", SourceFile, TypeScriptOps>
@@ -626,6 +627,7 @@ reachable RouteSpec@ops type: { path: string; component: string; from: string; }
 reachable RunResult@index interface: RunResult
   .tree: ReadonlyMap<string, string>
   .emitted: Batch[]
+  .reads: ReadonlyMap<string, number>
   .error: unknown
 reachable ScaffoldArgs@expander interface: ScaffoldArgs
   .from: string
