@@ -184,3 +184,15 @@ describe("angular addRootProvider", () => {
     expect(error.message).toContain("2 top-level variables are typed ApplicationConfig; exactly one is required");
   });
 });
+
+describe("angular insert ops — a taken import binding", () => {
+  it("is rejected naming the op the author called", async () => {
+    const seed = `const X = 1;\n${COMPONENT}`;
+    const err = await expectReject(COMPONENT_PATH, seed, () =>
+      angular.find(COMPONENT_PATH).addComponentImport("X", [{ name: "X", from: "./x" }])
+    );
+    expect(err.message).toStartWith(
+      `dialect operation failed: addComponentImport("X") on "${COMPONENT_PATH}" — a value or import binding named "X" already exists;`
+    );
+  });
+});

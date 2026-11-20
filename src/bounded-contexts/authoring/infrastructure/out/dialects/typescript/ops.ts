@@ -249,7 +249,14 @@ export function addImport(ast: SourceFile, name: string, from: string, options?:
         "Fix the option, or edit the file with .modify()."
     );
   }
+  importBinding(ast, "addImport", name, from, sorted);
+}
 
+/**
+ * `addImport`'s steps 1-4 for a `name` already validated, rejecting a taken name under `opName`:
+ * the op the author called, which may add the import on the author's behalf.
+ */
+export function importBinding(ast: SourceFile, opName: string, name: string, from: string, sorted = false): void {
   // Single pass: one `getImportDeclarations()` call, one `boundNamesIn` per declaration —
   // Step 1 and Step 2 below both read from `declarationBoundNames` instead of each re-walking
   // the AST. Step 1 still fully evaluates (and early-returns) before Step 2 ever runs
@@ -271,7 +278,7 @@ export function addImport(ast: SourceFile, name: string, from: string, options?:
   const claimed =
     declarationBoundNames.some(([, bound]) => bound.some((b) => b.localName === name)) ||
     isValueNamespaceClaimed(ast, name);
-  if (claimed) throw claimedBindingError(ast, "addImport", name);
+  if (claimed) throw claimedBindingError(ast, opName, name);
 
   const mergeTarget = declarationsForModule.find(isNonTypeOnlyNamedImportClause);
   if (mergeTarget !== undefined) {

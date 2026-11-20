@@ -22,7 +22,7 @@ import {
 } from "../typescript/array-element.ts";
 import { parse } from "../typescript/ast.ts";
 import { insertClassProperty, type ClassPropertyOptions } from "../typescript/class-property.ts";
-import { addImport } from "../typescript/ops.ts";
+import { importBinding } from "../typescript/ops.ts";
 
 /** A named import an inserted element needs: `import { name } from "from"`. */
 export type NamedImport = { name: string; from: string };
@@ -58,7 +58,7 @@ function insertOp(opName: string, locate: (ast: SourceFile, fail: Fail) => Array
       throw dialectError(`${label} on "${handlePathFor(ast)}" — ${reason}. Edit it with .modify().`);
     };
     appendArrayElement(ast, locate(ast, fail), element, label);
-    for (const { name, from } of imports ?? []) addImport(ast, name, from);
+    for (const { name, from } of imports ?? []) importBinding(ast, opName, name, from);
   };
 }
 
@@ -231,7 +231,7 @@ export function addRoute(ast: SourceFile, route: RouteSpec): void {
   if (!isStringRecord(route, ["path", "component", "from"])) throw dialectError(ROUTE_SHAPE);
   assertValidImportBinding(route.component, "component");
   insertRoute(ast, "addRoute", route.path, `{ path: ${JSON.stringify(route.path)}, component: ${route.component} }`);
-  addImport(ast, route.component, route.from);
+  importBinding(ast, "addRoute", route.component, route.from);
 }
 
 /**
@@ -330,8 +330,8 @@ function addMember(
   };
   const cls = decoratedClass(ast, decorators, fail);
   insertClassProperty(ast, cls, { name, initializer: property.initializer, scope: property.scope, readonly: true }, fail);
-  addImport(ast, property.core, "@angular/core");
-  for (const entry of imports ?? []) addImport(ast, entry.name, entry.from);
+  importBinding(ast, opName, property.core, "@angular/core");
+  for (const entry of imports ?? []) importBinding(ast, opName, entry.name, entry.from);
 }
 
 function signalInputOp(opName: string, fn: "input" | "model") {

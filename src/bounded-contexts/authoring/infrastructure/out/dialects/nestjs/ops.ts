@@ -9,7 +9,7 @@ import { dialectError } from "../../../../domain/valueobjects/dialect-error.ts";
 import { handlePathFor } from "../../../../domain/entities/dialect-handle.ts";
 import { assertValidImportBinding } from "../../../../domain/services/identifier-names.ts";
 import { appendEntry } from "../typescript/array-element.ts";
-import { addImport } from "../typescript/ops.ts";
+import { importBinding } from "../typescript/ops.ts";
 
 type ModuleProperty = "providers" | "controllers" | "imports" | "exports";
 
@@ -67,10 +67,10 @@ function moduleArrayOp(verb: string, property: ModuleProperty) {
     const fail = (reason: string): never => {
       throw dialectError(`${verb}("${name}") on "${handlePathFor(ast)}" — ${reason}. Edit it with .modify().`);
     };
-    // Locating first rejects an unusable @Module before addImport mutates the file; the
-    // nodes are located again afterwards because addImport may have rewritten them.
+    // Locating first rejects an unusable @Module before the import is added; the
+    // nodes are located again afterwards because adding the import may have rewritten them.
     locate(ast, property, name, fail);
-    addImport(ast, name, from);
+    importBinding(ast, verb, name, from);
     write(ast, locate(ast, property, name, fail), property, name);
   };
 }

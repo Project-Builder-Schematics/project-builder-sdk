@@ -184,10 +184,12 @@ describe("nestjs @Module ops — rejections leave the file unchanged", () => {
     expect(err.message).toContain('@Module "providers" is not an array literal');
   });
 
-  it("rejects a name already bound from another module, through the inherited addImport rule", async () => {
+  it("rejects a name already bound from another module, naming the op the author called", async () => {
     const seed = 'import { A } from "./other";\n\n@Module({})\nexport class M {}\n';
     const err = await expectReject(seed, () => nestjs.find(PATH).addProvider("A", "./a"));
-    expect(err.message).toContain('a value or import binding named "A" already exists');
+    expect(err.message).toStartWith(
+      `dialect operation failed: addProvider("A") on "${PATH}" — a value or import binding named "A" already exists;`
+    );
   });
 
   it("rejects an invalid name before touching the file", async () => {

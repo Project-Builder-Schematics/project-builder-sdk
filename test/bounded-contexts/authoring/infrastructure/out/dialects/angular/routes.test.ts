@@ -163,3 +163,13 @@ describe("angular addLazyRoute", () => {
     expect(error.message).toContain("`route` must be { path, loadComponent | loadChildren, export? }");
   });
 });
+
+describe("angular addRoute — a taken component binding", () => {
+  it("is rejected naming the op the author called", async () => {
+    const seed = 'import { About } from "./other";\n\nexport const routes: Routes = [];\n';
+    const err = await expectReject(seed, () => angular.find(PATH).addRoute({ path: "about", component: "About", from: "./about/about" }));
+    expect(err.message).toStartWith(
+      `dialect operation failed: addRoute("About") on "${PATH}" — a value or import binding named "About" already exists;`
+    );
+  });
+});
