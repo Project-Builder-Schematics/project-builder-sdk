@@ -133,6 +133,21 @@ describe("addClassProperty — rejects", () => {
     await expectReject("class A {}\n", ["A", "b-c", "1"]);
   });
 
+  it("accepts a reserved word as a property name", async () => {
+    await expectAdd("class A {}\n", ["A", "default", "2"], "class A {\n  default = 2;\n}\n");
+    await expectAdd("class A {}\n", ["A", "delete", "2"], "class A {\n  delete = 2;\n}\n");
+  });
+
+  it("still rejects a denylisted property name", async () => {
+    const message = await expectReject("class A {}\n", ["A", "constructor", "1"]);
+    expect(message).toContain('`name` "constructor" is a reserved name');
+  });
+
+  it("still rejects a reserved word as the class name", async () => {
+    const message = await expectReject("class A {}\n", ["default", "b", "1"]);
+    expect(message).toContain('`className` "default" is a reserved word');
+  });
+
   it("rejects unknown options", async () => {
     const message = await expectReject("class A {}\n", ["A", "b", "1", { scope: "internal" }]);
     expect(message).toContain("`options` must be { scope?, readonly? }");
