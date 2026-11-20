@@ -38,10 +38,10 @@ import {
 } from "ts-morph";
 import { dialectError } from "../../../../domain/valueobjects/dialect-error.ts";
 import { handlePathFor } from "../../../../domain/entities/dialect-handle.ts";
-import { elementNameEcho } from "../../../../domain/services/reject-tail.ts";
+import { elementNameEcho, nameRuleTail } from "../../../../domain/services/reject-tail.ts";
 // The identifier rules every dialect shares; the JSX-only grammars live in the React adapter
 // (ARCH-2, ADR-0071).
-import { assertValidImportBinding } from "../../../../domain/services/identifier-names.ts";
+import { assertValidImportBinding, assertValidLookupName } from "../../../../domain/services/identifier-names.ts";
 import { closeGapAfter, sortedPlacement, sortedSpecifierIndex } from "./import-order.ts";
 
 // Ported verbatim from `react/ops.ts` (design §4.3 data model) — a bound name, tagged with
@@ -566,7 +566,7 @@ export function addClass(ast: SourceFile, name: string, source: string, options?
  * is first-match-only. Sibling declarations from the same module are never touched.
  */
 export function removeImport(ast: SourceFile, name: string, from: string): void {
-  assertValidImportBinding(name);
+  assertValidLookupName(name);
   const decls = ast.getImportDeclarations().filter((d) => d.getModuleSpecifierValue() === from);
   for (const decl of decls) {
     const namedImports = decl.getNamedImports();
@@ -639,6 +639,19 @@ function exportsOf(ast: SourceFile, from: string): ExportDeclaration[] {
 }
 
 // `export * from "m"` when `as` is undefined, `export * as ns from "m"` when it is "ns".
+// An `as` that is present is a name like any other: `null` or another non-string rejects instead of
+// reading as the bare `export *` form.
+function namespaceExportName(
+  options: { as?: string } | undefined,
+  assertName: (name: string, argName: string) => void
+): string | undefined {
+  const as: unknown = options?.as;
+  if (as === undefined) return undefined;
+  if (typeof as !== "string") throw dialectError(nameRuleTail("as", "be a valid JavaScript identifier"));
+  assertName(as, "as");
+  return as;
+}
+
 function isExportAll(decl: ExportDeclaration, as: string | undefined): boolean {
   if (decl.isTypeOnly()) return false;
   if (as === undefined) return decl.compilerNode.exportClause === undefined;
@@ -676,8 +689,7 @@ export function addReExport(ast: SourceFile, name: string, from: string): void {
  * exports it.
  */
 export function addExportAll(ast: SourceFile, from: string, options?: { as?: string }): void {
-  const as = options?.as;
-  if (as !== undefined) assertValidImportBinding(as);
+  const as = namespaceExportName(options, assertValidImportBinding);
   if (exportsOf(ast, from).some((decl) => isExportAll(decl, as))) return;
   if (as !== undefined) assertNotExported(ast, as, "addExportAll");
 
@@ -691,7 +703,7 @@ export function addExportAll(ast: SourceFile, from: string, options?: { as?: str
  * `export *` statements are never touched — see `removeExportAll`.
  */
 export function removeExport(ast: SourceFile, name: string, from: string): void {
-  assertValidImportBinding(name);
+  assertValidLookupName(name);
   for (const decl of exportsOf(ast, from)) {
     const namedExports = decl.getNamedExports();
     const specifier = namedExports.find((named) => named.getName() === name);
@@ -710,8 +722,7 @@ export function removeExport(ast: SourceFile, name: string, from: string): void 
  * form only removes itself; an absent statement is a no-op.
  */
 export function removeExportAll(ast: SourceFile, from: string, options?: { as?: string }): void {
-  const as = options?.as;
-  if (as !== undefined) assertValidImportBinding(as);
+  const as = namespaceExportName(options, assertValidLookupName);
   exportsOf(ast, from)
     .find((decl) => isExportAll(decl, as))
     ?.remove();
