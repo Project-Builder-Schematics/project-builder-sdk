@@ -4,7 +4,7 @@
 // singleton. No language-service formatter is ever invoked (REQ-TSD-02.3): this module calls
 // no `.formatText()`/language-service API anywhere.
 
-import { Project, NewLineKind, QuoteKind, IndentationText, type SourceFile } from "ts-morph";
+import { Node, Project, NewLineKind, QuoteKind, IndentationText, type SourceFile } from "ts-morph";
 
 // In-memory-only path fed to ts-morph's virtual file system — never a real disk path; the
 // dialect handle (src/core/dialect-handle.ts) owns the AUTHOR-FACING path, this is purely an
@@ -111,4 +111,23 @@ export function parse(source: string): SourceFile {
 export function print(ast: SourceFile): string {
   const text = ast.getFullText();
   return hadBom.get(ast) === true ? BOM + text : text;
+}
+
+// Inserted statements keep the file's statement-terminating semicolon style: ts-morph always
+// prints one, so it is dropped only when the file's terminable top-level statements mostly
+// omit it (a file with no such statements, or a tie, keeps it).
+export function omitsSemicolons(ast: SourceFile): boolean {
+  const terminable = ast
+    .getStatements()
+    .filter(
+      (statement) =>
+        Node.isImportDeclaration(statement) ||
+        Node.isExportDeclaration(statement) ||
+        Node.isExportAssignment(statement) ||
+        Node.isVariableStatement(statement) ||
+        Node.isExpressionStatement(statement) ||
+        Node.isTypeAliasDeclaration(statement)
+    );
+  const terminated = terminable.filter((statement) => statement.getText().endsWith(";")).length;
+  return terminable.length - terminated > terminated;
 }

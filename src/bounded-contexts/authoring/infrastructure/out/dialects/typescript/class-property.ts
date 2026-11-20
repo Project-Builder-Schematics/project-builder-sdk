@@ -4,7 +4,7 @@ import { handlePathFor } from "../../../../domain/entities/dialect-handle.ts";
 import { assertGrammar, assertNotDenylisted, assertValidImportBinding, IMPORT_BINDING_GRAMMAR } from "../../../../domain/services/identifier-names.ts";
 import { elementNameEcho } from "../../../../domain/services/reject-tail.ts";
 import { elementText, tokensOf } from "./array-element.ts";
-import { parse } from "./ast.ts";
+import { omitsSemicolons, parse } from "./ast.ts";
 
 export type ClassPropertyOptions = { scope?: "public" | "protected" | "private"; readonly?: boolean };
 
@@ -26,9 +26,9 @@ export function assertClassPropertyOptions(options: unknown): asserts options is
   if (!valid) throw dialectError(OPTIONS_SHAPE);
 }
 
-function declarationOf(property: ClassProperty): string {
+function declarationOf(property: ClassProperty, semicolon: boolean): string {
   const modifiers = [property.scope, property.readonly ? "readonly" : undefined].filter((m) => m !== undefined);
-  return [...modifiers, `${property.name} = ${property.initializer};`].join(" ");
+  return [...modifiers, `${property.name} = ${property.initializer}${semicolon ? ";" : ""}`].join(" ");
 }
 
 // Tokens without a trailing `;`, so `b = 1` and `b = 1;` are the same declaration.
@@ -50,7 +50,7 @@ function sameDeclaration(member: Node, text: string): boolean {
  * any other member with that name rejects through `fail`.
  */
 export function insertClassProperty(ast: SourceFile, cls: ClassDeclaration, property: ClassProperty, fail: (reason: string) => never): void {
-  const text = declarationOf(property);
+  const text = declarationOf(property, !omitsSemicolons(ast));
   const members = cls.getMembers();
   const named = members.filter((member) => Node.hasName(member) && member.getName() === property.name);
   if (named.length > 0) {
