@@ -561,6 +561,13 @@ harness doesn't fake it. `./testing` ships `0.x`, semver-exempt, until real use 
 the result shape. (It tests *your factory*; the separate `./conformance` surface
 conformance-tests a *dialect or op-pack* implementation — not the same audience.)
 
+One known gap: until [engine#227](https://github.com/Project-Builder-Schematics/project-builder-engine/issues/227)
+lands, `builder execute` rejects a second write to the same path in one run with
+`path-collision`. Two `replaceContent` calls on one file, a dialect edit followed by
+`replaceContent`, or two edits of one file through dialect handles with a read of another
+file between them all count. The harness doesn't model that rule: it keeps the last write,
+as the engine will once it nets such writes out. Until then, write each file once per run.
+
 ## Beyond the verbs: dialects
 
 When string-level mutation isn't enough — "add an import to this module", "set a prop on
