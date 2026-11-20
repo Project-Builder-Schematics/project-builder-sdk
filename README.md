@@ -522,7 +522,7 @@ bun test schematics
 This runs only your schematic tests under Bun — your app's own test runner (Jest, Vitest,
 whatever you use) stays untouched and the two coexist in one repo.
 
-Two things to know:
+Three things to know:
 
 - `result.tree` contains **committed writes only**. Files you pre-populate via the `seed`
   option are readable by the factory but never appear in the tree — which is exactly how
@@ -551,6 +551,10 @@ Two things to know:
   package-local verbs (`scaffold`, `copyIn`, `create({ templateFile })`) and opts the run
   into schema-derived input validation against the adjacent `schema.json`. Without it those
   verbs have nothing to resolve against.
+
+- `result.reads` counts the reads the engine served for each path, so a test can check
+  that the factory reads a file once however many ops it chains on it. A path the factory
+  never read is absent.
 
 Templates are stored **verbatim** in the test tree — rendering is the engine's job, and the
 harness doesn't fake it. `./testing` ships `0.x`, semver-exempt, until real use validates

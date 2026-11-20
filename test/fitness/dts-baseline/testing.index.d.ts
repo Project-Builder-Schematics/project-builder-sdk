@@ -20,6 +20,11 @@ export interface RunResult {
     /** One `Batch` per `emit()` call, in call order. */
     emitted: Batch[];
     /**
+     * How many reads of each path the fake engine served, in first-read order. A read of an absent
+     * path counts; a path the factory never read is not present.
+     */
+    reads: ReadonlyMap<string, number>;
+    /**
      * `undefined` on success. On a rejected write, the attributed `AuthoringError` from the
      * emit seam. On a factory throw, the original thrown value, unmodified.
      */
