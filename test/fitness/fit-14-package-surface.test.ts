@@ -86,6 +86,22 @@ function scanForSecrets(paths: string[]): string[] {
   return paths.filter((path) => SECRET_FILENAME_PATTERNS.some((pattern) => pattern.test(path)));
 }
 
+// REQ-FPS-07.3: credential shapes looked for in the content of every shipped file. A finding
+// names the file and the pattern only, so a real secret never reaches the test output.
+const SECRET_CONTENT_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
+  { name: "private key header", pattern: /-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----/ },
+  { name: "npm token", pattern: /\bnpm_[A-Za-z0-9]{36}\b/ },
+  { name: "GitHub token", pattern: /\b(?:gh[pousr]_[A-Za-z0-9]{36,255}|github_pat_[A-Za-z0-9_]{80,255})\b/ },
+  { name: "AWS access key", pattern: /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/ },
+  { name: "npm _authToken line", pattern: /_authToken\s*=\s*\S/ },
+];
+
+function scanContentForSecrets(files: Array<{ path: string; content: string }>): string[] {
+  return files.flatMap(({ path, content }) =>
+    SECRET_CONTENT_PATTERNS.filter(({ pattern }) => pattern.test(content)).map(({ name }) => `${path}: ${name}`)
+  );
+}
+
 describe("FIT-14 — package surface guard (baseline diff)", () => {
   const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as PkgSurfaceBaseline;
   const pkgJson = JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf-8")) as {
@@ -185,6 +201,30 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
   it("[red-proof] REQ-FPS-07.2: a simulated tarball listing containing a .env file is caught", () => {
     const simulated = [...freshTarball, ".env"];
     expect(scanForSecrets(simulated)).toEqual([".env"]);
+  });
+
+  it("REQ-FPS-07.3: no file in the fresh tarball holds content that looks like a credential", () => {
+    const files = freshTarball.map((path) => ({ path, content: readFileSync(join(PROJECT_ROOT, path), "utf-8") }));
+    expect(scanContentForSecrets(files)).toEqual([]);
+  });
+
+  // RED-PROOF: each credential shape in a simulated shipped file is caught, and the finding names
+  // the file and the pattern, never the value. The fake values are built here, so no
+  // credential-shaped literal sits in the repository.
+  it("[red-proof] REQ-FPS-07.4: credential-shaped content is caught without echoing it", () => {
+    const fakes: Array<[string, string]> = [
+      ["private key header", `-----BEGIN ${"RSA "}PRIVATE KEY-----\nMIIE`],
+      ["npm token", `"npm_${"a1B2".repeat(9)}"`],
+      ["GitHub token", `token: gh${"p"}_${"Z9y8".repeat(9)}`],
+      ["GitHub token", `github_${"pat"}_${"x".repeat(22)}_${"Y".repeat(59)}`],
+      ["AWS access key", `key = AK${"IA"}${"Q".repeat(16)}`],
+      ["npm _authToken line", `//registry.npmjs.org/:_auth${"Token"}=${"t".repeat(20)}`],
+    ];
+    for (const [pattern, content] of fakes) {
+      const findings = scanContentForSecrets([{ path: "dist/leak.js", content: `const x = 1;\n${content}\n` }]);
+      expect(findings).toEqual([`dist/leak.js: ${pattern}`]);
+      expect(findings.join("\n")).not.toContain(content.slice(-12));
+    }
   });
 
   it("the codegen bin's file is present in the tarball listing", () => {
