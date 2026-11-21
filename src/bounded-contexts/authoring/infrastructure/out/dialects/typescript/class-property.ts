@@ -3,7 +3,7 @@ import { dialectError } from "../../../../domain/valueobjects/dialect-error.ts";
 import { handlePathFor } from "../../../../domain/entities/dialect-handle.ts";
 import { assertGrammar, assertNotDenylisted, assertValidImportBinding, IMPORT_BINDING_GRAMMAR } from "../../../../domain/services/identifier-names.ts";
 import { elementNameEcho } from "../../../../domain/services/reject-tail.ts";
-import { elementText, tokensOf } from "./array-element.ts";
+import { declarationTokens, elementText, sameTokens } from "./array-element.ts";
 import { omitsSemicolons, parse } from "./ast.ts";
 
 export type ClassPropertyOptions = { scope?: "public" | "protected" | "private"; readonly?: boolean };
@@ -31,17 +31,9 @@ function declarationOf(property: ClassProperty, semicolon: boolean): string {
   return [...modifiers, `${property.name} = ${property.initializer}${semicolon ? ";" : ""}`].join(" ");
 }
 
-// Tokens without a trailing `;`, so `b = 1` and `b = 1;` are the same declaration.
-function declarationTokens(node: Node): string[] {
-  const tokens = tokensOf(node);
-  return tokens.at(-1) === ";" ? tokens.slice(0, -1) : tokens;
-}
-
 function sameDeclaration(member: Node, text: string): boolean {
   const parsed = parse(`class X {\n${text}\n}`).getClassOrThrow("X").getMembers()[0]!;
-  const a = declarationTokens(member);
-  const b = declarationTokens(parsed);
-  return a.length === b.length && a.every((token, index) => token === b[index]);
+  return sameTokens(declarationTokens(member), declarationTokens(parsed));
 }
 
 /**

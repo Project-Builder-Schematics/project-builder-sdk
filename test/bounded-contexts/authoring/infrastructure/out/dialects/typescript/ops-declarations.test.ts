@@ -159,7 +159,7 @@ describe("addFunction — REQ-TSD-09", () => {
     }
   }
 
-  it("final-verify fix (F-2): an existing CLASS declaration collides too — the getClass conjunct in assertNoCollision", async () => {
+  it("final-verify fix (F-2): an existing CLASS declaration collides too — the getClass conjunct in addDeclaration", async () => {
     const { client } = makeSpyClient({ "a.ts": "class Foo {}\n" });
 
     const run = defineFactory<void>(async () => {
@@ -196,11 +196,11 @@ describe("addFunction — REQ-TSD-09", () => {
   });
 
   // Judgment-day round 1, Issue 3: an existing enum/namespace shares TypeScript's VALUE
-  // namespace with function/const/class — assertNoCollision missed both conjuncts, letting
+  // namespace with function/const/class — addDeclaration missed both conjuncts, letting
   // addFunction/addVariable emit invalid TS (TS2451, duplicate identifier). Extends the
   // collision namespace per ADR-0039's own rationale ("TypeScript forbids two value
   // declarations sharing a name"); the pinned message template is unchanged.
-  it("an existing ENUM declaration collides too — the getEnum conjunct in assertNoCollision", async () => {
+  it("an existing ENUM declaration collides too — the getEnum conjunct in addDeclaration", async () => {
     const { client } = makeSpyClient({ "a.ts": "enum Foo { A }\n" });
 
     const run = defineFactory<void>(async () => {
@@ -223,7 +223,7 @@ describe("addFunction — REQ-TSD-09", () => {
     expect(err.cause).toBeUndefined();
   });
 
-  it("an existing NAMESPACE declaration collides too — the getModule conjunct in assertNoCollision", async () => {
+  it("an existing NAMESPACE declaration collides too — the getModule conjunct in addDeclaration", async () => {
     const { client } = makeSpyClient({ "a.ts": "namespace Foo {}\n" });
 
     const run = defineFactory<void>(async () => {
@@ -245,4 +245,48 @@ describe("addFunction — REQ-TSD-09", () => {
     );
     expect(err.cause).toBeUndefined();
   });
+});
+
+type Handle = ReturnType<typeof ts.find>;
+
+async function runOn(seed: string, apply: (handle: Handle) => PromiseLike<unknown>) {
+  const { client, emitted } = makeSpyClient({ "a.ts": seed });
+  let caught: unknown;
+  try {
+    await defineFactory<void>(async () => {
+      await apply(ts.find("a.ts"));
+    })(undefined, { client });
+  } catch (err) {
+    caught = err;
+  }
+  return { caught, modifies: collectModifies(emitted), content: await client.read("a.ts") };
+}
+
+describe("a declaration identical to the one already there (A-68)", () => {
+  for (const [op, seed, apply] of [
+    ["addFunction", "export function foo(): void {}\n", (h: Handle) => h.addFunction("foo", "(): void {}", { export: true })],
+    ["addVariable", "const counter = 0;\n", (h: Handle) => h.addVariable("counter", "0")],
+    ["addClass", "export class Point {\n  x = 0;\n}\n", (h: Handle) => h.addClass("Point", "  x = 0;", { export: true })],
+    ["addVariable, ignoring spacing, comments and the file's semicolon style", "// count\nconst  counter=0\n", (h: Handle) => h.addVariable("counter", "0")],
+  ] as const) {
+    it(`${op} leaves the file as it is`, async () => {
+      const { caught, modifies, content } = await runOn(seed, apply);
+      expect(caught).toBeUndefined();
+      expect(modifies).toHaveLength(0);
+      expect(content).toBe(seed);
+    });
+  }
+
+  for (const [what, seed, apply] of [
+    ["another body", "export function foo(): void {}\n", (h: Handle) => h.addFunction("foo", "(): number { return 1; }", { export: true })],
+    ["another export modifier", "function foo(): void {}\n", (h: Handle) => h.addFunction("foo", "(): void {}", { export: true })],
+    ["another kind", "let counter = 0;\n", (h: Handle) => h.addVariable("counter", "0")],
+  ] as const) {
+    it(`still rejects a declaration of that name with ${what}`, async () => {
+      const { caught, modifies, content } = await runOn(seed, apply);
+      expect((caught as Error).message).toContain("already exists");
+      expect(modifies).toHaveLength(0);
+      expect(content).toBe(seed);
+    });
+  }
 });

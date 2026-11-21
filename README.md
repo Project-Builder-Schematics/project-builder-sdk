@@ -606,9 +606,9 @@ await ts.find("src/index.ts")
 | `sortImports()` | Sorts import declarations by module (packages first, then relative paths) and the names inside each one's braces. Only reorders, never combines or removes; nothing moves across a blank line, a comment, or a side-effect import. A no-op on a sorted file. |
 | `addArrayElement(locator, element)` | Appends to the array literal `locator` points at (a variable, a call argument, or a decorator argument, then a `path` of keys and `{ key: "value" }` matches), keeping its layout. Creates missing keys; a no-op when the element is already listed. `element` is an identifier, or `{ expression }` for code. |
 | `addClassProperty(className, name, initializer, opts?)` | Adds `{scope }{readonly }name = initializer;` to the only class named `className`, after its last property. A no-op when the same property exists; any other member named `name` rejects. |
-| `addFunction(name, source, opts?)` | Appends a top-level function. `source` **includes** the braces (`"(): void {}"`). |
-| `addVariable(name, initializer, opts?)` | Appends a top-level variable (`kind` defaults to `const`). |
-| `addClass(name, source, opts?)` | Appends a top-level class. `source` **excludes** the braces — the op adds them. |
+| `addFunction(name, source, opts?)` | Appends a top-level function. `source` **includes** the braces (`"(): void {}"`). A no-op when the same declaration exists; another binding of `name` rejects. |
+| `addVariable(name, initializer, opts?)` | Appends a top-level variable (`kind` defaults to `const`). A no-op when the same declaration exists; another binding of `name` rejects. |
+| `addClass(name, source, opts?)` | Appends a top-level class. `source` **excludes** the braces — the op adds them. A no-op when the same declaration exists; another binding of `name` rejects. |
 | `.modify(fn)` | The universal escape hatch: direct [ts-morph](https://ts-morph.com) access to the file's AST for anything the named ops don't cover. |
 
 The `add*` ops fail loud on a name collision with an existing value declaration or import

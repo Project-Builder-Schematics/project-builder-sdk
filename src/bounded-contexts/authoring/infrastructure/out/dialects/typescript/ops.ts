@@ -1,7 +1,7 @@
 // S-002: the `addImport` named op (REQ-TSD-01, frozen call signature
 // `addImport(name: string, from: string)`, design §4.4).
 //
-// S-001: `addFunction` (REQ-TSD-09) + the shared `assertNoCollision` predicate it (and
+// S-001: `addFunction` (REQ-TSD-09) + the shared `addDeclaration` predicate it (and
 // S-003's addVariable/addClass) reuse (design §4.5 ADR-0039).
 //
 // S-003: `addVariable` (REQ-TSD-10) + `addClass` (REQ-TSD-11) — same insert-mechanism and
@@ -14,10 +14,10 @@
 //
 // ts-addimport-collision/S-001: Step 2 (file-wide collision reject) lands here, strictly
 // AFTER Step 1 (REQ-TSD-01.24, mutant-kill ordering invariant) and before Step 3/4.
-// `isValueNamespaceClaimed` is EXTRACTED from `assertNoCollision` below (design §4.5 ADR-01)
-// and consumed by BOTH `assertNoCollision` (behaviour-preserving, siblings' own import-scan
+// `isValueNamespaceClaimed` is EXTRACTED from `addDeclaration` below (design §4.5 ADR-01)
+// and consumed by BOTH `addDeclaration` (behaviour-preserving, siblings' own import-scan
 // posture UNCHANGED) and `addImport`'s new Step 2 (design §4.4 — TS house-style tail, built
-// inline, NOT reusing `assertNoCollision`'s own message: "two bindings sharing a name" here,
+// inline, NOT reusing `addDeclaration`'s own message: "two bindings sharing a name" here,
 // vs "two value declarations sharing a name" there — `addImport`'s collision surface also
 // fires on import-vs-import and type-only claims, which are not value declarations, F10).
 //
@@ -44,7 +44,8 @@ import { elementNameEcho, nameRuleTail } from "../../../../domain/services/rejec
 // (ARCH-2, ADR-0071).
 import { assertValidImportBinding, assertValidLookupName } from "../../../../domain/services/identifier-names.ts";
 import { closeGapAfter, sortedPlacement, sortedSpecifierIndex } from "./import-order.ts";
-import { omitsSemicolons } from "./ast.ts";
+import { omitsSemicolons, parse } from "./ast.ts";
+import { declarationTokens, sameTokens } from "./array-element.ts";
 
 // Ported verbatim from `react/ops.ts` (design §4.3 data model) — a bound name, tagged with
 // enough shape to answer BOTH "does this SAME-MODULE binding satisfy idempotency" (Step 1)
@@ -125,7 +126,7 @@ function isNonTypeOnlyNamedImportClause(decl: ImportDeclaration): boolean {
 }
 
 // ADR-0039 collision-namespace pin (owner ruling #4), EXTRACTED (S-001, design §4.5 ADR-01)
-// from `assertNoCollision` below so both it and `addImport`'s Step 2 share ONE predicate: a
+// from `addDeclaration` below so both it and `addImport`'s Step 2 share ONE predicate: a
 // top-level VALUE-NAMESPACE declaration (function/const/let/var/class/enum/namespace) under
 // `name` collides; `type`/`interface` are exempt (legal TS coexistence). Syntactic search
 // only (no language service, REQ-TSD-02.3) — SourceFile-wide, not scope-aware.
@@ -472,8 +473,28 @@ function exportPrefixFor(options?: DeclarationOptions): string {
 // message (design §4.4's pinned "on {path}" clause) — position-independent (keyed by the
 // live AST instance, not a runtime argument position), so it can never collide with `name`/
 // `options` regardless of which trailing args the author omitted.
-function assertNoCollision(ast: SourceFile, name: string, opName: string): void {
-  if (!isBindingClaimed(ast, name)) return;
+// Appends the declaration `text` of `name`. When `name` is taken, a top-level statement that is
+// `text` token for token (trivia and a trailing `;` aside) leaves the file as it is, so running
+// the op again is a no-op; any other binding of `name` rejects.
+function addDeclaration(ast: SourceFile, name: string, opName: string, text: string): void {
+  if (isBindingClaimed(ast, name)) {
+    if (declaresIdentically(ast, text)) return;
+    throwCollision(ast, name, opName);
+  }
+  ast.addStatements(text);
+}
+
+function declaresIdentically(ast: SourceFile, text: string): boolean {
+  let written: string[];
+  try {
+    written = declarationTokens(parse(text).getStatements()[0]!);
+  } catch {
+    return false;
+  }
+  return ast.getStatements().some((statement) => sameTokens(declarationTokens(statement), written));
+}
+
+function throwCollision(ast: SourceFile, name: string, opName: string): never {
   throw dialectError(
     `${opName}("${name}") on "${handlePathFor(ast)}" — a value or import binding named "${name}" already exists; ` +
       `TypeScript forbids two value declarations sharing a name. Rename or remove the existing one, or edit it with .modify().`
@@ -496,8 +517,7 @@ function assertNoCollision(ast: SourceFile, name: string, opName: string): void 
  */
 export function addFunction(ast: SourceFile, name: string, source: string, options?: DeclarationOptions): void {
   assertValidImportBinding(name);
-  assertNoCollision(ast, name, "addFunction");
-  ast.addStatements(`${exportPrefixFor(options)}function ${name}${source}`);
+  addDeclaration(ast, name, "addFunction", `${exportPrefixFor(options)}function ${name}${source}`);
 }
 
 /**
@@ -526,8 +546,7 @@ export function addVariable(
         "Fix the option, or edit the file with .modify()."
     );
   }
-  assertNoCollision(ast, name, "addVariable");
-  ast.addStatements(`${exportPrefixFor(options)}${kind} ${name} = ${initializer}${omitsSemicolons(ast) ? "" : ";"}`);
+  addDeclaration(ast, name, "addVariable", `${exportPrefixFor(options)}${kind} ${name} = ${initializer}${omitsSemicolons(ast) ? "" : ";"}`);
 }
 
 /**
@@ -546,8 +565,7 @@ export function addVariable(
  */
 export function addClass(ast: SourceFile, name: string, source: string, options?: DeclarationOptions): void {
   assertValidImportBinding(name);
-  assertNoCollision(ast, name, "addClass");
-  ast.addStatements(`${exportPrefixFor(options)}class ${name} {\n${source}\n}`);
+  addDeclaration(ast, name, "addClass", `${exportPrefixFor(options)}class ${name} {\n${source}\n}`);
 }
 
 /**
