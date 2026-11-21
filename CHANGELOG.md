@@ -6,6 +6,76 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.15.0
+
+### `scaffold` copies only the files you declare in `binary` (breaking)
+
+- **Breaking**: `scaffold()` no longer decides by itself which files to copy byte for byte. It
+  used to copy a file that was not valid text, or that did not fit one emit frame once
+  rendered, so a large text file could reach the workspace with its template tokens
+  unrendered, and the options' size could change the outcome. Now a file is copied
+  (`copyIn`) only when it matches one of the new `binary` globs, matched like
+  `include`/`exclude` against the original path inside `from`. Every other file renders, and a
+  file that cannot render rejects with `invalid-input`, naming it:
+  - a file that is not valid UTF-8 text: `invalid input: source "<path>" is not valid text, so
+    it cannot be rendered`, with a `binary: ["<pattern>"]` suggestion;
+  - a file whose `create`, options included, does not fit one emit frame: the message gives its
+    size in bytes and the limit;
+  - a file both marked `.template` and declared `binary`.
+  A `binary` glob that matches nothing is allowed.
+  **Migration**: list the files a `scaffold` call should copy in `binary`, for example
+  `scaffold({ from: "files", to: "src", binary: ["**/*.png"] })`. A text file over the frame
+  limit must be made smaller, or declared `binary` if it needs no rendering.
+
+### Authoring errors
+
+- **Changed**: an option value `create()` or `scaffold()` cannot encode now rejects with an
+  `AuthoringError` (`reason: "invalid-input"`, `verb: "create"`, `path` set to the file's path)
+  instead of a plain `Error`. The message is unchanged. Code that tells the two apart with
+  `instanceof AuthoringError` must handle the new case.
+- **Changed**: an object with a `toJSON` method is rejected as such
+  (`an object with a toJSON method at <path>`), since options are plain data. Convert the value
+  before passing it.
+- **Fixed**: a getter or proxy that throws, or a value nested too deeply to walk, rejects with
+  the option's message instead of surfacing its own error or a stack overflow.
+- **Fixed**: a factory that throws `undefined` or `null` now fails the run with an `Error` that
+  says what was thrown. `runFactoryForTest` used to report it as success.
+
+### Dialects
+
+- **Changed**: `addFunction`, `addVariable` and `addClass` leave the file as it is when it already
+  has the declaration they would write, compared token by token. Running a schematic twice no
+  longer fails. Any other declaration of that name still rejects.
+- **Changed**: React's `addArrayElement` and `addClassProperty` parse the author's code as the
+  file's own language. JSX now works in `.tsx` and `.jsx`, and type syntax such as `x as T` is
+  rejected in a `.jsx` file, which cannot hold it.
+- **Changed**: when a NestJS module op, an Angular `imports` list, Angular `addRoute` or an
+  Angular member op adds an import whose name is taken, the rejection names the op you called,
+  such as `addProvider("C")`, instead of `addImport("C")`.
+- **Fixed**: TypeScript's `addReExport`, `addExportAll`, `addVariable` and `addClassProperty`
+  follow the file's semicolon style, as the import ops already did.
+- **Fixed**: a new import in a file that starts with a shebang goes below the shebang line.
+  The op used to throw, or drop the shebang when nothing followed it.
+- **Fixed**: `addClassProperty` accepts reserved words such as `default` as property names.
+- **Fixed**: `addExportAll` and `removeExportAll` reject a `null` or non-string `as` instead of
+  adding a duplicate `export *`, and report a bad `as` under `as`. `removeImport`,
+  `removeExport` and `removeExportAll` accept reserved words in the name they look up, so
+  `removeImport("default", "m")` removes `{ default as x }`.
+- **Fixed**: JSON's `sortKeys` keeps the spacing of an object written on one line.
+- **Fixed**: JSON content merged or set into an empty object written on one line (`"jest": {}`)
+  is expanded with the file's indentation in a multi-line file.
+
+### Testing, codegen and runner
+
+- **Added**: `RunResult.reads` from `runFactoryForTest` counts the reads the engine served for
+  each path, so a test can check that a factory reads a file once.
+- **Fixed**: `pbuilder-codegen` rejects an `enum` whose `choices` hold anything but strings,
+  naming the property, instead of generating a type no input can satisfy.
+- **Fixed**: the runner reports a too-deeply-nested `--input-file` as invalid JSON and exits 1,
+  instead of crashing with exit code 4.
+- **Docs**: the README notes that until engine#227 lands, `builder execute` rejects a second write
+  to the same path in one run with `path-collision`, which `runFactoryForTest` does not model.
+
 ## 0.14.0
 
 ### `scaffold` rejects names that are not portable (breaking)
