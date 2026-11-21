@@ -346,3 +346,52 @@ describe("content written into an empty object on one line (A-23)", () => {
     expect(await edited('{"jest": {}}\n', (h) => h.setValue(["jest", "k"], "v"))).toBe('{"jest": {"k": "v"}}\n');
   });
 });
+
+describe("a new array or object is laid out like the others of its kind (A-23, #155)", () => {
+  it("goes on one line when every other array in its object is on one line", async () => {
+    const seed = '{\n  "paths": {\n    "a/*": ["./a/*"],\n    "b/*": ["./b/*", "./b2/*"]\n  }\n}\n';
+    expect(await edited(seed, (h) => h.setValue(["paths", "c/*"], ["./c/*"]))).toBe(
+      '{\n  "paths": {\n    "a/*": ["./a/*"],\n    "b/*": ["./b/*", "./b2/*"],\n    "c/*": ["./c/*"]\n  }\n}\n'
+    );
+  });
+
+  it("goes on one line when every other object in its object is on one line", async () => {
+    const seed = '{\n  "a": {"x": 1},\n  "b": {"y": 2}\n}\n';
+    expect(await edited(seed, (h) => h.setValue(["c"], { z: 3, w: "v" }))).toBe(
+      '{\n  "a": {"x": 1},\n  "b": {"y": 2},\n  "c": {"z": 3, "w": "v"}\n}\n'
+    );
+  });
+
+  it("goes across lines when every other array in its object is across lines", async () => {
+    const seed = '{\n  "paths": {\n    "a/*": [\n      "./a/*"\n    ]\n  }\n}\n';
+    expect(await edited(seed, (h) => h.setValue(["paths", "c/*"], ["./c/*"]))).toBe(
+      '{\n  "paths": {\n    "a/*": [\n      "./a/*"\n    ],\n    "c/*": [\n      "./c/*"\n    ]\n  }\n}\n'
+    );
+  });
+
+  it("goes across lines when the other arrays mix both layouts", async () => {
+    const seed = '{\n  "paths": {\n    "a/*": ["./a/*"],\n    "b/*": [\n      "./b/*"\n    ]\n  }\n}\n';
+    expect(await edited(seed, (h) => h.setValue(["paths", "c/*"], ["./c/*"]))).toBe(
+      '{\n  "paths": {\n    "a/*": ["./a/*"],\n    "b/*": [\n      "./b/*"\n    ],\n    "c/*": [\n      "./c/*"\n    ]\n  }\n}\n'
+    );
+  });
+
+  it("goes across lines when its object holds no other value of its kind", async () => {
+    const seed = '{\n  "name": "app",\n  "files": ["dist"]\n}\n';
+    expect(await edited(seed, (h) => h.setValue(["jest"], { a: 1 }))).toBe(
+      '{\n  "name": "app",\n  "files": ["dist"],\n  "jest": {\n    "a": 1\n  }\n}\n'
+    );
+  });
+
+  it("follows the other arrays when one is appended to an array", async () => {
+    const seed = '{\n  "rows": [\n    [1, 2],\n    [3, 4]\n  ]\n}\n';
+    expect(await edited(seed, (h) => h.appendItem(["rows"], [5, 6]))).toBe('{\n  "rows": [\n    [1, 2],\n    [3, 4],\n    [5, 6]\n  ]\n}\n');
+  });
+
+  it("writes nested values on the same line, with a space after each comma and colon", async () => {
+    const seed = '{\n  "a": {"x": [1]},\n  "b": {"y": 2}\n}\n';
+    expect(await edited(seed, (h) => h.setValue(["c"], { k: ["s", { n: null }], ":": "," }))).toBe(
+      '{\n  "a": {"x": [1]},\n  "b": {"y": 2},\n  "c": {"k": ["s", {"n": null}], ":": ","}\n}\n'
+    );
+  });
+});

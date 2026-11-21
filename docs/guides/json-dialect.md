@@ -213,6 +213,12 @@ indented line, falling back to two spaces) and the document's own line ending. I
 one-line container, edits stay on that line (`{ "a": 1 }` gains `, "b": 2`) instead of
 reformatting it.
 
+A new array or object follows the others of its kind in the same container: when every other
+array (or object) there is written on one line, the new one is too, as `["./c/*"]` or
+`{"z": 3, "w": "v"}`, with a space after each comma and colon. With no other value of its kind,
+or with values in both layouts, it is written across lines. So a `tsconfig.json` `paths` block
+of one-line aliases stays one alias per line.
+
 In a container where each member ends its own line, a member owns the comment lines above it
 and the trailing comment on its last line: removing it drops them, sorting moves them with it,
 and inserting next to it never separates them from it.

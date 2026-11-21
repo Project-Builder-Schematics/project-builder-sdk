@@ -235,6 +235,25 @@ function indentUnit(text: string): string {
   return format.insertSpaces ? " ".repeat(format.tabSize ?? 2) : "\t";
 }
 
+// One line, with a space after each comma and colon and none inside the brackets (A-23).
+function inlineJson(value: JsonValue): string {
+  if (Array.isArray(value)) return `[${value.map(inlineJson).join(", ")}]`;
+  if (value !== null && typeof value === "object") {
+    return `{${Object.entries(value).map(([key, item]) => `${JSON.stringify(key)}: ${inlineJson(item)}`).join(", ")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+// A new array or object goes on one line when every other value of its kind in `container` is
+// on one line; with no such value, or with both layouts, it goes across lines (A-23).
+function followsInlineSiblings(text: string, container: Node, value: JsonValue): boolean {
+  const kind = Array.isArray(value) ? "array" : value !== null && typeof value === "object" ? "object" : undefined;
+  if (kind === undefined) return false;
+  const values = (container.children ?? []).map((child) => (container.type === "object" ? child.children![1]! : child));
+  const siblings = values.filter((sibling) => sibling.type === kind);
+  return siblings.length > 0 && siblings.every((sibling) => !text.slice(sibling.offset, end(sibling)).includes("\n"));
+}
+
 // Inserts `prefix + value` as its own line(s) before member `index`, or after the last member.
 function insertLine(doc: JsonDocument, container: Node, lines: MemberLine[], index: number, prefix: string, value: JsonValue): void {
   const text = doc.text;
@@ -242,7 +261,10 @@ function insertLine(doc: JsonDocument, container: Node, lines: MemberLine[], ind
   const member = container.children![Math.min(index, lines.length - 1)]!;
   const indent = /[ \t]*$/.exec(text.slice(0, member.offset))![0];
   const eol = text.slice(lines[0]!.tailEnd, lines[0]!.lineEnd);
-  const line = indent + prefix + JSON.stringify(value, null, indentUnit(text)).split("\n").join(eol + indent);
+  const rendered = followsInlineSiblings(text, container, value)
+    ? inlineJson(value)
+    : JSON.stringify(value, null, indentUnit(text)).split("\n").join(eol + indent);
+  const line = indent + prefix + rendered;
   if (index < lines.length) {
     splice(doc, at.leadStart, at.leadStart, `${line},${eol}`);
     return;
