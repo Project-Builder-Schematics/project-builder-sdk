@@ -30,7 +30,7 @@ describe("REQ-BRC-01.1 — by-reference directive is distinguishable from by-val
     writeFileSync(join(dir, "files", "binary.png"), Buffer.from([0x89, 0x00, 0x50, 0x4e]));
 
     const run = (): void => {
-      scaffold({ from: "files", to: "out" });
+      scaffold({ from: "files", to: "out", binary: ["binary.png"] });
     };
 
     const result = await runFactoryForTest(run, undefined, { packageDir: dir });

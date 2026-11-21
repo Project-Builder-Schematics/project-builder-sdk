@@ -1,9 +1,7 @@
-// Scaffold's by-value/by-reference classifier (ADR-0044) —
-// stat-gate → whole-file sniff → serialized-budget → verdict (content-classification
-// REQ-CCL-01/02/03/06), plus the `.template`/`templateFile` render-request fail-loud
-// carve-out (REQ-CCL-05). PURE per-file decision (Executor Context §18) — it never throws
-// for an ORDINARY by-reference verdict; the caller (`expander.ts`) decides what a
-// by-reference verdict means for THIS slice (S-003: real `copyIn` emission).
+// Scaffold's by-value/by-reference classifier (ADR-0044, #163): the author's `binary`
+// declaration decides; every undeclared source renders, and one that cannot (not text, or too
+// large for one emit frame) rejects rather than being copied. `create({templateFile})` render
+// requests share the same gates through `failMessages` (REQ-FEH-02).
 //
 // ADR-0077: delegates to `path-guards.ts`'s `statSourceForRead` — IO hygiene (regular-file
 // allow-list), no containment ceiling. Runs BEFORE any of this module's own stat/sniff/
@@ -12,8 +10,7 @@
 // port. A `readBytes` failure AFTER hygiene has
 // already proven a regular file (e.g. a permission/I/O error between stat and read)
 // classifies `source-unreadable` (REQ-AEC-10) — distinct from a CONTENT-level classify
-// failure (binary/oversized), which stays `invalid-input` for `.template`-marked entries
-// only (REQ-CCL-05/AEC-12) and by-reference for everything else.
+// failure (binary/oversized), which is `invalid-input`.
 
 import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
 import type { Directive, JsonValue } from "../../../domain/valueobjects/wire.ts";
@@ -60,114 +57,106 @@ function templateSniffFailMessage(relPath: string, problem: string): string {
   );
 }
 
+function notTextMessage(relPath: string, binaryPattern: string): string {
+  return (
+    `invalid input: source "${relPath}" is not valid text, so it cannot be rendered — ` +
+    `declare it in scaffold's binary option (binary: [${JSON.stringify(binaryPattern)}]) to copy it byte for byte`
+  );
+}
+
+function tooLargeMessage(relPath: string, size: number): string {
+  return (
+    `invalid input: source "${relPath}" (${size} bytes) does not fit in one emit frame once rendered ` +
+    `(the limit is ${EMIT_BATCH_BUDGET_BYTES} bytes) — make it smaller, or declare it in scaffold's binary option ` +
+    "to copy it byte for byte"
+  );
+}
+
+function binaryTemplateMessage(relPath: string): string {
+  return (
+    `invalid input: source "${relPath}" is marked .template, which asks for rendering, and declared binary, ` +
+    "which asks for a byte-for-byte copy — remove one of the two"
+  );
+}
+
 interface ClassifyParams {
   files: PackageFiles;
   packageDir: string;
   relPath: string;
   isTemplateMarked: boolean;
+  /** The author listed this source in scaffold's `binary` option: it is copied, never read. */
+  declaredBinary?: boolean;
+  /** The pattern a not-text rejection suggests for `binary`: the path inside the walked folder. */
+  binaryPattern?: string;
   /**
-   * The `pathTemplate`/`options`/`force` the caller would put on the `create` directive
-   * IF this source classifies by-value — REQUIRED, never defaulted, so the budget check
-   * below can never silently regress to a content-only measure (REQ-CCL-02: the budget is
-   * evaluated against the PROSPECTIVE emitted directive, matching the emit authority
-   * exactly — see the `serializedBatchSize` call below).
+   * The `pathTemplate`/`options`/`force` the caller puts on the `create` directive, so the
+   * frame check measures the directive the emit authority will measure, options included.
    */
   destPath: string;
   options: JsonValue;
   force?: boolean;
-  /**
-   * Render-request mode (`create({templateFile})`, REQ-FEH-02): a failed gate throws
-   * `invalid-input` with THESE caller-pinned message texts instead of degrading to a
-   * by-reference verdict — the same fail-loud carve-out `.template`-marked entries get,
-   * with the caller's own message family.
-   */
+  /** Render-request mode (`create({templateFile})`, REQ-FEH-02): the caller's own message texts. */
   failMessages?: { binary: string; oversized: string };
 }
 
 /**
- * Classifies ONE package-local source: stat-size gate before any content read
- * (REQ-CCL-06) → whole-file UTF-8/null-byte sniff (REQ-CCL-01/03) → serialized-budget
- * check (REQ-CCL-02) → verdict. A `.template`-marked source (`isTemplateMarked`, from the
- * filename pipeline's post-translation check) NEVER degrades to by-reference on a failed
- * gate — it fails loud instead (REQ-CCL-05), same posture `readTemplateFile` applies to
- * `create({templateFile})` render requests via `failMessages` (REQ-FEH-02).
+ * Classifies ONE package-local source. A source declared binary goes by reference, after the
+ * IO hygiene check and without any content read. Every other source renders: it must be
+ * whole-file valid UTF-8 with no null byte, and its `create` directive must fit one emit frame.
+ * A source that fails either rejects naming it, never degrading to a copy (#163): size and
+ * options never decide render vs copy.
  */
 export function classifyTransport(params: ClassifyParams & { failMessages: { binary: string; oversized: string } }): { verdict: "by-value"; content: string };
 export function classifyTransport(params: ClassifyParams): ClassifyResult;
 export function classifyTransport(params: ClassifyParams): ClassifyResult {
-  const { files, packageDir, relPath, isTemplateMarked, destPath, options, force, failMessages } = params;
+  const { files, packageDir, relPath, isTemplateMarked, declaredBinary, destPath, options, force, failMessages } = params;
 
-  // The fail-loud message pair for a render REQUEST (either kind); undefined ⇒ a failed
-  // gate is an ordinary by-reference verdict.
-  const renderFail =
-    failMessages ??
-    (isTemplateMarked
-      ? {
-          binary: templateSniffFailMessage(relPath, "is not valid text (binary content)"),
-          oversized: templateSniffFailMessage(relPath, "is too large to render inline (over the 4 MiB limit)"),
-        }
-      : undefined);
-
-  // IO hygiene completes BEFORE any content read. Throws one of the three surviving
-  // `source-*` reasons on failure — regardless of `isTemplateMarked` (a missing/
-  // non-regular SOURCE is a source-read failure, not a classify-level CCL-05 content
-  // failure; only steps AFTER hygiene get the `.template` invalid-input carve-out below).
-  const { size } = statSourceForRead({ files, packageDir, relPath });
-
-  // Stat-size gate BEFORE any content read (REQ-CCL-06): zero content-read calls for an
-  // over-budget-by-stat file. Reuses the hygiene guard's own size — no second stat call.
-  if (size > EMIT_BATCH_BUDGET_BYTES) {
-    if (renderFail) {
-      throw invalidInput(renderFail.oversized);
-    }
+  if (declaredBinary === true) {
+    if (isTemplateMarked) throw invalidInput(binaryTemplateMessage(relPath));
+    statSourceForRead({ files, packageDir, relPath });
     return { verdict: "by-reference" };
   }
+
+  // IO hygiene completes BEFORE any content read and throws one of the `source-*` reasons.
+  const { size } = statSourceForRead({ files, packageDir, relPath });
+  const tooLarge = (): never => {
+    throw invalidInput(
+      failMessages?.oversized ??
+        (isTemplateMarked
+          ? templateSniffFailMessage(relPath, "is too large to render inline (over the 4 MiB limit)")
+          : tooLargeMessage(relPath, size))
+    );
+  };
+
+  // Size gate before any content read: an over-budget file is never read.
+  if (size > EMIT_BATCH_BUDGET_BYTES) tooLarge();
 
   let buf: Uint8Array;
   try {
     buf = files.readBytes(packageDir, relPath);
   } catch {
-    // Hygiene already proved a readable regular file; a read failure THIS LATE is a
-    // genuine read-path failure (permission/I/O), never a missing source. Routed through
-    // `path-guards.ts`'s own `sourceRejection` (judgment-day G4(i)) — a bare
-    // `new AuthoringError(...)` with no `message` falls to `messageFor`'s generic
-    // "could not be read" template, silently dropping the failure CATEGORY REQ-AEC-11.1
-    // mandates; `sourceRejection` is the one place that template is built.
+    // Hygiene already proved a readable regular file, so a failure this late is a genuine
+    // read-path failure (permission or I/O), reported with its category (REQ-AEC-11.1).
     throw sourceRejection("source-unreadable", relPath, "permission or I/O error");
   }
   const content = decodeSniffableText(buf);
   if (content === null) {
-    if (renderFail) {
-      throw invalidInput(renderFail.binary);
-    }
-    return { verdict: "by-reference" };
+    throw invalidInput(
+      failMessages?.binary ??
+        (isTemplateMarked
+          ? templateSniffFailMessage(relPath, "is not valid text (binary content)")
+          : notTextMessage(relPath, params.binaryPattern ?? relPath))
+    );
   }
 
-  // Serialized-form budget (REQ-CCL-02): measured against the PROSPECTIVE `create`
-  // DIRECTIVE this source would emit if classified by-value — envelope, `create` wrapper,
-  // `pathTemplate`, and `options` all included, never the content string alone — via the
-  // SAME `serializedBatchSize` helper the fake's real batch-cap check applies at emit time
-  // (`core/wire.ts`). A lone over-budget directive can never fit any flush group (the
-  // expander flushes a solo directive as its own group, REQ-04.2), so measuring the
-  // single-directive batch here is exactly what the emit authority will measure later —
-  // against `EMIT_BATCH_BUDGET_BYTES`, the SAME boundary `exceedsEmitBatchBudget` enforces
-  // at emit (spec V4 REQ-WPS-04.1: the cap reserves the frame-envelope allowance).
-  // `>` (not `>=`) — exactly-at-budget still fits (REQ-CCL-02.3).
-  //
-  // REQ-CCL-02.4: `options` is run through the SAME shared `encodeOptions` (fit-39's one
-  // other sanctioned call site) real `create()` emission applies, so the measure and the
-  // emitted directive can never disagree on the options' wire form.
+  // Measured against the PROSPECTIVE `create` directive, envelope and options included, with
+  // the same `serializedBatchSize` the emit authority applies; `>` so exactly-at-budget fits.
+  // `options` goes through the same `encodeOptions` real emission applies.
   const prospectiveDirective: Directive = {
     op: "create",
     create: { pathTemplate: destPath, template: content, options: encodeOptions(options, destPath), ...forceEntry(force) },
   };
-  const directiveSize = serializedBatchSize([prospectiveDirective]);
-  if (directiveSize > EMIT_BATCH_BUDGET_BYTES) {
-    if (renderFail) {
-      throw invalidInput(renderFail.oversized);
-    }
-    return { verdict: "by-reference" };
-  }
+  if (serializedBatchSize([prospectiveDirective]) > EMIT_BATCH_BUDGET_BYTES) tooLarge();
 
   return { verdict: "by-value", content };
 }

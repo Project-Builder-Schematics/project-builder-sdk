@@ -475,8 +475,10 @@ second, `.template` strip last):
 - **`include` / `exclude`** — glob filters over the original paths (`*` within a segment,
   `**` across segments; `exclude` wins).
 
-Each surviving file is classified automatically: valid, in-budget text renders as a
-template; binary or over-budget files travel verbatim (`copyIn`). Caveats: an empty `from`
+Each surviving file renders as a template, except the ones you list in `binary` (globs over
+the original paths, like `include`), which are copied byte for byte (`copyIn`). A file that is
+not valid text and is not listed rejects with a `binary: [...]` suggestion, and a file too
+large for one emit frame rejects naming its size; neither is ever copied unrendered. Caveats: an empty `from`
 folder is a silent no-op (and npm packaging commonly drops empty directories — ship a
 placeholder if the folder's presence matters) while `include`/`exclude` filters that
 eliminate every entry reject loudly, nested symlinked directories are skipped

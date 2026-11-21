@@ -132,9 +132,11 @@ export type ScaffoldOptions = ScaffoldArgs;
  * Walks a package-local folder (`from`, resolved against the active Session's `packageDir`)
  * and mirrors every entry into `to`, applying the rename → filename-token-translation →
  * `.template`-strip pipeline (REQ-FSC-05) and include/exclude glob filtering (REQ-FSC-03,
- * `exclude` wins on overlap). Each source classifies by-value or by-reference
- * (`content-classification`, entirely sniffed — never author-declared); by-value sources
- * emit a `create` directive through the existing IR. A `from` folder with zero entries
+ * `exclude` wins on overlap). A source matching one of the `binary` globs (against the same
+ * original path) is copied byte for byte (`copyIn`); every other source renders through a
+ * `create` directive. A source that cannot render rejects naming it, never falling back to a
+ * copy: one that is not valid UTF-8 text (with a `binary: [...]` suggestion), one too large
+ * for one emit frame (naming its size), or one both `.template`-marked and declared binary. A `from` folder with zero entries
  * no-ops silently; `include`/`exclude` eliminating every entry rejects fail-loud, naming
  * the filters (REQ-FSC-04 — two distinct outcomes, never collapsed). `force` (default
  * `false`) passes through unchanged to every emitted directive, no per-file override

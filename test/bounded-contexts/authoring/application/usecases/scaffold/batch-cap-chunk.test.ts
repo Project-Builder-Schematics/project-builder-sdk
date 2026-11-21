@@ -16,7 +16,7 @@
  * per-file budget now measures the PROSPECTIVE `create` DIRECTIVE (envelope + wrapper +
  * pathTemplate + options), not the content string alone — so a file `scaffold` walks can
  * no longer classify by-value while its own emitted directive individually exceeds
- * `BATCH_CAP_BYTES`: classify-transport now routes it by-reference FIRST. The REQ-04.2 /
+ * `BATCH_CAP_BYTES`: classify-transport rejects it first (#163). The REQ-04.2 /
  * REQ-04.3 "solo group exceeds cap" scenarios below can therefore no longer be reconstructed
  * from a SCAFFOLDED file alone — they reconstruct the over-cap group from a directive
  * buffered OUTSIDE scaffold's own per-file classify gate (a direct `create()` call with an
@@ -172,7 +172,7 @@ describe("REQ-05.1 — cross-chunk atomicity: a later-chunk failure commits noth
     const perFile = Math.floor(2.2 * 1024 * 1024);
     writeFileSync(join(dir, "files", "a.ts"), "A".repeat(perFile), "utf-8");
     writeFileSync(join(dir, "files", "b.ts"), "B".repeat(perFile), "utf-8");
-    // Third, tiny BINARY file — walks last (alphabetical sort), classifies by-reference,
+    // Third, tiny BINARY file, declared in `binary` — walks last (alphabetical sort), goes by reference,
     // and lands in b.ts's group (negligible size next to the MiB-scale text files, well
     // under any remaining cap headroom). Proves the S-004 chunked-flush accumulator
     // (`candidateBatchSize`) correctly measures a MIXED create+copyIn batch — every prior
@@ -181,7 +181,7 @@ describe("REQ-05.1 — cross-chunk atomicity: a later-chunk failure commits noth
     writeFileSync(join(dir, "files", "c-binary.png"), Buffer.from([0x89, 0x00, 0x50, 0x4e]));
 
     const run = (): void => {
-      scaffold({ from: "files", to: "out" });
+      scaffold({ from: "files", to: "out", binary: ["c-binary.png"] });
     };
 
     // Seed a PRE-EXISTING "out/b.ts" so the second file's directive collides on emit —
