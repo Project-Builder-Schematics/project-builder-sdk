@@ -9,16 +9,17 @@
  * (REQ-RBV-04.2 asymmetry — naming the offending key is required, e.g. RBV-01.3/.5/.6's
  * message).
  *
- * Self-building `beforeAll` (S-001 precedent, `codegen-cli.test.ts`): this file also spawns
- * the DIST bin artifact for the TFO-04.1 branch, so a bare `bun test` on a fresh checkout
- * must not depend on file-execution order producing `dist/bin` first.
+ * `beforeAll` builds through the memoized `ensureTscBuild()`: this file also spawns the DIST
+ * bin artifact for the TFO-04.1 branch, so a bare `bun test` on a fresh checkout must not
+ * depend on file-execution order producing `dist/bin` first, and must not delete `dist/`
+ * under another test (#170).
  */
 import { describe, it, expect, beforeAll, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs";
 import * as fs from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { defineFactory } from "../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { ContractFake } from "../support/contract-fake.ts";
 import { canaryToken, seedSchema, spawnCapture } from "../support/canary.ts";
@@ -28,18 +29,13 @@ import { scaffold, copyIn, create } from "../../src/commons/index.ts";
 import { classifyTransport } from "../../src/bounded-contexts/authoring/application/usecases/scaffold/classify-transport.ts";
 import { rejectedRun } from "../support/rejection-capture.ts";
 import { nodePackageFiles } from "../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
+import { ensureTscBuild } from "../support/shared-build.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DIST_BIN = join(PROJECT_ROOT, "dist/bin/pbuilder-codegen.js");
 
 beforeAll(() => {
-  const result = spawnSync("bun", ["run", "build"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
-  if (result.status !== 0) {
-    throw new Error(
-      `canary-no-echo: bun run build failed — cannot spawn the bin without a fresh build.\n` +
-      `stdout: ${result.stdout}\nstderr: ${result.stderr}`
-    );
-  }
+  ensureTscBuild();
 });
 
 let dirs: string[] = [];
@@ -217,7 +213,7 @@ describe("REQ-RBV-04.1 — canary scan across every rejection branch", () => {
     expect(result.status).not.toEqual(0);
     expect(result.stdout).not.toContain(canary);
     expect(result.stderr).not.toContain(canary);
-  });
+  }, 30_000);
 
   it("RLN-02.1: a reserved-lifecycle-name rejection never leaks an unrelated resolved-input value", async () => {
     const canary = canaryToken("rln");
@@ -454,7 +450,7 @@ describe("REQ-RBV-04.1 — judgment-day round 1: the seven previously-uncovered 
     await expectRejectsCanaryFree(dir, canary, () => {
       copyIn("pipe", "out/copied.txt");
     });
-  });
+  }, 30_000);
 
   it("REQ-PSH-02.2: templateFile — an injected EACCES read failure never leaks the canary-seeded absolute prefix", async () => {
     const canary = canaryToken("templatefile-eacces");

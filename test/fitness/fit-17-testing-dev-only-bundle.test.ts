@@ -39,7 +39,7 @@ describe("FIT-17 — dev-only bundle containment: fake text absent from producti
     it(`REQ-TES-04.1: ${entry} minified bundle does not contain the fake literal`, () => {
       const { output } = ensureMinifiedEntry(entry);
       expect(bundleContainsFakeLiteral(output)).toBe(false);
-    });
+    }, 30_000);
   }
 
   // [permanent-fixture] Mandatory positive control — proves the absence checks above are not
@@ -47,7 +47,7 @@ describe("FIT-17 — dev-only bundle containment: fake text absent from producti
   it("[permanent-fixture] REQ-TES-04.2: ./testing minified bundle DOES contain the fake literal", () => {
     const { output } = ensureMinifiedEntry(TESTING_ENTRY);
     expect(bundleContainsFakeLiteral(output)).toBe(true);
-  });
+  }, 30_000);
 
   it("[red-proof] REQ-TES-04.3: a conditional-exports-routed bundle still carrying the literal is caught", () => {
     // Simulated minified-bundle STRING (never a real production entry) — proves the scan

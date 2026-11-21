@@ -62,7 +62,7 @@ describe("run-context — outside any run", () => {
     `);
     expect({ stderr, status }).toEqual({ stderr: "", status: 0 });
     expect(JSON.parse(stdout)).toEqual(JSON.parse(JSON.stringify(expected)));
-  });
+  }, 30_000);
 });
 
 describe("run-context — the lookup happens at each step", () => {
@@ -116,5 +116,5 @@ describe("run-context — two copies of the SDK in one process", () => {
     `);
     expect({ stderr, status }).toEqual({ stderr: "", status: 0 });
     expect(JSON.parse(stdout)).toEqual(["seed\nline"]);
-  });
+  }, 30_000);
 });

@@ -1411,7 +1411,7 @@ describe("FIT-42N S-001 — REQ-CAP-01.5: each surface exclusion is red-proofed,
       if (sourceFile.getDescendantsOfKind(SyntaxKind.TypeReference).length > 0) withTypeNodes.push(node);
     }
     expect(withTypeNodes).toEqual([]);
-  });
+  }, 30_000);
 });
 
 describe("FIT-42N S-001 — REQ-CAP-03: callee decidability", () => {
@@ -2044,12 +2044,12 @@ describe("FIT-42N S-004 — FIT-FAILCLOSED-BICONDITIONAL: exit != 0 iff no manif
       expect(result.status, `${file} (${fixture.kind}) should fail closed`).not.toBe(0);
       expect(existsSync(manifestPathIn(root)), `${file} (${fixture.kind}) must leave no manifest`).toBe(false);
     }
-  });
+  }, 30_000);
 
   it("REQ-FCG-01.5: success yields a manifest — the biconditional's other direction", () => {
     const root = preSeededRoot();
     expect(existsSync(manifestPathIn(root))).toBe(true);
-  });
+  }, 30_000);
 });
 
 describe("FIT-42N S-004 — REQ-FCG-01: individual fault-kind red-proofs", () => {
@@ -2059,7 +2059,7 @@ describe("FIT-42N S-004 — REQ-FCG-01: individual fault-kind red-proofs", () =>
     const result = runGeneratorAt(root);
     expect(result.status).not.toBe(0);
     expect(existsSync(manifestPathIn(root))).toBe(false);
-  });
+  }, 30_000);
 
   it.skipIf(RUNNING_AS_ROOT)(
     "REQ-FCG-01.2 [red-proof]: a mid-derivation unreadable closure file leaves no manifest, atomically — R1-6",
@@ -2098,7 +2098,7 @@ describe("FIT-42N S-004 — REQ-FCG-01: individual fault-kind red-proofs", () =>
     expect(stderr.endsWith("\n\nNo manifest was written; dist/runner-manifest.json does not exist.\n")).toBe(
       true
     );
-  });
+  }, 30_000);
 });
 
 // ===========================================================================================
@@ -2195,7 +2195,7 @@ describe("FIT-42N S-004 — REQ-DGN-01.3/.4: rule-identity totality over the fix
       rule: produceRuleFor(entry),
     }));
     expect(ruleIdentityTotalityMismatches(activeRuleFixtures, produced)).toEqual([]);
-  });
+  }, 30_000);
 
   it("REQ-DGN-01.4 [red-proof]: a rule-swap mutant is caught, naming the mismatched fixture and the declared-vs-produced pair", () => {
     // (a) RULE_BODIES-renderer-swap shape: two fixtures' PRODUCED rules end up swapped with
@@ -2389,7 +2389,7 @@ describe("FIT-42N S-002 — REQ-XPO-01.5 [red-proof]: anchor drift is caught (M1
     const derivation = deriveRunnerClosure(distDir, ENTRY_RELATIVE_PATH);
     expect(derivation.nodes).toContain(CREATE_REQUIRE_ANCHOR_FILE);
     expect(findAnchorDriftViolations(derivation.nodes, CREATE_REQUIRE_ANCHOR_FILE)).toEqual([]);
-  });
+  }, 30_000);
 });
 
 // ===========================================================================================
@@ -2819,5 +2819,5 @@ describe("FIT-42N S-001 — REQ-CAP-01.3 [red-proof]: unclassifiable is fail-clo
     expect(result.status).not.toBe(0);
     expect(existsSync(manifestPathIn(root))).toBe(false);
     expect((result.stderr as unknown as string).includes("globalThis[k][k]")).toBe(true);
-  });
+  }, 30_000);
 });

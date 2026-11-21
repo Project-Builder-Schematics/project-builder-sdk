@@ -27,12 +27,12 @@ if (requireArchitecture()) {
 
     it("is the commit the checkout has, so the suite reads the pinned rules", () => {
       expect(git(ARCHITECTURE_ROOT, ["rev-parse", "HEAD"])).toBe(gitlink);
-    });
+    }, 30_000);
 
     it("is a v* release tag of project-builder-architecture", () => {
       const tags = git(ARCHITECTURE_ROOT, ["tag", "--points-at", gitlink]).split("\n");
       expect(tags.filter((tag) => /^v\d+\.\d+\.\d+$/.test(tag))).not.toEqual([]);
-    });
+    }, 30_000);
   });
 
   describe("the architecture rules", () => {

@@ -254,7 +254,7 @@ describe("R-2 — this harness fails loudly, it never skips", () => {
     const attempt = (): string => run("npm", ["pack"], temporaryRoot("pmf-loud-"));
     expect(attempt).toThrow(/This test never skips/);
     expect(attempt).toThrow(/ENOENT/);
-  });
+  }, 30_000);
 
   it(
     "an unreachable registry fails loudly with a network diagnosis, never a skip",

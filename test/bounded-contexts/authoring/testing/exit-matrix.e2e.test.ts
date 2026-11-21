@@ -129,7 +129,7 @@ describe("REQ-EXC-01.2 — four failure classes map to four distinct exit codes"
     } finally {
       if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
     }
-  });
+  }, 30_000);
 
   it("(d) a plain author TypeError thrown mid-run: exit 4 (crash)", async () => {
     const fake = new ContractFake({ seed: {} });

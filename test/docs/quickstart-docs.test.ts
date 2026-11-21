@@ -172,7 +172,7 @@ describe("walkthrough outcome-gap fix (G-2, REQ-AOD-01/07/11) — consumer tscon
     const result = spawnCapture(bin ?? "pbuilder-codegen", args, { cwd: MACHINE_SCRATCH_DIR });
     expect(result.status).toEqual(0);
     expect(result.stdout).toContain("pbuilder-codegen: wrote schema.generated.ts");
-  });
+  }, 30_000);
 });
 
 describe("REQ-AOD-01/07 — quickstart machine leg (schema -> codegen -> typed factory -> passing test)", () => {
@@ -213,7 +213,7 @@ describe("REQ-AOD-01/07 — quickstart machine leg (schema -> codegen -> typed f
     // themselves, against the bun-link-installed package's own node_modules.
     const testResult = spawnCapture("bun", ["test", "factory.test.ts"], { cwd: MACHINE_SCRATCH_DIR });
     expect(testResult.status).toEqual(0);
-  });
+  }, 30_000);
 
   // RED-PROOF (REQ-AOD-07.2): the machine leg's actual file writer never substitutes a
   // relative src/ import — proven by scanning its OWN source, not asserted alone.

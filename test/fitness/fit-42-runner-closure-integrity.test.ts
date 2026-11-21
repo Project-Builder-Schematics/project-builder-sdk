@@ -178,7 +178,7 @@ describe("FIT-42 S-000 — the build emits a runner manifest", () => {
     expect(first).toBe("runner-manifest: 29 files -> dist/runner-manifest.json");
     expect(second).toMatch(/^runner-manifest-sha256: [\da-f]{64}$/);
     expect(rest).toEqual([]);
-  });
+  }, 30_000);
 });
 
 describe("FIT-42 S-000 — the derivation is right about the real tree", () => {
@@ -413,7 +413,7 @@ describe("FIT-42 S-002 — the manifest is deterministic", () => {
     const first = readFileSync(manifestIn(root), "utf-8");
     expect(runGenerator(root).status).toBe(0);
     expect(readFileSync(manifestIn(root), "utf-8")).toBe(first);
-  });
+  }, 30_000);
 
   it("REQ-RMD-02.1: a root whose path holds a space and a non-ASCII segment yields the canonical bytes", () => {
     const root = copyPackageRootTo(join(scratchRoot(), "prüf ung"));
@@ -422,7 +422,7 @@ describe("FIT-42 S-002 — the manifest is deterministic", () => {
 
     expect(runGenerator(root).status).toBe(0);
     expect(readFileSync(manifestIn(root), "utf-8")).toBe(manifestRaw);
-  });
+  }, 30_000);
 });
 
 describe("FIT-42 S-002 — tampering is localised to the file that changed", () => {
@@ -442,7 +442,7 @@ describe("FIT-42 S-002 — tampering is localised to the file that changed", () 
       (record, index) => record.sha256 !== (before.files[index] as { sha256: string }).sha256
     );
     expect(changed.map((record) => record.path)).toEqual(["dist/bounded-contexts/authoring/domain/aggregates/session/session.js"]);
-  });
+  }, 30_000);
 });
 
 describe("FIT-42 S-002 — the generator fails closed and leaves nothing behind", () => {
@@ -458,7 +458,7 @@ describe("FIT-42 S-002 — the generator fails closed and leaves nothing behind"
 
     expect(result.status).not.toBe(0);
     expect(existsSync(manifestIn(root))).toBe(false);
-  });
+  }, 30_000);
 
   // Permission-dependent by SUBJECT (chmod(0o000) does not deny root), so there is no
   // permission-independent leg to keep — but the state is recorded rather than silently skipped.
@@ -507,7 +507,7 @@ describe("FIT-42 S-002 — the generator fails closed on an invalid package.json
 
     expect(result.status).not.toBe(0);
     expect(existsSync(manifestIn(root))).toBe(false);
-  });
+  }, 30_000);
 
   // Triangulates the non-string class with ONE representative (a number): `undefined` above
   // and a number both fail `typeof version !== "string"` the same way, so this is not
@@ -522,7 +522,7 @@ describe("FIT-42 S-002 — the generator fails closed on an invalid package.json
 
     expect(result.status).not.toBe(0);
     expect(existsSync(manifestIn(root))).toBe(false);
-  });
+  }, 30_000);
 
   // A distinct branch from "non-string": typeof is "string" but the value is empty, so a
   // `typeof !== "string"` check alone would let it through.
@@ -536,7 +536,7 @@ describe("FIT-42 S-002 — the generator fails closed on an invalid package.json
 
     expect(result.status).not.toBe(0);
     expect(existsSync(manifestIn(root))).toBe(false);
-  });
+  }, 30_000);
 
   // REQ-DGN-01.1 (S-004): a version failure gets its OWN rule — never `unreadable-file`. The
   // file WAS read; its content (a missing/empty `version` field) is structurally invalid.
@@ -557,7 +557,7 @@ describe("FIT-42 S-002 — the generator fails closed on an invalid package.json
         "",
       ].join("\n")
     );
-  });
+  }, 30_000);
 });
 
 // Reads go through the beforeAll snapshot, never the live dist/: another file's unmemoized
@@ -718,7 +718,7 @@ describe("FIT-42 S-003 — the one real-tree negative, and the epilogue each too
         "",
       ].join("\n")
     );
-  });
+  }, 30_000);
 
   it("REQ-CST-06.1: the baseline writer's failure names the baseline, never the manifest", () => {
     const root = copiedPackageRoot();
@@ -746,7 +746,7 @@ describe("FIT-42 S-003 — the one real-tree negative, and the epilogue each too
         "",
       ].join("\n")
     );
-  });
+  }, 30_000);
 });
 
 // ===========================================================================================

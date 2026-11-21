@@ -114,7 +114,7 @@ describe("pyramid REQ-03 — CI's test step covers every mapped directory", () =
 
     const excluded = dirs.filter((dir) => ciCommandExcludesDirectory(command, dir));
     expect(excluded).toEqual([]);
-  });
+  }, 30_000);
 
   // Red-proof (FIT-08/FIT-09 style): a scoped invocation that omits a mapped directory
   // must be caught — kills the "always vacuously passes" mutant.

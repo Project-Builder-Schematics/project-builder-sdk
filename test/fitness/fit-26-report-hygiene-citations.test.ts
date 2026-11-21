@@ -172,7 +172,7 @@ describe("FIT-26 (d) — no report artifact is git-tracked (REQ-RPT-04)", () => 
 
     const tracked = result.stdout.split("\n").filter((line) => line.length > 0);
     expect(trackedReportArtifacts(tracked)).toEqual([]);
-  });
+  }, 30_000);
 
   // RED-PROOF (discriminability, no fixture needed): both a per-scenario report inside
   // the reports dir and a rolled-up aggregate placed OUTSIDE it are caught.

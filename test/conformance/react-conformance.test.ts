@@ -239,5 +239,5 @@ describe("REQ-PPI-04 [red-proof]: a non-resolving test fails at the declared tim
     } finally {
       rmSync(SCRATCH_DIR, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 });

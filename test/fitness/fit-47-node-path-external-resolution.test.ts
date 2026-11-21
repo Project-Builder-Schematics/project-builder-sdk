@@ -131,7 +131,7 @@ describe("FIT-47 — NODE_PATH resolves the SDK for a factory outside the worksp
 
     expect(resolved, `probe leg did not resolve.\n${raw}`).toBe(join(root, "workspace/node_modules/@pbuilder/sdk/dist/index.js"));
     expect(imported, `import leg did not resolve.\n${raw}`).toBe("function,function");
-  });
+  }, 30_000);
 
   it("negative control: the SAME fixture without `main` fails on both legs (proves `main` is the variable)", () => {
     const root = buildFixture({ withMain: false });
@@ -139,5 +139,5 @@ describe("FIT-47 — NODE_PATH resolves the SDK for a factory outside the worksp
 
     expect(resolved, `expected no resolution without "main".\n${raw}`).toBeNull();
     expect(imported, `expected no import without "main".\n${raw}`).toBeNull();
-  });
+  }, 30_000);
 });

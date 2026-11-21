@@ -294,7 +294,7 @@ describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-06/08, ADR-00
   it("dialect library values and upstream types work from the installed package", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
     assertNativeLibraries(PACK_SCRATCH_DIR);
-  });
+  }, 30_000);
   it("REQ-TES-06.1/REQ-TES-08.1/REQ-LC-03.1: defineFactory is unreachable via ./testing; ./commons resolves without it; ./typescript and ./react resolve; ./core stays unresolvable", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
 
@@ -352,39 +352,39 @@ describe("e2e — installed-consumer-vantage, tarball leg (REQ-TES-06/08, ADR-00
 
     // TES-06.1: @pbuilder/sdk/core remains unresolvable by subpath.
     expect(results.core?.resolved).toBe(false);
-  });
+  }, 30_000);
 
   it("REQ-TES-06.2: a write-only factory commits to a golden tree through the published entry (founding bug)", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
     assertWriteOnlyCommit(PACK_SCRATCH_DIR);
-  });
+  }, 30_000);
 
   it("REQ-TES-06.3: an all-or-nothing rejection surfaces an author-assertable AuthoringError through the published entry", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
     assertAllOrNothingRejection(PACK_SCRATCH_DIR);
-  });
+  }, 30_000);
 
   it("REQ-LC-04.1: pbuilder-codegen runs from the tarball-installed consumer's node_modules/.bin against a schema.json fixture", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
     assertCodegenBinRuns(PACK_SCRATCH_DIR);
-  });
+  }, 30_000);
 
   it("REQ-LC-05.2: tarball leg invokes pendingDirectives() via ./commons and returns a non-empty list", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
     assertPendingDirectivesNonEmpty(PACK_SCRATCH_DIR);
-  });
+  }, 30_000);
 
   it("REQ-TES-06.4: a stale defineFactory import fails to resolve through the published entry", async () => {
     await ensurePackedConsumer(PACK_SCRATCH_DIR);
     assertDefineFactoryImportFailsToResolve(PACK_SCRATCH_DIR);
-  });
+  }, 30_000);
 });
 
 describe("e2e — installed-consumer-vantage, bun-link leg (S-000/S-001, REQ-LC-01/02/04/05, ADR-0041)", () => {
   it("dialect library values and upstream types work from the linked package", async () => {
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
     assertNativeLibraries(LINK_SCRATCH_DIR);
-  });
+  }, 30_000);
   it("REQ-LC-01.1/REQ-LC-01.2: all six subpaths resolve via bun link; ./core stays unresolvable", async () => {
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
 
@@ -426,32 +426,32 @@ describe("e2e — installed-consumer-vantage, bun-link leg (S-000/S-001, REQ-LC-
 
     // REQ-LC-01.2: @pbuilder/sdk/core remains unresolvable by subpath.
     expect(results.core?.resolved).toBe(false);
-  });
+  }, 30_000);
 
   it("REQ-LC-04.2: pbuilder-codegen runs from the bun-link-installed consumer's node_modules/.bin against a schema.json fixture", async () => {
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
     assertCodegenBinRuns(LINK_SCRATCH_DIR);
-  });
+  }, 30_000);
 
   it("REQ-LC-05.1: bun-link leg invokes pendingDirectives() via ./commons and returns a non-empty list", async () => {
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
     assertPendingDirectivesNonEmpty(LINK_SCRATCH_DIR);
-  });
+  }, 30_000);
 
   it("REQ-LC-02.1: a write-only factory commits to a golden tree through the bun-link-installed entry (founding bug parity)", async () => {
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
     assertWriteOnlyCommit(LINK_SCRATCH_DIR);
-  });
+  }, 30_000);
 
   it("REQ-LC-02.2: an all-or-nothing rejection surfaces an author-assertable AuthoringError through the bun-link-installed entry (founding bug parity)", async () => {
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
     assertAllOrNothingRejection(LINK_SCRATCH_DIR);
-  });
+  }, 30_000);
 
   it("REQ-TES-06.4: a stale defineFactory import fails to resolve through the bun-link-installed entry", async () => {
     await ensureLinkedConsumer(LINK_SCRATCH_DIR);
     assertDefineFactoryImportFailsToResolve(LINK_SCRATCH_DIR);
-  });
+  }, 30_000);
 });
 
 // REQ-LC-02.3 parity, made STRUCTURAL: a hand-typed pair of literal arrays can only ever

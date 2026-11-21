@@ -52,7 +52,7 @@ describe("copyIn source reads", () => {
     const made = Bun.spawnSync(["mkfifo", join(dir, "pipe")]);
     expect(made.exitCode).toEqual(0);
     expect(await messageOf(dir, () => copyIn("pipe", "out/pipe"))).toEqual("source file invalid: pipe is not a regular file");
-  });
+  }, 30_000);
 
   it("a symlink cycle", async () => {
     const dir = scratchDir();

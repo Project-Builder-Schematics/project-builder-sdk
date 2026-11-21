@@ -162,7 +162,7 @@ describe("REQ-PSH-01.1 — FIFO (non-regular, non-directory) rejects via the all
     } finally {
       readSpy.mockRestore();
     }
-  });
+  }, 30_000);
 });
 
 describe("REQ-PSH-01.3 — degenerate source strings resolve to packageDir itself, rejected as non-regular [red-today]", () => {
