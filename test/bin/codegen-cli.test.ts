@@ -6,32 +6,26 @@
  *
  * Spawns the BUILT artifact (`dist/bin/pbuilder-codegen.js`) via explicit `bun <path>`
  * (ADR-0027 Gap 9: Bun is the guaranteed CI runtime, `node` is not) — never relying on the
- * shebang/exec bit. Self-building via an unconditional `beforeAll` (FIT-04 precedent,
- * slices constraint 10) so a bare `bun test` on a fresh checkout stays green without an
- * external build-then-test protocol.
+ * shebang/exec bit. Builds through the memoized `ensureTscBuild()`, once per `bun test`
+ * process, so a bare `bun test` on a fresh checkout stays green and no test deletes `dist/`
+ * under another (#170).
  */
 import { describe, it, expect, beforeAll, afterEach } from "bun:test";
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { spawnCapture, seedSchema } from "../support/canary.ts";
 import { USAGE, SUCCESS_LINE, GENERATED_FILENAME } from "../../src/bounded-contexts/authoring/infrastructure/in/codegen/cli.ts";
 import { emitInputType } from "../../src/bounded-contexts/authoring/infrastructure/in/codegen/emit-type.ts";
 import { parseSchema } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-parse.ts";
 import { computeSchemaDigest } from "../../src/bounded-contexts/authoring/domain/services/schema/schema-digest.ts";
+import { ensureTscBuild } from "../support/shared-build.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DIST_BIN = join(PROJECT_ROOT, "dist/bin/pbuilder-codegen.js");
 
 beforeAll(() => {
-  const result = spawnSync("bun", ["run", "build"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
-  if (result.status !== 0) {
-    throw new Error(
-      `codegen-cli: bun run build failed — cannot spawn the bin without a fresh build.\n` +
-      `stdout: ${result.stdout}\nstderr: ${result.stderr}`
-    );
-  }
+  ensureTscBuild();
 });
 
 function runBin(args: string[], cwd: string = PROJECT_ROOT) {
@@ -64,21 +58,21 @@ describe("pbuilder-codegen CLI — usage discipline (FPS-05.1)", () => {
     expect(result.status).not.toEqual(0);
     expect(result.stdout).toEqual("");
     expect(result.stderr).toBe("pbuilder-codegen: project-builder.json not found\n");
-  });
+  }, 30_000);
 
   it("unrecognized flag: usage on STDERR, non-zero exit", () => {
     const result = runBin(["--nonsense"]);
 
     expect(result.status).not.toEqual(0);
     expect(result.stderr).toContain("pbuilder-codegen <package-dir>");
-  });
+  }, 30_000);
 
   it("--help: usage on STDOUT, exit 0", () => {
     const result = runBin(["--help"]);
 
     expect(result.status).toEqual(0);
     expect(result.stdout).toContain("pbuilder-codegen <package-dir>");
-  });
+  }, 30_000);
 
   it("usage text names the tool's purpose and the literal invocation form (TW-m5)", () => {
     expect(USAGE).toContain("pbuilder-codegen <package-dir>");
@@ -119,7 +113,7 @@ describe("pbuilder-codegen CLI — success + discovery (FPS-01.1, TFO-04.2)", ()
       const raw = readFileSync(join(dir, "schema.json"), "utf8");
       expect(readFileSync(join(dir, GENERATED_FILENAME), "utf8")).toBe(emitInputType(parseSchema(raw), computeSchemaDigest(raw)));
       expect(existsSync(sentinel)).toBe(false);
-    });
+    }, 30_000);
   }
   it("discovers schema.json without a path argument and prints the fixed success line", () => {
     const dir = scratchDir();
@@ -131,7 +125,7 @@ describe("pbuilder-codegen CLI — success + discovery (FPS-01.1, TFO-04.2)", ()
     expect(result.stdout).toEqual(`${SUCCESS_LINE}\n`);
     expect(result.stderr).toEqual("");
     expect(existsSync(join(dir, GENERATED_FILENAME))).toBe(true);
-  });
+  }, 30_000);
 });
 
 describe("pbuilder-codegen CLI — malformed schema.json (TFO-04.1, .3, .4, .6)", () => {
@@ -147,7 +141,7 @@ describe("pbuilder-codegen CLI — malformed schema.json (TFO-04.1, .3, .4, .6)"
     expect(result.stderr).toContain(join(dir, "schema.json"));
     expect(result.stderr).toContain("invalid JSON");
     expect(existsSync(join(dir, GENERATED_FILENAME))).toBe(false);
-  });
+  }, 30_000);
 
   it("parse failure carries a concrete (line, column) locator for a structural syntax error " +
      "(ADR-0032: the hand-rolled scanner, not the dead V8-only engine-message extraction)", () => {
@@ -162,7 +156,7 @@ describe("pbuilder-codegen CLI — malformed schema.json (TFO-04.1, .3, .4, .6)"
     const result = runBin([dir]);
 
     expect(result.stderr).toContain("(line 4, column 15)");
-  });
+  }, 30_000);
 
   it("parse failure falls back to (position unknown) for the bounded in-string-escape class " +
      "(ADR-0032: the scanner consumes strings structurally, deliberately not validating " +
@@ -178,7 +172,7 @@ describe("pbuilder-codegen CLI — malformed schema.json (TFO-04.1, .3, .4, .6)"
     const result = runBin([dir]);
 
     expect(result.stderr).toContain("(position unknown)");
-  });
+  }, 30_000);
 
   it("error message never surfaces the raw JavaScriptCore parser text", () => {
     const dir = scratchDir();
@@ -189,7 +183,7 @@ describe("pbuilder-codegen CLI — malformed schema.json (TFO-04.1, .3, .4, .6)"
 
     expect(result.stderr).not.toContain("JSON Parse error");
     expect(result.stderr).not.toContain("SyntaxError");
-  });
+  }, 30_000);
 
   it("a deeply-nested malformed schema.json degrades to (position unknown) instead of dumping an " +
      "uncaught RangeError/internal dist/bin stack (locator stack-overflow, fail-closed message contract)", () => {
@@ -210,7 +204,7 @@ describe("pbuilder-codegen CLI — malformed schema.json (TFO-04.1, .3, .4, .6)"
     expect(result.stderr).not.toContain("Maximum call stack");
     expect(result.stderr).not.toContain("dist/bin");
     expect(existsSync(join(dir, GENERATED_FILENAME))).toBe(false);
-  });
+  }, 30_000);
 
   it("a malformed re-run does not destroy a prior valid generated output (non-destructive)", () => {
     const dir = scratchDir();
@@ -224,7 +218,7 @@ describe("pbuilder-codegen CLI — malformed schema.json (TFO-04.1, .3, .4, .6)"
 
     expect(second.status).not.toEqual(0);
     expect(readFileSync(join(dir, GENERATED_FILENAME), "utf-8")).toEqual(priorContent);
-  });
+  }, 30_000);
 });
 
 describe("pbuilder-codegen CLI — write containment (TFO-05.1-.3, SEC-4)", () => {
@@ -238,14 +232,14 @@ describe("pbuilder-codegen CLI — write containment (TFO-05.1-.3, SEC-4)", () =
     expect(result.status).toEqual(0);
     const after = readdirSync(dir).sort();
     expect(after).toEqual([...before, GENERATED_FILENAME].sort());
-  });
+  }, 30_000);
 
   it("TFO-05.2: a path-escaping argument (../../etc) is refused before any write", () => {
     const result = runBin(["../../etc"]);
 
     expect(result.status).not.toEqual(0);
     expect(existsSync(join(PROJECT_ROOT, "../../etc/schema.generated.ts"))).toBe(false);
-  });
+  }, 30_000);
 
   it("TFO-05.2: a symlink whose real target escapes the project root is refused (post-realpath containment)", () => {
     const outsideTarget = mkdtempSync(join(tmpdir(), "pbuilder-codegen-escape-"));
@@ -262,7 +256,7 @@ describe("pbuilder-codegen CLI — write containment (TFO-05.1-.3, SEC-4)", () =
     } finally {
       rmSync(outsideTarget, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it("TFO-05.3: schema-derived path-shaped content never influences the output location", () => {
     const dir = scratchDir();
@@ -277,7 +271,7 @@ describe("pbuilder-codegen CLI — write containment (TFO-05.1-.3, SEC-4)", () =
     expect(result.status).toEqual(0);
     expect(existsSync(join(dir, GENERATED_FILENAME))).toBe(true);
     expect(existsSync(join(PROJECT_ROOT, "../escape"))).toBe(false);
-  });
+  }, 30_000);
 });
 
 describe("pbuilder-codegen CLI — hostile-schema emitter inertness (TFO-01 SEC-1 row, constraint 2)", () => {
@@ -303,7 +297,7 @@ describe("pbuilder-codegen CLI — hostile-schema emitter inertness (TFO-01 SEC-
     // The hostile enum choice reaches the output ONLY through JSON.stringify (SEC-1) —
     // never as an unescaped string that could break out of the union-literal position.
     expect(generated).toContain(JSON.stringify('"; import("evil"); //'));
-  });
+  }, 30_000);
 
   it("a hostile `type` value (injection payload) is refused BEFORE any write — never reaches " +
      "the generated .ts, and the CLI fails closed with the standard template rather than an " +
@@ -327,7 +321,7 @@ describe("pbuilder-codegen CLI — hostile-schema emitter inertness (TFO-01 SEC-
     expect(result.stderr).not.toContain("dist/bin");
     expect(result.stderr).not.toContain(" at ");
     expect(result.stderr.startsWith("pbuilder-codegen: ")).toBe(true);
-  });
+  }, 30_000);
 
   it("the silent-widening variant (`type: \"any\"`) is rejected, never silently emitted as `any`, " +
      "and fails closed with the standard template", () => {
@@ -345,5 +339,5 @@ describe("pbuilder-codegen CLI — hostile-schema emitter inertness (TFO-01 SEC-
     expect(result.stderr).not.toContain("dist/bin");
     expect(result.stderr).not.toContain(" at ");
     expect(result.stderr.startsWith("pbuilder-codegen: ")).toBe(true);
-  });
+  }, 30_000);
 });

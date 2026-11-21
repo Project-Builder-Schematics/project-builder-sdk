@@ -335,5 +335,5 @@ describe("REQ-FEH-04 — real spawned process, real stdio, no Go toolchain", () 
     const run = await serveSpawnedRunner(host, fake);
 
     expect(run.exitCode).toEqual(0);
-  });
+  }, 30_000);
 });

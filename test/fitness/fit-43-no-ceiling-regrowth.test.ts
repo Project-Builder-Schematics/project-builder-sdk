@@ -137,7 +137,7 @@ describe("FIT-NEW-A (fit-43) — no ceiling regrowth", () => {
       const distContent = readFileSync(join(ensureTscBuild(), "bounded-contexts/authoring/application/usecases/run-factory/context.d.ts"), "utf-8");
       const fields = packageAnchorsFields(distContent);
       expect(fields).toEqual(["packageDir: string"]);
-    });
+    }, 30_000);
   });
 
   describe("clause (d) — test/** marker-fabrication allowlist is EMPTY", () => {

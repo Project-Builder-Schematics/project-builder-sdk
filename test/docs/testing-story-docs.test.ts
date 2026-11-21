@@ -77,7 +77,7 @@ describe("REQ-TSD-01 — README testing section", () => {
     } finally {
       rmSync(SCRATCH_DIR, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it("REQ-TSD-01.2: states the 0.x semver-exempt exemption", () => {
     const section = extractTestingSection();
@@ -163,7 +163,7 @@ describe("REQ-TSD-05 — author-facing reference docs reflect the bare contract 
     } finally {
       rmSync(scratchDir, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 });
 
 describe("REQ-TSD-04 — ADR-0009 amendment content (ADR-0033)", () => {

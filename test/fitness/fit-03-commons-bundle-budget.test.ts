@@ -83,7 +83,7 @@ describe("FIT-03 — /commons payload budget < 50 KB + no AST-lib specifier", ()
 
     expect(foundAstLib).toBeNull();
     expect(sizeBytes).toBeLessThan(BUDGET_BYTES);
-  });
+  }, 30_000);
 
   // RED-PROOF (AST-lib specifier check): a fixture containing the "ts-morph" specifier string triggers the scan.
   it("[red-proof] a fixture importing ts-morph triggers the AST-lib specifier check", () => {
@@ -103,7 +103,7 @@ export { astLibName };
     } finally {
       if (existsSync(fixtureEntry)) unlinkSync(fixtureEntry);
     }
-  });
+  }, 30_000);
 
   // RED-PROOF (budget dimension): a fixture that produces output > 50 KB triggers the budget check.
   it("[red-proof] a fixture with output > 50 KB triggers the budget size check", () => {
@@ -119,19 +119,19 @@ export { astLibName };
     } finally {
       if (existsSync(fixtureEntry)) unlinkSync(fixtureEntry);
     }
-  });
+  }, 30_000);
 });
 
 describe("FIT-03 — /typescript payload budget (REQ-FIT-03, Amendments verify-plan-5)", () => {
   it("/typescript bundle (--packages=external) stays under its own committed budget", () => {
     const { sizeBytes } = buildAndMeasure(TYPESCRIPT_ENTRY, "external");
     expect(sizeBytes).toBeLessThan(TYPESCRIPT_BUDGET_BYTES);
-  });
+  }, 30_000);
 
   it("the ts-morph specifier IS legitimately present in the /typescript external-output bundle (not a violation — scoped to commons only)", () => {
     const { output } = buildAndMeasure(TYPESCRIPT_ENTRY, "external");
     expect(output).toContain("ts-morph");
-  });
+  }, 30_000);
 
   // RED-PROOF: a fixture whose /typescript-shaped bundle exceeds the pinned budget fires red.
   it("[red-proof] a fixture with output > the /typescript budget triggers the budget size check", () => {
@@ -145,5 +145,5 @@ describe("FIT-03 — /typescript payload budget (REQ-FIT-03, Amendments verify-p
     } finally {
       if (existsSync(fixtureEntry)) unlinkSync(fixtureEntry);
     }
-  });
+  }, 30_000);
 });

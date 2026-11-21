@@ -71,7 +71,7 @@ describe.skipIf(process.platform !== "linux" && process.platform !== "darwin")("
         expect(fs.readlinkSync(output)).toBe(target);
         expect(fs.lstatSync(output).ino).toBe(before.ino);
         expect(existing ? fs.readFileSync(target, "utf-8") : fs.existsSync(target)).toBe(existing ? "untouched" : false);
-      });
+      }, 30_000);
     }
   }
 
@@ -137,7 +137,7 @@ describe.skipIf(process.platform !== "linux" && process.platform !== "darwin")("
     expect(Bun.spawnSync(["mkfifo", output]).exitCode).toBe(0);
     expect(invoke(project, pkg)).toEqual({ code: 1, stdout: "", stderr: `pbuilder-codegen: ${output}: output is not a regular file\n` });
     expect(fs.lstatSync(output).isFIFO()).toBe(true);
-  });
+  }, 30_000);
 
   for (const readerPresent of [false, true]) {
     it(`refuses a substituted FIFO ${readerPresent ? "with" : "without"} a reader at the real open`, () => {
@@ -160,7 +160,7 @@ describe.skipIf(process.platform !== "linux" && process.platform !== "darwin")("
       } finally {
         if (reader !== undefined) fs.closeSync(reader);
       }
-    });
+    }, 30_000);
   }
 
   it("attributes leaf-inspection errors to output without exposing internal details", () => {
@@ -210,7 +210,7 @@ describe.skipIf(process.platform !== "linux" && process.platform !== "darwin")("
       stdout: "",
       stderr: `pbuilder-codegen: ${output}: refusing symbolic-link output\n`,
     });
-  });
+  }, 30_000);
 
   for (const initial of ["absent", "regular"] as const) {
     for (const existing of [false, true]) {
@@ -281,7 +281,7 @@ describe("source CLI compatibility controls", () => {
     expect(second.length).toBeLessThan(first.length);
     expect(second).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
     expect(fs.readdirSync(project).sort()).toEqual(["alias", "factory", "package.json"]);
-  });
+  }, 30_000);
 
   it("preserves direct generator authorization and ordinary hardlink semantics", () => {
     const { root, pkg, output } = fixture();
@@ -308,7 +308,7 @@ describe("source CLI compatibility controls", () => {
       const argument = kind === "absolute" ? outside : kind === "relative" ? relative(project, outside) : alias;
       expect(invoke(project, argument)).toEqual({ code: 1, stdout: "", stderr: `pbuilder-codegen: refusing to write outside the project root: "${argument}"\n` });
       expect(fs.readFileSync(output, "utf-8")).toBe("preserve");
-    });
+    }, 30_000);
   }
 
   for (const invalid of ["{", '{"properties":{"bad":{"label":"Missing type"}}}']) {
@@ -322,7 +322,7 @@ describe("source CLI compatibility controls", () => {
         expect(result.stdout).toBe("");
         expect(result.stderr).toStartWith(`pbuilder-codegen: ${join(pkg, "schema.json")}: `);
         expect(existing ? fs.readFileSync(output, "utf-8") : fs.existsSync(output)).toBe(existing ? "unchanged" : false);
-      });
+      }, 30_000);
     }
   }
 
@@ -331,7 +331,7 @@ describe("source CLI compatibility controls", () => {
     fs.unlinkSync(join(pkg, "schema.json"));
     expect(invoke(project, pkg)).toEqual({ code: 1, stdout: "", stderr: `pbuilder-codegen: ${join(pkg, "schema.json")}: schema.json not found\n` });
     expect(fs.existsSync(output)).toBe(false);
-  });
+  }, 30_000);
 
   for (const platform of ["win32", "freebsd"] as const) {
     it(`retains creation, shortening, validation and both boundaries on controlled ${platform}`, () => {

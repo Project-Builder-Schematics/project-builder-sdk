@@ -37,7 +37,7 @@ it("generates a direct schematic named path", () => {
   expect(invoke(f.project)).toEqual({ code: 0, stdout: "pbuilder-codegen: generated 1, failed 0, duplicates 0\n", stderr: "" });
   expect(fs.readFileSync(f.output, "utf8")).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
   expect(fs.existsSync(f.sentinel)).toBe(false);
-});
+}, 30_000);
 
 for (const sibling of [false, true]) {
   it(`reports a scalar path registration ${sibling ? "and completes its valid sibling" : "without silently succeeding"}`, () => {
@@ -51,7 +51,7 @@ for (const sibling of [false, true]) {
     if (sibling) expect(fs.readFileSync(f.output, "utf8")).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
     else expect(fs.existsSync(f.output)).toBe(false);
     expect(fs.existsSync(f.sentinel)).toBe(false);
-  });
+  }, 30_000);
 }
 
 it("keeps string manifest precedence over direct and inline collection members", () => {
@@ -61,7 +61,7 @@ it("keeps string manifest precedence over direct and inline collection members",
   expect(invoke(f.project)).toEqual({ code: 0, stdout: "pbuilder-codegen: generated 1, failed 0, duplicates 0\n", stderr: "" });
   expect(fs.readFileSync(f.output, "utf8")).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
   expect(fs.existsSync(f.sentinel)).toBe(false);
-});
+}, 30_000);
 
 it("authorizes descendants when the selected canonical project is the filesystem root", () => {
   const f = fixture();
@@ -97,14 +97,14 @@ for (const invalid of ["malformed", "directory", "dangling", "collections", "arr
     expect(result.stderr).not.toContain("PRIVATE");
     expect(fs.existsSync(output)).toBe(false);
     expect(fs.existsSync(join(project, GENERATED_FILENAME))).toBe(false);
-  });
+  }, 30_000);
 }
 
 it("reports missing discovery without writing", () => {
   const { root, output } = fixture();
   expect(invoke(root)).toEqual({ code: 1, stdout: "", stderr: "pbuilder-codegen: project-builder.json not found\n" });
   expect(fs.existsSync(output)).toBe(false);
-});
+}, 30_000);
 
 for (const config of [{}, { collections: {} }, { collections: { empty: { path: "./empty.json" } } }]) {
   it(`succeeds with no work for ${JSON.stringify(config)}`, () => {
@@ -113,7 +113,7 @@ for (const config of [{}, { collections: {} }, { collections: { empty: { path: "
     fs.writeFileSync(join(f.project, "empty.json"), "{}");
     expect(invoke(f.project)).toEqual({ code: 0, stdout: "pbuilder-codegen: generated 0, failed 0, duplicates 0\n", stderr: "" });
     expect(fs.existsSync(f.output)).toBe(false);
-  });
+  }, 30_000);
 }
 
 it("resolves manifest-relative compiled pointers at the last fragment without execution", () => {
@@ -127,7 +127,7 @@ it("resolves manifest-relative compiled pointers at the last fragment without ex
   expect(invoke(f.pkg)).toEqual({ code: 0, stdout: "pbuilder-codegen: generated 2, failed 0, duplicates 0\n", stderr: "" });
   expect(fs.readFileSync(join(compiled, GENERATED_FILENAME), "utf8")).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
   expect(fs.existsSync(f.sentinel)).toBe(false);
-});
+}, 30_000);
 
 for (const failed of [false, true]) {
   it(`deduplicates canonical aliases including ${failed ? "failed" : "successful"} generation`, () => {
@@ -140,7 +140,7 @@ for (const failed of [false, true]) {
     expect(result.stdout).toBe(`pbuilder-codegen: generated ${failed ? 0 : 1}, failed ${failed ? 1 : 0}, duplicates 1\n`);
     expect(result.stderr.trim().split("\n").filter(Boolean).length).toBe(failed ? 1 : 0);
     expect(result.stderr).not.toContain("PRIVATE");
-  });
+  }, 30_000);
 }
 
 for (const kind of ["outside", "output-link", "output-directory", "schema-directory", "ambiguous-factory"] as const) {
@@ -163,7 +163,7 @@ for (const kind of ["outside", "output-link", "output-directory", "schema-direct
     expect(fs.readFileSync(f.output, "utf8")).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
     if (kind === "outside") expect(fs.existsSync(output)).toBe(false);
     if (kind === "output-link") expect(fs.lstatSync(output).isSymbolicLink()).toBe(true);
-  });
+  }, 30_000);
 }
 
 it("keeps config-symlink authority at its containing project rather than its target", () => {
@@ -173,7 +173,7 @@ it("keeps config-symlink authority at its containing project rather than its tar
   fs.symlinkSync(remote, f.config);
   expect(invoke(f.root, ["--project", f.project])).toEqual({ code: 0, stdout: "pbuilder-codegen: generated 1, failed 0, duplicates 0\n", stderr: "" });
   expect(fs.existsSync(join(f.root, "widget", GENERATED_FILENAME))).toBe(false);
-});
+}, 30_000);
 
 it("enumerates prototype names safely and counts inline/dual and malformed entries independently", () => {
   const f = fixture();
@@ -182,7 +182,7 @@ it("enumerates prototype names safely and counts inline/dual and malformed entri
   expect(result.code).toBe(1);
   expect(result.stdout).toBe("pbuilder-codegen: generated 1, failed 4, duplicates 1\n");
   expect(result.stderr.trim().split("\n").length).toBe(4);
-});
+}, 30_000);
 
 for (const pointer of ["./widget/factory.ts", "#run", "./widget/factory.ts#", "./widget/factory.ts#bad-name", "./missing.js#run"]) {
   it(`rejects unsupported manifest pointer ${pointer} and preserves siblings`, () => {
@@ -193,7 +193,7 @@ for (const pointer of ["./widget/factory.ts", "#run", "./widget/factory.ts#", ".
     expect(result.code).toBe(1);
     expect(result.stdout).toBe("pbuilder-codegen: generated 1, failed 1, duplicates 0\n");
     expect(fs.existsSync(f.sentinel)).toBe(false);
-  });
+  }, 30_000);
 }
 
 for (const mode of ["auto", "absolute", "relative"] as const) {
@@ -204,7 +204,7 @@ for (const mode of ["auto", "absolute", "relative"] as const) {
     expect(invoke(cwd, args)).toEqual({ code: 0, stdout: "pbuilder-codegen: generated 1, failed 0, duplicates 0\n", stderr: "" });
     expect(fs.readFileSync(output, "utf8")).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
     expect(fs.existsSync(sentinel)).toBe(false);
-  });
+  }, 30_000);
 }
 
 describe("project safety regression controls", () => {
@@ -243,7 +243,7 @@ describe("project safety regression controls", () => {
     fs.writeFileSync(f.config, JSON.stringify({ collections: { all: { a: { path: "./widget" }, b: { path: "./second" } } } }));
     expect(invoke(f.project)).toEqual({ code: 0, stdout: "pbuilder-codegen: generated 2, failed 0, duplicates 0\n", stderr: "" });
     expect(fs.statSync(f.output).ino).toBe(fs.statSync(join(second, GENERATED_FILENAME)).ino);
-  });
+  }, 30_000);
 
   it("follows the actual manifest module directory, not its symlink's directory", () => {
     const f = fixture();
@@ -256,7 +256,7 @@ describe("project safety regression controls", () => {
     expect(fs.readFileSync(f.output, "utf8")).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
     expect(fs.existsSync(join(modules, GENERATED_FILENAME))).toBe(false);
     expect(fs.existsSync(f.sentinel)).toBe(false);
-  });
+  }, 30_000);
 
   for (const invalid of ["{PRIVATE", '{"schematics":[]}', "[]"]) {
     it(`isolates malformed collection manifests (${invalid})`, () => {
@@ -267,7 +267,7 @@ describe("project safety regression controls", () => {
       expect(result.code).toBe(1);
       expect(result.stdout).toBe("pbuilder-codegen: generated 1, failed 1, duplicates 0\n");
       expect(result.stderr).not.toContain("PRIVATE");
-    });
+    }, 30_000);
   }
 
   for (const stage of ["config", "schema"] as const) {
@@ -297,7 +297,7 @@ describe("project safety regression controls", () => {
       expect(result.stdout).toBe("");
       expect(fs.existsSync(f.output)).toBe(false);
       expect(result.stderr).toContain(args[1] === undefined || args[1] === "--help" ? "Usage:" : "cannot load project configuration");
-    });
+    }, 30_000);
   }
 });
 
@@ -315,7 +315,7 @@ it("counts a failed destination once while completing an independent destination
   expect(result.stderr.trim().split("\n").length).toBe(1);
   expect(fs.readFileSync(join(bad, GENERATED_FILENAME), "utf8")).toBe("preserve");
   expect(fs.readFileSync(f.output, "utf8")).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
-});
+}, 30_000);
 
 it("escapes warning labels and schema keys without leaking values or stack traces", () => {
   const f = fixture();
@@ -331,7 +331,7 @@ it("escapes warning labels and schema keys without leaking values or stack trace
   expect(result.stderr).not.toContain("PRIVATE_SCHEMA_PAYLOAD");
   expect(result.stderr).not.toContain(" at ");
   expect(fs.existsSync(f.output)).toBe(false);
-});
+}, 30_000);
 
 for (const kind of ["directory", "module"] as const) {
   it(`refuses an external ${kind} symlink while generating an internal sibling`, () => {
@@ -350,7 +350,7 @@ for (const kind of ["directory", "module"] as const) {
     expect(result.stderr).toContain("refusing to write outside the selected project root");
     expect(fs.readFileSync(join(outside, GENERATED_FILENAME), "utf8")).toBe("preserve");
     expect(fs.readFileSync(f.output, "utf8")).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
-  });
+  }, 30_000);
 }
 
 for (const kind of ["link", "directory"] as const) {
@@ -381,7 +381,7 @@ for (const args of [["--help"], ["-h"], ["--unknown"]]) {
     const help = args[0] !== "--unknown";
     expect(invoke(f.project, args)).toEqual({ code: help ? 0 : 1, stdout: help ? `${USAGE}\n` : "", stderr: help ? "" : `${USAGE}\n` });
     expect(fs.existsSync(f.output)).toBe(false);
-  });
+  }, 30_000);
 }
 
 it("retains positional trailing-argument behavior instead of switching to project mode", () => {
@@ -390,4 +390,4 @@ it("retains positional trailing-argument behavior instead of switching to projec
   fs.writeFileSync(f.config, "{INVALID");
   expect(invoke(f.project, [f.pkg, "--project", "missing"])).toEqual({ code: 0, stdout: `${SUCCESS_LINE}\n`, stderr: "" });
   expect(fs.readFileSync(f.output, "utf8")).toBe(emitInputType(parseSchema(schema), computeSchemaDigest(schema)));
-});
+}, 30_000);

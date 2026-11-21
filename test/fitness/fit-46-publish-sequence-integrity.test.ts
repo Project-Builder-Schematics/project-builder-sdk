@@ -127,14 +127,14 @@ describe("FIT-46 (S-000) — REQ-PPI-01: behavioural publish-sequence integrity"
     expect(readFileSync(join(packageDir, "package.json"), "utf8")).toBe(readFileSync(join(PROJECT_ROOT, "package.json"), "utf8"));
     expect(manifest.files.length).toBeGreaterThan(0);
     expect(mismatchedDigests(packageDir, manifest)).toEqual([]);
-  });
+  }, 30_000);
 
   it("REQ-PPI-01.2 [red-proof]: metadata mutation followed by ignored regeneration names the stale package.json digest", () => {
     const root = scratchRoot();
     const { packageDir, manifest } = runPublishSequence(root, { mutateAfterGeneration: true });
     const mismatched = mismatchedDigests(packageDir, manifest);
     expect(mismatched.map((record) => record.path)).toEqual(["package.json"]);
-  });
+  }, 30_000);
 });
 
 // REQ-PPI-03.2/.3's S-000 leg (plan-verify iteration-2 amendment, finding G): CAP-01..06

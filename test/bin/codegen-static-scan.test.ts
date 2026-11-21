@@ -4,26 +4,19 @@
  * literal string. Scans `dist/bin/pbuilder-codegen.js` — the built artifact that ships in
  * the tarball — not the TypeScript source.
  *
- * Self-building via an unconditional `beforeAll` (FIT-04 precedent, slices constraint 10)
- * so a bare `bun test` on a fresh checkout stays green; no external build-then-test
- * protocol is assumed.
+ * Builds through the memoized `ensureTscBuild()`, once per `bun test` process, so a bare
+ * `bun test` on a fresh checkout stays green and no test deletes `dist/` under another (#170).
  */
 import { describe, it, expect, beforeAll } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { ensureTscBuild } from "../support/shared-build.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
 const DIST_BIN = join(PROJECT_ROOT, "dist/bin/pbuilder-codegen.js");
 
 beforeAll(() => {
-  const result = spawnSync("bun", ["run", "build"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
-  if (result.status !== 0) {
-    throw new Error(
-      `codegen-static-scan: bun run build failed — cannot scan without a fresh build.\n` +
-      `stdout: ${result.stdout}\nstderr: ${result.stderr}`
-    );
-  }
+  ensureTscBuild();
 });
 
 // A `callee(...)` call whose argument is NOT a plain single/double-quoted string literal —

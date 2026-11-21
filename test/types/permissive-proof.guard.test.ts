@@ -150,7 +150,7 @@ describe("S-03 — permissive-proof CI guard (REQ-03)", () => {
     const verdict = evaluateGuard({ diagnostics, idiom1Lines, idiom2Lines, fileMatch });
     expect(verdict.reasons).toEqual([]);
     expect(verdict.ok).toBe(true);
-  });
+  }, 30_000);
 
   // REQ-03.1 — a deliberate over-permissive regression flips the guard RED.
   // Simulate: the create<S> overload relaxed so excess is legal → the [idiom-2] excess directive

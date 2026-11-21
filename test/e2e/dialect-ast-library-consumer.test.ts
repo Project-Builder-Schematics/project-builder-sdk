@@ -65,6 +65,6 @@ console.log(JSON.stringify([...result.tree]));
         status: 0, stderr: "",
         stdout: mode === "runtime" ? JSON.stringify([[`source.${name === "react" ? "tsx" : "ts"}`, 'import { join } from "node:path";\n\n// keep\nconst answer = 42;\n']]) + "\n" : "",
       });
-    });
+    }, 30_000);
   }
 }

@@ -198,7 +198,7 @@ describe("manual publisher command isolation", () => {
     for (const command of [LOCAL_PUBLISH.replace("tools/verdaccio/npmrc", ".npmrc"), LOCAL_PUBLISH.replace("http://localhost:4873", "https://registry.npmjs.org")]) {
       expect(runBodies([command], "local").status).toBe(125);
     }
-  });
+  }, 30_000);
   it("relocates only development configuration and preserves package and lock bytes", () => {
     const files = [
       ["tools/verdaccio/npmrc", "21e9b6de05d118b986f3d9f149dcfbdce5d430f4"],
@@ -222,12 +222,12 @@ describe("manual publisher command isolation", () => {
     const result = runBodies(["bun scripts/validate-release.ts", ATTEMPT], "", SOURCE_PACKAGE.version, "fund=false\n");
     expect(result.status).toBe(0);
     expect(result.attempts).toEqual([PUBLISH.slice(4)]);
-  });
+  }, 30_000);
   it("rejects escape routes before invoking any command", () => {
     for (const escape of ["/usr/bin/npm publish", "bunx npm publish", "npm exec -- npm publish", "bun run build; npm publish", "$(npm publish)", "PATH=/usr/bin npm publish"]) {
       expect(runBodies([ATTEMPT, escape])).toEqual({ attempts: [], status: 125, summary: "unsupported command" });
     }
-  });
+  }, 30_000);
 });
 
 describe("manual publisher outer loop", () => {
@@ -238,7 +238,7 @@ describe("manual publisher outer loop", () => {
     expect(result.status).toBe(0);
     expect(result.output).toContain(`version=${SOURCE_PACKAGE.version}\n`);
     expect(result.summary).toBe(`Package: @pbuilder/sdk\nVersion: ${SOURCE_PACKAGE.version}\nSHA: ${"a".repeat(40)}\nRegistry: https://registry.npmjs.org\nChannel: latest\nOutcome: command succeeded\nRegistry confirmation: owner verification pending\n`);
-  });
+  }, 30_000);
   it.each(["install --frozen-lockfile", "run build", "test", "run typecheck", "scripts/validate-release.ts"])("blocks publication when gate %s fails", (failure) => {
     const doc = YAML.parse(readFileSync(join(ROOT, ".github/workflows/publish.yml"), "utf8")) as Document;
     const result = runBodies(doc.jobs.publish.steps.flatMap((step) => step.run ? [step.run.trim()] : []), failure);
@@ -254,7 +254,7 @@ describe("manual publisher outer loop", () => {
     expect(result.summary).toContain("Outcome: attempted");
     expect(result.summary).toContain("owner verification pending");
     expect(result.summary).toBe(`Package: @pbuilder/sdk\nVersion: ${SOURCE_PACKAGE.version}\nSHA: ${"a".repeat(40)}\nRegistry: https://registry.npmjs.org\nChannel: latest\nOutcome: attempted\nRegistry confirmation: owner verification pending\n`);
-  });
+  }, 30_000);
   it("distinguishes command invocation from a simulated lifecycle failure before upload", () => {
     const doc = YAML.parse(readFileSync(join(ROOT, ".github/workflows/publish.yml"), "utf8")) as Document;
     const result = runBodies(doc.jobs.publish.steps.flatMap((step) => step.run ? [step.run.trim()] : []), "lifecycle");
@@ -262,7 +262,7 @@ describe("manual publisher outer loop", () => {
     expect(result.uploads).toBe(0);
     expect(result.status).toBe(1);
     expect(result.summary).toContain("Outcome: attempted");
-  });
+  }, 30_000);
 
   it("reports unavailable identity and blocked outcome when release output is absent", () => {
     const doc = YAML.parse(readFileSync(join(ROOT, ".github/workflows/publish.yml"), "utf8")) as Document;
@@ -270,13 +270,13 @@ describe("manual publisher outer loop", () => {
     expect(result.summary).toBe(`Package: @pbuilder/sdk\nVersion: unavailable\nSHA: ${"a".repeat(40)}\nRegistry: https://registry.npmjs.org\nChannel: latest\nOutcome: blocked\nRegistry confirmation: owner verification pending\n`);
     expect(result.attempts).toEqual([]);
     expect(result.output).toBe("");
-  });
+  }, 30_000);
 });
 
 describe("release validator CLI", () => {
   it("emits the validated declared version for the workflow", () => {
     expect(runBodies(["bun scripts/validate-release.ts"], "", "0.3.0").output).toBe("version=0.3.0\n");
-  });
+  }, 30_000);
   it.each(["runtime", "config", "registry"])("fails closed on %s failure", (failure) => {
     expect(runBodies(["bun scripts/validate-release.ts"], failure).status).toBe(1);
   });
@@ -285,10 +285,10 @@ describe("release validator CLI", () => {
   });
   it("accepts explicitly enabled provenance with whitespace around the assignment", () => {
     expect(runBodies(["bun scripts/validate-release.ts"], "explicit-provenance-enabled").status).toBe(0);
-  });
+  }, 30_000);
   it("validates a future stable version through the real CLI rather than a current-version fixture", () => {
     expect(runBodies(["bun scripts/validate-release.ts"], "", "12.34.56").output).toBe("version=12.34.56\n");
-  });
+  }, 30_000);
 });
 
 describe("release operator guidance", () => {

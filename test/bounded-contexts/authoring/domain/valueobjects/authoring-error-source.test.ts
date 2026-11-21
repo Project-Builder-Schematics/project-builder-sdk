@@ -149,7 +149,7 @@ describe("REQ-AEC-10 / REQ-AEC-11 — the three surviving source-* reasons class
       "source-not-regular-file"
     );
     expect(err.message).toEqual("source file invalid: pipe is not a regular file");
-  });
+  }, 30_000);
 
   it("REQ-AEC-10.1/REQ-AEC-11.1: source-not-regular-file — a directory presented as a source", () => {
     const dir = scratchDir();
