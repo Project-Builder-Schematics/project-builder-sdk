@@ -97,7 +97,7 @@ export function checkDestinationNames(to: string, rename: Record<string, string>
  * substitutes (obs #915 ruling 4) — the SDK never renders these itself, only rewrites the
  * marker syntax. `__name@dasherize__` → `{= .name | dasherize =}`; a bare `__name__`
  * (no `@pipe`) → `{= .name =}`. The dotted field reference is REQUIRED by the engine's
- * templating (bare `{= name =}` was migrated away — docs/templating/migration-note.md in
+ * templating (bare `{= name =}` was migrated away — docs/contracts/templating/migration-note.md in
  * the engine repo); emitting the bare form makes every tokenized filename fail
  * path-render at ingest (`path-render-failed`, exit 2).
  */
