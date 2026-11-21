@@ -159,7 +159,7 @@ export function classifyTransport(params: ClassifyParams): ClassifyResult {
   // emitted directive can never disagree on the options' wire form.
   const prospectiveDirective: Directive = {
     op: "create",
-    create: { pathTemplate: destPath, template: content, options: encodeOptions(options), ...forceEntry(force) },
+    create: { pathTemplate: destPath, template: content, options: encodeOptions(options, destPath), ...forceEntry(force) },
   };
   const directiveSize = serializedBatchSize([prospectiveDirective]);
   if (directiveSize > EMIT_BATCH_BUDGET_BYTES) {

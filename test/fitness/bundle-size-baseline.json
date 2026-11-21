@@ -1,8 +1,8 @@
 {
-  ".": 19598,
-  "./commons": 19598,
-  "./conformance": 17999,
-  "./testing": 17791,
+  ".": 20130,
+  "./commons": 20130,
+  "./conformance": 18556,
+  "./testing": 18363,
   "./typescript": 29995,
   "./react": 40599,
   "./json": 19400,
@@ -10,6 +10,6 @@
   "./angular": 38428,
   "./yaml": 27650,
   "./css": 12210,
-  "probe:commons#create": 9967,
+  "probe:commons#create": 10496,
   "probe:css#find": 12173
 }
