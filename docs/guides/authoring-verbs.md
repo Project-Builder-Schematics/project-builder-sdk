@@ -276,6 +276,11 @@ operating system, and the call schedules nothing, when it:
 
 The error names the path and the rule, for example
 `invalid input: scaffold file name "src/a|b.ts": the name "a|b.ts" breaks the rule "forbidden character" (vertical bar)`.
+The same rules apply to the `to` prefix and to every `rename` value, as you write them and
+before token translation, since their components also become destination names: write a token
+as `__name__`, never as `{= .name =}`. Their errors open with `scaffold "to" "<to>"` or
+`scaffold rename value "<value>"` instead of `scaffold file name`. A `.` component, as in
+`to: "."` or `"./out"`, is allowed.
 A token's key starts with a letter, so `___name__.ts` becomes `_{= .name =}.ts`.
 
 `include`/`exclude` filtering runs against the *original* source-relative path, using a

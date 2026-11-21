@@ -39,6 +39,7 @@ import {
   isIncluded,
   detectDestinationCollisions,
   translateTokens,
+  checkDestinationNames,
   checkSourceNames,
 } from "../../../domain/services/filename-pipeline.ts";
 import { classifyTransport } from "./classify-transport.ts";
@@ -195,6 +196,7 @@ export function runScaffold(args: ScaffoldArgs): void {
   // A-17 covers every name under the source folder, excluded ones included: an excluded
   // `con.ts` still cannot be checked out on Windows.
   checkSourceNames(walked.map((entry) => entry.relPath));
+  checkDestinationNames(args.to, args.rename);
 
   const filtered = walked.filter((entry) => isIncluded(entry.relPath, args.include, args.exclude));
   if (filtered.length === 0) {
