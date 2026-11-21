@@ -451,3 +451,44 @@ describe("the greeting — timeout and EOF before it (#167)", () => {
     expect(io.stderrText()).toBe('pbuilder-runner: invalid greeting — expected {method:"ready", protocolVersion:<integer>}\n');
   });
 });
+
+/**
+ * Stands for one stdin stream shared by sequential runs: every pending read, from any
+ * iterator, takes the next chunk in order, as a Node stream's async iterators do.
+ */
+function sharedStream(): { input: AsyncIterable<Uint8Array>; push(chunk: Uint8Array): void } {
+  const chunks: Uint8Array[] = [];
+  const readers: Array<(result: IteratorResult<Uint8Array>) => void> = [];
+  return {
+    input: {
+      [Symbol.asyncIterator]: () => ({
+        next: () =>
+          new Promise<IteratorResult<Uint8Array>>((resolve) => {
+            const chunk = chunks.shift();
+            if (chunk !== undefined) resolve({ value: chunk, done: false });
+            else readers.push(resolve);
+          }),
+        return: async () => ({ value: undefined, done: true }),
+      }),
+    },
+    push(chunk) {
+      const reader = readers.shift();
+      if (reader !== undefined) reader({ value: chunk, done: false });
+      else chunks.push(chunk);
+    },
+  };
+}
+
+describe("sequential runs over one input (#167 item 3)", () => {
+  it("a read left parked by a run that ended never takes the bytes of the next run", async () => {
+    const stream = sharedStream();
+    const first = { ...stubIo(stream.input, "first: no frame expected"), greetingTimeoutMs: 20 };
+    expect(await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], first)).toBe(3);
+
+    const second = { ...stubIo(stream.input, "second: no frame expected"), greetingTimeoutMs: 2000 };
+    const secondRun = runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], second);
+    stream.push(encodeFrame({ method: "hello" }));
+    expect(await secondRun).toBe(1);
+    expect(second.stderrText()).toBe('pbuilder-runner: invalid greeting — expected {method:"ready", protocolVersion:<integer>}\n');
+  });
+});

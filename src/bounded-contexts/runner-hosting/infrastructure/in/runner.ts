@@ -197,14 +197,17 @@ export async function runRunner(argv: string[], io: RunnerIo): Promise<number> {
     );
   }
   runInFlight = true;
+  const opened: { reader?: FrameReader } = {};
   try {
-    return await runRunnerBody(argv, io);
+    return await runRunnerBody(argv, io, opened);
   } finally {
+    // A read still parked when the run ends must not take the bytes of a later run (#167).
+    opened.reader?.close();
     runInFlight = false;
   }
 }
 
-async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
+async function runRunnerBody(argv: string[], io: RunnerIo, opened: { reader?: FrameReader }): Promise<number> {
   const parsed = parseArgv(argv);
   if ("error" in parsed) {
     note(io, parsed.error);
@@ -225,6 +228,7 @@ async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
   }
 
   const reader = new FrameReader(io.input);
+  opened.reader = reader;
   const frames = reader.frames();
 
   // WPS-02: fail at greeting, BEFORE any reverse callback can dispatch — the client is not
