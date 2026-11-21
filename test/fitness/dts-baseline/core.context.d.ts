@@ -18,11 +18,13 @@ export interface SessionContext {
     packageAnchors?: {
         packageDir: string;
     };
+    packageFiles?: PackageFiles;
 }
 export declare function isDefineFactoryWrapped(value: unknown): boolean;
 export declare function currentContext(): SessionContext;
 export declare function requirePackageAnchors(missingAnchorMessage: string): {
     packageDir: string;
+    files: PackageFiles;
 };
 /**
  * Builds a SessionContext and runs the factory inside it, flushing buffered
