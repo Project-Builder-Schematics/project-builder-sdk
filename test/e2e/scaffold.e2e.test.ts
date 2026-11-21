@@ -326,7 +326,7 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
     expect(fake.committedTree().size).toEqual(0);
   });
 
-  it("S-003: classifier's by-reference verdict emits a real copyIn directive — mixed scaffold commits the by-value file and pendingDirectives() tags each entry with its own kind", async () => {
+  it("S-003: a file declared binary emits a real copyIn directive — mixed scaffold commits the by-value file and pendingDirectives() tags each entry with its own kind", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
     writeFileSync(join(dir, "files", "text.ts"), "export const a = 1;", "utf-8");
@@ -334,7 +334,7 @@ describe("e2e — scaffold({ from, to }) folder walk (S-001)", () => {
     const fake = new ContractFake({ seed: {} });
 
     const run = defineFactory<void>(() => {
-      const result = scaffold({ from: "files", to: "out" });
+      const result = scaffold({ from: "files", to: "out", binary: ["asset.png"] });
       expect(result).toBeUndefined(); // REQ-FSC-07.1: scaffold still returns void
 
       const pending = pendingDirectives();

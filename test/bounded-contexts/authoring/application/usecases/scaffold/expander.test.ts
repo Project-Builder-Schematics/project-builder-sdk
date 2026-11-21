@@ -189,7 +189,7 @@ describe("REQ-FSC-06.2 — scaffold-level collision: mixed by-value/by-reference
     const fakeNoForce = new ContractFake({ seed: { "out/binary.png": "pre-existing" } });
 
     const caught = await rejectedRun(fakeNoForce, () => {
-      scaffold({ from: "files", to: "out" });
+      scaffold({ from: "files", to: "out", binary: ["binary.png"] });
     }, { packageDir: dir });
 
     expect(caught).toBeInstanceOf(AuthoringError);
@@ -199,7 +199,7 @@ describe("REQ-FSC-06.2 — scaffold-level collision: mixed by-value/by-reference
 
     const fakeForce = new ContractFake({ seed: { "out/binary.png": "pre-existing", "out/text.ts": "stale" } });
     const runForce = defineFactory<void>(() => {
-      scaffold({ from: "files", to: "out", force: true });
+      scaffold({ from: "files", to: "out", binary: ["binary.png"], force: true });
     }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await runForce(undefined, { client: fakeForce });
@@ -358,7 +358,7 @@ describe("REQ-BRC-02.1 — no SDK-resolved root value appears on the wire as aut
     const emitSpy = spyOn(fake, "emit");
 
     const run = defineFactory<void>(() => {
-      scaffold({ from: "files", to: "out" });
+      scaffold({ from: "files", to: "out", binary: ["binary.png"] });
     }, { packageDir: dir, packageFiles: nodePackageFiles });
 
     await run(undefined, { client: fake });

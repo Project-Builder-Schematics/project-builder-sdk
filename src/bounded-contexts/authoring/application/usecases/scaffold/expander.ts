@@ -57,6 +57,7 @@ export interface ScaffoldArgs {
   exclude?: string[];
   rename?: Record<string, string>;
   force?: boolean;
+  binary?: string[];
 }
 
 function noResolutionAnchorMessage(): string {
@@ -83,11 +84,11 @@ function filtersEliminatedEverythingMessage(include: string[] | undefined, exclu
 // always-empty-matching `/^$/` regex (an element that never rejects, never matches) —
 // screened here, at entry, before either filter ever reaches `isIncluded`. No-echo: names
 // the OPTION, never echoes the (possibly huge or malformed) value itself.
-function filterOptionShapeMessage(option: "include" | "exclude"): string {
+function filterOptionShapeMessage(option: "include" | "exclude" | "binary"): string {
   return `invalid input: scaffold "${option}" must be an array of strings`;
 }
 
-function validateFilterOptionShape(option: "include" | "exclude", value: string[] | undefined): void {
+function validateFilterOptionShape(option: "include" | "exclude" | "binary", value: string[] | undefined): void {
   if (value === undefined) {
     return;
   }
@@ -176,6 +177,7 @@ export function runScaffold(args: ScaffoldArgs): void {
   // reaches `isIncluded` (see `validateFilterOptionShape`'s own comment above).
   validateFilterOptionShape("include", args.include);
   validateFilterOptionShape("exclude", args.exclude);
+  validateFilterOptionShape("binary", args.binary);
 
   // Screen call site 2 (REQ-IPF-01): the walk ROOT itself must be lexically screened
   // BEFORE `walkFolder` ever enumerates it — otherwise an escaping `from` (e.g.
@@ -239,6 +241,8 @@ export function runScaffold(args: ScaffoldArgs): void {
       packageDir,
       relPath: sourceRelPath,
       isTemplateMarked: result.isTemplateMarked,
+      declaredBinary: args.binary !== undefined && isIncluded(result.sourceRelPath, args.binary, undefined),
+      binaryPattern: result.sourceRelPath,
       destPath,
       options: args.options ?? {},
       force: args.force,

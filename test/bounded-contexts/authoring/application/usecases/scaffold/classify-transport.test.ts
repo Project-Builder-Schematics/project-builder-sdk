@@ -30,10 +30,13 @@ import { scaffold } from "../../../../../../src/commons/index.ts";
 import { runFactoryForTest } from "../../../../../../src/testing/index.ts";
 import { collectOps } from "../../../../../support/spy-client.ts";
 import { scratchDirFactory } from "../../../../../support/scratch-dir.ts";
-import { expectReason } from "../../../../../support/expect-reason.ts";
+import { expectAuthoringReason, expectReason } from "../../../../../support/expect-reason.ts";
 import { nodePackageFiles } from "../../../../../../src/bounded-contexts/authoring/infrastructure/out/fs/package-files.ts";
 
 const scratchDir = scratchDirFactory("classify-transport-");
+
+const NOT_TEXT = "is not valid text, so it cannot be rendered";
+const TOO_LARGE = "does not fit in one emit frame once rendered";
 
 describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
   it("REQ-CCL-01.1: valid UTF-8, no null byte, in budget → by-value", () => {
@@ -52,23 +55,17 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     expect(result).toEqual({ verdict: "by-value", content: "export const a = 1;" });
   });
 
-  it("REQ-CCL-01.2: invalid UTF-8 → by-reference", () => {
+  it("REQ-CCL-01.2 (#163): undeclared invalid UTF-8 rejects; the same file declared binary goes by reference", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "bad.bin"), Buffer.from([0xff, 0xfe, 0x00, 0x01]));
+    const params = { files: nodePackageFiles, packageDir: dir, relPath: "bad.bin", isTemplateMarked: false, destPath: "bad.bin", options: {} };
 
-    const result = classifyTransport({
-      files: nodePackageFiles,
-      packageDir: dir,
-      relPath: "bad.bin",
-      isTemplateMarked: false,
-      destPath: "bad.bin",
-      options: {},
-    });
-
-    expect(result.verdict).toEqual("by-reference");
+    const err = expectReason(() => classifyTransport(params), "invalid-input");
+    expect(err.message).toContain(NOT_TEXT);
+    expect(classifyTransport({ ...params, declaredBinary: true })).toEqual({ verdict: "by-reference" });
   });
 
-  it("REQ-CCL-01.3: invalid UTF-8 WITHOUT any null byte → by-reference (kills the null-scan-only mutant)", () => {
+  it("REQ-CCL-01.3: invalid UTF-8 WITHOUT any null byte rejects as not text (kills the null-scan-only mutant)", () => {
     const dir = scratchDir();
     const fixtures: Array<[string, number[]]> = [
       ["overlong-null.bin", [0xc0, 0x80]],
@@ -78,15 +75,11 @@ describe("REQ-CCL-01 — deterministic by-value/by-reference sniff", () => {
     for (const [name, bytes] of fixtures) {
       writeFileSync(join(dir, name), Buffer.from(bytes));
       expect(bytes.includes(0x00)).toBe(false);
-      const result = classifyTransport({
-        files: nodePackageFiles,
-        packageDir: dir,
-        relPath: name,
-        isTemplateMarked: false,
-        destPath: name,
-        options: {},
-      });
-      expect(result.verdict).toEqual("by-reference");
+      const err = expectReason(
+        () => classifyTransport({ files: nodePackageFiles, packageDir: dir, relPath: name, isTemplateMarked: false, destPath: name, options: {} }),
+        "invalid-input"
+      );
+      expect(err.message).toContain(NOT_TEXT);
     }
   });
 
@@ -160,7 +153,7 @@ function soloDirectiveOverhead(pathTemplate: string): number {
 }
 
 describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
-  it("REQ-CCL-02.1: same content, budget-crossing size flips classification", () => {
+  it("REQ-CCL-02.1 (#163): same content, budget-crossing size rejects instead of flipping to a copy", () => {
     const dir = scratchDir();
     writeFileSync(join(dir, "under.ts"), "a".repeat(1000), "utf-8");
     writeFileSync(join(dir, "over.ts"), "a".repeat(BATCH_CAP_BYTES + 1000), "utf-8");
@@ -175,19 +168,14 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
         options: {},
       }).verdict
     ).toEqual("by-value");
-    expect(
-      classifyTransport({
-        files: nodePackageFiles,
-        packageDir: dir,
-        relPath: "over.ts",
-        isTemplateMarked: false,
-        destPath: "over.ts",
-        options: {},
-      }).verdict
-    ).toEqual("by-reference");
+    const err = expectReason(
+      () => classifyTransport({ files: nodePackageFiles, packageDir: dir, relPath: "over.ts", isTemplateMarked: false, destPath: "over.ts", options: {} }),
+      "invalid-input"
+    );
+    expect(err.message).toContain(`source "over.ts" (${BATCH_CAP_BYTES + 1000} bytes) ${TOO_LARGE}`);
   });
 
-  it("REQ-CCL-02.2: raw size under budget, serialized DIRECTIVE size over → by-reference", () => {
+  it("REQ-CCL-02.2 (#163): raw size under budget, serialized DIRECTIVE size over → rejects", () => {
     const dir = scratchDir();
     // Each "\n" raw byte escapes to two bytes ("\\n") once JSON-serialized — pushing the
     // serialized DIRECTIVE form (content + envelope + wrapper + pathTemplate + options)
@@ -201,21 +189,16 @@ describe("REQ-CCL-02 — frame budget, inclusive boundary", () => {
     // iteration 1 fix) — not just the content's own serialized form.
     expect(soloDirectiveBatchSize(destPath, content)).toBeGreaterThan(BATCH_CAP_BYTES);
 
-    const result = classifyTransport({
-      files: nodePackageFiles,
-      packageDir: dir,
-      relPath: "escapes.ts",
-      isTemplateMarked: false,
-      destPath,
-      options: {},
-    });
-
-    expect(result.verdict).toEqual("by-reference");
+    const err = expectReason(
+      () => classifyTransport({ files: nodePackageFiles, packageDir: dir, relPath: "escapes.ts", isTemplateMarked: false, destPath, options: {} }),
+      "invalid-input"
+    );
+    expect(err.message).toContain(`source "escapes.ts" (${rawSize} bytes) ${TOO_LARGE}`);
   });
 });
 
 describe("REQ-CCL-02.3 — exactly-at-budget boundary, directive-inclusive, driven through a REAL emit", () => {
-  it("judgment-day iteration 1 (the load-bearing proof): a file whose CONTENT serializes under budget but whose full `create` DIRECTIVE lands exactly ONE BYTE over the cap classifies by-reference and the scaffold run SUCCEEDS — not `changes-too-large`", async () => {
+  it("a file whose CONTENT serializes under budget but whose full `create` DIRECTIVE lands exactly ONE BYTE over the cap rejects naming the file — never copied, never `changes-too-large` (#163)", async () => {
     const dir = scratchDir();
     mkdirSync(join(dir, "files"));
     const destPath = "out/over.ts";
@@ -234,18 +217,11 @@ describe("REQ-CCL-02.3 — exactly-at-budget boundary, directive-inclusive, driv
     };
     const result = await runFactoryForTest(run, undefined, { packageDir: dir });
 
-    // Pre-fix (RED, judgment-day iteration 1 finding): the classifier measured only the
-    // content string, saw it comfortably under budget, classified by-value — the expander
-    // then flushed the lone over-cap `create` directive as its own group and the fake's
-    // emit rejected `changes-too-large`, committing 0 files.
-    // Post-fix (GREEN): the classifier measures the PROSPECTIVE directive, sees it one
-    // byte over, classifies by-reference — the expander emits a tiny `copyIn` instead and
-    // the run succeeds.
-    expect(result.error).toBeUndefined();
-    const copyInDirectives = collectOps(result.emitted, "copyIn");
-    expect(copyInDirectives).toHaveLength(1);
-    expect(copyInDirectives[0]?.copyIn).toEqual({ from: "files/over.ts", to: "out/over.ts" });
-    expect(result.tree.has("out/over.ts")).toBe(false); // Q21/BRC-04: copyIn never materializes tree content in the fake
+    // The classifier measures the PROSPECTIVE directive, so a content-only measure (which
+    // would let the fake's emit reject `changes-too-large`) and the old copy fallback both fail here.
+    const err = expectAuthoringReason(result.error, "invalid-input");
+    expect(err.message).toContain(`source "files/over.ts" (${content.length} bytes) ${TOO_LARGE}`);
+    expect(result.emitted).toHaveLength(0);
   });
 
   it("a file whose full `create` DIRECTIVE lands exactly AT the emit budget still classifies by-value and commits via `create` (inclusive `>`, not `>=`)", async () => {
@@ -337,21 +313,16 @@ describe("REQ-CCL-02.4 — composite-valued option measured in its native wire f
 });
 
 describe("REQ-CCL-03 — whole-file null-byte/UTF-8 scan (tail detection)", () => {
-  it("REQ-CCL-03.1: text-valid head, binary tail → by-reference", () => {
+  it("REQ-CCL-03.1: text-valid head, binary tail rejects as not text", () => {
     const dir = scratchDir();
     const buf = Buffer.concat([Buffer.from("a".repeat(4096), "utf-8"), Buffer.from([0x00])]);
     writeFileSync(join(dir, "tail-null.bin"), buf);
 
-    const result = classifyTransport({
-      files: nodePackageFiles,
-      packageDir: dir,
-      relPath: "tail-null.bin",
-      isTemplateMarked: false,
-      destPath: "tail-null.bin",
-      options: {},
-    });
-
-    expect(result.verdict).toEqual("by-reference");
+    const err = expectReason(
+      () => classifyTransport({ files: nodePackageFiles, packageDir: dir, relPath: "tail-null.bin", isTemplateMarked: false, destPath: "tail-null.bin", options: {} }),
+      "invalid-input"
+    );
+    expect(err.message).toContain(NOT_TEXT);
   });
 
   it("REQ-CCL-03.2: tail-null beyond 64KB kills the fixed-window-sampler mutant", () => {
@@ -359,46 +330,31 @@ describe("REQ-CCL-03 — whole-file null-byte/UTF-8 scan (tail detection)", () =
     const buf = Buffer.concat([Buffer.from("a".repeat(70 * 1024), "utf-8"), Buffer.from([0x00])]);
     writeFileSync(join(dir, "big-tail-null.bin"), buf);
 
-    const result = classifyTransport({
-      files: nodePackageFiles,
-      packageDir: dir,
-      relPath: "big-tail-null.bin",
-      isTemplateMarked: false,
-      destPath: "big-tail-null.bin",
-      options: {},
-    });
-
-    expect(result.verdict).toEqual("by-reference");
+    const err = expectReason(
+      () => classifyTransport({ files: nodePackageFiles, packageDir: dir, relPath: "big-tail-null.bin", isTemplateMarked: false, destPath: "big-tail-null.bin", options: {} }),
+      "invalid-input"
+    );
+    expect(err.message).toContain(NOT_TEXT);
   });
 });
 
 describe("REQ-CCL-06 — stat-size gate before any content read", () => {
-  it("REQ-CCL-06.1: an over-budget-by-stat file classifies by-reference with zero content reads", () => {
+  it("REQ-CCL-06.1 (#163): an over-budget-by-stat file rejects with zero content reads; declared binary, it goes by reference with zero reads", () => {
     const dir = scratchDir();
     const path = join(dir, "huge.bin");
     writeFileSync(path, "a".repeat(BATCH_CAP_BYTES + 1), "utf-8");
     const stSize = statSync(path).size;
     expect(stSize).toBeGreaterThan(BATCH_CAP_BYTES);
 
-    // Mutation-coverage (final-verify remediation): asserting only the verdict + absent
-    // `content` field lets a mutant that DELETES the stat gate survive — it would slurp the
-    // whole file via readFileSync and still land on "by-reference" via the post-read
-    // serialized-budget check (REQ-CCL-02), producing an identical `{ verdict }` shape.
-    // Spying on readFileSync (mirrors path-guards.ts's own IO-hygiene testing pattern) proves the
-    // stat gate itself — not a downstream check — is what stopped the read.
+    // A mutant that DELETES the stat gate would slurp the whole file and still reject via the
+    // post-read directive-size check, with the same message. Spying on readFileSync proves
+    // the stat gate itself is what stopped the read.
     const readSpy = spyOn(fs, "readFileSync");
     try {
-      const result = classifyTransport({
-        files: nodePackageFiles,
-        packageDir: dir,
-        relPath: "huge.bin",
-        isTemplateMarked: false,
-        destPath: "huge.bin",
-        options: {},
-      });
-
-      expect(result.verdict).toEqual("by-reference");
-      expect("content" in result).toBe(false);
+      const params = { files: nodePackageFiles, packageDir: dir, relPath: "huge.bin", isTemplateMarked: false, destPath: "huge.bin", options: {} };
+      const err = expectReason(() => classifyTransport(params), "invalid-input");
+      expect(err.message).toContain(`source "huge.bin" (${stSize} bytes) ${TOO_LARGE}`);
+      expect(classifyTransport({ ...params, declaredBinary: true })).toEqual({ verdict: "by-reference" });
       expect(readSpy).not.toHaveBeenCalled();
     } finally {
       readSpy.mockRestore();

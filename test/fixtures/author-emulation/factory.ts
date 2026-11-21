@@ -108,7 +108,8 @@ export const runM04 = (input: Input): void => {
   });
 };
 
-// --- M-05: mixed by-value/by-reference SUCCESS in ONE scaffold (CCL-01.1/.2, BRC-01.1)
+// --- M-05: mixed by-value/by-reference SUCCESS in ONE scaffold (#163: the declared
+// `photo.png` is copied, `note.txt` renders; BRC-01.1)
 // — also the fixture-wide `force` field carrier (AEG-01.2): `force: true` has no
 // colliding destination here (a fresh `to` prefix every run), so it exercises the
 // pass-through cleanly, with nothing to overwrite.
@@ -117,12 +118,13 @@ export const runM05 = (input: Input): void => {
     from: "files-mixed",
     to: "m05-out",
     options: { name: input.name },
+    binary: ["photo.png"],
     force: true,
   });
 };
 
-// --- M-06: binary asset classifies by-reference (CCL-01.2, BRC-01.2) — `include`
-// narrows the walk to the one non-`.template` binary asset, skipping
+// --- M-06: a binary asset the author declares in `binary` goes by reference (#163,
+// BRC-01.2) — `include` narrows the walk to the one non-`.template` binary asset, skipping
 // `assets/blob.bin.template` (that fixture's fail-loud case belongs to M-08, S-004's
 // own row, never triggered here).
 export const runM06 = (input: Input): void => {
@@ -131,6 +133,7 @@ export const runM06 = (input: Input): void => {
     to: "m06-out",
     options: { name: input.name },
     include: ["logo.png"],
+    binary: ["logo.png"],
   });
 };
 
@@ -196,10 +199,10 @@ function scratchFactoryRunner(
   };
 }
 
-// --- M-07: oversized-by-stat file classifies by-reference, ZERO content reads
-// (CCL-06.1, ATH-14.1) — a file whose stat size alone exceeds the frame budget
-// (BATCH_CAP_BYTES). The zero-content-read proof lives in the e2e file, wrapping this
-// SAME runner in `instrumentHarnessIO()`.
+// --- M-07: a file over the frame budget that the author declares in `binary` goes by
+// reference with ZERO content reads (#163, ATH-14.1) — a declared file is never read, and
+// its size never decides anything. The zero-content-read proof lives in the e2e file,
+// wrapping this SAME runner in `instrumentHarnessIO()`.
 export const M07_HUGE_FILE_NAME = "huge.bin";
 
 export const runM07 = scratchFactoryRunner(
@@ -208,7 +211,7 @@ export const runM07 = scratchFactoryRunner(
     materializeByteFill(join(dir, "files", M07_HUGE_FILE_NAME), BATCH_CAP_BYTES + 1);
   },
   () => {
-    scaffold({ from: "files", to: "out" });
+    scaffold({ from: "files", to: "out", binary: [M07_HUGE_FILE_NAME] });
   }
 );
 
@@ -330,9 +333,9 @@ function fillTemplateForBatchSize(pathTemplate: string, targetBytes: number): st
 }
 
 // --- M-10: a single group's own batch exceeds cap — still rejects (batch-cap REQ-04.2).
-// `scaffold`'s OWN by-value classifier (`classify-transport.ts` CCL-02) auto-downgrades any
-// oversized non-`.template` file to by-reference rather than ever emitting an over-cap
-// `create` — so the over-cap batch here is NOT one of scaffold's own walked files; it is a
+// `scaffold` itself never emits an over-cap `create`: its classifier rejects a walked file
+// that does not fit one frame (#163) — so the over-cap batch here is NOT one of scaffold's
+// own walked files; it is a
 // PRECEDING direct `create()` call (bypassing that classifier entirely, exactly the
 // pre-existing REQ-01 per-batch cap check REQ-04.2 says stays "unchanged"). The scaffold
 // call that follows is what forces the expander's pending-size accumulator to notice the

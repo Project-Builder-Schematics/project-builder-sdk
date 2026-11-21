@@ -53,6 +53,7 @@
   .exclude?: string[] | undefined
   .rename?: Record<string, string> | undefined
   .force?: boolean | undefined
+  .binary?: string[] | undefined
 . WritableHandle interface: WritableHandle
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => import("…/base-handle").WritableHandleRef
@@ -114,6 +115,7 @@
   .exclude?: string[] | undefined
   .rename?: Record<string, string> | undefined
   .force?: boolean | undefined
+  .binary?: string[] | undefined
 ./commons WritableHandle interface: WritableHandle
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => import("…/base-handle").WritableHandleRef
@@ -637,6 +639,7 @@ reachable ScaffoldArgs@expander interface: ScaffoldArgs
   .exclude?: string[] | undefined
   .rename?: Record<string, string> | undefined
   .force?: boolean | undefined
+  .binary?: string[] | undefined
 reachable ScalarStyle@presentation type: "plain" | "single" | "double" | "literal" | "folded"
 reachable Scope@ops type: "public" | "protected" | "private"
 reachable SortOptions@ops interface: SortOptions

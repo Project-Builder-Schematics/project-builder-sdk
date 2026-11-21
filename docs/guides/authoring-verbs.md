@@ -280,8 +280,10 @@ A token's key starts with a letter, so `___name__.ts` becomes `_{= .name =}.ts`.
 
 `include`/`exclude` filtering runs against the *original* source-relative path, using a
 hand-rolled minimal glob dialect: `*` matches within one path segment, `**` matches across
-segments. Each surviving entry is then classified by-value (rendered, emits `create`) or
-by-reference (emits `copyIn`) — sniffed entirely from content, never author-declared.
+segments. Each surviving entry then renders (emits `create`), unless it matches one of the
+`binary` globs, matched against the same original path: those are copied byte for byte
+(emit `copyIn`) and never read. The author declares the copies; size and options never turn a
+render into a copy.
 
 ```ts
 import { scaffold } from "@pbuilder/sdk/commons";
@@ -291,10 +293,23 @@ scaffold({
   to: "src/services",
   options: { name: "billing" },
   exclude: ["*.spec.ts"],
+  binary: ["**/*.png"],
 });
 ```
 
 **Edge and error semantics:**
+
+- An entry not declared in `binary` that is not valid UTF-8 text (a null byte or an invalid
+  sequence anywhere in the file) rejects `reason: "invalid-input"`, naming it and suggesting
+  the declaration: `invalid input: source "<path>" is not valid text, so it cannot be rendered —
+  declare it in scaffold's binary option (binary: ["<pattern>"]) to copy it byte for byte`.
+- An entry to render whose `create` directive, options included, does not fit one emit frame
+  rejects `reason: "invalid-input"`, naming it and its size in bytes. Until splitting a
+  render across frames is designed, make the file smaller or declare it in `binary`.
+- An entry that is both `.template`-marked and declared in `binary` rejects
+  `reason: "invalid-input"`: the marker asks for rendering, the declaration for a copy.
+- A `binary` glob that matches nothing is allowed. `binary` must be an array of strings,
+  like `include`/`exclude`.
 
 - A `from` folder with zero entries no-ops silently.
 - `include`/`exclude` eliminating every entry rejects fail-loud (`reason: "invalid-input"`),
