@@ -165,8 +165,9 @@ describe("REQ-RUN-04 — input-file size cap + fail-closed parse", () => {
     const io = unreachedIo();
     const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input-file", path], io);
 
-    expect(exitCode).toEqual(1);
-    expect(io.stderrText()).toEqual('pbuilder-runner: invalid greeting — expected {method:"ready", protocolVersion:<integer>}\n');
+    // Past the size gate, the empty stdin ends before any greeting (#167: exit 3).
+    expect(exitCode).toEqual(3);
+    expect(io.stderrText()).toEqual('the host closed stdin before sending {method:"ready"}; the engine process probably exited or crashed, see its log\n');
   });
 
   for (const mode of ["absolute", "relative", "outside-cwd symlink"] as const) {
@@ -410,5 +411,84 @@ describe("REQ-RUN-09 — terminal catch routes every thrown-value shape to its c
     expect(host.stderrText()).toEqual(
       "pbuilder-runner: configuration rejected: DB_PASSWORD=hunter2 failed validation\n"
     );
+  });
+});
+
+// #167: the greeting has its own bound, and a host gone before it is a transport fault. Both
+// notes are plain stderr: the engine gives a `pbuilder-runner: ` note precedence over the exit
+// code, which would turn this system fault into a developer error.
+describe("the greeting — timeout and EOF before it (#167)", () => {
+  const SENTINEL = "pbuilder-runner: ";
+
+  it("a host that never sends ready times the runner out: exit 3, a plain note naming the bound", async () => {
+    const io = { ...stubIo((async function* () { await new Promise(() => {}); })(), "timeout: no frame expected"), greetingTimeoutMs: 50 };
+    const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], io);
+    expect(exitCode).toBe(3);
+    expect(io.stderrText()).toBe(
+      'the host never sent {method:"ready"} within 50 ms; check that the engine started the runner with the expected protocol and is not blocked\n'
+    );
+    expect(io.stderrText().startsWith(SENTINEL)).toBe(false);
+  });
+
+  it("a host that closes stdin before ready: exit 3, a plain note that the host is gone", async () => {
+    const io = stubIo((async function* () {})(), "eof: no frame expected");
+    const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], io);
+    expect(exitCode).toBe(3);
+    expect(io.stderrText()).toBe(
+      'the host closed stdin before sending {method:"ready"}; the engine process probably exited or crashed, see its log\n'
+    );
+    expect(io.stderrText().startsWith(SENTINEL)).toBe(false);
+  });
+
+  it("a frame that arrives but is not a greeting still exits 1 with the invalid-greeting note", async () => {
+    const io = stubIo(
+      (async function* () {
+        yield encodeFrame({ method: "hello" });
+      })(),
+      "invalid: no frame expected"
+    );
+    expect(await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], io)).toBe(1);
+    expect(io.stderrText()).toBe('pbuilder-runner: invalid greeting — expected {method:"ready", protocolVersion:<integer>}\n');
+  });
+});
+
+/**
+ * Stands for one stdin stream shared by sequential runs: every pending read, from any
+ * iterator, takes the next chunk in order, as a Node stream's async iterators do.
+ */
+function sharedStream(): { input: AsyncIterable<Uint8Array>; push(chunk: Uint8Array): void } {
+  const chunks: Uint8Array[] = [];
+  const readers: Array<(result: IteratorResult<Uint8Array>) => void> = [];
+  return {
+    input: {
+      [Symbol.asyncIterator]: () => ({
+        next: () =>
+          new Promise<IteratorResult<Uint8Array>>((resolve) => {
+            const chunk = chunks.shift();
+            if (chunk !== undefined) resolve({ value: chunk, done: false });
+            else readers.push(resolve);
+          }),
+        return: async () => ({ value: undefined, done: true }),
+      }),
+    },
+    push(chunk) {
+      const reader = readers.shift();
+      if (reader !== undefined) reader({ value: chunk, done: false });
+      else chunks.push(chunk);
+    },
+  };
+}
+
+describe("sequential runs over one input (#167 item 3)", () => {
+  it("a read left parked by a run that ended never takes the bytes of the next run", async () => {
+    const stream = sharedStream();
+    const first = { ...stubIo(stream.input, "first: no frame expected"), greetingTimeoutMs: 20 };
+    expect(await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], first)).toBe(3);
+
+    const second = { ...stubIo(stream.input, "second: no frame expected"), greetingTimeoutMs: 2000 };
+    const secondRun = runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], second);
+    stream.push(encodeFrame({ method: "hello" }));
+    expect(await secondRun).toBe(1);
+    expect(second.stderrText()).toBe('pbuilder-runner: invalid greeting — expected {method:"ready", protocolVersion:<integer>}\n');
   });
 });

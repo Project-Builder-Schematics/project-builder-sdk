@@ -30,17 +30,70 @@ export class FrameFault {
   }
 }
 
-export class FrameReader {
-  #buffer: Buffer = Buffer.alloc(0);
-  readonly #source: AsyncIterable<Uint8Array>;
+/**
+ * One byte source shared by every reader of it, such as one stdin across sequential runs in one
+ * process. At most one read from the source is outstanding, and its chunk goes to a reader that
+ * is still open: a reader closed while its read is parked withdraws without taking the chunk, so
+ * the next reader of the same source gets it (#167).
+ */
+class SharedSource {
+  readonly source: AsyncIterable<Uint8Array>;
+  readonly #iterator: AsyncIterator<Uint8Array>;
+  #pull: Promise<IteratorResult<Uint8Array>> | undefined;
 
   constructor(source: AsyncIterable<Uint8Array>) {
-    this.#source = source;
+    this.source = source;
+    this.#iterator = iterate(source);
+  }
+
+  async next(isOpen: () => boolean): Promise<IteratorResult<Uint8Array>> {
+    for (;;) {
+      this.#pull ??= this.#iterator.next();
+      const pull = this.#pull;
+      const result = await pull;
+      if (!isOpen()) return { value: undefined, done: true };
+      if (result.done) return result;
+      if (this.#pull !== pull) continue;
+      this.#pull = undefined;
+      return result;
+    }
+  }
+}
+
+// Drives `source` through one iterator. A named generator, since the runner closure admits
+// neither `Symbol.asyncIterator` nor a keyed weak map (scripts/capability-admission.ts).
+async function* iterate(source: AsyncIterable<Uint8Array>): AsyncGenerator<Uint8Array> {
+  yield* source;
+}
+
+// Sequential runs read the same input object, so remembering the last one is enough.
+let lastShared: SharedSource | undefined;
+
+function sharedSource(source: AsyncIterable<Uint8Array>): SharedSource {
+  if (lastShared?.source !== source) lastShared = new SharedSource(source);
+  return lastShared;
+}
+
+export class FrameReader {
+  #buffer: Buffer = Buffer.alloc(0);
+  readonly #source: SharedSource;
+  #closed = false;
+
+  constructor(source: AsyncIterable<Uint8Array>) {
+    this.#source = sharedSource(source);
+  }
+
+  /** Ends this reader: a read it left parked hands its bytes to the next reader of the source. */
+  close(): void {
+    this.#closed = true;
   }
 
   async *frames(): AsyncGenerator<unknown> {
-    for await (const chunk of this.#source) {
-      this.#buffer = Buffer.concat([this.#buffer, chunk]);
+    for (;;) {
+      const next = await this.#source.next(() => !this.#closed);
+      if (this.#closed) return;
+      if (next.done) break;
+      this.#buffer = Buffer.concat([this.#buffer, next.value]);
       for (const frame of this.#drainCompleteFrames()) {
         yield frame;
       }
