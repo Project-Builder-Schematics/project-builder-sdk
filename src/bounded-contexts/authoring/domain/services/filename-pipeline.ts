@@ -58,19 +58,37 @@ function portableNameViolation(name: string): NameViolation | undefined {
 }
 
 /**
- * Architecture A-17: rejects a source-relative path, as written on disk, when any of its
- * components holds `{=` or `=}` or is a name Windows refuses — on every OS. A well-formed
- * token holds only letters, digits, `_` and `@`, so it never trips this check.
+ * Architecture A-17: rejects `path` when any of its components holds `{=` or `=}` or is a name
+ * Windows refuses — on every OS. A well-formed token holds only letters, digits, `_` and `@`,
+ * so it never trips this check. `.` and empty components name no file and are left to the
+ * lexical path guards. `subject` opens the message, naming where the path came from.
  */
-export function checkSourceName(relPath: string): void {
-  for (const name of relPath.split("/")) {
+function checkPortablePath(path: string, subject: string): void {
+  for (const name of path.split("/")) {
+    if (name === "" || name === ".") continue;
     const violation: NameViolation | undefined =
       name.includes("{=") || name.includes("=}") ? { rule: "template syntax" } : portableNameViolation(name);
     if (violation === undefined) continue;
     const suffix = violation.character === undefined ? "" : ` (${violation.character})`;
-    throw invalidInput(
-      `invalid input: scaffold file name "${relPath}": the name "${name}" breaks the rule "${violation.rule}"${suffix}`
-    );
+    throw invalidInput(`invalid input: ${subject}: the name "${name}" breaks the rule "${violation.rule}"${suffix}`);
+  }
+}
+
+/** A-17 for a source-relative path as written on disk. */
+export function checkSourceName(relPath: string): void {
+  checkPortablePath(relPath, `scaffold file name "${relPath}"`);
+}
+
+/**
+ * A-17 for the other text that becomes destination path components (#157): the `to` prefix
+ * and every `rename` value, as the author wrote them, before token translation. A non-string
+ * rename value is left to the pipeline, which rejects it naming its key.
+ */
+export function checkDestinationNames(to: string, rename: Record<string, string> | undefined): void {
+  checkPortablePath(to, `scaffold "to" ${JSON.stringify(to)}`);
+  for (const key of Object.keys(rename ?? {}).sort(compareCodePoints)) {
+    const value = rename![key];
+    if (typeof value === "string") checkPortablePath(value, `scaffold rename value ${JSON.stringify(value)}`);
   }
 }
 

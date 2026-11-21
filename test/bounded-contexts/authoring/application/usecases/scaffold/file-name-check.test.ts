@@ -181,3 +181,57 @@ describe("A-17 — with several bad names, the first in byte-wise (UTF-8) order 
     expect(err.message).toEqual(message("\uFF01|.ts", "\uFF01|.ts", "forbidden character", "vertical bar"));
   });
 });
+
+/** A scaffold run over a package whose `files` folder holds `a.ts`. */
+async function scaffoldWith(options: { to?: string; rename?: Record<string, string> }) {
+  const dir = scratchDir();
+  mkdirSync(join(dir, "files"), { recursive: true });
+  writeFileSync(join(dir, "files", "a.ts"), "export const a = 1;\n");
+  return runFactoryForTest(() => scaffold({ from: "files", to: options.to ?? "out", rename: options.rename }), undefined, {
+    packageDir: dir,
+  });
+}
+
+function rejectionMessage(error: unknown): string {
+  expect(error).toBeInstanceOf(AuthoringError);
+  expect((error as AuthoringError).reason).toBe("invalid-input");
+  return (error as AuthoringError).message;
+}
+
+describe("A-17 — rename values and the `to` prefix are checked like names on disk (#157)", () => {
+  it.each([
+    [{ "a.ts": "con.ts" }, "con.ts", "con.ts", "reserved device name", ""],
+    [{ "a.ts": "src/a|b.ts" }, "src/a|b.ts", "a|b.ts", "forbidden character", " (vertical bar)"],
+    [{ "a.ts": "a.ts." }, "a.ts.", "a.ts.", "trailing dot", ""],
+    [{ "a.ts": "{= .name =}.ts" }, "{= .name =}.ts", "{= .name =}.ts", "template syntax", ""],
+  ])("rename %j rejects", async (rename, value, name, rule, suffix) => {
+    const result = await scaffoldWith({ rename });
+    expect(rejectionMessage(result.error)).toBe(
+      `invalid input: scaffold rename value "${value}": the name "${name}" breaks the rule "${rule}"${suffix}`
+    );
+    expect(result.emitted).toHaveLength(0);
+  });
+
+  it.each([
+    ["src/a|b", "a|b", "forbidden character", " (vertical bar)"],
+    ["out/AUX", "AUX", "reserved device name", ""],
+    ["out/x ", "x ", "trailing space", ""],
+    ["{= .dir =}/src", "{= .dir =}", "template syntax", ""],
+  ])("to %j rejects", async (to, name, rule, suffix) => {
+    const result = await scaffoldWith({ to });
+    expect(rejectionMessage(result.error)).toBe(`invalid input: scaffold "to" "${to}": the name "${name}" breaks the rule "${rule}"${suffix}`);
+    expect(result.emitted).toHaveLength(0);
+  });
+
+  it("accepts token forms, a nested `to`, `.` and a rename into a folder", async () => {
+    for (const options of [
+      { to: "out/__name__", rename: { "a.ts": "lib/__name@dasherize__.ts" } },
+      { to: "." },
+      { to: "./out" },
+    ]) {
+      const result = await scaffoldWith(options);
+      expect(result.error).toBeUndefined();
+      expect(collectOps(result.emitted, "create")).toHaveLength(1);
+    }
+  });
+});
