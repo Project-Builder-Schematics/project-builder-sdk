@@ -40,7 +40,14 @@ export interface RunnerIo {
   writeFrame: (value: unknown) => void;
   /** Bounded operator-visible notes (stderr on the spawned path). Never the wire. */
   writeStderr: (text: string) => void;
+  /** How long to wait for the host's `ready` frame; `GREETING_TIMEOUT_MS` when absent. */
+  greetingTimeoutMs?: number;
 }
+
+/** The greeting's own bound: the client's per-call timeout only exists once the greeting is in. */
+export const GREETING_TIMEOUT_MS = 30_000;
+
+const GREETING_TIMED_OUT = Symbol("greeting timed out");
 
 // REQ-RUN-04: the SDK-chosen input-file size cap — same provenance posture as SEC-05's
 // timeout bound and WPS-06's BATCH_CAP_BYTES (pending engine-side confirmation).
@@ -225,22 +232,47 @@ async function runRunnerBody(argv: string[], io: RunnerIo): Promise<number> {
   // (judgment-day F4) — an oversize/0x80000000 length prefix (thrown, WPS-04.2/.4), EOF
   // mid-frame (thrown), or a malformed greeting body (yielded as a FrameFault) — classifies
   // exit 3 with a bounded note (EXC-01, WPS-07), never an uncaught rejection's raw stack.
-  // A clean EOF or a structurally-wrong-but-valid frame stays exit 1 (WPS-02.3).
-  let first: IteratorResult<unknown>;
+  // A structurally-wrong-but-valid frame stays exit 1 (WPS-02.3); a clean EOF before any frame
+  // is the host gone (exit 3, below).
+  // A host that never greets, or that is gone before it greets, is a transport fault (exit 3).
+  // These two notes are plain stderr, never the `pbuilder-runner: ` sentinel: the engine gives
+  // a sentinel note precedence over the exit code and would read them as a developer error.
+  const greetingTimeoutMs = io.greetingTimeoutMs ?? GREETING_TIMEOUT_MS;
+  let first: IteratorResult<unknown> | typeof GREETING_TIMED_OUT;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    first = await frames.next();
+    first = await Promise.race([
+      frames.next(),
+      new Promise<typeof GREETING_TIMED_OUT>((resolve) => {
+        timer = setTimeout(() => resolve(GREETING_TIMED_OUT), greetingTimeoutMs);
+      }),
+    ]);
   } catch (err) {
     note(
       io,
       `pbuilder-runner: ${err instanceof TransportFault ? err.message : "transport fault while awaiting the greeting"}`
     );
     return classifyExitCode(err);
+  } finally {
+    clearTimeout(timer);
   }
-  if (!first.done && first.value instanceof FrameFault) {
+  if (first === GREETING_TIMED_OUT) {
+    note(
+      io,
+      `the host never sent {method:"ready"} within ${greetingTimeoutMs} ms; check that the engine started the runner ` +
+        "with the expected protocol and is not blocked"
+    );
+    return 3;
+  }
+  if (first.done) {
+    note(io, 'the host closed stdin before sending {method:"ready"}; the engine process probably exited or crashed, see its log');
+    return 3;
+  }
+  if (first.value instanceof FrameFault) {
     note(io, `pbuilder-runner: ${first.value.fault.message}`);
     return classifyExitCode(first.value.fault);
   }
-  if (first.done || !isStructurallyValidGreeting(first.value)) {
+  if (!isStructurallyValidGreeting(first.value)) {
     note(io, `pbuilder-runner: invalid greeting — expected {method:"ready", protocolVersion:<integer>}`);
     return 1;
   }

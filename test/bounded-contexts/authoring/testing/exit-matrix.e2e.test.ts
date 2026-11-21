@@ -450,3 +450,18 @@ describe("REQ-WPS-07.4/.5/.6 (e2e, canary-seeded) — the disclosure rule holds 
     expect(run.stderr).not.toContain(absolutePath);
   });
 });
+
+describe("#167 — a host gone before the greeting, over real stdio", () => {
+  it("stdin closed before any frame: exit 3, with a plain note the engine classifies by the code", async () => {
+    const child = spawn("bun", ["run", RUNNER_BIN, "--factory", HAPPY_POINTER, "--input", "{}"], { cwd: PROJECT_ROOT });
+    let stderr = "";
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.stdin.end();
+    const [code] = await once(child, "exit");
+    expect(code).toBe(3);
+    expect(stderr).toContain('the host closed stdin before sending {method:"ready"}');
+    expect(stderr.split("\n").some((line) => line.startsWith("pbuilder-runner: "))).toBe(false);
+  }, 30_000);
+});

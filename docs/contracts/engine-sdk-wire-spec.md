@@ -51,6 +51,14 @@ expected and the received version — before any reverse callback is ever issued
 mechanism WPS-11's "divergence cannot re-materialize silently" claim rests on: a stale-engine
 build fails LOUDLY at first contact, never mid-run.
 
+The runner waits at most 30 000 ms for the greeting (`GREETING_TIMEOUT_MS`, overridable through
+`RunnerIo.greetingTimeoutMs`). A host that sends nothing in that time, and a host that closes
+stdin before sending any frame, fail the run with exit 3, a transport fault: the host is hung or
+gone, which is not a validation failure. Their stderr notes are plain text, without the
+`pbuilder-runner: ` sentinel, so the engine classifies them by the exit code:
+`the host never sent {method:"ready"} within <ms> ms; …` and
+`the host closed stdin before sending {method:"ready"}; …`.
+
 `WIRE_PROTOCOL_VERSION` (this handshake's version) is DISTINCT from `Batch.protocolVersion`
 (the IR/emit envelope schema version carried inside `ir.emit`'s `params.batch` — see below);
 the two are never conflated, and the greeting frame itself carries no IR-envelope version
@@ -128,7 +136,7 @@ pointer splits on the FIRST `#` only.
 | 0 | success — the factory run completed and its intent was accepted |
 | 1 | validation failure — bad argv, an invalid/mismatched greeting, a bridge contract version mismatch (`BridgeVersionMismatchError`, BRB-01.2), a rejected factory pointer, a rejected export, a failed single-instance probe, an oversize/malformed `--input-file`, a factory module that cannot be FOUND OR LOADED (`ERR_MODULE_NOT_FOUND`, Bun's `ResolveMessage`/`BuildMessage` shapes, or a `SyntaxError` from the factory import — a module that never RAN, distinct from the module's own top-level code throwing during import, which is exit 4), or an `AuthoringError` whose `origin` **is** `"authoring-rejected"` (an SDK-side authoring misuse: `outside-session`, `invalid-input`, `reserved-name`, `source-*`) |
 | 2 | emit-rejection / host refusal — an `AuthoringError` whose `origin` is NOT `"authoring-rejected"`, or an `IntentRejectedError` (the host answered `ir.commit`/`ir.discard`/`tree.read` with an error envelope); the host's own rejection message surfaces in the runner's bounded stderr note |
-| 3 | transport fault — a `TransportFault` (`kind`: `malformed`, `desync` (reserved: currently indistinguishable from and reported as `malformed`), `oversize`, `timeout`, or `eof`), including one at GREETING time (a malformed/oversize/EOF-truncated first frame) |
+| 3 | transport fault — a `TransportFault` (`kind`: `malformed`, `desync` (reserved: currently indistinguishable from and reported as `malformed`), `oversize`, `timeout`, or `eof`), including one at GREETING time (a malformed/oversize/EOF-truncated first frame), no greeting within `GREETING_TIMEOUT_MS`, or stdin closed before any frame |
 | 4 | crash — anything else: a non-`AuthoringError`/non-`TransportFault` thrown value, including the author's factory module throwing at its own top level during import |
 
 Classification reads ONLY the terminal error's own identity (`instanceof` checks) — it NEVER

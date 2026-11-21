@@ -165,8 +165,9 @@ describe("REQ-RUN-04 — input-file size cap + fail-closed parse", () => {
     const io = unreachedIo();
     const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input-file", path], io);
 
-    expect(exitCode).toEqual(1);
-    expect(io.stderrText()).toEqual('pbuilder-runner: invalid greeting — expected {method:"ready", protocolVersion:<integer>}\n');
+    // Past the size gate, the empty stdin ends before any greeting (#167: exit 3).
+    expect(exitCode).toEqual(3);
+    expect(io.stderrText()).toEqual('the host closed stdin before sending {method:"ready"}; the engine process probably exited or crashed, see its log\n');
   });
 
   for (const mode of ["absolute", "relative", "outside-cwd symlink"] as const) {
@@ -410,5 +411,43 @@ describe("REQ-RUN-09 — terminal catch routes every thrown-value shape to its c
     expect(host.stderrText()).toEqual(
       "pbuilder-runner: configuration rejected: DB_PASSWORD=hunter2 failed validation\n"
     );
+  });
+});
+
+// #167: the greeting has its own bound, and a host gone before it is a transport fault. Both
+// notes are plain stderr: the engine gives a `pbuilder-runner: ` note precedence over the exit
+// code, which would turn this system fault into a developer error.
+describe("the greeting — timeout and EOF before it (#167)", () => {
+  const SENTINEL = "pbuilder-runner: ";
+
+  it("a host that never sends ready times the runner out: exit 3, a plain note naming the bound", async () => {
+    const io = { ...stubIo((async function* () { await new Promise(() => {}); })(), "timeout: no frame expected"), greetingTimeoutMs: 50 };
+    const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], io);
+    expect(exitCode).toBe(3);
+    expect(io.stderrText()).toBe(
+      'the host never sent {method:"ready"} within 50 ms; check that the engine started the runner with the expected protocol and is not blocked\n'
+    );
+    expect(io.stderrText().startsWith(SENTINEL)).toBe(false);
+  });
+
+  it("a host that closes stdin before ready: exit 3, a plain note that the host is gone", async () => {
+    const io = stubIo((async function* () {})(), "eof: no frame expected");
+    const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], io);
+    expect(exitCode).toBe(3);
+    expect(io.stderrText()).toBe(
+      'the host closed stdin before sending {method:"ready"}; the engine process probably exited or crashed, see its log\n'
+    );
+    expect(io.stderrText().startsWith(SENTINEL)).toBe(false);
+  });
+
+  it("a frame that arrives but is not a greeting still exits 1 with the invalid-greeting note", async () => {
+    const io = stubIo(
+      (async function* () {
+        yield encodeFrame({ method: "hello" });
+      })(),
+      "invalid: no frame expected"
+    );
+    expect(await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], io)).toBe(1);
+    expect(io.stderrText()).toBe('pbuilder-runner: invalid greeting — expected {method:"ready", protocolVersion:<integer>}\n');
   });
 });
