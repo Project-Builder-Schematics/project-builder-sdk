@@ -190,9 +190,11 @@ the file, in call order: `options?.export` prepends `export `. `source` INCLUDES
 braces (that op supplies them itself). `addFunction` REJECTS when a value declaration
 (`function`/`const`/`let`/`var`/`class`) or an import binding already exists under `name` —
 imports MERGE (safe, multiple modules can share a name), but two value declarations sharing a
-name produce invalid TypeScript, so this op fails loud instead of silently colliding. A
-`type`/`interface` under the same name does NOT collide (TypeScript legally permits a value and a
-type to share an identifier).
+name produce invalid TypeScript, so this op fails loud instead of silently colliding. The one
+exception is the declaration the op would write itself: when the file already has it, compared
+token by token (spacing, comments and a trailing `;` aside), the file stays as it is, so running a
+schematic twice does not fail. A `type`/`interface` under the same name does NOT collide
+(TypeScript legally permits a value and a type to share an identifier).
 
 ```ts
 // source includes braces:

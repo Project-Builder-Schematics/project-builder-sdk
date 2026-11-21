@@ -157,8 +157,14 @@ export function tokensOf(node: Node): string[] {
   return tokens.filter((token, index) => token !== "," || ![")", "]", "}"].includes(tokens[index + 1] ?? ""));
 }
 
-function sameTokens(a: string[], b: string[]): boolean {
+export function sameTokens(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((token, index) => token === b[index]);
+}
+
+// Tokens without a trailing `;`, so `b = 1` and `b = 1;` are the same declaration.
+export function declarationTokens(node: Node): string[] {
+  const tokens = tokensOf(node);
+  return tokens.at(-1) === ";" ? tokens.slice(0, -1) : tokens;
 }
 
 /** True when `node` and the validated `element` are the same code, compared token by token. */
