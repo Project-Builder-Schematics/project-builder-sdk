@@ -500,6 +500,22 @@ resolves to the line count, `"x"` included. See its JSDoc `@example` in
 - `query` only brands the function, so `withOps` checks a query's name for duplicates and
   reserved verbs like any other op.
 
+#### Repeatable ops: effects that depend on how many times they apply
+
+An op that sets a state must be idempotent: applied to a file that already has its effect, it
+leaves the file as it is (A-11). Some ops cannot be, by purpose: they add again on every
+application, or they act on a position, so applied again they reach another element. Declare
+those with **`repeatable(op)`** at the op's definition, as in
+`export const appendItem = repeatable(function appendItem(...) { ... })`, so the mark travels
+with the function into every pack that reuses it. See its JSDoc `@example` in
+`src/bounded-contexts/authoring/domain/services/define-dialect.ts`.
+
+`repeatable` marks the function itself and returns it; it changes nothing at run time. The
+conformance kit skips its idempotency check for a chain holding a repeatable op. In the SDK's
+dialects the repeatable ops are `insertItem`, `appendItem`, `removeItem` and `moveItem` of JSON
+and YAML, and `addDocument` and `removeDocument` of YAML. `appendItem` with `{ unique: true }`
+is idempotent all the same, and so is `moveItem` to the item's own index.
+
 #### Validating name/identifier arguments: the `validatedOp` pattern
 
 If your op takes a name or identifier-shaped argument that gets SPLICED into generated source —
@@ -619,8 +635,11 @@ sync throw.
   published `find` accepts a path with an extension the dialect does not declare.
 - `testOpPack({ opPack, baseDialect, exercises })` applies each `OpExercise` (a seed, an op
   chain, and the expected byte-exact output) against the real coalescing pipeline, asserting
-  per-op fidelity, coalescing-to-one, and seam-serializability. It runs those same six
-  mandatory samples against your `baseDialect` too, after your exercises pass.
+  per-op fidelity, coalescing-to-one, and seam-serializability. It then applies each chain
+  again to its own expected output and rejects if the file changes (A-11 idempotency), unless
+  the chain holds a `.modify` step or an op declared with `repeatable` (see "Repeatable ops"
+  above). It runs those same six mandatory samples against your `baseDialect` too, after your
+  exercises pass.
 
 ### Mandatory module export and fixture migration
 

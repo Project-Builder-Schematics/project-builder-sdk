@@ -16,6 +16,7 @@
 // from this path, not internal use of them).
 
 import type { Dialect, Handle, OpPack } from "../../domain/services/define-dialect.ts";
+import { isRepeatable } from "../../domain/services/define-dialect.ts";
 import type { Directive } from "../../domain/valueobjects/wire.ts";
 import { defineFactory } from "../../application/usecases/run-factory/context.ts";
 import { deepEqual } from "../../../../platform/deep-equal.ts";
@@ -203,6 +204,29 @@ async function runExercise(
     .filter((d): d is Extract<Directive, { op: "modify" }> => d.op === "modify")
     .map((d) => d.modify);
   return { modifies, directives };
+}
+
+// A-11: every op that sets a state is idempotent, so applying the chain again to its own
+// result leaves the file as it is. A chain holding an op the dialect declares `repeatable`, or
+// a `.modify` step (author code, not a dialect op), is not checked.
+async function assertIdempotent(fixture: OpPackFixture, exercise: OpExercise): Promise<void> {
+  const opNames: string[] = [];
+  for (const step of exercise.chain) {
+    if ("modify" in step) return;
+    if (isRepeatable(fixture.baseDialect.ops[step.op]) || isRepeatable(fixture.opPack[step.op])) return;
+    opNames.push(step.op);
+  }
+  const again = await runExercise(
+    fixture.baseDialect,
+    { seed: exercise.expect, path: exercise.path, chain: exercise.chain },
+    { injectReadAfterFirstOp: false }
+  );
+  if (again.modifies.some((modify) => modify.content !== exercise.expect)) {
+    throw new Error(
+      `testOpPack: A-11 idempotency — applying the chain [${opNames.join(", ")}] again to its own result changed the file; ` +
+        "an op whose effect depends on how many times it is applied must be declared with repeatable()"
+    );
+  }
 }
 
 // REQ-DC-06 (ADR-0012 amendment clause 1): four mandatory adversarial samples, injected
@@ -415,6 +439,8 @@ export async function testOpPack(fixture: OpPackFixture): Promise<void> {
         );
       }
     }
+
+    await assertIdempotent(fixture, exercise);
   }
 
   // REQ-DC-06/REQ-DC-08 (verify-in-loop-4 Finding #1): the four mandatory adversarial
