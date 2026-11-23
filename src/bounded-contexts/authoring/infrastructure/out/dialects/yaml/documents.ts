@@ -1,6 +1,6 @@
 // Document-level ops for multi-document files.
 
-import { repeatable } from "../../../../domain/services/define-dialect.ts";
+import { repeatable } from "../../../../domain/services/repeatable.ts";
 import { newDocument, type YamlStream } from "./ast.ts";
 import { assertValue, fail, isPlainObject, type YamlValue } from "./paths.ts";
 

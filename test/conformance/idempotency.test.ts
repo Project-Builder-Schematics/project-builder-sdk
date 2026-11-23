@@ -3,10 +3,7 @@
 // acts on a position) is declared repeatable and not checked for idempotency.
 import { describe, expect, it } from "bun:test";
 import { testOpPack } from "../../src/conformance/index.ts";
-import {
-  isRepeatable,
-  repeatable,
-} from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { isRepeatable, repeatable } from "../../src/bounded-contexts/authoring/domain/services/repeatable.ts";
 import * as jsonOps from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/json/ops.ts";
 import * as yamlDocuments from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/documents.ts";
 import * as yamlStructural from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/structural.ts";

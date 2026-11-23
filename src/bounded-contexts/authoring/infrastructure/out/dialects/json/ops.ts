@@ -1,4 +1,4 @@
-import { repeatable } from "../../../../domain/services/define-dialect.ts";
+import { repeatable } from "../../../../domain/services/repeatable.ts";
 import {
   applyEdits,
   getNodeValue,

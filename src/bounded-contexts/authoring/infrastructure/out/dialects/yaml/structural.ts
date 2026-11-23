@@ -1,7 +1,7 @@
 // Structural ops: the JSON dialect's catalogue over `yaml` nodes, with "object" read as mapping
 // and "array" as sequence.
 
-import { repeatable } from "../../../../domain/services/define-dialect.ts";
+import { repeatable } from "../../../../domain/services/repeatable.ts";
 import { isAlias, isMap, isSeq, type Document, type Node, type YAMLMap, type YAMLSeq } from "yaml";
 import { deepEqual } from "../../../../../../platform/deep-equal.ts";
 import { formatPath } from "../../../../domain/valueobjects/json-value.ts";

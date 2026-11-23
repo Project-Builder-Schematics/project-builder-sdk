@@ -4,12 +4,8 @@
 // so the idempotency check is the only one that can tell the fixtures apart. The two effects are
 // the two A-11 names: an op that adds again on every application, and one that acts on a
 // position and reaches another element.
-import {
-  defineDialect,
-  defineOpPack,
-  repeatable,
-  type Op,
-} from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { defineDialect, defineOpPack, type Op } from "../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
+import { repeatable } from "../../../src/bounded-contexts/authoring/domain/services/repeatable.ts";
 import type { OpPackFixture } from "../../../src/conformance/index.ts";
 
 interface Lines {

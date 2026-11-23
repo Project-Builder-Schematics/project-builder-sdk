@@ -16,7 +16,7 @@
 // from this path, not internal use of them).
 
 import type { Dialect, Handle, OpPack } from "../../domain/services/define-dialect.ts";
-import { isRepeatable } from "../../domain/services/define-dialect.ts";
+import { isRepeatable } from "../../domain/services/repeatable.ts";
 import type { Directive } from "../../domain/valueobjects/wire.ts";
 import { defineFactory } from "../../application/usecases/run-factory/context.ts";
 import { deepEqual } from "../../../../platform/deep-equal.ts";
