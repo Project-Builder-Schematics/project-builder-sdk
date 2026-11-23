@@ -161,11 +161,11 @@ subprocess and reads no other SDK path besides `dist/runner-manifest.json` and `
 The bridge is the contract for an in-process host. Such a host's bootstrap dynamic-imports
 `bootstrap-bridge.ts` and calls `enterBridge(expectedVersion, params, io)` exactly ONCE per run. The SDK TOLERATES sequential
 re-entry within one engine process (the fd-1 capture is idempotent — the first capture's real
-write handle is cached and reused), but with a known residual: a timed-out call's parked stdin
-read (`#danglingRead`) can survive run end and consume bytes of a subsequent Run sharing
-the same stdin iterable — the sequential-rerun lifecycle is engine-team territory, to be
-ratified at PC-PROTO-01 (tracked in
-[#167](https://github.com/Project-Builder-Schematics/project-builder-sdk/issues/167)). A version mismatch
+write handle is cached and reused). A read still parked when a run ends, after a timed-out
+call for example, never takes a later run's bytes: `FrameReader` reads each source through
+one shared puller, so at most one read is outstanding, and the runner closes its reader at run
+end, so the parked read's chunk goes to the next run's reader
+([#167](https://github.com/Project-Builder-Schematics/project-builder-sdk/issues/167)). A version mismatch
 rejects IMMEDIATELY — naming both the expected and the installed bridge version — with no
 protection armed and no factory-related code ever reached. On a match, the bridge arms the SAME fd-1
 capture + console redirect the direct-spawn path gets (RUN-08), then hands `params` through the
