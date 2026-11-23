@@ -6,6 +6,50 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.15.1
+
+### Runner
+
+- **Changed**: the runner now waits at most `GREETING_TIMEOUT_MS` (30 000 ms) for the host's
+  `ready` greeting, and exits 3 when it expires. A host can change the bound with
+  `RunnerIo.greetingTimeoutMs`. It used to wait forever.
+- **Changed**: when stdin closes before the greeting arrives, the runner exits 3 (transport
+  fault) instead of 1 (author fault). A frame that arrives but is not a valid greeting still
+  exits 1. Both notes go to plain stderr without the `pbuilder-runner: ` sentinel, so the exit
+  code decides the classification.
+  **Migration**: a host that classifies runner exits must treat these two cases as transport
+  faults. The engine agreed to both changes and to the 30 s default.
+- **Fixed**: a read left parked when a run ended could swallow the next run's greeting in the
+  same process. The runner closes its reader at run end, and the parked read hands its chunk
+  to the next run.
+
+### Scaffold
+
+- **Changed**: `scaffold()` checks the `to` prefix and every `rename` value against the
+  portable file-name rule (A-17), as it already did for source paths under `from`. Names such
+  as `con.ts`, `out/AUX` or `src/a|b.ts` now reject with `invalid-input`:
+  - `invalid input: scaffold rename value "<value>": the name "<n>" breaks the rule "<rule>"`
+  - `invalid input: scaffold "to" "<value>": the name "<n>" breaks the rule "<rule>"`
+
+  `.` and empty components are skipped, so `to: "."` and `to: "./out"` still work.
+  **Migration**: a schematic that wrote such a name must choose a portable one. The engine
+  would not have created it on every platform anyway.
+
+### Dialects
+
+- **Fixed**: a new array or object inserted by a JSON op is laid out like the other array or
+  object values in the same container. When they all sit on one line, the new value is written
+  on one line too, for example `{"z": 3, "w": "v"}`. Otherwise it is written across lines, as
+  before.
+
+### Release
+
+- **Added**: the release pipeline fails when the packed tarball breaks architecture rule R-3:
+  `dist/runner-manifest.json`'s `entry` and every path it lists must exist in the `npm pack`
+  output. That manifest is the SDK's whole distribution contract; no other `dist/` path is part
+  of it. builder v0.12.1 and later check the same rule, so they accept 0.15.x roots. builder
+  v0.12.0 refuses them because it requires `dist/transport`.
+
 ## 0.15.0
 
 ### `scaffold` copies only the files you declare in `binary` (breaking)
