@@ -1,6 +1,7 @@
 // Structural ops: the JSON dialect's catalogue over `yaml` nodes, with "object" read as mapping
 // and "array" as sequence.
 
+import { repeatable } from "../../../../domain/services/repeatable.ts";
 import { isAlias, isMap, isSeq, type Document, type Node, type YAMLMap, type YAMLSeq } from "yaml";
 import { deepEqual } from "../../../../../../platform/deep-equal.ts";
 import { formatPath } from "../../../../domain/valueobjects/json-value.ts";
@@ -120,34 +121,34 @@ function assertIndex(op: string, path: YamlPath, index: unknown, max: number): a
 }
 
 /** Inserts a sequence item before `index`; `index` equal to the length appends. */
-export function insertItem(ast: YamlStream, path: YamlPath, index: number, value: YamlValue, options?: DocumentOption): void {
+export const insertItem = repeatable(function insertItem(ast: YamlStream, path: YamlPath, index: number, value: YamlValue, options?: DocumentOption): void {
   assertPath("insertItem", path);
   assertValue("insertItem", path, value);
   const document = selectDocument("insertItem", ast, options);
   const seq = requireSequence("insertItem", document, path);
   assertIndex("insertItem", path, index, seq.items.length);
   seq.items.splice(index, 0, createNode(document, value));
-}
+});
 
 /** Appends a sequence item, creating the sequence; `{ unique: true }` skips a deep-equal duplicate. */
-export function appendItem(ast: YamlStream, path: YamlPath, value: YamlValue, options?: DocumentOption & { unique?: boolean }): void {
+export const appendItem = repeatable(function appendItem(ast: YamlStream, path: YamlPath, value: YamlValue, options?: DocumentOption & { unique?: boolean }): void {
   assertPath("appendItem", path);
   assertValue("appendItem", path, value);
   const document = selectDocument("appendItem", ast, options, true);
   const seq = sequenceAt("appendItem", document, path, "create")!;
   if (options?.unique === true && seq.items.some((item) => deepEqual(toValue(document, item as Node), value))) return;
   seq.items.push(createNode(document, value));
-}
+});
 
 /** Removes the sequence item at `index`. */
-export function removeItem(ast: YamlStream, path: YamlPath, index: number, options?: DocumentOption): void {
+export const removeItem = repeatable(function removeItem(ast: YamlStream, path: YamlPath, index: number, options?: DocumentOption): void {
   assertPath("removeItem", path);
   const document = selectDocument("removeItem", ast, options);
   const seq = requireSequence("removeItem", document, path);
   assertIndex("removeItem", path, index, seq.items.length - 1);
   seq.items.splice(index, 1);
   assertAliasesResolve("removeItem", document);
-}
+});
 
 /** Removes every sequence item deep-equal to `value`; no match is a no-op. */
 export function removeValue(ast: YamlStream, path: YamlPath, value: YamlValue, options?: DocumentOption): void {
@@ -174,7 +175,7 @@ export function replaceItem(ast: YamlStream, path: YamlPath, index: number, valu
 }
 
 /** Moves the item at `from` so it sits at `to`; the others keep their relative order. */
-export function moveItem(ast: YamlStream, path: YamlPath, from: number, to: number, options?: DocumentOption): void {
+export const moveItem = repeatable(function moveItem(ast: YamlStream, path: YamlPath, from: number, to: number, options?: DocumentOption): void {
   assertPath("moveItem", path);
   const document = selectDocument("moveItem", ast, options);
   const seq = requireSequence("moveItem", document, path);
@@ -183,7 +184,7 @@ export function moveItem(ast: YamlStream, path: YamlPath, from: number, to: numb
   const [item] = seq.items.splice(from, 1);
   seq.items.splice(to, 0, item);
   assertAliasesResolve("moveItem", document);
-}
+});
 
 function changes(current: unknown, incoming: { [key: string]: YamlValue }): boolean {
   if (!isPlainObject(current)) return true;

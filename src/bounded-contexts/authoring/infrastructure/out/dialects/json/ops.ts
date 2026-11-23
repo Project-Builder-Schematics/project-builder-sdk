@@ -1,3 +1,4 @@
+import { repeatable } from "../../../../domain/services/repeatable.ts";
 import {
   applyEdits,
   getNodeValue,
@@ -399,16 +400,16 @@ export function renameKey(doc: JsonDocument, path: JsonPath, newKey: string): vo
 }
 
 /** Inserts `value` before the item at `index`; `index === length` appends. */
-export function insertItem(doc: JsonDocument, path: JsonPath, index: number, value: JsonValue): void {
+export const insertItem = repeatable(function insertItem(doc: JsonDocument, path: JsonPath, index: number, value: JsonValue): void {
   assertPath("insertItem", path);
   assertJsonValue(value);
   const length = requireArray("insertItem", doc, path).children!.length;
   assertIndex("insertItem", path, index, length);
   insertAt("insertItem", doc, path, index, value);
-}
+});
 
 /** Appends `value`, creating the array when absent; `{ unique: true }` skips a deep-equal duplicate. */
-export function appendItem(doc: JsonDocument, path: JsonPath, value: JsonValue, options?: AppendOptions): void {
+export const appendItem = repeatable(function appendItem(doc: JsonDocument, path: JsonPath, value: JsonValue, options?: AppendOptions): void {
   assertPath("appendItem", path);
   assertJsonValue(value);
   const array = arrayAt("appendItem", doc, path);
@@ -418,15 +419,15 @@ export function appendItem(doc: JsonDocument, path: JsonPath, value: JsonValue, 
   }
   if (options?.unique === true && array.children!.some((item) => deepEqual(getNodeValue(item), value))) return;
   insertAt("appendItem", doc, path, array.children!.length, value);
-}
+});
 
 /** Removes the item at `index` and its separator. */
-export function removeItem(doc: JsonDocument, path: JsonPath, index: number): void {
+export const removeItem = repeatable(function removeItem(doc: JsonDocument, path: JsonPath, index: number): void {
   assertPath("removeItem", path);
   const length = requireArray("removeItem", doc, path).children!.length;
   assertIndex("removeItem", path, index, length - 1);
   removeAt("removeItem", doc, [...path, index]);
-}
+});
 
 /** Removes every item deep-equal to `value`; no match (or no array) is a no-op. */
 export function removeValue(doc: JsonDocument, path: JsonPath, value: JsonValue): void {
@@ -448,7 +449,7 @@ export function replaceItem(doc: JsonDocument, path: JsonPath, index: number, va
 }
 
 /** Moves the item at `from` so it ends up at `to`; the other items keep their relative order. */
-export function moveItem(doc: JsonDocument, path: JsonPath, from: number, to: number): void {
+export const moveItem = repeatable(function moveItem(doc: JsonDocument, path: JsonPath, from: number, to: number): void {
   assertPath("moveItem", path);
   const items = requireArray("moveItem", doc, path).children!;
   assertIndex("moveItem", path, from, items.length - 1);
@@ -457,7 +458,7 @@ export function moveItem(doc: JsonDocument, path: JsonPath, from: number, to: nu
   const value = getNodeValue(items[from]!) as JsonValue;
   removeAt("moveItem", doc, [...path, from]);
   insertAt("moveItem", doc, path, to, value);
-}
+});
 
 function mergeInto(doc: JsonDocument, path: JsonPath, value: JsonObject): void {
   for (const [key, incoming] of Object.entries(value)) {
