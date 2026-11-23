@@ -19,7 +19,7 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { ensureTscBuild } from "../support/shared-build.ts";
 import { hashFile } from "../support/scratch-consumer.ts";
 import type { RunnerManifest } from "../../scripts/derive-runner-closure.ts";
@@ -174,6 +174,30 @@ describe("R-3 — the packed tarball is a complete SDK distribution", () => {
   });
 });
 
+interface PackedPackageJson {
+  bin?: Record<string, string>;
+  engines?: Record<string, string>;
+  dependencies?: Record<string, string>;
+}
+
+function packedPackageJson(root: string): PackedPackageJson {
+  return JSON.parse(readFileSync(join(root, "package.json"), "utf-8")) as PackedPackageJson;
+}
+
+// Architecture rule R-8: `builder new schematic` runs the file the root's package.json names as
+// `bin.pbuilder-codegen`, under a Node satisfying its `engines.node`. A root lacking either fails.
+describe("R-8 — the packed package.json declares the codegen bin and the Node floor", () => {
+  it("bin.pbuilder-codegen names a file that exists in the extracted tarball", () => {
+    const codegen = packedPackageJson(extracted).bin?.["pbuilder-codegen"];
+    expect(codegen).toBe("dist/bin/pbuilder-codegen.js");
+    expect(existsSync(join(extracted, codegen as string))).toBe(true);
+  });
+
+  it("engines.node is declared", () => {
+    expect(packedPackageJson(extracted).engines?.node).toMatch(/\S/);
+  });
+});
+
 describe("PMF-02.1 — every digest holds against the packed bytes", () => {
   it("the packed manifest still carries exactly 29 records, package.json last", () => {
     expect(packedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
@@ -263,6 +287,27 @@ describe("PMF-02.3 — entry #29 survives a real registry install", () => {
     );
     expect(installedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
     expect(mismatched.map((record) => record.path)).toEqual([]);
+  });
+
+  // R-3 identity check: every declared dependency resolves from a node_modules at the root or
+  // above it, which is where a real install puts it.
+  function unresolvedDependencies(root: string, names: readonly string[]): string[] {
+    return names.filter((name) => {
+      for (let dir = root; ; dir = dirname(dir)) {
+        if (existsSync(join(dir, "node_modules", name, "package.json"))) return false;
+        if (dirname(dir) === dir) return true;
+      }
+    });
+  }
+
+  it("R-3: every declared dependency resolves from a node_modules at the installed root or above", () => {
+    const declared = Object.keys(packedPackageJson(installedRoot).dependencies ?? {});
+    expect(declared.length).toBeGreaterThan(0);
+    expect(unresolvedDependencies(installedRoot, declared)).toEqual([]);
+    // Non-vacuity: a name nothing installed must be reported.
+    expect(unresolvedDependencies(installedRoot, ["pmf-never-installed"])).toEqual([
+      "pmf-never-installed",
+    ]);
   });
 });
 
