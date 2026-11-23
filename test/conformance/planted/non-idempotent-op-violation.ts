@@ -62,11 +62,22 @@ function dropFirstLineStarting(ast: Lines, prefix: string): void {
   ast.text = lines.join("\n");
 }
 
-const appendCase = [["a\n", "b\n"], "start\n", "start\na\n", "start\na\nb\n"] as const;
+// Fails loudly when its target is gone, so applied to its own result it throws instead of
+// leaving the file as it is.
+function removeExactLine(ast: Lines, line: string): void {
+  const lines = ast.text.split("\n");
+  const index = lines.indexOf(line);
+  if (index < 0) throw new Error(`no line "${line}"`);
+  lines.splice(index, 1);
+  ast.text = lines.join("\n");
+}
+
+const appendCase =[["a\n", "b\n"], "start\n", "start\na\n", "start\na\nb\n"] as const;
 const dropCase = [["x", "y"], "x1\nx2\nx3\ny1\ny2\n", "x2\nx3\ny1\ny2\n", "x2\nx3\ny2\n"] as const;
 
 export const nonIdempotentOpViolationFixture = fixtureWith(appendLine, ...appendCase);
 export const positionalOpViolationFixture = fixtureWith(dropFirstLineStarting, ...dropCase);
+export const throwingOnReapplyFixture = fixtureWith(removeExactLine, ["x", "y"], "x\ny\nz\n", "y\nz\n", "z\n");
 
 // Fresh functions, because `repeatable` marks the op itself.
 export const repeatableAddingOpFixture = fixtureWith(

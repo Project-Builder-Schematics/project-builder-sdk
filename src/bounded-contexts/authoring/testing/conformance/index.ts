@@ -216,11 +216,19 @@ async function assertIdempotent(fixture: OpPackFixture, exercise: OpExercise): P
     if (isRepeatable(fixture.baseDialect.ops[step.op]) || isRepeatable(fixture.opPack[step.op])) return;
     opNames.push(step.op);
   }
-  const again = await runExercise(
-    fixture.baseDialect,
-    { seed: exercise.expect, path: exercise.path, chain: exercise.chain },
-    { injectReadAfterFirstOp: false }
-  );
+  let again: ExerciseRun;
+  try {
+    again = await runExercise(
+      fixture.baseDialect,
+      { seed: exercise.expect, path: exercise.path, chain: exercise.chain },
+      { injectReadAfterFirstOp: false }
+    );
+  } catch (err) {
+    throw new Error(
+      `testOpPack: A-11 idempotency — re-applying the chain [${opNames.join(", ")}] to its own result threw: ` +
+        (err instanceof Error ? err.message : String(err))
+    );
+  }
   if (again.modifies.some((modify) => modify.content !== exercise.expect)) {
     throw new Error(
       `testOpPack: A-11 idempotency — applying the chain [${opNames.join(", ")}] again to its own result changed the file; ` +

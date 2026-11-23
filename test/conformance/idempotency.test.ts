@@ -15,6 +15,7 @@ import {
   positionalOpViolationFixture,
   repeatableAddingOpFixture,
   repeatablePositionalOpFixture,
+  throwingOnReapplyFixture,
 } from "./planted/non-idempotent-op-violation.ts";
 
 describe("A-11 — the conformance kit checks ops for idempotency", () => {
@@ -26,6 +27,12 @@ describe("A-11 — the conformance kit checks ops for idempotency", () => {
 
   it("[permanent-fixture] rejects an op that acts on a position and reaches another element, when it is not declared repeatable", async () => {
     await expect(testOpPack(positionalOpViolationFixture)).rejects.toThrow(/A-11 idempotency/);
+  });
+
+  it("an op that throws when applied to its own result is rejected with an A-11 message", async () => {
+    await expect(testOpPack(throwingOnReapplyFixture)).rejects.toThrow(
+      /A-11 idempotency — re-applying the chain \[edit\] to its own result threw: dialect operation failed: edit\(\) on "op-exercise\.lines" threw/
+    );
   });
 
   it("accepts an op that adds again on every application when the dialect declares it repeatable", async () => {
