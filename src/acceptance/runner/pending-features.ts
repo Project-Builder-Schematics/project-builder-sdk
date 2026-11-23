@@ -11,30 +11,18 @@ export interface PendingFeature {
   readonly slice: string;
 }
 
-const DIALECTS_FEATURE = "bounded-contexts/authoring/rules/dialects.feature";
-// A conformance scenario needs a `Dialect` object, which no public entry offers until sdk#103.
-const CONFORMANCE = "sdk#103";
-
 /**
  * Features, or single scenarios, with `@sdk @status:implemented` scenarios whose steps are not
  * defined yet. The strict pass skips their scenarios and reports how many. Shrink-only: a row
  * leaves when its slice lands, and a row whose scenarios have no undefined step left fails as stale.
  */
 export const PENDING_FEATURES: readonly PendingFeature[] = [
-  { feature: DIALECTS_FEATURE, scenario: "A conforming Dialect passes the conformance fixture", slice: CONFORMANCE },
-  { feature: DIALECTS_FEATURE, scenario: "A Dialect whose print changes an unedited file is rejected", slice: CONFORMANCE },
-  {
-    feature: DIALECTS_FEATURE,
-    scenario: "A Dialect whose ops send several content writes for one chain is rejected",
-    slice: CONFORMANCE,
-  },
-  { feature: DIALECTS_FEATURE, scenario: "A Dialect that accepts an undeclared extension is rejected", slice: CONFORMANCE },
   // Its steps need the dialect kit, which is not a public entry until sdk#103.
   { feature: "bounded-contexts/authoring/rules/dialect-composition.feature", slice: "sdk#103" },
 ];
 
 /** The list may only shrink: lower this when a row leaves, never raise it. */
-export const PENDING_CEILING = 5;
+export const PENDING_CEILING = 1;
 
 /** Whether a row covers the scenario: its whole feature, or that one scenario of it. */
 export function isPending(rows: readonly PendingFeature[], pickle: RulePickle): boolean {

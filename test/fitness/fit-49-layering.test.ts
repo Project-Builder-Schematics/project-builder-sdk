@@ -242,6 +242,9 @@ describe("fit-49 — [red-proof] each rule fires on a planted edge", () => {
     ["the test-kit entry", "src/testing/index.ts"],
     ["a dialect's public barrel", "src/dialects/css/index.ts"],
     ["its own runner", "src/acceptance/runner/steps.ts"],
+    ["the dialect kit, until sdk#103", `${A}/domain/services/define-dialect.ts`],
+    ["the JSON dialect's ast, until sdk#103", `${A}/infrastructure/out/dialects/json/ast.ts`],
+    ["the JSON dialect's ops, until sdk#103", `${A}/infrastructure/out/dialects/json/ops.ts`],
     ["runtime I/O", "node:fs"],
     ["the Cucumber packages", "@cucumber/gherkin"],
   ])("acceptance/ may reach %s", (_, to) => {
