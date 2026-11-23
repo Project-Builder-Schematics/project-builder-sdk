@@ -17,7 +17,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureTscBuild } from "../support/shared-build.ts";
@@ -151,6 +151,26 @@ describe("PMF-01 — the manifest is part of the published surface", () => {
   it("npm pack's file list contains dist/runner-manifest.json", () => {
     expect(dryRunFiles.length).toBeGreaterThan(EXPECTED_RECORD_COUNT);
     expect(dryRunFiles).toContain(MANIFEST_RELATIVE_PATH);
+  });
+});
+
+// Architecture rule R-3 (runner-hosting/rules/sdk-root.feature): a root is complete when its
+// manifest is readable and its `entry` and every `files` path exist. That is the SDK's whole
+// distribution contract with the CLI and the engine; no other dist/ path is one.
+function missingFromDistribution(root: string, manifest: RunnerManifest): string[] {
+  return [manifest.entry, ...manifest.files.map((record) => record.path)].filter(
+    (path) => !existsSync(join(root, path))
+  );
+}
+
+describe("R-3 — the packed tarball is a complete SDK distribution", () => {
+  it("the manifest's entry and every listed path exist in the extracted tarball", () => {
+    expect(packedManifest.entry).toBe("dist/bin/pbuilder-runner.js");
+    expect(missingFromDistribution(extracted, packedManifest)).toEqual([]);
+    // Non-vacuity: an empty root must report the entry as missing.
+    expect(missingFromDistribution(temporaryRoot("pmf-empty-"), packedManifest)).toContain(
+      packedManifest.entry
+    );
   });
 });
 

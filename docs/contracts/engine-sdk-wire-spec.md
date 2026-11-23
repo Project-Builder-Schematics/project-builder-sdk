@@ -156,8 +156,10 @@ an attempt that never started.
 const BRIDGE_CONTRACT_VERSION = 1; // in-process JS bridge — INDEPENDENT of WIRE_PROTOCOL_VERSION
 ```
 
-The engine's embedded bootstrap dynamic-imports `bootstrap-bridge.ts` and calls
-`enterBridge(expectedVersion, params, io)` exactly ONCE per run. The SDK TOLERATES sequential
+The engine does not use the bridge today: it always spawns `dist/bin/pbuilder-runner.js` as a
+subprocess and reads no other SDK path besides `dist/runner-manifest.json` and `package.json`.
+The bridge is the contract for an in-process host. Such a host's bootstrap dynamic-imports
+`bootstrap-bridge.ts` and calls `enterBridge(expectedVersion, params, io)` exactly ONCE per run. The SDK TOLERATES sequential
 re-entry within one engine process (the fd-1 capture is idempotent — the first capture's real
 write handle is cached and reused), but with a known residual: a timed-out call's parked stdin
 read (`#danglingRead`) can survive run end and consume bytes of a subsequent Run sharing
@@ -171,10 +173,12 @@ SAME `RUN-01`..`RUN-04` gates the argv-spawn path uses — never a duplicated, w
 version is co-versioned with, but tracked INDEPENDENTLY of, `WIRE_PROTOCOL_VERSION` above — a
 bridge-contract bump does not imply a wire-protocol bump, and vice versa.
 
-The engine's bootstrap MUST reach `bootstrap-bridge.ts` via an absolute file-path dynamic
-`import()` — never a bare package-specifier deep import (e.g. `@pbuilder/sdk/transport/bootstrap-bridge`)
-— since the package's `exports` map (`package.json`) exposes no `./transport/*` subpath and such
-an import fails closed with `ERR_PACKAGE_PATH_NOT_EXPORTED`.
+An in-process host MUST reach `bootstrap-bridge.ts` via an absolute file-path dynamic
+`import()` — never a bare package-specifier deep import (e.g.
+`@pbuilder/sdk/bounded-contexts/runner-hosting/infrastructure/in/bootstrap-bridge`) — since the
+package's `exports` map (`package.json`) exposes no such subpath and that import fails closed
+with `ERR_PACKAGE_PATH_NOT_EXPORTED`. The file's location under `dist/` is not a contract: it
+moved in 0.15.0, so a host must not hard-code it.
 
 ## Frame-Cap Constant (WPS-06)
 
