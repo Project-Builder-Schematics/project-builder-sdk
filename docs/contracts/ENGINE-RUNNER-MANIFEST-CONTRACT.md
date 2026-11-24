@@ -120,6 +120,12 @@ If any of these has changed on your side, tell us — several of them are load-b
 > following it; that is defence in depth, and the engine's `copyIn` read gate (no-follow plus the
 > link fence) stays the authority at commit time.
 
+> **SDK note, 2026-11-25 (the C# grammar is listed).** The manifest carries **30 records**: the
+> 28 closure files, `dist/bounded-contexts/authoring/infrastructure/out/dialects/csharp/tree-sitter-c_sharp.wasm`
+> and `package.json`. The grammar is read by path, not imported, so the closure walk cannot reach it;
+> the generator appends it from `DIST_ASSETS` so R-3 treats a root without it as incomplete and R-7
+> verifies it (project-builder-sdk#256). The record shape, ordering and algorithm are unchanged.
+
 > **SDK note, 2026-11-20 (runner reaches Authoring through its application layer).** The closure is
 > now **28 `.js` files**, so the manifest carries **29 records** with `package.json`. The new file is
 > `bounded-contexts/authoring/application/usecases/run-factory/driving.js`, which gives the runner an

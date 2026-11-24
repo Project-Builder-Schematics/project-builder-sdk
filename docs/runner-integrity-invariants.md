@@ -8,8 +8,10 @@ know about. It is the contributor-facing counterpart to
 
 ## What the manifest covers — and what it does not
 
-`dist/runner-manifest.json` lists 29 files: the 28 emitted `.js` files in the runner's static import
-closure, plus the package's root `package.json`. Those 29 are the code that runs **before** the
+`dist/runner-manifest.json` lists 30 files: the 28 emitted `.js` files in the runner's static import
+closure, the C# grammar the `csharp` and `aspnet` dialects load at run time
+(`tree-sitter-c_sharp.wasm`, see below), plus the package's root `package.json`. The 28 files and
+`package.json` are the code that runs **before** the
 runner imports the author's factory — the *pre-factory bootstrap*, and nothing beyond it. They are
 not "the runner" in the sense a reader is likely to assume, and they are certainly not "the SDK".
 `dist/commons/**`, `dist/dialects/**`, `dist/bounded-contexts/**`, `dist/platform/**`, `dist/conformance/**`,
@@ -35,7 +37,7 @@ story, and pretending otherwise would not survive the first person who checked. 
 declared surface (the factory module, `schema.json`, argv) sits on the far side of the boundary this
 manifest draws. One route did reach the installed SDK tree in practice — a workspace `node_modules`
 write the containment gate did not exclude — and the engine now denies `SDKRoot`-subtree writes at
-ingestion: closed by a containment rule, not by any digest of ours. Hashing our own 29 files does
+ingestion: closed by a containment rule, not by any digest of ours. Hashing our own 30 files does
 not constrain them. This paragraph says so plainly on purpose: an engineer who works that out
 independently, six months from now, with nothing on the page to explain it, will reasonably conclude
 the mechanism is ceremony and delete it.
@@ -69,7 +71,7 @@ worth more than the digests. Weigh all three before removing any part of it.
 
 ## The five Constraints
 
-The engine's closure-sealing lemma — their argument that verifying 29 digests is equivalent to
+The engine's closure-sealing lemma — their argument that verifying 30 digests is equivalent to
 hashing the executed tree — holds only while all five of the properties below hold. Each is named
 and numbered, never cited by bare number, because the two repos number independently and a silent
 divergence would be invisible. Each carries an `enforced-by:` field naming the mechanism that
@@ -174,9 +176,18 @@ a preload hook or an import map that substitutes different code. That control si
 engine's side of the boundary; this repo has no mechanism for it and does not claim one. It is
 listed here so the lemma's preconditions are complete, not because we enforce it.
 
-## Why `package.json` is entry #29
+## Why the C# grammar is listed
 
-`package.json` is entry #29 because its `"type": "module"` field governs the parse mode of all 28
+The `csharp` dialect parses with a vendored WebAssembly build of tree-sitter-c-sharp, which it reads
+from `dist/` by path when a schematic imports `@pbuilder/sdk/csharp`; no import edge reaches it, so
+no closure walk can find it. It is the one file outside the pre-factory bootstrap the manifest lists
+(`DIST_ASSETS` in `scripts/derive-runner-closure.ts`): a distribution without it is incomplete under
+R-3, and R-7 verifies its digest before the runner starts. The dialects' own `.js` files stay
+unlisted, like every other file the factory loads.
+
+## Why `package.json` is entry #30
+
+`package.json` is entry #30 because its `"type": "module"` field governs the parse mode of all 28
 closure files: flipping it to `"commonjs"` reinterprets every hashed byte without editing one. It is
 **not** included because of `packageRootFor()` — hashing content cannot constrain a topology walk.
 

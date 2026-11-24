@@ -32,7 +32,7 @@ const TIER_C_TIMEOUT = 300_000;
 
 const MANIFEST_RELATIVE_PATH = "dist/runner-manifest.json";
 const PACKAGE_NAME = "@pbuilder/sdk";
-const EXPECTED_RECORD_COUNT = 29;
+const EXPECTED_RECORD_COUNT = 30;
 
 // Port 1 is reserved and never listening; the fast-fail flags keep the failure inside seconds.
 const DEAD_REGISTRY = "http://127.0.0.1:1";
@@ -199,12 +199,12 @@ describe("R-8 — the packed package.json declares the codegen bin and the Node 
 });
 
 describe("PMF-02.1 — every digest holds against the packed bytes", () => {
-  it("the packed manifest still carries exactly 29 records, package.json last", () => {
+  it("the packed manifest still carries exactly 30 records, package.json last", () => {
     expect(packedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
     expect(entryTwentyFour(packedManifest).path).toBe("package.json");
   });
 
-  it("all 29 digests recompute from the extracted tarball's own bytes", () => {
+  it("all 30 digests recompute from the extracted tarball's own bytes", () => {
     const mismatched = packedManifest.files.filter(
       (record) => hashFile(join(extracted, record.path)) !== record.sha256
     );
@@ -213,11 +213,11 @@ describe("PMF-02.1 — every digest holds against the packed bytes", () => {
   });
 });
 
-describe("PMF-02.2 — a version stamped after the build breaks entry #29", () => {
+describe("PMF-02.2 — a version stamped after the build breaks the package.json entry", () => {
   // The behavioural proof of the publish-ordering property. S-002's BPI-03.1 establishes it
   // structurally from publish.yml; this is what it looks like when the property is violated.
   it(
-    "rewriting package.json#version after packing makes entry #29's digest MISMATCH",
+    "rewriting package.json#version after packing makes the package.json entry's digest MISMATCH",
     () => {
       const rewritten = packageRootCopy("pmf-rewrite-");
       const packageJsonPath = join(rewritten, "package.json");
@@ -251,7 +251,7 @@ describe("PMF-02.2 — a version stamped after the build breaks entry #29", () =
   );
 });
 
-describe("PMF-02.3 — entry #29 survives a real registry install", () => {
+describe("PMF-02.3 — the package.json entry survives a real registry install", () => {
   // `npm-normalize-package-bin` is a known rewriter and this package HAS a `bin` field, so
   // the install boundary is a genuinely different question from the pack boundary. A
   // mismatch here is a real finding, not a broken test.
@@ -274,14 +274,14 @@ describe("PMF-02.3 — entry #29 survives a real registry install", () => {
     ) as RunnerManifest;
   }, TIER_C_TIMEOUT);
 
-  it("entry #29 recomputes correctly against the INSTALLED package.json", () => {
+  it("the package.json entry recomputes correctly against the INSTALLED package.json", () => {
     expect(installedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
     const entry24 = entryTwentyFour(installedManifest);
     expect(entry24.path).toBe("package.json");
     expect(hashFile(join(installedRoot, "package.json"))).toBe(entry24.sha256);
   });
 
-  it("every other installed digest holds too, so #29 is not passing alone", () => {
+  it("every other installed digest holds too, so the package.json entry is not passing alone", () => {
     const mismatched = installedManifest.files.filter(
       (record) => hashFile(join(installedRoot, record.path)) !== record.sha256
     );

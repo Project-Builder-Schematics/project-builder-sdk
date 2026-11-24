@@ -27,6 +27,7 @@ import { spawnSync } from "node:child_process";
 import {
   BASELINE_RELATIVE_PATH,
   CREATE_REQUIRE_ANCHOR_FILE,
+  DIST_ASSETS,
   ENTRY_RELATIVE_PATH,
   MANIFEST_RELATIVE_PATH,
   SANCTIONED_DYNAMIC_IMPORT_FILE,
@@ -34,6 +35,7 @@ import {
   comparePaths,
   deriveRunnerClosure,
   readSpecifiers,
+  sha256Bytes,
   type ClosureDerivation,
   type ClosureEdge,
   type ClosurePath,
@@ -141,8 +143,16 @@ describe("FIT-42 S-000 — the build emits a runner manifest", () => {
     expect(manifest.algorithm).toBe("sha256");
   });
 
-  it("REQ-RME-01.1: the manifest carries 29 file records — the 28 closure files plus package.json", () => {
-    expect(manifest.files.length).toBe(29);
+  it("REQ-RME-01.1: the manifest carries 30 file records — the 28 closure files, the C# grammar and package.json", () => {
+    expect(manifest.files.length).toBe(30);
+  });
+
+  it("R-3/R-7: the C# grammar the csharp dialect loads at run time is listed with the digest of the vendored file", () => {
+    for (const asset of DIST_ASSETS) {
+      const record = manifest.files.find((entry) => entry.path === `dist/${asset}`);
+      expect(record?.sha256).toBe(sha256Bytes(readFileSync(join(PROJECT_ROOT, "src", asset))));
+    }
+    expect(DIST_ASSETS).toContain("bounded-contexts/authoring/infrastructure/out/dialects/csharp/tree-sitter-c_sharp.wasm");
   });
 
   it("REQ-RME-01.1: `entry` names the runner and appears exactly once among the file records", () => {
@@ -175,7 +185,7 @@ describe("FIT-42 S-000 — the build emits a runner manifest", () => {
     });
     expect(result.status).toBe(0);
     const [first, second, ...rest] = result.stdout.trimEnd().split("\n");
-    expect(first).toBe("runner-manifest: 29 files -> dist/runner-manifest.json");
+    expect(first).toBe("runner-manifest: 30 files -> dist/runner-manifest.json");
     expect(second).toMatch(/^runner-manifest-sha256: [\da-f]{64}$/);
     expect(rest).toEqual([]);
   }, 30_000);
@@ -311,10 +321,10 @@ describe("FIT-42 S-002 — the manifest's shape, exclusions, hygiene and orderin
     expect(offenders).toEqual([]);
   });
 
-  it("REQ-RME-01.2: exactly one record is package.json and the other 28 start with dist/", () => {
+  it("REQ-RME-01.2: exactly one record is package.json and the other 29 start with dist/", () => {
     const paths = manifest.files.map((record) => record.path);
     expect(paths.filter((path) => path === "package.json").length).toBe(1);
-    expect(paths.filter((path) => path.startsWith("dist/")).length).toBe(28);
+    expect(paths.filter((path) => path.startsWith("dist/")).length).toBe(29);
   });
 
   it("REQ-RME-03.1: no record matches an excluded tree, a .d.ts, or the manifest itself", () => {
