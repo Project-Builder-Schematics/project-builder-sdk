@@ -6,6 +6,32 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.16.0
+
+### Conformance kit checks idempotency (breaking)
+
+- **Changed**: `testOpPack` applies each exercise's chain a second time, to the exercise's own
+  `expect`, as architecture rule A-11 requires. It rejects the dialect when that second run
+  changes the file:
+  - `testOpPack: A-11 idempotency — applying the chain [<ops>] again to its own result changed the file; an op whose effect depends on how many times it is applied must be declared with repeatable()`
+  - `testOpPack: A-11 idempotency — re-applying the chain [<ops>] to its own result threw: <error>`
+
+  A chain that holds a `.modify()` step or a repeatable op is not checked.
+  **Migration**: a dialect op whose effect depends on how many times it is applied (it adds
+  again, or it acts on a position) must be declared with `repeatable()`. Any other op must
+  leave a file that already has its effect unchanged. `repeatable` and `defineDialect` are not
+  in any `package.json` `exports` entry, so only in-repo dialect contributors are affected.
+- **Added**: `repeatable(op)` marks an op as exempt from the idempotency check. The JSON and
+  YAML `insertItem`, `appendItem`, `removeItem` and `moveItem`, and YAML `addDocument` and
+  `removeDocument`, are declared repeatable. Their behaviour is unchanged.
+
+### Release
+
+- **Added**: the release pipeline also checks rule R-8 and the dependency half of R-3 on the
+  packed tarball: `bin.pbuilder-codegen` is `dist/bin/pbuilder-codegen.js` and the file
+  exists, `engines.node` is set, and every declared dependency resolves from an ancestor
+  `node_modules` of the installed root.
+
 ## 0.15.1
 
 ### Runner
