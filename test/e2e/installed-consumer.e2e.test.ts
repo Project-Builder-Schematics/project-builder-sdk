@@ -35,12 +35,13 @@
  * which remains the release-shape verification vehicle.
  */
 import { describe, it, expect, afterAll } from "bun:test";
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, mkdirSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 import {
   PROJECT_ROOT,
   ensurePackedConsumer,
   ensureLinkedConsumer,
+  LINK_ENV,
   unlinkSdk,
   cleanScratchDir,
   runScratchScript,
@@ -487,6 +488,15 @@ function extractDescribeBlock(source: string, titleFragment: string): string {
 function countTopLevelIts(block: string): number {
   return [...block.matchAll(/^ {2}it\(/gm)].length;
 }
+
+describe("e2e — installed-consumer-vantage, bun-link isolation", () => {
+  it("registers the global link under a scratch BUN_INSTALL, never the user's global install", async () => {
+    await ensureLinkedConsumer(LINK_SCRATCH_DIR);
+    expect(LINK_ENV.BUN_INSTALL).not.toBe(process.env.BUN_INSTALL);
+    const registered = join(LINK_ENV.BUN_INSTALL, "install/global/node_modules/@pbuilder/sdk");
+    expect(lstatSync(registered).isSymbolicLink()).toBe(true);
+  }, 30_000);
+});
 
 describe("e2e — installed-consumer-vantage, cross-leg red-proofs (REQ-LC-02.3/04.3/05.3, S-001.3)", () => {
   it("[red-proof] REQ-LC-02.3: the bun-link leg's scenario-group count matches the tarball leg's", () => {

@@ -18,7 +18,7 @@ import { describe, it, expect, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { PROJECT_ROOT, ensureLinkedConsumer, unlinkSdk, cleanScratchDir } from "../support/scratch-consumer.ts";
+import { PROJECT_ROOT, LINK_ENV, ensureLinkedConsumer, unlinkSdk, cleanScratchDir } from "../support/scratch-consumer.ts";
 import { spawnCapture } from "../support/canary.ts";
 
 const QUICKSTART_PATH = join(PROJECT_ROOT, "docs/guides/quickstart.md");
@@ -268,7 +268,7 @@ describe("REQ-AOD-11 — consumer-side tsc leg for the quickstart's typed factor
           `quickstart tsc-leg scratch install failed:\n${installResult.stdout}\n${installResult.stderr}`
         );
       }
-      const linkResult = spawnSync("bun", ["link", "@pbuilder/sdk"], { cwd: TSC_SCRATCH_DIR, encoding: "utf-8" });
+      const linkResult = spawnSync("bun", ["link", "@pbuilder/sdk"], { cwd: TSC_SCRATCH_DIR, encoding: "utf-8", env: LINK_ENV });
       if (linkResult.status !== 0) {
         throw new Error(`quickstart tsc-leg bun link failed:\n${linkResult.stdout}\n${linkResult.stderr}`);
       }

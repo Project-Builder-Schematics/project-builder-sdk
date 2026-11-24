@@ -11,12 +11,18 @@
  * module instead of each re-deriving build/pack/install/link plumbing.
  */
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureTscBuild } from "./shared-build.ts";
 
 export const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
+
+// `bun link` registers the package in $BUN_INSTALL/install/global and `bun unlink` deletes
+// that entry, so running them against the real BUN_INSTALL replaces, then removes, a globally
+// installed @pbuilder/sdk that other tools resolve from there.
+export const LINK_ENV = { ...process.env, BUN_INSTALL: mkdtempSync(join(tmpdir(), "pbuilder-link-")) };
 
 export function hashFile(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
@@ -152,7 +158,7 @@ function ensureProducerLinked(): Promise<void> {
   }
 
   producerLinked = (async () => {
-    const linkSdkResult = spawnSync("bun", ["run", "link:sdk"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
+    const linkSdkResult = spawnSync("bun", ["run", "link:sdk"], { cwd: PROJECT_ROOT, encoding: "utf-8", env: LINK_ENV });
     if (linkSdkResult.status !== 0) {
       throw new Error(`bun run link:sdk failed:\n${linkSdkResult.stdout}\n${linkSdkResult.stderr}`);
     }
@@ -189,7 +195,7 @@ export function ensureLinkedConsumer(scratchDir: string): Promise<void> {
       )
     );
 
-    const linkResult = spawnSync("bun", ["link", "@pbuilder/sdk"], { cwd: scratchDir, encoding: "utf-8" });
+    const linkResult = spawnSync("bun", ["link", "@pbuilder/sdk"], { cwd: scratchDir, encoding: "utf-8", env: LINK_ENV });
     if (linkResult.status !== 0) {
       throw new Error(`bun link @pbuilder/sdk failed:\n${linkResult.stdout}\n${linkResult.stderr}`);
     }
@@ -207,6 +213,6 @@ export function ensureLinkedConsumer(scratchDir: string): Promise<void> {
  * registration was already absent, not a test failure.
  */
 export function unlinkSdk(): void {
-  spawnSync("bun", ["unlink"], { cwd: PROJECT_ROOT, encoding: "utf-8" });
+  spawnSync("bun", ["unlink"], { cwd: PROJECT_ROOT, encoding: "utf-8", env: LINK_ENV });
   producerLinked = undefined;
 }
