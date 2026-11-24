@@ -167,9 +167,9 @@ describe("walkthrough outcome-gap fix (G-2, REQ-AOD-01/07/11) — consumer tscon
     const [bin, ...args] = shownCommand.split(/\s+/);
     // No explicit node_modules/.bin path here, unlike the REQ-AOD-01.1 leg below — this
     // proves the LITERAL command a reader types resolves, relying only on `bun link:sdk`'s
-    // (step 1) global bin registration being on PATH, same as this suite's own bare `bun`
+    // (step 1) global bin registration being on PATH (LINK_ENV's scratch Bun bin), same as this suite's own bare `bun`
     // invocations already rely on.
-    const result = spawnCapture(bin ?? "pbuilder-codegen", args, { cwd: MACHINE_SCRATCH_DIR });
+    const result = spawnSync(bin ?? "pbuilder-codegen", args, { cwd: MACHINE_SCRATCH_DIR, encoding: "utf-8", env: LINK_ENV });
     expect(result.status).toEqual(0);
     expect(result.stdout).toContain("pbuilder-codegen: wrote schema.generated.ts");
   }, 30_000);

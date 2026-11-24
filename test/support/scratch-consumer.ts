@@ -14,15 +14,21 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { ensureTscBuild } from "./shared-build.ts";
 
 export const PROJECT_ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 
 // `bun link` registers the package in $BUN_INSTALL/install/global and `bun unlink` deletes
 // that entry, so running them against the real BUN_INSTALL replaces, then removes, a globally
-// installed @pbuilder/sdk that other tools resolve from there.
-export const LINK_ENV = { ...process.env, BUN_INSTALL: mkdtempSync(join(tmpdir(), "pbuilder-link-")) };
+// installed @pbuilder/sdk that other tools resolve from there. Its bin directory leads PATH, as
+// Bun's global bin does in a reader's shell, so a linked bin resolves from the scratch link.
+const LINK_BUN_INSTALL = mkdtempSync(join(tmpdir(), "pbuilder-link-"));
+export const LINK_ENV = {
+  ...process.env,
+  BUN_INSTALL: LINK_BUN_INSTALL,
+  PATH: `${join(LINK_BUN_INSTALL, "bin")}${delimiter}${process.env.PATH ?? ""}`,
+};
 
 export function hashFile(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
