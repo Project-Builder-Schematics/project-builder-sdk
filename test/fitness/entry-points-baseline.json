@@ -54,6 +54,21 @@
       "types": "./dist/dialects/css/index.d.ts",
       "import": "./dist/dialects/css/index.js",
       "default": "./dist/dialects/css/index.js"
+    },
+    "./csharp": {
+      "types": "./dist/dialects/csharp/index.d.ts",
+      "import": "./dist/dialects/csharp/index.js",
+      "default": "./dist/dialects/csharp/index.js"
+    },
+    "./aspnet": {
+      "types": "./dist/dialects/aspnet/index.d.ts",
+      "import": "./dist/dialects/aspnet/index.js",
+      "default": "./dist/dialects/aspnet/index.js"
+    },
+    "./msbuild": {
+      "types": "./dist/dialects/msbuild/index.d.ts",
+      "import": "./dist/dialects/msbuild/index.js",
+      "default": "./dist/dialects/msbuild/index.js"
     }
   },
   "main": "./dist/index.js",

@@ -286,6 +286,37 @@
   .important?: boolean | undefined
 ./css find function: (path: string) => Handle<"found", Root, CssOps>
 ./css getDeclaration function: (root: Root, target: CssTarget, property: string) => { value: string; important: boolean; } | undefined
+./csharp astLibrary namespace: typeof import("web-tree-sitter")
+./csharp CsharpDocument interface: CsharpDocument
+  .text: string
+./csharp find function: (path: string) => Handle<"found", CsharpDocument, CsharpOps>
+./csharp FromOptions interface: FromOptions
+  .from?: string | undefined
+./csharp language const: Language
+./csharp UsingOptions interface: UsingOptions
+  .static?: boolean | undefined
+  .global?: boolean | undefined
+  .alias?: string | undefined
+./aspnet astLibrary namespace: typeof import("web-tree-sitter")
+./aspnet CsharpDocument interface: CsharpDocument
+  .text: string
+./aspnet find function: (path: string) => Handle<"found", CsharpDocument, AspnetOps>
+./aspnet FromOptions interface: FromOptions
+  .from?: string | undefined
+./aspnet language const: Language
+./aspnet Lifetime type: "Singleton" | "Scoped" | "Transient"
+./aspnet ServiceOptions interface: ServiceOptions
+  .serviceFrom?: string | undefined
+  .implementationFrom?: string | undefined
+  .method?: string | undefined
+./aspnet UsingOptions interface: UsingOptions
+  .static?: boolean | undefined
+  .global?: boolean | undefined
+  .alias?: string | undefined
+./msbuild astLibrary namespace: typeof import("saxes")
+./msbuild find function: (path: string) => Handle<"found", MsbuildDocument, MsbuildOps>
+./msbuild MsbuildDocument interface: MsbuildDocument
+  .text: string
 reachable AngularOps@index type: { addComponentImport: InsertOp; addComponentProvider: InsertOp; addRootProvider: InsertOp; addRoute: (ast: SourceFile, route: RouteSpec) => void; addLazyRoute: (ast: SourceFile, route: LazyRouteSpec) => void; addInjection: (ast: SourceFile, name: string, token: ArrayElement, options?: InjectionOptions) => void; addInput: (ast: SourceFile, name: string, options?: InputOptions) => void; addModel: (ast: SourceFile, name: string, options?: InputOptions) => void; addOutput: (ast: SourceFile, name: string, options?: OutputOptions) => void; addSignal: (ast: SourceFile, name: string, initial: string, options?: StateOptions) => void; addComputed: (ast: SourceFile, name: string, expression: string, options?: StateOptions) => void; addNgModuleImport: InsertOp; addDeclaration: InsertOp; addNgModuleProvider: InsertOp; addNgModuleExport: InsertOp; addBootstrap: InsertOp; }
   .addComponentImport: InsertOp
   .addComponentProvider: InsertOp
@@ -310,6 +341,12 @@ reachable ArrayElement@array-element type: string | { expression: string; }
   .valueOf: (() => string) | (() => Object)
 reachable ArrayLocator@array-element type: { variable: string; path: readonly PathSegment[]; } | { call: string; argument: number; path: readonly PathSegment[]; } | { decorator: string; path: readonly PathSegment[]; }
   .path: readonly PathSegment[]
+reachable AspnetOps@index type: CsharpOps & ServiceOps
+  .addUsing: (ast: CsharpDocument, namespace: string, options?: import("…/ops").UsingOptions) => void
+  .addBaseType: (ast: CsharpDocument, typeName: string, base: string, options?: import("…/ops").FromOptions) => void
+  .addMember: (ast: CsharpDocument, typeName: string, source: string) => void
+  .addConstructorParameter: (ast: CsharpDocument, typeName: string, name: string, type: string, options?: import("…/ops").FromOptions) => void
+  .addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation: string, options?: ServiceOptions) => void
 reachable AuthoringError@authoring-error class: AuthoringError
   .verb: AuthoringVerb | undefined
   .path: string | undefined
@@ -346,6 +383,13 @@ reachable CreateOptions@index interface: CreateOptions
   .template: string
   .options: JsonValue
   .force?: boolean | undefined
+reachable CsharpDocument@ast interface: CsharpDocument
+  .text: string
+reachable CsharpOps@pack type: { addUsing: (ast: CsharpDocument, namespace: string, options?: UsingOptions) => void; addBaseType: (ast: CsharpDocument, typeName: string, base: string, options?: FromOptions) => void; addMember: (ast: CsharpDocument, typeName: string, source: string) => void; addConstructorParameter: (ast: CsharpDocument, typeName: string, name: string, type: string, options?: FromOptions) => void; }
+  .addUsing: (ast: CsharpDocument, namespace: string, options?: UsingOptions) => void
+  .addBaseType: (ast: CsharpDocument, typeName: string, base: string, options?: FromOptions) => void
+  .addMember: (ast: CsharpDocument, typeName: string, source: string) => void
+  .addConstructorParameter: (ast: CsharpDocument, typeName: string, name: string, type: string, options?: FromOptions) => void
 reachable CssOps@index type: { setDeclaration: (ast: Root, target: CssTarget, property: string, value: string, options?: DeclarationOptions) => void; removeDeclaration: (ast: Root, target: CssTarget, property: string) => void; getDeclaration: Query<Root, [target: CssTarget, property: string], ReturnType<typeof getDeclaration>>; }
   .setDeclaration: (ast: Root, target: CssTarget, property: string, value: string, options?: DeclarationOptions) => void
   .removeDeclaration: (ast: Root, target: CssTarget, property: string) => void
@@ -394,6 +438,8 @@ reachable FoundHandle@handle-state interface: FoundHandle
   .rename: (newName: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .move: (toDir: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .copy: (to: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
+reachable FromOptions@ops interface: FromOptions
+  .from?: string | undefined
 reachable Handle@define-dialect type: ReadOps & DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops>; } & OpMethods<Ast, Ops> & (State extends "found" ? { remove(): void; } : {}) & PromiseLike<void>
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => Edited<Ast, Ops>
@@ -489,11 +535,16 @@ reachable LazyRouteSpec@ops type: { path: string; loadComponent?: string; loadCh
   .loadComponent?: string | undefined
   .loadChildren?: string | undefined
   .export?: string | undefined
+reachable Lifetime@ops type: "Singleton" | "Scoped" | "Transient"
 reachable ModuleOps@index type: { addProvider: (ast: SourceFile, name: string, from: string) => void; addController: (ast: SourceFile, name: string, from: string) => void; addModuleImport: (ast: SourceFile, name: string, from: string) => void; addExport: (ast: SourceFile, name: string, from: string) => void; }
   .addProvider: (ast: SourceFile, name: string, from: string) => void
   .addController: (ast: SourceFile, name: string, from: string) => void
   .addModuleImport: (ast: SourceFile, name: string, from: string) => void
   .addExport: (ast: SourceFile, name: string, from: string) => void
+reachable MsbuildDocument@ast interface: MsbuildDocument
+  .text: string
+reachable MsbuildOps@index type: { addProjectReference: (ast: MsbuildDocument, path: string) => void; }
+  .addProjectReference: (ast: MsbuildDocument, path: string) => void
 reachable NamedImport@ops type: { name: string; from: string; }
   .name: string
   .from: string
@@ -642,6 +693,12 @@ reachable ScaffoldArgs@expander interface: ScaffoldArgs
   .binary?: string[] | undefined
 reachable ScalarStyle@presentation type: "plain" | "single" | "double" | "literal" | "folded"
 reachable Scope@ops type: "public" | "protected" | "private"
+reachable ServiceOps@index type: { addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation: string, options?: ServiceOptions) => void; }
+  .addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation: string, options?: ServiceOptions) => void
+reachable ServiceOptions@ops interface: ServiceOptions
+  .serviceFrom?: string | undefined
+  .implementationFrom?: string | undefined
+  .method?: string | undefined
 reachable SortOptions@ops interface: SortOptions
   .recursive?: boolean | undefined
 reachable StateOptions@ops type: { type?: string; scope?: Scope; imports?: readonly NamedImport[]; }
@@ -665,6 +722,10 @@ reachable TypeScriptOps@index type: { addImport: (ast: SourceFile, name: string,
   .addArrayElement: (ast: SourceFile, locator: ArrayLocator, element: ArrayElement) => void
   .addClassProperty: (ast: SourceFile, className: string, name: string, initializer: string, options?: ClassPropertyOptions) => void
   .sortImports: (ast: SourceFile) => void
+reachable UsingOptions@ops interface: UsingOptions
+  .static?: boolean | undefined
+  .global?: boolean | undefined
+  .alias?: string | undefined
 reachable WritableHandle@handle-state interface: WritableHandle
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => import("…/base-handle").WritableHandleRef

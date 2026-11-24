@@ -1,7 +1,10 @@
 import { expect } from "bun:test";
 import * as angular from "../../dialects/angular/index.ts";
+import * as aspnet from "../../dialects/aspnet/index.ts";
+import * as csharp from "../../dialects/csharp/index.ts";
 import * as css from "../../dialects/css/index.ts";
 import * as json from "../../dialects/json/index.ts";
+import * as msbuild from "../../dialects/msbuild/index.ts";
 import * as nestjs from "../../dialects/nestjs/index.ts";
 import * as react from "../../dialects/react/index.ts";
 import * as typescript from "../../dialects/typescript/index.ts";
@@ -11,8 +14,11 @@ import { endedRun, expectSuccess, factoryRun } from "../shared/factory-run.ts";
 
 const DIALECTS: Record<string, { find(path: string): unknown }> = {
   angular,
+  aspnet,
+  csharp,
   css,
   json,
+  msbuild,
   nestjs,
   react,
   typescript,
@@ -182,6 +188,14 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
   {
     phrase: 'the factory fails because the file "{path}" is not valid TypeScript',
     run: (world, [path]) => parseFailure(world, path as string, "typescript"),
+  },
+  {
+    phrase: 'the factory fails because the file "{path}" is not valid C#',
+    run: (world, [path]) => parseFailure(world, path as string, "csharp"),
+  },
+  {
+    phrase: 'the factory fails because the file "{path}" is not valid XML',
+    run: (world, [path]) => parseFailure(world, path as string, "msbuild"),
   },
   {
     phrase: 'the factory fails because the argument "{argument}" is not one the op accepts',

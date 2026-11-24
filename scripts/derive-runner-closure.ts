@@ -42,6 +42,20 @@ export const SRC_DIR_NAME = "src";
 export const MANIFEST_RELATIVE_PATH = "runner-manifest.json";
 export const BASELINE_RELATIVE_PATH = "test/fitness/runner-closure-graph-baseline.json";
 
+/**
+ * Files a dialect loads at run time without importing them, so no closure walk finds them. They
+ * are copied from src/ to the same dist/ path at build and listed in the runner manifest, so R-3
+ * counts a distribution without them as incomplete and R-7 verifies their digests.
+ */
+export const DIST_ASSETS: readonly ClosurePath[] = [
+  "bounded-contexts/authoring/infrastructure/out/dialects/csharp/tree-sitter-c_sharp.wasm",
+];
+
+/** Copied beside DIST_ASSETS but not listed in the manifest: nothing loads them. */
+export const DIST_NOTICES: readonly ClosurePath[] = [
+  "bounded-contexts/authoring/infrastructure/out/dialects/csharp/tree-sitter-c_sharp.LICENSE",
+];
+
 /** A node of the closure graph. Paths are ALWAYS distRoot-relative, POSIX, no leading "./". */
 export type ClosurePath = string;
 

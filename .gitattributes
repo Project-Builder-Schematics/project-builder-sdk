@@ -5,3 +5,6 @@
 # silently renormalize them to LF on the next `git add`/checkout, defeating that purpose.
 # `-text` opts them fully out of EOL conversion in both directions (REQ-CDT-02 dry-check).
 test/bounded-contexts/authoring/infrastructure/out/dialects/typescript/golden/*crlf*.txt -text
+
+# Binary assets ship byte for byte: the runner manifest pins their SHA-256.
+*.wasm binary
