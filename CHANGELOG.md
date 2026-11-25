@@ -6,6 +6,44 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.17.0
+
+### C#, ASP.NET and MSBuild dialects
+
+- **Added**: `@pbuilder/sdk/csharp` edits `.cs` files (architecture rules A-106 to A-114):
+  - `addUsing(namespace, { static?, global?, alias? })`
+  - `addBaseType(typeName, base, { from? })`
+  - `addMember(typeName, source)`
+  - `addConstructorParameter(typeName, name, type, { from? })`
+
+  `from` names the namespace that declares a type, and the op adds its `using` unless the file
+  already sees it. `addConstructorParameter` edits primary constructors only; a type with an
+  explicit constructor rejects. The parser is tree-sitter-c-sharp 0.24.0 compiled to
+  WebAssembly, so the SDK ships no native binary. Importing the entry loads the grammar with a
+  top-level `await`. See `docs/guides/csharp-dialect.md`.
+- **Added**: `@pbuilder/sdk/aspnet` extends the C# dialect with
+  `addService(lifetime, service, implementation, { serviceFrom?, implementationFrom?, method? })`
+  (A-115, A-116). It registers a service in the top-level statements of `Program.cs`, or in the
+  named `this IServiceCollection` extension method. See `docs/guides/aspnet-dialect.md`.
+- **Added**: `@pbuilder/sdk/msbuild` edits `.csproj`, `.props`, `.targets` and `.slnx` files
+  with `addProjectReference(path)` (A-117, A-118). It edits the XML text and never calls the
+  `dotnet` CLI. A classic `.sln` file is rejected; use `.slnx`. See
+  `docs/guides/msbuild-dialect.md`.
+- **Added**: the runtime dependencies `web-tree-sitter` 0.27.2 and `saxes` 6.0.0.
+- **Changed**: the package ships the C# grammar,
+  `dist/bounded-contexts/authoring/infrastructure/out/dialects/csharp/tree-sitter-c_sharp.wasm`
+  (7.2 MB, MIT, with its license file next to it), so the unpacked package grows by about that
+  much.
+
+### Runner manifest
+
+- **Changed**: `dist/runner-manifest.json` lists the C# grammar, so it holds 30 records instead
+  of 29. This is the first record that is not runner startup code: the C# entry loads the grammar
+  at import, so a run that uses the dialect reads that file (rules R-3 and R-7).
+  **Migration**: an engine that checks the manifest against its own list of expected files, or
+  that expects every record to be a `.js` file, must accept the `.wasm` record. An engine that
+  verifies each listed digest needs no change.
+
 ## 0.16.0
 
 ### Conformance kit checks idempotency (breaking)
