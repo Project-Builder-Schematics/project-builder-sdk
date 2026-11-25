@@ -1,5 +1,5 @@
 // Build authority for dist/runner-manifest.json: derive -> fail closed on any violation ->
-// hash all 29 files -> write once -> print the two identity lines.
+// hash the closure, its assets and package.json -> write once -> print the two identity lines.
 //
 // The package root is resolved with `fileURLToPath`, NOT `new URL(...).pathname` (this
 // repo's test-helper idiom): `.pathname` does not percent-decode, so it breaks on a build
@@ -24,6 +24,7 @@ import {
   sha256Bytes,
   sha256File,
   CREATE_REQUIRE_ANCHOR_FILE,
+  DIST_ASSETS,
   DIST_DIR_NAME,
   ENTRY_RELATIVE_PATH,
   MANIFEST_RELATIVE_PATH,
@@ -71,10 +72,19 @@ function generate(): void {
     fail([{ rule: "unreadable-file", file: "package.json", line: null, found: "package.json" }]);
   }
 
-  // All 29 records sort together (ambiguity B) — package.json is not appended after the
+  // All records sort together (ambiguity B) — package.json is not appended after the
   // dist/ ones.
+  const assetBytes = new Map<string, Buffer>();
+  for (const asset of DIST_ASSETS) {
+    try {
+      assetBytes.set(asset, readFileSync(join(distRoot, asset)));
+    } catch {
+      fail([{ rule: "unreadable-file", file: asset, line: null, found: `${DIST_DIR_NAME}/${asset}` }]);
+    }
+  }
+
   const manifestPaths = [
-    ...derivation.nodes.map((node) => `${DIST_DIR_NAME}/${node}`),
+    ...[...derivation.nodes, ...DIST_ASSETS].map((node) => `${DIST_DIR_NAME}/${node}`),
     "package.json",
   ].sort(comparePaths);
 
@@ -86,7 +96,7 @@ function generate(): void {
       return { path, sha256: sha256Bytes(packageJsonBytes) };
     }
     const node = path.slice(DIST_DIR_NAME.length + 1);
-    const bytes = derivation.fileBytes.get(node);
+    const bytes = derivation.fileBytes.get(node) ?? assetBytes.get(node);
     if (bytes === undefined) {
       fail([{ rule: "unreadable-file", file: node, line: null, found: path }]);
     }

@@ -576,7 +576,8 @@ When string-level mutation isn't enough — "add an import to this module", "set
 this JSX element" — **dialects** provide structured, AST-aware operations for one file
 type: see [authoring a dialect](./docs/guides/authoring-a-dialect.md) for the full story. Seven
 ship today: `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`, `@pbuilder/sdk/nestjs`,
-`@pbuilder/sdk/angular`, `@pbuilder/sdk/json`, `@pbuilder/sdk/yaml`, and `@pbuilder/sdk/css`.
+`@pbuilder/sdk/angular`, `@pbuilder/sdk/json`, `@pbuilder/sdk/yaml`, `@pbuilder/sdk/css`,
+`@pbuilder/sdk/csharp`, `@pbuilder/sdk/aspnet`, and `@pbuilder/sdk/msbuild`.
 
 A dialect's entry point is its own `find(path)`: it opens a **coalescing, awaitable
 handle**. Every op you chain mutates the same live AST, and the handle serializes to
@@ -712,6 +713,56 @@ Named ops: `setDeclaration`, `removeDeclaration`, and the query `getDeclaration(
 which ends the chain and resolves to `{ value, important }` (also exported as
 `getDeclaration(root, target, property)` for use inside `.modify(fn)`). `.modify(fn)` exposes
 [postcss](https://postcss.org/). See [the CSS dialect guide](./docs/guides/css-dialect.md).
+
+### `@pbuilder/sdk/csharp`
+
+Adds using directives, base types, members and primary constructor parameters to `.cs` files.
+An op that takes a type name can import its namespace with `from`; everything else keeps its bytes.
+
+```ts
+import * as csharp from "@pbuilder/sdk/csharp";
+
+await csharp
+  .find("src/Shop.Infrastructure/SqlOrders.cs")
+  .addBaseType("SqlOrders", "IOrders", { from: "Shop.Application.Ports" })
+  .addConstructorParameter("SqlOrders", "db", "ShopDb", { from: "Shop.Data" });
+```
+
+Named ops: `addUsing`, `addBaseType`, `addMember`, `addConstructorParameter`. `.modify(fn)` exposes
+[web-tree-sitter](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web) and the
+C# `language`. See [the C# dialect guide](./docs/guides/csharp-dialect.md).
+
+### `@pbuilder/sdk/aspnet`
+
+Every `@pbuilder/sdk/csharp` op, plus `addService`, which registers a service in the dependency
+injection container: in the top-level statements of `Program.cs`, or in one
+`IServiceCollection` extension method.
+
+```ts
+import * as aspnet from "@pbuilder/sdk/aspnet";
+
+await aspnet
+  .find("Program.cs")
+  .addService("Scoped", "IOrders", "SqlOrders", { serviceFrom: "Shop.Application.Ports", implementationFrom: "Shop.Infrastructure" });
+```
+
+See [the ASP.NET dialect guide](./docs/guides/aspnet-dialect.md).
+
+### `@pbuilder/sdk/msbuild`
+
+Adds project references to `.csproj`, `.props`, `.targets` and `.slnx` files by editing the XML
+text, never through the `dotnet` CLI; the classic `.sln` is rejected.
+
+```ts
+import * as msbuild from "@pbuilder/sdk/msbuild";
+
+await msbuild
+  .find("src/Shop.Infrastructure/Shop.Infrastructure.csproj")
+  .addProjectReference("../Shop.Application/Shop.Application.csproj");
+```
+
+Named op: `addProjectReference`. `.modify(fn)` exposes [saxes](https://github.com/lddubeau/saxes).
+See [the MSBuild dialect guide](./docs/guides/msbuild-dialect.md).
 
 ### `@pbuilder/sdk/nestjs`
 

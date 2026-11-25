@@ -5,16 +5,23 @@ import * as angular from "../../src/dialects/angular/index.ts";
 import * as json from "../../src/dialects/json/index.ts";
 import * as yaml from "../../src/dialects/yaml/index.ts";
 import * as css from "../../src/dialects/css/index.ts";
+import * as csharp from "../../src/dialects/csharp/index.ts";
+import * as aspnet from "../../src/dialects/aspnet/index.ts";
+import * as msbuild from "../../src/dialects/msbuild/index.ts";
 import * as expectedAstLibrary from "ts-morph";
 import * as jsoncParser from "jsonc-parser";
 import * as yamlLibrary from "yaml";
 import * as postcss from "postcss";
+import * as webTreeSitter from "web-tree-sitter";
+import * as saxes from "saxes";
 import { defineDialect } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
 import * as typescriptAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
 import * as reactAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts";
 import * as jsonAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/json/ast.ts";
 import * as yamlAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/yaml/ast.ts";
 import * as cssAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/css/ast.ts";
+import * as csharpAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/csharp/ast.ts";
+import * as msbuildAst from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/msbuild/ast.ts";
 
 // TypeScript-syntax adversarial samples: the kit's mandatory set is format-neutral, so these
 // stay covered here for both ts-morph dialects.
@@ -31,6 +38,21 @@ const libraryExercise = {
       throw new Error("library does not recognize the adapter AST");
     }
     ast.getVariableStatements()[0]!.setDeclarationKind(library.VariableDeclarationKind.Const);
+  },
+};
+
+const csharpLibraryExercise = {
+  seed: "internal class A\n{\n}\n",
+  expect: "public class A\n{\n}\n",
+  modify(ast: unknown, library: typeof webTreeSitter) {
+    const doc = ast as csharp.CsharpDocument;
+    const parser = new library.Parser();
+    parser.setLanguage(csharp.language);
+    const tree = parser.parse(doc.text);
+    if (tree === null || tree.rootNode.hasError) throw new Error("library does not recognize the adapter AST");
+    const modifier = tree.rootNode.descendantsOfType("modifier")[0]!;
+    doc.text = `${doc.text.slice(0, modifier.startIndex)}public${doc.text.slice(modifier.endIndex)}`;
+    tree.delete();
   },
 };
 
@@ -109,6 +131,41 @@ export const DIALECT_MODULES = [
         ast.walkDecls("color", (node) => {
           node.value = "blue";
         });
+      },
+    },
+  },
+  {
+    entrypoint: "src/dialects/csharp/index.ts", specifier: "web-tree-sitter",
+    adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/csharp/ast.ts", import.meta.url),
+    module: csharp, expectedAstLibrary: webTreeSitter,
+    dialect: defineDialect({ extensions: [".cs"], ast: csharpAst, ops: {} }),
+    samples: ["namespace Shop;\n\npublic class A(int x) : IA\n{\n}\n"],
+    libraryExercise: { ...csharpLibraryExercise, path: "library.cs" },
+  },
+  {
+    entrypoint: "src/dialects/aspnet/index.ts", specifier: "web-tree-sitter",
+    adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/csharp/ast.ts", import.meta.url),
+    module: aspnet, expectedAstLibrary: webTreeSitter,
+    dialect: defineDialect({ extensions: [".cs"], ast: csharpAst, ops: {} }),
+    samples: ["var builder = WebApplication.CreateBuilder(args);\nvar app = builder.Build();\n"],
+    libraryExercise: { ...csharpLibraryExercise, path: "library.cs" },
+  },
+  {
+    entrypoint: "src/dialects/msbuild/index.ts", specifier: "saxes",
+    adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/msbuild/ast.ts", import.meta.url),
+    module: msbuild, expectedAstLibrary: saxes,
+    dialect: defineDialect({ extensions: [".csproj"], ast: msbuildAst, ops: {} }),
+    samples: ['<Project Sdk="Microsoft.NET.Sdk">\n</Project>\n'],
+    libraryExercise: {
+      path: "library.csproj", seed: "<Project>\n  <A>1</A>\n</Project>\n", expect: "<Project>\n  <A>2</A>\n</Project>\n",
+      modify(ast: unknown, library: typeof saxes) {
+        const doc = ast as msbuild.MsbuildDocument;
+        let wellFormed = true;
+        const parser = new library.SaxesParser();
+        parser.on("error", () => void (wellFormed = false));
+        parser.write(doc.text).close();
+        if (!wellFormed) throw new Error("library does not recognize the adapter AST");
+        doc.text = doc.text.replace("<A>1</A>", "<A>2</A>");
       },
     },
   },

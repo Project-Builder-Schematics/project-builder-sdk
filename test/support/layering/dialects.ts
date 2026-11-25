@@ -16,6 +16,7 @@ export const ALLOWED_SIBLINGS: Readonly<Record<string, readonly string[]>> = {
   nestjs: ["typescript"],
   angular: ["typescript"],
   react: ["typescript"],
+  aspnet: ["csharp"],
 };
 
 export type DialectVocabulary = { names: ReadonlySet<string>; extensions: ReadonlySet<string> };

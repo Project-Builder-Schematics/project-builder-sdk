@@ -16,6 +16,7 @@
 import { describe, it, expect, beforeAll } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { DIST_ASSETS } from "../../scripts/derive-runner-closure.ts";
 import { ensureRealClosureDerivation } from "../support/shared-build.ts";
 
 const PROJECT_ROOT = new URL("../../", import.meta.url).pathname;
@@ -78,7 +79,7 @@ const LINK_DEGRADES =
   "wrong-artefact detector and nothing more.";
 
 const ENTRY_24_REASON =
-  '`package.json` is entry #29 because its `"type": "module"` field governs the parse mode of ' +
+  '`package.json` is entry #30 because its `"type": "module"` field governs the parse mode of ' +
   'all 28 closure files: flipping it to `"commonjs"` reinterprets every hashed byte without ' +
   "editing one. It is **not** included because of `packageRootFor()` — hashing content cannot " +
   "constrain a topology walk.";
@@ -248,12 +249,12 @@ describe("REQ-IID-03 — the justification states the real value", () => {
   });
 });
 
-describe("REQ-IID-04..07 — portability, entry #29, bun link, and the known gaps", () => {
+describe("REQ-IID-04..07 — portability, the package.json entry, bun link, and the known gaps", () => {
   it("IID-04: records one manifest per published package with its evidence", () => {
     expect(flat(doc())).toContain(flat(PORTABILITY_ANSWER));
   });
 
-  it("IID-05: justifies entry #29 by `type: module`, and rules out packageRootFor()", () => {
+  it("IID-05: justifies the package.json entry by `type: module`, and rules out packageRootFor()", () => {
     expect(flat(doc())).toContain(flat(ENTRY_24_REASON));
   });
 
@@ -305,7 +306,7 @@ interface CountClaimTemplate {
   readonly render: (n: number) => string;
 }
 
-// Every claim below is either the TOTAL manifest entry count (the closure files + package.json)
+// Every claim below is either the TOTAL manifest entry count (the closure files, DIST_ASSETS and package.json)
 // or the CLOSURE file count on its own — both derived from the same live closureFileCount.
 const TOTAL_ENTRY_CLAIMS: CountClaimTemplate[] = [
   { label: "`lists N files:` opening claim", render: (n) => `lists ${n} files: the` },
@@ -334,7 +335,7 @@ interface CountMismatch {
 // live value it should have matched, per REQ-DLV-01.2's own acceptance wording.
 function findStaleCountClaims(markdown: string, closureFileCount: number): CountMismatch[] {
   const flatMarkdown = flat(markdown);
-  const totalEntryCount = closureFileCount + 1;
+  const totalEntryCount = closureFileCount + DIST_ASSETS.length + 1;
   const mismatches: CountMismatch[] = [];
   for (const claim of TOTAL_ENTRY_CLAIMS) {
     if (!flatMarkdown.includes(claim.render(totalEntryCount))) {
@@ -367,9 +368,9 @@ describe("REQ-DLV-01 — documentation counts derived from the live derivation, 
   });
 
   it("DLV-01.2 [red-proof]: a mutant total-entry count is caught, naming the claim and the live value", () => {
-    const mutant = doc().replace("entry #29 because", "entry #30 because");
+    const mutant = doc().replace("entry #30 because", "entry #31 because");
     expect(findStaleCountClaims(mutant, closureFileCount)).toEqual([
-      { label: "`entry #N because` heading justification", liveValue: closureFileCount + 1 },
+      { label: "`entry #N because` heading justification", liveValue: closureFileCount + DIST_ASSETS.length + 1 },
     ]);
   });
 

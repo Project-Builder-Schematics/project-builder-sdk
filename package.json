@@ -92,6 +92,21 @@
       "types": "./dist/dialects/css/index.d.ts",
       "import": "./dist/dialects/css/index.js",
       "default": "./dist/dialects/css/index.js"
+    },
+    "./csharp": {
+      "types": "./dist/dialects/csharp/index.d.ts",
+      "import": "./dist/dialects/csharp/index.js",
+      "default": "./dist/dialects/csharp/index.js"
+    },
+    "./aspnet": {
+      "types": "./dist/dialects/aspnet/index.d.ts",
+      "import": "./dist/dialects/aspnet/index.js",
+      "default": "./dist/dialects/aspnet/index.js"
+    },
+    "./msbuild": {
+      "types": "./dist/dialects/msbuild/index.d.ts",
+      "import": "./dist/dialects/msbuild/index.js",
+      "default": "./dist/dialects/msbuild/index.js"
     }
   },
   "scripts": {
@@ -99,7 +114,8 @@
     "typecheck": "tsc --noEmit",
     "typecheck:permissive-proof": "tsc --noEmit -p tsconfig.permissive-proof.json",
     "prebuild": "rm -rf dist",
-    "build": "tsc -p tsconfig.build.json && bun run build:codegen && bun run build:manifest",
+    "build": "tsc -p tsconfig.build.json && bun run build:assets && bun run build:codegen && bun run build:manifest",
+    "build:assets": "bun scripts/copy-dist-assets.ts",
     "build:codegen": "bun build bin/pbuilder-codegen.ts --outfile dist/bin/pbuilder-codegen.js --target node --banner \"#!/usr/bin/env node\"",
     "build:manifest": "bun scripts/generate-runner-manifest.ts",
     "regen:closure-baseline": "bun scripts/regen-closure-baseline.ts",
@@ -124,7 +140,9 @@
   "dependencies": {
     "jsonc-parser": "3.3.1",
     "postcss": "8.5.30",
+    "saxes": "6.0.0",
     "ts-morph": "28.0.0",
+    "web-tree-sitter": "0.27.2",
     "yaml": "2.9.1"
   }
 }
