@@ -128,6 +128,7 @@
   .module: DialectModule<Library>
   .expectedAstLibrary: Library
   .libraryExercise: { path: string; seed: string; expect: string; modify: (ast: unknown, library: Library) => void; }
+  .staleNode?: { seed: string; keep: (ast: unknown) => unknown; use: (node: unknown) => void; } | undefined
 ./conformance DialectModule interface: DialectModule<Library>
   .find: (path: string) => Handle<"found", unknown, {}>
   .astLibrary: Library
@@ -404,15 +405,20 @@ reachable DeclarationOptions@ops type: { export?: boolean; }
   .export?: boolean | undefined
 reachable Dialect@define-dialect interface: Dialect<Ast, Ops>
   .extensions: readonly string[]
-  .ast: { parse(source: string): Ast; print(ast: Ast): string; }
+  .ast: DialectAst<Ast>
   .ops: Ops
   .find: (path: string) => Handle<"found", Ast, Ops>
+reachable DialectAst@define-dialect interface: DialectAst<Ast>
+  .parse: (source: string) => Ast
+  .print: (ast: Ast) => string
+  .retire?: ((ast: Ast) => void) | undefined
 reachable DialectFixture@index interface: DialectFixture<Library>
   .dialect: Dialect<any, OpPack<any>>
   .samples: string[]
   .module: DialectModule<Library>
   .expectedAstLibrary: Library
   .libraryExercise: { path: string; seed: string; expect: string; modify: (ast: unknown, library: Library) => void; }
+  .staleNode?: { seed: string; keep: (ast: unknown) => unknown; use: (node: unknown) => void; } | undefined
 reachable DialectModule@index interface: DialectModule<Library>
   .find: (path: string) => Handle<"found", unknown, {}>
   .astLibrary: Library

@@ -10,7 +10,7 @@ import { byExtension, defineDialect, defineOpPack, overrideOps, withOps, without
 import { dialectError } from "../../../../domain/valueobjects/dialect-error.ts";
 import { addClassProperty } from "../typescript/class-property.ts";
 import { typescriptOps } from "../typescript/pack.ts";
-import { parse, parseJsx, print } from "./ast.ts";
+import { parse, parseJsx, print, retire } from "./ast.ts";
 import {
   addComponentProp,
   addHookCall,
@@ -39,11 +39,11 @@ type ReactOps = typeof typescriptOps & JsxOps;
 
 const jsxOps = defineOpPack<SourceFile, JsxOps>({ setJsxProp, removeJsxProp, addJsxChild, wrapJsxElement, addHookCall, addComponentProp, renameJsxElement });
 
-const tsxDialect = withOps(defineDialect({ extensions: [".tsx"], ast: { parse, print }, ops: {} }), typescriptOps, jsxOps);
+const tsxDialect = withOps(defineDialect({ extensions: [".tsx"], ast: { parse, print, retire }, ops: {} }), typescriptOps, jsxOps);
 
 const jsxDialect = overrideOps(
   withoutOps(
-    defineDialect({ extensions: [".jsx"], ast: { parse: parseJsx, print }, ops: tsxDialect.ops }),
+    defineDialect({ extensions: [".jsx"], ast: { parse: parseJsx, print, retire }, ops: tsxDialect.ops }),
     ["addTypeImport", "addComponentProp"],
     "they write TypeScript type syntax, which a .jsx file cannot hold"
   ),

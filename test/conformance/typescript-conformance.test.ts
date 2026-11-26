@@ -16,7 +16,7 @@ import { existsSync } from "node:fs";
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
-import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
+import { parse, print, retire } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
 import { addImport } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ops.ts";
 import * as ts from "../../src/dialects/typescript/index.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
@@ -34,10 +34,11 @@ import { readSplitViolationFixture } from "./planted/read-split-violation.ts";
 import { identityFixtureViolationFixture } from "./planted/identity-fixture-violation.ts";
 import { nullParseViolationFixture } from "./planted/null-parse-violation.ts";
 import { undefinedParseViolationFixture } from "./planted/undefined-parse-violation.ts";
+import { staleNodeViolationFixture } from "./planted/stale-node-violation.ts";
 
 type AddImportOps = { addImport: (ast: SourceFile, name: string, from: string) => void };
 const addImportPack = defineOpPack<SourceFile, AddImportOps>({ addImport });
-const baseDialect = defineDialect({ extensions: [".ts"], ast: { parse, print }, ops: {} });
+const baseDialect = defineDialect({ extensions: [".ts"], ast: { parse, print, retire }, ops: {} });
 const realTypescriptDialect = withOps(baseDialect, addImportPack);
 
 describe("REQ-DC-01 — byte-exact round-trip fidelity (real TypeScript dialect)", () => {
@@ -184,7 +185,8 @@ describe("REQ-DC-06 — mandatory adversarial samples (contributor cannot opt ou
         print: realTypescriptDialect.ast.print,
       },
     };
-    const fixture = { ...DIALECT_MODULES[0], dialect: spiedDialect, samples: [] };
+    // The stale-node probe parses too; this test counts only the round-trip samples.
+    const fixture = { ...DIALECT_MODULES[0], dialect: spiedDialect, samples: [], staleNode: undefined };
 
     await expect(testDialect(fixture)).resolves.toBeUndefined();
     expect(parseCalls).toBe(4);
@@ -267,5 +269,17 @@ describe("REQ-DC-08 — real-base-dialect rule extended to testDialect", () => {
 
   it("[permanent-fixture] REQ-DC-08.3: a parse that always returns undefined fails BEFORE the round-trip assertion could run", async () => {
     await expect(testDialect(undefinedParseViolationFixture)).rejects.toThrow(/REQ-DC-08/);
+  });
+});
+
+describe("A-11 — stale nodes fail (real TypeScript dialect)", () => {
+  it("passes for every ts-morph dialect, whose ast retires the old tree", async () => {
+    for (const fixture of DIALECT_MODULES.filter((m) => "staleNode" in m)) {
+      await expect(testDialect({ ...fixture, samples: [...fixture.samples] } as Parameters<typeof testDialect>[0])).resolves.toBeUndefined();
+    }
+  });
+
+  it("rejects a dialect whose kept node stays usable after a re-parse", async () => {
+    await expect(testDialect(staleNodeViolationFixture)).rejects.toThrow(/A-11 stale node/);
   });
 });

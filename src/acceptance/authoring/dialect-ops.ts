@@ -157,6 +157,10 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
     run: (world, [path]) => void expect(dialectFailure(world)).toContain(JSON.stringify(path)),
   },
   {
+    phrase: "the failure tells the author to look the node up again inside .modify()",
+    run: (world) => void expect(dialectFailure(world)).toContain("look the node up again inside .modify()"),
+  },
+  {
     phrase: "the factory fails because a pending edit would be lost",
     run: (world) => void expect(dialectFailure(world)).toContain("the pending edit would be lost"),
   },

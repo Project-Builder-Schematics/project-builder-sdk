@@ -38,9 +38,20 @@ export type OpPack<Ast = any> = Record<string, Op<Ast>>;
 // The dialect descriptor shape is FROZEN at exactly these three top-level fields
 // (REQ-DG-01.1) — a 5th field is a compile error because DialectDescriptor has no index
 // signature: an excess property in an object-literal argument is rejected by TS structurally.
+/**
+ * How a dialect reads and writes its files. `retire`, when given, is called on a tree a handle
+ * re-parsed away from (A-8): it must make every node of that tree fail when used, so a node kept
+ * from before the re-parse never edits a tree no file reflects.
+ */
+export interface DialectAst<Ast = any> {
+  parse(source: string): Ast;
+  print(ast: Ast): string;
+  retire?(ast: Ast): void;
+}
+
 export interface DialectDescriptor<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
   extensions: string[];
-  ast: { parse(source: string): Ast; print(ast: Ast): string };
+  ast: DialectAst<Ast>;
   ops: Ops;
 }
 
@@ -84,7 +95,7 @@ export type Handle<
 
 export interface Dialect<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
   readonly extensions: readonly string[];
-  readonly ast: { parse(source: string): Ast; print(ast: Ast): string };
+  readonly ast: DialectAst<Ast>;
   readonly ops: Ops;
   find(path: string): Handle<"found", Ast, Ops>;
 }

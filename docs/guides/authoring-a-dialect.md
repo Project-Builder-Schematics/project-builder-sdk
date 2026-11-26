@@ -429,7 +429,8 @@ The rejection also covers a TOP-LEVEL VALUE-NAMESPACE declaration sharing the na
 A dialect is assembled from three kit verbs:
 
 - **`defineDialect(descriptor)`** — assembles a `Dialect` from a frozen descriptor: `extensions`
-  (file-extension matchers), `ast: { parse, print }` (the AST parse/print pair), and `ops` (the
+  (file-extension matchers), `ast: { parse, print, retire? }` (the AST parse/print pair, and
+  an optional `retire` described under "Several handles on one file"), and `ops` (the
   dialect's own op-pack, `{}` if none). A 5th descriptor field is a compile error — the shape is
   frozen. The resulting `find` (and every `withOps` composition of it) throws synchronously on
   a path whose basename does not end in a declared extension, naming the file and the
@@ -586,6 +587,33 @@ directive before returning: the handle detects this by identity and re-registers
 directive for any further edits. A chain with one mid-chain read therefore produces exactly TWO
 `modify` directives, cumulative — no edit is lost.
 
+### Several handles on one file
+
+The file's content is the truth; a handle's live AST is only a cache of it (A-7). Each write to
+a path, from any handle or from a commons verb such as `replaceContent`, moves that path's
+content version. Before its next op, a handle whose AST was parsed at an older version flushes
+pending edits, reads the file again and re-parses. Two handles on one file therefore keep each
+other's edits, awaited or not:
+
+```ts
+const a = ts.find("src/routes.ts");
+const b = ts.find("src/routes.ts");
+a.addImport("x", "./x");
+b.addImport("y", "./y");
+// src/routes.ts gets both imports.
+```
+
+The path is compared as written: `src/routes.ts` and `./src/routes.ts` are not yet recognised as
+one file. An `async` op or `.modify()` that is still running when another writer changes its file
+rejects, naming the file, instead of erasing that write; `await` each op before another writer
+edits the same file.
+
+A node you keep from one `.modify()` call belongs to the tree it came from. Once the handle
+re-parses, using that node fails, naming the file and telling you to look the node up again
+inside `.modify()`; the SDK never relocates it by name or position (A-8). A dialect supports this
+with `ast.retire(ast)`, which the handle calls on the tree it re-parsed away from and which must
+make that tree's nodes fail when used. The ts-morph dialects forget the old `SourceFile`.
+
 ## Async usage
 
 The handle returned by a dialect's `find(path)` is the first **thenable** object on the author
@@ -632,7 +660,10 @@ sync throw.
   to disable them. Before each
   round-trip it rejects a stub/identity `parse` (one that returns nothing or hands back the
   input string), so an identity dialect cannot pass vacuously. It also fails a dialect whose
-  published `find` accepts a path with an extension the dialect does not declare.
+  published `find` accepts a path with an extension the dialect does not declare. When the
+  fixture has `staleNode: { seed, keep, use }`, for a dialect whose AST hands out nodes, it
+  parses `seed`, keeps a node with `keep`, re-parses and retires the old tree, and fails the
+  dialect if `use` still works on the kept node (A-11).
 - `testOpPack({ opPack, baseDialect, exercises })` applies each `OpExercise` (a seed, an op
   chain, and the expected byte-exact output) against the real coalescing pipeline, asserting
   per-op fidelity, coalescing-to-one, and seam-serializability. It then applies each chain

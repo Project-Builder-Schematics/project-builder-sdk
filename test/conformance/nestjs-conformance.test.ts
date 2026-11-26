@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
-import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
+import { parse, print, retire } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
 import { typescriptOps } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/pack.ts";
 import { addController, addExport, addModuleImport, addProvider } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/nestjs/ops.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
@@ -10,7 +10,7 @@ import { DIALECT_MODULES } from "../support/dialect-modules.ts";
 type ModuleOps = Record<"addProvider" | "addController" | "addModuleImport" | "addExport", (ast: SourceFile, name: string, from: string) => void>;
 
 const moduleOps = defineOpPack<SourceFile, ModuleOps>({ addProvider, addController, addModuleImport, addExport });
-const baseDialect = defineDialect({ extensions: [".ts"], ast: { parse, print }, ops: {} });
+const baseDialect = defineDialect({ extensions: [".ts"], ast: { parse, print, retire }, ops: {} });
 const realNestDialect = withOps(baseDialect, typescriptOps, moduleOps);
 const nestModule = DIALECT_MODULES.find((m) => m.entrypoint === "src/dialects/nestjs/index.ts")!;
 

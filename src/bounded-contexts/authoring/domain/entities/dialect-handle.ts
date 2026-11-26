@@ -25,6 +25,7 @@ type HandleRun = {
 interface DialectAst<Ast> {
   parse(source: string): Ast;
   print(ast: Ast): string;
+  retire?(ast: Ast): void;
 }
 
 // `.modify()`'s `fn` is typed `(ast: Ast) => void`, but TS's void-return compatibility lets an
@@ -134,6 +135,8 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // A-7: the Session, and its content version of #path, that #live reflects, own writes included.
   #session: Session | undefined;
   #version: number | undefined;
+  // A-8: set once the handle re-parsed away from a tree, so a failing .modify() names the remedy.
+  #retired = false;
 
   constructor(dialectAst: DialectAst<Ast>, ops: Ops, path: string) {
     this.#dialectAst = dialectAst;
@@ -225,8 +228,12 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     } catch {
       throw dialectError(`could not parse "${this.#path}"`);
     }
-    // The drained directive prints the AST it was built from; fix its content before replacing it.
+    // The drained directive prints the AST it was built from; fix its content before retiring it.
     if (this.#openDirective?.op === "modify") void this.#openDirective.modify.content;
+    if (this.#live !== undefined) {
+      this.#dialectAst.retire?.(this.#live);
+      this.#retired = true;
+    }
     this.#live = next;
     astHandlePaths.set(next as object, this.#path);
     this.#lastEmittedText = content;
@@ -374,7 +381,10 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   runModify(fn: (ast: Ast) => void): void {
     this.#enqueue(async () => {
       while (!this.#isFresh()) await this.#reparse();
-      const pending = this.#invokeContained(() => fn(this.#live as Ast), `modify() on "${this.#path}" threw`);
+      const remedy = this.#retired
+        ? ` — if it uses a node kept from before "${this.#path}" was re-parsed, look the node up again inside .modify()`
+        : "";
+      const pending = this.#invokeContained(() => fn(this.#live as Ast), `modify() on "${this.#path}" threw${remedy}`);
       if (pending !== undefined) await pending;
       this.#ensureOpen();
     });

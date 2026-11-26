@@ -10,7 +10,7 @@ import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../../../domain/services/define-dialect.ts";
 import type { ArrayElement, ArrayLocator } from "./array-element.ts";
 import type { ClassPropertyOptions } from "./class-property.ts";
-import { parse, print } from "./ast.ts";
+import { parse, print, retire } from "./ast.ts";
 import { typescriptOps } from "./pack.ts";
 
 export * as astLibrary from "ts-morph";
@@ -44,7 +44,7 @@ const opsPack = defineOpPack<SourceFile, TypeScriptOps>(typescriptOps);
 
 const baseDialect = defineDialect({
   extensions: [".ts"],
-  ast: { parse, print },
+  ast: { parse, print, retire },
   ops: {},
 });
 
