@@ -750,8 +750,8 @@ See [the ASP.NET dialect guide](./docs/guides/aspnet-dialect.md).
 
 ### `@pbuilder/sdk/msbuild`
 
-Adds project references to `.csproj`, `.props`, `.targets` and `.slnx` files by editing the XML
-text, never through the `dotnet` CLI; the classic `.sln` is rejected.
+Adds project references to `.csproj`, `.props` and `.targets` files, and projects to `.slnx`
+solutions, by editing the XML text, never through the `dotnet` CLI; the classic `.sln` is rejected.
 
 ```ts
 import * as msbuild from "@pbuilder/sdk/msbuild";
@@ -759,9 +759,11 @@ import * as msbuild from "@pbuilder/sdk/msbuild";
 await msbuild
   .find("src/Shop.Infrastructure/Shop.Infrastructure.csproj")
   .addProjectReference("../Shop.Application/Shop.Application.csproj");
+
+await msbuild.find("Shop.slnx").addProject("src/Shop.Api/Shop.Api.csproj", { folder: "/src/" });
 ```
 
-Named op: `addProjectReference`. `.modify(fn)` exposes [saxes](https://github.com/lddubeau/saxes).
+Named ops: `addProjectReference`, `addProject`. `.modify(fn)` exposes [saxes](https://github.com/lddubeau/saxes).
 See [the MSBuild dialect guide](./docs/guides/msbuild-dialect.md).
 
 ### `@pbuilder/sdk/nestjs`

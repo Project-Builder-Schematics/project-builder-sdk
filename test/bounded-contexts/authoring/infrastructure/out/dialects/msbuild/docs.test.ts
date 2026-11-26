@@ -22,3 +22,12 @@ describe("docs/guides/msbuild-dialect.md — author guide", () => {
     expect(hatch).toContain("astLibrary");
   });
 });
+
+describe("docs/guides/msbuild-dialect.md — addProject", () => {
+  it("documents addProject, its folder option and its rejections", () => {
+    const op = extractSection(doc, "### `addProject(path, { folder? })`");
+    expect(op).toContain("Solution");
+    expect(op).toContain("/src/");
+    expect(extractSection(doc, "## Rejections")).toContain("anywhere else in the solution");
+  });
+});

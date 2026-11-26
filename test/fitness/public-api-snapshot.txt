@@ -317,6 +317,8 @@
 ./msbuild find function: (path: string) => Handle<"found", MsbuildDocument, MsbuildOps>
 ./msbuild MsbuildDocument interface: MsbuildDocument
   .text: string
+./msbuild ProjectOptions interface: ProjectOptions
+  .folder?: string | undefined
 reachable AngularOps@index type: { addComponentImport: InsertOp; addComponentProvider: InsertOp; addRootProvider: InsertOp; addRoute: (ast: SourceFile, route: RouteSpec) => void; addLazyRoute: (ast: SourceFile, route: LazyRouteSpec) => void; addInjection: (ast: SourceFile, name: string, token: ArrayElement, options?: InjectionOptions) => void; addInput: (ast: SourceFile, name: string, options?: InputOptions) => void; addModel: (ast: SourceFile, name: string, options?: InputOptions) => void; addOutput: (ast: SourceFile, name: string, options?: OutputOptions) => void; addSignal: (ast: SourceFile, name: string, initial: string, options?: StateOptions) => void; addComputed: (ast: SourceFile, name: string, expression: string, options?: StateOptions) => void; addNgModuleImport: InsertOp; addDeclaration: InsertOp; addNgModuleProvider: InsertOp; addNgModuleExport: InsertOp; addBootstrap: InsertOp; }
   .addComponentImport: InsertOp
   .addComponentProvider: InsertOp
@@ -346,7 +348,7 @@ reachable AspnetOps@index type: CsharpOps & ServiceOps
   .addBaseType: (ast: CsharpDocument, typeName: string, base: string, options?: import("…/ops").FromOptions) => void
   .addMember: (ast: CsharpDocument, typeName: string, source: string) => void
   .addConstructorParameter: (ast: CsharpDocument, typeName: string, name: string, type: string, options?: import("…/ops").FromOptions) => void
-  .addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation: string, options?: ServiceOptions) => void
+  .addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation?: string, options?: ServiceOptions) => void
 reachable AuthoringError@authoring-error class: AuthoringError
   .verb: AuthoringVerb | undefined
   .path: string | undefined
@@ -543,8 +545,9 @@ reachable ModuleOps@index type: { addProvider: (ast: SourceFile, name: string, f
   .addExport: (ast: SourceFile, name: string, from: string) => void
 reachable MsbuildDocument@ast interface: MsbuildDocument
   .text: string
-reachable MsbuildOps@index type: { addProjectReference: (ast: MsbuildDocument, path: string) => void; }
+reachable MsbuildOps@index type: { addProjectReference: (ast: MsbuildDocument, path: string) => void; addProject: (ast: MsbuildDocument, path: string, options?: ProjectOptions) => void; }
   .addProjectReference: (ast: MsbuildDocument, path: string) => void
+  .addProject: (ast: MsbuildDocument, path: string, options?: ProjectOptions) => void
 reachable NamedImport@ops type: { name: string; from: string; }
   .name: string
   .from: string
@@ -644,6 +647,8 @@ reachable PendingDirective@render interface: PendingDirective
 reachable PositionOption@paths interface: PositionOption
   .before?: string | undefined
   .after?: string | undefined
+reachable ProjectOptions@ops interface: ProjectOptions
+  .folder?: string | undefined
 reachable Query@define-dialect type: ((ast: Ast, ...args: A) => R) & { readonly [QUERY]: true; }
   call (ast: Ast, ...args: A): R
   .[Symbol.QUERY]: true
@@ -693,8 +698,8 @@ reachable ScaffoldArgs@expander interface: ScaffoldArgs
   .binary?: string[] | undefined
 reachable ScalarStyle@presentation type: "plain" | "single" | "double" | "literal" | "folded"
 reachable Scope@ops type: "public" | "protected" | "private"
-reachable ServiceOps@index type: { addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation: string, options?: ServiceOptions) => void; }
-  .addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation: string, options?: ServiceOptions) => void
+reachable ServiceOps@index type: { addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation?: string, options?: ServiceOptions) => void; }
+  .addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation?: string, options?: ServiceOptions) => void
 reachable ServiceOptions@ops interface: ServiceOptions
   .serviceFrom?: string | undefined
   .implementationFrom?: string | undefined

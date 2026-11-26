@@ -2,7 +2,8 @@
 
 `@pbuilder/sdk/msbuild` edits the XML files of a .NET build. It is built for schematics that
 scaffold several projects and wire them together, such as the layers of a hexagonal solution:
-the op adds a project reference and leaves every other byte of the file alone. It edits the
+its ops add a project reference or add a project to a `.slnx` solution, and leave every other
+byte of the file alone. It edits the
 XML text itself and never runs the `dotnet` CLI.
 
 ```ts
@@ -36,6 +37,8 @@ as it is.
 
 ## Placement
 
+The placement of `addProject` in a solution is described under its op below.
+
 - A reference goes after the last `ProjectReference` of the first `ItemGroup` without a
   `Condition` that holds one.
 - When there is none, a new `ItemGroup` holding it goes after the last child element of
@@ -64,6 +67,33 @@ msbuild.find("src/Shop.Api/Shop.Api.csproj").addProjectReference("../Shop.Infras
 // </ItemGroup>
 ```
 
+### `addProject(path, { folder? })`
+
+Adds `<Project Path="path" />` to a `.slnx` file, whose root element is `Solution`. `path`
+follows the same rules as for `addProjectReference`.
+
+- **Without `folder`**, the project goes after the last `Project` child of `Solution`, or after
+  its last child when it has none.
+- **With `folder`**, a solution folder name that starts and ends with `/` (`/src/`,
+  `/src/Core/`), the project goes after the last `Project` of the `Folder` child of `Solution`
+  whose `Name` is that name, or as its last child when it has none. When there is no such
+  `Folder`, a new one holding the project goes after the last `Folder` child of `Solution`, or as
+  its first child when it has none. Only the named folder is created, never its parents, and the
+  folder is never inferred from `path`.
+
+A project of the same path, comparing `/` and `\` as one separator, leaves the file as it is when
+it already sits where the op would put it.
+
+```ts
+msbuild.find("Shop.slnx").addProject("src/Shop.Api/Shop.Api.csproj", { folder: "/src/" });
+// <Solution>
+//   <Folder Name="/src/">
+//     <Project Path="src/Shop.Domain/Shop.Domain.csproj" />
+//     <Project Path="src/Shop.Api/Shop.Api.csproj" />
+//   </Folder>
+// </Solution>
+```
+
 ## Rejections
 
 Every rejection throws before the file changes, with the `dialect operation failed: ` prefix and
@@ -71,7 +101,11 @@ the op's name:
 
 - a `path` that is not a string, is absolute (`/src/A.csproj`, `C:\A.csproj`), or whose file
   name does not end in `proj`;
-- a file whose root element is not `Project`, such as a `.slnx` `<Solution>`, or an empty file.
+- for `addProjectReference`, a file whose root element is not `Project`, such as a `.slnx`
+  `<Solution>`, or an empty file;
+- for `addProject`, a file whose root element is not `Solution`, or an empty file; a `folder`
+  that does not start and end with `/`, or an option other than `folder`; and a project of the
+  same path that already sits anywhere else in the solution.
 
 ## Format preservation
 
