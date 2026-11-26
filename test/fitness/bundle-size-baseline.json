@@ -1,6 +1,6 @@
 {
-  ".": 21141,
-  "./commons": 21141,
+  ".": 21616,
+  "./commons": 21616,
   "./conformance": 19804,
   "./testing": 18841,
   "./typescript": 30752,
@@ -13,6 +13,6 @@
   "./csharp": 18365,
   "./aspnet": 22985,
   "./msbuild": 12275,
-  "probe:commons#create": 11127,
+  "probe:commons#create": 11602,
   "probe:css#find": 12696
 }
