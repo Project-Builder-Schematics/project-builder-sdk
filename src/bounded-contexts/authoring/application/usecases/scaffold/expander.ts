@@ -16,10 +16,10 @@
 // — no synchronous flush variant may be added. The bridge is the EXISTING `DialectRegistry`
 // (`context.ts`, ADR-0037), documented as generic over "anything with a `settle()`": a
 // mid-run `session.flush()` call is fired here WITHOUT awaiting (its synchronous prefix —
-// draining `#pending`, building the batch, and the fake's entirely-synchronous `#apply`
-// loop — still runs to completion before `flush()`'s own `await` suspends it, so the
-// `#tree` mutation for this group happens in-order, synchronously, before the next group
-// starts buffering) and REGISTERED as a dialect handle. `defineFactory` already awaits
+// draining `#pending`, building the batch, and, when no earlier batch is still in flight, the
+// fake's entirely-synchronous `#apply` loop — runs before `flush()` suspends; a batch fired
+// while another is in flight waits its turn, so each group's `#tree` mutation still lands in
+// order) and REGISTERED as a dialect handle. `defineFactory` already awaits
 // `ctx.dialects.drain()` BEFORE its own run-end `session.flush()` (which covers the final,
 // still-pending group) and BEFORE `commit()` — so a later-chunk rejection surfaces through
 // `drain()`, routes to `defineFactory`'s existing catch, and `discard()` clears the SAME

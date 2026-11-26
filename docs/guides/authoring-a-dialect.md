@@ -608,6 +608,12 @@ one file. An `async` op or `.modify()` that is still running when another writer
 rejects, naming the file, instead of erasing that write; `await` each op before another writer
 edits the same file.
 
+Every edit lands, but only each handle's own ops keep their call order. Ops on different handles
+that are not awaited interleave in the order their handles reach them, and a commons verb is
+buffered the moment you call it, so it lands before unawaited handle ops you called earlier.
+`await` each op when the order across writers matters, for example when two handles append to one
+array.
+
 A node you keep from one `.modify()` call belongs to the tree it came from. Once the handle
 re-parses, using that node fails, naming the file and telling you to look the node up again
 inside `.modify()`; the SDK never relocates it by name or position (A-8). A dialect supports this
