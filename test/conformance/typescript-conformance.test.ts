@@ -273,11 +273,13 @@ describe("REQ-DC-08 — real-base-dialect rule extended to testDialect", () => {
 });
 
 describe("A-11 — stale nodes fail (real TypeScript dialect)", () => {
-  it("passes for every ts-morph dialect, whose ast retires the old tree", async () => {
-    for (const fixture of DIALECT_MODULES.filter((m) => "staleNode" in m)) {
+  // One test per dialect: each run round-trips the kit's 4 MiB sample, so they share no timeout.
+  it.each(DIALECT_MODULES.filter((m) => "staleNode" in m).map((m) => [m.entrypoint, m] as const))(
+    "passes for %s, whose ast retires the old tree",
+    async (_entrypoint, fixture) => {
       await expect(testDialect({ ...fixture, samples: [...fixture.samples] } as Parameters<typeof testDialect>[0])).resolves.toBeUndefined();
     }
-  });
+  );
 
   it("rejects a dialect whose kept node stays usable after a re-parse", async () => {
     await expect(testDialect(staleNodeViolationFixture)).rejects.toThrow(/A-11 stale node/);
