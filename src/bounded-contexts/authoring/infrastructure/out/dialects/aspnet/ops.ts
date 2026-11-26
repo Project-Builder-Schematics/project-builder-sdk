@@ -31,9 +31,10 @@ interface Registration {
   readonly lifetime: string;
   readonly service: string;
   readonly implementation: string;
+  readonly passesArguments: boolean;
 }
 
-/** `<receiver>.Add<Lifetime><Service, Implementation>();` as a registration, or `undefined`. */
+/** `<receiver>.Add<Lifetime><Service>(...)` or `<receiver>.Add<Lifetime><Service, Implementation>(...)` as a registration, or `undefined`. */
 function registration(statement: Node, receiver: string): Registration | undefined {
   if (statement.type !== "expression_statement") return undefined;
   const call = statement.namedChildren[0];
@@ -42,8 +43,14 @@ function registration(statement: Node, receiver: string): Registration | undefin
   const generic = callee.childForFieldName("name")!;
   const lifetime = /^Add(Singleton|Scoped|Transient)$/.exec(generic.namedChildren[0]?.text ?? "")?.[1];
   const types = generic.namedChildren[1]?.namedChildren ?? [];
-  if (generic.type !== "generic_name" || lifetime === undefined || types.length !== 2) return undefined;
-  return { lifetime, service: compact(types[0]!.text), implementation: compact(types[1]!.text) };
+  if (generic.type !== "generic_name" || lifetime === undefined || (types.length !== 1 && types.length !== 2)) return undefined;
+  const service = compact(types[0]!.text);
+  return {
+    lifetime,
+    service,
+    implementation: types.length === 2 ? compact(types[1]!.text) : service,
+    passesArguments: (call!.childForFieldName("arguments")?.namedChildren.length ?? 0) > 0,
+  };
 }
 
 function isBuilderCall(value: Node | null): boolean {
@@ -128,13 +135,15 @@ function methodPlace(op: string, root: Node, name: string): Place {
   return { receiver, statements, insert };
 }
 
-export function addService(doc: CsharpDocument, lifetime: Lifetime, service: string, implementation: string, options?: ServiceOptions): void {
+export function addService(doc: CsharpDocument, lifetime: Lifetime, service: string, implementation?: string, options?: ServiceOptions): void {
   const op = "addService";
   if (typeof lifetime !== "string" || !LIFETIMES.includes(lifetime)) {
     throw dialectError(`${op} — \`lifetime\` ${JSON.stringify(lifetime)} is not a lifetime; use "Singleton", "Scoped" or "Transient"`);
   }
   assertType(op, "service", service);
-  assertType(op, "implementation", implementation);
+  if (implementation !== undefined) assertType(op, "implementation", implementation);
+  const implementationType = implementation ?? service;
+  const singleType = compact(implementationType) === compact(service);
   const opts = assertOptions(op, options, ["serviceFrom", "implementationFrom", "method"]) as ServiceOptions;
   if (opts.serviceFrom !== undefined) assertNamespace(op, "serviceFrom", opts.serviceFrom);
   if (opts.implementationFrom !== undefined) assertNamespace(op, "implementationFrom", opts.implementationFrom);
@@ -144,12 +153,18 @@ export function addService(doc: CsharpDocument, lifetime: Lifetime, service: str
     const receiver = compact(place.receiver);
     const existing = place.statements
       .map((statement) => registration(statement, receiver))
-      .find((r) => r !== undefined && r.service === compact(service) && r.implementation === compact(implementation));
+      .find((r) => r !== undefined && r.service === compact(service) && r.implementation === compact(implementationType));
+    if (existing?.passesArguments) {
+      throw dialectError(
+        `${op}(${JSON.stringify(service)}) — \`${service}\` is already registered with \`${implementationType}\` by a call that passes arguments; edit it with .modify()`
+      );
+    }
     if (existing?.lifetime === lifetime) return undefined;
     if (existing !== undefined) {
-      throw dialectError(`${op}(${JSON.stringify(service)}) — \`${service}\` is already registered with \`${implementation}\` as ${existing.lifetime}, not ${lifetime}`);
+      throw dialectError(`${op}(${JSON.stringify(service)}) — \`${service}\` is already registered with \`${implementationType}\` as ${existing.lifetime}, not ${lifetime}`);
     }
-    return place.insert(doc.text, `${place.receiver}.Add${lifetime}<${service.trim()}, ${implementation.trim()}>();`);
+    const types = singleType ? service.trim() : `${service.trim()}, ${implementationType.trim()}`;
+    return place.insert(doc.text, `${place.receiver}.Add${lifetime}<${types}>();`);
   });
   if (edited === undefined) return;
   doc.text = importNamespace(op, importNamespace(op, edited, opts.serviceFrom), opts.implementationFrom);

@@ -36,10 +36,18 @@ export const run = async () => {
 
 Every op of the C# dialect: `addUsing`, `addBaseType`, `addMember`, `addConstructorParameter`.
 
-### `addService(lifetime, service, implementation, { serviceFrom?, implementationFrom?, method? })`
+### `addService(lifetime, service, implementation?, { serviceFrom?, implementationFrom?, method? })`
 
 Writes `<receiver>.Add<lifetime><service, implementation>();`, where `lifetime` is `"Singleton"`,
-`"Scoped"` or `"Transient"` and `service` and `implementation` are each one C# type.
+`"Scoped"` or `"Transient"` and `service` and `implementation` are each one C# type. When
+`implementation` is left out or equals `service`, it writes the single-type form
+`<receiver>.Add<lifetime><service>();`, which ASP.NET uses for a concrete class, and `service`
+counts as the implementation everywhere else, `implementationFrom` included.
+
+```ts
+aspnet.find("Program.cs").addService("Scoped", "OpenAccount");
+// builder.Services.AddScoped<OpenAccount>();
+```
 
 - **Without `method`**, it edits the top-level statements of `Program.cs`. The one local variable
   initialized by `WebApplication.CreateBuilder`, `CreateSlimBuilder` or `CreateEmptyBuilder` is the
@@ -53,8 +61,9 @@ Writes `<receiver>.Add<lifetime><service, implementation>();`, where `lifetime` 
 `serviceFrom` and `implementationFrom` add the `using` of each type with the rules of the C#
 dialect's `from`.
 
-A registration of the same lifetime, service and implementation already in those statements
-leaves the file as it is.
+A registration of the same lifetime, service and implementation, called with no arguments,
+already in those statements leaves the file as it is. `Add<lifetime><service>()` and
+`Add<lifetime><service, service>()` count as the same registration.
 
 ## Rejections
 
@@ -63,6 +72,8 @@ file as it is:
 
 - a lifetime other than `Singleton`, `Scoped` or `Transient`;
 - a registration of the same service and implementation with another lifetime;
+- a registration of the same service and implementation that passes arguments, such as a factory
+  `sp => new SqlOrders()`, whatever its lifetime: edit it with `.modify()`;
 - a file whose top-level statements have no builder, or more than one, or no `Build()` call after it;
 - with `method`, no such static extension method or more than one, or one with an expression body.
 

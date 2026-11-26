@@ -59,6 +59,52 @@ describe("addService in the top-level statements (A-116)", () => {
   });
 });
 
+describe("addService single-type registrations (A-116)", () => {
+  const single = (line: string): string => PROGRAM.replace("(args);\n", `(args);\n${line}\n`);
+  const OPEN = single("builder.Services.AddScoped<OpenAccount>();");
+
+  it.each([[undefined], ["OpenAccount"], [" OpenAccount "]])("writes Add<L><S>() when the implementation is %p", async (implementation) => {
+    await expectFile(PROGRAM, (h) => (h as any).addService("Scoped", "OpenAccount", implementation), OPEN, aspnet.find);
+  });
+
+  it("imports implementationFrom when the implementation is left out", async () => {
+    await expectFile(
+      PROGRAM,
+      (h) => (h as any).addService("Scoped", "OpenAccount", undefined, { implementationFrom: "Bank.Application" }),
+      `using Bank.Application;\n\n${OPEN}`,
+      aspnet.find
+    );
+  });
+
+  it.each([
+    ["builder.Services.AddScoped<OpenAccount>();", undefined],
+    ["builder.Services.AddScoped<OpenAccount>();", "OpenAccount"],
+    ["builder.Services.AddScoped<OpenAccount, OpenAccount>();", undefined],
+    ["builder.Services.AddScoped<OpenAccount, OpenAccount>();", "OpenAccount"],
+  ])("treats %s as the same registration as implementation %p", async (line, implementation) => {
+    await expectFile(single(line), (h) => (h as any).addService("Scoped", "OpenAccount", implementation), single(line), aspnet.find);
+  });
+
+  it.each([
+    ["builder.Services.AddTransient<OpenAccount>();", "OpenAccount", undefined, "as Transient"],
+    ["builder.Services.AddScoped<OpenAccount>(sp => new OpenAccount());", "OpenAccount", undefined, "passes arguments"],
+    ["builder.Services.AddScoped<IOrders, SqlOrders>(sp => new SqlOrders());", "IOrders", "SqlOrders", "passes arguments"],
+    ["builder.Services.AddSingleton<IOrders, SqlOrders>(sp => new SqlOrders());", "IOrders", "SqlOrders", "passes arguments"],
+  ])("rejects the existing %s", async (line, service, implementation, fragment) => {
+    await expectReject(single(line), (h) => (h as any).addService("Scoped", service, implementation), fragment, aspnet.find);
+  });
+
+  it("still adds a pair whose service is registered with another implementation", async () => {
+    const source = single("builder.Services.AddScoped<IOrders>(sp => new SqlOrders());");
+    await expectFile(
+      source,
+      (h) => (h as any).addService("Scoped", "IOrders", "MemoryOrders"),
+      source.replace("SqlOrders());\n", "SqlOrders());\nbuilder.Services.AddScoped<IOrders, MemoryOrders>();\n"),
+      aspnet.find
+    );
+  });
+});
+
 describe("addService in a service collection extension method (A-116)", () => {
   it("registers before the method's return", async () => {
     await expectFile(
