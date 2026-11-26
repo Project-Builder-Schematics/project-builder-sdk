@@ -17,7 +17,8 @@ const msbuildDialect = withOps(
 );
 
 /**
- * Opens a `.csproj`, `.props`, `.targets` or `.slnx` file to add project references. The
+ * Opens a `.csproj`, `.props`, `.targets` or `.slnx` file. `addProjectReference` edits only a
+ * file whose root element is `Project`, so a `.slnx` `<Solution>` is edited through `.modify(fn)`. The
  * dialect edits the XML text and changes only the bytes it must: the XML declaration, comments,
  * attribute quotes, indentation, line endings, a BOM, and the final newline survive. The classic
  * `.sln` format and any other extension throw synchronously with the `dialect operation failed: `
