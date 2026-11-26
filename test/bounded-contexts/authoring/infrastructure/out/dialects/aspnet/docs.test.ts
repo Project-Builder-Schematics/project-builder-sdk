@@ -8,7 +8,7 @@ const doc = readFileSync(join(PROJECT_ROOT, "docs/guides/aspnet-dialect.md"), "u
 
 describe("docs/guides/aspnet-dialect.md — author guide", () => {
   it("documents addService, both places it edits, and its rejections", () => {
-    const op = extractSection(doc, "### `addService(lifetime, service, implementation, { serviceFrom?, implementationFrom?, method? })`");
+    const op = extractSection(doc, "### `addService(lifetime, service, implementation?, { serviceFrom?, implementationFrom?, method? })`");
     expect(op).toContain("CreateBuilder");
     expect(op).toContain("this IServiceCollection");
     expect(extractSection(doc, "## Rejections")).toContain("another lifetime");

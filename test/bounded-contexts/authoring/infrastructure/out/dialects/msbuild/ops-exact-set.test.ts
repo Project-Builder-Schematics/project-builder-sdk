@@ -7,7 +7,7 @@ import { RESERVED_HANDLE_NAMES } from "../../../../../../../src/bounded-contexts
 const BASE_HANDLE_KEYS: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
 
 describe("subpath resolves with the exact op-set", () => {
-  it("the handle exposes exactly addProjectReference plus the base handle verbs", async () => {
+  it("the handle exposes exactly addProject and addProjectReference plus the base handle verbs", async () => {
     const { client } = makeSpyClient({ "A.csproj": "<Project />" });
 
     let opKeys: string[] = [];
@@ -18,7 +18,7 @@ describe("subpath resolves with the exact op-set", () => {
     });
     await run(undefined, { client });
 
-    expect(opKeys).toEqual(["addProjectReference"]);
+    expect(opKeys).toEqual(["addProject", "addProjectReference"]);
   });
 
   it("rejects a .sln path synchronously", () => {

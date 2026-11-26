@@ -9,7 +9,7 @@ export type { CsharpDocument, FromOptions, UsingOptions } from "../csharp/index.
 export type { Lifetime, ServiceOptions };
 
 type ServiceOps = {
-  addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation: string, options?: ServiceOptions) => void;
+  addService: (ast: CsharpDocument, lifetime: Lifetime, service: string, implementation?: string, options?: ServiceOptions) => void;
 };
 
 type AspnetOps = CsharpOps & ServiceOps;
@@ -22,16 +22,19 @@ const aspnetDialect = withOps(defineDialect({ extensions: [".cs"], ast: { parse,
  * Opens a `.cs` file of an ASP.NET Core application. The handle carries every
  * `@pbuilder/sdk/csharp` op plus `addService`, chained on one handle and written once.
  *
- * `addService(lifetime, service, implementation, { serviceFrom?, implementationFrom?, method? })`
+ * `addService(lifetime, service, implementation?, { serviceFrom?, implementationFrom?, method? })`
  * writes `<receiver>.Add<lifetime><service, implementation>();` once, `lifetime` being
- * `"Singleton"`, `"Scoped"` or `"Transient"`. Without `method` it edits the top-level statements
+ * `"Singleton"`, `"Scoped"` or `"Transient"`; when `implementation` is left out or equals
+ * `service`, it writes `<receiver>.Add<lifetime><service>();`. Without `method` it edits the top-level statements
  * of `Program.cs`: the receiver is `<builder>.Services` of the one variable initialized by
  * `WebApplication.CreateBuilder` (or `CreateSlimBuilder`, `CreateEmptyBuilder`), and the line
  * goes just before the statement that calls `<builder>.Build()`. With `method` it edits the one
  * static method of that name whose first parameter is `this IServiceCollection`, before its
  * `return`. `serviceFrom` and `implementationFrom` add the `using` of each type unless the file
- * already sees it. The same registration already there changes nothing; the same pair with
- * another lifetime, or a file with no such place, rejects and leaves the file as it is.
+ * already sees it. The same registration already there, called with no arguments, changes
+ * nothing (`Add<L><S>()` and `Add<L><S, S>()` are the same registration); the same pair with
+ * another lifetime or with arguments such as a factory, or a file with no such place, rejects and
+ * leaves the file as it is.
  *
  * @example
  * import * as aspnet from "@pbuilder/sdk/aspnet";

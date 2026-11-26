@@ -1,15 +1,16 @@
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../../../domain/services/define-dialect.ts";
 import { parse, print, type MsbuildDocument } from "./ast.ts";
-import { addProjectReference } from "./ops.ts";
+import { addProject, addProjectReference, type ProjectOptions } from "./ops.ts";
 
 export * as astLibrary from "saxes";
-export type { MsbuildDocument };
+export type { MsbuildDocument, ProjectOptions };
 
 type MsbuildOps = {
   addProjectReference: (ast: MsbuildDocument, path: string) => void;
+  addProject: (ast: MsbuildDocument, path: string, options?: ProjectOptions) => void;
 };
 
-const opsPack = defineOpPack<MsbuildDocument, MsbuildOps>({ addProjectReference });
+const opsPack = defineOpPack<MsbuildDocument, MsbuildOps>({ addProjectReference, addProject });
 
 const msbuildDialect = withOps(
   defineDialect({ extensions: [".csproj", ".props", ".targets", ".slnx"], ast: { parse, print }, ops: {} }),
@@ -17,7 +18,9 @@ const msbuildDialect = withOps(
 );
 
 /**
- * Opens a `.csproj`, `.props`, `.targets` or `.slnx` file to add project references. The
+ * Opens a `.csproj`, `.props`, `.targets` or `.slnx` file. `addProjectReference(path)` edits a
+ * file whose root element is `Project`; `addProject(path, { folder? })` adds a project to a `.slnx`
+ * `<Solution>`, in the solution folder `folder` (such as `/src/`) when given. The
  * dialect edits the XML text and changes only the bytes it must: the XML declaration, comments,
  * attribute quotes, indentation, line endings, a BOM, and the final newline survive. The classic
  * `.sln` format and any other extension throw synchronously with the `dialect operation failed: `
@@ -44,6 +47,20 @@ const msbuildDialect = withOps(
  * // ->     <ProjectReference Include="../Shop.Application/Shop.Application.csproj" />
  * // ->   </ItemGroup>
  * // -> </Project>
+ *
+ * @example
+ * import * as msbuild from "@pbuilder/sdk/msbuild";
+ *
+ * // Shop.slnx before:
+ * // <Solution>\n</Solution>\n
+ * export const run = async () => {
+ *   await msbuild.find("Shop.slnx").addProject("src/Shop.Api/Shop.Api.csproj", { folder: "/src/" });
+ * };
+ * // -> <Solution>
+ * // ->   <Folder Name="/src/">
+ * // ->     <Project Path="src/Shop.Api/Shop.Api.csproj" />
+ * // ->   </Folder>
+ * // -> </Solution>
  */
 export function find(path: string): Handle<"found", MsbuildDocument, MsbuildOps> {
   return msbuildDialect.find(path);
