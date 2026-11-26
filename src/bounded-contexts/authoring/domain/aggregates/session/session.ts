@@ -1,5 +1,5 @@
-// KIT-02 / ADR-0008: holds ONLY the pending directive buffer + the EngineClient.
-// No path-keyed map, no tree. read() flushes pending BEFORE delegating to the client.
+// KIT-02 / ADR-0008: holds the pending directive buffer, the EngineClient, and one content
+// version per path as typed (A-7). No tree. read() flushes pending BEFORE delegating to the client.
 // REQ-KIT-05: flush() is package-internal — called by defineFactory after fn resolves
 // so write-only factories (no read call) still emit their batch.
 //
@@ -12,9 +12,32 @@ import type { EngineClient } from "../../ports/engine-client.ts";
 import type { Batch, Directive } from "../../valueobjects/wire.ts";
 import { toAuthoringError } from "../../valueobjects/authoring-error.ts";
 
+/** The paths whose content a directive replaces or removes; a copy's source is untouched. */
+function touchedPath(directive: Directive): string {
+  switch (directive.op) {
+    case "create":
+      return directive.create.pathTemplate;
+    case "modify":
+      return directive.modify.path;
+    case "delete":
+      return directive.delete.path;
+    case "rename":
+      return directive.rename.path;
+    case "move":
+      return directive.move.path;
+    case "copy":
+      return directive.copy.to;
+    case "copyIn":
+      return directive.copyIn.to;
+  }
+}
+
 export class Session {
   readonly #client: EngineClient;
   readonly #pending: Directive[] = [];
+  readonly #versions = new Map<string, number>();
+  // The batch being emitted, so a read or a later flush never overtakes it.
+  #emitting: Promise<void> = Promise.resolve();
 
   constructor(client: EngineClient) {
     this.#client = client;
@@ -22,6 +45,13 @@ export class Session {
 
   buffer(directive: Directive): void {
     this.#pending.push(directive);
+    const path = touchedPath(directive);
+    this.#versions.set(path, this.versionOf(path) + 1);
+  }
+
+  // A-7: how many buffered directives have changed this path's content, keyed by the path as typed.
+  versionOf(path: string): number {
+    return this.#versions.get(path) ?? 0;
   }
 
   // SEAM-02 (REQ-03): a defensive copy of the pending buffer for the pending Directives renderer.
@@ -64,13 +94,23 @@ export class Session {
   // identity, not `instanceof`: importing the TransportFault class here would pull the whole
   // transport client into core's (and the ./commons bundle's) module graph, inverting the
   // port direction. ERM-03's degrade still applies to everything else non-EmitRejection.
-  async flush(): Promise<void> {
-    if (this.#pending.length === 0) return;
+  // The batch is taken synchronously, so a read started right after this call already waits for it.
+  flush(): Promise<void> {
+    if (this.#pending.length === 0) return this.#emitting;
     const batch: Batch = {
       protocolVersion: 1,
       force: false,
       instructions: this.#pending.splice(0),
     };
+    const emit = this.#emitting.then(() => this.#emit(batch));
+    this.#emitting = emit.then(
+      () => undefined,
+      () => undefined
+    );
+    return emit;
+  }
+
+  async #emit(batch: Batch): Promise<void> {
     try {
       await this.#client.emit(batch);
     } catch (raw) {
