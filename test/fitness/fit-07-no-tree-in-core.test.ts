@@ -30,8 +30,16 @@ function getProductionCoreFiles(): readonly string[] {
   return REPLACED_CORE_FILES;
 }
 
+// A-7 (ADR-0008 amendment): the Session counts how many buffered directives changed each path.
+// A counter is not a mirror: no content is kept, and every read still goes to the engine.
+const ALLOWED_LINES: Readonly<Record<string, string>> = {
+  "bounded-contexts/authoring/domain/aggregates/session/session.ts": "readonly #versions = new Map<string, number>();",
+};
+
 function readCoreFile(relPath: string): string {
-  return readFileSync(join(SRC_DIR, relPath), "utf-8");
+  const source = readFileSync(join(SRC_DIR, relPath), "utf-8");
+  const allowed = ALLOWED_LINES[relPath];
+  return allowed === undefined ? source : source.split("\n").filter((line) => line.trim() !== allowed).join("\n");
 }
 
 // Patterns that indicate a path-keyed stored collection in production core.
@@ -107,6 +115,12 @@ describe("FIT-07 — no Map<path,*>/tree field in production core", () => {
   #tree = new Map();
 }`;
     expect(hasProhibitedPattern(violatingSrc)).toEqual(true);
+  });
+
+  it("[red-proof] the Session's version counter is the only exemption, and a content map beside it still fires", () => {
+    const session = "bounded-contexts/authoring/domain/aggregates/session/session.ts";
+    expect(readFileSync(join(SRC_DIR, session), "utf-8")).toContain(ALLOWED_LINES[session]!);
+    expect(hasProhibitedPattern("readonly #content = new Map<string, string>();")).toEqual(true);
   });
 
   // RED-PROOF: a Record<string, X> field is also caught (path-keyed plain-object, same invariant).
