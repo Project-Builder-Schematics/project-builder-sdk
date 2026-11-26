@@ -16,9 +16,9 @@ Source of truth: project-builder-architecture PR #107, merge commit 31d376f, pin
 
 | ID | Specs | Route | Status | Commit |
 |----|-------|-------|--------|--------|
-| T0 | — | inline | partial — pinned to 31d376f; rules:implemented 479/0 on the new pin. The pin fitness test needs a `v*` tag, which 31d376f has none of yet | f4ac768 |
+| T0 | — | inline | done — pinned to v0.25.0 (5b9dda2, holds PR #107 and #108); rules:implemented 496/0; pin fitness tests green | f4ac768, see L5 |
 | T1 | S1, S3 | inline | done — 11 unit tests RED then GREEN (aspnet 30/30); every sdk-262 scenario passes | 87bc389 |
-| T2 | S2, S3 | inline | done — 28 unit tests RED then GREEN (msbuild 67/67); every sdk-261 scenario passes; API snapshot and bundle baselines updated | f91235c |
+| T2 | S2, S3 | inline | done — 28 unit tests RED then GREEN (msbuild 67/67); every sdk-261 scenario passes; API snapshot and bundle baselines updated | f91235c, 4769244 |
 
 Route evidence: each unit is about 100-200 changed lines and they share the docs and README, so the Writer trigger does not hold; the parent writes inline.
 
@@ -26,4 +26,6 @@ Route evidence: each unit is about 100-200 changed lines and they share the docs
 
 - L1 (2026-11-27, Daniel): "buddy puedes revisar los ultimos dos issues que estan en el repo" — then "esperemos a architecture para que actualices tambien lo que sea necesario ahi".
 - L2 (2026-11-27, peer session architecture): "The rules for sdk#261 and sdk#262 are merged into project-builder-architecture main as PR #107 (merge commit 31d376f), so you can implement them now. [...] Their new scenarios are tagged @status:designed with @issue:sdk-261 or @issue:sdk-262; flip each one to @status:implemented once it passes."
-- L3 (2026-11-27): baseline on the new pin had 10 `bun test` failures unrelated to the dialects (Bun pin, bundle size of `.`/commons, FIT-42N, REQ-WPS-07 absolute paths, timeouts, the uncommitted pin). After T2 the same set remains, plus the pin's `v*` tag check. `rules:designed`: 6 -> 20 pass, no aspnet or msbuild failure. Next: architecture tags a release holding 31d376f and flips the sdk-261/262 scenarios to implemented; then re-pin to that tag. Engram mirror pending: the engram project is ambiguous.
+- L3 (2026-11-27): baseline on the new pin had 10 `bun test` failures unrelated to the dialects (Bun pin, bundle size of `.`/commons, FIT-42N, REQ-WPS-07 absolute paths, timeouts, the uncommitted pin). After T2 the same set remains, plus the pin's `v*` tag check. `rules:designed`: 6 -> 20 pass, no aspnet or msbuild failure. Next: architecture tags a release holding 31d376f and flips the sdk-261/262 scenarios to implemented; then re-pin to that tag. Engram mirror: see L4.
+- L4 (2026-11-27, peer session architecture, Daniel's decision): A-119 changed in architecture PR #108: "a solution folder name: `/` followed by one or more non-empty segments that each end in `/`, such as `/src/` or `/src/Core/`. Any other value rejects, `/` and `/src//` included." Done in 4769244: 3 RED cases then GREEN (msbuild 70/70); `rules:implemented` 496/0 against PR #108 (194902e). Next: re-pin to v0.25.0 once Daniel merges #108 and architecture cuts the tag. Engram mirror: project `project-builder-sdk` (Daniel's choice).
+- L5 (2026-11-27): re-pinned the submodule to v0.25.0 (5b9dda2); rules:implemented 496/0. Engram mirror saved (topic odd/slnx-add-project-single-type-services/tasks, project project-builder-sdk).
