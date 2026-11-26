@@ -47,6 +47,15 @@ describe("Session.versionOf", () => {
     expect(session.versionOf("lib/b.ts")).toBe(1);
   });
 
+  it("reads a move's directory with or without trailing slashes, and stays linear on many of them", () => {
+    const session = new Session(client());
+    session.buffer({ op: "move", move: { path: "b.ts", toDir: "lib//" } });
+    expect(session.versionOf("lib/b.ts")).toBe(1);
+    const started = performance.now();
+    session.buffer({ op: "move", move: { path: "c.ts", toDir: `${"/".repeat(100_000)}x` } });
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+
   it("does not move for a directive on another path, nor for the source of a copy", () => {
     const session = new Session(client());
     session.buffer({ op: "modify", modify: { path: "b.ts", content: "x" } });

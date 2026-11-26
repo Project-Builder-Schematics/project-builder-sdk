@@ -15,6 +15,13 @@ import { toAuthoringError } from "../../valueobjects/authoring-error.ts";
 const dirOf = (path: string): string => path.slice(0, path.lastIndexOf("/") + 1);
 const baseOf = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
 
+// A loop, not a /\/+$/ regex: toDir comes from the author, and that regex backtracks polynomially.
+function withoutTrailingSlashes(dir: string): string {
+  let end = dir.length;
+  while (end > 0 && dir[end - 1] === "/") end--;
+  return dir.slice(0, end);
+}
+
 /** The paths whose content a directive replaces or removes, spelled as the commons verbs spell them; a copy's source is untouched. */
 function touchedPaths(directive: Directive): readonly string[] {
   switch (directive.op) {
@@ -27,7 +34,7 @@ function touchedPaths(directive: Directive): readonly string[] {
     case "rename":
       return [directive.rename.path, dirOf(directive.rename.path) + directive.rename.newName];
     case "move":
-      return [directive.move.path, `${directive.move.toDir.replace(/\/+$/, "")}/${baseOf(directive.move.path)}`];
+      return [directive.move.path, `${withoutTrailingSlashes(directive.move.toDir)}/${baseOf(directive.move.path)}`];
     case "copy":
       return [directive.copy.to];
     case "copyIn":
