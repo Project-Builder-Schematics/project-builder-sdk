@@ -219,7 +219,7 @@ describe("addProject — A-119", () => {
     await expectReject(source, project(API, options), "another place", SLNX);
   });
 
-  it.each([["src"], ["/src"], ["src/"], [""], [42]])("rejects the folder %p", async (folder) => {
+  it.each([["src"], ["/src"], ["src/"], [""], ["/"], ["/src//"], ["//src/"], [42]])("rejects the folder %p", async (folder) => {
     await expectReject("<Solution>\n</Solution>", project(API, { folder }), "`options.folder`", SLNX);
   });
 

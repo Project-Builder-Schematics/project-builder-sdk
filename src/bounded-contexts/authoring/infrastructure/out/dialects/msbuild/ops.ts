@@ -127,9 +127,9 @@ export const addProjectReference = validatedOp<MsbuildDocument, [path: string]>(
 );
 
 function assertFolder(folder: unknown): void {
-  if (typeof folder !== "string" || !folder.startsWith("/") || !folder.endsWith("/")) {
+  if (typeof folder !== "string" || !/^\/([^/]+\/)+$/.test(folder)) {
     throw dialectError(
-      `${ADD_PROJECT} — \`options.folder\` ${JSON.stringify(folder)} is not a solution folder name; it starts and ends with \`/\`, such as "/src/".`
+      `${ADD_PROJECT} — \`options.folder\` ${JSON.stringify(folder)} is not a solution folder name: \`/\` followed by one or more non-empty segments that each end in \`/\`, such as "/src/" or "/src/Core/".`
     );
   }
 }

@@ -74,8 +74,8 @@ follows the same rules as for `addProjectReference`.
 
 - **Without `folder`**, the project goes after the last `Project` child of `Solution`, or after
   its last child when it has none.
-- **With `folder`**, a solution folder name that starts and ends with `/` (`/src/`,
-  `/src/Core/`), the project goes after the last `Project` of the `Folder` child of `Solution`
+- **With `folder`**, a solution folder name, `/` followed by one or more non-empty segments that
+  each end in `/` (`/src/`, `/src/Core/`), the project goes after the last `Project` of the `Folder` child of `Solution`
   whose `Name` is that name, or as its last child when it has none. When there is no such
   `Folder`, a new one holding the project goes after the last `Folder` child of `Solution`, or as
   its first child when it has none. Only the named folder is created, never its parents, and the
@@ -104,7 +104,7 @@ the op's name:
 - for `addProjectReference`, a file whose root element is not `Project`, such as a `.slnx`
   `<Solution>`, or an empty file;
 - for `addProject`, a file whose root element is not `Solution`, or an empty file; a `folder`
-  that does not start and end with `/`, or an option other than `folder`; and a project of the
+  that is not a solution folder name, `/` and `/src//` included, or an option other than `folder`; and a project of the
   same path that already sits anywhere else in the solution.
 
 ## Format preservation
