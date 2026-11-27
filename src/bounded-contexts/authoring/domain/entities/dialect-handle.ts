@@ -131,6 +131,9 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // this to decide whether an op actually changed anything (REQ-TSD-08.4's zero-directive
   // no-op) — never re-derived from a print-after-parse (would cost a redundant print).
   #lastEmittedText: string | undefined;
+  // A-7: the Session, and its content version of #path, that #live reflects, own writes included.
+  #session: Session | undefined;
+  #version: number | undefined;
 
   constructor(dialectAst: DialectAst<Ast>, ops: Ops, path: string) {
     this.#dialectAst = dialectAst;
@@ -198,25 +201,43 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     currentRun<HandleRun>().dialects.register({ settle: () => this.settle() });
   }
 
-  async #ensureLive(): Promise<void> {
-    if (this.#live !== undefined) return;
+  // A-7: #live is a cache of the path's content, fresh while no other writer moved the path's
+  // content version since it was parsed. Callers loop `while (!#isFresh()) await #reparse()` and
+  // run the op in the same synchronous turn as the last check, so no write can land in between.
+  #isFresh(): boolean {
     const { session } = currentRun<HandleRun>();
+    return this.#live !== undefined && session === this.#session && session.versionOf(this.#path) === this.#version;
+  }
+
+  // The read flushes pending edits first; a version that moves while the read is in flight means
+  // the content read is already stale, so the caller's loop reads again.
+  async #reparse(): Promise<void> {
+    const { session } = currentRun<HandleRun>();
+    const version = session.versionOf(this.#path);
     const content = await session.read(this.#path);
+    if (session.versionOf(this.#path) !== version) return;
     if (content === undefined) {
       throw dialectError(`"${this.#path}" does not exist — create it first in this run`);
     }
+    let next: Ast;
     try {
-      this.#live = this.#dialectAst.parse(content);
+      next = this.#dialectAst.parse(content);
     } catch {
       throw dialectError(`could not parse "${this.#path}"`);
     }
-    astHandlePaths.set(this.#live as object, this.#path);
+    // The drained directive prints the AST it was built from; fix its content before replacing it.
+    if (this.#openDirective?.op === "modify") void this.#openDirective.modify.content;
+    this.#live = next;
+    astHandlePaths.set(next as object, this.#path);
     this.#lastEmittedText = content;
+    this.#openDirective = undefined;
+    this.#session = session;
+    this.#version = version;
   }
 
-  #printContained(): string {
+  #printContained(ast: Ast = this.#live as Ast): string {
     try {
-      return this.#dialectAst.print(this.#live as Ast);
+      return this.#dialectAst.print(ast);
     } catch {
       throw dialectError(`could not print "${this.#path}"`);
     }
@@ -256,6 +277,10 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // instead of unconditionally re-registering a byte-identical directive.
   #ensureOpen(): void {
     const { session } = currentRun<HandleRun>();
+    // An async op let another writer change the path; printing #live now would erase that write.
+    if (session.versionOf(this.#path) !== this.#version) {
+      throw dialectError(`"${this.#path}" changed while an op on it ran — await each op before another writer edits the file`);
+    }
     if (this.#hasOpenPendingDirective(session)) {
       return;
     }
@@ -268,8 +293,10 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
     if (this.#printContained() === this.#lastEmittedText) {
       return;
     }
-    this.#openDirective = lazyModifyDirective(this.#path, () => this.#printContained());
+    const live = this.#live as Ast;
+    this.#openDirective = lazyModifyDirective(this.#path, () => this.#printContained(live));
     session.buffer(this.#openDirective);
+    this.#version = session.versionOf(this.#path);
   }
 
   // Shared containment primitive (ADR-0037 amendment clause 1): runs `fn`, awaits a
@@ -278,16 +305,21 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // NEVER `message.startsWith`) — a caught error already carrying the brand (an author's
   // deliberate `dialectError` reject) is RETHROWN VERBATIM (REQ-DG-06.5, no double-wrap, no
   // `.cause`); any foreign error is wrapped fresh via `dialectError(foreignTail)`.
-  async #invokeContained(fn: () => unknown, foreignTail: string): Promise<void> {
-    try {
-      const result: unknown = fn();
-      if (isThenable(result)) {
-        await result;
-      }
-    } catch (caught) {
+  //
+  // Synchronous for a synchronous `fn`, so an op and the #ensureOpen after it run in the turn of
+  // the freshness check (A-7); only a thenable result returns a promise.
+  #invokeContained(fn: () => unknown, foreignTail: string): Promise<void> | undefined {
+    const rethrow = (caught: unknown): never => {
       if (isContained(caught)) throw caught;
       throw dialectError(foreignTail);
+    };
+    let result: unknown;
+    try {
+      result = fn();
+    } catch (caught) {
+      rethrow(caught);
     }
+    return isThenable(result) ? Promise.resolve(result).then(() => undefined, rethrow) : undefined;
   }
 
   // Chaining is the WRAPPER's job (createDialectHandle, below) — these return void; the
@@ -307,11 +339,9 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // however many params the author did or didn't supply.
   runOp(fn: (ast: Ast, ...args: unknown[]) => void, args: unknown[], opName: string): void {
     this.#enqueue(async () => {
-      await this.#ensureLive();
-      await this.#invokeContained(
-        () => fn(this.#live as Ast, ...args),
-        `${opName}() on "${this.#path}" threw`
-      );
+      while (!this.#isFresh()) await this.#reparse();
+      const pending = this.#invokeContained(() => fn(this.#live as Ast, ...args), `${opName}() on "${this.#path}" threw`);
+      if (pending !== undefined) await pending;
       this.#ensureOpen();
     });
   }
@@ -322,7 +352,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // otherwise smuggle its edit into the next op's directive.
   runQuery(fn: (ast: Ast, ...args: unknown[]) => unknown, args: unknown[], name: string): Promise<unknown> {
     return this.#chain(async () => {
-      await this.#ensureLive();
+      while (!this.#isFresh()) await this.#reparse();
       const before = this.#printContained();
       let result: unknown;
       await this.#invokeContained(async () => {
@@ -343,8 +373,9 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // resolve-after-delay's mutation may race the print.
   runModify(fn: (ast: Ast) => void): void {
     this.#enqueue(async () => {
-      await this.#ensureLive();
-      await this.#invokeContained(() => fn(this.#live as Ast), `modify() on "${this.#path}" threw`);
+      while (!this.#isFresh()) await this.#reparse();
+      const pending = this.#invokeContained(() => fn(this.#live as Ast), `modify() on "${this.#path}" threw`);
+      if (pending !== undefined) await pending;
       this.#ensureOpen();
     });
   }

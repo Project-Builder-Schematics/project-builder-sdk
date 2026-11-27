@@ -88,7 +88,22 @@ describe("run-context — the lookup happens at each step", () => {
       await handle.push("two");
     })(undefined, { client: second.client });
     expect(collectModifies(first.emitted).map((m) => m.modify.content)).toEqual(["seed\none"]);
-    expect(collectModifies(second.emitted).map((m) => m.modify.content)).toEqual(["seed\none\ntwo"]);
+    // A-7: each run edits its own content; the first run's edit never leaks into the second.
+    expect(collectModifies(second.emitted).map((m) => m.modify.content)).toEqual(["seed\ntwo"]);
+  });
+
+  it("re-reads in a new run even when the handle wrote nothing in the first", async () => {
+    const counted = toyDialect.find("c.toy");
+    const first = makeSpyClient({ "c.toy": "old" });
+    await defineFactory<void>(async () => {
+      await counted.modify(() => {});
+    })(undefined, { client: first.client });
+    expect(first.emitted).toEqual([]);
+    const second = makeSpyClient({ "c.toy": "new" });
+    await defineFactory<void>(async () => {
+      await counted.push("two");
+    })(undefined, { client: second.client });
+    expect(collectModifies(second.emitted).map((m) => m.modify.content)).toEqual(["new\ntwo"]);
   });
 });
 

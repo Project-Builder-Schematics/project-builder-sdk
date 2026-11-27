@@ -37,3 +37,13 @@ answer from.
   `Map<path, …>`, no tree type); a `modify`-then-`read` test asserts the read produced a `flush` +
   `EngineClient.read` round-trip (spied), proving the answer came from the engine, not memory.
 - Closes the door on a future dialect quietly caching a tree across chains.
+
+## Amendment (2026-11-27): content versions for A-7
+
+Rule A-7 makes a Dialect handle's AST a cache of the file's content, so several handles on one
+file keep each other's edits. To know when that cache is stale, the Session counts, per path as
+typed, how many buffered directives changed the path's content (`Session.versionOf`). The count
+is the only path-keyed state: it holds no content, and every read is still a flush plus an engine
+round-trip. A handle whose AST was parsed at an older count re-reads and re-parses. FIT-07 exempts
+exactly that one declaration; any other path-keyed field still fails it.
+
