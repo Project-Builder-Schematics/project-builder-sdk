@@ -49,6 +49,13 @@ describe("find — declared dialects (A-16)", () => {
     expect(result.tree.get("settings.ini")).toBeUndefined();
   });
 
+  it("fails the factory when an undeclared dialect only inspects the file", async () => {
+    const result = await runFactoryForTest(async () => {
+      await ini.find("settings.ini").inspect((tree) => tree.text);
+    }, undefined, { seed });
+    expect(errorMessage(result.error)).toContain(NOT_DECLARED);
+  });
+
   it("edits through a declared dialect", async () => {
     const result = await runFactoryForTest(async () => {
       await ini.find("settings.ini").modify((tree) => {

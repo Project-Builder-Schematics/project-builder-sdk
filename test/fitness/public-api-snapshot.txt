@@ -173,13 +173,14 @@
 ./dialect ExtensionRouter interface: ExtensionRouter<M>
   .extensions: readonly (keyof M & string)[]
   .find: <P extends string>(path: P) => RoutedHandle<M, P>
-./dialect Handle type: ReadOps & DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops>; } & OpMethods<Ast, Ops> & (State extends "found" ? { remove(): void; } : {}) & PromiseLike<void>
+./dialect Handle type: ReadOps & DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops>; inspect<R>(fn: (ast: Ast) => R): Promise<Awaited<R>>; } & OpMethods<Ast, Ops> & (State extends "found" ? { remove(): void; } : {}) & PromiseLike<void>
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => Edited<Ast, Ops>
   .rename: (newName: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .move: (toDir: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .copy: (to: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .modify: (fn: (ast: Ast) => void) => Edited<Ast, Ops>
+  .inspect: <R>(fn: (ast: Ast) => R) => Promise<Awaited<R>>
   .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
   .remove: (Ops[string] extends Query<any, infer A extends unknown[], infer R> ? (...a: A) => Promise<Awaited<R>> : (...a: Parameters<Bound<Ast, Ops[string]>>) => Edited<Ast, Ops>) | (() => void)
 ./dialect Op type: (ast: Ast, ...args: never[]) => void
@@ -533,6 +534,7 @@ reachable HandleOf@define-dialect type: D extends Dialect<infer A, infer O exten
   .move: (toDir: string, opts?: { force?: boolean; }) => Edited<unknown, OpPack<unknown>>
   .copy: (to: string, opts?: { force?: boolean; }) => Edited<unknown, OpPack<unknown>>
   .modify: (fn: (ast: unknown) => void) => Edited<unknown, OpPack<unknown>>
+  .inspect: <R>(fn: (ast: unknown) => R) => Promise<Awaited<R>>
   .remove: () => void
   .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
 reachable InjectionOptions@ops type: { scope?: Scope; imports?: readonly NamedImport[]; }
@@ -879,6 +881,7 @@ reachable RoutedHandle@define-dialect type: string extends P ? HandleOf<M[keyof 
   .move: (toDir: string, opts?: { force?: boolean; }) => Edited<any, OpPack<any>>
   .copy: (to: string, opts?: { force?: boolean; }) => Edited<any, OpPack<any>>
   .modify: (fn: (ast: any) => void) => Edited<any, OpPack<any>>
+  .inspect: <R>(fn: (ast: any) => R) => Promise<Awaited<R>>
   .remove: () => void
   .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
 reachable RunResult@index interface: RunResult
