@@ -6,7 +6,7 @@
 // discipline still holds so a hostile schema can never distort the emitted TEXT into
 // something a human misreads or a downstream tool mis-tokenizes.
 
-import type { Schema, SchemaProperty } from "../../../domain/valueobjects/schema-model.ts";
+import type { ResultSchema, Schema, SchemaProperty } from "../../../domain/valueobjects/schema-model.ts";
 import { RECOGNIZED_KINDS } from "../../../domain/services/schema/schema-sufficiency.ts";
 
 export const GENERATED_HEADER =
@@ -66,6 +66,30 @@ function emitProperty(property: SchemaProperty): string {
   return `${doc}  ${key}${optional}: ${type};`;
 }
 
+// A-15: the declared Result as a type. Kinds come from the closed set parseSchema checked,
+// and keys go through emitPropertyKey, so no schema text reaches the output unquoted.
+function emitResult(result: ResultSchema): string {
+  return result.types
+    .map((kind) => {
+      switch (kind) {
+        case "array":
+          return `Array<${result.items === undefined ? "unknown" : emitResult(result.items)}>`;
+        case "object": {
+          if (result.properties === undefined) return "{ [key: string]: unknown }";
+          const required = new Set(result.required);
+          const members = result.properties.map(
+            ({ key, schema }) => `${emitPropertyKey(key)}${required.has(key) ? "" : "?"}: ${emitResult(schema)}`
+          );
+          return members.length === 0 ? "Record<string, never>" : `{ ${members.join("; ")} }`;
+        }
+        default:
+          return kind;
+      }
+    })
+    .join(" | ");
+}
+
+/** The Input type, and the Result type when the schema declares a Result (A-15). */
 export function emitInputType(schema: Schema, digest: string): string {
   const members = schema.properties.map(emitProperty).join("\n");
   return [
@@ -75,6 +99,7 @@ export function emitInputType(schema: Schema, digest: string): string {
     "export type Input = {",
     members,
     "};",
+    ...(schema.result === undefined ? [] : ["", `export type Result = ${emitResult(schema.result)};`]),
     "",
   ].join("\n");
 }

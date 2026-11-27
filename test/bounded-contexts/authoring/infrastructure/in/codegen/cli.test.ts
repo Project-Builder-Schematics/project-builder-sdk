@@ -63,3 +63,44 @@ describe("runCli — an enum with a choice that is not a string", () => {
     expect(existsSync(join(workDir, "schema.generated.ts"))).toBe(false);
   });
 });
+
+describe("generateSchema — A-15: the declared Result becomes the Result type", () => {
+  function generated(schema: unknown): string {
+    workDir = mkdtempSync(join(tmpdir(), "codegen-result-"));
+    writeFileSync(join(workDir, "schema.json"), JSON.stringify(schema), "utf-8");
+    return readFileSync(generateSchema(workDir).outputPath, "utf-8");
+  }
+
+  it("a declared string Result is emitted next to the Input type", () => {
+    const output = generated({ properties: { provider: { type: "string", label: "Provider" } }, result: { type: "string" } });
+
+    expect(output).toContain("provider: string;");
+    expect(output).toContain("export type Result = string;");
+  });
+
+  it("a schematic without a Result gets no Result type", () => {
+    const output = generated({ properties: { provider: { type: "string", label: "Provider" } } });
+
+    expect(output).toContain("provider: string;");
+    expect(output).not.toContain("Result");
+  });
+
+  it("type lists, objects, arrays and quoted keys follow the declaration", () => {
+    const output = generated({
+      properties: {},
+      result: {
+        type: ["object", "null"],
+        properties: { name: { type: "string" }, "not-an-id": { type: "array", items: { type: "number" } }, any: { type: "object" } },
+        required: ["name"],
+      },
+    });
+
+    expect(output).toContain(
+      'export type Result = { name: string; "not-an-id"?: Array<number>; any?: { [key: string]: unknown } } | null;'
+    );
+  });
+
+  it("an array without items is an array of unknown", () => {
+    expect(generated({ properties: {}, result: { type: "array" } })).toContain("export type Result = Array<unknown>;");
+  });
+});

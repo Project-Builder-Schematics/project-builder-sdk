@@ -5,3 +5,5 @@ export type Input = {
   /** Kind */
   kind: "string" | "number";
 };
+
+export type Result = string;
