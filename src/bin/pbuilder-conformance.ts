@@ -20,16 +20,15 @@ async function main(argv: string[]): Promise<number> {
     return COULD_NOT_RUN;
   }
   const report = await checkDialectPackage(argv[1]!);
-  writeReport(`${JSON.stringify(report)}\n`);
+  await new Promise<void>((done) => writeReport(`${JSON.stringify(report)}\n`, () => done()));
   return report.passed ? 0 : 1;
 }
 
+// Exits explicitly: a timer or socket the author's code left open must not keep the process alive.
 main(process.argv.slice(2)).then(
-  (code) => {
-    process.exitCode = code;
-  },
+  (code) => process.exit(code),
   (err: unknown) => {
-    process.stderr.write(`pbuilder-conformance: the fixture could not run: ${err instanceof Error ? err.name : "error"}\n`);
-    process.exitCode = COULD_NOT_RUN;
+    const detail = err instanceof Error && err.message.startsWith("pbuilder-conformance:") ? err.message : "the fixture could not run";
+    process.stderr.write(`${detail}\n`, () => process.exit(COULD_NOT_RUN));
   }
 );

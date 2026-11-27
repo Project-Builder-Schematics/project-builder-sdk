@@ -26,6 +26,8 @@ interface PackageShape {
   print?: string;
   samples?: string[];
   noise?: boolean;
+  conformanceTarget?: string;
+  conformanceSource?: string;
 }
 
 let packages = 0;
@@ -34,7 +36,7 @@ function dialectPackage(shape: PackageShape = {}): string {
   mkdirSync(dir);
   const name = shape.name ?? "@company/ini-dialect";
   const exports: Record<string, string> = { ".": "./index.js" };
-  if (shape.conformanceExport !== false) exports["./conformance"] = "./conformance.js";
+  if (shape.conformanceExport !== false) exports["./conformance"] = shape.conformanceTarget ?? "./conformance.js";
   writeFileSync(join(dir, "package.json"), JSON.stringify({ name, version: "1.2.3", type: "module", exports }));
   writeFileSync(
     join(dir, "index.js"),
@@ -51,6 +53,7 @@ export const find = (path) => ini.find(path);
   );
   writeFileSync(
     join(dir, "conformance.js"),
+    shape.conformanceSource ??
     `import { ini, astLibrary, find } from "./index.js";
 ${shape.noise === true ? 'console.log("noise"); process.stdout.write("more noise\\n");' : ""}
 export default {
@@ -85,6 +88,22 @@ describe("checkDialectPackage (CA-13, A-16)", () => {
     const report = await checkDialectPackage(dialectPackage({ dialectName: "@company/other" }));
     expect(report.passed).toBe(false);
     expect(report.failures.map((failure) => failure.case)).toEqual(["name_mismatch"]);
+  });
+
+  it("fails a default export that is not a fixture as fixture_invalid", async () => {
+    const report = await checkDialectPackage(dialectPackage({ conformanceSource: "export default 42;" }));
+    expect(report.failures.map((failure) => failure.case)).toEqual(["fixture_invalid"]);
+  });
+
+  it("fails a fixture whose code throws while it loads as fixture_threw", async () => {
+    const report = await checkDialectPackage(dialectPackage({ conformanceSource: `throw new Error(${JSON.stringify(SECRET)});` }));
+    expect(report.failures.map((failure) => failure.case)).toEqual(["fixture_threw"]);
+    expect(JSON.stringify(report)).not.toContain(SECRET);
+  });
+
+  it("fails a ./conformance export that points outside the package as fixture_invalid", async () => {
+    const report = await checkDialectPackage(dialectPackage({ conformanceTarget: "../outside.js" }));
+    expect(report.failures.map((failure) => failure.case)).toEqual(["fixture_invalid"]);
   });
 
   it("names the broken check without repeating the author's sample", async () => {
@@ -127,6 +146,18 @@ describe("pbuilder-conformance (CA-13)", () => {
     expect(stdout).toBe("");
     expect(stderr).toContain("--dialect");
   });
+
+  it("exits 2 when a module the fixture imports cannot be resolved", () => {
+    const { exitCode, stdout } = run("--dialect", dialectPackage({ conformanceSource: 'import "@company/not-installed";\nexport default {};' }));
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe("");
+  });
+
+  it("exits once the report is written even when the fixture leaves a timer running", () => {
+    const { exitCode, stdout } = run("--dialect", dialectPackage({ conformanceSource: "setInterval(() => {}, 1000);\nexport default 42;" }));
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(stdout).failures[0].case).toBe("fixture_invalid");
+  }, 10_000);
 
   it("exits 2 when the directory holds no package", () => {
     const { exitCode, stdout } = run("--dialect", join(scratch, "missing"));

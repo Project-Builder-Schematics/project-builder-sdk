@@ -3,7 +3,7 @@
 // which may carry the author's samples or the text of an error their code threw (A-87).
 
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { testDialect, type DialectFixture } from "./index.ts";
 
@@ -60,6 +60,22 @@ function conformanceTarget(exports: unknown): string | undefined {
   return typeof target === "string" ? target : undefined;
 }
 
+// A resolution failure says the install is incomplete, not that the dialect is wrong.
+function isUnresolvedModule(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const { code, name, message } = err as { code?: unknown; name?: unknown; message?: unknown };
+  return (
+    code === "ERR_MODULE_NOT_FOUND" ||
+    name === "ResolveMessage" ||
+    (typeof message === "string" && /Cannot find (module|package)/.test(message))
+  );
+}
+
+function isInside(dir: string, file: string): boolean {
+  const path = relative(dir, file);
+  return path !== "" && !path.startsWith("..") && !isAbsolute(path);
+}
+
 function isFixture(value: unknown): value is DialectFixture {
   if (typeof value !== "object" || value === null) return false;
   const fixture = value as Partial<DialectFixture>;
@@ -67,9 +83,9 @@ function isFixture(value: unknown): value is DialectFixture {
 }
 
 /**
- * Loads the fixture of the dialect package in `dir` and runs it. Throws only when the package
- * cannot be read at all (no package.json, no name); every finding about the dialect is a failure
- * in the report.
+ * Loads the fixture of the dialect package in `dir` and runs it. Throws only when the fixture
+ * cannot run: the package.json is unreadable or has no name, or a module the fixture imports
+ * cannot be resolved. Every finding about the dialect is a failure in the report.
  *
  * @example
  * const report = await checkDialectPackage("/cache/npm/@company/ini-dialect/1.0.0/package");
@@ -91,10 +107,16 @@ export async function checkDialectPackage(dir: string): Promise<ConformanceRepor
     report.failures.push(FIXTURE_MISSING);
     return report;
   }
+  const file = resolve(dir, target);
+  if (!isInside(dir, file)) {
+    report.failures.push(FIXTURE_INVALID);
+    return report;
+  }
   let fixture: unknown;
   try {
-    fixture = ((await import(pathToFileURL(join(dir, target)).href)) as { default?: unknown }).default;
-  } catch {
+    fixture = ((await import(pathToFileURL(file).href)) as { default?: unknown }).default;
+  } catch (err) {
+    if (isUnresolvedModule(err)) throw new Error("pbuilder-conformance: a module the fixture imports could not be resolved");
     report.failures.push(FIXTURE_THREW);
     return report;
   }
