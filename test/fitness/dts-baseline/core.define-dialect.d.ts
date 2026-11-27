@@ -6,12 +6,19 @@ export type Query<Ast = any, A extends unknown[] = any[], R = unknown> = ((ast: 
     readonly [QUERY]: true;
 };
 export type OpPack<Ast = any> = Record<string, Op<Ast>>;
+/**
+ * How a dialect reads and writes its files. `retire`, when given, is called on a tree a handle
+ * re-parsed away from (A-8): it must make every node of that tree fail when used, so a node kept
+ * from before the re-parse never edits a tree no file reflects.
+ */
+export interface DialectAst<Ast = any> {
+    parse(source: string): Ast;
+    print(ast: Ast): string;
+    retire?(ast: Ast): void;
+}
 export interface DialectDescriptor<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
     extensions: string[];
-    ast: {
-        parse(source: string): Ast;
-        print(ast: Ast): string;
-    };
+    ast: DialectAst<Ast>;
     ops: Ops;
 }
 type Bound<Ast, F> = F extends (ast: Ast, ...rest: infer R) => void ? (...rest: R) => void : never;
@@ -38,10 +45,7 @@ export type Handle<State extends "found" | "writable" = "found", Ast = any, Ops 
 } : {}) & PromiseLike<void>;
 export interface Dialect<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
     readonly extensions: readonly string[];
-    readonly ast: {
-        parse(source: string): Ast;
-        print(ast: Ast): string;
-    };
+    readonly ast: DialectAst<Ast>;
     readonly ops: Ops;
     find(path: string): Handle<"found", Ast, Ops>;
 }

@@ -41,6 +41,13 @@ const libraryExercise = {
   },
 };
 
+// A-11: a node kept from a tree the handle re-parsed away from must fail when used.
+const staleNode = {
+  seed: "export function main() {}\n",
+  keep: (ast: unknown) => (ast as import("ts-morph").SourceFile).getFunctionOrThrow("main"),
+  use: (node: unknown) => void (node as import("ts-morph").FunctionDeclaration).rename("primary"),
+};
+
 const csharpLibraryExercise = {
   seed: "internal class A\n{\n}\n",
   expect: "public class A\n{\n}\n",
@@ -63,14 +70,14 @@ export const DIALECT_MODULES = [
     module: typescript, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".ts"], ast: typescriptAst, ops: {} }),
     samples: ["const x = 1;\n", ...TS_SYNTAX_SAMPLES, `/*${"a".repeat(4 * 1024 * 1024)}*/\nconst x = 1;\n`],
-    libraryExercise: { ...libraryExercise, path: "library.ts" },
+    libraryExercise: { ...libraryExercise, path: "library.ts" }, staleNode,
   },
   {
     entrypoint: "src/dialects/react/index.ts", specifier: "ts-morph",
     adapter: new URL("../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts", import.meta.url),
     module: react, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".tsx"], ast: reactAst, ops: {} }),
-    samples: ["const el = <Button />;\n", ...TS_SYNTAX_SAMPLES], libraryExercise: { ...libraryExercise, path: "library.tsx" },
+    samples: ["const el = <Button />;\n", ...TS_SYNTAX_SAMPLES], libraryExercise: { ...libraryExercise, path: "library.tsx" }, staleNode,
   },
   {
     entrypoint: "src/dialects/nestjs/index.ts", specifier: "ts-morph",
@@ -78,7 +85,7 @@ export const DIALECT_MODULES = [
     module: nestjs, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".ts"], ast: typescriptAst, ops: {} }),
     samples: ["@Module({ providers: [A] })\nexport class M {}\n", ...TS_SYNTAX_SAMPLES],
-    libraryExercise: { ...libraryExercise, path: "library.ts" },
+    libraryExercise: { ...libraryExercise, path: "library.ts" }, staleNode,
   },
   {
     entrypoint: "src/dialects/angular/index.ts", specifier: "ts-morph",
@@ -86,7 +93,7 @@ export const DIALECT_MODULES = [
     module: angular, expectedAstLibrary,
     dialect: defineDialect({ extensions: [".ts"], ast: typescriptAst, ops: {} }),
     samples: ["@Component({ imports: [A] })\nexport class C {}\n", ...TS_SYNTAX_SAMPLES],
-    libraryExercise: { ...libraryExercise, path: "library.ts" },
+    libraryExercise: { ...libraryExercise, path: "library.ts" }, staleNode,
   },
   {
     entrypoint: "src/dialects/json/index.ts", specifier: "jsonc-parser",

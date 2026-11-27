@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
-import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
+import { parse, print, retire } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/ast.ts";
 import { typescriptOps } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/pack.ts";
 import type { ArrayElement } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/array-element.ts";
 import { addComponentImport, addComponentProvider, addRootProvider, type NamedImport } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/angular/ops.ts";
@@ -12,7 +12,7 @@ type InsertOp = (ast: SourceFile, element: ArrayElement, imports?: readonly Name
 type AngularOps = Record<"addComponentImport" | "addComponentProvider" | "addRootProvider", InsertOp>;
 
 const angularOps = defineOpPack<SourceFile, AngularOps>({ addComponentImport, addComponentProvider, addRootProvider });
-const baseDialect = defineDialect({ extensions: [".ts"], ast: { parse, print }, ops: {} });
+const baseDialect = defineDialect({ extensions: [".ts"], ast: { parse, print, retire }, ops: {} });
 const realAngularDialect = withOps(baseDialect, typescriptOps, angularOps);
 const angularModule = DIALECT_MODULES.find((m) => m.entrypoint === "src/dialects/angular/index.ts")!;
 

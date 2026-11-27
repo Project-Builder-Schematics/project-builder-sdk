@@ -134,3 +134,8 @@ export function omitsSemicolons(ast: SourceFile): boolean {
   const terminated = terminable.filter((statement) => statement.getText().endsWith(";")).length;
   return terminable.length - terminated > terminated;
 }
+
+/** Forgets a tree the handle re-parsed away from, so every node kept from it throws when used (A-8). */
+export function retire(ast: SourceFile): void {
+  ast.forget();
+}

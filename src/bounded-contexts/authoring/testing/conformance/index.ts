@@ -83,6 +83,16 @@ export interface DialectFixture<Library extends object = object> {
     expect: string;
     modify: (ast: unknown, library: Library) => void;
   };
+  /**
+   * A-11 stale nodes, for a dialect whose AST hands out nodes: `keep` takes a node from a tree
+   * parsed from `seed`, and `use` edits through it. After the tree is re-parsed and retired,
+   * `use` must throw.
+   */
+  staleNode?: {
+    seed: string;
+    keep: (ast: unknown) => unknown;
+    use: (node: unknown) => void;
+  };
 }
 
 /**
@@ -305,6 +315,21 @@ function runRoundTripProbe(
  * Requires runtime library exports matching independent adapter evidence, then exercises
  * the actual module's `find().modify()` through a real run with byte-exact emitted output.
  */
+function probeStaleNode(ast: Dialect["ast"], staleNode: NonNullable<DialectFixture["staleNode"]>): void {
+  const old = ast.parse(staleNode.seed);
+  const node = staleNode.keep(old);
+  ast.parse(staleNode.seed);
+  ast.retire?.(old);
+  try {
+    staleNode.use(node);
+  } catch {
+    return;
+  }
+  throw new Error(
+    "testDialect: A-11 stale node — a node kept from before a re-parse is still usable; give the dialect's ast a retire(ast) that makes the old tree's nodes fail"
+  );
+}
+
 export async function testDialect<Library extends object>(fixture: DialectFixture<Library>): Promise<void> {
   const module = fixture.module;
   if (!module || typeof module.find !== "function") {
@@ -325,6 +350,7 @@ export async function testDialect<Library extends object>(fixture: DialectFixtur
   }
   const samples = [...fixture.samples, ...mandatoryAdversarialSamples(fixture.libraryExercise.seed)];
   runRoundTripProbe(fixture.dialect.ast, samples, "testDialect");
+  if (fixture.staleNode !== undefined) probeStaleNode(fixture.dialect.ast, fixture.staleNode);
 
   const exercise = fixture.libraryExercise;
   const { client, emitted } = createRunVehicle({ [exercise.path]: exercise.seed });

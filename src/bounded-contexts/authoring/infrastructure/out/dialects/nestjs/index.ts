@@ -1,6 +1,6 @@
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps, type Handle } from "../../../../domain/services/define-dialect.ts";
-import { parse, print } from "../typescript/ast.ts";
+import { parse, print, retire } from "../typescript/ast.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import { addController, addExport, addModuleImport, addProvider } from "./ops.ts";
 
@@ -19,7 +19,7 @@ const moduleOps = defineOpPack<SourceFile, ModuleOps>({ addProvider, addControll
 
 const baseDialect = defineDialect({
   extensions: [".ts"],
-  ast: { parse, print },
+  ast: { parse, print, retire },
   ops: {},
 });
 

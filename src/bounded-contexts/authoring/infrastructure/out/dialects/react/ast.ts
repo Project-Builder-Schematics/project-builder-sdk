@@ -109,3 +109,8 @@ export function print(ast: SourceFile): string {
   const text = ast.getFullText();
   return hadBom.get(ast) === true ? BOM + text : text;
 }
+
+/** Forgets a tree the handle re-parsed away from, so every node kept from it throws when used (A-8). */
+export function retire(ast: SourceFile): void {
+  ast.forget();
+}

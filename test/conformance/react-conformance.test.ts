@@ -17,7 +17,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SourceFile } from "ts-morph";
 import { defineDialect, defineOpPack, withOps } from "../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
-import { parse, print } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts";
+import { parse, print, retire } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ast.ts";
 import { typescriptOps } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/typescript/pack.ts";
 import { setJsxProp, type JsxTarget } from "../../src/bounded-contexts/authoring/infrastructure/out/dialects/react/ops.ts";
 import { testDialect, testOpPack, type OpPackFixture } from "../../src/conformance/index.ts";
@@ -44,7 +44,7 @@ type JsxOps = {
 };
 
 const reactOpsPack = defineOpPack<SourceFile, JsxOps>({ setJsxProp });
-const baseReactDialect = defineDialect({ extensions: [".tsx"], ast: { parse, print }, ops: {} });
+const baseReactDialect = defineDialect({ extensions: [".tsx"], ast: { parse, print, retire }, ops: {} });
 const realReactDialect = withOps(baseReactDialect, typescriptOps, reactOpsPack);
 
 // The 20-sample corpus (slices.md S-003 Contracts enumeration). #20 (angle-bracket-cast

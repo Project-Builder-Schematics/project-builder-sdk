@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 import { extname } from "node:path";
 import * as jsonc from "jsonc-parser";
+import * as tsMorph from "ts-morph";
 // Until sdk#103 makes the dialect kit public, these three internal modules are the only way to
 // build a `Dialect`; fit-49 allows acceptance/ exactly these.
 import { defineDialect, defineOpPack, withOps } from "../../bounded-contexts/authoring/domain/services/define-dialect.ts";
@@ -8,6 +9,7 @@ import { parse, print, type JsonDocument } from "../../bounded-contexts/authorin
 import * as jsonOps from "../../bounded-contexts/authoring/infrastructure/out/dialects/json/ops.ts";
 import { testDialect, testOpPack, type DialectFixture, type OpExercise, type OpPackFixture } from "../../conformance/index.ts";
 import * as json from "../../dialects/json/index.ts";
+import * as typescript from "../../dialects/typescript/index.ts";
 import type { JsonPath } from "../../dialects/json/index.ts";
 import type { StepDefinition, World } from "../runner/steps.ts";
 
@@ -79,6 +81,41 @@ function readingAfterEveryOp(fixture: OpPackFixture): OpPackFixture["baseDialect
   };
 }
 
+// A ts-morph dialect whose ast has no `retire`: a node kept from before a re-parse stays usable.
+// It keeps a BOM itself, as ts-morph drops it, so only the stale-node check can reject it.
+const BOM = "\uFEFF";
+const withBom = new WeakSet<tsMorph.SourceFile>();
+const staleNodeFixture: DialectFixture<typeof tsMorph> = {
+  dialect: defineDialect({
+    extensions: [".ts"],
+    ast: {
+      parse: (source: string) => {
+        const file = new tsMorph.Project({ useInMemoryFileSystem: true }).createSourceFile("a.ts", source.replace(/^\uFEFF/, ""));
+        if (source.startsWith(BOM)) withBom.add(file);
+        return file;
+      },
+      print: (file: tsMorph.SourceFile) => (withBom.has(file) ? BOM : "") + file.getFullText(),
+    },
+    ops: {},
+  }),
+  samples: ["const x = 1;\n"],
+  module: typescript,
+  expectedAstLibrary: tsMorph,
+  libraryExercise: {
+    path: "library.ts",
+    seed: "let answer = 1;\n",
+    expect: "const answer = 1;\n",
+    modify(ast, library) {
+      (ast as tsMorph.SourceFile).getVariableStatements()[0]!.setDeclarationKind(library.VariableDeclarationKind.Const);
+    },
+  },
+  staleNode: {
+    seed: "export function main() {}\n",
+    keep: (ast) => (ast as tsMorph.SourceFile).getFunctionOrThrow("main"),
+    use: (node) => void (node as tsMorph.FunctionDeclaration).rename("primary"),
+  },
+};
+
 const realOpFixture = opFixture({ setValue: jsonOps.setValue }, [setTwice]);
 
 const PLANTED: Record<string, () => Subject> = {
@@ -97,6 +134,10 @@ const PLANTED: Record<string, () => Subject> = {
         module: { ...json, find: (path: string) => defineDialect({ extensions: [extname(path)], ast: { parse, print }, ops: {} }).find(path) },
       }),
     rejection: /undeclared extension/,
+  }),
+  "node kept from before a re-parse is still usable": () => ({
+    run: () => testDialect(staleNodeFixture),
+    rejection: /A-11 stale node/,
   }),
   "op applied to a file that already has its effect changes the file again": () => ({
     // A fresh function, so the op is not the JSON dialect's appendItem, which is declared repeatable.
