@@ -93,6 +93,16 @@ describe(".inspect() (A-128)", () => {
     expect(outcome.modifies).toHaveLength(0);
   });
 
+  it("fails the run on a changing callback the author never awaits", async () => {
+    const outcome = await run({ "a.lines": "x" }, async () => {
+      void lines.find("a.lines").inspect((ast) => {
+        ast.push("evil");
+      });
+    });
+    expect(outcome.error?.message).toBe('dialect operation failed: inspect() must not change "a.lines"');
+    expect(outcome.modifies).toHaveLength(0);
+  });
+
   it("still fails the run when the author catches a changing callback and keeps chaining", async () => {
     const outcome = await run({ "a.lines": "x" }, async () => {
       const handle = lines.find("a.lines");
@@ -113,6 +123,17 @@ describe(".inspect() failures (A-86)", () => {
     });
     expect(outcome.error?.message).toBe('dialect operation failed: inspect() on "a.lines" threw');
     expect(outcome.modifies).toHaveLength(0);
+  });
+
+  it("wraps an async callback's rejection without its message or cause", async () => {
+    const outcome = await run({ "a.lines": "x" }, async () => {
+      await lines.find("a.lines").inspect(async () => {
+        throw new Error("SECRET-ia");
+      });
+    });
+    expect(outcome.error?.message).toBe('dialect operation failed: inspect() on "a.lines" threw');
+    expect(outcome.error?.message).not.toContain("SECRET-ia");
+    expect(outcome.error?.cause).toBeUndefined();
   });
 
   it("passes the callback's own dialectError through verbatim", async () => {
