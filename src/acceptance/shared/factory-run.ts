@@ -186,4 +186,14 @@ export const FACTORY_RUN_STEPS: readonly StepDefinition[] = [
       expect((error as Error).message).toContain(text as string);
     },
   },
+  {
+    phrase: 'the failure of the factory does not contain "{text}"',
+    run: (world, [text]) => {
+      factoryRun(world).failureExpected = true;
+      const error = endedRun(world).error;
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).not.toContain(text as string);
+      expect((error as Error).cause).toBeUndefined();
+    },
+  },
 ];
