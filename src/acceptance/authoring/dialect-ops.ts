@@ -10,7 +10,7 @@ import * as react from "../../dialects/react/index.ts";
 import * as typescript from "../../dialects/typescript/index.ts";
 import * as yaml from "../../dialects/yaml/index.ts";
 import type { StepDefinition, World } from "../runner/steps.ts";
-import { endedRun, expectSuccess, factoryRun } from "../shared/factory-run.ts";
+import { AUTHOR_DIALECTS, endedRun, expectSuccess, factoryRun } from "../shared/factory-run.ts";
 
 const DIALECTS: Record<string, { find(path: string): unknown }> = {
   angular,
@@ -92,7 +92,8 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
   {
     phrase: 'the author opens the Dialect handle "{handle}" of the dialect "{dialect}" on the file "{path}"',
     run: (world, [handle, dialect, path]) => {
-      const module = DIALECTS[dialect as string];
+      const module =
+        DIALECTS[dialect as string] ?? (world[AUTHOR_DIALECTS] as Map<string, { find(path: string): unknown }> | undefined)?.get(dialect as string);
       if (module === undefined) throw new Error(`no step drives the dialect "${dialect as string}" yet`);
       dialectState(world).dialectOf.set(path as string, dialect as string);
       factoryRun(world).actions.push((handles) => void handles.set(handle as string, module.find(path as string)));
