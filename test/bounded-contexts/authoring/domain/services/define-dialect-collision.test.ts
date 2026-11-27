@@ -144,3 +144,30 @@ describe("withOps — REQ-DG-02.5: op named `then` collides with the base handle
     expect(isContained(caught)).toBe(false);
   });
 });
+
+describe("defineDialect — A-83: a base dialect's own op never takes a handle verb's name", () => {
+  type Txt = { text: string };
+  const ast = { parse: (s: string): Txt => ({ text: s }), print: (a: Txt) => a.text };
+
+  it.each([...RESERVED_HANDLE_NAMES])("refuses a base op named %s when the dialect is built", (verb) => {
+    const expectedMessage =
+      verb === "raw"
+        ? 'op-pack composition failed: op "raw" collides with a reserved handle verb — the live AST-fn escape hatch is .modify(fn)'
+        : `op-pack composition failed: op "${verb}" collides with a reserved handle verb`;
+    const build = () =>
+      defineDialect({ extensions: [".txt"], ast, ops: { [verb]: (a: Txt) => void (a.text = "SHADOW") } });
+    expect(build).toThrow(expectedMessage);
+    let caught: unknown;
+    try {
+      build();
+    } catch (err) {
+      caught = err;
+    }
+    expect(isContained(caught)).toBe(false);
+  });
+
+  it("still builds a base dialect whose own ops avoid every handle verb", () => {
+    const dialect = withOps(defineDialect({ extensions: [".txt"], ast, ops: { push: (a: Txt) => void (a.text += "\nx") } }));
+    expect(Object.keys(dialect.ops)).toEqual(["push"]);
+  });
+});
