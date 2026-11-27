@@ -81,6 +81,8 @@ export function validateInput(schema: Schema, input: unknown): ValidationFinding
 
 // A-14 / E-40: the Result a factory returned, checked at its boundary before the final flush.
 // Problems name where in the Result they are (`Result.items[0]`), never the value (no-echo).
+type JsonObject = { [key: string]: unknown };
+
 /** E-40: the largest JSON encoding of a Result, in UTF-8 bytes; exactly at it is allowed. */
 export const RESULT_CEILING_BYTES = 1048576;
 
@@ -148,7 +150,7 @@ function jsonProblem(value: unknown, where: string, ancestors: Set<object>): str
     if (Array.isArray(object)) {
       for (let index = 0; index < object.length; index++) entries.push([`${where}[${index}]`, object[index]]);
     } else {
-      for (const key of Object.keys(object)) entries.push([`${where}.${key}`, (object as Record<string, unknown>)[key]]);
+      for (const key of Object.keys(object)) entries.push([`${where}.${key}`, (object as JsonObject)[key]]);
     }
     for (const [at, item] of entries) {
       const problem = jsonProblem(item, at, ancestors);
@@ -178,7 +180,7 @@ function shapeProblem(declared: ResultSchema, value: unknown, where: string): st
     }
   }
   if (kind === "object" && declared.properties !== undefined) {
-    const record = value as Record<string, unknown>;
+    const record = value as JsonObject;
     const required = new Set(declared.required);
     for (const { key, schema } of declared.properties) {
       if (!Object.hasOwn(record, key)) {

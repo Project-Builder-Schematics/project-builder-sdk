@@ -239,7 +239,10 @@ next to `properties`:
 `type` is one of `string`, `number`, `boolean`, `null`, `object` and `array`, or a list of
 them (`["string", "null"]`). An object with `properties` accepts only the keys it names, and
 `required` lists the ones it must have; an object without `properties` accepts any JSON
-object. An array may give its `items`. Codegen emits the matching `Result` type next to
+object. An array may give its `items`. A key that is not `required` may be left out, but never set to
+`undefined`: `undefined` is not JSON, so `{ "name": "a", "files": undefined }` fails. The
+generated type marks such a key `files?:`, which TypeScript lets you set to `undefined` unless
+your tsconfig enables `exactOptionalPropertyTypes`; leave the key out instead. Codegen emits the matching `Result` type next to
 `Input`, so the compiler checks what the factory returns:
 
 ```ts
