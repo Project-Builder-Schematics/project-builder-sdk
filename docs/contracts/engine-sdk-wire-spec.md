@@ -80,8 +80,17 @@ interface ResponseFrame { type: "response"; id: string; result?: unknown; error?
 |---|---|---|
 | `tree.read` | `{path: string}` — project-relative, never absolute | `null` (not-found) \| `{content: string}` (an empty file is `{content: ""}`, never conflated with not-found) |
 | `ir.emit` | `{batch: Batch}` — `Batch.protocolVersion` is the IR/emit envelope schema version | `{appliedCount: number}` on full acceptance |
-| `ir.commit` | `{}` — no additional params; scoped to the current single run | `{}` acknowledgment |
+| `ir.commit` | `{}`, or `{result: <JSON>}` when the factory declares a Result (A-14); scoped to the current single run | `{}` acknowledgment |
 | `ir.discard` | `{}` — same scoping as `ir.commit` | `{}` acknowledgment |
+
+`ir.commit` carries the root factory's Result (A-14, E-39) in an optional `result` key. The key
+is present only when the factory's `schema.json` declares a Result, and then holds the Result the
+SDK validated at the factory boundary, so a declared `null` is sent as `"result": null`. A factory
+that declares no Result sends `{}`, with no `result` key, as before. The SDK checks before sending
+that the Result's JSON encoding is at most 1 MiB (1048576 bytes, E-40); the engine checks it again
+on arrival. An invalid or oversized Result never reaches the wire: the factory fails with an
+`AuthoringError` whose reason is `invalid-result` (exit 1), and the run discards. The field is
+additive, so `WIRE_PROTOCOL_VERSION` is unchanged.
 
 Every SUCCESS response, for any of the four methods, uses the field name `result` — never
 `error` for a success acknowledgment. Every REJECTION response uses the field name `error`.
@@ -150,7 +159,7 @@ carries the same list as `BridgeParams.dialects` and converts it to the same fla
 | Code | Meaning |
 |---|---|
 | 0 | success — the factory run completed and its intent was accepted |
-| 1 | validation failure — bad argv, an invalid/mismatched greeting, a bridge contract version mismatch (`BridgeVersionMismatchError`, BRB-01.2), a rejected factory pointer, a rejected export, a failed single-instance probe, a malformed `--dialects` or a declared dialect resolving outside its pinned `root`, an oversize/malformed `--input-file`, a factory module that cannot be FOUND OR LOADED (`ERR_MODULE_NOT_FOUND`, Bun's `ResolveMessage`/`BuildMessage` shapes, or a `SyntaxError` from the factory import — a module that never RAN, distinct from the module's own top-level code throwing during import, which is exit 4), or an `AuthoringError` whose `origin` **is** `"authoring-rejected"` (an SDK-side authoring misuse: `outside-session`, `invalid-input`, `reserved-name`, `source-*`) |
+| 1 | validation failure — bad argv, an invalid/mismatched greeting, a bridge contract version mismatch (`BridgeVersionMismatchError`, BRB-01.2), a rejected factory pointer, a rejected export, a failed single-instance probe, a malformed `--dialects` or a declared dialect resolving outside its pinned `root`, an oversize/malformed `--input-file`, a factory module that cannot be FOUND OR LOADED (`ERR_MODULE_NOT_FOUND`, Bun's `ResolveMessage`/`BuildMessage` shapes, or a `SyntaxError` from the factory import — a module that never RAN, distinct from the module's own top-level code throwing during import, which is exit 4), or an `AuthoringError` whose `origin` **is** `"authoring-rejected"` (an SDK-side authoring misuse: `outside-session`, `invalid-input`, `reserved-name`, `invalid-result`, `source-*`) |
 | 2 | emit-rejection / host refusal — an `AuthoringError` whose `origin` is NOT `"authoring-rejected"`, or an `IntentRejectedError` (the host answered `ir.commit`/`ir.discard`/`tree.read` with an error envelope); the host's own rejection message surfaces in the runner's bounded stderr note |
 | 3 | transport fault — a `TransportFault` (`kind`: `malformed`, `desync` (reserved: currently indistinguishable from and reported as `malformed`), `oversize`, `timeout`, or `eof`), including one at GREETING time (a malformed/oversize/EOF-truncated first frame), no greeting within `GREETING_TIMEOUT_MS`, or stdin closed before any frame |
 | 4 | crash — anything else: a non-`AuthoringError`/non-`TransportFault` thrown value, including the author's factory module throwing at its own top level during import |
