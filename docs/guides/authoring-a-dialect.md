@@ -449,7 +449,8 @@ A dialect is assembled from three kit verbs:
   silently resolves to whichever pack happened to be spread last. An op name that shadows the
   base handle's own vocabulary (`then`, `read`, `raw`, `modify`, `replaceContent`, `rename`,
   `move`, `copy`, `remove`) throws the same way — an op-pack op named `then` in particular would
-  break the handle's `PromiseLike` join.
+  break the handle's `PromiseLike` join. `defineDialect` runs the same verb check on the base
+  dialect's own `ops`, so it throws when the dialect is built, before any `withOps` or factory.
 
 #### One `find` for several extensions
 

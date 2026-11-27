@@ -127,7 +127,8 @@ function hasDeclaredExtension(path: string, extensions: readonly string[]): bool
 /**
  * Assembles a `Dialect` from its frozen descriptor (extensions, an AST parse/print pair,
  * and an op-pack). `find` is the dialect's ONLY entry verb into a Session (REQ-DG-01.2) — it
- * returns an open, coalescing `Handle`.
+ * returns an open, coalescing `Handle`. Throws when an op in `ops` takes the name of a handle
+ * verb (`RESERVED_HANDLE_NAMES`).
  *
  * @example
  * const myDialect = defineDialect({
@@ -137,6 +138,8 @@ function hasDeclaredExtension(path: string, extensions: readonly string[]): bool
  * });
  */
 export function defineDialect<Ast, Ops extends OpPack<Ast>>(d: DialectDescriptor<Ast, Ops>): Dialect<Ast, Ops> {
+  // The handle spreads its ops over its verbs, so an op named after a verb would replace it.
+  for (const name of Object.keys(d.ops)) assertNotReserved(name);
   return {
     extensions: d.extensions,
     ast: d.ast,
@@ -212,14 +215,17 @@ void _reservedCoversSurface;
  * `Error`s, NOT minted via `dialectError()` — they are not run-op contained rejects and must
  * never be recognised by `isContained` as passthrough (design §4.5's own rationale).
  */
+function assertNotReserved(name: string): void {
+  if (!RESERVED_SET.has(name)) return;
+  const hint = name === "raw" ? " — the live AST-fn escape hatch is .modify(fn)" : "";
+  throw new Error(`op-pack composition failed: op "${name}" collides with a reserved handle verb${hint}`);
+}
+
 function assertNoCompositionCollision(baseOpNames: readonly string[], packs: readonly OpPack[]): void {
   const claimed = new Set(baseOpNames);
   for (const pack of packs) {
     for (const name of Object.keys(pack)) {
-      if (RESERVED_SET.has(name)) {
-        const hint = name === "raw" ? " — the live AST-fn escape hatch is .modify(fn)" : "";
-        throw new Error(`op-pack composition failed: op "${name}" collides with a reserved handle verb${hint}`);
-      }
+      assertNotReserved(name);
       if (claimed.has(name)) {
         throw new Error(`op-pack composition failed: duplicate op "${name}" declared by more than one pack.`);
       }
