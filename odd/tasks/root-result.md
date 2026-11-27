@@ -22,9 +22,9 @@ Branch: `feat/root-result` off origin/main 6fa2889 (0.18.0). Delivery: ask-on-ri
 | ID | Specs | Route | Status | Commit |
 |----|-------|-------|--------|--------|
 | T1 | S1 | inline | done: rules:implemented 507 pass / 0 fail; rules:designed 193 selected, 10 pass, 8 fail, 175 undefined (unchanged failures) | a920923 |
-| T2 | S2-S9, S11 | inline | done: RED 31/31 new tests fail, then GREEN | see Log |
-| T3 | S10 | inline | done: RED 3 codegen tests fail, then GREEN | see Log |
-| T4 | acceptance steps for A-14 root, E-39, E-40, A-15 | inline | done: 12 designed scenarios bound and passing | see Log |
+| T2 | S2-S9, S11 | inline | done: RED 31/31 new tests fail, then GREEN | 5c7ecfe (spec), b3be3f6 |
+| T3 | S10 | inline | done: RED 3 codegen tests fail, then GREEN | 050bdff |
+| T4 | acceptance steps for A-14 root, E-39, E-40, A-15 | inline | done: 12 designed scenarios bound and passing | d23a887 |
 
 ## Log
 
@@ -32,3 +32,4 @@ Branch: `feat/root-result` off origin/main 6fa2889 (0.18.0). Delivery: ask-on-ri
 - L2 (2026-11-27): design choices. `schema.json` gets an optional top-level `result`, a JSON Schema subset: `type` (one of string, number, boolean, null, object, array, or a list), `properties` (closes the object to those keys), `required` (keys that must be present; JSON Schema default optional), `items`. An invalid declaration fails like an unreadable schema (`invalid "result" declaration`). `checkResult(declared, value)` takes the declaration as a parameter, the seam for a role-imposed Findings schema (sdk#270). A bare `defineFactory(fn)` declares no Result, so returning a value fails there too (A-14 applied uniformly). The committed Result is a copy parsed from its JSON encoding, so what is sent is what was checked. `RunResult.result` is what the run sent with `ir.commit`.
 - L3 (2026-11-27): the runner closure admits only listed primitives (constraint 4): `Buffer.byteLength` instead of `TextEncoder`, `value - value === 0` instead of `Number.isFinite`, `instanceof Date/Map` instead of `constructor.name`. The toJSON and throwing-getter tests were written after the code, so they had no RED.
 - L4 (2026-11-27): acceptance. The root steps spawn the real runner and stand in for the engine on the wire; "Launch receives" is the `result` the runner sent with `ir.commit`. Child scenarios (A-13, the A-14 child ones) and the typed-invoke step of A-15 stay undefined: they need `invoke` (sdk#94). rules:designed 193 selected: 22 pass (was 10), 8 fail (the same pre-existing ones), 163 undefined.
+- L5 (2026-11-27): the first full run showed the Result check as a new runner-closure file broke FIT-42/PMF-02/DLV-01/FIT-14 (28 closure files pinned); the check moved into schema-validate.ts, which was already in the closure, so the closure contract is unchanged. The acceptance package wrote a `collection.json` literal that fit-43 forbids in src/; it was not needed and is gone. Audit: no factory in the suite, fixtures or docs returned a value by accident (no "declares no Result" failure in two full runs); there are no examples/ or templates/ in this repo. Checks: typecheck exit 0; rules:implemented 507 pass / 0 fail; rules:designed 193 selected, 22 pass, 8 fail (pre-existing), 163 undefined; full `bun test` 4605 pass / 33 fail, the failures being FIT-40, FIT-42N, REQ-WPS-07 (unit and the exit-matrix canary e2e, failing on the base too), fit-52 and the closure-count ones fixed above, which pass when rerun (291/291 across the ten affected files).
