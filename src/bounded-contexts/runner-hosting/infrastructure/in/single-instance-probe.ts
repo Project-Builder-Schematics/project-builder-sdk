@@ -30,7 +30,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative } from "node:path";
 import { toProjectRelativePath } from "../../../../platform/error-text.ts";
 
 const SDK_SPECIFIER = "@pbuilder/sdk";
@@ -126,4 +126,39 @@ export function probeSingleInstance(
 
   if (runnerRoot === factoryRoot) return { ok: true };
   return { ok: false, message: splitMessage(runnerRoot, factoryRoot) };
+}
+
+/** One dialect the Frame's library declares, with the root of the copy the Lock pins (CA-5). */
+export interface DeclaredDialect {
+  name: string;
+  version: string;
+  root: string;
+}
+
+function resolvesInside(name: string, root: string, factoryUrl: string, resolveSpecifier: (specifier: string, anchorUrl: string) => string): boolean {
+  try {
+    const path = relative(realpathSync(root), realpathSync(resolveSpecifier(name, factoryUrl)));
+    return path !== "" && !path.startsWith("..") && !isAbsolute(path);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A-16 / A-4: before the factory starts, resolves each declared dialect's name from the factory's
+ * location, the same resolution its own `import` gets, and requires the real path inside the copy
+ * the Lock pins. It keeps the dialect that runs the pinned one; it is no security boundary.
+ * Resolution-only, like `probeSingleInstance`; an unresolvable name fails the same way.
+ */
+export function probeDeclaredDialects(
+  factoryUrl: string,
+  dialects: readonly DeclaredDialect[],
+  resolveSpecifier: (specifier: string, anchorUrl: string) => string = resolveSpecifierPath
+): SingleInstanceProbeResult {
+  const outside = dialects.find(({ name, root }) => !resolvesInside(name, root, factoryUrl, resolveSpecifier));
+  if (outside === undefined) return { ok: true };
+  return {
+    ok: false,
+    message: `the factory does not start because the dialect "${outside.name}" resolves outside the package the Lock pins`,
+  };
 }

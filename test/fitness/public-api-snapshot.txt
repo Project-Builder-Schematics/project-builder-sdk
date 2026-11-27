@@ -122,6 +122,15 @@
   .rename: (newName: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .move: (toDir: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .copy: (to: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
+./conformance checkDialectPackage function: (dir: string) => Promise<ConformanceReport>
+./conformance ConformanceFailure interface: ConformanceFailure
+  .case: string
+  .reason: string
+./conformance ConformanceReport interface: ConformanceReport
+  .passed: boolean
+  .dialect: string
+  .version: string
+  .failures: ConformanceFailure[]
 ./conformance DialectFixture interface: DialectFixture<Library>
   .dialect: Dialect<any, OpPack<any>>
   .samples: string[]
@@ -143,13 +152,54 @@
   .exercises: readonly OpExercise[]
 ./conformance testDialect function: <Library extends object>(fixture: DialectFixture<Library>) => Promise<void>
 ./conformance testOpPack function: (fixture: OpPackFixture) => Promise<void>
+./dialect byExtension function: <M extends DialectsByExtension>(dialects: M) => ExtensionRouter<M>
+./dialect defineDialect function: <Ast, Ops extends OpPack<Ast>>(d: DialectDescriptor<Ast, Ops> & { name: string; }) => Dialect<Ast, Ops>
+./dialect defineOpPack function: <Ast, Ops extends OpPack<Ast>>(ops: Ops) => Ops
+./dialect Dialect interface: Dialect<Ast, Ops>
+  .name?: string | undefined
+  .extensions: readonly string[]
+  .ast: DialectAst<Ast>
+  .ops: Ops
+  .find: (path: string) => Handle<"found", Ast, Ops>
+./dialect DialectAst interface: DialectAst<Ast>
+  .parse: (source: string) => Ast
+  .print: (ast: Ast) => string
+  .retire?: ((ast: Ast) => void) | undefined
+./dialect DialectDescriptor interface: DialectDescriptor<Ast, Ops>
+  .name?: string | undefined
+  .extensions: string[]
+  .ast: DialectAst<Ast>
+  .ops: Ops
+./dialect ExtensionRouter interface: ExtensionRouter<M>
+  .extensions: readonly (keyof M & string)[]
+  .find: <P extends string>(path: P) => RoutedHandle<M, P>
+./dialect Handle type: ReadOps & DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops>; inspect<R>(fn: (ast: Ast) => R): Promise<Awaited<R>>; } & OpMethods<Ast, Ops> & (State extends "found" ? { remove(): void; } : {}) & PromiseLike<void>
+  .read: () => Promise<string | undefined>
+  .replaceContent: (content: string) => Edited<Ast, Ops>
+  .rename: (newName: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
+  .move: (toDir: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
+  .copy: (to: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
+  .modify: (fn: (ast: Ast) => void) => Edited<Ast, Ops>
+  .inspect: <R>(fn: (ast: Ast) => R) => Promise<Awaited<R>>
+  .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
+  .remove: (Ops[string] extends Query<any, infer A extends unknown[], infer R> ? (...a: A) => Promise<Awaited<R>> : (...a: Parameters<Bound<Ast, Ops[string]>>) => Edited<Ast, Ops>) | (() => void)
+./dialect Op type: (ast: Ast, ...args: never[]) => void
+  call (ast: Ast, ...args: never[]): void
+./dialect OpPack type: { [x: string]: Op<Ast>; }
+./dialect overrideOps function: <Ast, Ops extends OpPack<Ast>>(dialect: Dialect<Ast, Ops>, overrides: Partial<Ops>) => Dialect<Ast, Ops>
+./dialect query function: <Ast, A extends unknown[], R>(fn: (ast: Ast, ...args: A) => R) => Query<Ast, A, R>
+./dialect Query type: ((ast: Ast, ...args: A) => R) & { readonly [QUERY]: true; }
+  call (ast: Ast, ...args: A): R
+  .[Symbol.QUERY]: true
+./dialect withOps function: <Ast, B extends OpPack<Ast>, P extends OpPack<Ast>[]>(base: Dialect<Ast, B>, ...packs: P) => Dialect<Ast, B & UnionToIntersection<P[number]>>
+./dialect withoutOps function: <Ast, Ops extends OpPack<Ast>>(dialect: Dialect<Ast, Ops>, names: readonly (keyof Ops & string)[], reason: string) => Dialect<Ast, Ops>
 ./testing Batch type: { protocolVersion: 1; force: boolean; instructions: Directive[]; }
   .protocolVersion: 1
   .force: boolean
   .instructions: Directive[]
 ./testing Directive type: { op: "create"; create: { pathTemplate: string; template: string; options: JsonValue; force?: boolean; }; } | { op: "modify"; modify: { path: string; content: string; }; } | { op: "delete"; delete: { path: string; }; } | { op: "rename"; rename: { path: string; newName: string; force?: boolean; }; } | { op: "move"; move: { path: string; toDir: string; force?: boolean; }; } | { op: "copy"; copy: { from: string; to: string; force?: boolean; }; } | { op: "copyIn"; copyIn: { from: string; to: string; force?: boolean; }; }
   .op: "create" | "modify" | "rename" | "move" | "copy" | "copyIn" | "delete"
-./testing runFactoryForTest function: <O>(fn: (input: O) => void | Promise<void>, input: O, options?: { seed?: Record<string, string>; packageDir?: string | URL; }) => Promise<RunResult>
+./testing runFactoryForTest function: <O>(fn: (input: O) => void | Promise<void>, input: O, options?: { seed?: Record<string, string>; packageDir?: string | URL; declaredDialects?: readonly string[]; }) => Promise<RunResult>
 ./testing RunResult interface: RunResult
   .tree: ReadonlyMap<string, string>
   .emitted: Batch[]
@@ -377,6 +427,14 @@ reachable CommentOptions@presentation type: DocumentOption & { position?: Commen
   .document?: number | undefined
   .position?: CommentPosition | undefined
 reachable CommentPosition@presentation type: "before" | "inline"
+reachable ConformanceFailure@run-package interface: ConformanceFailure
+  .case: string
+  .reason: string
+reachable ConformanceReport@run-package interface: ConformanceReport
+  .passed: boolean
+  .dialect: string
+  .version: string
+  .failures: ConformanceFailure[]
 reachable ContentState@classify-content type: "absent" | "empty" | "present"
 reachable CreateFromTemplateFileOptions@index interface: CreateFromTemplateFileOptions
   .templateFile: string
@@ -404,6 +462,7 @@ reachable CssTarget@ops interface: CssTarget
 reachable DeclarationOptions@ops type: { export?: boolean; }
   .export?: boolean | undefined
 reachable Dialect@define-dialect interface: Dialect<Ast, Ops>
+  .name?: string | undefined
   .extensions: readonly string[]
   .ast: DialectAst<Ast>
   .ops: Ops
@@ -412,6 +471,11 @@ reachable DialectAst@define-dialect interface: DialectAst<Ast>
   .parse: (source: string) => Ast
   .print: (ast: Ast) => string
   .retire?: ((ast: Ast) => void) | undefined
+reachable DialectDescriptor@define-dialect interface: DialectDescriptor<Ast, Ops>
+  .name?: string | undefined
+  .extensions: string[]
+  .ast: DialectAst<Ast>
+  .ops: Ops
 reachable DialectFixture@index interface: DialectFixture<Library>
   .dialect: Dialect<any, OpPack<any>>
   .samples: string[]
@@ -427,6 +491,7 @@ reachable DialectWriteOps@define-dialect type: { replaceContent(content: string)
   .rename: (newName: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .move: (toDir: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .copy: (to: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
+reachable DialectsByExtension@define-dialect type: { readonly [extension: string]: Dialect<any, OpPack<any>>; }
 reachable Directive@wire type: { op: "create"; create: { pathTemplate: string; template: string; options: JsonValue; force?: boolean; }; } | { op: "modify"; modify: { path: string; content: string; }; } | { op: "delete"; delete: { path: string; }; } | { op: "rename"; rename: { path: string; newName: string; force?: boolean; }; } | { op: "move"; move: { path: string; toDir: string; force?: boolean; }; } | { op: "copy"; copy: { from: string; to: string; force?: boolean; }; } | { op: "copyIn"; copyIn: { from: string; to: string; force?: boolean; }; }
   .op: "create" | "modify" | "rename" | "move" | "copy" | "copyIn" | "delete"
 reachable DocumentOption@paths interface: DocumentOption
@@ -440,6 +505,9 @@ reachable Edited@define-dialect type: ReadOps & DialectWriteOps<Ast, Ops> & { mo
   .modify: (fn: (ast: Ast) => void) => Edited<Ast, Ops>
   .inspect: <R>(fn: (ast: Ast) => R) => Promise<Awaited<R>>
   .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
+reachable ExtensionRouter@define-dialect interface: ExtensionRouter<M>
+  .extensions: readonly (keyof M & string)[]
+  .find: <P extends string>(path: P) => RoutedHandle<M, P>
 reachable FoundHandle@handle-state interface: FoundHandle
   .remove: () => void
   .read: () => Promise<string | undefined>
@@ -459,6 +527,16 @@ reachable Handle@define-dialect type: ReadOps & DialectWriteOps<Ast, Ops> & { mo
   .inspect: <R>(fn: (ast: Ast) => R) => Promise<Awaited<R>>
   .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
   .remove: (Ops[string] extends Query<any, infer A extends unknown[], infer R> ? (...a: A) => Promise<Awaited<R>> : (...a: Parameters<Bound<Ast, Ops[string]>>) => Edited<Ast, Ops>) | (() => void)
+reachable HandleOf@define-dialect type: D extends Dialect<infer A, infer O extends OpPack<infer A>> ? Handle<"found", A, O> : never
+  .read: () => Promise<string | undefined>
+  .replaceContent: (content: string) => Edited<unknown, OpPack<unknown>>
+  .rename: (newName: string, opts?: { force?: boolean; }) => Edited<unknown, OpPack<unknown>>
+  .move: (toDir: string, opts?: { force?: boolean; }) => Edited<unknown, OpPack<unknown>>
+  .copy: (to: string, opts?: { force?: boolean; }) => Edited<unknown, OpPack<unknown>>
+  .modify: (fn: (ast: unknown) => void) => Edited<unknown, OpPack<unknown>>
+  .inspect: <R>(fn: (ast: unknown) => R) => Promise<Awaited<R>>
+  .remove: () => void
+  .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
 reachable InjectionOptions@ops type: { scope?: Scope; imports?: readonly NamedImport[]; }
   .scope?: Scope | undefined
   .imports?: readonly NamedImport[] | undefined
@@ -546,6 +624,112 @@ reachable LazyRouteSpec@ops type: { path: string; loadComponent?: string; loadCh
   .loadChildren?: string | undefined
   .export?: string | undefined
 reachable Lifetime@ops type: "Singleton" | "Scoped" | "Transient"
+reachable LongestKey@define-dialect type: { [K in Ks]: [Extract<Exclude<Ks, K>, `${string}${K}`>] extends [never] ? K : never; }[Ks]
+  .toString: () => string
+  .charAt: (pos: number) => string
+  .charCodeAt: (index: number) => number
+  .concat: (...strings: string[]) => string
+  .indexOf: (searchString: string, position?: number) => number
+  .lastIndexOf: (searchString: string, position?: number) => number
+  .localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
+  .match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
+  .replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
+  .search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
+  .slice: (start?: number, end?: number) => string
+  .split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
+  .substring: (start: number, end?: number) => string
+  .toLowerCase: () => string
+  .toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
+  .toUpperCase: () => string
+  .toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
+  .trim: () => string
+  .length: number
+  .substr: (from: number, length?: number) => string
+  .valueOf: () => string
+  .codePointAt: (pos: number) => number | undefined
+  .includes: (searchString: string, position?: number) => boolean
+  .endsWith: (searchString: string, endPosition?: number) => boolean
+  .normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
+  .repeat: (count: number) => string
+  .startsWith: (searchString: string, position?: number) => boolean
+  .anchor: (name: string) => string
+  .big: () => string
+  .blink: () => string
+  .bold: () => string
+  .fixed: () => string
+  .fontcolor: (color: string) => string
+  .fontsize: { (size: number): string; (size: string): string; }
+  .italics: () => string
+  .link: (url: string) => string
+  .small: () => string
+  .strike: () => string
+  .sub: () => string
+  .sup: () => string
+  .padStart: (maxLength: number, fillString?: string) => string
+  .padEnd: (maxLength: number, fillString?: string) => string
+  .trimEnd: () => string
+  .trimStart: () => string
+  .trimLeft: () => string
+  .trimRight: () => string
+  .matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
+  .replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
+  .at: (index: number) => string | undefined
+  .isWellFormed: () => boolean
+  .toWellFormed: () => string
+  .[Symbol.iterator]: () => StringIterator<string>
+reachable MatchingKey@define-dialect type: { [K in keyof M & string]: P extends `${string}${K}` ? K : never; }[keyof M & string]
+  .toString: () => string
+  .charAt: (pos: number) => string
+  .charCodeAt: (index: number) => number
+  .concat: (...strings: string[]) => string
+  .indexOf: (searchString: string, position?: number) => number
+  .lastIndexOf: (searchString: string, position?: number) => number
+  .localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
+  .match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
+  .replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
+  .search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
+  .slice: (start?: number, end?: number) => string
+  .split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
+  .substring: (start: number, end?: number) => string
+  .toLowerCase: () => string
+  .toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
+  .toUpperCase: () => string
+  .toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
+  .trim: () => string
+  .length: number
+  .substr: (from: number, length?: number) => string
+  .valueOf: () => string
+  .codePointAt: (pos: number) => number | undefined
+  .includes: (searchString: string, position?: number) => boolean
+  .endsWith: (searchString: string, endPosition?: number) => boolean
+  .normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
+  .repeat: (count: number) => string
+  .startsWith: (searchString: string, position?: number) => boolean
+  .anchor: (name: string) => string
+  .big: () => string
+  .blink: () => string
+  .bold: () => string
+  .fixed: () => string
+  .fontcolor: (color: string) => string
+  .fontsize: { (size: number): string; (size: string): string; }
+  .italics: () => string
+  .link: (url: string) => string
+  .small: () => string
+  .strike: () => string
+  .sub: () => string
+  .sup: () => string
+  .padStart: (maxLength: number, fillString?: string) => string
+  .padEnd: (maxLength: number, fillString?: string) => string
+  .trimEnd: () => string
+  .trimStart: () => string
+  .trimLeft: () => string
+  .trimRight: () => string
+  .matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
+  .replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
+  .at: (index: number) => string | undefined
+  .isWellFormed: () => boolean
+  .toWellFormed: () => string
+  .[Symbol.iterator]: () => StringIterator<string>
 reachable ModuleOps@index type: { addProvider: (ast: SourceFile, name: string, from: string) => void; addController: (ast: SourceFile, name: string, from: string) => void; addModuleImport: (ast: SourceFile, name: string, from: string) => void; addExport: (ast: SourceFile, name: string, from: string) => void; }
   .addProvider: (ast: SourceFile, name: string, from: string) => void
   .addController: (ast: SourceFile, name: string, from: string) => void
@@ -690,6 +874,16 @@ reachable RouteSpec@ops type: { path: string; component: string; from: string; }
   .path: string
   .component: string
   .from: string
+reachable RoutedHandle@define-dialect type: string extends P ? HandleOf<M[keyof M]> : HandleOf<M[LongestKey<MatchingKey<M, P>>]>
+  .read: () => Promise<string | undefined>
+  .replaceContent: (content: string) => Edited<any, OpPack<any>>
+  .rename: (newName: string, opts?: { force?: boolean; }) => Edited<any, OpPack<any>>
+  .move: (toDir: string, opts?: { force?: boolean; }) => Edited<any, OpPack<any>>
+  .copy: (to: string, opts?: { force?: boolean; }) => Edited<any, OpPack<any>>
+  .modify: (fn: (ast: any) => void) => Edited<any, OpPack<any>>
+  .inspect: <R>(fn: (ast: any) => R) => Promise<Awaited<R>>
+  .remove: () => void
+  .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
 reachable RunResult@index interface: RunResult
   .tree: ReadonlyMap<string, string>
   .emitted: Batch[]
@@ -735,6 +929,7 @@ reachable TypeScriptOps@index type: { addImport: (ast: SourceFile, name: string,
   .addArrayElement: (ast: SourceFile, locator: ArrayLocator, element: ArrayElement) => void
   .addClassProperty: (ast: SourceFile, className: string, name: string, initializer: string, options?: ClassPropertyOptions) => void
   .sortImports: (ast: SourceFile) => void
+reachable UnionToIntersection@define-dialect type: (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never
 reachable UsingOptions@ops interface: UsingOptions
   .static?: boolean | undefined
   .global?: boolean | undefined

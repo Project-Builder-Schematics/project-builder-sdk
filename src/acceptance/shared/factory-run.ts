@@ -24,7 +24,14 @@ export interface FactoryRun {
   pending?: readonly string[];
   /** The schematic's package, for the verbs that read package files. */
   packageDir?: string;
+  /** The author-defined dialects the workspace Manifest declares (A-16). */
+  declaredDialects?: string[];
+  /** The library the schematic belongs to, whose own Manifest is its resolution scope (CA-5). */
+  library?: { readonly name: string; readonly declares: readonly string[] };
 }
+
+/** The world key of the author-defined dialects a scenario built, by name. */
+export const AUTHOR_DIALECTS = "authorDialects";
 
 export function factoryRun(world: World): FactoryRun {
   world.run ??= { seed: {}, actions: [], handles: new Map(), ran: 0, failureExpected: false } satisfies FactoryRun;
@@ -46,7 +53,7 @@ async function replay(run: FactoryRun): Promise<{ result: RunResult; ran: number
       run.pending = pendingDirectives().map((entry) => `${entry.verb} ${entry.path}`);
     },
     {},
-    { seed: { ...run.seed }, packageDir: run.packageDir }
+    { seed: { ...run.seed }, packageDir: run.packageDir, declaredDialects: run.library?.declares ?? run.declaredDialects }
   );
   return { result, ran };
 }

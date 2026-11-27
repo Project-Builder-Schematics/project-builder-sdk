@@ -115,6 +115,8 @@ A new SDK bin, built to `dist/bin/`, shebang. Deliberately thin:
 
 1. Parse argv: `--factory file:///abs/path/factory.ts#exportName` and `--input '<json>'`
    (fallback: `--input-file <path>` for payloads near ARG_MAX).
+   Optional `--dialects '<json>'` carries the Frame's declared dialects (see the spec's
+   "Declared Dialects").
 2. Dynamic-import the factory module; resolve the export via the `#fragment` (default export
    when absent). The export is the author's BARE input-receiving function — verify it is a
    function; fail at load time with an actionable message otherwise.

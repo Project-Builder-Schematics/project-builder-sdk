@@ -85,8 +85,8 @@ describe("REQ-PKG-01 — package.json#exports resolution contract", () => {
     expect(dialectSubpaths.map(([subpath]) => subpath.slice(2)).sort()).toEqual(folders.sort());
   });
 
-  it("the only other exported subpaths are ., ./commons, ./conformance and ./testing (REQ-TES-01.1, REQ-PKG-01)", () => {
+  it("the only other exported subpaths are ., ./commons, ./conformance, ./dialect and ./testing (REQ-TES-01.1, REQ-PKG-01, A-16)", () => {
     const dialects = new Set(dialectSubpaths.map(([subpath]) => subpath));
-    expect(Object.keys(pkgJson.exports).filter((key) => !dialects.has(key)).sort()).toEqual([".", "./commons", "./conformance", "./testing"]);
+    expect(Object.keys(pkgJson.exports).filter((key) => !dialects.has(key)).sort()).toEqual([".", "./commons", "./conformance", "./dialect", "./testing"]);
   });
 });

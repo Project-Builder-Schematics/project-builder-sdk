@@ -15,6 +15,11 @@
       "import": "./dist/conformance/index.js",
       "default": "./dist/conformance/index.js"
     },
+    "./dialect": {
+      "types": "./dist/dialect/index.d.ts",
+      "import": "./dist/dialect/index.js",
+      "default": "./dist/dialect/index.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js",
@@ -73,6 +78,7 @@
   },
   "main": "./dist/index.js",
   "bin": {
-    "pbuilder-codegen": "dist/bin/pbuilder-codegen.js"
+    "pbuilder-codegen": "dist/bin/pbuilder-codegen.js",
+    "pbuilder-conformance": "dist/bin/pbuilder-conformance.js"
   }
 }

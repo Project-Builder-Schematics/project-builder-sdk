@@ -1,3 +1,4 @@
+import { AUTHOR_DIALECT_STEPS } from "./authoring/author-dialect-steps.ts";
 import { DIALECT_OP_STEPS } from "./authoring/dialect-ops.ts";
 import { FILES_DIRECTORY_STEPS } from "./authoring/files-directory-steps.ts";
 import { CONFORMANCE_STEPS } from "./authoring/conformance-steps.ts";
@@ -14,4 +15,5 @@ export const STEP_DEFINITIONS: readonly StepDefinition[] = [
   ...SESSION_STEPS,
   ...FILES_DIRECTORY_STEPS,
   ...CONFORMANCE_STEPS,
+  ...AUTHOR_DIALECT_STEPS,
 ];

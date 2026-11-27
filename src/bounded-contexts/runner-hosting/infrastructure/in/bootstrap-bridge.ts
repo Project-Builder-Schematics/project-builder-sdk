@@ -23,6 +23,7 @@
 // REAL default in an isolated spawned child; integration tests inject a no-op stand-in
 // (mirrors single-instance-probe.ts's injectable resolver).
 
+import type { DeclaredDialect } from "./single-instance-probe.ts";
 import { runRunner, type RunnerIo } from "./runner.ts";
 import { captureFd1FrameWriter, redirectConsoleToStderr } from "../../../../shared-kernel/framing.ts";
 import { BRIDGE_CONTRACT_VERSION } from "../../../../shared-kernel/wire-protocol.ts";
@@ -41,6 +42,8 @@ export type BridgeInput = { kind: "inline"; json: string } | { kind: "file"; pat
 export interface BridgeParams {
   factory: string;
   input: BridgeInput;
+  /** The Frame's declared dialects (A-16, CA-5); absent means none. */
+  dialects?: readonly DeclaredDialect[];
 }
 
 export interface BridgeIo {
@@ -65,6 +68,7 @@ function toArgv(params: BridgeParams): string[] {
   const argv = ["--factory", params.factory];
   if (params.input.kind === "inline") argv.push("--input", params.input.json);
   else argv.push("--input-file", params.input.path);
+  if (params.dialects !== undefined) argv.push("--dialects", JSON.stringify(params.dialects));
   return argv;
 }
 
