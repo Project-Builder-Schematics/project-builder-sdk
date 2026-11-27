@@ -17,8 +17,25 @@ export interface SchemaProperty {
   description?: string;
 }
 
+export type ResultKind = "string" | "number" | "boolean" | "null" | "object" | "array";
+
+export const RESULT_KINDS: ReadonlySet<string> = new Set<ResultKind>(["string", "number", "boolean", "null", "object", "array"]);
+
+/**
+ * The Result a schematic declares under `result` in `schema.json` (A-14): a subset of JSON
+ * Schema. `properties` closes an object to the keys it names; without it any JSON object fits.
+ */
+export interface ResultSchema {
+  types: ResultKind[];
+  properties?: Array<{ key: string; schema: ResultSchema }>;
+  required?: string[];
+  items?: ResultSchema;
+}
+
 export interface Schema {
   properties: SchemaProperty[];
+  /** Absent when the schematic declares no Result, so its factory must return nothing. */
+  result?: ResultSchema;
 }
 
 // Cross-repo lifecycle tokens (2026-07-06 engine handoff) — schematic-level, kebab-case,

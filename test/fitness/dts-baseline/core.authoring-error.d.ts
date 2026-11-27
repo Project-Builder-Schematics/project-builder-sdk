@@ -52,11 +52,12 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *   case "source-not-found":
  *   case "source-not-regular-file":
  *   case "source-unreadable":
+ *   case "invalid-result":
  *     console.error(err.message);
  *     break;
  * }
  */
-export type AuthoringReason = "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-session" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable";
+export type AuthoringReason = "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-session" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable" | "invalid-result";
 /**
  * Distinguishes an engine-refused write from an SDK-side misuse (2.4, ADR-0021) —
  * DERIVED from `reason`, never producer-set.
@@ -106,7 +107,7 @@ export declare class AuthoringError extends Error {
         appliedCount: number;
         /**
          * Overrides the derived message. REQUIRED for `reason: "invalid-input"` /
-         * `"reserved-name"` (REQ-AEC-09) — their templates interpolate caller-known data
+         * `"reserved-name"` (REQ-AEC-09) / `"invalid-result"` (A-14) — their templates interpolate caller-known data
          * (`{field}`, `{expectedType}`, `{name}`) `messageFor` cannot derive from `verb`/`path`
          * alone. Optional for every other reason, which derive their message from `reason` +
          * `verb` + `path` as before.

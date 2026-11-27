@@ -1,0 +1,10 @@
+{
+  "emitted": [],
+  "error": {
+    "name": "AuthoringError",
+    "reason": "invalid-result",
+    "origin": "authoring-rejected",
+    "appliedCount": 0,
+    "message": "invalid Result: Result must be string"
+  }
+}

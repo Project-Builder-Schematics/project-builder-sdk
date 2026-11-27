@@ -40,12 +40,12 @@ describe("REQ-ATH-01 — runFactoryForTest result shape", () => {
     expect(result.error).toBeUndefined();
   });
 
-  it("REQ-ATH-01.2: result exposes no field beyond the four", async () => {
+  it("REQ-ATH-01.2: result exposes no field beyond the five", async () => {
     const run = (): void => {};
 
     const result = await runFactoryForTest(run, undefined);
 
-    expect(Object.keys(result).sort()).toEqual(["emitted", "error", "reads", "tree"]);
+    expect(Object.keys(result).sort()).toEqual(["emitted", "error", "reads", "result", "tree"]);
   });
 });
 

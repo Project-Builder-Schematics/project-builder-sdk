@@ -230,7 +230,7 @@ describe("FIT-04 — public .d.ts semver gate (baseline diff)", () => {
   it("REQ-TES-05.3: dist/bounded-contexts/authoring/testing/harness/index.d.ts reflects runFactoryForTest's new bare-fn + options-bag signature", () => {
     const dts = readFileSync(join(DIST_DIR, "bounded-contexts/authoring/testing/harness/index.d.ts"), "utf-8");
     expect(dts).toContain(
-      "export declare function runFactoryForTest<O>(fn: (input: O) => void | Promise<void>, input: O, options?: {"
+      "export declare function runFactoryForTest<O, R = void>(fn: (input: O) => R | Promise<R>, input: O, options?: {"
     );
     expect(dts).toContain("seed?: Record<string, string>;");
     expect(dts).toContain("packageDir?: string | URL;");

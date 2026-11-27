@@ -46,7 +46,10 @@ export declare function requirePackageAnchors(missingAnchorMessage: string): {
  * Author code never imports this directly; it calls `runFactoryForTest` (test-time) or the
  * future production runner instead — both wrap this SAME seam internally.
  *
- * @param fn - the authoring logic; receives the resolved, schema-validated input.
+ * @param fn - the authoring logic; receives the resolved, schema-validated input and returns
+ * the schematic's Result, or nothing when its `schema.json` declares none (A-14). The Result
+ * is checked against that declaration before the flush; the runner resolves to the committed
+ * copy. A bare `defineFactory(fn)` declares no Result, so `fn` must return nothing.
  * @param options.packageFiles - the package-files adapter the two reads go through; every
  * caller passes it with `packageDir`.
  * @param options.packageDir - opts into schema-derived input validation and reserved-name
@@ -79,7 +82,7 @@ export declare function requirePackageAnchors(missingAnchorMessage: string): {
  * const runner = defineFactory<Input>(bareFactory, { packageDir: import.meta.dir });
  * await runner(input, { client });
  */
-export declare function defineFactory<O>(fn: (o: O) => void | Promise<void>, options?: ({
+export declare function defineFactory<O, R = void>(fn: (o: O) => R | Promise<R>, options?: ({
     packageDir: string | URL;
     packageFiles: PackageFiles;
 } | {
@@ -89,4 +92,4 @@ export declare function defineFactory<O>(fn: (o: O) => void | Promise<void>, opt
     declaredDialects?: readonly string[];
 }): (o: O, deps: {
     client: EngineClient;
-}) => Promise<void>;
+}) => Promise<R>;

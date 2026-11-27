@@ -66,6 +66,7 @@ export type AuthoringVerb = "create" | "modify" | "remove" | "rename" | "move" |
  *   case "source-not-found":
  *   case "source-not-regular-file":
  *   case "source-unreadable":
+ *   case "invalid-result":
  *     console.error(err.message);
  *     break;
  * }
@@ -81,7 +82,8 @@ export type AuthoringReason =
   | "reserved-name"
   | "source-not-found"
   | "source-not-regular-file"
-  | "source-unreadable";
+  | "source-unreadable"
+  | "invalid-result";
 
 /**
  * Distinguishes an engine-refused write from an SDK-side misuse (2.4, ADR-0021) —
@@ -120,6 +122,7 @@ function originFor(reason: AuthoringReason): AuthoringOrigin {
     case "source-not-found":
     case "source-not-regular-file":
     case "source-unreadable":
+    case "invalid-result":
       return "authoring-rejected";
     default: {
       const _exhaustive: never = reason;
@@ -211,6 +214,7 @@ function messageFor(reason: AuthoringReason, verb: AuthoringVerb | undefined, pa
       return `source file unreadable: ${path} could not be read`;
     case "invalid-input":
     case "reserved-name":
+    case "invalid-result":
       throw new Error(
         `messageFor: reason "${reason}" has no default template (REQ-AEC-09) — construct AuthoringError with an explicit \`message\``
       );
@@ -264,7 +268,7 @@ export class AuthoringError extends Error {
     appliedCount: number;
     /**
      * Overrides the derived message. REQUIRED for `reason: "invalid-input"` /
-     * `"reserved-name"` (REQ-AEC-09) — their templates interpolate caller-known data
+     * `"reserved-name"` (REQ-AEC-09) / `"invalid-result"` (A-14) — their templates interpolate caller-known data
      * (`{field}`, `{expectedType}`, `{name}`) `messageFor` cannot derive from `verb`/`path`
      * alone. Optional for every other reason, which derive their message from `reason` +
      * `verb` + `path` as before.

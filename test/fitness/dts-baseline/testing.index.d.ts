@@ -9,7 +9,7 @@ import type { AuthoringError } from "../../domain/valueobjects/authoring-error.t
  *   console.log(result.tree.get("src/greeting.ts"));
  * }
  */
-export interface RunResult {
+export interface RunResult<R = unknown> {
     /**
      * The committed tree (`ContractFake.committedTree()`), path → content. Committed writes
      * ONLY — an unmodified seed path is never present here, even if the factory read it.
@@ -29,6 +29,12 @@ export interface RunResult {
      * emit seam. On a factory throw, the original thrown value, unmodified.
      */
     error: AuthoringError | unknown;
+    /**
+     * The Result the run committed (A-14): what the factory returned, validated against the
+     * `result` its `schema.json` declares. `null` is a Result; `undefined` means the run
+     * committed none, because the factory declares none or the run failed.
+     */
+    result: R | undefined;
 }
 export type { Batch, Directive };
 /**
@@ -36,7 +42,7 @@ export type { Batch, Directive };
  * actually happened — closing the gap where a write-only factory (one that buffers
  * directives but is never observed to commit them) has no author-facing test to catch it.
  *
- * `fn` is the bare `(input) => void | Promise<void>` author function — never a
+ * `fn` is the bare `(input) => R | Promise<R>` author function — never a
  * `defineFactory`-wrapped runner. `runFactoryForTest` wraps `fn` internally by delegating to
  * `defineFactory`, the SAME seam a future production runner will call (single-wrap-seam
  * invariant) — it never reimplements the wrap. The harness constructs its own in-memory fake
@@ -57,6 +63,8 @@ export type { Batch, Directive };
  * against an adjacent `schema.json` (pass `import.meta.dir`, never `import.meta.url`); when
  * absent the run is the untyped, unvalidated tier, byte-identical to a run with no
  * `packageDir` at all.
+ * @param options.declaredDialects - the names of the author-defined dialects the schematic's
+ * library declares in its Manifest; a handle of any other named dialect fails the run (A-16).
  *
  * @example
  * import { runFactoryForTest } from "@pbuilder/sdk/testing";
@@ -83,7 +91,8 @@ export type { Batch, Directive };
  *   expect(result.tree.get("src/greeting.ts")).toEqual("export const greeting = '{= .name =}';");
  * });
  */
-export declare function runFactoryForTest<O>(fn: (input: O) => void | Promise<void>, input: O, options?: {
+export declare function runFactoryForTest<O, R = void>(fn: (input: O) => R | Promise<R>, input: O, options?: {
     seed?: Record<string, string>;
     packageDir?: string | URL;
-}): Promise<RunResult>;
+    declaredDialects?: readonly string[];
+}): Promise<RunResult<R>>;

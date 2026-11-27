@@ -59,6 +59,7 @@ error if a value is missed:
 | `source-not-found` | A package-local source (`scaffold`/`copyIn`/`create({ templateFile })`) does not exist. |
 | `source-not-regular-file` | A package-local source is not a regular file. |
 | `source-unreadable` | A package-local source exists but could not be read. |
+| `invalid-result` | The factory's Result does not match the `result` its `schema.json` declares, is not JSON, is larger than 1 MiB of JSON, or was returned by a factory that declares none. Nothing is written. |
 
 `source-outside-package` was removed in `@pbuilder/sdk` `0.2.0` — the SDK no longer
 re-derives a containment ceiling for package-local sources (see [Authoring
@@ -101,6 +102,7 @@ switch (err.reason) {
   case "source-not-found":
   case "source-not-regular-file":
   case "source-unreadable":
+  case "invalid-result":
     console.error(err.message);
     break;
 }

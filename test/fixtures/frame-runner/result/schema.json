@@ -1,0 +1,6 @@
+{
+  "properties": {
+    "kind": { "type": "enum", "label": "Kind", "choices": ["string", "number"], "required": true }
+  },
+  "result": { "type": "string" }
+}

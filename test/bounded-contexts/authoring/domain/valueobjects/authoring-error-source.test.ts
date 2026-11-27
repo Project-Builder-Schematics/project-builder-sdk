@@ -94,6 +94,7 @@ describe("REQ-AEC-12.1 — scaffold-family failures map to invalid-input/authori
         case "source-not-found":
         case "source-not-regular-file":
         case "source-unreadable":
+        case "invalid-result":
           return reason;
         default: {
           const _exhaustive: never = reason;

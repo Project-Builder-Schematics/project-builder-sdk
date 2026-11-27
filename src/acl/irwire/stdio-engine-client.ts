@@ -273,8 +273,9 @@ export class StdioEngineClient implements EngineClient {
     return (result as { content: string }).content;
   }
 
-  async commit(): Promise<void> {
-    const response = await this.#call("ir.commit", {});
+  // A-14: the Result rides in the ir.commit params, the key present only when one is declared.
+  async commit(result?: unknown): Promise<void> {
+    const response = await this.#call("ir.commit", result === undefined ? {} : { result });
     if (response.error !== undefined) {
       throw new IntentRejectedError(response.error.message);
     }

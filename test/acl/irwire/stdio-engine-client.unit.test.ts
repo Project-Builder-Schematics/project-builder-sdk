@@ -185,6 +185,20 @@ describe("REQ-WPS-10 — per-method reverse-callback payload schemas", () => {
     expect(discardRequest.method).toEqual("ir.discard");
     expect(discardRequest.params).toEqual({});
   });
+
+  it("A-14: ir.commit carries a declared Result under `result`, a null one included, and no key without one", async () => {
+    const channel = ackChannel();
+    const client = new StdioEngineClient(channel);
+
+    await client.commit("hello");
+    await client.commit(null);
+    await client.commit({ items: [1] });
+    await client.commit(undefined);
+
+    const params = (channel.written as any[]).map((request) => request.params);
+    expect(params).toEqual([{ result: "hello" }, { result: null }, { result: { items: [1] } }, {}]);
+    expect(Object.hasOwn(params[3], "result")).toBe(false);
+  });
 });
 
 describe("REQ-WPS-05 — reverse-callback allowlist, realized by StdioEngineClient", () => {

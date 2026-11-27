@@ -1,13 +1,14 @@
 import { expect } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { checkDialectPackage, type DialectFixture } from "../../conformance/index.ts";
 import { defineDialect, type Dialect } from "../../dialect/index.ts";
 import { astLibrary as tsMorph } from "../../dialects/typescript/index.ts";
 import type { StepDefinition, World } from "../runner/steps.ts";
 import { AUTHOR_DIALECTS, factoryRun } from "../shared/factory-run.ts";
+import { greeting, PROJECT_ROOT, RUNNER } from "../shared/runner-process.ts";
 import { dialectFailure } from "./dialect-ops.ts";
 
 /**
@@ -21,8 +22,6 @@ const tsLibrary = {
   parseTs: (source: string) => new tsMorph.Project({ useInMemoryFileSystem: true }).createSourceFile("a.ts", source, { overwrite: true }),
   printTs: (tree: { getFullText(): string }) => tree.getFullText(),
 };
-const PROJECT_ROOT = resolve(import.meta.dir, "../../..");
-const RUNNER = join(PROJECT_ROOT, "src/bin/pbuilder-runner.ts");
 
 /** Fixtures the written dialect packages load back by key, so they run the very dialect a step built. */
 export const PACKAGED_FIXTURES = new Map<string, DialectFixture>();
@@ -98,15 +97,6 @@ function resolvesOutsidePin(name: string): Pin {
   symlinkSync(join(cache, "2.0.0"), join(factoryDir, "node_modules", name), "dir");
   writeFileSync(join(factoryDir, "factory.js"), "export default function factory() {}\n");
   return { name, factory: join(factoryDir, "factory.js"), root: join(cache, "1.0.0"), dirs: [cache, factoryDir] };
-}
-
-/** A `ready` greeting, framed as the engine frames it: a 4-byte length, then the JSON body. */
-function greeting(): Buffer {
-  const body = Buffer.from(JSON.stringify({ method: "ready", protocolVersion: 1 }));
-  const frame = Buffer.alloc(4 + body.length);
-  frame.writeUInt32BE(body.length, 0);
-  body.copy(frame, 4);
-  return frame;
 }
 
 export const AUTHOR_DIALECT_STEPS: readonly StepDefinition[] = [

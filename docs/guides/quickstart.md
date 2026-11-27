@@ -160,6 +160,10 @@ author-facing directive comes from. The next step runs `run` through `runFactory
 which drives it against an in-memory fake — the factory itself never imports anything from
 `./testing`.
 
+This factory returns nothing, which is what a schematic without a declared Result must do:
+returning a value without declaring it fails the run. To hand a value back, declare it under
+`result` in `schema.json`; see [Returning a Result](../../README.md#returning-a-result).
+
 A named export works here because this page only ever runs the factory through the test
 harness. A schematic executed by the `builder` CLI must expose its factory as the module's
 **default** export — that is what the engine invokes.
