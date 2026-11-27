@@ -356,8 +356,14 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // Sequenced on #tail like an op, but it never calls #ensureOpen: a query only reads the live
   // AST, so it registers no directive (#ensureLive's first read still drains, as for an op).
   // The print comparison is what keeps it read-only: a query that edits the AST would
-  // otherwise smuggle its edit into the next op's directive.
-  runQuery(fn: (ast: Ast, ...args: unknown[]) => unknown, args: unknown[], name: string): Promise<unknown> {
+  // otherwise smuggle its edit into the next op's directive. `.inspect()` runs through here too,
+  // under its own name and its own wording for a change.
+  runQuery(
+    fn: (ast: Ast, ...args: unknown[]) => unknown,
+    args: unknown[],
+    name: string,
+    changed = `${name}() is a query and must not change`
+  ): Promise<unknown> {
     return this.#chain(async () => {
       while (!this.#isFresh()) await this.#reparse();
       const before = this.#printContained();
@@ -366,7 +372,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
         result = await fn(this.#live as Ast, ...args);
       }, `${name}() on "${this.#path}" threw`);
       if (this.#printContained() !== before) {
-        throw dialectError(`${name}() is a query and must not change "${this.#path}"`);
+        throw dialectError(`${changed} "${this.#path}"`);
       }
       return result;
     });
@@ -497,6 +503,7 @@ export function createDialectHandle<Ast, Ops extends OpPack<Ast>>(
       controller.runModify(fn);
       return handle;
     },
+    inspect: (fn: (ast: Ast) => unknown) => controller.runQuery(fn, [], "inspect", "inspect() must not change"),
     replaceContent: (content: string) => {
       controller.runReplaceContent(content);
       return handle;

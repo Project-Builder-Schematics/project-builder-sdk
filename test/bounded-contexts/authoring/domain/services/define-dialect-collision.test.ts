@@ -112,12 +112,13 @@ describe("withOps — REQ-DG-02.5: op named `then` collides with the base handle
     }
   });
 
-  it("REQ-DG-02.7: RESERVED_HANDLE_NAMES is the exact shipped 9-member ordered array", () => {
+  it("REQ-DG-02.7: RESERVED_HANDLE_NAMES is the exact shipped 10-member ordered array", () => {
     expect(RESERVED_HANDLE_NAMES).toEqual([
       "then",
       "read",
       "raw",
       "modify",
+      "inspect",
       "replaceContent",
       "rename",
       "move",
