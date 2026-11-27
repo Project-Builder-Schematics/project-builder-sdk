@@ -11,8 +11,9 @@ import { invalidInput } from "../../../domain/valueobjects/authoring-error.ts";
 import { currentRun, getSessionAls } from "../../../domain/services/run-context.ts";
 import { schemaPathFor } from "../../../domain/services/schema/schema-files.ts";
 import { parseSchema, SchemaParseFailure, formatLocator } from "../../../domain/services/schema/schema-parse.ts";
-import { validateInput } from "../../../domain/services/schema/schema-validate.ts";
-import { rejectionFor, rejectionForReservedName } from "../../../domain/services/schema/input-rejection.ts";
+import { checkResult, validateInput } from "../../../domain/services/schema/schema-validate.ts";
+import { rejectionFor, rejectionForReservedName, rejectionForResult } from "../../../domain/services/schema/input-rejection.ts";
+import type { Schema } from "../../../domain/valueobjects/schema-model.ts";
 
 // ADR-0037: the run-boundary join registry. A dialect handle self-registers here at its
 // first op; `defineFactory` drains it (awaits every registered `settle()`) BEFORE
@@ -152,7 +153,7 @@ function emptySchemaWarning(pkg: PackageRun): string {
 // a corrupt/unreadable schema file, only for author-input rejections (invalid-input /
 // reserved-name). A parsed-but-empty schema (zero declared properties) is distinct from no
 // schema at all (REQ-RBV-05.2) — it warns and skips validation, it does not opt out.
-function validateAtRunBoundary(pkg: PackageRun, input: unknown): void {
+function validateAtRunBoundary(pkg: PackageRun, input: unknown): Schema | undefined {
   let raw: string | undefined;
   try {
     raw = pkg.files.readText(schemaPathFor(pkg.dir));
@@ -164,10 +165,10 @@ function validateAtRunBoundary(pkg: PackageRun, input: unknown): void {
   }
   if (raw === undefined) {
     console.warn(noSchemaWarning(pkg));
-    return;
+    return undefined;
   }
 
-  let schema: ReturnType<typeof parseSchema>;
+  let schema: Schema;
   try {
     schema = parseSchema(raw);
   } catch (err) {
@@ -179,7 +180,7 @@ function validateAtRunBoundary(pkg: PackageRun, input: unknown): void {
 
   if (schema.properties.length === 0) {
     console.warn(emptySchemaWarning(pkg));
-    return;
+    return schema;
   }
 
   const findings = validateInput(schema, input);
@@ -187,6 +188,7 @@ function validateAtRunBoundary(pkg: PackageRun, input: unknown): void {
   if (firstFinding !== undefined) {
     throw rejectionFor(firstFinding);
   }
+  return schema;
 }
 
 // Reserved-lifecycle-name enforcement (S-004, ADR-0028, REQ-RLN-01/02): resolves
@@ -228,7 +230,10 @@ function checkReservedNames(pkg: PackageRun): void {
  * Author code never imports this directly; it calls `runFactoryForTest` (test-time) or the
  * future production runner instead — both wrap this SAME seam internally.
  *
- * @param fn - the authoring logic; receives the resolved, schema-validated input.
+ * @param fn - the authoring logic; receives the resolved, schema-validated input and returns
+ * the schematic's Result, or nothing when its `schema.json` declares none (A-14). The Result
+ * is checked against that declaration before the flush; the runner resolves to the committed
+ * copy. A bare `defineFactory(fn)` declares no Result, so `fn` must return nothing.
  * @param options.packageFiles - the package-files adapter the two reads go through; every
  * caller passes it with `packageDir`.
  * @param options.packageDir - opts into schema-derived input validation and reserved-name
@@ -261,21 +266,22 @@ function checkReservedNames(pkg: PackageRun): void {
  * const runner = defineFactory<Input>(bareFactory, { packageDir: import.meta.dir });
  * await runner(input, { client });
  */
-export function defineFactory<O>(
-  fn: (o: O) => void | Promise<void>,
+export function defineFactory<O, R = void>(
+  fn: (o: O) => R | Promise<R>,
   options?: ({ packageDir: string | URL; packageFiles: PackageFiles } | { packageDir?: undefined; packageFiles?: undefined }) & {
     declaredDialects?: readonly string[];
   }
-): (o: O, deps: { client: EngineClient }) => Promise<void> {
-  const wrapped = async (o: O, { client }: { client: EngineClient }): Promise<void> => {
+): (o: O, deps: { client: EngineClient }) => Promise<R> {
+  const wrapped = async (o: O, { client }: { client: EngineClient }): Promise<R> => {
     let packageAnchors: SessionContext["packageAnchors"];
     let packageFiles: SessionContext["packageFiles"];
+    let schema: Schema | undefined;
     if (options?.packageDir !== undefined) {
       const pkg: PackageRun = { files: options.packageFiles, dir: resolvePackageDir(options.packageDir) };
       // REQ-RBV-06: exactly TWO reads, in this order — reserved-name check, then schema
       // validation. No third (containment-ceiling) read exists (ADR-0077 §C).
       checkReservedNames(pkg);
-      validateAtRunBoundary(pkg, o);
+      schema = validateAtRunBoundary(pkg, o);
       packageAnchors = { packageDir: pkg.dir };
       packageFiles = pkg.files;
     }
@@ -295,11 +301,18 @@ export function defineFactory<O>(
     // unawaited dialect chain (forgotten `await`) still completes and commits; a drain
     // rejection (an unawaited chain that threw) routes through the SAME catch below as a
     // flush rejection already does.
+    //
+    // A-14: the Result is checked after the drain and before the final flush, so an invalid
+    // one takes the discard path below and nothing is written. A bare factory, or one with no `result` in its schema,
+    // declares none and must return nothing; the commit then carries no Result.
     try {
-      await getSessionAls<SessionContext>().run(ctx, () => fn(o));
+      const returned = await getSessionAls<SessionContext>().run(ctx, () => fn(o));
       await ctx.dialects.drain();
+      const checked = checkResult(schema?.result, returned);
+      if ("problem" in checked) throw rejectionForResult(checked.problem);
       await ctx.session.flush();
-      await ctx.session.commit();
+      await ctx.session.commit(checked.result);
+      return checked.result as R;
     } catch (thrown) {
       // A thrown `undefined` or `null` would read as success to anyone testing the error.
       const err = thrown ?? new Error(`the factory threw ${String(thrown)}`);

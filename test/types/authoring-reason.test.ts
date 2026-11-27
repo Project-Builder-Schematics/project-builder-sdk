@@ -20,7 +20,7 @@ import { expectTypeOf } from "expect-type";
 import type { AuthoringReason, AuthoringOrigin } from "../../src/bounded-contexts/authoring/domain/valueobjects/authoring-error.ts";
 
 describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin (ADR-0021)", () => {
-  test("switch(reason) over all eleven AuthoringReason values reaches an arm; a 12th value fails this compile", () => {
+  test("switch(reason) over all twelve AuthoringReason values reaches an arm; a 13th value fails this compile", () => {
     const _proof = (reason: AuthoringReason): string => {
       switch (reason) {
         case "path-collision":
@@ -34,6 +34,7 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
         case "source-not-found":
         case "source-not-regular-file":
         case "source-unreadable":
+        case "invalid-result":
           return reason;
         default: {
           const _exhaustive: never = reason;
@@ -59,7 +60,7 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
     void _proof;
   });
 
-  test("AuthoringReason is exactly the eleven closed values (type-level pin)", () => {
+  test("AuthoringReason is exactly the twelve closed values (type-level pin)", () => {
     expectTypeOf<AuthoringReason>().toEqualTypeOf<
       | "path-collision"
       | "path-not-found"
@@ -72,6 +73,7 @@ describe("AuthoringReason / AuthoringOrigin — exhaustive switch never-arm pin 
       | "source-not-found"
       | "source-not-regular-file"
       | "source-unreadable"
+      | "invalid-result"
     >();
   });
 

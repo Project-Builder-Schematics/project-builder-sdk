@@ -73,13 +73,15 @@ function describeError(error: unknown): unknown {
 }
 
 function recorded(result: RunResult): unknown {
-  return { emitted: result.emitted, error: describeError(result.error) };
+  // The committed Result only when there is one, so the goldens of factories without one are unchanged.
+  return { emitted: result.emitted, error: describeError(result.error), ...(result.result === undefined ? {} : { result: result.result }) };
 }
 
 async function frameRunnerScenarios(): Promise<Scenario[]> {
   const inputs: Record<string, Array<{ suffix: string; input: unknown; seed?: Record<string, string>; packageDir?: string }>> = {
     happy: [{ suffix: "", input: {}, seed: { "seed.txt": "feh-01" } }],
     schema: [{ suffix: "", input: { name: "pir" }, seed: { "seed.txt": "s" }, packageDir: join(FRAME_RUNNER, "schema") }],
+    result: ["string", "number"].map((kind) => ({ suffix: `-${kind}`, input: { kind }, packageDir: join(FRAME_RUNNER, "result") })),
     "unc-path-leak": ["unc", "wsl"].map((style) => ({ suffix: `-${style}`, input: { canary: "pir", style } })),
     "canary-path-leak": ["posix", "windows", "posix-space", "windows-space", "project-glued"].map((style) => ({
       suffix: `-${style}`,

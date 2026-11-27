@@ -84,8 +84,8 @@ export class Session {
 
   // SEAM-03 (ADR-01): thin wrappers delegating to #client. Session owns #client, so the
   // commit boundary stays inside Session — defineFactory never names #client directly.
-  async commit(): Promise<void> {
-    await this.#client.commit();
+  async commit(result?: unknown): Promise<void> {
+    await this.#client.commit(result);
   }
 
   async discard(): Promise<void> {

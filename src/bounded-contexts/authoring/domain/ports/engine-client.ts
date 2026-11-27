@@ -16,6 +16,8 @@ export interface EngineClient {
   read(path: string): Promise<string | undefined>;
   // ADR-01: all-or-nothing commit boundary. The engine stages emitted ops and commits/discards
   // them transactionally. ADDITIVE — emit/read signatures are unchanged.
-  commit(): Promise<void>;
+  // A-14: `result` is the factory's validated Result; `undefined` means it declares none, and
+  // then nothing about a Result reaches the engine.
+  commit(result?: unknown): Promise<void>;
   discard(): Promise<void>;
 }

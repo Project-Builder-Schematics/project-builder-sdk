@@ -219,6 +219,42 @@ everything you can do inside a factory, and the
 [quickstart](./docs/guides/quickstart.md) covers the standalone-package setup (tsconfig
 included) in more depth.
 
+## Returning a Result
+
+A factory may hand a value back: to Launch when it is the root schematic, with the Plan of a
+Dry Run or the applied operations of a Commit. Declare it under `result` in `schema.json`,
+next to `properties`:
+
+```json
+{
+  "properties": {},
+  "result": {
+    "type": "object",
+    "properties": { "name": { "type": "string" }, "files": { "type": "array", "items": { "type": "string" } } },
+    "required": ["name"]
+  }
+}
+```
+
+`type` is one of `string`, `number`, `boolean`, `null`, `object` and `array`, or a list of
+them (`["string", "null"]`). An object with `properties` accepts only the keys it names, and
+`required` lists the ones it must have; an object without `properties` accepts any JSON
+object. An array may give its `items`. Codegen emits the matching `Result` type next to
+`Input`, so the compiler checks what the factory returns:
+
+```ts
+import type { Input, Result } from "./schema.generated.ts";
+
+export default (input: Input): Result => ({ name: "payments", files: [] });
+```
+
+The SDK checks the returned value at the factory boundary before anything is written. It
+must match the declaration and be JSON: no functions, class instances (a `Date`, a `Map`),
+cycles, `undefined` or non-finite numbers. Its JSON encoding may take at most 1 MiB
+(1048576 bytes). A schematic that declares no Result must return nothing. When any of this
+fails, the run fails with an `AuthoringError` whose reason is `invalid-result`, and nothing
+is written. A declared `null` is a Result and is returned as `null`.
+
 ## Project-wide type generation
 
 ```sh
@@ -553,6 +589,10 @@ Three things to know:
   package-local verbs (`scaffold`, `copyIn`, `create({ templateFile })`) and opts the run
   into schema-derived input validation against the adjacent `schema.json`. Without it those
   verbs have nothing to resolve against.
+
+- `result.result` is the Result the run committed: what the factory returned, checked
+  against the `result` its `schema.json` declares (see [Returning a Result](#returning-a-result)).
+  It is `undefined` when the factory declares none or the run failed.
 
 - `result.reads` counts the reads the engine served for each path, so a test can check
   that the factory reads a file once however many ops it chains on it. A path the factory

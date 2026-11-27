@@ -16,7 +16,7 @@ describe("REQ-SEC-01 — StdioEngineClient port conformance (type level)", () =>
   it("the four methods carry the port's exact signatures", () => {
     expectTypeOf<StdioEngineClient["emit"]>().toEqualTypeOf<(batch: Batch) => Promise<void>>();
     expectTypeOf<StdioEngineClient["read"]>().toEqualTypeOf<(path: string) => Promise<string | undefined>>();
-    expectTypeOf<StdioEngineClient["commit"]>().toEqualTypeOf<() => Promise<void>>();
+    expectTypeOf<StdioEngineClient["commit"]>().toEqualTypeOf<(result?: unknown) => Promise<void>>();
     expectTypeOf<StdioEngineClient["discard"]>().toEqualTypeOf<() => Promise<void>>();
   });
 });

@@ -15,7 +15,7 @@ import { nodePackageFiles } from "../../infrastructure/out/fs/package-files.ts";
 interface RecordingClient {
   emit(batch: Batch): Promise<void>;
   read(path: string): Promise<string | undefined>;
-  commit(): Promise<void>;
+  commit(result?: unknown): Promise<void>;
   discard(): Promise<void>;
 }
 
@@ -28,7 +28,7 @@ interface RecordingClient {
  *   console.log(result.tree.get("src/greeting.ts"));
  * }
  */
-export interface RunResult {
+export interface RunResult<R = unknown> {
   /**
    * The committed tree (`ContractFake.committedTree()`), path → content. Committed writes
    * ONLY — an unmodified seed path is never present here, even if the factory read it.
@@ -48,6 +48,12 @@ export interface RunResult {
    * emit seam. On a factory throw, the original thrown value, unmodified.
    */
   error: AuthoringError | unknown;
+  /**
+   * The Result the run committed (A-14): what the factory returned, validated against the
+   * `result` its `schema.json` declares. `null` is a Result; `undefined` means the run
+   * committed none, because the factory declares none or the run failed.
+   */
+  result: R | undefined;
 }
 
 export type { Batch, Directive };
@@ -57,7 +63,7 @@ export type { Batch, Directive };
  * actually happened — closing the gap where a write-only factory (one that buffers
  * directives but is never observed to commit them) has no author-facing test to catch it.
  *
- * `fn` is the bare `(input) => void | Promise<void>` author function — never a
+ * `fn` is the bare `(input) => R | Promise<R>` author function — never a
  * `defineFactory`-wrapped runner. `runFactoryForTest` wraps `fn` internally by delegating to
  * `defineFactory`, the SAME seam a future production runner will call (single-wrap-seam
  * invariant) — it never reimplements the wrap. The harness constructs its own in-memory fake
@@ -106,14 +112,15 @@ export type { Batch, Directive };
  *   expect(result.tree.get("src/greeting.ts")).toEqual("export const greeting = '{= .name =}';");
  * });
  */
-export async function runFactoryForTest<O>(
-  fn: (input: O) => void | Promise<void>,
+export async function runFactoryForTest<O, R = void>(
+  fn: (input: O) => R | Promise<R>,
   input: O,
   options?: { seed?: Record<string, string>; packageDir?: string | URL; declaredDialects?: readonly string[] }
-): Promise<RunResult> {
+): Promise<RunResult<R>> {
   const fake = new ContractFake({ seed: options?.seed ?? {} });
   const emitted: Batch[] = [];
   const reads = new Map<string, number>();
+  let committed: R | undefined;
   const client: RecordingClient = {
     emit(batch) {
       emitted.push(batch);
@@ -123,7 +130,8 @@ export async function runFactoryForTest<O>(
       reads.set(path, (reads.get(path) ?? 0) + 1);
       return fake.read(path);
     },
-    commit() {
+    commit(result) {
+      committed = result as R | undefined;
       return fake.commit();
     },
     discard() {
@@ -131,7 +139,7 @@ export async function runFactoryForTest<O>(
     },
   };
 
-  const run = defineFactory<O>(
+  const run = defineFactory<O, R>(
     fn,
     options?.packageDir !== undefined
       ? { packageDir: options.packageDir, packageFiles: nodePackageFiles, declaredDialects: options.declaredDialects }
@@ -145,5 +153,5 @@ export async function runFactoryForTest<O>(
     error = caught;
   }
 
-  return { tree: fake.committedTree(), emitted, reads, error };
+  return { tree: fake.committedTree(), emitted, reads, error, result: committed };
 }

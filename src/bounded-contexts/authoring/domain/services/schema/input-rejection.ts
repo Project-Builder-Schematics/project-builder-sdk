@@ -38,3 +38,8 @@ export function rejectionForReservedName(name: string): AuthoringError {
     `reserved lifecycle name: ${name} is reserved and cannot be declared by a factory module`
   );
 }
+
+// A-14 / E-40: an invalid or oversized Result, from `checkResult`.
+export function rejectionForResult(problem: string): AuthoringError {
+  return rejection("invalid-result", `invalid Result: ${problem}`);
+}

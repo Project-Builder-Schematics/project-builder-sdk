@@ -12,7 +12,7 @@
  static  .prepareStackTrace: (err: Error, stackTraces: NodeJS.CallSite[]) => any
  static  .stackTraceLimit: number
 . AuthoringOrigin type: "write-rejected" | "authoring-rejected"
-. AuthoringReason type: "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-session" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable"
+. AuthoringReason type: "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-session" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable" | "invalid-result"
 . AuthoringVerb type: "create" | "modify" | "remove" | "rename" | "move" | "copy" | "copyIn"
 . classifyContent function: (content: string | undefined) => ContentState
 . ContentState type: "absent" | "empty" | "present"
@@ -74,7 +74,7 @@
  static  .prepareStackTrace: (err: Error, stackTraces: NodeJS.CallSite[]) => any
  static  .stackTraceLimit: number
 ./commons AuthoringOrigin type: "write-rejected" | "authoring-rejected"
-./commons AuthoringReason type: "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-session" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable"
+./commons AuthoringReason type: "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-session" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable" | "invalid-result"
 ./commons AuthoringVerb type: "create" | "modify" | "remove" | "rename" | "move" | "copy" | "copyIn"
 ./commons classifyContent function: (content: string | undefined) => ContentState
 ./commons ContentState type: "absent" | "empty" | "present"
@@ -199,12 +199,13 @@
   .instructions: Directive[]
 ./testing Directive type: { op: "create"; create: { pathTemplate: string; template: string; options: JsonValue; force?: boolean; }; } | { op: "modify"; modify: { path: string; content: string; }; } | { op: "delete"; delete: { path: string; }; } | { op: "rename"; rename: { path: string; newName: string; force?: boolean; }; } | { op: "move"; move: { path: string; toDir: string; force?: boolean; }; } | { op: "copy"; copy: { from: string; to: string; force?: boolean; }; } | { op: "copyIn"; copyIn: { from: string; to: string; force?: boolean; }; }
   .op: "create" | "modify" | "rename" | "move" | "copy" | "copyIn" | "delete"
-./testing runFactoryForTest function: <O>(fn: (input: O) => void | Promise<void>, input: O, options?: { seed?: Record<string, string>; packageDir?: string | URL; declaredDialects?: readonly string[]; }) => Promise<RunResult>
-./testing RunResult interface: RunResult
+./testing runFactoryForTest function: <O, R = void>(fn: (input: O) => R | Promise<R>, input: O, options?: { seed?: Record<string, string>; packageDir?: string | URL; declaredDialects?: readonly string[]; }) => Promise<RunResult<R>>
+./testing RunResult interface: RunResult<R>
   .tree: ReadonlyMap<string, string>
   .emitted: Batch[]
   .reads: ReadonlyMap<string, number>
   .error: unknown
+  .result: R | undefined
 ./typescript astLibrary namespace: typeof import("ts-morph")
 ./typescript find function: (path: string) => Handle<"found", SourceFile, TypeScriptOps>
 ./react astLibrary namespace: typeof import("ts-morph")
@@ -411,7 +412,7 @@ reachable AuthoringError@authoring-error class: AuthoringError
   .stack?: string | undefined
   .cause?: unknown
 reachable AuthoringOrigin@authoring-error type: "write-rejected" | "authoring-rejected"
-reachable AuthoringReason@authoring-error type: "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-session" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable"
+reachable AuthoringReason@authoring-error type: "path-collision" | "path-not-found" | "unrepresentable-content" | "changes-too-large" | "outside-session" | "unknown" | "invalid-input" | "reserved-name" | "source-not-found" | "source-not-regular-file" | "source-unreadable" | "invalid-result"
 reachable AuthoringVerb@authoring-error type: "create" | "modify" | "remove" | "rename" | "move" | "copy" | "copyIn"
 reachable Batch@wire type: { protocolVersion: 1; force: boolean; instructions: Directive[]; }
   .protocolVersion: 1
@@ -884,11 +885,12 @@ reachable RoutedHandle@define-dialect type: string extends P ? HandleOf<M[keyof 
   .inspect: <R>(fn: (ast: any) => R) => Promise<Awaited<R>>
   .remove: () => void
   .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
-reachable RunResult@index interface: RunResult
+reachable RunResult@index interface: RunResult<R>
   .tree: ReadonlyMap<string, string>
   .emitted: Batch[]
   .reads: ReadonlyMap<string, number>
   .error: unknown
+  .result: R | undefined
 reachable ScaffoldArgs@expander interface: ScaffoldArgs
   .from: string
   .to: string

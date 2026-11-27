@@ -21,6 +21,7 @@ const HAPPY_FIXTURE_DIR = new URL("../../../../fixtures/frame-runner/happy/", im
 const SCHEMA_FIXTURE_DIR = new URL("../../../../fixtures/frame-runner/schema/", import.meta.url).pathname;
 const HAPPY_POINTER = `file://${HAPPY_FIXTURE_DIR}factory.ts`;
 const SCHEMA_POINTER = `file://${SCHEMA_FIXTURE_DIR}factory.ts`;
+const RESULT_POINTER = `file://${new URL("../../../../fixtures/frame-runner/result/", import.meta.url).pathname}factory.ts`;
 
 // No-op protection: forwards writeFrame straight to the host's own io, and skips the REAL
 // fd-1 capture/console redirect — those mutate GLOBAL process state (safe in an isolated
@@ -124,6 +125,41 @@ describe("REQ-RUN-05 — defineFactory wrap with packageDir = dirname(factory)",
     expect(exitCode).toEqual(1);
     // Rejected at the run boundary, before the factory ran: no ir.emit ever crossed the wire.
     expect(host.requests.filter((r) => r.method === "ir.emit")).toEqual([]);
+  });
+});
+
+describe("A-14 — the Result rides on ir.commit", () => {
+  it("a declared Result that matches is sent as `result` in the ir.commit params: exit 0", async () => {
+    const host = makeInProcessHost({});
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", RESULT_POINTER, "--input", '{"kind":"string"}'], host.io);
+
+    expect(exitCode).toEqual(0);
+    expect(host.requests.find((r) => r.method === "ir.commit")?.params).toEqual({ result: "hello" });
+    expect(host.fake.committedTree().get("r.txt")).toEqual("root");
+  });
+
+  it("a factory that declares no Result sends ir.commit with no `result` key", async () => {
+    const host = makeInProcessHost({ seed: { "seed.txt": "x" } });
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", HAPPY_POINTER, "--input", "{}"], host.io);
+
+    expect(exitCode).toEqual(0);
+    expect(host.requests.find((r) => r.method === "ir.commit")?.params).toEqual({});
+  });
+
+  it("an invalid Result fails the run as a developer error: exit 1, no ir.emit, no ir.commit, the stderr names the Result", async () => {
+    const host = makeInProcessHost({});
+    host.sendReady();
+
+    const exitCode = await runRunner(["--factory", RESULT_POINTER, "--input", '{"kind":"number"}'], host.io);
+
+    expect(exitCode).toEqual(1);
+    expect(host.requests.map((r) => r.method)).toEqual(["ir.discard"]);
+    expect(host.fake.committedTree().size).toEqual(0);
+    expect(host.stderrText()).toContain("invalid Result: Result must be string");
   });
 });
 

@@ -1,0 +1,19 @@
+{
+  "emitted": [
+    {
+      "protocolVersion": 1,
+      "force": false,
+      "instructions": [
+        {
+          "op": "create",
+          "create": {
+            "pathTemplate": "r.txt",
+            "template": "root",
+            "options": {}
+          }
+        }
+      ]
+    }
+  ],
+  "result": "hello"
+}
