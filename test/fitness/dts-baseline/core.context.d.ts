@@ -19,6 +19,7 @@ export interface SessionContext {
         packageDir: string;
     };
     packageFiles?: PackageFiles;
+    declaredDialects?: ReadonlySet<string>;
 }
 export declare function isDefineFactoryWrapped(value: unknown): boolean;
 export declare function currentContext(): SessionContext;
@@ -78,9 +79,14 @@ export declare function requirePackageAnchors(missingAnchorMessage: string): {
  * const runner = defineFactory<Input>(bareFactory, { packageDir: import.meta.dir });
  * await runner(input, { client });
  */
-export declare function defineFactory<O>(fn: (o: O) => void | Promise<void>, options?: {
+export declare function defineFactory<O>(fn: (o: O) => void | Promise<void>, options?: ({
     packageDir: string | URL;
     packageFiles: PackageFiles;
+} | {
+    packageDir?: undefined;
+    packageFiles?: undefined;
+}) & {
+    declaredDialects?: readonly string[];
 }): (o: O, deps: {
     client: EngineClient;
 }) => Promise<void>;

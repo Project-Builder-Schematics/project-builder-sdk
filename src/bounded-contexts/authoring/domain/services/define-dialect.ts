@@ -156,7 +156,7 @@ export function defineDialect<Ast, Ops extends OpPack<Ast>>(d: DialectDescriptor
           `find(${JSON.stringify(path)}) — the file's extension is not one this dialect declares (${d.extensions.join(", ")}).`
         );
       }
-      return createDialectHandle(d.ast, d.ops, path);
+      return createDialectHandle(d.ast, d.ops, path, d.name);
     },
   };
 }

@@ -69,6 +69,8 @@ export interface SessionContext {
   // The package-files adapter the run was given with `packageDir`, kept beside the anchor
   // (never inside it) for the package-local reads of scaffold, copyIn and templateFile.
   packageFiles?: PackageFiles;
+  // A-16: the author-defined dialects the running schematic's library declares (CA-5).
+  declaredDialects?: ReadonlySet<string>;
 }
 
 // ADR-04 (stdio-engine-client, REQ-RUN-06): a non-enumerable, non-configurable brand
@@ -261,12 +263,14 @@ function checkReservedNames(pkg: PackageRun): void {
  */
 export function defineFactory<O>(
   fn: (o: O) => void | Promise<void>,
-  options?: { packageDir: string | URL; packageFiles: PackageFiles }
+  options?: ({ packageDir: string | URL; packageFiles: PackageFiles } | { packageDir?: undefined; packageFiles?: undefined }) & {
+    declaredDialects?: readonly string[];
+  }
 ): (o: O, deps: { client: EngineClient }) => Promise<void> {
   const wrapped = async (o: O, { client }: { client: EngineClient }): Promise<void> => {
     let packageAnchors: SessionContext["packageAnchors"];
     let packageFiles: SessionContext["packageFiles"];
-    if (options !== undefined) {
+    if (options?.packageDir !== undefined) {
       const pkg: PackageRun = { files: options.packageFiles, dir: resolvePackageDir(options.packageDir) };
       // REQ-RBV-06: exactly TWO reads, in this order — reserved-name check, then schema
       // validation. No third (containment-ceiling) read exists (ADR-0077 §C).
@@ -281,6 +285,7 @@ export function defineFactory<O>(
       dialects: new DialectRegistryImpl(),
       packageAnchors,
       packageFiles,
+      declaredDialects: new Set(options?.declaredDialects),
     };
     // ADR-01: no `finally` — success (commit) and failure (discard) are distinct paths.
     // The final flush is INSIDE the try, so a flush-time emit rejection (already an

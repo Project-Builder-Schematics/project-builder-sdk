@@ -16,7 +16,7 @@ Branch: feat/author-defined-dialects (worktree project-builder-sdk-worktrees/aut
 
 ## Tasks
 
-- T1 [S1] `name` on DialectDescriptor/Dialect; composers keep it. Route: inline. Status: in progress.
+- T1 [S1] `name` on DialectDescriptor/Dialect; composers keep it. Route: inline. Status: done a4a93cc (RDD medium, under_budget).
 - T2 [S3, S8] Declared set threaded through `defineFactory` options into the run; handle step rejects an undeclared named dialect; `runFactoryForTest` and `testDialect` accept/declare it. Route: inline. Status: todo.
 - T3 [S2] Public registration entry point, required `name` at the public boundary, baselines (fit-04/14/51), docs. Route: inline. Status: todo (decided: `./dialect` subpath, L4).
 - T4 [S1, S4, S5] `pbuilder-conformance` bin: load `<pkg>/conformance`, check name == package.json name, run `testDialect`, JSON line, exit codes; fit-14/fit-49/fit-51 baselines; docs. Route: inline. Status: todo.

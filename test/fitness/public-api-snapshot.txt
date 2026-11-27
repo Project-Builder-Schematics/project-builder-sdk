@@ -149,7 +149,7 @@
   .instructions: Directive[]
 ./testing Directive type: { op: "create"; create: { pathTemplate: string; template: string; options: JsonValue; force?: boolean; }; } | { op: "modify"; modify: { path: string; content: string; }; } | { op: "delete"; delete: { path: string; }; } | { op: "rename"; rename: { path: string; newName: string; force?: boolean; }; } | { op: "move"; move: { path: string; toDir: string; force?: boolean; }; } | { op: "copy"; copy: { from: string; to: string; force?: boolean; }; } | { op: "copyIn"; copyIn: { from: string; to: string; force?: boolean; }; }
   .op: "create" | "modify" | "rename" | "move" | "copy" | "copyIn" | "delete"
-./testing runFactoryForTest function: <O>(fn: (input: O) => void | Promise<void>, input: O, options?: { seed?: Record<string, string>; packageDir?: string | URL; }) => Promise<RunResult>
+./testing runFactoryForTest function: <O>(fn: (input: O) => void | Promise<void>, input: O, options?: { seed?: Record<string, string>; packageDir?: string | URL; declaredDialects?: readonly string[]; }) => Promise<RunResult>
 ./testing RunResult interface: RunResult
   .tree: ReadonlyMap<string, string>
   .emitted: Batch[]

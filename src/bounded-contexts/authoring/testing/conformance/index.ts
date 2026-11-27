@@ -206,7 +206,7 @@ async function runExercise(
       }
     }
     await handle;
-  });
+  }, { declaredDialects: dialect.name === undefined ? [] : [dialect.name] });
   await runner(undefined, { client });
 
   const directives = emitted.flatMap((b) => b.instructions);
@@ -365,7 +365,7 @@ export async function testDialect<Library extends object>(fixture: DialectFixtur
       acceptedUndeclared = false;
     }
     await module.find(exercise.path).modify((ast: unknown) => exercise.modify(ast, module.astLibrary));
-  });
+  }, { declaredDialects: fixture.dialect.name === undefined ? [] : [fixture.dialect.name] });
   await run(undefined, { client });
   if (acceptedUndeclared) {
     throw new Error(`testDialect: find accepted "${undeclaredPath}", an undeclared extension (A-11)`);

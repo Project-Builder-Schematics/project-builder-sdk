@@ -78,6 +78,8 @@ export type { Batch, Directive };
  * against an adjacent `schema.json` (pass `import.meta.dir`, never `import.meta.url`); when
  * absent the run is the untyped, unvalidated tier, byte-identical to a run with no
  * `packageDir` at all.
+ * @param options.declaredDialects - the names of the author-defined dialects the schematic's
+ * library declares in its Manifest; a handle of any other named dialect fails the run (A-16).
  *
  * @example
  * import { runFactoryForTest } from "@pbuilder/sdk/testing";
@@ -107,7 +109,7 @@ export type { Batch, Directive };
 export async function runFactoryForTest<O>(
   fn: (input: O) => void | Promise<void>,
   input: O,
-  options?: { seed?: Record<string, string>; packageDir?: string | URL }
+  options?: { seed?: Record<string, string>; packageDir?: string | URL; declaredDialects?: readonly string[] }
 ): Promise<RunResult> {
   const fake = new ContractFake({ seed: options?.seed ?? {} });
   const emitted: Batch[] = [];
@@ -131,7 +133,9 @@ export async function runFactoryForTest<O>(
 
   const run = defineFactory<O>(
     fn,
-    options?.packageDir !== undefined ? { packageDir: options.packageDir, packageFiles: nodePackageFiles } : undefined
+    options?.packageDir !== undefined
+      ? { packageDir: options.packageDir, packageFiles: nodePackageFiles, declaredDialects: options.declaredDialects }
+      : { declaredDialects: options?.declaredDialects }
   );
 
   let error: AuthoringError | unknown;

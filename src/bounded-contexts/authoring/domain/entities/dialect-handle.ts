@@ -7,7 +7,7 @@
 // fitness-pinned. Only the PUBLIC `find(path)` signature and the `Handle<State, Ast, Ops>`
 // TYPE (define-dialect.ts) are frozen.
 
-import { currentRun } from "../services/run-context.ts";
+import { currentRun, getSessionAls } from "../services/run-context.ts";
 import { dialectError, isContained } from "../valueobjects/dialect-error.ts";
 import type { DirectiveFactory } from "../services/directive-factory.ts";
 import type { OpPack, Handle, Query } from "../services/define-dialect.ts";
@@ -20,6 +20,7 @@ type HandleRun = {
   factory: DirectiveFactory;
   dialects: { register(handle: { readonly settle: () => Promise<void> }): void };
   sessionFailure?: { reason: unknown };
+  declaredDialects?: ReadonlySet<string>;
 };
 
 interface DialectAst<Ast> {
@@ -124,6 +125,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   readonly #dialectAst: DialectAst<Ast>;
   readonly #ops: Ops;
   readonly #path: string;
+  readonly #name: string | undefined;
   #live: Ast | undefined;
   #openDirective: Directive | undefined;
   #registered = false;
@@ -138,10 +140,26 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   // A-8: set once the handle re-parsed away from a tree, so a failing .modify() names the remedy.
   #retired = false;
 
-  constructor(dialectAst: DialectAst<Ast>, ops: Ops, path: string) {
+  constructor(dialectAst: DialectAst<Ast>, ops: Ops, path: string, name: string | undefined) {
     this.#dialectAst = dialectAst;
     this.#ops = ops;
     this.#path = path;
+    this.#name = name;
+  }
+
+  // A-16: a handle opened inside a run fails the run at its end even when no step follows.
+  // Outside a run there is no declared set yet, so the first step checks instead.
+  checkDeclaredInRun(): void {
+    if (this.#name !== undefined && getSessionAls().getStore() !== undefined) this.#enqueue(() => {});
+  }
+
+  #assertDeclared(ctx: HandleRun): void {
+    if (this.#name !== undefined && ctx.declaredDialects?.has(this.#name) !== true) {
+      throw dialectError(
+        `the dialect "${this.#name}" is not declared in the Manifest of this schematic's library — ` +
+          `add it to the "dialects" section of its project-builder.json.`
+      );
+    }
   }
 
   get ops(): Ops {
@@ -170,6 +188,7 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
         throw ctx.sessionFailure.reason;
       }
       try {
+        this.#assertDeclared(ctx);
         return await step();
       } catch (err) {
         if (ctx.sessionFailure === undefined) {
@@ -482,9 +501,11 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
 export function createDialectHandle<Ast, Ops extends OpPack<Ast>>(
   dialectAst: DialectAst<Ast>,
   ops: Ops,
-  path: string
+  path: string,
+  name?: string
 ): Handle<"found", Ast, Ops> {
-  const controller = new DialectHandleController<Ast, Ops>(dialectAst, ops, path);
+  const controller = new DialectHandleController<Ast, Ops>(dialectAst, ops, path, name);
+  controller.checkDeclaredInRun();
 
   // Every chaining method returns `handle` (the PUBLIC wrapper below), never the
   // controller directly — the author-facing chain must keep landing on an object that
