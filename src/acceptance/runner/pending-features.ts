@@ -16,13 +16,10 @@ export interface PendingFeature {
  * defined yet. The strict pass skips their scenarios and reports how many. Shrink-only: a row
  * leaves when its slice lands, and a row whose scenarios have no undefined step left fails as stale.
  */
-export const PENDING_FEATURES: readonly PendingFeature[] = [
-  // Its steps need the dialect kit, which is not a public entry until sdk#103.
-  { feature: "bounded-contexts/authoring/rules/dialect-composition.feature", slice: "sdk#103" },
-];
+export const PENDING_FEATURES: readonly PendingFeature[] = [];
 
 /** The list may only shrink: lower this when a row leaves, never raise it. */
-export const PENDING_CEILING = 1;
+export const PENDING_CEILING = 0;
 
 /** Whether a row covers the scenario: its whole feature, or that one scenario of it. */
 export function isPending(rows: readonly PendingFeature[], pickle: RulePickle): boolean {

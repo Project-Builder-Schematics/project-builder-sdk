@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import type { SourceFile } from "ts-morph";
 import * as angular from "../../dialects/angular/index.ts";
 import * as aspnet from "../../dialects/aspnet/index.ts";
 import * as csharp from "../../dialects/csharp/index.ts";
@@ -49,6 +50,8 @@ interface DialectState {
   readonly lastArguments: Map<string, Map<string, string>>;
   /** What the last query returned, once its action ran. */
   queried?: { readonly value: unknown };
+  /** What the last `.inspect()` call returned, once its action ran. */
+  inspected?: { readonly value: unknown };
 }
 
 function dialectState(world: World): DialectState {
@@ -74,6 +77,16 @@ function callArguments(world: World, op: string, table: string[][]): unknown[] {
 }
 
 type OpTarget = Record<string, (...args: unknown[]) => PromiseLike<unknown>>;
+
+type Inspectable = { inspect(fn: (ast: never) => unknown): Promise<unknown> };
+
+/** Records an awaited `.inspect()` call, so a rejection fails the factory and a value is kept. */
+function inspectOn<Ast>(world: World, handle: string, fn: (ast: Ast) => unknown): void {
+  factoryRun(world).actions.push(async (handles) => {
+    const value = await (handles.get(handle) as Inspectable).inspect(fn as (ast: never) => unknown);
+    dialectState(world).inspected = { value };
+  });
+}
 
 /** The value the last query returned, after checking the run succeeded and the query ran. */
 function queried(world: World): unknown {
@@ -117,6 +130,49 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
         dialectState(world).queried = { value };
       });
     },
+  },
+  {
+    phrase: 'the author runs an .inspect() callback that appends the statement "{statement}" on the Dialect handle "{handle}"',
+    run: (world, [statement, handle]) =>
+      inspectOn<SourceFile>(world, handle as string, (ast) => void ast.addStatements(statement as string)),
+  },
+  {
+    phrase: 'the author runs an .inspect() callback that throws an error with the message "{message}" on the Dialect handle "{handle}"',
+    run: (world, [message, handle]) =>
+      inspectOn(world, handle as string, () => {
+        throw new Error(message as string);
+      }),
+  },
+  {
+    phrase: 'the author runs a .modify() callback that throws an error with the message "{message}" on the Dialect handle "{handle}"',
+    run: (world, [message, handle]) =>
+      void factoryRun(world).actions.push(async (handles) => {
+        await (handles.get(handle as string) as { modify(fn: () => void): PromiseLike<void> }).modify(() => {
+          throw new Error(message as string);
+        });
+      }),
+  },
+  {
+    phrase: 'the .inspect() call returned "{value}"',
+    run: (world, [value]) => {
+      expectSuccess(world);
+      const result = dialectState(world).inspected;
+      if (result === undefined) throw new Error("no .inspect() call ran");
+      expect(String(result.value)).toBe(value as string);
+    },
+  },
+  {
+    phrase: 'the factory fails because the .inspect() callback changed the file "{path}"',
+    run: (world, [path]) => void expect(dialectFailure(world)).toContain(`inspect() must not change ${JSON.stringify(path)}`),
+  },
+  {
+    phrase: 'the query returned "{value}"',
+    run: (world, [value]) => void expect(String(queried(world))).toBe(value as string),
+  },
+  {
+    phrase: 'the factory fails because the query "{query}" changed the file "{path}"',
+    run: (world, [query, path]) =>
+      void expect(dialectFailure(world)).toContain(`${query as string}() is a query and must not change ${JSON.stringify(path)}`),
   },
   {
     phrase: "the query returned nothing",
