@@ -613,6 +613,7 @@ await ts.find("src/index.ts")
 | `addVariable(name, initializer, opts?)` | Appends a top-level variable (`kind` defaults to `const`). A no-op when the same declaration exists; another binding of `name` rejects. |
 | `addClass(name, source, opts?)` | Appends a top-level class. `source` **excludes** the braces — the op adds them. A no-op when the same declaration exists; another binding of `name` rejects. |
 | `.modify(fn)` | The universal escape hatch: direct [ts-morph](https://ts-morph.com) access to the file's AST for anything the named ops don't cover. |
+| `.inspect(fn)` | The read escape hatch: hands `fn` the same live AST and resolves to what `fn` returns. Ends the chain; a callback that changes the file fails the factory. |
 
 The `add*` ops fail loud on a name collision with an existing value declaration or import
 binding (two value declarations sharing a name is invalid TypeScript); a `type`/`interface`
@@ -838,6 +839,26 @@ still flushes as a **single** write. Two things to respect:
 - **`.modify()` runs with full process privilege — it is not a sandbox.** Your own
   callbacks are your own trust; before importing a *third-party* dialect or op-pack built
   on it, read [SECURITY.md](./SECURITY.md).
+
+### `.inspect()` — reading the AST back
+
+`.inspect(ast => value)` is the read counterpart of `.modify()`. It hands the callback the same
+live AST, after every op chained before it, and resolves to what the callback returns. It ends
+the chain, emits nothing, and is offered to every factory, so a generator can read a value to
+decide what to write:
+
+```ts
+import * as ts from "@pbuilder/sdk/typescript";
+
+const imports = await ts.find("src/main.ts")
+  .addImport("BooksModule", "./books/books.module")
+  .inspect((ast) => ast.getImportDeclarations().length);
+```
+
+The callback must not change the AST. The SDK prints the file before and after it, and a
+difference fails the factory with `inspect() must not change "<path>"`. A callback that throws
+fails it with `inspect() on "<path>" threw`, without the original message. Return plain data:
+a node you keep goes stale after the next edit.
 
 ### Going deeper
 

@@ -40,6 +40,17 @@ type DialectWriteOps<Ast, Ops extends OpPack<Ast>> = {
 };
 export type Handle<State extends "found" | "writable" = "found", Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> = ReadOps & DialectWriteOps<Ast, Ops> & {
     modify(fn: (ast: Ast) => void): Edited<Ast, Ops>;
+    /**
+     * The read escape hatch, as `.modify()` is the write one (A-128). Hands `fn` the live AST,
+     * after every op chained before it, and resolves to what `fn` returns; it ends the chain.
+     * The AST is printed before and after `fn`, and a difference fails the factory with
+     * `inspect() must not change "<path>"`. Return plain data: a node kept after the next edit
+     * is stale (A-8).
+     *
+     * @example
+     * const count = await typescript.find("src/a.ts").addImport("x", "y").inspect((ast) => ast.getImportDeclarations().length);
+     */
+    inspect<R>(fn: (ast: Ast) => R): Promise<Awaited<R>>;
 } & OpMethods<Ast, Ops> & (State extends "found" ? {
     remove(): void;
 } : {}) & PromiseLike<void>;
@@ -63,7 +74,8 @@ export declare function defineOpPack<Ast, Ops extends OpPack<Ast>>(ops: Ops): Op
 /**
  * Assembles a `Dialect` from its frozen descriptor (extensions, an AST parse/print pair,
  * and an op-pack). `find` is the dialect's ONLY entry verb into a Session (REQ-DG-01.2) — it
- * returns an open, coalescing `Handle`.
+ * returns an open, coalescing `Handle`. Throws when an op in `ops` takes the name of a handle
+ * verb (`RESERVED_HANDLE_NAMES`).
  *
  * @example
  * const myDialect = defineDialect({
@@ -86,7 +98,7 @@ type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) exten
  * import it instead of hand-typing a second literal) — NOT a supported public API member, not
  * semver-covered beyond the FIT-04 baseline pin it already sits inside (ORCHESTRATOR RULING R2).
  */
-export declare const RESERVED_HANDLE_NAMES: readonly ["then", "read", "raw", "modify", "replaceContent", "rename", "move", "copy", "remove"];
+export declare const RESERVED_HANDLE_NAMES: readonly ["then", "read", "raw", "modify", "inspect", "replaceContent", "rename", "move", "copy", "remove"];
 /**
  * Composes additional op-packs onto a base dialect. The resulting handle type is the
  * INTERSECTION of the base's ops and every attached pack's ops (ADR-0010) — an op from an

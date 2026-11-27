@@ -5,7 +5,7 @@ file type. A dialect bundles three things — file extensions, a parse/print pai
 **op-pack** (the mutation vocabulary an author calls on a handle).
 
 This document covers exactly the dialect-authoring surface this SDK ships today: the generic
-contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.modify()` escape hatch, and
+contract (`defineDialect`/`defineOpPack`/`withOps`), the universal `.modify()` escape hatch and its read counterpart `.inspect()`, and
 the two dialects currently shipped — `@pbuilder/sdk/typescript`, whose op-pack has widened past
 its original thin starter shape (`addImport`) to sixteen named ops: `addImport`,
 `addDefaultImport`, `addNamespaceImport`, `addTypeImport`, `addSideEffectImport`, `addReExport`,
@@ -447,8 +447,8 @@ A dialect is assembled from three kit verbs:
   fail-closed check: an op name declared by two or more of the passed packs (or colliding with
   the base dialect's own ops) throws immediately, naming the colliding op — composition never
   silently resolves to whichever pack happened to be spread last. An op name that shadows the
-  base handle's own vocabulary (`then`, `read`, `raw`, `modify`, `replaceContent`, `rename`,
-  `move`, `copy`, `remove`) throws the same way — an op-pack op named `then` in particular would
+  base handle's own vocabulary (`then`, `read`, `raw`, `modify`, `inspect`, `replaceContent`,
+  `rename`, `move`, `copy`, `remove`) throws the same way — an op-pack op named `then` in particular would
   break the handle's `PromiseLike` join. `defineDialect` runs the same verb check on the base
   dialect's own `ops`, so it throws when the dialect is built, before any `withOps` or factory.
 
@@ -501,6 +501,8 @@ resolves to the line count, `"x"` included. See its JSDoc `@example` in
   `<name>() is a query and must not change "<path>"`.
 - `query` only brands the function, so `withOps` checks a query's name for duplicates and
   reserved verbs like any other op.
+
+A check no query covers can read the AST directly with `.inspect(fn)`, described below.
 
 #### Repeatable ops: effects that depend on how many times they apply
 
@@ -575,6 +577,35 @@ Using this namespace avoids choosing a separate dependency subject to the warnin
 ### Two ts-morph realms
 
 Two ts-morph realms: if your schematic already depends on ts-morph directly, that is a separate realm from the SDK's internal ts-morph used inside `.modify(ast => …)`. A `Node`/`SourceFile` from your realm is not interchangeable with the AST the SDK hands your `.modify()` callback — even when both realms resolve the identical ts-morph version. Never pass ts-morph objects across the boundary; operate only on the `ast` the callback receives.
+
+## The `.inspect()` read escape hatch
+
+`.inspect(ast => value)` is to queries what `.modify()` is to named ops. Every dialect handle
+has it, in every factory, generators included. It hands the callback the same live AST
+`.modify()` gets, never a copy, and resolves to what the callback returns:
+
+```ts
+import { find } from "@pbuilder/sdk/typescript";
+
+// Inside your existing factory:
+const hasRouter = await find("src/app.ts").inspect((ast) =>
+  ast.getImportDeclarations().some((d) => d.getModuleSpecifierValue() === "@angular/router")
+);
+```
+
+- It runs in chain order, so it sees every op chained before it, and it ends the chain: it
+  returns `Promise<R>`, not the handle. It emits no directive, and the ops before it still
+  coalesce into one `modify`. An async callback is awaited.
+- It must not change the AST. The handle prints the file before and after the callback, and a
+  difference fails the factory with `inspect() must not change "<path>"`; nothing commits.
+- A callback that throws fails the factory with `inspect() on "<path>" threw`, without the
+  original error or its message. A `dialectError` it throws passes through verbatim.
+- Return plain data. A node kept from the callback goes stale after the next edit and fails
+  when used.
+- `inspect` is a handle verb, so no op or query may take the name.
+
+`.inspect()` runs through the same machinery as a query: it is a query whose function the author
+passes at the call site.
 
 ## Coalescing: how edits become one `modify`
 

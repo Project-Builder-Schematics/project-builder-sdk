@@ -92,7 +92,20 @@ export type Handle<
   Ast = any,
   Ops extends OpPack<Ast> = OpPack<Ast>,
 > = ReadOps &
-  DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops> } & OpMethods<Ast, Ops> &
+  DialectWriteOps<Ast, Ops> & {
+    modify(fn: (ast: Ast) => void): Edited<Ast, Ops>;
+    /**
+     * The read escape hatch, as `.modify()` is the write one (A-128). Hands `fn` the live AST,
+     * after every op chained before it, and resolves to what `fn` returns; it ends the chain.
+     * The AST is printed before and after `fn`, and a difference fails the factory with
+     * `inspect() must not change "<path>"`. Return plain data: a node kept after the next edit
+     * is stale (A-8).
+     *
+     * @example
+     * const count = await typescript.find("src/a.ts").addImport("x", "y").inspect((ast) => ast.getImportDeclarations().length);
+     */
+    inspect<R>(fn: (ast: Ast) => R): Promise<Awaited<R>>;
+  } & OpMethods<Ast, Ops> &
   // The false branch is an intentional no-op ({}): intersecting with it adds no constraint.
   (State extends "found" ? { remove(): void } : {}) &
   PromiseLike<void>;
@@ -206,6 +219,7 @@ export const RESERVED_HANDLE_NAMES = [
   "read",
   "raw",
   "modify",
+  "inspect",
   "replaceContent",
   "rename",
   "move",
@@ -219,7 +233,7 @@ const RESERVED_SET: ReadonlySet<string> = new Set(RESERVED_HANDLE_NAMES);
 // (the concrete intersection members of `Handle`, NOT the string-indexed `OpMethods` arm)
 // must appear in `RESERVED_HANDLE_NAMES` — extras like the retired `raw` are allowed.
 // Adding a new base verb without reserving it fails here, at the declaration site.
-// "modify" and "remove" are hand-listed because they are inline intersection members on
+// "modify", "inspect" and "remove" are hand-listed because they are inline intersection members on
 // `Handle` (see define-dialect's `Handle` type), not derived from an interface `keyof` —
 // any future inline addition to that intersection must be added here too, or this
 // exhaustiveness guard silently stops covering it.
@@ -227,6 +241,7 @@ type BaseHandleSurfaceKey =
   | keyof ReadOps
   | keyof DialectWriteOps<any, OpPack>
   | "modify"
+  | "inspect"
   | "remove"
   | keyof PromiseLike<void>;
 const _reservedCoversSurface: [

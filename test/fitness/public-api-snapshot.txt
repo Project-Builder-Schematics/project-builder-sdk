@@ -495,13 +495,14 @@ reachable Directive@wire type: { op: "create"; create: { pathTemplate: string; t
   .op: "create" | "modify" | "rename" | "move" | "copy" | "copyIn" | "delete"
 reachable DocumentOption@paths interface: DocumentOption
   .document?: number | undefined
-reachable Edited@define-dialect type: ReadOps & DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops>; } & OpMethods<Ast, Ops> & PromiseLike<void>
+reachable Edited@define-dialect type: ReadOps & DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops>; inspect<R>(fn: (ast: Ast) => R): Promise<Awaited<R>>; } & OpMethods<Ast, Ops> & PromiseLike<void>
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => Edited<Ast, Ops>
   .rename: (newName: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .move: (toDir: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .copy: (to: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .modify: (fn: (ast: Ast) => void) => Edited<Ast, Ops>
+  .inspect: <R>(fn: (ast: Ast) => R) => Promise<Awaited<R>>
   .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
 reachable ExtensionRouter@define-dialect interface: ExtensionRouter<M>
   .extensions: readonly (keyof M & string)[]
@@ -515,13 +516,14 @@ reachable FoundHandle@handle-state interface: FoundHandle
   .copy: (to: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
 reachable FromOptions@ops interface: FromOptions
   .from?: string | undefined
-reachable Handle@define-dialect type: ReadOps & DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops>; } & OpMethods<Ast, Ops> & (State extends "found" ? { remove(): void; } : {}) & PromiseLike<void>
+reachable Handle@define-dialect type: ReadOps & DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops>; inspect<R>(fn: (ast: Ast) => R): Promise<Awaited<R>>; } & OpMethods<Ast, Ops> & (State extends "found" ? { remove(): void; } : {}) & PromiseLike<void>
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => Edited<Ast, Ops>
   .rename: (newName: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .move: (toDir: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .copy: (to: string, opts?: { force?: boolean; }) => Edited<Ast, Ops>
   .modify: (fn: (ast: Ast) => void) => Edited<Ast, Ops>
+  .inspect: <R>(fn: (ast: Ast) => R) => Promise<Awaited<R>>
   .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
   .remove: (Ops[string] extends Query<any, infer A extends unknown[], infer R> ? (...a: A) => Promise<Awaited<R>> : (...a: Parameters<Bound<Ast, Ops[string]>>) => Edited<Ast, Ops>) | (() => void)
 reachable HandleOf@define-dialect type: D extends Dialect<infer A, infer O extends OpPack<infer A>> ? Handle<"found", A, O> : never
