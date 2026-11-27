@@ -29,7 +29,7 @@ import {
 } from "../../../../acl/irwire/stdio-engine-client.ts";
 import { boundMessage, composeWithToken, scrubAbsolutePaths, toProjectRelativePath } from "../../../../platform/error-text.ts";
 import { parseFactoryPointer, validateFactoryUrl, resolveFactoryExport } from "./factory-pointer.ts";
-import { probeSingleInstance } from "./single-instance-probe.ts";
+import { probeDeclaredDialects, probeSingleInstance, type DeclaredDialect } from "./single-instance-probe.ts";
 import { classifyExitCode } from "./exit-codes.ts";
 import { nodePackageFiles } from "../../../authoring/infrastructure/out/fs/package-files.ts";
 
@@ -62,14 +62,39 @@ type ParsedInput = { kind: "inline"; json: string } | { kind: "file"; path: stri
 interface ParsedArgv {
   factory: string;
   input: ParsedInput;
+  dialects: DeclaredDialect[];
+}
+
+const DIALECTS_SHAPE = "pbuilder-runner: --dialects must be a JSON array of {name, version, root} strings";
+
+// A-16 / CA-5: the dialects the Frame's library declares, as the engine read them from the Lock.
+// The value is never echoed: it holds absolute paths.
+function parseDialects(value: string): DeclaredDialect[] | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed)) return undefined;
+  const isEntry = (entry: unknown): entry is DeclaredDialect =>
+    typeof entry === "object" &&
+    entry !== null &&
+    (["name", "version", "root"] as const).every((key) => {
+      const field = (entry as Record<string, unknown>)[key];
+      return typeof field === "string" && field !== "";
+    });
+  return parsed.every(isEntry) ? parsed.map(({ name, version, root }) => ({ name, version, root })) : undefined;
 }
 
 // REQ-RUN-01: `--factory <url>#<export>` required; exactly one of `--input <json>` XOR
-// `--input-file <path>`; any unrecognized flag fails closed.
+// `--input-file <path>`; `--dialects <json>` optional, absent meaning none declared; any
+// unrecognized flag fails closed.
 function parseArgv(argv: string[]): ParsedArgv | { error: string } {
   let factory: string | undefined;
   let inputJson: string | undefined;
   let inputFile: string | undefined;
+  let dialects: DeclaredDialect[] = [];
 
   for (let i = 0; i < argv.length; i += 2) {
     const flag = argv[i];
@@ -80,6 +105,11 @@ function parseArgv(argv: string[]): ParsedArgv | { error: string } {
     if (flag === "--factory") factory = value;
     else if (flag === "--input") inputJson = value;
     else if (flag === "--input-file") inputFile = value;
+    else if (flag === "--dialects") {
+      const declared = parseDialects(value);
+      if (declared === undefined) return { error: DIALECTS_SHAPE };
+      dialects = declared;
+    }
     else return { error: composeWithToken("pbuilder-runner: unrecognized flag ", flag) };
   }
 
@@ -92,6 +122,7 @@ function parseArgv(argv: string[]): ParsedArgv | { error: string } {
   }
   return {
     factory,
+    dialects,
     input: inputJson !== undefined ? { kind: "inline", json: inputJson } : { kind: "file", path: inputFile as string },
   };
 }
@@ -295,6 +326,11 @@ async function runRunnerBody(argv: string[], io: RunnerIo, opened: { reader?: Fr
     note(io, `pbuilder-runner: ${probe.message}`);
     return 1;
   }
+  const dialectProbe = probeDeclaredDialects(moduleUrl, parsed.dialects);
+  if (!dialectProbe.ok) {
+    note(io, `pbuilder-runner: ${dialectProbe.message}`);
+    return 1;
+  }
 
   let moduleNamespace: Record<string, unknown>;
   try {
@@ -343,7 +379,11 @@ async function runRunnerBody(argv: string[], io: RunnerIo, opened: { reader?: Fr
   // the factory's own directory — schema-derived validation and reserved-name checks apply
   // identically on both vehicles.
   const packageDir = dirname(fileURLToPath(new URL(moduleUrl)));
-  const run = defineFactory(exportResolution.fn, { packageDir, packageFiles: nodePackageFiles });
+  const run = defineFactory(exportResolution.fn, {
+    packageDir,
+    packageFiles: nodePackageFiles,
+    declaredDialects: parsed.dialects.map(({ name }) => name),
+  });
 
   const channel: FrameChannel = {
     write: io.writeFrame,
