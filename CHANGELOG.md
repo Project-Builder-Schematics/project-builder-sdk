@@ -6,6 +6,56 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.18.0
+
+### Author-defined dialects
+
+- **Added**: `@pbuilder/sdk/dialect`, the kit for shipping a dialect of your own (A-16):
+  `defineDialect` (with `name` required), `defineOpPack`, `withOps`, `withoutOps`,
+  `overrideOps`, `byExtension`, `query` and the Dialect contract's types. The exports map grows
+  from 14 entries to 15. See "Shipping your own dialect" in `docs/guides/authoring-a-dialect.md`.
+- **Added**: `defineDialect({ name })`. An author-defined dialect is named by the package that
+  ships it; compositions keep the name, and the SDK's dialects carry none. A factory may open a
+  handle of a named dialect only when the run declares it; otherwise the factory fails when it
+  ends, naming the dialect, and nothing is written. `runFactoryForTest` takes
+  `declaredDialects`.
+- **Added**: the `pbuilder-conformance` bin (CA-13). `pbuilder-conformance --dialect <dir>` runs,
+  under Bun, the fixture a dialect package exports as `./conformance`, and prints one JSON line,
+  `{"passed","dialect","version","failures":[{"case","reason"}]}`. Exit 0: it passed. Exit 1:
+  it ran and failed, a missing fixture (`fixture_missing`) and a `name` that is not the
+  package's (`name_mismatch`) included. Exit 2: it could not run. The report never repeats the
+  author's code or values. `checkDialectPackage(dir)` from `@pbuilder/sdk/conformance` runs the
+  same check.
+- **Added**: the runner flag `--dialects <json>`, the Frame's `[{name, version, root}]`, and the
+  matching `BridgeParams.dialects`. Before the factory import the runner resolves each declared
+  name from the factory's location and requires its real path inside `root`; otherwise it exits
+  1 with `the factory does not start because the dialect "<name>" resolves outside the package
+  the Lock pins`. **Migration**: an engine that checks the runner's accepted flags must accept
+  `--dialects`; without the flag no author-defined dialect is declared.
+
+### Dialect handles
+
+- **Added**: `.inspect(ast => value)` on every Dialect handle, the read escape hatch: it returns
+  what its callback returns and must not change the AST (#273). **Breaking**: an op or a query
+  named `inspect` now fails at composition with `op-pack composition failed: op "inspect"
+  collides with a reserved handle verb`.
+- **Changed**: `defineDialect` checks a base dialect's own ops against the reserved handle verbs,
+  as `withOps` already did for packs (#268). **Breaking**: a base op named after a handle verb,
+  such as `read`, now throws when the dialect is built instead of replacing the verb silently.
+- **Fixed**: several handles on one file keep every edit (A-7, #264, #266). A handle re-reads and
+  re-parses when another writer changed its file; a write that lands while an async op or
+  `.modify()` runs rejects, naming the file.
+- **Added**: `DialectAst.retire(ast)` and the conformance fixture's `staleNode` (A-8, #265). A node
+  kept from before a re-parse fails when used instead of editing a tree no file reflects.
+
+### .NET dialects
+
+- **Added**: msbuild `addProject(path, { folder? })` adds a project to a `.slnx` solution (#263).
+- **Changed**: aspnet `addService` takes `implementation` as optional and writes the single-type
+  `Add<L><S>()` when it is left out or equals `service` (#263). **Behaviour change**:
+  `Add<L><S>()` and `Add<L><S, S>()` count as the same registration, so the op no longer adds a
+  duplicate of either.
+
 ## 0.17.0
 
 ### C#, ASP.NET and MSBuild dialects
