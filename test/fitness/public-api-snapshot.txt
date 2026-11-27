@@ -404,6 +404,7 @@ reachable CssTarget@ops interface: CssTarget
 reachable DeclarationOptions@ops type: { export?: boolean; }
   .export?: boolean | undefined
 reachable Dialect@define-dialect interface: Dialect<Ast, Ops>
+  .name?: string | undefined
   .extensions: readonly string[]
   .ast: DialectAst<Ast>
   .ops: Ops

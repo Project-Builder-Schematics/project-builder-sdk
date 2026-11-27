@@ -35,9 +35,8 @@ export type Query<Ast = any, A extends unknown[] = any[], R = unknown> = ((ast: 
 // An op-pack is a named record of ops over one shared AST type (ADR-0010).
 export type OpPack<Ast = any> = Record<string, Op<Ast>>;
 
-// The dialect descriptor shape is FROZEN at exactly these three top-level fields
-// (REQ-DG-01.1) — a 5th field is a compile error because DialectDescriptor has no index
-// signature: an excess property in an object-literal argument is rejected by TS structurally.
+// The dialect descriptor has no index signature, so an unknown field is a compile error: an
+// excess property in an object-literal argument is rejected by TS structurally (REQ-DG-01.1).
 /**
  * How a dialect reads and writes its files. `retire`, when given, is called on a tree a handle
  * re-parsed away from (A-8): it must make every node of that tree fail when used, so a node kept
@@ -50,6 +49,11 @@ export interface DialectAst<Ast = any> {
 }
 
 export interface DialectDescriptor<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
+  /**
+   * The name of the package that ships an author-defined dialect, the name its Dialect
+   * declaration uses (A-16). The SDK's dialects carry none and are never declared.
+   */
+  name?: string;
   extensions: string[];
   ast: DialectAst<Ast>;
   ops: Ops;
@@ -94,6 +98,7 @@ export type Handle<
   PromiseLike<void>;
 
 export interface Dialect<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
+  readonly name?: string;
   readonly extensions: readonly string[];
   readonly ast: DialectAst<Ast>;
   readonly ops: Ops;
@@ -141,6 +146,7 @@ export function defineDialect<Ast, Ops extends OpPack<Ast>>(d: DialectDescriptor
   // The handle spreads its ops over its verbs, so an op named after a verb would replace it.
   for (const name of Object.keys(d.ops)) assertNotReserved(name);
   return {
+    name: d.name,
     extensions: d.extensions,
     ast: d.ast,
     ops: d.ops,
@@ -252,7 +258,7 @@ export function withOps<Ast, B extends OpPack<Ast>, P extends OpPack<Ast>[]>(
 ): Dialect<Ast, B & UnionToIntersection<P[number]>> {
   assertNoCompositionCollision(Object.keys(base.ops), packs);
   const merged = Object.assign({}, base.ops, ...packs) as B & UnionToIntersection<P[number]>;
-  return defineDialect({ extensions: [...base.extensions], ast: base.ast, ops: merged });
+  return defineDialect({ name: base.name, extensions: [...base.extensions], ast: base.ast, ops: merged });
 }
 
 function assertKnownOps(ops: OpPack, names: readonly string[], composer: string): void {
@@ -285,7 +291,7 @@ export function withoutOps<Ast, Ops extends OpPack<Ast>>(
       },
     ])
   );
-  return defineDialect({ extensions: [...dialect.extensions], ast: dialect.ast, ops: { ...dialect.ops, ...blocked } as Ops });
+  return defineDialect({ name: dialect.name, extensions: [...dialect.extensions], ast: dialect.ast, ops: { ...dialect.ops, ...blocked } as Ops });
 }
 
 /**
@@ -297,7 +303,7 @@ export function withoutOps<Ast, Ops extends OpPack<Ast>>(
  */
 export function overrideOps<Ast, Ops extends OpPack<Ast>>(dialect: Dialect<Ast, Ops>, overrides: Partial<Ops>): Dialect<Ast, Ops> {
   assertKnownOps(dialect.ops, Object.keys(overrides), "overrideOps");
-  return defineDialect({ extensions: [...dialect.extensions], ast: dialect.ast, ops: { ...dialect.ops, ...overrides } as Ops });
+  return defineDialect({ name: dialect.name, extensions: [...dialect.extensions], ast: dialect.ast, ops: { ...dialect.ops, ...overrides } as Ops });
 }
 
 // Keyed by file extension (`.tsx`), one dialect each.
