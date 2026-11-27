@@ -15,7 +15,7 @@ import { makeInProcessHost } from "../../../../support/in-process-host.ts";
 const ROOT = resolve(import.meta.dir, "../../../../..");
 // Bun caches the folders `bun test` already scanned, so the run gets a folder no scan has seen.
 // It sits inside this package, so the factory resolves this repo's SDK (REQ-SEC-07).
-const FIXTURE_DIR = join(ROOT, `test/fixtures/frame-runner/author-dialect-run-${process.pid}`);
+const FIXTURE_DIR = join(ROOT, `test/fixtures/author-dialect/run-${process.pid}`);
 const POINTER = `${pathToFileURL(join(FIXTURE_DIR, "factory.js")).href}`;
 const LINK = join(FIXTURE_DIR, "node_modules/@company/ini-dialect");
 const NAME = "@company/ini-dialect";
@@ -40,7 +40,7 @@ beforeAll(() => {
   writeDialectCopy(pinned);
   writeDialectCopy(other);
   mkdirSync(join(FIXTURE_DIR, "node_modules/@company"), { recursive: true });
-  copyFileSync(join(ROOT, "test/fixtures/frame-runner/author-dialect/factory.js"), join(FIXTURE_DIR, "factory.js"));
+  copyFileSync(join(ROOT, "test/fixtures/author-dialect/factory.js"), join(FIXTURE_DIR, "factory.js"));
   symlinkSync(pinned, LINK, "dir");
 });
 
