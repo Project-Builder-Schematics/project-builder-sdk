@@ -5,7 +5,7 @@
 import { describe, it, expect } from "bun:test";
 import { defineFactory } from "../../../../../src/bounded-contexts/authoring/application/usecases/run-factory/context.ts";
 import { defineDialect, defineOpPack, withOps } from "../../../../../src/bounded-contexts/authoring/domain/services/define-dialect.ts";
-import { replaceContent } from "../../../../../src/commons/index.ts";
+import { rename, replaceContent } from "../../../../../src/commons/index.ts";
 import { makeSpyClient, collectModifies } from "../../../../support/spy-client.ts";
 import { toyDialect } from "../../../../fixtures/toy-dialect/index.ts";
 
@@ -106,6 +106,33 @@ describe("A-7: two handles on one path keep every edit", () => {
     expect(parses).toBe(1);
     expect(reads).toBe(1);
     expect(collectModifies(emitted).map((m) => m.modify.content)).toEqual(["seed\nx\ny"]);
+  });
+});
+
+describe("A-7: rename and move", () => {
+  it.each([
+    ["rename", (h: ReturnType<typeof toyDialect.find>) => h.rename("c.toy")],
+    ["move", (h: ReturnType<typeof toyDialect.find>) => h.move("lib")],
+  ])("an edit after the handle's own %s, with its prior edit still pending, joins that edit", async (_verb, relocate) => {
+    const { error, modifies } = await runOn("seed", async () => {
+      const a = toyDialect.find("a.toy");
+      await a.push("x");
+      relocate(a);
+      await a.push("y");
+    });
+    expect(error).toBeUndefined();
+    expect(modifies.map((m) => [m.modify.path, m.modify.content])).toEqual([["a.toy", "seed\nx\ny"]]);
+  });
+
+  it("re-parses after a commons rename onto the handle's path", async () => {
+    const { client, emitted } = makeSpyClient({ "a.toy": "seed", "b.toy": "B" });
+    await defineFactory<void>(async () => {
+      const a = toyDialect.find("a.toy");
+      await a.push("x");
+      rename("b.toy", "a.toy", { force: true });
+      await a.push("y");
+    })(undefined, { client });
+    expect(collectModifies(emitted).at(-1)?.modify.content).toBe("B\ny");
   });
 });
 

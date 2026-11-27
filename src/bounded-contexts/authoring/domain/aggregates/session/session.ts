@@ -12,23 +12,33 @@ import type { EngineClient } from "../../ports/engine-client.ts";
 import type { Batch, Directive } from "../../valueobjects/wire.ts";
 import { toAuthoringError } from "../../valueobjects/authoring-error.ts";
 
-/** The paths whose content a directive replaces or removes; a copy's source is untouched. */
-function touchedPath(directive: Directive): string {
+const dirOf = (path: string): string => path.slice(0, path.lastIndexOf("/") + 1);
+const baseOf = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
+
+// A loop, not a /\/+$/ regex: toDir comes from the author, and that regex backtracks polynomially.
+function withoutTrailingSlashes(dir: string): string {
+  let end = dir.length;
+  while (end > 0 && dir[end - 1] === "/") end--;
+  return dir.slice(0, end);
+}
+
+/** The paths whose content a directive replaces or removes, spelled as the commons verbs spell them; a copy's source is untouched. */
+function touchedPaths(directive: Directive): readonly string[] {
   switch (directive.op) {
     case "create":
-      return directive.create.pathTemplate;
+      return [directive.create.pathTemplate];
     case "modify":
-      return directive.modify.path;
+      return [directive.modify.path];
     case "delete":
-      return directive.delete.path;
+      return [directive.delete.path];
     case "rename":
-      return directive.rename.path;
+      return [directive.rename.path, dirOf(directive.rename.path) + directive.rename.newName];
     case "move":
-      return directive.move.path;
+      return [directive.move.path, `${withoutTrailingSlashes(directive.move.toDir)}/${baseOf(directive.move.path)}`];
     case "copy":
-      return directive.copy.to;
+      return [directive.copy.to];
     case "copyIn":
-      return directive.copyIn.to;
+      return [directive.copyIn.to];
   }
 }
 
@@ -36,8 +46,9 @@ export class Session {
   readonly #client: EngineClient;
   readonly #pending: Directive[] = [];
   readonly #versions = new Map<string, number>();
-  // The batch being emitted, so a read or a later flush never overtakes it.
+  // The batches being emitted, so a read or a later flush never overtakes them.
   #emitting: Promise<void> = Promise.resolve();
+  #inFlight = 0;
 
   constructor(client: EngineClient) {
     this.#client = client;
@@ -45,8 +56,7 @@ export class Session {
 
   buffer(directive: Directive): void {
     this.#pending.push(directive);
-    const path = touchedPath(directive);
-    this.#versions.set(path, this.versionOf(path) + 1);
+    for (const path of touchedPaths(directive)) this.#versions.set(path, this.versionOf(path) + 1);
   }
 
   // A-7: how many buffered directives have changed this path's content, keyed by the path as typed.
@@ -94,7 +104,9 @@ export class Session {
   // identity, not `instanceof`: importing the TransportFault class here would pull the whole
   // transport client into core's (and the ./commons bundle's) module graph, inverting the
   // port direction. ERM-03's degrade still applies to everything else non-EmitRejection.
-  // The batch is taken synchronously, so a read started right after this call already waits for it.
+  // The batch is taken synchronously, so a read started right after this call already waits for
+  // it. With no batch in flight the client's emit starts synchronously, as callers that fire a
+  // flush without awaiting it (scaffold's batch cap) rely on; otherwise it waits its turn.
   flush(): Promise<void> {
     if (this.#pending.length === 0) return this.#emitting;
     const batch: Batch = {
@@ -102,11 +114,12 @@ export class Session {
       force: false,
       instructions: this.#pending.splice(0),
     };
-    const emit = this.#emitting.then(() => this.#emit(batch));
-    this.#emitting = emit.then(
-      () => undefined,
-      () => undefined
-    );
+    const emit = this.#inFlight === 0 ? this.#emit(batch) : this.#emitting.then(() => this.#emit(batch));
+    this.#inFlight++;
+    const done = (): void => {
+      this.#inFlight--;
+    };
+    this.#emitting = emit.then(done, done);
     return emit;
   }
 

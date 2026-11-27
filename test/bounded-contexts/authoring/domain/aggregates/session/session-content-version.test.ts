@@ -37,6 +37,25 @@ describe("Session.versionOf", () => {
     });
   });
 
+  it("moves the destination of a rename or a move too", () => {
+    const session = new Session(client());
+    session.buffer({ op: "rename", rename: { path: "src/b.ts", newName: "a.ts" } });
+    session.buffer({ op: "rename", rename: { path: "b.ts", newName: "a.ts" } });
+    session.buffer({ op: "move", move: { path: "b.ts", toDir: "lib" } });
+    expect(session.versionOf("src/a.ts")).toBe(1);
+    expect(session.versionOf("a.ts")).toBe(1);
+    expect(session.versionOf("lib/b.ts")).toBe(1);
+  });
+
+  it("reads a move's directory with or without trailing slashes, and stays linear on many of them", () => {
+    const session = new Session(client());
+    session.buffer({ op: "move", move: { path: "b.ts", toDir: "lib//" } });
+    expect(session.versionOf("lib/b.ts")).toBe(1);
+    const started = performance.now();
+    session.buffer({ op: "move", move: { path: "c.ts", toDir: `${"/".repeat(100_000)}x` } });
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+
   it("does not move for a directive on another path, nor for the source of a copy", () => {
     const session = new Session(client());
     session.buffer({ op: "modify", modify: { path: "b.ts", content: "x" } });
@@ -46,6 +65,14 @@ describe("Session.versionOf", () => {
 });
 
 describe("Session.read during a flush", () => {
+  it("emits synchronously when no batch is in flight", () => {
+    let emitted = 0;
+    const session = new Session(client({ async emit() { emitted++; } }));
+    session.buffer({ op: "modify", modify: { path: "a.ts", content: "x" } });
+    void session.flush();
+    expect(emitted).toBe(1);
+  });
+
   it("waits for the batch still being emitted before reading", async () => {
     const order: string[] = [];
     let release!: () => void;

@@ -412,11 +412,23 @@ class DialectHandleController<Ast, Ops extends OpPack<Ast>> {
   }
 
   runRename(newName: string, opts?: { force?: boolean }): void {
-    this.#bufferDirective((factory) => factory.rename({ path: this.#path, newName, force: opts?.force }));
+    this.#relocate((factory) => factory.rename({ path: this.#path, newName, force: opts?.force }));
   }
 
   runMove(toDir: string, opts?: { force?: boolean }): void {
-    this.#bufferDirective((factory) => factory.move({ path: this.#path, toDir, force: opts?.force }));
+    this.#relocate((factory) => factory.move({ path: this.#path, toDir, force: opts?.force }));
+  }
+
+  // The handle's own rename or move, buffered after its still-pending edit, is not another writer:
+  // the next op joins that edit, which reaches the engine before the relocation, as it did before
+  // A-7. With nothing pending the version moves, and the next op reads the old path again.
+  #relocate(build: (factory: DirectiveFactory) => Directive): void {
+    this.#enqueue(() => {
+      const { session, factory } = currentRun<HandleRun>();
+      const absorb = this.#hasOpenPendingDirective(session) && session === this.#session && session.versionOf(this.#path) === this.#version;
+      session.buffer(build(factory));
+      if (absorb) this.#version = session.versionOf(this.#path);
+    });
   }
 
   runCopy(to: string, opts?: { force?: boolean }): void {
