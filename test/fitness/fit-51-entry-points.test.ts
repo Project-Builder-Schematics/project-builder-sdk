@@ -16,7 +16,7 @@ describe("fit-51 — P-PACK: exports, main and bin are unchanged", () => {
   const baseline = read("test/fitness/entry-points-baseline.json");
 
   it("the baseline covers every public subpath, main and the codegen bin (non-vacuous)", () => {
-    expect(Object.keys(baseline.exports as object).length).toBe(14);
+    expect(Object.keys(baseline.exports as object).length).toBe(15);
     expect(baseline.main).toBe("./dist/index.js");
     expect(Object.keys(baseline.bin as object)).toEqual(["pbuilder-codegen"]);
   });

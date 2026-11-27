@@ -161,6 +161,28 @@ export function defineDialect<Ast, Ops extends OpPack<Ast>>(d: DialectDescriptor
   };
 }
 
+/**
+ * Defines an author-defined dialect, named by the package that ships it (A-16): a factory opens
+ * its handles only when the schematic's library declares that name in its Manifest, and the
+ * conformance fixture rejects a name that is not the package's.
+ *
+ * @example
+ * export const ini = defineDialect({
+ *   name: "@company/ini-dialect",
+ *   extensions: [".ini"],
+ *   ast: { parse: (text) => parseIni(text), print: (tree) => printIni(tree) },
+ *   ops: {},
+ * });
+ */
+export function defineAuthorDialect<Ast, Ops extends OpPack<Ast>>(
+  d: DialectDescriptor<Ast, Ops> & { name: string }
+): Dialect<Ast, Ops> {
+  if (typeof d.name !== "string" || d.name.length === 0) {
+    throw new Error('defineDialect failed: "name" is required, the name of the package that ships the dialect (A-16).');
+  }
+  return defineDialect(d);
+}
+
 // Standard union-to-intersection trick, used to fold `withOps`'s variadic pack list into
 // one intersected op map.
 type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void

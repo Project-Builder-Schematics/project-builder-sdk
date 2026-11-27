@@ -16,6 +16,11 @@
       "import": "./dist/conformance/index.js",
       "default": "./dist/conformance/index.js"
     },
+    "./dialect": {
+      "types": "./dist/dialect/index.d.ts",
+      "import": "./dist/dialect/index.js",
+      "default": "./dist/dialect/index.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js",
@@ -288,6 +293,8 @@
     "dist/commons/index.js",
     "dist/conformance/index.d.ts",
     "dist/conformance/index.js",
+    "dist/dialect/index.d.ts",
+    "dist/dialect/index.js",
     "dist/dialects/angular/index.d.ts",
     "dist/dialects/angular/index.js",
     "dist/dialects/aspnet/index.d.ts",

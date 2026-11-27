@@ -18,10 +18,10 @@ Branch: feat/author-defined-dialects (worktree project-builder-sdk-worktrees/aut
 
 - T1 [S1] `name` on DialectDescriptor/Dialect; composers keep it. Route: inline. Status: done a4a93cc (RDD medium, under_budget).
 - T2 [S3, S8] Declared set threaded through `defineFactory` options into the run; handle step rejects an undeclared named dialect; `runFactoryForTest` and `testDialect` accept/declare it. Route: inline. Status: done 0645b9f (RDD medium, under_budget).
-- T3 [S2] Public registration entry point, required `name` at the public boundary, baselines (fit-04/14/51), docs. Route: inline. Status: in progress (decided: `./dialect` subpath, L4).
+- T3 [S2] Public registration entry point, required `name` at the public boundary, baselines (fit-04/14/51), docs. Route: inline. Status: done (see commit).
 - T4 [S1, S4, S5] `pbuilder-conformance` bin: load `<pkg>/conformance`, check name == package.json name, run `testDialect`, JSON line, exit codes; fit-14/fit-49/fit-51 baselines; docs. Route: inline. Status: todo.
 - T5 [S6, S7] Runner `--dialects` parse + bridge; pre-run containment check in single-instance-probe.ts; wire spec docs. Route: inline. Status: todo (unblocked: pointer-dir mechanism adopted).
-- T6 [S9] Submodule bump to the tagged rules, A-16 step definitions, PENDING_FEATURES/floor update. Route: inline. Status: todo, last (tag v0.26.2).
+- T6 [S9] Submodule bump to the tagged rules, A-16 step definitions, PENDING_FEATURES/floor update. Route: inline. Status: todo, last (tag v0.26.3).
 
 ## Log
 
@@ -35,3 +35,5 @@ Branch: feat/author-defined-dialects (worktree project-builder-sdk-worktrees/aut
 - L8 Correction (2026-11-27): the "Bun ESM honours NODE_PATH" claim in L7 was untested and is false. Repro on Bun 1.4.4 (with and without `--no-install`) and Node 26: an ESM `import "@pb/sdk"` from outside any node_modules ancestor fails with NODE_PATH set. cli sent four options to architecture; T5 held until decided.
 - L9 (2026-11-27, Daniel via architecture): "Daniel adopted the engine's pointer-dir mechanism, so T5 is unblocked. Runner side, as you said: `--dialects` plus the realpath-under-`root` check, with no loader code." Engine repro re-run here on Bun 1.4.4: createRequire and ESM land on the same realpath, one SDK instance. Bin now runs under Bun (S4a).
 - L10 T2 RED: dialect-declaration.test.ts 3 fail (no gate); GREEN 6/6. Suite: new failures only fit-50 snapshot and fit-04 core/context kit-internal baseline (both refreshed, additive); the rest were build-lock timeouts that pass with --timeout. Pre-existing on main: FIT-42N FAILCLOSED-BICONDITIONAL, fit-40 bun pin, fit-52, fit-46, e2e disclosure.
+- L11 (2026-11-27, Daniel via architecture, verbatim): "Rules tag v0.26.3 is out (870430d, #116): wildcard dialect exports are refused, and the fixture runs under Bun. The engine runs the fixture through `conformance.Run` (Daniel chose option B), so the bin is spawned by the engine's hardened envelope, not by the CLI." "a dialect declares its SDK range as `peerDependencies[\"@pbuilder/sdk\"]` in its package.json. If the SDK ships a template or docs for dialect authors, use peerDependencies, never dependencies." T6 pins v0.26.3.
+- L12 T3 RED: test/dialect/index.test.ts cannot import src/dialect; GREEN 3/3. Surface: exports 14→15 (fit-09/14/51 + baselines), fit-50 snapshot regen, fit-52 rebaselined only the dialect entries T2 grew (~400 B) plus `./dialect`; the `.`/commons drift stays (pre-existing on main). Docs: guide "Shipping your own dialect", ADR-0009 amendment, authoring.md.

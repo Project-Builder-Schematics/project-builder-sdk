@@ -14,6 +14,13 @@
 > split below is EXTENDED by 0033, not rewritten — see ADR-0033 for the amendment's decision
 > text.
 
+> **Amended 2026-11-27 (A-16, author-defined dialects)** — the author-facing dialect kit leaves the
+> boundary as `@pbuilder/sdk/dialect`: `defineDialect` (with `name` required, the shipping
+> package's name), `defineOpPack`, `withOps`, `withoutOps`, `overrideOps`, `byExtension`, `query`
+> and the Dialect contract's types. It is the ONLY part of the kit that does; `EngineClient`,
+> `Session`, `DirectiveFactory`, `defineFactory` and the rest stay internal, and `/core` stays
+> unexported. The exports map grows from fourteen entries to fifteen.
+
 ## Context
 
 The SDK has **two first-class audiences with distinct surfaces**: (A) schematic **authors** who USE it

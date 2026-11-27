@@ -428,11 +428,11 @@ The rejection also covers a TOP-LEVEL VALUE-NAMESPACE declaration sharing the na
 
 A dialect is assembled from three kit verbs:
 
-- **`defineDialect(descriptor)`** — assembles a `Dialect` from a frozen descriptor: `extensions`
+- **`defineDialect(descriptor)`** — assembles a `Dialect` from a descriptor: `name` (the
+  package an author-defined dialect ships in, see "Shipping your own dialect"), `extensions`
   (file-extension matchers), `ast: { parse, print, retire? }` (the AST parse/print pair, and
   an optional `retire` described under "Several handles on one file"), and `ops` (the
-  dialect's own op-pack, `{}` if none). A 5th descriptor field is a compile error — the shape is
-  frozen. The resulting `find` (and every `withOps` composition of it) throws synchronously on
+  dialect's own op-pack, `{}` if none). Any other descriptor field is a compile error. The resulting `find` (and every `withOps` composition of it) throws synchronously on
   a path whose basename does not end in a declared extension, naming the file and the
   declared extensions; a bare extension (`.ts`) or a stem ending in a dot (`a..ts`) is
   rejected too. Several dialects may declare the same extension: the author picks one by
@@ -759,6 +759,41 @@ PRE-EXISTING `FIT-01` transitive import-graph walk in this repo's own test suite
 AST-library import at any transitive depth. That proof lives in the fitness-function suite, not
 inside `@pbuilder/sdk/conformance` — nothing under `src/conformance/**` re-implements or
 duplicates it.
+
+## Shipping your own dialect
+
+Any author may publish a dialect of their own (A-16). Build it from `@pbuilder/sdk/dialect` alone:
+it exports `defineDialect`, `defineOpPack`, `withOps`, `withoutOps`, `overrideOps`, `byExtension`,
+`query` and the Dialect contract's types. Its handle behaves as the SDK's do: it chains, drains,
+flushes and offers `.modify()`.
+
+```ts
+import { defineDialect } from "@pbuilder/sdk/dialect";
+
+export const ini = defineDialect({
+  name: "@company/ini-dialect",
+  extensions: [".ini"],
+  ast: { parse: parseIni, print: printIni },
+  ops: {},
+});
+```
+
+- **`name` is required, and it is the package name.** The Dialect declaration in the Manifest
+  uses the same name, and the conformance fixture rejects a `name` that is not the package's.
+  `defineDialect` from `@pbuilder/sdk/dialect` throws without one.
+- **A schematic uses it only once declared.** List it under `dialects` in the `project-builder.json`
+  of the library the schematic lives in, as `{ registry, name, range }`. A handle of an undeclared
+  dialect fails the factory when it ends, naming the dialect, and no file changes. A library's
+  schematic sees only the dialects its own library declares. The SDK's dialects are never declared.
+- **Compositions keep the base's identity.** `withOps`, `withoutOps` and `overrideOps` on your
+  dialect keep its `name`; on one of the SDK's dialects the result stays that SDK dialect, with no
+  name and nothing to declare.
+- **Another dialect may declare the same extension.** Handles of two dialects on one file keep both
+  edits.
+- **Declare the SDK range as a peer.** Put it in `peerDependencies["@pbuilder/sdk"]` of your
+  package.json, never in `dependencies`: the dialect runs on the SDK of the Run, and a dialect that
+  ships its own copy of the SDK fails `builder sync`.
+- **Test a factory that uses it** with `runFactoryForTest(fn, input, { declaredDialects: ["@company/ini-dialect"] })`.
 
 ## Publishing and trust
 

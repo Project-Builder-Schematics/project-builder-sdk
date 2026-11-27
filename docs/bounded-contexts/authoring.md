@@ -34,7 +34,7 @@ The SDK adds a port only for real I/O or a real extension point. Everything else
 | `PackageFiles` | `domain/ports/package-files.ts` | filesystem reads under the factory package folder | `infrastructure/out/fs/package-files.ts` (`nodePackageFiles`) |
 | Dialect contract | `domain/services/define-dialect.ts` | the extension point every dialect implements, authors' own included | the seven packs under `infrastructure/out/dialects/` |
 
-The Dialect contract has not moved to `domain/ports/` yet. Its types (`Op`, `Query`, `OpPack`, `DialectDescriptor`, `Dialect`, `Handle`) still share a file with the kit functions (`defineDialect`, `defineOpPack`, `withOps` and the rest).
+The Dialect contract has not moved to `domain/ports/` yet. Its author-facing part leaves the package as `@pbuilder/sdk/dialect` (`src/dialect/index.ts`, ADR-0009 amendment), where `defineDialect` requires a `name`. Its types (`Op`, `Query`, `OpPack`, `DialectDescriptor`, `Dialect`, `Handle`) still share a file with the kit functions (`defineDialect`, `defineOpPack`, `withOps` and the rest).
 
 ## Adapters
 
