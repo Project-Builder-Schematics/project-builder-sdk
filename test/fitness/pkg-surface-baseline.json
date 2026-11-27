@@ -90,7 +90,8 @@
     "schemas"
   ],
   "bin": {
-    "pbuilder-codegen": "dist/bin/pbuilder-codegen.js"
+    "pbuilder-codegen": "dist/bin/pbuilder-codegen.js",
+    "pbuilder-conformance": "dist/bin/pbuilder-conformance.js"
   },
   "shebang": "#!/usr/bin/env node",
   "tarball": [
@@ -101,6 +102,8 @@
     "dist/acl/irwire/stdio-engine-client.d.ts",
     "dist/acl/irwire/stdio-engine-client.js",
     "dist/bin/pbuilder-codegen.js",
+    "dist/bin/pbuilder-conformance.d.ts",
+    "dist/bin/pbuilder-conformance.js",
     "dist/bin/pbuilder-runner.d.ts",
     "dist/bin/pbuilder-runner.js",
     "dist/bounded-contexts/authoring/application/usecases/authoring-verbs/index.d.ts",
@@ -271,6 +274,8 @@
     "dist/bounded-contexts/authoring/infrastructure/out/fs/package-files.js",
     "dist/bounded-contexts/authoring/testing/conformance/index.d.ts",
     "dist/bounded-contexts/authoring/testing/conformance/index.js",
+    "dist/bounded-contexts/authoring/testing/conformance/run-package.d.ts",
+    "dist/bounded-contexts/authoring/testing/conformance/run-package.js",
     "dist/bounded-contexts/authoring/testing/contract-fake.d.ts",
     "dist/bounded-contexts/authoring/testing/contract-fake.js",
     "dist/bounded-contexts/authoring/testing/harness/index.d.ts",

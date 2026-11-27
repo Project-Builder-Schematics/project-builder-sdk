@@ -78,6 +78,7 @@
   },
   "main": "./dist/index.js",
   "bin": {
-    "pbuilder-codegen": "dist/bin/pbuilder-codegen.js"
+    "pbuilder-codegen": "dist/bin/pbuilder-codegen.js",
+    "pbuilder-conformance": "dist/bin/pbuilder-conformance.js"
   }
 }

@@ -122,6 +122,15 @@
   .rename: (newName: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .move: (toDir: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .copy: (to: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
+./conformance checkDialectPackage function: (dir: string) => Promise<ConformanceReport>
+./conformance ConformanceFailure interface: ConformanceFailure
+  .case: string
+  .reason: string
+./conformance ConformanceReport interface: ConformanceReport
+  .passed: boolean
+  .dialect: string
+  .version: string
+  .failures: ConformanceFailure[]
 ./conformance DialectFixture interface: DialectFixture<Library>
   .dialect: Dialect<any, OpPack<any>>
   .samples: string[]
@@ -417,6 +426,14 @@ reachable CommentOptions@presentation type: DocumentOption & { position?: Commen
   .document?: number | undefined
   .position?: CommentPosition | undefined
 reachable CommentPosition@presentation type: "before" | "inline"
+reachable ConformanceFailure@run-package interface: ConformanceFailure
+  .case: string
+  .reason: string
+reachable ConformanceReport@run-package interface: ConformanceReport
+  .passed: boolean
+  .dialect: string
+  .version: string
+  .failures: ConformanceFailure[]
 reachable ContentState@classify-content type: "absent" | "empty" | "present"
 reachable CreateFromTemplateFileOptions@index interface: CreateFromTemplateFileOptions
   .templateFile: string

@@ -679,6 +679,28 @@ sync throw.
   above). It runs those same six mandatory samples against your `baseDialect` too, after your
   exercises pass.
 
+### Shipping the fixture with your dialect
+
+An author-defined dialect ships its fixture data, so `builder sync` can prove the version it pins
+(CA-13). Export a `DialectFixture` as the default export of a `./conformance` subpath:
+
+```json
+{
+  "name": "@company/ini-dialect",
+  "exports": { ".": "./index.js", "./conformance": "./conformance.js" },
+  "peerDependencies": { "@pbuilder/sdk": "^0.17.0" }
+}
+```
+
+The sync runs `pbuilder-conformance --dialect <installed package dir>`, a bin of the SDK that
+runs under Bun. It prints one JSON line,
+`{"passed":true,"dialect":"@company/ini-dialect","version":"1.0.0","failures":[]}`, where each
+failure is `{"case","reason"}` and names the broken check without repeating your code or
+values. It exits 0 when the fixture passes and 1 when it ran and failed; any other outcome means
+the fixture could not run. A package with no `./conformance` export fails as `fixture_missing`,
+and a dialect whose `name` is not the package's fails as `name_mismatch`. Run the same check from
+your own tests with `checkDialectPackage(dir)` from `@pbuilder/sdk/conformance`.
+
 ### Mandatory module export and fixture migration
 
 Every existing and future dialect must export its **complete own library** at its existing

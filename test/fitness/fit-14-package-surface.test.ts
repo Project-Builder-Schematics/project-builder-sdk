@@ -147,7 +147,7 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     expect(pkgJson.files).toEqual(baseline.files);
   });
 
-  it("bin field matches the committed baseline (only the codegen bin, REQ-FPS-02.1)", () => {
+  it("bin field matches the committed baseline (the codegen and conformance bins, REQ-FPS-02.1, CA-13)", () => {
     expect(pkgJson.bin).toEqual(baseline.bin);
   });
 
@@ -171,6 +171,12 @@ describe("FIT-14 — package surface guard (baseline diff)", () => {
     const distBin = readFileSync(join(PROJECT_ROOT, "dist/bin/pbuilder-codegen.js"), "utf-8");
     const firstLine = distBin.split("\n")[0];
     expect(firstLine).toEqual(baseline.shebang);
+  });
+
+  // CA-13: the conformance fixture runs under the Bun the runners use, never under Node.
+  it("the shipped conformance bin's first line runs it under Bun", () => {
+    const distBin = readFileSync(join(PROJECT_ROOT, "dist/bin/pbuilder-conformance.js"), "utf-8");
+    expect(distBin.split("\n")[0]).toEqual("#!/usr/bin/env bun");
   });
 
   it("the publishable tarball contains no file beyond the committed baseline (REQ-FPS-02.2)", () => {

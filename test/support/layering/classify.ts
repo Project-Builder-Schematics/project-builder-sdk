@@ -113,8 +113,12 @@ export function entriesFrom(pkg: { exports: Record<string, { import: string }>; 
     publicEntries.add(toSource(target.import));
     if (TEST_KIT_SUBPATHS.has(subpath)) testKitEntries.add(toSource(target.import));
   }
-  // `build:codegen` bundles the package bin from the repo-root `bin/` folder.
+  // `build:codegen` bundles a package bin from the repo-root `bin/` folder; tsc emits the others
+  // from `src/bin/`.
   const processEntries = new Set<string>(files.filter((f) => f.startsWith("src/bin/")));
-  for (const dist of Object.values(pkg.bin)) processEntries.add(dist.replace(/^dist\//, "").replace(/\.js$/, ".ts"));
+  for (const dist of Object.values(pkg.bin)) {
+    const bundled = dist.replace(/^dist\//, "").replace(/\.js$/, ".ts");
+    processEntries.add(files.includes(bundled) ? bundled : `src/${bundled}`);
+  }
   return { publicEntries, testKitEntries, processEntries };
 }
