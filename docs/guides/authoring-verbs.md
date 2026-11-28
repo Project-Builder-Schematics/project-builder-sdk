@@ -395,6 +395,33 @@ switch (classifyContent(content)) {
 }
 ```
 
+## Many files at once: `glob(pattern, { ignore })`
+
+`find` opens one literal path. `glob` opens every file a pattern matches and resolves to their
+handles, ordered by path. When no file matches it resolves `[]`, never an error. It is
+asynchronous because it lists the files first, so a forgotten `await` is a type error rather than
+a silent empty loop.
+
+```ts
+import { glob } from "@pbuilder/sdk/commons";
+
+for (const file of await glob("src/domain/**", { ignore: ["**/*.test.ts"] })) {
+  const content = await file.read();
+}
+```
+
+`*` matches any run of characters inside one path segment, `?` one character, `**` as a whole
+segment any number of segments (zero included), and `{a,b}` either alternative. Every other
+character is literal: there is no negation and no character class, so `ignore` is the only way
+to leave files out. A pattern with an alternative that leaves the workspace, such as `../**` or
+an absolute path, is rejected.
+
+`glob` sees the run, as `find(...).read()` does: a file created earlier in the run is listed and
+a file removed earlier is not. Only files are listed; symbolic links never are.
+
+Every dialect has a `glob` too, which keeps only the files whose extension the dialect declares.
+See [the dialect guide](./authoring-a-dialect.md#many-files-glob).
+
 ## Next steps
 
 - [Error contract](./authoring-errors.md) — what `AuthoringError` looks like and how to

@@ -15,6 +15,8 @@
 import { basename } from "node:path";
 import type { ReadOps } from "../entities/base-handle.ts";
 import { createDialectHandle } from "../entities/dialect-handle.ts";
+import type { Session } from "../aggregates/session/session.ts";
+import { currentRun } from "./run-context.ts";
 import { dialectError } from "../valueobjects/dialect-error.ts";
 
 export { query } from "../entities/dialect-handle.ts";
@@ -110,12 +112,33 @@ export type Handle<
   (State extends "found" ? { remove(): void } : {}) &
   PromiseLike<void>;
 
+/**
+ * The options of `glob`: the patterns of the files to leave out (A-130).
+ *
+ * @example
+ * const options: GlobOptions = { ignore: ["**\/*.test.ts", "src/generated/**"] };
+ */
+export interface GlobOptions {
+  ignore?: readonly string[];
+}
+
 export interface Dialect<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
   readonly name?: string;
   readonly extensions: readonly string[];
   readonly ast: DialectAst<Ast>;
   readonly ops: Ops;
   find(path: string): Handle<"found", Ast, Ops>;
+  /**
+   * Opens every file `pattern` matches whose extension the dialect declares, ordered by path; a
+   * file of any other extension is left out without an error (A-132). Resolves `[]` when none
+   * matches. The pattern syntax and `ignore` are commons `glob`'s.
+   */
+  glob(pattern: string, options?: GlobOptions): Promise<Handle<"found", Ast, Ops>[]>;
+}
+
+/** The paths a `glob` of the active run lists, after the run's buffered writes (A-131). */
+function listed(pattern: string, options: GlobOptions | undefined): Promise<readonly string[]> {
+  return currentRun<{ session: Session }>().session.list(pattern, options?.ignore);
 }
 
 /**
@@ -158,7 +181,7 @@ function hasDeclaredExtension(path: string, extensions: readonly string[]): bool
 export function defineDialect<Ast, Ops extends OpPack<Ast>>(d: DialectDescriptor<Ast, Ops>): Dialect<Ast, Ops> {
   // The handle spreads its ops over its verbs, so an op named after a verb would replace it.
   for (const name of Object.keys(d.ops)) assertNotReserved(name);
-  return {
+  const dialect: Dialect<Ast, Ops> = {
     name: d.name,
     extensions: d.extensions,
     ast: d.ast,
@@ -171,7 +194,13 @@ export function defineDialect<Ast, Ops extends OpPack<Ast>>(d: DialectDescriptor
       }
       return createDialectHandle(d.ast, d.ops, path, d.name);
     },
+    // A-133: written once here, so every dialect built from a descriptor has it.
+    async glob(pattern: string, options?: GlobOptions): Promise<Handle<"found", Ast, Ops>[]> {
+      const paths = await listed(pattern, options);
+      return paths.filter((path) => hasDeclaredExtension(path, d.extensions)).map((path) => dialect.find(path));
+    },
   };
+  return dialect;
 }
 
 /**
@@ -348,6 +377,12 @@ type DialectsByExtension = { readonly [extension: string]: Dialect };
 
 type HandleOf<D> = D extends Dialect<infer A, infer O> ? Handle<"found", A, O> : never;
 
+// A-134: a route's handle carries its routing key, so the routes' handles form a union
+// discriminated on `extension`.
+type RouteHandle<M extends DialectsByExtension, K extends keyof M & string> = {
+  [Key in K]: HandleOf<M[Key]> & { readonly extension: Key };
+}[K];
+
 type MatchingKey<M, P extends string> = { [K in keyof M & string]: P extends `${string}${K}` ? K : never }[keyof M & string];
 
 // Drops a key when a longer matching key ends with it, mirroring `find`'s longest-first routing.
@@ -358,12 +393,24 @@ type LongestKey<Ks extends string> = {
 // A literal path gets its routed extension's handle; a non-literal `string` gets the union of
 // every routed handle.
 type RoutedHandle<M extends DialectsByExtension, P extends string> = string extends P
-  ? HandleOf<M[keyof M]>
-  : HandleOf<M[LongestKey<MatchingKey<M, P>>]>;
+  ? RouteHandle<M, keyof M & string>
+  : RouteHandle<M, LongestKey<MatchingKey<M, P>>>;
+
+// A-135: a pattern that ends in a routed extension gets that route's handle; one that ends any
+// other way, `"src/**"` or `"*.{ts,tsx}"`, gets the union of every routed handle.
+type GlobbedHandle<M extends DialectsByExtension, P extends string> = [LongestKey<MatchingKey<M, P>>] extends [never]
+  ? RouteHandle<M, keyof M & string>
+  : RoutedHandle<M, P>;
 
 export interface ExtensionRouter<M extends DialectsByExtension> {
   readonly extensions: readonly (keyof M & string)[];
   find<P extends string>(path: P): RoutedHandle<M, P>;
+  /**
+   * Opens every file `pattern` matches that a route takes, ordered by path, each through the
+   * dialect of its longest matching extension (A-133); other files are left out without an
+   * error. Each handle carries its route's key as `extension`.
+   */
+  glob<P extends string>(pattern: P, options?: GlobOptions): Promise<GlobbedHandle<M, P>[]>;
 }
 
 /**
@@ -385,16 +432,25 @@ export function byExtension<M extends DialectsByExtension>(dialects: M): Extensi
     }
   }
   const longestFirst = [...extensions].sort((a, b) => b.length - a.length);
+  const routeOf = (path: string) => longestFirst.find((candidate) => hasDeclaredExtension(path, [candidate]));
+  const open = (path: string, extension: keyof M & string) => Object.assign(dialects[extension]!.find(path), { extension });
   return {
     extensions,
     find<P extends string>(path: P): RoutedHandle<M, P> {
-      const extension = longestFirst.find((candidate) => hasDeclaredExtension(path, [candidate]));
+      const extension = routeOf(path);
       if (extension === undefined) {
         throw dialectError(
           `find(${JSON.stringify(path)}) — the file's extension is not one this dialect declares (${extensions.join(", ")}).`
         );
       }
-      return dialects[extension]!.find(path) as RoutedHandle<M, P>;
+      return open(path, extension) as RoutedHandle<M, P>;
+    },
+    async glob<P extends string>(pattern: P, options?: GlobOptions): Promise<GlobbedHandle<M, P>[]> {
+      const paths = await listed(pattern, options);
+      return paths.flatMap((path) => {
+        const extension = routeOf(path);
+        return extension === undefined ? [] : [open(path, extension) as GlobbedHandle<M, P>];
+      });
     },
   };
 }

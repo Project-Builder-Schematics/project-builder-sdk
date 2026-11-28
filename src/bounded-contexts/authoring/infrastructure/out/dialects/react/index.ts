@@ -6,7 +6,7 @@
 
 import { basename } from "node:path";
 import type { SourceFile } from "ts-morph";
-import { byExtension, defineDialect, defineOpPack, overrideOps, withOps, withoutOps, type Handle } from "../../../../domain/services/define-dialect.ts";
+import { byExtension, defineDialect, defineOpPack, overrideOps, withOps, withoutOps, type GlobOptions, type Handle } from "../../../../domain/services/define-dialect.ts";
 import { dialectError } from "../../../../domain/valueobjects/dialect-error.ts";
 import { addClassProperty } from "../typescript/class-property.ts";
 import { typescriptOps } from "../typescript/pack.ts";
@@ -115,4 +115,20 @@ export function find(path: string): Handle<"found", SourceFile, ReactOps> {
     );
   }
   throw dialectError("find(path) — .tsx and .jsx are the only extensions the React dialect supports.");
+}
+
+/**
+ * Opens every file `pattern` matches that this dialect edits, ordered by path; a file of any
+ * other extension is left out without an error (A-132). Resolves `[]` when none matches. The
+ * pattern syntax and `ignore` are commons `glob`'s, and it sees the run as `find` does.
+ *
+ * @example
+ * import * as react from "@pbuilder/sdk/react";
+ *
+ * export const run = async () => {
+ *   for (const file of await react.glob("src/**\/*.tsx")) await file.read();
+ * };
+ */
+export function glob(pattern: string, options?: GlobOptions): Promise<Handle<"found", SourceFile, ReactOps>[]> {
+  return reactDialect.glob(pattern, options);
 }

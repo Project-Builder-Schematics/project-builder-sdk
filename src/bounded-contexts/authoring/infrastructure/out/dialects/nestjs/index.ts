@@ -1,5 +1,5 @@
 import type { SourceFile } from "ts-morph";
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../../../domain/services/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps, type GlobOptions, type Handle } from "../../../../domain/services/define-dialect.ts";
 import { parse, print, retire } from "../typescript/ast.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import { addController, addExport, addModuleImport, addProvider } from "./ops.ts";
@@ -58,4 +58,20 @@ const nestjsDialect = withOps(baseDialect, typescriptOps, moduleOps);
  */
 export function find(path: string): Handle<"found", SourceFile, NestOps> {
   return nestjsDialect.find(path);
+}
+
+/**
+ * Opens every file `pattern` matches that this dialect edits, ordered by path; a file of any
+ * other extension is left out without an error (A-132). Resolves `[]` when none matches. The
+ * pattern syntax and `ignore` are commons `glob`'s, and it sees the run as `find` does.
+ *
+ * @example
+ * import * as nestjs from "@pbuilder/sdk/nestjs";
+ *
+ * export const run = async () => {
+ *   for (const file of await nestjs.glob("src/**\/*.module.ts")) await file.read();
+ * };
+ */
+export function glob(pattern: string, options?: GlobOptions): Promise<Handle<"found", SourceFile, NestOps>[]> {
+  return nestjsDialect.glob(pattern, options);
 }

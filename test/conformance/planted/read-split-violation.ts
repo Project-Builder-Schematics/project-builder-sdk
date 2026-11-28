@@ -80,6 +80,7 @@ export const readSplitViolationDialect: Dialect = {
   },
   ops: readSplitViolationOps,
   find: brokenFind as unknown as Dialect["find"],
+  glob: async () => [],
 };
 
 export const readSplitViolationFixture: OpPackFixture = {

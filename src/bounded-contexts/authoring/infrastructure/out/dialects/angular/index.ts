@@ -1,5 +1,5 @@
 import type { SourceFile } from "ts-morph";
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../../../domain/services/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps, type GlobOptions, type Handle } from "../../../../domain/services/define-dialect.ts";
 import { parse, print, retire } from "../typescript/ast.ts";
 import { typescriptOps } from "../typescript/pack.ts";
 import type { ArrayElement } from "../typescript/array-element.ts";
@@ -118,4 +118,20 @@ const angularDialect = withOps(baseDialect, typescriptOps, angularOps);
  */
 export function find(path: string): Handle<"found", SourceFile, AngularOps & typeof typescriptOps> {
   return angularDialect.find(path);
+}
+
+/**
+ * Opens every file `pattern` matches that this dialect edits, ordered by path; a file of any
+ * other extension is left out without an error (A-132). Resolves `[]` when none matches. The
+ * pattern syntax and `ignore` are commons `glob`'s, and it sees the run as `find` does.
+ *
+ * @example
+ * import * as angular from "@pbuilder/sdk/angular";
+ *
+ * export const run = async () => {
+ *   for (const file of await angular.glob("src/app/**\/*.ts")) await file.read();
+ * };
+ */
+export function glob(pattern: string, options?: GlobOptions): Promise<Handle<"found", SourceFile, AngularOps & typeof typescriptOps>[]> {
+  return angularDialect.glob(pattern, options);
 }

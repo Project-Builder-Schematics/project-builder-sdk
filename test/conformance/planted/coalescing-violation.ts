@@ -59,6 +59,7 @@ export const coalescingViolationDialect: Dialect = {
   },
   ops: coalescingViolationOps,
   find: brokenFind as unknown as Dialect["find"],
+  glob: async () => [],
 };
 
 export const coalescingViolationFixture: OpPackFixture = {

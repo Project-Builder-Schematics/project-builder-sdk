@@ -35,6 +35,9 @@
   .rename: (newName: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .move: (toDir: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .copy: (to: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
+. glob function: (pattern: string, options?: GlobOptions) => Promise<FoundHandle[]>
+. GlobOptions interface: GlobOptions
+  .ignore?: readonly string[] | undefined
 . move function: (path: string, toDir: string, opts?: { force?: boolean; }) => WritableHandle
 . PendingDirective interface: PendingDirective
   .verb: AuthoringVerb
@@ -97,6 +100,9 @@
   .rename: (newName: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .move: (toDir: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .copy: (to: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
+./commons glob function: (pattern: string, options?: GlobOptions) => Promise<FoundHandle[]>
+./commons GlobOptions interface: GlobOptions
+  .ignore?: readonly string[] | undefined
 ./commons move function: (path: string, toDir: string, opts?: { force?: boolean; }) => WritableHandle
 ./commons PendingDirective interface: PendingDirective
   .verb: AuthoringVerb
@@ -161,6 +167,7 @@
   .ast: DialectAst<Ast>
   .ops: Ops
   .find: (path: string) => Handle<"found", Ast, Ops>
+  .glob: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", Ast, Ops>[]>
 ./dialect DialectAst interface: DialectAst<Ast>
   .parse: (source: string) => Ast
   .print: (ast: Ast) => string
@@ -173,6 +180,7 @@
 ./dialect ExtensionRouter interface: ExtensionRouter<M>
   .extensions: readonly (keyof M & string)[]
   .find: <P extends string>(path: P) => RoutedHandle<M, P>
+  .glob: <P extends string>(pattern: P, options?: GlobOptions) => Promise<GlobbedHandle<M, P>[]>
 ./dialect Handle type: ReadOps & DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops>; inspect<R>(fn: (ast: Ast) => R): Promise<Awaited<R>>; } & OpMethods<Ast, Ops> & (State extends "found" ? { remove(): void; } : {}) & PromiseLike<void>
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => Edited<Ast, Ops>
@@ -208,8 +216,10 @@
   .result: R | undefined
 ./typescript astLibrary namespace: typeof import("ts-morph")
 ./typescript find function: (path: string) => Handle<"found", SourceFile, TypeScriptOps>
+./typescript glob function: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", SourceFile, TypeScriptOps>[]>
 ./react astLibrary namespace: typeof import("ts-morph")
 ./react find function: (path: string) => Handle<"found", SourceFile, ReactOps>
+./react glob function: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", SourceFile, ReactOps>[]>
 ./react JsxTarget type: string | { tag: string; props?: Readonly<Record<string, string | true>>; }
   .toString: (() => string) | (() => string)
   .valueOf: (() => string) | (() => Object)
@@ -217,6 +227,7 @@
   .unique?: boolean | undefined
 ./json astLibrary namespace: typeof import("jsonc-parser")
 ./json find function: (path: string) => Handle<"found", JsonDocument, JsonOps>
+./json glob function: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", JsonDocument, JsonOps>[]>
 ./json JsonDocument interface: JsonDocument
   .text: string
 ./json JsonPath type: readonly (string | number)[]
@@ -260,8 +271,10 @@
   .recursive?: boolean | undefined
 ./nestjs astLibrary namespace: typeof import("ts-morph")
 ./nestjs find function: (path: string) => Handle<"found", SourceFile, NestOps>
+./nestjs glob function: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", SourceFile, NestOps>[]>
 ./angular astLibrary namespace: typeof import("ts-morph")
 ./angular find function: (path: string) => Handle<"found", SourceFile, AngularOps & typeof typescriptOps>
+./angular glob function: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", SourceFile, AngularOps & typeof typescriptOps>[]>
 ./angular InjectionOptions type: { scope?: Scope; imports?: readonly NamedImport[]; }
   .scope?: Scope | undefined
   .imports?: readonly NamedImport[] | undefined
@@ -291,6 +304,7 @@
   .imports?: readonly NamedImport[] | undefined
 ./yaml astLibrary namespace: typeof import("yaml")
 ./yaml find function: (path: string) => Handle<"found", YamlStream, YamlOps>
+./yaml glob function: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", YamlStream, YamlOps>[]>
 ./yaml YamlPath type: readonly (string | number)[]
   .length: number
   .toString: () => string
@@ -338,12 +352,14 @@
   .important?: boolean | undefined
 ./css find function: (path: string) => Handle<"found", Root, CssOps>
 ./css getDeclaration function: (root: Root, target: CssTarget, property: string) => { value: string; important: boolean; } | undefined
+./css glob function: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", Root, CssOps>[]>
 ./csharp astLibrary namespace: typeof import("web-tree-sitter")
 ./csharp CsharpDocument interface: CsharpDocument
   .text: string
 ./csharp find function: (path: string) => Handle<"found", CsharpDocument, CsharpOps>
 ./csharp FromOptions interface: FromOptions
   .from?: string | undefined
+./csharp glob function: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", CsharpDocument, CsharpOps>[]>
 ./csharp language const: Language
 ./csharp UsingOptions interface: UsingOptions
   .static?: boolean | undefined
@@ -355,6 +371,7 @@
 ./aspnet find function: (path: string) => Handle<"found", CsharpDocument, AspnetOps>
 ./aspnet FromOptions interface: FromOptions
   .from?: string | undefined
+./aspnet glob function: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", CsharpDocument, AspnetOps>[]>
 ./aspnet language const: Language
 ./aspnet Lifetime type: "Singleton" | "Scoped" | "Transient"
 ./aspnet ServiceOptions interface: ServiceOptions
@@ -367,6 +384,7 @@
   .alias?: string | undefined
 ./msbuild astLibrary namespace: typeof import("saxes")
 ./msbuild find function: (path: string) => Handle<"found", MsbuildDocument, MsbuildOps>
+./msbuild glob function: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", MsbuildDocument, MsbuildOps>[]>
 ./msbuild MsbuildDocument interface: MsbuildDocument
   .text: string
 ./msbuild ProjectOptions interface: ProjectOptions
@@ -468,6 +486,7 @@ reachable Dialect@define-dialect interface: Dialect<Ast, Ops>
   .ast: DialectAst<Ast>
   .ops: Ops
   .find: (path: string) => Handle<"found", Ast, Ops>
+  .glob: (pattern: string, options?: GlobOptions) => Promise<Handle<"found", Ast, Ops>[]>
 reachable DialectAst@define-dialect interface: DialectAst<Ast>
   .parse: (source: string) => Ast
   .print: (ast: Ast) => string
@@ -509,6 +528,7 @@ reachable Edited@define-dialect type: ReadOps & DialectWriteOps<Ast, Ops> & { mo
 reachable ExtensionRouter@define-dialect interface: ExtensionRouter<M>
   .extensions: readonly (keyof M & string)[]
   .find: <P extends string>(path: P) => RoutedHandle<M, P>
+  .glob: <P extends string>(pattern: P, options?: GlobOptions) => Promise<GlobbedHandle<M, P>[]>
 reachable FoundHandle@handle-state interface: FoundHandle
   .remove: () => void
   .read: () => Promise<string | undefined>
@@ -518,6 +538,10 @@ reachable FoundHandle@handle-state interface: FoundHandle
   .copy: (to: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
 reachable FromOptions@ops interface: FromOptions
   .from?: string | undefined
+reachable GlobOptions@define-dialect interface: GlobOptions
+  .ignore?: readonly string[] | undefined
+reachable GlobbedHandle@define-dialect type: [LongestKey<MatchingKey<M, P>>] extends [never] ? RouteHandle<M, keyof M & string> : RoutedHandle<M, P>
+  .extension: (keyof M & string) | LongestKey<MatchingKey<M, P>> | (keyof M & P)
 reachable Handle@define-dialect type: ReadOps & DialectWriteOps<Ast, Ops> & { modify(fn: (ast: Ast) => void): Edited<Ast, Ops>; inspect<R>(fn: (ast: Ast) => R): Promise<Awaited<R>>; } & OpMethods<Ast, Ops> & (State extends "found" ? { remove(): void; } : {}) & PromiseLike<void>
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => Edited<Ast, Ops>
@@ -871,11 +895,7 @@ reachable ReactOps@index type: { addImport: (ast: SourceFile, name: string, from
   .renameJsxElement: (ast: SourceFile, target: JsxTarget, tag: string) => void
 reachable ReadOps@base-handle interface: ReadOps
   .read: () => Promise<string | undefined>
-reachable RouteSpec@ops type: { path: string; component: string; from: string; }
-  .path: string
-  .component: string
-  .from: string
-reachable RoutedHandle@define-dialect type: string extends P ? HandleOf<M[keyof M]> : HandleOf<M[LongestKey<MatchingKey<M, P>>]>
+reachable RouteHandle@define-dialect type: { [Key in K]: HandleOf<M[Key]> & { readonly extension: Key; }; }[K]
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => Edited<any, OpPack<any>>
   .rename: (newName: string, opts?: { force?: boolean; }) => Edited<any, OpPack<any>>
@@ -885,6 +905,22 @@ reachable RoutedHandle@define-dialect type: string extends P ? HandleOf<M[keyof 
   .inspect: <R>(fn: (ast: any) => R) => Promise<Awaited<R>>
   .remove: () => void
   .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
+  .extension: K
+reachable RouteSpec@ops type: { path: string; component: string; from: string; }
+  .path: string
+  .component: string
+  .from: string
+reachable RoutedHandle@define-dialect type: string extends P ? RouteHandle<M, keyof M & string> : RouteHandle<M, LongestKey<MatchingKey<M, P>>>
+  .read: () => Promise<string | undefined>
+  .replaceContent: (content: string) => Edited<any, OpPack<any>>
+  .rename: (newName: string, opts?: { force?: boolean; }) => Edited<any, OpPack<any>>
+  .move: (toDir: string, opts?: { force?: boolean; }) => Edited<any, OpPack<any>>
+  .copy: (to: string, opts?: { force?: boolean; }) => Edited<any, OpPack<any>>
+  .modify: (fn: (ast: any) => void) => Edited<any, OpPack<any>>
+  .inspect: <R>(fn: (ast: any) => R) => Promise<Awaited<R>>
+  .remove: () => void
+  .then: <TResult1, TResult2>(onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
+  .extension: (keyof M & string) | LongestKey<MatchingKey<M, P>>
 reachable RunResult@index interface: RunResult<R>
   .tree: ReadonlyMap<string, string>
   .emitted: Batch[]

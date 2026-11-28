@@ -9,6 +9,7 @@ export const VERB_MATRIX_PACKAGE_DIR = new URL("./fixtures/verb-matrix/", import
 export const NOT_VERBS: Readonly<Record<string, string>> = {
   AuthoringError: "the error class",
   classifyContent: "a pure content classifier",
+  glob: "a listing that opens handles and emits no directive",
 };
 
 export const VERB_MATRIX_SEED: Record<string, string> = Object.fromEntries(

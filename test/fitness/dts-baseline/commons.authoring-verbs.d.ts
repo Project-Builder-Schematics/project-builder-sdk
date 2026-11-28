@@ -1,6 +1,7 @@
 import type { JsonValue } from "../../../domain/valueobjects/wire.ts";
 import type { FoundHandle, WritableHandle } from "../../../domain/entities/handle-state.ts";
 import type { PendingDirective } from "../pending-directives/render.ts";
+import type { GlobOptions } from "../../../domain/services/define-dialect.ts";
 /**
  * Locates an existing file and returns a `FoundHandle` for reading or removing it.
  *
@@ -17,6 +18,20 @@ import type { PendingDirective } from "../pending-directives/render.ts";
  * else replaceContent("src/config.ts", patch(c));
  */
 export declare function find(path: string): FoundHandle;
+/**
+ * Opens every file `pattern` matches as a `FoundHandle`, ordered by path, leaving out every file
+ * an `ignore` pattern matches; resolves `[]` when none matches (A-130). `*` matches within one
+ * path segment, `?` one character, `**` any number of segments and `{a,b}` either alternative;
+ * every other character is literal, so `ignore` is the only way to leave files out. It sees the
+ * run (A-131): a file created earlier is listed, one removed earlier is not. Unlike `find`, it
+ * is asynchronous, because it lists files first.
+ *
+ * @example
+ * for (const file of await glob("src/domain/**", { ignore: ["**\/*.test.ts"] })) {
+ *   const content = await file.read();
+ * }
+ */
+export declare function glob(pattern: string, options?: GlobOptions): Promise<FoundHandle[]>;
 export declare function create(path: string, opts: {
     options: JsonValue | undefined;
     force?: boolean;

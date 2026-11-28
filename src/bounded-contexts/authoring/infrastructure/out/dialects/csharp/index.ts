@@ -1,4 +1,4 @@
-import { defineDialect, withOps, type Handle } from "../../../../domain/services/define-dialect.ts";
+import { defineDialect, withOps, type GlobOptions, type Handle } from "../../../../domain/services/define-dialect.ts";
 import { parse, print, type CsharpDocument } from "./ast.ts";
 import type { FromOptions, UsingOptions } from "./ops.ts";
 import { csharpOps, type CsharpOps } from "./pack.ts";
@@ -47,4 +47,20 @@ const csharpDialect = withOps(defineDialect({ extensions: [".cs"], ast: { parse,
  */
 export function find(path: string): Handle<"found", CsharpDocument, CsharpOps> {
   return csharpDialect.find(path);
+}
+
+/**
+ * Opens every file `pattern` matches that this dialect edits, ordered by path; a file of any
+ * other extension is left out without an error (A-132). Resolves `[]` when none matches. The
+ * pattern syntax and `ignore` are commons `glob`'s, and it sees the run as `find` does.
+ *
+ * @example
+ * import * as csharp from "@pbuilder/sdk/csharp";
+ *
+ * export const run = async () => {
+ *   for (const file of await csharp.glob("src/**\/*.cs")) await file.read();
+ * };
+ */
+export function glob(pattern: string, options?: GlobOptions): Promise<Handle<"found", CsharpDocument, CsharpOps>[]> {
+  return csharpDialect.glob(pattern, options);
 }

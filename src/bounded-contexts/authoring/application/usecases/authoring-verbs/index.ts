@@ -8,6 +8,7 @@ import { forceEntry } from "../../../domain/services/directive-factory.ts";
 import type { FoundHandle, WritableHandle } from "../../../domain/entities/handle-state.ts";
 import { renderPendingDirectives } from "../pending-directives/index.ts";
 import type { PendingDirective } from "../pending-directives/render.ts";
+import type { GlobOptions } from "../../../domain/services/define-dialect.ts";
 
 // Pure factory for WritableHandle. Returned by every write verb.
 function buildWritableHandle(path: string): WritableHandle {
@@ -92,6 +93,24 @@ function buildFoundHandle(path: string): FoundHandle {
  */
 export function find(path: string): FoundHandle {
   return buildFoundHandle(path);
+}
+
+/**
+ * Opens every file `pattern` matches as a `FoundHandle`, ordered by path, leaving out every file
+ * an `ignore` pattern matches; resolves `[]` when none matches (A-130). `*` matches within one
+ * path segment, `?` one character, `**` any number of segments and `{a,b}` either alternative;
+ * every other character is literal, so `ignore` is the only way to leave files out. It sees the
+ * run (A-131): a file created earlier is listed, one removed earlier is not. Unlike `find`, it
+ * is asynchronous, because it lists files first.
+ *
+ * @example
+ * for (const file of await glob("src/domain/**", { ignore: ["**\/*.test.ts"] })) {
+ *   const content = await file.read();
+ * }
+ */
+export async function glob(pattern: string, options?: GlobOptions): Promise<FoundHandle[]> {
+  const paths = await currentContext().session.list(pattern, options?.ignore);
+  return paths.map(buildFoundHandle);
 }
 
 // `template` receives the defaulted options and runs after the active run is resolved, so a

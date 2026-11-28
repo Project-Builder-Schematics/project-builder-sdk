@@ -1,4 +1,4 @@
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../../../domain/services/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps, type GlobOptions, type Handle } from "../../../../domain/services/define-dialect.ts";
 import { parse, print, type MsbuildDocument } from "./ast.ts";
 import { addProject, addProjectReference, type ProjectOptions } from "./ops.ts";
 
@@ -64,4 +64,20 @@ const msbuildDialect = withOps(
  */
 export function find(path: string): Handle<"found", MsbuildDocument, MsbuildOps> {
   return msbuildDialect.find(path);
+}
+
+/**
+ * Opens every file `pattern` matches that this dialect edits, ordered by path; a file of any
+ * other extension is left out without an error (A-132). Resolves `[]` when none matches. The
+ * pattern syntax and `ignore` are commons `glob`'s, and it sees the run as `find` does.
+ *
+ * @example
+ * import * as msbuild from "@pbuilder/sdk/msbuild";
+ *
+ * export const run = async () => {
+ *   for (const file of await msbuild.glob("**\/*.csproj")) await file.read();
+ * };
+ */
+export function glob(pattern: string, options?: GlobOptions): Promise<Handle<"found", MsbuildDocument, MsbuildOps>[]> {
+  return msbuildDialect.glob(pattern, options);
 }
