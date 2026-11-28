@@ -20,6 +20,8 @@ import { checkSufficiency, type SufficiencyFinding } from "../../../domain/servi
 import { isErrnoException } from "../../../../../platform/fs-errors.ts";
 import { emitInputType, UnrecognizedPropertyTypeError } from "./emit-type.ts";
 import { discoverProject } from "./project-codegen.ts";
+import { SCOPE_INPUTS } from "../../../domain/valueobjects/findings.ts";
+import type { Schema } from "../../../domain/valueobjects/schema-model.ts";
 
 export const GENERATED_FILENAME = "schema.generated.ts";
 export const SUCCESS_LINE = "pbuilder-codegen: wrote schema.generated.ts";
@@ -45,6 +47,24 @@ export class SchemaSufficiencyFailure extends Error {
     super(`schema sufficiency failure: ${findings.length} finding(s)`);
     this.name = "SchemaSufficiencyFailure";
     this.findings = findings;
+  }
+}
+
+/** A-120 / A-122: a `schema.json` that declares what the role `evaluation` imposes. */
+export class RoleContractFailure extends Error {
+  constructor(problem: string) {
+    super(problem);
+    this.name = "RoleContractFailure";
+  }
+}
+
+function checkEvaluationSchema(schema: Schema): void {
+  if (schema.result !== undefined) {
+    throw new RoleContractFailure("an evaluation schematic declares a Result, which the role fixes as Findings");
+  }
+  const imposed = schema.properties.find((property) => SCOPE_INPUTS.includes(property.key));
+  if (imposed !== undefined) {
+    throw new RoleContractFailure(`an evaluation schematic declares the input ${JSON.stringify(imposed.key)}, which the role imposes`);
   }
 }
 
@@ -75,9 +95,10 @@ function assertOutputLeaf(outputPath: string): void {
 
 /**
  * Reads `<packageDir>/schema.json`, parses it, and writes `<packageDir>/schema.generated.ts`
- * — the bin's fixed, non-configurable output location (REQ-TFO-05.1/FPS-01).
+ * — the bin's fixed, non-configurable output location (REQ-TFO-05.1/FPS-01). `evaluation` is set
+ * when the schematic's Collection definition entry declares the role `evaluation`.
  */
-export function generateSchema(packageDir: string): GenerateResult {
+export function generateSchema(packageDir: string, evaluation = false): GenerateResult {
   const schemaPath = schemaPathFor(packageDir);
   const raw = readFileSync(schemaPath, "utf-8");
   const schema = parseSchema(raw);
@@ -85,8 +106,9 @@ export function generateSchema(packageDir: string): GenerateResult {
   if (sufficiencyFindings.length > 0) {
     throw new SchemaSufficiencyFailure(sufficiencyFindings);
   }
+  if (evaluation) checkEvaluationSchema(schema);
   const digest = computeSchemaDigest(raw);
-  const output = emitInputType(schema, digest);
+  const output = emitInputType(schema, digest, evaluation);
   const outputPath = join(packageDir, GENERATED_FILENAME);
   try {
     if (process.platform === "linux" || process.platform === "darwin") {
@@ -305,12 +327,13 @@ function runProject(directory?: string): number {
       if (seen.has(output)) { duplicates++; continue; }
       seen.add(output);
       if (!statSync(schemaPath).isFile()) throw new Error("nonregular schema");
-      generateSchema(entry.directory);
+      generateSchema(entry.directory, entry.evaluation);
       generated++;
     } catch (error) {
       failed++;
       const diagnostic = error instanceof SchemaParseFailure ? formatParseError(schemaPath, error)
         : error instanceof SchemaSufficiencyFailure ? formatSufficiencyError(schemaPath, error)
+        : error instanceof RoleContractFailure ? `pbuilder-codegen: ${schemaPath}: ${error.message}`
         : error instanceof WriteContainmentRefusal ? "refusing to write outside the selected project root"
         : error instanceof OutputWriteFailure ? "cannot write a regular, non-symbolic-link output"
         : "cannot read or generate schema.json";

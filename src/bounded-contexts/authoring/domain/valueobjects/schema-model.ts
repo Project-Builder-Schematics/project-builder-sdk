@@ -30,6 +30,8 @@ export interface ResultSchema {
   properties?: Array<{ key: string; schema: ResultSchema }>;
   required?: string[];
   items?: ResultSchema;
+  /** The values a string may take. `schema.json` cannot declare it; a shape a role imposes can. */
+  choices?: string[];
 }
 
 export interface Schema {
