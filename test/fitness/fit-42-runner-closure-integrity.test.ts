@@ -304,13 +304,14 @@ describe("FIT-42 S-002 — the manifest agrees with the committed baseline", () 
 });
 
 describe("FIT-42 S-002 — the manifest's shape, exclusions, hygiene and ordering", () => {
-  it("REQ-RME-01.3: the top-level key set is exactly the five pinned fields", () => {
+  it("REQ-RME-01.3: the top-level key set is exactly the six pinned fields", () => {
     expect(Object.keys(manifest)).toEqual([
       "manifestVersion",
       "algorithm",
       "entry",
       "packageVersion",
       "files",
+      "dialects",
     ]);
   });
 

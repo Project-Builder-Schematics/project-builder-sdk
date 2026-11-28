@@ -127,6 +127,7 @@ describe("FIT-42N S-000 — REQ-RCD-00 — the four exported symbols are callabl
       entry: "dist/bin/pbuilder-runner.js",
       packageVersion: "0.0.0",
       files: [{ path: "package.json", sha256: "0".repeat(64) }],
+      dialects: ["json"],
     };
     expect(serialiseManifest(manifest)).toBe(`${JSON.stringify(manifest, null, 2)}\n`);
   });

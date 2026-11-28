@@ -10,6 +10,9 @@ function stepArgument(step: PickleStep): unknown[] {
 }
 
 /** The scenario's first step with no step definition, or `undefined` when every step has one. */
+/** Long enough for a scenario that builds the SDK's distribution, which takes tens of seconds. */
+export const SCENARIO_TIMEOUT_MS = 180_000;
+
 export function firstUndefinedStep(pickle: RulePickle, definitions: readonly StepDefinition[]): string | undefined {
   return pickle.steps.find((step) => matchStep(definitions, step.text).kind === "undefined")?.text;
 }

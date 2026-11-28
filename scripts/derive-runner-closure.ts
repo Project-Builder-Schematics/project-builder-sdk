@@ -110,6 +110,8 @@ export interface RunnerManifest {
   readonly entry: string;
   readonly packageVersion: string;
   readonly files: ReadonlyArray<{ readonly path: string; readonly sha256: string }>;
+  /** R-3: the names of the SDK's dialects, sorted. A manifest without the list is still complete. */
+  readonly dialects: readonly string[];
 }
 
 /** REQ-RME-06.1: JSON.stringify(m, null, 2) + "\n"; key order fixed by construction. */

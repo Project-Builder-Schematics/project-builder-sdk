@@ -9,6 +9,7 @@ import { GLOB_STEPS } from "./authoring/glob-steps.ts";
 import { HANDLE_STEPS } from "./authoring/handle-steps.ts";
 import { SESSION_STEPS } from "./authoring/session-steps.ts";
 import { ROOT_RESULT_STEPS } from "./execution/root-result-steps.ts";
+import { RUNNER_MANIFEST_STEPS } from "./runner-hosting/runner-manifest-steps.ts";
 import type { StepDefinition } from "./runner/steps.ts";
 import { FACTORY_RUN_STEPS } from "./shared/factory-run.ts";
 
@@ -26,4 +27,5 @@ export const STEP_DEFINITIONS: readonly StepDefinition[] = [
   ...ROOT_RESULT_STEPS,
   ...CODEGEN_STEPS,
   ...EVALUATION_STEPS,
+  ...RUNNER_MANIFEST_STEPS,
 ];
