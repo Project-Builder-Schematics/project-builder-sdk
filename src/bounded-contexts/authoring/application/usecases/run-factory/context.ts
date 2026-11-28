@@ -19,7 +19,7 @@ import {
   rejectionForScopeInput,
 } from "../../../domain/services/schema/input-rejection.ts";
 import { handedOnFindings, scopeOf, type InScope } from "../../../domain/services/evaluation.ts";
-import { SCOPE_INPUTS, SOURCED_FINDINGS, type Role } from "../../../domain/valueobjects/findings.ts";
+import { SCOPE_INPUTS, SOURCED_FINDINGS } from "../../../domain/valueobjects/findings.ts";
 import type { ResultSchema, Schema } from "../../../domain/valueobjects/schema-model.ts";
 
 // ADR-0037: the run-boundary join registry. A dialect handle self-registers here at its
@@ -231,6 +231,15 @@ function handOn(declared: ResultSchema | undefined, returned: unknown, source: s
   return recheck.result;
 }
 
+/** What a run of a wrapped factory receives besides its input. */
+export interface RunDeps {
+  client: EngineClient;
+  /** The role of the schematic (CA-14), as the runner received it; only `evaluation` changes the run. */
+  role?: string;
+  /** The qualified name `collection:schematic` of the schematic, as the runner received it. */
+  name?: string;
+}
+
 /**
  * Builds a SessionContext and runs the factory inside it, flushing buffered
  * directives at run end (REQ-KIT-05) — a write-only factory still emits.
@@ -254,12 +263,6 @@ function handOn(declared: ResultSchema | undefined, returned: unknown, source: s
  * the schematic's Result, or nothing when its `schema.json` declares none (A-14). The Result
  * is checked against that declaration before the flush; the runner resolves to the committed
  * copy. A bare `defineFactory(fn)` declares no Result, so `fn` must return nothing.
- * @param options.role - the role of the schematic (CA-14). With `evaluation`, `fn` returns its
- * Findings, checked against the shape the role imposes, and receives the scope inputs `include`
- * and `exclude`; every `glob` result is narrowed to the scope and so is every finding with a path
- * (A-120 to A-124). Any other role, or none, runs as a generator.
- * @param options.schematic - the qualified name `collection:schematic` an evaluation factory's
- * findings carry as their `source` (A-121); required with the role `evaluation`.
  * @param options.packageFiles - the package-files adapter the two reads go through; every
  * caller passes it with `packageDir`.
  * @param options.packageDir - opts into schema-derived input validation and reserved-name
@@ -291,20 +294,25 @@ function handOn(declared: ResultSchema | undefined, returned: unknown, source: s
  *
  * const runner = defineFactory<Input>(bareFactory, { packageDir: import.meta.dir });
  * await runner(input, { client });
+ *
+ * The returned runner takes, besides the client, the `role` and the qualified `name` of the
+ * schematic it runs, as the caller received them (CA-19). With the role `evaluation`, `fn`
+ * returns its Findings, checked against the shape the role imposes, each finding's `source` is
+ * set to `name`, and `fn` receives the scope inputs `include` and `exclude`; every `glob` result
+ * is narrowed to the scope and so is every finding with a path (A-120 to A-124). Any other role,
+ * or none, runs as a generator.
  */
 export function defineFactory<O, R = void>(
   fn: (o: O) => R | Promise<R>,
   options?: ({ packageDir: string | URL; packageFiles: PackageFiles } | { packageDir?: undefined; packageFiles?: undefined }) & {
     declaredDialects?: readonly string[];
-    role?: Role;
-    schematic?: string;
   }
-): (o: O, deps: { client: EngineClient }) => Promise<R> {
-  const source = options?.role === "evaluation" ? options.schematic : undefined;
-  if (options?.role === "evaluation" && source === undefined) {
-    throw new Error("defineFactory: an evaluation factory needs options.schematic, the qualified name collection:schematic");
-  }
-  const wrapped = async (o: O, { client }: { client: EngineClient }): Promise<R> => {
+): (o: O, deps: RunDeps) => Promise<R> {
+  const wrapped = async (o: O, { client, role, name }: RunDeps): Promise<R> => {
+    if (role === "evaluation" && name === undefined) {
+      throw new Error("defineFactory: an evaluation factory needs the qualified name collection:schematic of the schematic");
+    }
+    const source = role === "evaluation" ? name : undefined;
     let packageAnchors: SessionContext["packageAnchors"];
     let packageFiles: SessionContext["packageFiles"];
     let schema: Schema | undefined;

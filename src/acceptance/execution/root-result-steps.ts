@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { StepDefinition, World } from "../runner/steps.ts";
-import { framed, greeting, PROJECT_ROOT, RUNNER } from "../shared/runner-process.ts";
+import { PROJECT_ROOT, serveRunner, type RunnerRequest } from "../shared/runner-process.ts";
 
 /**
  * A-14, E-39, E-40 from the SDK side: the root schematic runs in the real runner process, and
@@ -20,11 +20,7 @@ interface RootRun {
   outcome?: RootOutcome;
 }
 
-interface Request {
-  readonly id: string;
-  readonly method: string;
-  readonly params: { batch?: { instructions: Array<{ op: string; create?: { pathTemplate: string; template: string } }> }; result?: unknown };
-}
+type Request = RunnerRequest;
 
 interface RootOutcome {
   readonly exitCode: number;
@@ -83,17 +79,6 @@ function writePackage(run: RootRun): string {
   return dir;
 }
 
-/** Reads every whole frame off the buffer, returning the rest. */
-function takeFrames(buffer: Buffer, onFrame: (value: unknown) => void): Buffer {
-  let rest = buffer;
-  while (rest.length >= 4 && rest.length >= 4 + rest.readUInt32BE(0)) {
-    const length = rest.readUInt32BE(0);
-    onFrame(JSON.parse(rest.subarray(4, 4 + length).toString("utf-8")));
-    rest = rest.subarray(4 + length);
-  }
-  return rest;
-}
-
 async function carryOut(world: World, commit: boolean): Promise<void> {
   const run = rootRun(world);
   const dir = writePackage(run);
@@ -105,12 +90,6 @@ async function carryOut(world: World, commit: boolean): Promise<void> {
 }
 
 async function serve(dir: string, commit: boolean): Promise<RootOutcome> {
-  const runner = Bun.spawn(["bun", RUNNER, "--factory", pathToFileURL(join(dir, "factory.js")).href, "--input", "{}"], {
-    stdin: "pipe",
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const requests: Request[] = [];
   const staged = new Map<string, string>();
   const disk = new Map<string, string>();
   const answer = (request: Request): unknown => {
@@ -129,20 +108,8 @@ async function serve(dir: string, commit: boolean): Promise<RootOutcome> {
         return {};
     }
   };
-  runner.stdin.write(greeting());
-  runner.stdin.flush();
-  let pending: Buffer = Buffer.alloc(0);
-  for await (const chunk of runner.stdout) {
-    pending = takeFrames(Buffer.concat([pending, chunk]), (frame) => {
-      const request = frame as Request;
-      requests.push(request);
-      runner.stdin.write(framed({ type: "response", id: request.id, result: answer(request) }));
-      runner.stdin.flush();
-    });
-  }
-  const exitCode = await runner.exited;
-  runner.stdin.end();
-  return { exitCode, stderr: await new Response(runner.stderr).text(), requests, disk };
+  const served = await serveRunner(["--factory", pathToFileURL(join(dir, "factory.js")).href, "--input", "{}"], answer);
+  return { ...served, disk };
 }
 
 const commitRequest = (world: World): Request | undefined => outcome(world).requests.find((request) => request.method === "ir.commit");

@@ -46,6 +46,10 @@ export const EVALUATION_STEPS: readonly StepDefinition[] = [
     run: (world, [schematic, role]) => void declaredRoles(world).set(schematic as string, role as string),
   },
   {
+    phrase: 'the runner of the factory receives the role "{role}" and the name "{name}"',
+    run: (world, [role, name]) => void (factoryRun(world).runner = { role: role as string, name: name as string }),
+  },
+  {
     phrase: 'the factory is the schematic "{schematic}", run with no inputs',
     run: (world, [schematic]) => runs(world, schematic as string, {}),
   },

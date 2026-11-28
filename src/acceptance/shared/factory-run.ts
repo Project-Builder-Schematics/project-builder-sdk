@@ -2,6 +2,10 @@ import { expect } from "bun:test";
 import { pendingDirectives } from "../../commons/index.ts";
 import { runFactoryForTest, type RunResult } from "../../testing/index.ts";
 import type { StepDefinition, World } from "../runner/steps.ts";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { PROJECT_ROOT, serveRunner } from "./runner-process.ts";
 
 /**
  * One scenario is one factory run (CATALOG "One run per scenario"). The `the author ...` steps
@@ -33,6 +37,8 @@ export interface FactoryRun {
   inputs?: Record<string, unknown>;
   /** The role of the schematic under test; with `evaluation` the factory returns `findings`. */
   role?: string;
+  /** The role and name the runner receives (CA-19): the run then goes through the real runner. */
+  runner?: { readonly role: string; readonly name: string };
   /** The findings the last replay reported, in order. */
   findings: Array<Record<string, unknown>>;
 }
@@ -45,23 +51,80 @@ export function factoryRun(world: World): FactoryRun {
   return world.run as FactoryRun;
 }
 
+let packages = 0;
+
+/**
+ * Runs a factory that returns `returned` as the root, in the real runner process, handed the role
+ * and the name as the engine hands them (CA-19). The package sits under this package's
+ * node_modules, as the root-result steps' does, so the single-instance probe passes.
+ */
+async function runInRunner(
+  returned: unknown,
+  input: unknown,
+  seed: Record<string, string>,
+  root: { readonly role: string; readonly name: string }
+): Promise<RunResult> {
+  const dir = join(PROJECT_ROOT, "node_modules/.pbuilder-acceptance", `factory-${process.pid}-${packages++}`);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "schema.json"), JSON.stringify({ properties: {} }));
+  writeFileSync(join(dir, "factory.js"), `export default () => (${JSON.stringify(returned) ?? "undefined"});\n`);
+  const reads = new Map<string, number>();
+  let result: unknown;
+  try {
+    const argv = ["--factory", pathToFileURL(join(dir, "factory.js")).href, "--input", JSON.stringify(input), "--role", root.role, "--name", root.name];
+    const served = await serveRunner(argv, (request) => {
+      switch (request.method) {
+        case "tree.read": {
+          const path = request.params.path!;
+          reads.set(path, (reads.get(path) ?? 0) + 1);
+          return Object.hasOwn(seed, path) ? { content: seed[path] } : null;
+        }
+        case "ir.emit":
+          return { appliedCount: request.params.batch?.instructions.length ?? 0 };
+        case "ir.commit":
+          result = request.params.result;
+          return {};
+        default:
+          return {};
+      }
+    });
+    const error = served.exitCode === 0 ? undefined : new Error(served.stderr.trim());
+    return { tree: new Map(), emitted: [], reads, error, result };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 /** Replays every recorded action in a new run on a copy of the seed. */
 async function replay(run: FactoryRun): Promise<{ result: RunResult; ran: number }> {
   let ran = 0;
-  const evaluation = run.role === "evaluation";
+  const evaluation = (run.runner?.role ?? run.role) === "evaluation";
+  const body = async () => {
+    run.handles.clear();
+    run.pending = undefined;
+    run.findings = [];
+    for (const action of run.actions) {
+      await action(run.handles);
+      ran += 1;
+    }
+    // A pure copy of the Session buffer, so reading it here changes nothing the steps check.
+    run.pending = pendingDirectives().map((entry) => `${entry.verb} ${entry.path}`);
+    return evaluation ? { items: run.findings } : undefined;
+  };
+  if (run.runner !== undefined) {
+    // The spawned runner cannot call the steps' closures, so the actions run here, outside any
+    // Session, and the factory returns what they reported; an action that needs the Session fails.
+    run.handles.clear();
+    run.findings = [];
+    for (const action of run.actions) {
+      await action(run.handles);
+      ran += 1;
+    }
+    const returned = evaluation ? { items: run.findings } : undefined;
+    return { result: await runInRunner(returned, run.inputs ?? {}, run.seed, run.runner), ran };
+  }
   const result = await runFactoryForTest(
-    async () => {
-      run.handles.clear();
-      run.pending = undefined;
-      run.findings = [];
-      for (const action of run.actions) {
-        await action(run.handles);
-        ran += 1;
-      }
-      // A pure copy of the Session buffer, so reading it here changes nothing the steps check.
-      run.pending = pendingDirectives().map((entry) => `${entry.verb} ${entry.path}`);
-      return evaluation ? { items: run.findings } : undefined;
-    },
+    body,
     run.inputs ?? {},
     {
       seed: { ...run.seed },

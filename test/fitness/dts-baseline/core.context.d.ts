@@ -81,7 +81,22 @@ export declare function requirePackageAnchors(missingAnchorMessage: string): {
  *
  * const runner = defineFactory<Input>(bareFactory, { packageDir: import.meta.dir });
  * await runner(input, { client });
+ *
+ * The returned runner takes, besides the client, the `role` and the qualified `name` of the
+ * schematic it runs, as the caller received them (CA-19). With the role `evaluation`, `fn`
+ * returns its Findings, checked against the shape the role imposes, each finding's `source` is
+ * set to `name`, and `fn` receives the scope inputs `include` and `exclude`; every `glob` result
+ * is narrowed to the scope and so is every finding with a path (A-120 to A-124). Any other role,
+ * or none, runs as a generator.
  */
+/** What a run of a wrapped factory receives besides its input. */
+export interface RunDeps {
+    client: EngineClient;
+    /** The role of the schematic (CA-14), as the runner received it; only `evaluation` changes the run. */
+    role?: string;
+    /** The qualified name `collection:schematic` of the schematic, as the runner received it. */
+    name?: string;
+}
 export declare function defineFactory<O, R = void>(fn: (o: O) => R | Promise<R>, options?: ({
     packageDir: string | URL;
     packageFiles: PackageFiles;
@@ -90,6 +105,4 @@ export declare function defineFactory<O, R = void>(fn: (o: O) => R | Promise<R>,
     packageFiles?: undefined;
 }) & {
     declaredDialects?: readonly string[];
-}): (o: O, deps: {
-    client: EngineClient;
-}) => Promise<R>;
+}): (o: O, deps: RunDeps) => Promise<R>;

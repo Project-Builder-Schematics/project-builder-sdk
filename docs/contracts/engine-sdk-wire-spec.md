@@ -169,12 +169,27 @@ any other author-defined dialect fails the factory when it ends, naming the dial
 is written (exit 4, as every dialect rejection). The bridge carries the same list as
 `BridgeParams.dialects` and converts it to the same flag.
 
+## Root Role and Name (`--role`, `--name`, CA-19)
+
+`--role <role>` and `--name <collection:schematic>` are optional, and the engine passes each as
+its own argv element, only to the runner of the root Frame and only when it has a value. They are
+the role the root's Collection definition entry declares and the qualified name the request
+addressed the root by, an alias included, as Launch handed them to the Run. The engine never reads
+them.
+
+`--role evaluation` without `--name` fails as bad argv (exit 1) before the handshake. The runner
+hands both to the run: with the role `evaluation` the factory returns its Findings and each
+finding's `source` is set to `--name` (A-120, A-121). Without `--role`, or with any other role,
+the factory runs as a generator. The SDK decides nothing about whether a Frame is read-only
+(E-24). The bridge carries the same values as
+`BridgeParams.role` and `BridgeParams.name` and converts them to the same flags.
+
 ## Exit-Code Taxonomy (EXC-01)
 
 | Code | Meaning |
 |---|---|
 | 0 | success — the factory run completed and its intent was accepted |
-| 1 | validation failure — bad argv, an invalid/mismatched greeting, a bridge contract version mismatch (`BridgeVersionMismatchError`, BRB-01.2), a rejected factory pointer, a rejected export, a failed single-instance probe, a malformed `--dialects`, a declared dialect resolving outside its pinned `root`, or a local dialect's base file outside its folder, an oversize/malformed `--input-file`, a factory module that cannot be FOUND OR LOADED (`ERR_MODULE_NOT_FOUND`, Bun's `ResolveMessage`/`BuildMessage` shapes, or a `SyntaxError` from the factory import — a module that never RAN, distinct from the module's own top-level code throwing during import, which is exit 4), or an `AuthoringError` whose `origin` **is** `"authoring-rejected"` (an SDK-side authoring misuse: `outside-session`, `invalid-input`, `reserved-name`, `invalid-result`, `source-*`) |
+| 1 | validation failure — bad argv, an invalid/mismatched greeting, a bridge contract version mismatch (`BridgeVersionMismatchError`, BRB-01.2), a rejected factory pointer, a rejected export, a failed single-instance probe, a malformed `--dialects`, `--role evaluation` without `--name`, a declared dialect resolving outside its pinned `root`, or a local dialect's base file outside its folder, an oversize/malformed `--input-file`, a factory module that cannot be FOUND OR LOADED (`ERR_MODULE_NOT_FOUND`, Bun's `ResolveMessage`/`BuildMessage` shapes, or a `SyntaxError` from the factory import — a module that never RAN, distinct from the module's own top-level code throwing during import, which is exit 4), or an `AuthoringError` whose `origin` **is** `"authoring-rejected"` (an SDK-side authoring misuse: `outside-session`, `invalid-input`, `reserved-name`, `invalid-result`, `source-*`) |
 | 2 | emit-rejection / host refusal — an `AuthoringError` whose `origin` is NOT `"authoring-rejected"`, or an `IntentRejectedError` (the host answered `ir.commit`/`ir.discard`/`tree.read` with an error envelope); the host's own rejection message surfaces in the runner's bounded stderr note |
 | 3 | transport fault — a `TransportFault` (`kind`: `malformed`, `desync` (reserved: currently indistinguishable from and reported as `malformed`), `oversize`, `timeout`, or `eof`), including one at GREETING time (a malformed/oversize/EOF-truncated first frame), no greeting within `GREETING_TIMEOUT_MS`, or stdin closed before any frame |
 | 4 | crash — anything else: a non-`AuthoringError`/non-`TransportFault` thrown value, including the author's factory module throwing at its own top level during import |

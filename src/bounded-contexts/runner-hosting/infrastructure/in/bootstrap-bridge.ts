@@ -44,6 +44,9 @@ export interface BridgeParams {
   input: BridgeInput;
   /** The Frame's declared dialects (A-16, CA-5); absent means none. */
   dialects?: readonly DeclaredDialect[];
+  /** The root's role and qualified name (CA-19); absent when the engine has none to pass. */
+  role?: string;
+  name?: string;
 }
 
 export interface BridgeIo {
@@ -69,6 +72,8 @@ function toArgv(params: BridgeParams): string[] {
   if (params.input.kind === "inline") argv.push("--input", params.input.json);
   else argv.push("--input-file", params.input.path);
   if (params.dialects !== undefined) argv.push("--dialects", JSON.stringify(params.dialects));
+  if (params.role !== undefined) argv.push("--role", params.role);
+  if (params.name !== undefined) argv.push("--name", params.name);
   return argv;
 }
 

@@ -63,6 +63,8 @@ interface ParsedArgv {
   factory: string;
   input: ParsedInput;
   dialects: DeclaredDialect[];
+  role?: string;
+  name?: string;
 }
 
 const DIALECTS_SHAPE =
@@ -110,13 +112,16 @@ function parseDialects(value: string): DeclaredDialect[] | undefined {
 }
 
 // REQ-RUN-01: `--factory <url>#<export>` required; exactly one of `--input <json>` XOR
-// `--input-file <path>`; `--dialects <json>` optional, absent meaning none declared; any
-// unrecognized flag fails closed.
+// `--input-file <path>`; `--dialects <json>` optional, absent meaning none declared; `--role`
+// and `--name` optional, the root's role and qualified name the engine passes unread (CA-19);
+// any unrecognized flag fails closed.
 function parseArgv(argv: string[]): ParsedArgv | { error: string } {
   let factory: string | undefined;
   let inputJson: string | undefined;
   let inputFile: string | undefined;
   let dialects: DeclaredDialect[] = [];
+  let role: string | undefined;
+  let name: string | undefined;
 
   for (let i = 0; i < argv.length; i += 2) {
     const flag = argv[i];
@@ -131,7 +136,8 @@ function parseArgv(argv: string[]): ParsedArgv | { error: string } {
       const declared = parseDialects(value);
       if (declared === undefined) return { error: DIALECTS_SHAPE };
       dialects = declared;
-    }
+    } else if (flag === "--role") role = value;
+    else if (flag === "--name") name = value;
     else return { error: composeWithToken("pbuilder-runner: unrecognized flag ", flag) };
   }
 
@@ -142,9 +148,14 @@ function parseArgv(argv: string[]): ParsedArgv | { error: string } {
   if (inputJson === undefined && inputFile === undefined) {
     return { error: "pbuilder-runner: exactly one of --input or --input-file is required" };
   }
+  if (role === "evaluation" && name === undefined) {
+    return { error: "pbuilder-runner: --role evaluation needs --name, the qualified name collection:schematic" };
+  }
   return {
     factory,
     dialects,
+    role,
+    name,
     input: inputJson !== undefined ? { kind: "inline", json: inputJson } : { kind: "file", path: inputFile as string },
   };
 }
@@ -425,7 +436,7 @@ async function runRunnerBody(argv: string[], io: RunnerIo, opened: { reader?: Fr
   const client = new StdioEngineClient(channel);
 
   try {
-    await run(resolvedInput.value, { client });
+    await run(resolvedInput.value, { client, role: parsed.role, name: parsed.name });
     return 0;
   } catch (err) {
     // EXC-01/02: classification reads ONLY err's own identity — a double-fault `.cause`

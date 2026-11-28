@@ -130,6 +130,9 @@ export async function runFactoryForTest<O, R = void>(
     schematic?: string;
   }
 ): Promise<RunResult<R>> {
+  if (options?.role === "evaluation" && options.schematic === undefined) {
+    throw new Error("runFactoryForTest: an evaluation factory needs options.schematic, the qualified name collection:schematic");
+  }
   const fake = new ContractFake({ seed: options?.seed ?? {} });
   const emitted: Batch[] = [];
   const reads = new Map<string, number>();
@@ -155,15 +158,16 @@ export async function runFactoryForTest<O, R = void>(
     },
   };
 
-  const identity = { declaredDialects: options?.declaredDialects, role: options?.role, schematic: options?.schematic };
   const run = defineFactory<O, R>(
     fn,
-    options?.packageDir !== undefined ? { packageDir: options.packageDir, packageFiles: nodePackageFiles, ...identity } : identity
+    options?.packageDir !== undefined
+      ? { packageDir: options.packageDir, packageFiles: nodePackageFiles, declaredDialects: options.declaredDialects }
+      : { declaredDialects: options?.declaredDialects }
   );
 
   let error: AuthoringError | unknown;
   try {
-    await run(input, { client });
+    await run(input, { client, role: options?.role, name: options?.schematic });
   } catch (caught) {
     error = caught;
   }
