@@ -22,7 +22,8 @@ for them, not a summary claiming no migration is needed.
 - **Added**: a handle a `byExtension` dialect returns, from `find` or `glob`, carries its
   routing key as `extension`, typed as the literal key, so the routes' handles form a
   discriminated union (A-134). `glob`'s handle type is the route's for a pattern that ends in a
-  routed extension and the union otherwise (A-135).
+  routed extension and the union otherwise (A-135). `byExtension` throws at composition when a
+  routed dialect has an op named `extension`, which the routing key would replace.
 - **Added**: the `tree.list` reverse callback, `{pattern, ignore?}` answered `{paths}` (engine
   ADR-0070, engine v0.3.17). It is additive: `WIRE_PROTOCOL_VERSION` does not change, and an
   engine without it fails only a factory that calls `glob`.

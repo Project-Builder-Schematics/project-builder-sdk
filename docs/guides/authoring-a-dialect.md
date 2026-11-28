@@ -463,7 +463,8 @@ dialect per extension and route between them:
   `ops`, so the AST types may differ (a `.ts` dialect over ts-morph next to an `.html` dialect
   over an HTML AST). For a literal path, `find`'s return type is that extension's handle. A path
   matching no key rejects synchronously, naming every routed extension; a key its dialect does
-  not declare throws at composition.
+  not declare throws at composition, and so does a routed dialect with an op named `extension`,
+  the field that carries the routing key on its handles.
 - **`withoutOps(dialect, names, reason)`** keeps the named ops on the handle (and in its type)
   but makes them reject at call time, leaving the file unchanged, with a message naming the op,
   the dialect's extensions and `reason`. Use it when an extension shares an op set but cannot

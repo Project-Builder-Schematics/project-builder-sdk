@@ -430,6 +430,12 @@ export function byExtension<M extends DialectsByExtension>(dialects: M): Extensi
     if (!declared.includes(extension)) {
       throw new Error(`dialect routing failed: "${extension}" is not an extension its dialect declares (${declared.join(", ")}).`);
     }
+    // A-134: the routing key is set as `extension` on every handle, over any op of that name.
+    if (Object.hasOwn(dialects[extension]!.ops, "extension")) {
+      throw new Error(
+        `dialect routing failed: the dialect of "${extension}" has an op named "extension", the field that carries the routing key on its handles.`
+      );
+    }
   }
   const longestFirst = [...extensions].sort((a, b) => b.length - a.length);
   const routeOf = (path: string) => longestFirst.find((candidate) => hasDeclaredExtension(path, [candidate]));
