@@ -27,7 +27,7 @@ function alternatives(pattern: string): string[] {
 }
 
 function segmentSource(segment: string): string {
-  return [...segment].map((char) => (char === "*" ? "[^/]*" : char === "?" ? "[^/]" : char.replace(/[\\^$.+()[\]{}|]/, "\\$&"))).join("");
+  return [...segment].map((char) => (char === "*" ? "[^/]*" : char === "?" ? "[^/]" : char.replace(/[\\^$.+()[\]{}|]/g, "\\$&"))).join("");
 }
 
 function compile(pattern: string): RegExp {
