@@ -6,6 +6,55 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.19.0
+
+### Local dialects and the base-file check
+
+- **Breaking**: the conformance fixture checks fixture data against the dialect's base file
+  (A-16). A published dialect's base file is the module its package exports at its root,
+  `exports["."]`, picked as the engine's pointer dir picks it: a string, or the first of `bun`,
+  `import` and `default`, recursively, with no fallback to `main`. The fixture data must test a
+  Dialect that file exports, by reference, as a named or default export; otherwise the fixture
+  fails with the new case `base_mismatch`. A base file that throws while it loads fails as
+  `fixture_threw`. **Migration**: a 0.18.0 dialect package whose `./conformance` builds a
+  Dialect of its own fails `builder sync`; import the Dialect from the package's root module
+  instead.
+- **Added**: local dialects (CA-18), declared in the workspace as `"ini": { "path", "conformance" }`
+  and named by that key. `checkLocalDialect({ name, path, conformance })` from
+  `@pbuilder/sdk/conformance` and `pbuilder-conformance --local <name> --conformance <file>
+  --path <base file>` run the fixture on one, with the same JSON line and exit codes as
+  `--dialect`, `dialect` set to the key and `version` to `""`. A `name` other than the key fails
+  as `name_mismatch`, a missing conformance file as `fixture_missing`, and one outside the base
+  file's folder, by path or by real path, as `fixture_invalid`. See "A local dialect" in
+  `docs/guides/authoring-a-dialect.md`.
+- **Added**: the runner's `--dialects` takes a local entry `{kind: "local", name, root, path}`:
+  the declaration's key, the folder the engine hashed and the base file. Before the factory
+  import the runner requires the base file's real path inside the folder; otherwise it exits 1
+  with `the factory does not start because the dialect "<name>" resolves outside the folder of
+  its base file`. Published entries keep `{name, version, root}`; an unknown `kind` is bad argv.
+  **Migration**: an engine sends local entries with absolute real paths.
+
+### Factory Result
+
+- **Added**: a schematic can declare a Result (A-14, A-15, E-39, E-40, #276). `schema.json` takes
+  an optional top-level `result`, a subset of JSON Schema (`type`, `properties`, `required`,
+  `items`), and codegen emits `export type Result`. `defineFactory<O, R = void>` returns
+  `Promise<R>`; on success it drains the factory, checks the Result, flushes, then sends it. The
+  Result must be JSON, at most 1 MiB encoded, and what is sent is a copy parsed from the checked
+  encoding; the error never repeats the value. `runFactoryForTest` returns the sent `result`.
+- **Changed**: `ir.commit` carries `{result}` only when a Result is declared; a declared `null` is
+  sent as `"result": null`, and an undeclared Result sends `{}`. `WIRE_PROTOCOL_VERSION` is
+  unchanged.
+- **Breaking**: a factory that returns a value without declaring a Result fails with the reason
+  `invalid-result`, and nothing is written, a bare `defineFactory(fn)` included. The case you
+  will hit is a one-expression arrow that returns by accident:
+  `defineFactory(async () => create(...))` returns the handle `create` gives back. A factory that
+  returns nothing is still fine when no Result is declared. **Migration**: give the arrow a block
+  body, `async () => { create(...); }`, or declare `result` in `schema.json`.
+- **Compatibility**: the Result reaches Launch only with engine v0.3.16 or later (CLI v0.15.1 or
+  later). An older engine ignores the params of `ir.commit`, so the commit succeeds and the
+  Result is dropped.
+
 ## 0.18.0
 
 ### Author-defined dialects
