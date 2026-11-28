@@ -33,6 +33,10 @@ class DiscardRejectingClient implements EngineClient {
     return this.#inner.read(path);
   }
 
+  list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]> {
+    return this.#inner.list(pattern, ignore);
+  }
+
   commit(): Promise<void> {
     return this.#inner.commit();
   }

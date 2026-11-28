@@ -82,6 +82,12 @@ export class Session {
     return this.#client.read(path);
   }
 
+  // A-131: like read(), a listing flushes first, so it sees every write buffered before it.
+  async list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]> {
+    await this.flush();
+    return this.#client.list(pattern, ignore);
+  }
+
   // SEAM-03 (ADR-01): thin wrappers delegating to #client. Session owns #client, so the
   // commit boundary stays inside Session — defineFactory never names #client directly.
   async commit(result?: unknown): Promise<void> {

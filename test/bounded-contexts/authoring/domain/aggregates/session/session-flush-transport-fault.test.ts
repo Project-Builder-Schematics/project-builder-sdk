@@ -15,6 +15,7 @@ function rejectingClient(rejection: unknown): EngineClient {
   return {
     emit: () => Promise.reject(rejection),
     read: () => Promise.resolve(undefined),
+    list: () => Promise.resolve([]),
     commit: () => Promise.resolve(),
     discard: () => Promise.resolve(),
   };

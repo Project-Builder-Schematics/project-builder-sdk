@@ -11,7 +11,7 @@ time, never a runtime desync (REQ-WPS-06/WPS-11).
 
 This document exists because REQ-WPS-11 requires ONE normative text both repos build and
 conformance-test against. It carries every section WPS-11.3 mandates: the frame grammar, the
-`ready` handshake, the four reverse-callback method schemas, error shapes, the factory-pointer
+`ready` handshake, the five reverse-callback method schemas, error shapes, the factory-pointer
 grammar, the exit-code taxonomy, the bridge contract, and the frame-cap constant.
 
 ## Frame Grammar (WPS-01)
@@ -67,10 +67,10 @@ field.
 ## Reverse-Callback Method Schemas (WPS-05, WPS-10)
 
 The runner ISSUES requests; the host only ever RESPONDS — there is no host-issued request
-method (WPS-09). The runner MUST NOT issue any method outside this closed set of four:
+method (WPS-09). The runner MUST NOT issue any method outside this closed set of five:
 
 ```ts
-const REVERSE_CALLBACK_METHODS = ["tree.read", "ir.emit", "ir.commit", "ir.discard"] as const;
+const REVERSE_CALLBACK_METHODS = ["tree.read", "tree.list", "ir.emit", "ir.commit", "ir.discard"] as const;
 
 interface RequestFrame  { type: "request";  id: `s${number}`; method: ReverseMethod; params: unknown }
 interface ResponseFrame { type: "response"; id: string; result?: unknown; error?: WireError }
@@ -79,6 +79,7 @@ interface ResponseFrame { type: "response"; id: string; result?: unknown; error?
 | Method | Request `params` | Success `result` |
 |---|---|---|
 | `tree.read` | `{path: string}` — project-relative, never absolute | `null` (not-found) \| `{content: string}` (an empty file is `{content: ""}`, never conflated with not-found) |
+| `tree.list` | `{pattern: string, ignore?: string[]}` — `*`, `?`, `**` and `{a,b}` match, every other character is literal (E-37); every `{a,b}` alternative passes the containment gate, and an escape is rejected `-32000 "path escapes workspace"` | `{paths: string[]}`: the files a `tree.read` of the same Run can open, sorted bytewise, `[]` when none matches; symbolic links are never listed (engine ADR-0070) |
 | `ir.emit` | `{batch: Batch}` — `Batch.protocolVersion` is the IR/emit envelope schema version | `{appliedCount: number}` on full acceptance |
 | `ir.commit` | `{}`, or `{result: <JSON>}` when the factory declares a Result (A-14); scoped to the current single run | `{}` acknowledgment |
 | `ir.discard` | `{}` — same scoping as `ir.commit` | `{}` acknowledgment |
@@ -92,7 +93,7 @@ on arrival. An invalid or oversized Result never reaches the wire: the factory f
 `AuthoringError` whose reason is `invalid-result` (exit 1), and the run discards. The field is
 additive, so `WIRE_PROTOCOL_VERSION` is unchanged.
 
-Every SUCCESS response, for any of the four methods, uses the field name `result` — never
+Every SUCCESS response, for any of the five methods, uses the field name `result` — never
 `error` for a success acknowledgment. Every REJECTION response uses the field name `error`.
 Request IDs are runner-issued, `s`-prefixed (`s0`, `s1`, `s2`, ...); exactly ONE request is in
 flight at a time (ADR-03, sequential single-in-flight) — there is no pending-ID map on the SDK

@@ -278,6 +278,8 @@
     "dist/bounded-contexts/authoring/testing/conformance/run-package.js",
     "dist/bounded-contexts/authoring/testing/contract-fake.d.ts",
     "dist/bounded-contexts/authoring/testing/contract-fake.js",
+    "dist/bounded-contexts/authoring/testing/glob-pattern.d.ts",
+    "dist/bounded-contexts/authoring/testing/glob-pattern.js",
     "dist/bounded-contexts/authoring/testing/harness/index.d.ts",
     "dist/bounded-contexts/authoring/testing/harness/index.js",
     "dist/bounded-contexts/authoring/testing/rejection-messages.d.ts",

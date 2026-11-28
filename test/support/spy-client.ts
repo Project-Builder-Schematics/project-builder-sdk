@@ -30,6 +30,9 @@ export function makeSpyClient(seed: Record<string, string> = {}): { client: Engi
     async read(p) {
       return fake.read(p);
     },
+    async list(pattern, ignore) {
+      return fake.list(pattern, ignore);
+    },
     async commit() {
       return fake.commit();
     },

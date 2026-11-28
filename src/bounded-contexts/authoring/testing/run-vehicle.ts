@@ -18,11 +18,13 @@
 // uses for its own spy-wrapping.
 
 import type { Batch, Directive } from "../domain/valueobjects/wire.ts";
+import { listMatching } from "./glob-pattern.ts";
 
 /** Local structural mirror of the transport port — never names the port type (see header). */
 interface RunVehicleClient {
   emit(batch: Batch): Promise<void>;
   read(path: string): Promise<string | undefined>;
+  list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]>;
   commit(): Promise<void>;
   discard(): Promise<void>;
 }
@@ -103,6 +105,9 @@ export function createRunVehicle(seed: Record<string, string>): { client: RunVeh
     },
     async read(path: string): Promise<string | undefined> {
       return tree.get(path);
+    },
+    async list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]> {
+      return listMatching(tree.keys(), pattern, ignore);
     },
     async commit(): Promise<void> {
       // Nothing to promote — this vehicle applies eagerly on emit (no staging/committed
