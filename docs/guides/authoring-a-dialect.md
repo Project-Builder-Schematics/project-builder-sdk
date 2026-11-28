@@ -765,6 +765,13 @@ An author-defined dialect ships its fixture data, so `builder sync` can prove th
 }
 ```
 
+The fixture data must test the Dialect your base file exports, the module your package exports
+at its root (`exports["."]`, or `main` when there is no `exports`): the same Dialect object,
+exported by name or as the default. Fixture data that builds a Dialect of its own fails as
+`base_mismatch`, so the Dialect that passed is the one a factory opens. A package whose root export
+picks nothing has no base file and fails the same way; it never falls back to `main`. A base file
+that throws while it loads fails as `fixture_threw`, with a reason that names the base file.
+
 The sync runs `pbuilder-conformance --dialect <installed package dir>`, a bin of the SDK that
 runs under Bun. It prints one JSON line,
 `{"passed":true,"dialect":"@company/ini-dialect","version":"1.0.0","failures":[]}`, where each
@@ -773,6 +780,13 @@ values. It exits 0 when the fixture passes and 1 when it ran and failed; any oth
 the fixture could not run. A package with no `./conformance` export fails as `fixture_missing`,
 and a dialect whose `name` is not the package's fails as `name_mismatch`. Run the same check from
 your own tests with `checkDialectPackage(dir)` from `@pbuilder/sdk/conformance`.
+
+A local dialect (see "A local dialect" below) runs the same fixture through
+`pbuilder-conformance --local <name> --conformance <file> --path <base file>`, or
+`checkLocalDialect({ name, path, conformance })`. The report carries the declaration's key as
+`dialect` and an empty `version`. A `name` other than the key fails as `name_mismatch`, a
+conformance file that does not exist as `fixture_missing`, and one outside the base file's
+folder as `fixture_invalid`.
 
 ### Mandatory module export and fixture migration
 
@@ -889,6 +903,29 @@ export const ini = defineDialect({
   package.json, never in `dependencies`: the dialect runs on the SDK of the Run, and a dialect that
   ships its own copy of the SDK fails `builder sync`.
 - **Test a factory that uses it** with `runFactoryForTest(fn, input, { declaredDialects: ["@company/ini-dialect"] })`.
+
+### A local dialect
+
+A dialect can also live in the workspace, with no package (CA-18). Declare it in the workspace's
+`project-builder.json` by the path of its base file and of its fixture data, under the key that
+names it:
+
+```json
+"dialects": {
+  "ini": { "path": "./dialects/ini/index.ts", "conformance": "./dialects/ini/conformance.ts" }
+}
+```
+
+- **`name` is the key.** `defineDialect({ name: "ini", ... })`, and `find` and the declaration use
+  the same string. The conformance fixture rejects any other `name`.
+- **Keep it in its own folder.** The base file does not sit at the workspace root, and the
+  conformance file sits in the base file's folder. `builder sync` records the hash of that folder
+  in the Lock and runs the fixture again whenever the folder changes. Until it does, every Frame
+  of the workspace stops before its factory runs.
+- **The folder holds no links.** `builder sync` refuses a symlink in it, and before the factory
+  starts the runner requires the base file's real path inside the folder.
+- **Only the workspace declares one.** A library whose Manifest declares a local dialect fails the
+  sync. A local dialect shares the host's `package.json` and runs on the SDK of the Run.
 
 ## Publishing and trust
 

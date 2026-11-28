@@ -129,6 +129,7 @@
   .move: (toDir: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
   .copy: (to: string, opts?: { force?: boolean; }) => import("…/base-handle").WritableHandleRef
 ./conformance checkDialectPackage function: (dir: string) => Promise<ConformanceReport>
+./conformance checkLocalDialect function: ({ name, path, conformance }: LocalDialect) => Promise<ConformanceReport>
 ./conformance ConformanceFailure interface: ConformanceFailure
   .case: string
   .reason: string
@@ -147,6 +148,10 @@
 ./conformance DialectModule interface: DialectModule<Library>
   .find: (path: string) => Handle<"found", unknown, {}>
   .astLibrary: Library
+./conformance LocalDialect interface: LocalDialect
+  .name: string
+  .path: string
+  .conformance: string
 ./conformance OpExercise interface: OpExercise
   .seed: string
   .path?: string | undefined
@@ -649,6 +654,10 @@ reachable LazyRouteSpec@ops type: { path: string; loadComponent?: string; loadCh
   .loadChildren?: string | undefined
   .export?: string | undefined
 reachable Lifetime@ops type: "Singleton" | "Scoped" | "Transient"
+reachable LocalDialect@run-package interface: LocalDialect
+  .name: string
+  .path: string
+  .conformance: string
 reachable LongestKey@define-dialect type: { [K in Ks]: [Extract<Exclude<Ks, K>, `${string}${K}`>] extends [never] ? K : never; }[Ks]
   .toString: () => string
   .charAt: (pos: number) => string

@@ -128,17 +128,38 @@ export function probeSingleInstance(
   return { ok: false, message: splitMessage(runnerRoot, factoryRoot) };
 }
 
-/** One dialect the Frame's library declares, with the root of the copy the Lock pins (CA-5). */
-export interface DeclaredDialect {
+/** A published dialect, installed into the Cache: `root` is the package the Lock pins. */
+export interface PublishedDialect {
+  kind?: undefined;
   name: string;
   version: string;
   root: string;
 }
 
-function resolvesInside(name: string, root: string, factoryUrl: string, resolveSpecifier: (specifier: string, anchorUrl: string) => string): boolean {
+/** A local dialect (CA-18): `root` is the folder the engine hashed, `path` its base file. */
+export interface LocalDeclaredDialect {
+  kind: "local";
+  name: string;
+  root: string;
+  path: string;
+}
+
+/** One dialect the Frame's library declares (CA-5): published unless its `kind` is `"local"`. */
+export type DeclaredDialect = PublishedDialect | LocalDeclaredDialect;
+
+function isInside(root: string, file: string): boolean {
   try {
-    const path = relative(realpathSync(root), realpathSync(resolveSpecifier(name, factoryUrl)));
+    const path = relative(realpathSync(root), realpathSync(file));
     return path !== "" && !path.startsWith("..") && !isAbsolute(path);
+  } catch {
+    return false;
+  }
+}
+
+function resolvesInside(dialect: DeclaredDialect, factoryUrl: string, resolveSpecifier: (specifier: string, anchorUrl: string) => string): boolean {
+  if (dialect.kind === "local") return isInside(dialect.root, dialect.path);
+  try {
+    return isInside(dialect.root, resolveSpecifier(dialect.name, factoryUrl));
   } catch {
     return false;
   }
@@ -147,7 +168,8 @@ function resolvesInside(name: string, root: string, factoryUrl: string, resolveS
 /**
  * A-16 / A-4: before the factory starts, resolves each declared dialect's name from the factory's
  * location, the same resolution its own `import` gets, and requires the real path inside the copy
- * the Lock pins. It keeps the dialect that runs the pinned one; it is no security boundary.
+ * the Lock pins. A local dialect's name is no specifier, so its base file's real path must sit inside
+ * its folder instead (CA-18). It keeps the dialect that runs the pinned one; it is no security boundary.
  * Resolution-only, like `probeSingleInstance`; an unresolvable name fails the same way.
  */
 export function probeDeclaredDialects(
@@ -155,10 +177,8 @@ export function probeDeclaredDialects(
   dialects: readonly DeclaredDialect[],
   resolveSpecifier: (specifier: string, anchorUrl: string) => string = resolveSpecifierPath
 ): SingleInstanceProbeResult {
-  const outside = dialects.find(({ name, root }) => !resolvesInside(name, root, factoryUrl, resolveSpecifier));
+  const outside = dialects.find((dialect) => !resolvesInside(dialect, factoryUrl, resolveSpecifier));
   if (outside === undefined) return { ok: true };
-  return {
-    ok: false,
-    message: `the factory does not start because the dialect "${outside.name}" resolves outside the package the Lock pins`,
-  };
+  const place = outside.kind === "local" ? "the folder of its base file" : "the package the Lock pins";
+  return { ok: false, message: `the factory does not start because the dialect "${outside.name}" resolves outside ${place}` };
 }
