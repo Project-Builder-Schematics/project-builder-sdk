@@ -6,7 +6,7 @@ import { afterAll, test } from "bun:test";
 import { removeScratch } from "../shared/scratch.ts";
 import { STEP_DEFINITIONS } from "../step-definitions.ts";
 import { loadPickles, requireArchitecture } from "./features.ts";
-import { firstUndefinedStep, runScenario } from "./scenario.ts";
+import { firstUndefinedStep, runScenario, SCENARIO_TIMEOUT_MS } from "./scenario.ts";
 import { DESIGNED, select } from "./selection.ts";
 
 if (requireArchitecture()) {
@@ -26,7 +26,7 @@ if (requireArchitecture()) {
         outcomes.failed++;
         console.log(`rules:designed: ${pickle.feature}: ${pickle.name} fails: ${(error as Error).message}`);
       }
-    });
+    }, SCENARIO_TIMEOUT_MS);
   });
 
   afterAll(removeScratch);

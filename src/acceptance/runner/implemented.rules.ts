@@ -7,7 +7,7 @@ import { removeScratch } from "../shared/scratch.ts";
 import { STEP_DEFINITIONS } from "../step-definitions.ts";
 import { loadPickles, requireArchitecture } from "./features.ts";
 import { IMPLEMENTED_FLOOR, isPending, PENDING_CEILING, PENDING_FEATURES, stalePendingRows } from "./pending-features.ts";
-import { runScenario } from "./scenario.ts";
+import { runScenario, SCENARIO_TIMEOUT_MS } from "./scenario.ts";
 import { IMPLEMENTED, select } from "./selection.ts";
 
 if (requireArchitecture()) {
@@ -34,6 +34,6 @@ if (requireArchitecture()) {
   implemented.forEach((pickle, index) => {
     const name = `${pickle.feature} #${index}: ${pickle.name}`;
     if (isPending(PENDING_FEATURES, pickle)) test.skip(name, () => {});
-    else test(name, () => runScenario(pickle, STEP_DEFINITIONS));
+    else test(name, () => runScenario(pickle, STEP_DEFINITIONS), SCENARIO_TIMEOUT_MS);
   });
 }

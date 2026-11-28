@@ -52,6 +52,17 @@ function fail(violations: readonly Violation[]): never {
   throw new GenerationFailure(violations);
 }
 
+/** R-3: an SDK dialect is a package export that points into dist/dialects/<name>/. */
+function sdkDialects(exports: unknown): string[] {
+  const names = new Set<string>();
+  for (const target of Object.values(exports ?? {})) {
+    const path = typeof target === "string" ? target : (target as { import?: unknown } | null)?.import;
+    const match = typeof path === "string" ? /^\.\/dist\/dialects\/([^/]+)\//.exec(path) : null;
+    if (match?.[1] !== undefined) names.add(match[1]);
+  }
+  return [...names].sort();
+}
+
 function generate(): void {
   const derivation = deriveRunnerClosure(distRoot, ENTRY_RELATIVE_PATH);
   if (derivation.violations.length > 0) fail(derivation.violations);
@@ -107,7 +118,7 @@ function generate(): void {
   // boundary below, not a locally-enumerated case (REQ-FCG-01.3/R1-5; closes R2-4: a
   // pre-existing manifest must not survive this throw, which only the outer boundary's
   // unconditional cleanup guarantees).
-  const rootPackage = JSON.parse(packageJsonBytes.toString("utf-8")) as { version?: unknown };
+  const rootPackage = JSON.parse(packageJsonBytes.toString("utf-8")) as { version?: unknown; exports?: unknown };
 
   // An `as` assertion trusts the shape; it does not check it. A `version`-less package.json
   // (or a non-string one) must fail the build, not silently produce a manifest whose
@@ -130,6 +141,7 @@ function generate(): void {
     entry: `${DIST_DIR_NAME}/${ENTRY_RELATIVE_PATH}`,
     packageVersion,
     files,
+    dialects: sdkDialects(rootPackage.exports),
   };
 
   writeFileSync(tempManifestPath, serialiseManifest(manifest));

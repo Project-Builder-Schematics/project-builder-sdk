@@ -6,6 +6,15 @@ that covers, why it is worth having, the five properties the guarantee rests on,
 know about. It is the contributor-facing counterpart to
 [the engine ↔ SDK wire spec](./contracts/engine-sdk-wire-spec.md).
 
+## The SDK's dialect names
+
+Besides the file records, the manifest lists under `dialects` the names of the SDK's own dialects,
+sorted: every package export that points into `dist/dialects/<name>/` contributes `<name>`. The
+CLI reads the list to refuse a workspace's local dialect named after one of them. The list is
+derived at build time, so a new dialect appears in it without anyone editing a list. It is not an
+integrity record: no digest is attached to it. A manifest without the list is still complete, so
+`manifestVersion` stays `1`.
+
 ## What the manifest covers — and what it does not
 
 `dist/runner-manifest.json` lists 33 files: the 31 emitted `.js` files in the runner's static import
