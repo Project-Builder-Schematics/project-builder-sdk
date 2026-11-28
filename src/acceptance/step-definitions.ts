@@ -4,6 +4,7 @@ import { COMPOSITION_STEPS } from "./authoring/composition-steps.ts";
 import { DIALECT_OP_STEPS } from "./authoring/dialect-ops.ts";
 import { FILES_DIRECTORY_STEPS } from "./authoring/files-directory-steps.ts";
 import { CONFORMANCE_STEPS } from "./authoring/conformance-steps.ts";
+import { EVALUATION_STEPS } from "./authoring/evaluation-steps.ts";
 import { GLOB_STEPS } from "./authoring/glob-steps.ts";
 import { HANDLE_STEPS } from "./authoring/handle-steps.ts";
 import { SESSION_STEPS } from "./authoring/session-steps.ts";
@@ -24,4 +25,5 @@ export const STEP_DEFINITIONS: readonly StepDefinition[] = [
   ...GLOB_STEPS,
   ...ROOT_RESULT_STEPS,
   ...CODEGEN_STEPS,
+  ...EVALUATION_STEPS,
 ];

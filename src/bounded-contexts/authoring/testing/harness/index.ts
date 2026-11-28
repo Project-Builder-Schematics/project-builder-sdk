@@ -8,6 +8,7 @@
 // under `strictFunctionTypes` without a cast.
 import type { Batch, Directive } from "../../domain/valueobjects/wire.ts";
 import type { AuthoringError } from "../../domain/valueobjects/authoring-error.ts";
+import type { Role } from "../../domain/valueobjects/findings.ts";
 import { defineFactory } from "../../application/usecases/run-factory/context.ts";
 import { ContractFake } from "../contract-fake.ts";
 import { nodePackageFiles } from "../../infrastructure/out/fs/package-files.ts";
@@ -87,6 +88,11 @@ export type { Batch, Directive };
  * `packageDir` at all.
  * @param options.declaredDialects - the names of the author-defined dialects the schematic's
  * library declares in its Manifest; a handle of any other named dialect fails the run (A-16).
+ * @param options.role - the role the schematic declares in its Collection definition entry. With
+ * `evaluation`, `fn` returns its Findings and `result.result` holds them as they leave the
+ * schematic: each with its `source`, and only those inside the scope `include` and `exclude` name.
+ * @param options.schematic - the qualified name `collection:schematic` of the schematic, which an
+ * evaluation's findings carry as their `source`; required with the role `evaluation`.
  *
  * @example
  * import { runFactoryForTest } from "@pbuilder/sdk/testing";
@@ -116,7 +122,13 @@ export type { Batch, Directive };
 export async function runFactoryForTest<O, R = void>(
   fn: (input: O) => R | Promise<R>,
   input: O,
-  options?: { seed?: Record<string, string>; packageDir?: string | URL; declaredDialects?: readonly string[] }
+  options?: {
+    seed?: Record<string, string>;
+    packageDir?: string | URL;
+    declaredDialects?: readonly string[];
+    role?: Role;
+    schematic?: string;
+  }
 ): Promise<RunResult<R>> {
   const fake = new ContractFake({ seed: options?.seed ?? {} });
   const emitted: Batch[] = [];
@@ -143,11 +155,10 @@ export async function runFactoryForTest<O, R = void>(
     },
   };
 
+  const identity = { declaredDialects: options?.declaredDialects, role: options?.role, schematic: options?.schematic };
   const run = defineFactory<O, R>(
     fn,
-    options?.packageDir !== undefined
-      ? { packageDir: options.packageDir, packageFiles: nodePackageFiles, declaredDialects: options.declaredDialects }
-      : { declaredDialects: options?.declaredDialects }
+    options?.packageDir !== undefined ? { packageDir: options.packageDir, packageFiles: nodePackageFiles, ...identity } : identity
   );
 
   let error: AuthoringError | unknown;

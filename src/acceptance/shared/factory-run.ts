@@ -28,32 +28,47 @@ export interface FactoryRun {
   declaredDialects?: string[];
   /** The library the schematic belongs to, whose own Manifest is its resolution scope (CA-5). */
   library?: { readonly name: string; readonly declares: readonly string[] };
+  /** The schematic under test, of the collection `app` (CATALOG), and its inputs. */
+  schematic?: string;
+  inputs?: Record<string, unknown>;
+  /** The role of the schematic under test; with `evaluation` the factory returns `findings`. */
+  role?: string;
+  /** The findings the last replay reported, in order. */
+  findings: Array<Record<string, unknown>>;
 }
 
 /** The world key of the author-defined dialects a scenario built, by name. */
 export const AUTHOR_DIALECTS = "authorDialects";
 
 export function factoryRun(world: World): FactoryRun {
-  world.run ??= { seed: {}, actions: [], handles: new Map(), ran: 0, failureExpected: false } satisfies FactoryRun;
+  world.run ??= { seed: {}, actions: [], handles: new Map(), ran: 0, failureExpected: false, findings: [] } satisfies FactoryRun;
   return world.run as FactoryRun;
 }
 
 /** Replays every recorded action in a new run on a copy of the seed. */
 async function replay(run: FactoryRun): Promise<{ result: RunResult; ran: number }> {
   let ran = 0;
+  const evaluation = run.role === "evaluation";
   const result = await runFactoryForTest(
     async () => {
       run.handles.clear();
       run.pending = undefined;
+      run.findings = [];
       for (const action of run.actions) {
         await action(run.handles);
         ran += 1;
       }
       // A pure copy of the Session buffer, so reading it here changes nothing the steps check.
       run.pending = pendingDirectives().map((entry) => `${entry.verb} ${entry.path}`);
+      return evaluation ? { items: run.findings } : undefined;
     },
-    {},
-    { seed: { ...run.seed }, packageDir: run.packageDir, declaredDialects: run.library?.declares ?? run.declaredDialects }
+    run.inputs ?? {},
+    {
+      seed: { ...run.seed },
+      packageDir: run.packageDir,
+      declaredDialects: run.library?.declares ?? run.declaredDialects,
+      ...(evaluation ? { role: "evaluation" as const, schematic: `app:${run.schematic}` } : {}),
+    }
   );
   return { result, ran };
 }

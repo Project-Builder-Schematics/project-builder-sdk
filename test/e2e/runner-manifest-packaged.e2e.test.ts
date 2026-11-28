@@ -32,7 +32,7 @@ const TIER_C_TIMEOUT = 300_000;
 
 const MANIFEST_RELATIVE_PATH = "dist/runner-manifest.json";
 const PACKAGE_NAME = "@pbuilder/sdk";
-const EXPECTED_RECORD_COUNT = 30;
+const EXPECTED_RECORD_COUNT = 33;
 
 // Port 1 is reserved and never listening; the fast-fail flags keep the failure inside seconds.
 const DEAD_REGISTRY = "http://127.0.0.1:1";
@@ -199,12 +199,12 @@ describe("R-8 — the packed package.json declares the codegen bin and the Node 
 });
 
 describe("PMF-02.1 — every digest holds against the packed bytes", () => {
-  it("the packed manifest still carries exactly 30 records, package.json last", () => {
+  it("the packed manifest still carries exactly 33 records, package.json last", () => {
     expect(packedManifest.files.length).toBe(EXPECTED_RECORD_COUNT);
     expect(entryTwentyFour(packedManifest).path).toBe("package.json");
   });
 
-  it("all 30 digests recompute from the extracted tarball's own bytes", () => {
+  it("all 33 digests recompute from the extracted tarball's own bytes", () => {
     const mismatched = packedManifest.files.filter(
       (record) => hashFile(join(extracted, record.path)) !== record.sha256
     );

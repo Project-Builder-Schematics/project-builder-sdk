@@ -43,3 +43,8 @@ export function rejectionForReservedName(name: string): AuthoringError {
 export function rejectionForResult(problem: string): AuthoringError {
   return rejection("invalid-result", `invalid Result: ${problem}`);
 }
+
+// A-122: a scope input of an evaluation factory that is not an array of strings.
+export function rejectionForScopeInput(problem: string): AuthoringError {
+  return rejection("invalid-input", problem);
+}

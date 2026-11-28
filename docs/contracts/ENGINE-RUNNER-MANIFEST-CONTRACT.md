@@ -120,6 +120,14 @@ If any of these has changed on your side, tell us — several of them are load-b
 > following it; that is defence in depth, and the engine's `copyIn` read gate (no-follow plus the
 > link fence) stays the authority at commit time.
 
+> **SDK note, 2026-11-28 (evaluation factories).** The closure is now **31 `.js` files**, so the
+> manifest carries **33 records** with the C# grammar and `package.json`. The new files are
+> `bounded-contexts/authoring/domain/valueobjects/findings.js`,
+> `bounded-contexts/authoring/domain/services/evaluation.js` and
+> `bounded-contexts/authoring/domain/services/glob-match.js`, which `defineFactory` uses to check
+> an evaluation factory's Findings and narrow its scope (A-120 to A-124). The record shape,
+> ordering, algorithm and builtin set are unchanged.
+
 > **SDK note, 2026-11-25 (the C# grammar is listed).** The manifest carries **30 records**: the
 > 28 closure files, `dist/bounded-contexts/authoring/infrastructure/out/dialects/csharp/tree-sitter-c_sharp.wasm`
 > and `package.json`. The grammar is read by path, not imported, so the closure walk cannot reach it;

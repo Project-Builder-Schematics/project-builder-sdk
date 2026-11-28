@@ -33,6 +33,22 @@ for them, not a summary claiming no migration is needed.
   hand, rather than built with `defineDialect`, must add `glob`. `ContractFake`,
   `runFactoryForTest` and the conformance kit's run vehicle answer `list` as the engine does.
 
+### Evaluation factories
+
+- **Added**: a factory run with the role `evaluation` returns `Findings`, `{ items }`, which the
+  role fixes as its Result (A-120). A finding has `rule`, `message` and `severity` (`error` or
+  `warning`), and may have `path`, a 1-based `range` and a `fix`. The SDK checks the shape at
+  the boundary and sets each finding's `source` to the schematic's `collection:schematic`; a
+  finding that sets `source` fails the run with `invalid-result` (A-121).
+- **Added**: the scope inputs `include` and `exclude`, arrays of globs the role imposes (A-122).
+  Every `glob` result is narrowed to the scope (A-123), and a finding whose `path` falls outside
+  it is dropped (A-124). `find` is not narrowed (A-125), and every verb stays available (A-126).
+- **Added**: codegen in project mode reads `role` from the Collection definition entry. For
+  `evaluation` it emits the `Findings` type as `Result` and `include?`/`exclude?` in `Input`, and
+  fails a `schema.json` that declares a Result or an input named `include` or `exclude`.
+- **Added**: `runFactoryForTest` takes `role` and `schematic`, so an evaluation factory can be
+  tested before the runner learns them. The runner still runs every factory as a generator.
+
 ## 0.19.0
 
 ### Local dialects and the base-file check

@@ -41,7 +41,7 @@ const flatComment = (text: string): string =>
 // --- Frozen strings — design.md §9. Copied verbatim; do not paraphrase. -------------------
 
 const SCOPE_PULL_QUOTE =
-  "the manifest covers the runner's pre-factory bootstrap — 28 closure files plus " +
+  "the manifest covers the runner's pre-factory bootstrap — 31 closure files plus " +
   "`package.json` — and nothing that loads after it.";
 
 const EXCLUDED_TREES = [
@@ -79,8 +79,8 @@ const LINK_DEGRADES =
   "wrong-artefact detector and nothing more.";
 
 const ENTRY_24_REASON =
-  '`package.json` is entry #30 because its `"type": "module"` field governs the parse mode of ' +
-  'all 28 closure files: flipping it to `"commonjs"` reinterprets every hashed byte without ' +
+  '`package.json` is entry #33 because its `"type": "module"` field governs the parse mode of ' +
+  'all 31 closure files: flipping it to `"commonjs"` reinterprets every hashed byte without ' +
   "editing one. It is **not** included because of `packageRootFor()` — hashing content cannot " +
   "constrain a topology walk.";
 
@@ -368,7 +368,7 @@ describe("REQ-DLV-01 — documentation counts derived from the live derivation, 
   });
 
   it("DLV-01.2 [red-proof]: a mutant total-entry count is caught, naming the claim and the live value", () => {
-    const mutant = doc().replace("entry #30 because", "entry #31 because");
+    const mutant = doc().replace("entry #33 because", "entry #34 because");
     expect(findStaleCountClaims(mutant, closureFileCount)).toEqual([
       { label: "`entry #N because` heading justification", liveValue: closureFileCount + DIST_ASSETS.length + 1 },
     ]);
@@ -377,7 +377,7 @@ describe("REQ-DLV-01 — documentation counts derived from the live derivation, 
   // Sibling red-proof: the check above only exercises the TOTAL-entry leg; a mutant on the
   // CLOSURE-file leg is caught independently, proving both templates arrays are live, not one.
   it("DLV-01.2 [red-proof]: a mutant closure-file count is caught, naming the claim and the live value", () => {
-    const mutant = doc().replace("28 closure files plus", "27 closure files plus");
+    const mutant = doc().replace("31 closure files plus", "30 closure files plus");
     expect(findStaleCountClaims(mutant, closureFileCount)).toEqual([
       { label: "`N closure files plus package.json` pull-quote", liveValue: closureFileCount },
     ]);

@@ -9,6 +9,8 @@
     "bounded-contexts/authoring/domain/ports/emit-rejection.js",
     "bounded-contexts/authoring/domain/ports/package-files.js",
     "bounded-contexts/authoring/domain/services/directive-factory.js",
+    "bounded-contexts/authoring/domain/services/evaluation.js",
+    "bounded-contexts/authoring/domain/services/glob-match.js",
     "bounded-contexts/authoring/domain/services/run-context.js",
     "bounded-contexts/authoring/domain/services/schema/input-rejection.js",
     "bounded-contexts/authoring/domain/services/schema/schema-files.js",
@@ -16,6 +18,7 @@
     "bounded-contexts/authoring/domain/services/schema/schema-parse.js",
     "bounded-contexts/authoring/domain/services/schema/schema-validate.js",
     "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
+    "bounded-contexts/authoring/domain/valueobjects/findings.js",
     "bounded-contexts/authoring/domain/valueobjects/schema-model.js",
     "bounded-contexts/authoring/domain/valueobjects/wire.js",
     "bounded-contexts/authoring/infrastructure/out/fs/package-files.js",
@@ -102,6 +105,11 @@
     },
     {
       "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/domain/services/evaluation.js",
+      "specifier": "../../../domain/services/evaluation.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
       "to": "bounded-contexts/authoring/domain/services/run-context.js",
       "specifier": "../../../domain/services/run-context.js"
     },
@@ -131,6 +139,11 @@
       "specifier": "../../../domain/valueobjects/authoring-error.js"
     },
     {
+      "from": "bounded-contexts/authoring/application/usecases/run-factory/context.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/findings.js",
+      "specifier": "../../../domain/valueobjects/findings.js"
+    },
+    {
       "from": "bounded-contexts/authoring/application/usecases/run-factory/driving.js",
       "to": "bounded-contexts/authoring/domain/services/schema/schema-locate.js",
       "specifier": "../../../domain/services/schema/schema-locate.js"
@@ -154,6 +167,16 @@
       "from": "bounded-contexts/authoring/domain/services/directive-factory.js",
       "to": "bounded-contexts/authoring/domain/valueobjects/authoring-error.js",
       "specifier": "../valueobjects/authoring-error.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/domain/services/evaluation.js",
+      "to": "bounded-contexts/authoring/domain/services/glob-match.js",
+      "specifier": "./glob-match.js"
+    },
+    {
+      "from": "bounded-contexts/authoring/domain/services/evaluation.js",
+      "to": "bounded-contexts/authoring/domain/valueobjects/schema-model.js",
+      "specifier": "../valueobjects/schema-model.js"
     },
     {
       "from": "bounded-contexts/authoring/domain/services/run-context.js",

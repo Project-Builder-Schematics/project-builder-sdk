@@ -49,9 +49,12 @@ export class Session {
   // The batches being emitted, so a read or a later flush never overtakes them.
   #emitting: Promise<void> = Promise.resolve();
   #inFlight = 0;
+  readonly #inScope: ((path: string) => boolean) | undefined;
 
-  constructor(client: EngineClient) {
+  /** `inScope`, when given, narrows every listing to the paths it keeps (A-123). */
+  constructor(client: EngineClient, inScope?: (path: string) => boolean) {
     this.#client = client;
+    this.#inScope = inScope;
   }
 
   buffer(directive: Directive): void {
@@ -85,7 +88,8 @@ export class Session {
   // A-131: like read(), a listing flushes first, so it sees every write buffered before it.
   async list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]> {
     await this.flush();
-    return this.#client.list(pattern, ignore);
+    const paths = await this.#client.list(pattern, ignore);
+    return this.#inScope === undefined ? paths : paths.filter(this.#inScope);
   }
 
   // SEAM-03 (ADR-01): thin wrappers delegating to #client. Session owns #client, so the

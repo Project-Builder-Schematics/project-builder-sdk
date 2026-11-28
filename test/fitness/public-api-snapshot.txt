@@ -212,7 +212,7 @@
   .instructions: Directive[]
 ./testing Directive type: { op: "create"; create: { pathTemplate: string; template: string; options: JsonValue; force?: boolean; }; } | { op: "modify"; modify: { path: string; content: string; }; } | { op: "delete"; delete: { path: string; }; } | { op: "rename"; rename: { path: string; newName: string; force?: boolean; }; } | { op: "move"; move: { path: string; toDir: string; force?: boolean; }; } | { op: "copy"; copy: { from: string; to: string; force?: boolean; }; } | { op: "copyIn"; copyIn: { from: string; to: string; force?: boolean; }; }
   .op: "create" | "modify" | "rename" | "move" | "copy" | "copyIn" | "delete"
-./testing runFactoryForTest function: <O, R = void>(fn: (input: O) => R | Promise<R>, input: O, options?: { seed?: Record<string, string>; packageDir?: string | URL; declaredDialects?: readonly string[]; }) => Promise<RunResult<R>>
+./testing runFactoryForTest function: <O, R = void>(fn: (input: O) => R | Promise<R>, input: O, options?: { seed?: Record<string, string>; packageDir?: string | URL; declaredDialects?: readonly string[]; role?: Role; schematic?: string; }) => Promise<RunResult<R>>
 ./testing RunResult interface: RunResult<R>
   .tree: ReadonlyMap<string, string>
   .emitted: Batch[]
@@ -904,6 +904,7 @@ reachable ReactOps@index type: { addImport: (ast: SourceFile, name: string, from
   .renameJsxElement: (ast: SourceFile, target: JsxTarget, tag: string) => void
 reachable ReadOps@base-handle interface: ReadOps
   .read: () => Promise<string | undefined>
+reachable Role@findings type: "generator" | "setup" | "teardown" | "evaluation"
 reachable RouteHandle@define-dialect type: { [Key in K]: HandleOf<M[Key]> & { readonly extension: Key; }; }[K]
   .read: () => Promise<string | undefined>
   .replaceContent: (content: string) => Edited<any, OpPack<any>>
