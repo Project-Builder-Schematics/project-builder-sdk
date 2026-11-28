@@ -33,6 +33,29 @@ for them, not a summary claiming no migration is needed.
   hand, rather than built with `defineDialect`, must add `glob`. `ContractFake`,
   `runFactoryForTest` and the conformance kit's run vehicle answer `list` as the engine does.
 
+### Evaluation factories
+
+- **Added**: a factory run with the role `evaluation` returns `Findings`, `{ items }`, which the
+  role fixes as its Result (A-120). A finding has `rule`, `message` and `severity` (`error` or
+  `warning`), and may have `path`, a 1-based `range` and a `fix`. The SDK checks the shape at
+  the boundary and sets each finding's `source` to the schematic's `collection:schematic`; a
+  finding that sets `source` fails the run with `invalid-result` (A-121).
+- **Added**: the scope inputs `include` and `exclude`, arrays of globs the role imposes (A-122).
+  Every `glob` result is narrowed to the scope (A-123), and a finding whose `path` falls outside
+  it is dropped (A-124). `find` is not narrowed (A-125), and every verb stays available (A-126).
+- **Added**: codegen in project mode reads `role` from the Collection definition entry. For
+  `evaluation` it emits the `Findings` type as `Result` and `include?`/`exclude?` in `Input`, and
+  fails a `schema.json` that declares a Result or an input named `include` or `exclude`.
+- **Added**: the runner flags `--role <role>` and `--name <collection:schematic>`, the root's
+  role and qualified name, which the engine passes unread to the runner of the root Frame
+  (CA-19). With `--role evaluation` the factory returns its Findings and each finding's `source`
+  is the name the runner received, an alias included. `--role evaluation` without `--name` exits
+  1 before the handshake. Without `--role`, or with any other role, the factory runs as a
+  generator. The bridge carries both as `BridgeParams.role` and
+  `BridgeParams.name`.
+- **Added**: `runFactoryForTest` takes `role` and `name`, the role and qualified name a
+  test hands the run in place of the runner.
+
 ## 0.19.0
 
 ### Local dialects and the base-file check

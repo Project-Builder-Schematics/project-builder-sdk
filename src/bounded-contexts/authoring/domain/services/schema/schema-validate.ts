@@ -42,7 +42,8 @@ function matchesType(property: SchemaProperty, value: unknown): boolean {
   }
 }
 
-export function validateInput(schema: Schema, input: unknown): ValidationFinding[] {
+/** `imposed` names the inputs a role adds, which `schema.json` never declares (A-122). */
+export function validateInput(schema: Schema, input: unknown, imposed: readonly string[] = []): ValidationFinding[] {
   const findings: ValidationFinding[] = [];
   const record = (input !== null && typeof input === "object" ? input : {}) as { [key: string]: unknown };
 
@@ -71,7 +72,7 @@ export function validateInput(schema: Schema, input: unknown): ValidationFinding
   // mapping, slices load-bearing literals).
   const declaredKeys = new Set(schema.properties.map((property) => property.key));
   for (const key of Object.keys(record)) {
-    if (RESERVED_INPUT_KEYS.has(key) || FORBIDDEN_KEYS.has(key) || !declaredKeys.has(key)) {
+    if (RESERVED_INPUT_KEYS.has(key) || FORBIDDEN_KEYS.has(key) || !(declaredKeys.has(key) || imposed.includes(key))) {
       findings.push({ kind: "disallowed-key", field: key });
     }
   }
@@ -172,6 +173,9 @@ function kindOf(value: unknown): ResultKind {
 function shapeProblem(declared: ResultSchema, value: unknown, where: string): string | undefined {
   const kind = kindOf(value);
   if (!declared.types.includes(kind)) return `${where} must be ${declared.types.join(" or ")}`;
+  if (kind === "string" && declared.choices !== undefined && !declared.choices.includes(value as string)) {
+    return `${where} must be one of: ${declared.choices.join(", ")}`;
+  }
   if (kind === "array" && declared.items !== undefined) {
     const items = declared.items;
     for (const [index, item] of (value as unknown[]).entries()) {

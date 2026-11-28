@@ -12,8 +12,15 @@ import { currentRun, getSessionAls } from "../../../domain/services/run-context.
 import { schemaPathFor } from "../../../domain/services/schema/schema-files.ts";
 import { parseSchema, SchemaParseFailure, formatLocator } from "../../../domain/services/schema/schema-parse.ts";
 import { checkResult, validateInput } from "../../../domain/services/schema/schema-validate.ts";
-import { rejectionFor, rejectionForReservedName, rejectionForResult } from "../../../domain/services/schema/input-rejection.ts";
-import type { Schema } from "../../../domain/valueobjects/schema-model.ts";
+import {
+  rejectionFor,
+  rejectionForReservedName,
+  rejectionForResult,
+  rejectionForScopeInput,
+} from "../../../domain/services/schema/input-rejection.ts";
+import { handedOnFindings, scopeOf, type InScope } from "../../../domain/services/evaluation.ts";
+import { SCOPE_INPUTS, SOURCED_FINDINGS } from "../../../domain/valueobjects/findings.ts";
+import type { ResultSchema, Schema } from "../../../domain/valueobjects/schema-model.ts";
 
 // ADR-0037: the run-boundary join registry. A dialect handle self-registers here at its
 // first op; `defineFactory` drains it (awaits every registered `settle()`) BEFORE
@@ -153,7 +160,7 @@ function emptySchemaWarning(pkg: PackageRun): string {
 // a corrupt/unreadable schema file, only for author-input rejections (invalid-input /
 // reserved-name). A parsed-but-empty schema (zero declared properties) is distinct from no
 // schema at all (REQ-RBV-05.2) — it warns and skips validation, it does not opt out.
-function validateAtRunBoundary(pkg: PackageRun, input: unknown): Schema | undefined {
+function validateAtRunBoundary(pkg: PackageRun, input: unknown, imposed: readonly string[]): Schema | undefined {
   let raw: string | undefined;
   try {
     raw = pkg.files.readText(schemaPathFor(pkg.dir));
@@ -183,7 +190,7 @@ function validateAtRunBoundary(pkg: PackageRun, input: unknown): Schema | undefi
     return schema;
   }
 
-  const findings = validateInput(schema, input);
+  const findings = validateInput(schema, input, imposed);
   const [firstFinding] = findings;
   if (firstFinding !== undefined) {
     throw rejectionFor(firstFinding);
@@ -209,6 +216,28 @@ function checkReservedNames(pkg: PackageRun): void {
   if (reserved !== undefined) {
     throw rejectionForReservedName(reserved);
   }
+}
+
+// A-14 / A-121 / A-124: the Result as it leaves the factory. An evaluation's Findings are checked
+// again once sourced and narrowed, since the `source` it adds counts towards the ceiling (E-40).
+function handOn(declared: ResultSchema | undefined, returned: unknown, source: string | undefined, inScope: InScope | undefined): unknown {
+  const checked = checkResult(declared, returned);
+  if ("problem" in checked) throw rejectionForResult(checked.problem);
+  if (source === undefined) return checked.result;
+  const handed = handedOnFindings(checked.result as { items: Array<{ [key: string]: unknown }> }, source, inScope);
+  if ("problem" in handed) throw rejectionForResult(handed.problem);
+  const recheck = checkResult(SOURCED_FINDINGS, handed.result);
+  if ("problem" in recheck) throw rejectionForResult(recheck.problem);
+  return recheck.result;
+}
+
+/** What a run of a wrapped factory receives besides its input. */
+export interface RunDeps {
+  client: EngineClient;
+  /** The role of the schematic (CA-14), as the runner received it; only `evaluation` changes the run. */
+  role?: string;
+  /** The qualified name `collection:schematic` of the schematic, as the runner received it. */
+  name?: string;
 }
 
 /**
@@ -265,28 +294,45 @@ function checkReservedNames(pkg: PackageRun): void {
  *
  * const runner = defineFactory<Input>(bareFactory, { packageDir: import.meta.dir });
  * await runner(input, { client });
+ *
+ * The returned runner takes, besides the client, the `role` and the qualified `name` of the
+ * schematic it runs, as the caller received them (CA-19). With the role `evaluation`, `fn`
+ * returns its Findings, checked against the shape the role imposes, each finding's `source` is
+ * set to `name`, and `fn` receives the scope inputs `include` and `exclude`; every `glob` result
+ * is narrowed to the scope and so is every finding with a path (A-120 to A-124). Any other role,
+ * or none, runs as a generator.
  */
 export function defineFactory<O, R = void>(
   fn: (o: O) => R | Promise<R>,
   options?: ({ packageDir: string | URL; packageFiles: PackageFiles } | { packageDir?: undefined; packageFiles?: undefined }) & {
     declaredDialects?: readonly string[];
   }
-): (o: O, deps: { client: EngineClient }) => Promise<R> {
-  const wrapped = async (o: O, { client }: { client: EngineClient }): Promise<R> => {
+): (o: O, deps: RunDeps) => Promise<R> {
+  const wrapped = async (o: O, { client, role, name }: RunDeps): Promise<R> => {
+    if (role === "evaluation" && name === undefined) {
+      throw new Error("defineFactory: an evaluation factory needs the qualified name collection:schematic of the schematic");
+    }
+    const source = role === "evaluation" ? name : undefined;
     let packageAnchors: SessionContext["packageAnchors"];
     let packageFiles: SessionContext["packageFiles"];
     let schema: Schema | undefined;
+    let inScope: InScope | undefined;
+    if (source !== undefined) {
+      const scope = scopeOf(o);
+      if ("problem" in scope) throw rejectionForScopeInput(scope.problem);
+      inScope = scope.inScope;
+    }
     if (options?.packageDir !== undefined) {
       const pkg: PackageRun = { files: options.packageFiles, dir: resolvePackageDir(options.packageDir) };
       // REQ-RBV-06: exactly TWO reads, in this order — reserved-name check, then schema
       // validation. No third (containment-ceiling) read exists (ADR-0077 §C).
       checkReservedNames(pkg);
-      schema = validateAtRunBoundary(pkg, o);
+      schema = validateAtRunBoundary(pkg, o, source === undefined ? [] : SCOPE_INPUTS);
       packageAnchors = { packageDir: pkg.dir };
       packageFiles = pkg.files;
     }
     const ctx: SessionContext = {
-      session: new Session(client),
+      session: new Session(client, inScope),
       factory: new DirectiveFactory(),
       dialects: new DialectRegistryImpl(),
       packageAnchors,
@@ -308,11 +354,10 @@ export function defineFactory<O, R = void>(
     try {
       const returned = await getSessionAls<SessionContext>().run(ctx, () => fn(o));
       await ctx.dialects.drain();
-      const checked = checkResult(schema?.result, returned);
-      if ("problem" in checked) throw rejectionForResult(checked.problem);
+      const result = handOn(source === undefined ? schema?.result : SOURCED_FINDINGS, returned, source, inScope);
       await ctx.session.flush();
-      await ctx.session.commit(checked.result);
-      return checked.result as R;
+      await ctx.session.commit(result);
+      return result as R;
     } catch (thrown) {
       // A thrown `undefined` or `null` would read as success to anyone testing the error.
       const err = thrown ?? new Error(`the factory threw ${String(thrown)}`);

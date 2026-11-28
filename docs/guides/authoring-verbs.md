@@ -422,6 +422,9 @@ a file removed earlier is not. Only files are listed; symbolic links never are.
 Every dialect has a `glob` too, which keeps only the files whose extension the dialect declares.
 See [the dialect guide](./authoring-a-dialect.md#many-files-glob).
 
+In an [evaluation schematic](../../README.md#evaluation-schematics) every `glob` result is
+narrowed to the scope the `include` and `exclude` inputs name. `find` is not.
+
 ## Next steps
 
 - [Error contract](./authoring-errors.md) — what `AuthoringError` looks like and how to

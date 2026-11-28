@@ -3,7 +3,8 @@ import { dirname, join, resolve } from "node:path";
 import { isErrnoException } from "../../../../../platform/fs-errors.ts";
 import { isPlainObject } from "../../../domain/valueobjects/schema-model.ts";
 
-type ProjectEntry = { kind: "target"; label: string; directory: string }
+// `evaluation` is the role of the Collection definition entry (CA-14), the only one codegen reads.
+type ProjectEntry = { kind: "target"; label: string; directory: string; evaluation: boolean }
   | { kind: "failure"; label: string; diagnostic: string };
 type ProjectDiscovery = { ok: true; root: string; entries: ProjectEntry[] }
   | { ok: false; diagnostic: string };
@@ -14,6 +15,10 @@ function readObject(path: string): { [key: string]: unknown } {
   const value: unknown = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
   if (!isPlainObject(value)) throw new Error("invalid object");
   return value;
+}
+
+function isEvaluation(registration: unknown): boolean {
+  return isPlainObject(registration) && registration.role === "evaluation";
 }
 
 export function discoverProject(directory?: string): ProjectDiscovery {
@@ -77,7 +82,7 @@ export function discoverProject(directory?: string): ProjectDiscovery {
         const module = resolve(dirname(path), pointer.slice(0, split));
         try {
           if (!statSync(module).isFile()) throw new Error("nonregular module");
-          entries.push({ kind: "target", label, directory: dirname(realpathSync(module)) });
+          entries.push({ kind: "target", label, directory: dirname(realpathSync(module)), evaluation: isEvaluation(registration) });
         } catch {
           entries.push({ kind: "failure", label, diagnostic: `cannot resolve factory module ${JSON.stringify(module)}` });
         }
@@ -114,7 +119,7 @@ export function discoverProject(directory?: string): ProjectDiscovery {
           }
         }
         if (factories !== 1) throw new Error("ambiguous or missing factory");
-        entries.push({ kind: "target", label, directory: realpathSync(path) });
+        entries.push({ kind: "target", label, directory: realpathSync(path), evaluation: isEvaluation(registration) });
       } catch {
         entries.push({ kind: "failure", label, diagnostic: `directory requires exactly one regular factory.ts or factory.js: ${JSON.stringify(path)}` });
       }

@@ -258,6 +258,41 @@ cycles, `undefined` or non-finite numbers. Its JSON encoding may take at most 1 
 fails, the run fails with an `AuthoringError` whose reason is `invalid-result`, and nothing
 is written. A declared `null` is a Result and is returned as `null`.
 
+## Evaluation schematics
+
+A schematic whose Collection definition entry declares `"role": "evaluation"` reads the
+workspace and returns `Findings`, which the role fixes as its Result (A-120). It declares no
+`result` in `schema.json`, and no input named `include` or `exclude`; codegen refuses either.
+Codegen reads the role only in project mode (`pbuilder-codegen` or `--project`), since a single
+directory has no Collection definition entry. For an evaluation schematic it emits `Findings`
+as the `Result` type, and adds the scope inputs `include` and `exclude`, arrays of globs, to
+`Input` (A-122):
+
+```ts
+import type { Input, Result } from "./schema.generated.ts";
+import { glob } from "@pbuilder/sdk/commons";
+
+export default async (input: Input): Promise<Result> => {
+  const routes = await glob("src/**/route.ts");
+  return {
+    items: routes.length > 0 ? [] : [{ rule: "route-missing", message: "no route file", severity: "error" }],
+  };
+};
+```
+
+A finding has `rule`, `message` and `severity` (`error` or `warning`), and may have a
+workspace-relative `path`, a 1-based `range` (`{ start: { line, column }, end? }`) and a `fix`
+(`{ schematic: "collection:schematic", inputs? }`). The SDK checks the returned value against
+that shape as it checks any Result, then sets each finding's `source` to the schematic's
+qualified name. A finding that sets `source` itself fails the run with `invalid-result` (A-121).
+
+The scope is what `include` names, less what `exclude` names; `exclude` alone keeps every file
+it does not name, and with neither nothing is narrowed. Every `glob` result, from commons or a
+Dialect, is narrowed to the scope (A-123), and a finding whose `path` falls outside it is dropped
+before the Result leaves the schematic (A-124). A finding without `path` is always kept. `find`
+is not narrowed, so a check can read the files it compares against (A-125). Every verb a
+generator has is offered as well; the engine discards an evaluation Frame's edits (A-126).
+
 ## Project-wide type generation
 
 ```sh
@@ -277,7 +312,7 @@ Two registration forms are supported:
 ```json
 {
   "collections": {
-    "local": { "hello": { "path": "./schematics/hello" } },
+    "local": { "hello": { "path": "./schematics/hello" }, "check": { "path": "./schematics/check", "role": "evaluation" } },
     "shared": { "path": "./schematics/collection.json" }
   }
 }
@@ -599,6 +634,10 @@ Three things to know:
 - `result.result` is the Result the run committed: what the factory returned, checked
   against the `result` its `schema.json` declares (see [Returning a Result](#returning-a-result)).
   It is `undefined` when the factory declares none or the run failed.
+
+- `role: "evaluation"` with `name: "collection:schematic"` runs the factory as an
+  [evaluation schematic](#evaluation-schematics): `result.result` holds its Findings with their
+  `source`, narrowed to the scope of the `include` and `exclude` inputs.
 
 - `result.reads` counts the reads the engine served for each path, so a test can check
   that the factory reads a file once however many ops it chains on it. A path the factory
