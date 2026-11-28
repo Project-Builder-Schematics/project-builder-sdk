@@ -6,7 +6,7 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
-## 0.20.0 (not yet released)
+## 0.20.0
 
 ### Finding many files
 
@@ -55,6 +55,14 @@ for them, not a summary claiming no migration is needed.
   `BridgeParams.name`.
 - **Added**: `runFactoryForTest` takes `role` and `name`, the role and qualified name a
   test hands the run in place of the runner.
+
+### The SDK's dialects in the runner manifest
+
+- **Added**: `dist/runner-manifest.json` lists under `dialects` the names of the SDK's ten
+  dialects, sorted (R-3). The build derives them from the package exports that point into
+  `dist/dialects/<name>/`. The CLI reads the list to refuse a local dialect named after an SDK
+  dialect (CA-18). `manifestVersion` stays `1`: a manifest without the list is still complete,
+  and the engine and the CLI already accept the extra key.
 
 ## 0.19.0
 
