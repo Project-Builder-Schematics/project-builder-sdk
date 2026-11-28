@@ -5,7 +5,7 @@
  * report never repeats the author's code or values (A-87).
  */
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -190,6 +190,81 @@ describe("checkDialectPackage — base file (A-16)", () => {
   });
 });
 
+// A package whose Dialect lives in dialect.js, with the root export written as given.
+function rootExport(root: unknown, extra: Record<string, unknown> = {}): string {
+  const dir = dialectPackage({ conformanceSource: CONFORMANCE_OF("./dialect.js") });
+  writeFileSync(join(dir, "dialect.js"), DIALECT_MODULE("@company/ini-dialect"));
+  writeFileSync(join(dir, "elsewhere.js"), DIALECT_MODULE("@company/ini-dialect"));
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({ name: "@company/ini-dialect", version: "1.2.3", type: "module", exports: { ".": root, "./conformance": "./conformance.js" }, ...extra })
+  );
+  return dir;
+}
+
+const DIALECT_MODULE = (name: string) => `import { defineDialect } from ${JSON.stringify(KIT)};
+export const astLibrary = { parseIni: (text) => ({ text }), printIni: (tree) => tree.text };
+export const ini = defineDialect({
+  name: ${JSON.stringify(name)},
+  extensions: [".ini"],
+  ast: { parse: (text) => astLibrary.parseIni(text), print: (tree) => astLibrary.printIni(tree) },
+  ops: {},
+});
+export const find = (path) => ini.find(path);
+`;
+
+const CONFORMANCE_OF = (specifier: string) => `import { ini, astLibrary, find } from ${JSON.stringify(specifier)};
+export default {
+  dialect: ini,
+  samples: ["colour=red\\n"],
+  module: { find, astLibrary },
+  expectedAstLibrary: astLibrary,
+  libraryExercise: { path: "settings.ini", seed: "colour=red\\n", expect: "colour=blue\\n", modify: (tree) => { tree.text = "colour=blue\\n"; } },
+};
+`;
+
+describe("checkDialectPackage — which file is the base file (A-16, as the engine's pointer dir)", () => {
+  async function cases(dir: string): Promise<string[]> {
+    return (await checkDialectPackage(dir)).failures.map((failure) => failure.case);
+  }
+
+  it("picks the first of bun, import and default, through nested conditions", async () => {
+    expect(await cases(rootExport({ node: "./elsewhere.js", import: { bun: "./dialect.js", default: "./elsewhere.js" } }))).toEqual([]);
+  });
+
+  it("has no base file when the root export picks nothing, even with a main", async () => {
+    expect(await cases(rootExport({ require: "./dialect.js" }, { main: "./dialect.js" }))).toEqual(["base_mismatch"]);
+  });
+
+  it("has no base file when the root target does not start with ./", async () => {
+    expect(await cases(rootExport("dialect.js"))).toEqual(["base_mismatch"]);
+  });
+
+  it("has no base file when the root target links out of the package", async () => {
+    const dir = rootExport("./linked.js");
+    const outside = join(scratch, `outside-${packages}.js`);
+    writeFileSync(outside, DIALECT_MODULE("@company/ini-dialect"));
+    symlinkSync(outside, join(dir, "linked.js"));
+    writeFileSync(join(dir, "conformance.js"), CONFORMANCE_OF("./linked.js"));
+    expect(await cases(dir)).toEqual(["base_mismatch"]);
+  });
+
+  it("reports a base file that throws while it loads as fixture_threw, naming the base file", async () => {
+    const dir = rootExport("./dialect.js");
+    writeFileSync(join(dir, "conformance.js"), CONFORMANCE_OF("./elsewhere.js"));
+    writeFileSync(join(dir, "dialect.js"), `throw new Error(${JSON.stringify(SECRET)});`);
+    const report = await checkDialectPackage(dir);
+    expect(report.failures).toEqual([{ case: "fixture_threw", reason: "A-16: the dialect's base file threw while it loaded" }]);
+    expect(JSON.stringify(report)).not.toContain(SECRET);
+  });
+
+  it("cannot run when the ./conformance export names a file the package does not hold", async () => {
+    const dir = dialectPackage();
+    rmSync(join(dir, "conformance.js"));
+    await expect(checkDialectPackage(dir)).rejects.toThrow("a module the fixture imports could not be resolved");
+  });
+});
+
 describe("checkLocalDialect (CA-18, A-16)", () => {
   it("passes a conforming local dialect, reported under its key with no version", async () => {
     expect(await checkLocalDialect(localDialect())).toEqual({ passed: true, dialect: "ini", version: "", failures: [] });
@@ -213,6 +288,14 @@ describe("checkLocalDialect (CA-18, A-16)", () => {
   it("fails a local dialect whose conformance file does not exist as fixture_missing", async () => {
     const report = await checkLocalDialect(localDialect({ noConformance: true }));
     expect(report.failures.map((failure) => failure.case)).toEqual(["fixture_missing"]);
+  });
+
+  it("fails a conformance file that links out of the base file's folder as fixture_invalid", async () => {
+    const local = localDialect({ conformanceOutside: true });
+    const linked = join(local.path, "..", "linked-conformance.js");
+    symlinkSync(local.conformance, linked);
+    const report = await checkLocalDialect({ ...local, conformance: linked });
+    expect(report.failures.map((failure) => failure.case)).toEqual(["fixture_invalid"]);
   });
 
   it("fails a conformance file outside the base file's folder as fixture_invalid", async () => {

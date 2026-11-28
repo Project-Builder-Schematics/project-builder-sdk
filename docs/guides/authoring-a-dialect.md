@@ -726,7 +726,9 @@ An author-defined dialect ships its fixture data, so `builder sync` can prove th
 The fixture data must test the Dialect your base file exports, the module your package exports
 at its root (`exports["."]`, or `main` when there is no `exports`): the same Dialect object,
 exported by name or as the default. Fixture data that builds a Dialect of its own fails as
-`base_mismatch`, so the Dialect that passed is the one a factory opens.
+`base_mismatch`, so the Dialect that passed is the one a factory opens. A package whose root export
+picks nothing has no base file and fails the same way; it never falls back to `main`. A base file
+that throws while it loads fails as `fixture_threw`, with a reason that names the base file.
 
 The sync runs `pbuilder-conformance --dialect <installed package dir>`, a bin of the SDK that
 runs under Bun. It prints one JSON line,

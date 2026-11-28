@@ -52,6 +52,7 @@ const CHECKS: ReadonlyArray<readonly [string, ConformanceFailure]> = [
   ["astLibrary runtime library mismatch", { case: "module_shape", reason: "A-11: the module's astLibrary must be the adapter's own library" }],
 ];
 const FIXTURE_THREW: ConformanceFailure = { case: "fixture_threw", reason: "A-11: the fixture's own code threw while it ran" };
+const BASE_THREW: ConformanceFailure = { case: "fixture_threw", reason: "A-16: the dialect's base file threw while it loaded" };
 
 function classify(err: unknown): ConformanceFailure {
   const message = err instanceof Error ? err.message : "";
@@ -72,18 +73,12 @@ function pick(target: unknown): string | undefined {
   return undefined;
 }
 
-function isSubpathMap(exports: unknown): exports is Record<string, unknown> {
-  return typeof exports === "object" && exports !== null && Object.keys(exports).some((key) => key.startsWith("."));
-}
-
-function exportTarget(pkg: { exports?: unknown; main?: unknown }, dir: string, subpath: "." | "./conformance"): string | undefined {
-  if (pkg.exports === undefined || pkg.exports === null) {
-    if (subpath !== ".") return undefined;
-    if (typeof pkg.main === "string" && pkg.main !== "") return pkg.main.startsWith("./") ? pkg.main : `./${pkg.main}`;
-    return existsSync(join(dir, "index.js")) ? "./index.js" : undefined;
-  }
-  if (!isSubpathMap(pkg.exports)) return subpath === "." ? pick(pkg.exports) : undefined;
-  return pick(pkg.exports[subpath]);
+// Only a subpath map can export `./conformance`, so a package with a fixture always picks its base
+// file from `exports["."]`; with nothing there it has none and never falls back to `main`.
+function exportTarget(pkg: { exports?: unknown }, subpath: "." | "./conformance"): string | undefined {
+  const exports = pkg.exports;
+  if (typeof exports !== "object" || exports === null || !Object.keys(exports).some((key) => key.startsWith("."))) return undefined;
+  return pick((exports as Record<string, unknown>)[subpath]);
 }
 
 // A resolution failure says the install is incomplete, not that the dialect is wrong.
@@ -123,8 +118,10 @@ interface FixtureSource {
   report: ConformanceReport;
   /** The fixture file, or undefined when the dialect ships none. */
   fixture: string | undefined;
-  /** The folder the fixture file must sit in. */
+  /** The folder the fixture file must sit in, by its real path too. */
   folder: string;
+  /** A local fixture file that does not exist is missing; a published one is an incomplete install. */
+  absentFile: "missing" | "unresolved";
   /** The dialect's base file, or undefined when it has none. */
   base: string | undefined;
   nameMismatch: ConformanceFailure;
@@ -139,7 +136,7 @@ async function importModule(file: string): Promise<{ ok: true; value: Record<str
   }
 }
 
-async function runFixture({ report, fixture: file, folder, base, nameMismatch }: FixtureSource): Promise<ConformanceReport> {
+async function runFixture({ report, fixture: file, folder, absentFile, base, nameMismatch }: FixtureSource): Promise<ConformanceReport> {
   if (file === undefined) {
     report.failures.push(FIXTURE_MISSING);
     return report;
@@ -149,12 +146,19 @@ async function runFixture({ report, fixture: file, folder, base, nameMismatch }:
     return report;
   }
   if (!existsSync(file)) {
+    if (absentFile === "unresolved") throw new Error("pbuilder-conformance: a module the fixture imports could not be resolved");
     report.failures.push(FIXTURE_MISSING);
+    return report;
+  }
+  // Both checks hold for the file that loads, so a link out of the folder is refused too.
+  const real = realpathSync(file);
+  if (!isInside(realpathSync(folder), real)) {
+    report.failures.push(FIXTURE_INVALID);
     return report;
   }
   // By real path, as the base file: Bun 1.4 can load one file twice under two spellings of its
   // path, and the base check compares the Dialect by reference.
-  const loaded = await importModule(realpathSync(file));
+  const loaded = await importModule(real);
   if (!loaded.ok) {
     report.failures.push(FIXTURE_THREW);
     return report;
@@ -167,7 +171,7 @@ async function runFixture({ report, fixture: file, folder, base, nameMismatch }:
   if (fixture.dialect.name !== report.dialect) report.failures.push(nameMismatch);
   const baseModule = base !== undefined && existsSync(base) ? await importModule(base) : undefined;
   if (baseModule !== undefined && !baseModule.ok) {
-    report.failures.push(FIXTURE_THREW);
+    report.failures.push(BASE_THREW);
     return report;
   }
   if (baseModule === undefined || !Object.values(baseModule.value).includes(fixture.dialect)) report.failures.push(BASE_MISMATCH);
@@ -190,16 +194,17 @@ async function runFixture({ report, fixture: file, folder, base, nameMismatch }:
  * if (!report.passed) console.log(report.failures.map((failure) => failure.case));
  */
 export async function checkDialectPackage(dir: string): Promise<ConformanceReport> {
-  const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf-8")) as { name?: unknown; version?: unknown; exports?: unknown; main?: unknown };
+  const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf-8")) as { name?: unknown; version?: unknown; exports?: unknown };
   if (typeof pkg.name !== "string" || pkg.name.length === 0) {
     throw new Error(`pbuilder-conformance: the package.json in --dialect has no name`);
   }
-  const fixture = exportTarget(pkg, dir, "./conformance");
+  const fixture = exportTarget(pkg, "./conformance");
   return runFixture({
     report: { passed: false, dialect: pkg.name, version: typeof pkg.version === "string" ? pkg.version : "", failures: [] },
     fixture: fixture === undefined ? undefined : resolve(dir, fixture),
     folder: dir,
-    base: baseFile(dir, exportTarget(pkg, dir, ".")),
+    absentFile: "unresolved",
+    base: baseFile(dir, exportTarget(pkg, ".")),
     nameMismatch: NAME_MISMATCH,
   });
 }
@@ -226,6 +231,7 @@ export async function checkLocalDialect({ name, path, conformance }: LocalDialec
     report: { passed: false, dialect: name, version: "", failures: [] },
     fixture: resolve(conformance),
     folder: dirname(resolve(path)),
+    absentFile: "missing",
     base: existsSync(path) ? realpathSync(path) : undefined,
     nameMismatch: LOCAL_NAME_MISMATCH,
   });

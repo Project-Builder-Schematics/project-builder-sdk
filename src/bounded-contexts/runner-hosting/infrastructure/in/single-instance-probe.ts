@@ -128,7 +128,6 @@ export function probeSingleInstance(
   return { ok: false, message: splitMessage(runnerRoot, factoryRoot) };
 }
 
-/** One dialect the Frame's library declares, with the root of the copy the Lock pins (CA-5). */
 /** A published dialect, installed into the Cache: `root` is the package the Lock pins. */
 export interface PublishedDialect {
   kind?: undefined;
@@ -145,6 +144,7 @@ export interface LocalDeclaredDialect {
   path: string;
 }
 
+/** One dialect the Frame's library declares (CA-5): published unless its `kind` is `"local"`. */
 export type DeclaredDialect = PublishedDialect | LocalDeclaredDialect;
 
 function isInside(root: string, file: string): boolean {
