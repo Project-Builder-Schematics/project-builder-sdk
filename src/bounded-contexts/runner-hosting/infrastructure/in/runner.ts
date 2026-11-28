@@ -65,10 +65,24 @@ interface ParsedArgv {
   dialects: DeclaredDialect[];
 }
 
-const DIALECTS_SHAPE = "pbuilder-runner: --dialects must be a JSON array of {name, version, root} strings";
+const DIALECTS_SHAPE =
+  'pbuilder-runner: --dialects must be a JSON array of {name, version, root} or {kind: "local", name, root, path} strings';
 
-// A-16 / CA-5: the dialects the Frame's library declares, as the engine read them from the Lock.
-// The value is never echoed: it holds absolute paths.
+function fields(entry: unknown, keys: readonly string[]): Record<string, string> | undefined {
+  if (typeof entry !== "object" || entry === null) return undefined;
+  const record = entry as Record<string, unknown>;
+  const picked: Record<string, string> = {};
+  for (const key of keys) {
+    const field = record[key];
+    if (typeof field !== "string" || field === "") return undefined;
+    picked[key] = field;
+  }
+  return picked;
+}
+
+// A-16 / CA-5 / CA-18: the dialects the Frame's library declares, as the engine read them from the
+// Lock. An entry without `kind` is a published dialect. The value is never echoed: it holds
+// absolute paths.
 function parseDialects(value: string): DeclaredDialect[] | undefined {
   let parsed: unknown;
   try {
@@ -77,14 +91,22 @@ function parseDialects(value: string): DeclaredDialect[] | undefined {
     return undefined;
   }
   if (!Array.isArray(parsed)) return undefined;
-  const isEntry = (entry: unknown): entry is DeclaredDialect =>
-    typeof entry === "object" &&
-    entry !== null &&
-    (["name", "version", "root"] as const).every((key) => {
-      const field = (entry as Record<string, unknown>)[key];
-      return typeof field === "string" && field !== "";
-    });
-  return parsed.every(isEntry) ? parsed.map(({ name, version, root }) => ({ name, version, root })) : undefined;
+  const dialects: DeclaredDialect[] = [];
+  for (const entry of parsed) {
+    const kind = typeof entry === "object" && entry !== null ? (entry as { kind?: unknown }).kind : undefined;
+    if (kind === "local") {
+      const local = fields(entry, ["name", "root", "path"]);
+      if (local === undefined) return undefined;
+      dialects.push({ kind: "local", name: local.name!, root: local.root!, path: local.path! });
+    } else if (kind === undefined) {
+      const published = fields(entry, ["name", "version", "root"]);
+      if (published === undefined) return undefined;
+      dialects.push({ name: published.name!, version: published.version!, root: published.root! });
+    } else {
+      return undefined;
+    }
+  }
+  return dialects;
 }
 
 // REQ-RUN-01: `--factory <url>#<export>` required; exactly one of `--input <json>` XOR

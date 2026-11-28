@@ -1,6 +1,7 @@
 // A-16 / CA-5 — the runner reads the declared dialects of the Frame from `--dialects`. Before the
 // factory starts it resolves each declared name from the factory's directory and requires the real
-// path inside the package the Lock pins; a factory may then open handles only of declared dialects.
+// path inside the package the Lock pins, or, for a local dialect (CA-18), its base file's real path
+// inside the folder of that file; a factory may then open handles only of declared dialects.
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -20,6 +21,9 @@ const POINTER = `${pathToFileURL(join(FIXTURE_DIR, "factory.js")).href}`;
 const LINK = join(FIXTURE_DIR, "node_modules/@company/ini-dialect");
 const NAME = "@company/ini-dialect";
 const OUTSIDE = `pbuilder-runner: the factory does not start because the dialect "${NAME}" resolves outside the package the Lock pins`;
+const SHAPE = 'pbuilder-runner: --dialects must be a JSON array of {name, version, root} or {kind: "local", name, root, path} strings\n';
+const LOCAL_FOLDER = join(FIXTURE_DIR, "dialects/ini");
+const LOCAL_POINTER = `${pathToFileURL(join(FIXTURE_DIR, "local-factory.js")).href}`;
 
 const scratch = mkdtempSync(join(tmpdir(), "runner-dialects-"));
 const pinned = join(scratch, "cache/npm/@company/ini-dialect/1.0.0/package");
@@ -42,6 +46,26 @@ beforeAll(() => {
   mkdirSync(join(FIXTURE_DIR, "node_modules/@company"), { recursive: true });
   copyFileSync(join(ROOT, "test/fixtures/author-dialect/factory.js"), join(FIXTURE_DIR, "factory.js"));
   symlinkSync(pinned, LINK, "dir");
+  mkdirSync(LOCAL_FOLDER, { recursive: true });
+  writeFileSync(
+    join(LOCAL_FOLDER, "index.js"),
+    `import { defineDialect } from ${JSON.stringify(pathToFileURL(join(ROOT, "src/dialect/index.ts")).href)};
+export const ini = defineDialect({ name: "ini", extensions: [".ini"], ast: { parse: (text) => ({ text }), print: (tree) => tree.text }, ops: {} });
+`
+  );
+  // A base file that is a link to a copy outside the dialect's folder.
+  writeFileSync(join(scratch, "elsewhere.js"), 'export const ini = undefined;\n');
+  symlinkSync(join(scratch, "elsewhere.js"), join(LOCAL_FOLDER, "linked.js"));
+  writeFileSync(
+    join(FIXTURE_DIR, "local-factory.js"),
+    `import { ini } from "./dialects/ini/index.js";
+export default async function localDialectFactory() {
+  await ini.find("settings.ini").modify((tree) => {
+    tree.text = "colour=blue";
+  });
+}
+`
+  );
 });
 
 afterAll(() => {
@@ -121,7 +145,39 @@ describe("runner --dialects (A-16, CA-5)", () => {
     expect(host.stderrText()).toEqual(`${OUTSIDE}\n`);
   });
 
+  function localFlag(base: string): string {
+    return JSON.stringify([{ kind: "local", name: "ini", root: realpathSync(LOCAL_FOLDER), path: join(realpathSync(LOCAL_FOLDER), base) }]);
+  }
+
+  it("runs a factory that edits through a local dialect whose base file sits in its folder (CA-18)", async () => {
+    host = makeInProcessHost({ seed: { "settings.ini": "colour=red" } });
+    host.sendReady();
+    const code = await runRunner(["--factory", LOCAL_POINTER, "--input", "{}", "--dialects", localFlag("index.js")], host.io);
+    expect(host.stderrText()).toEqual("");
+    expect(code).toEqual(0);
+    expect(host.fake.committedTree().get("settings.ini")).toEqual("colour=blue");
+  });
+
+  it("does not start the factory when a local dialect's base file resolves outside its folder", async () => {
+    host = makeInProcessHost({ seed: { "settings.ini": "colour=red" } });
+    host.sendReady();
+    expect(await runRunner(["--factory", LOCAL_POINTER, "--input", "{}", "--dialects", localFlag("linked.js")], host.io)).toEqual(1);
+    expect(host.stderrText()).toEqual(
+      'pbuilder-runner: the factory does not start because the dialect "ini" resolves outside the folder of its base file\n'
+    );
+    expect(host.fake.committedTree().get("settings.ini")).toBeUndefined();
+  });
+
+  it("does not start the factory when a local dialect's base file does not exist", async () => {
+    host = makeInProcessHost({ seed: { "settings.ini": "colour=red" } });
+    host.sendReady();
+    expect(await runRunner(["--factory", LOCAL_POINTER, "--input", "{}", "--dialects", localFlag("missing.js")], host.io)).toEqual(1);
+    expect(host.stderrText()).toContain('the dialect "ini" resolves outside the folder of its base file');
+  });
+
   for (const [label, value] of [
+    ["a local entry without a path", JSON.stringify([{ kind: "local", name: "ini", root: "/x" }])],
+    ["an entry of an unknown kind", JSON.stringify([{ kind: "remote", name: "ini", version: "1.0.0", root: "/x", path: "/x/i.js" }])],
     ["not JSON", "{"],
     ["not an array", "{}"],
     ["an entry without a root", JSON.stringify([{ name: NAME, version: "1.0.0" }])],
@@ -130,7 +186,7 @@ describe("runner --dialects (A-16, CA-5)", () => {
     it(`rejects --dialects that is ${label} before the handshake, without echoing it`, async () => {
       const io = unreachedIo();
       expect(await runRunner(["--factory", POINTER, "--input", "{}", "--dialects", value], io)).toEqual(1);
-      expect(io.stderrText()).toEqual("pbuilder-runner: --dialects must be a JSON array of {name, version, root} strings\n");
+      expect(io.stderrText()).toEqual(SHAPE);
     });
   }
 });
