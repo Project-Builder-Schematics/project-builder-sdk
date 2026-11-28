@@ -1,9 +1,9 @@
-// CA-13 / A-16: runs the conformance fixture a dialect package ships as `<pkg>/conformance`. The
-// report names each broken check by a fixed case and reason, never by the fixture's own message,
+// CA-13 / CA-18 / A-16: runs the conformance fixture of a dialect, published (`<pkg>/conformance`)
+// or local (the file its declaration names). The report names each broken check by a fixed case and reason, never by the fixture's own message,
 // which may carry the author's samples or the text of an error their code threw (A-87).
 
-import { readFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { testDialect, type DialectFixture } from "./index.ts";
 
@@ -31,6 +31,14 @@ const NAME_MISMATCH: ConformanceFailure = {
   case: "name_mismatch",
   reason: "A-16: the dialect's name is not the name of its package",
 };
+const LOCAL_NAME_MISMATCH: ConformanceFailure = {
+  case: "name_mismatch",
+  reason: "A-16: the dialect's name is not the key of its declaration",
+};
+const BASE_MISMATCH: ConformanceFailure = {
+  case: "base_mismatch",
+  reason: "A-16: the fixture data tests a Dialect other than the one its base file exports",
+};
 
 // Matched against testDialect's own message text, first match wins.
 const CHECKS: ReadonlyArray<readonly [string, ConformanceFailure]> = [
@@ -50,14 +58,32 @@ function classify(err: unknown): ConformanceFailure {
   return CHECKS.find(([marker]) => message.includes(marker))?.[1] ?? FIXTURE_THREW;
 }
 
-function conformanceTarget(exports: unknown): string | undefined {
-  if (typeof exports !== "object" || exports === null) return undefined;
-  const entry = (exports as Record<string, unknown>)["./conformance"];
-  if (typeof entry === "string") return entry;
-  if (typeof entry !== "object" || entry === null) return undefined;
-  const conditions = entry as Record<string, unknown>;
-  const target = conditions.bun ?? conditions.import ?? conditions.default;
-  return typeof target === "string" ? target : undefined;
+const CONDITIONS = ["bun", "import", "default"] as const;
+
+// The engine's pointer dir (pointerdir.go) picks targets the same way, so the base file the fixture
+// checks is the file the Run loads.
+function pick(target: unknown): string | undefined {
+  if (typeof target === "string") return target;
+  if (typeof target !== "object" || target === null || Array.isArray(target)) return undefined;
+  for (const condition of CONDITIONS) {
+    const picked = pick((target as Record<string, unknown>)[condition]);
+    if (picked !== undefined) return picked;
+  }
+  return undefined;
+}
+
+function isSubpathMap(exports: unknown): exports is Record<string, unknown> {
+  return typeof exports === "object" && exports !== null && Object.keys(exports).some((key) => key.startsWith("."));
+}
+
+function exportTarget(pkg: { exports?: unknown; main?: unknown }, dir: string, subpath: "." | "./conformance"): string | undefined {
+  if (pkg.exports === undefined || pkg.exports === null) {
+    if (subpath !== ".") return undefined;
+    if (typeof pkg.main === "string" && pkg.main !== "") return pkg.main.startsWith("./") ? pkg.main : `./${pkg.main}`;
+    return existsSync(join(dir, "index.js")) ? "./index.js" : undefined;
+  }
+  if (!isSubpathMap(pkg.exports)) return subpath === "." ? pick(pkg.exports) : undefined;
+  return pick(pkg.exports[subpath]);
 }
 
 // A resolution failure says the install is incomplete, not that the dialect is wrong.
@@ -76,10 +102,82 @@ function isInside(dir: string, file: string): boolean {
   return path !== "" && !path.startsWith("..") && !isAbsolute(path);
 }
 
+// As the pointer dir: a "./" target whose real path stays inside the package, with no probing.
+function baseFile(dir: string, target: string | undefined): string | undefined {
+  if (target === undefined || !target.startsWith("./")) return undefined;
+  try {
+    const file = realpathSync(resolve(dir, target));
+    return isInside(realpathSync(dir), file) ? file : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function isFixture(value: unknown): value is DialectFixture {
   if (typeof value !== "object" || value === null) return false;
   const fixture = value as Partial<DialectFixture>;
   return typeof fixture.dialect === "object" && fixture.dialect !== null && Array.isArray(fixture.samples);
+}
+
+interface FixtureSource {
+  report: ConformanceReport;
+  /** The fixture file, or undefined when the dialect ships none. */
+  fixture: string | undefined;
+  /** The folder the fixture file must sit in. */
+  folder: string;
+  /** The dialect's base file, or undefined when it has none. */
+  base: string | undefined;
+  nameMismatch: ConformanceFailure;
+}
+
+async function importModule(file: string): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false }> {
+  try {
+    return { ok: true, value: (await import(pathToFileURL(file).href)) as Record<string, unknown> };
+  } catch (err) {
+    if (isUnresolvedModule(err)) throw new Error("pbuilder-conformance: a module the fixture imports could not be resolved");
+    return { ok: false };
+  }
+}
+
+async function runFixture({ report, fixture: file, folder, base, nameMismatch }: FixtureSource): Promise<ConformanceReport> {
+  if (file === undefined) {
+    report.failures.push(FIXTURE_MISSING);
+    return report;
+  }
+  if (!isInside(folder, file)) {
+    report.failures.push(FIXTURE_INVALID);
+    return report;
+  }
+  if (!existsSync(file)) {
+    report.failures.push(FIXTURE_MISSING);
+    return report;
+  }
+  // By real path, as the base file: Bun 1.4 can load one file twice under two spellings of its
+  // path, and the base check compares the Dialect by reference.
+  const loaded = await importModule(realpathSync(file));
+  if (!loaded.ok) {
+    report.failures.push(FIXTURE_THREW);
+    return report;
+  }
+  const fixture = loaded.value.default;
+  if (!isFixture(fixture)) {
+    report.failures.push(FIXTURE_INVALID);
+    return report;
+  }
+  if (fixture.dialect.name !== report.dialect) report.failures.push(nameMismatch);
+  const baseModule = base !== undefined && existsSync(base) ? await importModule(base) : undefined;
+  if (baseModule !== undefined && !baseModule.ok) {
+    report.failures.push(FIXTURE_THREW);
+    return report;
+  }
+  if (baseModule === undefined || !Object.values(baseModule.value).includes(fixture.dialect)) report.failures.push(BASE_MISMATCH);
+  try {
+    await testDialect(fixture);
+  } catch (err) {
+    report.failures.push(classify(err));
+  }
+  report.passed = report.failures.length === 0;
+  return report;
 }
 
 /**
@@ -92,44 +190,43 @@ function isFixture(value: unknown): value is DialectFixture {
  * if (!report.passed) console.log(report.failures.map((failure) => failure.case));
  */
 export async function checkDialectPackage(dir: string): Promise<ConformanceReport> {
-  const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf-8")) as { name?: unknown; version?: unknown; exports?: unknown };
+  const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf-8")) as { name?: unknown; version?: unknown; exports?: unknown; main?: unknown };
   if (typeof pkg.name !== "string" || pkg.name.length === 0) {
     throw new Error(`pbuilder-conformance: the package.json in --dialect has no name`);
   }
-  const report: ConformanceReport = {
-    passed: false,
-    dialect: pkg.name,
-    version: typeof pkg.version === "string" ? pkg.version : "",
-    failures: [],
-  };
-  const target = conformanceTarget(pkg.exports);
-  if (target === undefined) {
-    report.failures.push(FIXTURE_MISSING);
-    return report;
-  }
-  const file = resolve(dir, target);
-  if (!isInside(dir, file)) {
-    report.failures.push(FIXTURE_INVALID);
-    return report;
-  }
-  let fixture: unknown;
-  try {
-    fixture = ((await import(pathToFileURL(file).href)) as { default?: unknown }).default;
-  } catch (err) {
-    if (isUnresolvedModule(err)) throw new Error("pbuilder-conformance: a module the fixture imports could not be resolved");
-    report.failures.push(FIXTURE_THREW);
-    return report;
-  }
-  if (!isFixture(fixture)) {
-    report.failures.push(FIXTURE_INVALID);
-    return report;
-  }
-  if (fixture.dialect.name !== pkg.name) report.failures.push(NAME_MISMATCH);
-  try {
-    await testDialect(fixture);
-  } catch (err) {
-    report.failures.push(classify(err));
-  }
-  report.passed = report.failures.length === 0;
-  return report;
+  const fixture = exportTarget(pkg, dir, "./conformance");
+  return runFixture({
+    report: { passed: false, dialect: pkg.name, version: typeof pkg.version === "string" ? pkg.version : "", failures: [] },
+    fixture: fixture === undefined ? undefined : resolve(dir, fixture),
+    folder: dir,
+    base: baseFile(dir, exportTarget(pkg, dir, ".")),
+    nameMismatch: NAME_MISMATCH,
+  });
+}
+
+export interface LocalDialect {
+  /** The key of the dialect's declaration in the Manifest. */
+  name: string;
+  /** The dialect's base file, the module that exports the Dialect. */
+  path: string;
+  /** The file that exports the dialect's conformance fixture data. */
+  conformance: string;
+}
+
+/**
+ * Runs the conformance fixture of a local dialect (CA-18). The fixture data must test a Dialect
+ * named after the declaration's key and exported by the base file, and sit in the base file's
+ * folder. Throws only when a module the fixture imports cannot be resolved.
+ *
+ * @example
+ * const report = await checkLocalDialect({ name: "ini", path: "/ws/dialects/ini/index.ts", conformance: "/ws/dialects/ini/conformance.ts" });
+ */
+export async function checkLocalDialect({ name, path, conformance }: LocalDialect): Promise<ConformanceReport> {
+  return runFixture({
+    report: { passed: false, dialect: name, version: "", failures: [] },
+    fixture: resolve(conformance),
+    folder: dirname(resolve(path)),
+    base: existsSync(path) ? realpathSync(path) : undefined,
+    nameMismatch: LOCAL_NAME_MISMATCH,
+  });
 }
