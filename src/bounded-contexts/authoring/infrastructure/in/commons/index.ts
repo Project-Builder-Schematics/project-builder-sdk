@@ -10,6 +10,7 @@ import { readTemplateFile, runScaffold, runCopyIn } from "../../../application/u
 import type { ScaffoldArgs } from "../../../application/usecases/scaffold/index.ts";
 
 export type { FoundHandle, WritableHandle };
+export type { GlobOptions } from "../../../domain/services/define-dialect.ts";
 // ADR-0023: AuthoringError (+ its supporting types) is an author-facing DATA type, not
 // kit MACHINERY (the port, the session, the directive factory stay unexported) — it
 // legitimately crosses the ADR-0009 boundary via the same two-step pattern
@@ -24,7 +25,7 @@ export { classifyContent } from "../../../domain/services/classify-content.ts";
 export type { ContentState } from "../../../domain/services/classify-content.ts";
 
 // The verbs that need no adapting are the use case's own functions.
-export { find, replaceContent, remove, rename, move, copy, pendingDirectives } from "../../../application/usecases/authoring-verbs/index.ts";
+export { find, glob, replaceContent, remove, rename, move, copy, pendingDirectives } from "../../../application/usecases/authoring-verbs/index.ts";
 
 /**
  * Options for the `create` author verb.

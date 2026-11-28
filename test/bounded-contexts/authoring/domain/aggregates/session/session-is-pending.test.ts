@@ -15,6 +15,9 @@ function noopClient(): EngineClient {
     async read() {
       return undefined;
     },
+    async list() {
+      return [];
+    },
     async commit() {},
     async discard() {},
   };

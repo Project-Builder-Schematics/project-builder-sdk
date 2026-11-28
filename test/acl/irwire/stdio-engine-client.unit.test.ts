@@ -819,3 +819,42 @@ describe("REQ-WPS-08 — factory-pointer/ir.emit rejection wire shape", () => {
     expect((caught as EmitRejection).failedIndex).toBeUndefined();
   });
 });
+
+describe("tree.list — the listing behind glob (engine ADR-0070)", () => {
+  it("sends {pattern} alone when no ignore is given, and {pattern, ignore} when one is", async () => {
+    const channel = new ScriptedChannel((req) => ({ type: "response", id: req.id, result: { paths: [] } }));
+    const client = new StdioEngineClient(channel);
+
+    await client.list("src/**");
+    await client.list("src/**", ["**/*.test.ts"]);
+
+    const [bare, ignoring] = channel.written as any[];
+    expect(bare.method).toEqual("tree.list");
+    expect(bare.params).toEqual({ pattern: "src/**" });
+    expect(Object.hasOwn(bare.params, "ignore")).toBe(false);
+    expect(ignoring.params).toEqual({ pattern: "src/**", ignore: ["**/*.test.ts"] });
+  });
+
+  it("resolves the host's paths as given, [] included", async () => {
+    const answers = [{ paths: ["src/a.ts", "src/b.ts"] }, { paths: [] }];
+    const channel = new ScriptedChannel((req) => ({ type: "response", id: req.id, result: answers.shift() }));
+    const client = new StdioEngineClient(channel);
+
+    expect(await client.list("src/**")).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(await client.list("lib/**")).toEqual([]);
+  });
+
+  it("a host rejection, such as a pattern that escapes the workspace, rejects as IntentRejectedError", async () => {
+    const channel = new ScriptedChannel((req) => ({
+      type: "response",
+      id: req.id,
+      error: { code: -32000, message: "path escapes workspace" },
+    }));
+    const client = new StdioEngineClient(channel);
+
+    const caught = await client.list("../**").catch((err: unknown) => err);
+
+    expect(caught).toBeInstanceOf(IntentRejectedError);
+    expect((caught as IntentRejectedError).message).toBe("path escapes workspace");
+  });
+});

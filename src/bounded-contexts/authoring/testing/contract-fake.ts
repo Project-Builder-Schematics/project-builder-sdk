@@ -11,6 +11,7 @@ import type { Batch, Directive } from "../domain/valueobjects/wire.ts";
 import { exceedsEmitBatchBudget } from "../domain/valueobjects/wire.ts";
 import { EMIT_BATCH_BUDGET_BYTES, EMIT_FRAME_ENVELOPE_ALLOWANCE_BYTES } from "../../../shared-kernel/batch-cap.ts";
 import { EmitRejection } from "../domain/ports/emit-rejection.ts";
+import { listMatching } from "./glob-pattern.ts";
 import { deepEqual } from "../../../platform/deep-equal.ts";
 import {
   CONTRACT_FAKE_PREFIX,
@@ -133,6 +134,13 @@ export class ContractFake implements EngineClient {
       return this.#seed[filePath]!;
     }
     return undefined;
+  }
+
+  // Sees staging as read() does: staged and seeded paths, minus the deleted ones.
+  async list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]> {
+    const present = new Set([...Object.keys(this.#seed), ...this.#tree.keys()]);
+    for (const p of this.#deleted) present.delete(p);
+    return listMatching(present, pattern, ignore);
   }
 
   #exists(p: string): boolean {

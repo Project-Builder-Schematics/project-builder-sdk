@@ -17,6 +17,11 @@ export interface DialectAst<Ast = any> {
     retire?(ast: Ast): void;
 }
 export interface DialectDescriptor<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
+    /**
+     * The name of the package that ships an author-defined dialect, the name its Dialect
+     * declaration uses (A-16). The SDK's dialects carry none and are never declared.
+     */
+    name?: string;
     extensions: string[];
     ast: DialectAst<Ast>;
     ops: Ops;
@@ -54,11 +59,27 @@ export type Handle<State extends "found" | "writable" = "found", Ast = any, Ops 
 } & OpMethods<Ast, Ops> & (State extends "found" ? {
     remove(): void;
 } : {}) & PromiseLike<void>;
+/**
+ * The options of `glob`: the patterns of the files to leave out (A-130).
+ *
+ * @example
+ * const options: GlobOptions = { ignore: ["**\/*.test.ts", "src/generated/**"] };
+ */
+export interface GlobOptions {
+    ignore?: readonly string[];
+}
 export interface Dialect<Ast = any, Ops extends OpPack<Ast> = OpPack<Ast>> {
+    readonly name?: string;
     readonly extensions: readonly string[];
     readonly ast: DialectAst<Ast>;
     readonly ops: Ops;
     find(path: string): Handle<"found", Ast, Ops>;
+    /**
+     * Opens every file `pattern` matches whose extension the dialect declares, ordered by path; a
+     * file of any other extension is left out without an error (A-132). Resolves `[]` when none
+     * matches. The pattern syntax and `ignore` are commons `glob`'s.
+     */
+    glob(pattern: string, options?: GlobOptions): Promise<Handle<"found", Ast, Ops>[]>;
 }
 /**
  * Declares a named collection of ops over one AST type — usable standalone (REQ-DG-02.3),
@@ -85,6 +106,22 @@ export declare function defineOpPack<Ast, Ops extends OpPack<Ast>>(ops: Ops): Op
  * });
  */
 export declare function defineDialect<Ast, Ops extends OpPack<Ast>>(d: DialectDescriptor<Ast, Ops>): Dialect<Ast, Ops>;
+/**
+ * Defines an author-defined dialect, named by the package that ships it (A-16): a factory opens
+ * its handles only when the schematic's library declares that name in its Manifest, and the
+ * conformance fixture rejects a name that is not the package's.
+ *
+ * @example
+ * export const ini = defineDialect({
+ *   name: "@company/ini-dialect",
+ *   extensions: [".ini"],
+ *   ast: { parse: (text) => parseIni(text), print: (tree) => printIni(tree) },
+ *   ops: {},
+ * });
+ */
+export declare function defineAuthorDialect<Ast, Ops extends OpPack<Ast>>(d: DialectDescriptor<Ast, Ops> & {
+    name: string;
+}): Dialect<Ast, Ops>;
 type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 /**
  * The base handle's own vocabulary (REQ-DG-02, ADR-0010 amendment) — an op-pack op sharing
@@ -134,16 +171,28 @@ type DialectsByExtension = {
     readonly [extension: string]: Dialect;
 };
 type HandleOf<D> = D extends Dialect<infer A, infer O> ? Handle<"found", A, O> : never;
+type RouteHandle<M extends DialectsByExtension, K extends keyof M & string> = {
+    [Key in K]: HandleOf<M[Key]> & {
+        readonly extension: Key;
+    };
+}[K];
 type MatchingKey<M, P extends string> = {
     [K in keyof M & string]: P extends `${string}${K}` ? K : never;
 }[keyof M & string];
 type LongestKey<Ks extends string> = {
     [K in Ks]: [Extract<Exclude<Ks, K>, `${string}${K}`>] extends [never] ? K : never;
 }[Ks];
-type RoutedHandle<M extends DialectsByExtension, P extends string> = string extends P ? HandleOf<M[keyof M]> : HandleOf<M[LongestKey<MatchingKey<M, P>>]>;
+type RoutedHandle<M extends DialectsByExtension, P extends string> = string extends P ? RouteHandle<M, keyof M & string> : RouteHandle<M, LongestKey<MatchingKey<M, P>>>;
+type GlobbedHandle<M extends DialectsByExtension, P extends string> = [LongestKey<MatchingKey<M, P>>] extends [never] ? RouteHandle<M, keyof M & string> : RoutedHandle<M, P>;
 export interface ExtensionRouter<M extends DialectsByExtension> {
     readonly extensions: readonly (keyof M & string)[];
     find<P extends string>(path: P): RoutedHandle<M, P>;
+    /**
+     * Opens every file `pattern` matches that a route takes, ordered by path, each through the
+     * dialect of its longest matching extension (A-133); other files are left out without an
+     * error. Each handle carries its route's key as `extension`.
+     */
+    glob<P extends string>(pattern: P, options?: GlobOptions): Promise<GlobbedHandle<M, P>[]>;
 }
 /**
  * Routes `find` by file extension to one dialect per extension, each with its own AST and ops —

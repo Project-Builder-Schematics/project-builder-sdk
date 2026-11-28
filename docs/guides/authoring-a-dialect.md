@@ -457,13 +457,14 @@ A dialect is assembled from three kit verbs:
 When one dialect covers files that parse differently, or where some ops do not apply, build one
 dialect per extension and route between them:
 
-- **`byExtension({ ".tsx": tsx, ".jsx": jsx })`** returns `{ extensions, find }`. `find(path)`
+- **`byExtension({ ".tsx": tsx, ".jsx": jsx })`** returns `{ extensions, find, glob }`. `find(path)`
   hands the path to the dialect whose key the basename ends with; the longest key wins, so a
   `.component.html` dialect beats an `.html` one. Each routed dialect keeps its own `ast` and
   `ops`, so the AST types may differ (a `.ts` dialect over ts-morph next to an `.html` dialect
   over an HTML AST). For a literal path, `find`'s return type is that extension's handle. A path
   matching no key rejects synchronously, naming every routed extension; a key its dialect does
-  not declare throws at composition.
+  not declare throws at composition, and so does a routed dialect with an op named `extension`,
+  the field that carries the routing key on its handles.
 - **`withoutOps(dialect, names, reason)`** keeps the named ops on the handle (and in its type)
   but makes them reject at call time, leaving the file unchanged, with a message naming the op,
   the dialect's extensions and `reason`. Use it when an extension shares an op set but cannot
@@ -606,6 +607,48 @@ const hasRouter = await find("src/app.ts").inspect((ast) =>
 
 `.inspect()` runs through the same machinery as a query: it is a query whose function the author
 passes at the call site.
+
+## Many files: `glob`
+
+Every dialect has `glob(pattern, { ignore })` next to `find`. It lists the files the pattern
+matches, keeps those whose extension the dialect declares and opens each through the dialect's
+own `find`, ordered by path. A file of another extension is left out without an error, while
+`find` still rejects a literal path of another extension: a literal path claims a file type, a
+pattern only searches. The pattern syntax, `ignore` and the run it sees are commons `glob`'s
+([authoring verbs](./authoring-verbs.md#many-files-at-once-globpattern--ignore-)).
+
+```ts
+import * as ts from "@pbuilder/sdk/typescript";
+
+for (const useCase of await ts.glob("src/domain/**", { ignore: ["**/*.test.ts"] })) {
+  await useCase.addImport("inject", "./di");
+}
+```
+
+`defineDialect` and `byExtension` write `glob` once, so a dialect you build, compose with
+`withOps`, `withoutOps` or `overrideOps`, or ship as your own package has it without code of its
+own. A routed dialect's `glob` keeps the files any route takes and opens each through the route of
+its longest extension, as `find` does.
+
+A handle a routed dialect returns, from `find` or from `glob`, carries its routing key as
+`extension`. The routes' handle types form a union discriminated on it. A pattern that ends in a
+routed extension, such as `"src/**/*.tsx"`, gets that route's handle type; any other pattern,
+such as `"src/**"` or `"*.{ts,tsx}"`, gets the union, and a `switch` on `extension` narrows it:
+
+```ts
+const web = byExtension({ ".html": pages, ".component.html": components });
+
+for (const file of await web.glob("src/**")) {
+  switch (file.extension) {
+    case ".component.html":
+      // the ops of `components`
+      break;
+    case ".html":
+      // the ops of `pages`
+      break;
+  }
+}
+```
 
 ## Coalescing: how edits become one `modify`
 

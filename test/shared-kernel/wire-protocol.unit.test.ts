@@ -55,7 +55,7 @@ describe("REQ-WPS-02 — versioned ready handshake, fail-at-greeting", () => {
 describe("REQ-WPS-05 — reverse-callback allowlist", () => {
   describe("Scenario REQ-WPS-05.1: only allowlisted methods are issued", () => {
     it("the closed set is exactly the four reverse-callback methods", () => {
-      expect(REVERSE_CALLBACK_METHODS).toEqual(["tree.read", "ir.emit", "ir.commit", "ir.discard"]);
+      expect(REVERSE_CALLBACK_METHODS).toEqual(["tree.read", "tree.list", "ir.emit", "ir.commit", "ir.discard"]);
     });
 
     it("recognizes each of the four allowlisted methods", () => {

@@ -13,6 +13,9 @@ function client(overrides: Partial<EngineClient> = {}): EngineClient {
     async read() {
       return undefined;
     },
+    async list() {
+      return [];
+    },
     async commit() {},
     async discard() {},
     ...overrides,

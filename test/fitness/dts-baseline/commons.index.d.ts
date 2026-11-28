@@ -4,11 +4,12 @@ import { AuthoringError } from "../../../domain/valueobjects/authoring-error.ts"
 import type { AuthoringVerb, AuthoringReason, AuthoringOrigin } from "../../../domain/valueobjects/authoring-error.ts";
 import type { ScaffoldArgs } from "../../../application/usecases/scaffold/index.ts";
 export type { FoundHandle, WritableHandle };
+export type { GlobOptions } from "../../../domain/services/define-dialect.ts";
 export { AuthoringError };
 export type { AuthoringVerb, AuthoringReason, AuthoringOrigin };
 export { classifyContent } from "../../../domain/services/classify-content.ts";
 export type { ContentState } from "../../../domain/services/classify-content.ts";
-export { find, replaceContent, remove, rename, move, copy, pendingDirectives } from "../../../application/usecases/authoring-verbs/index.ts";
+export { find, glob, replaceContent, remove, rename, move, copy, pendingDirectives } from "../../../application/usecases/authoring-verbs/index.ts";
 /**
  * Options for the `create` author verb.
  *

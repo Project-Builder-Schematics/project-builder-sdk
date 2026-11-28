@@ -24,6 +24,9 @@ function makeOrderedClient(responses: Record<string, string>): {
       order.push("read");
       return responses[path] ?? `content:${path}`;
     },
+    async list() {
+      return [];
+    },
     async commit(): Promise<void> {},
     async discard(): Promise<void> {},
   };
@@ -35,6 +38,7 @@ describe("Session — pendingDirectives (REQ-03)", () => {
     const client: EngineClient = {
       async emit() {},
       async read() { return ""; },
+      async list() { return []; },
       async commit() {},
       async discard() {},
     };
@@ -57,6 +61,7 @@ describe("Session — pendingDirectives (REQ-03)", () => {
     const client: EngineClient = {
       async emit() {},
       async read() { return ""; },
+      async list() { return []; },
       async commit() {},
       async discard() {},
     };
@@ -91,6 +96,7 @@ describe("Session", () => {
     const client: EngineClient = {
       async emit(batch) { capturedBatch = batch; },
       async read() { return ""; },
+      async list() { return []; },
       async commit() {},
       async discard() {},
     };

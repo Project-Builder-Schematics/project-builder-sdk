@@ -1,4 +1,4 @@
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../../../domain/services/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps, type GlobOptions, type Handle } from "../../../../domain/services/define-dialect.ts";
 import type { JsonPath, JsonValue } from "../../../../domain/valueobjects/json-value.ts";
 import { parse, print, type JsonDocument } from "./ast.ts";
 import {
@@ -94,4 +94,20 @@ const jsonDialect = withOps(defineDialect({ extensions: [".json", ".jsonc"], ast
  */
 export function find(path: string): Handle<"found", JsonDocument, JsonOps> {
   return jsonDialect.find(path);
+}
+
+/**
+ * Opens every file `pattern` matches that this dialect edits, ordered by path; a file of any
+ * other extension is left out without an error (A-132). Resolves `[]` when none matches. The
+ * pattern syntax and `ignore` are commons `glob`'s, and it sees the run as `find` does.
+ *
+ * @example
+ * import * as json from "@pbuilder/sdk/json";
+ *
+ * export const run = async () => {
+ *   for (const file of await json.glob("**\/package.json")) await file.read();
+ * };
+ */
+export function glob(pattern: string, options?: GlobOptions): Promise<Handle<"found", JsonDocument, JsonOps>[]> {
+  return jsonDialect.glob(pattern, options);
 }

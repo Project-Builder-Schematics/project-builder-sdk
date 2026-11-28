@@ -273,6 +273,16 @@ export class StdioEngineClient implements EngineClient {
     return (result as { content: string }).content;
   }
 
+  // ADR-0070 (engine): `ignore` is optional on the wire, so it is sent only when given. A host
+  // rejection, such as a pattern that escapes the workspace, throws as a read's does.
+  async list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]> {
+    const response = await this.#call("tree.list", ignore === undefined ? { pattern } : { pattern, ignore });
+    if (response.error !== undefined) {
+      throw new IntentRejectedError(response.error.message);
+    }
+    return (response.result as { paths: string[] }).paths;
+  }
+
   // A-14: the Result rides in the ir.commit params, the key present only when one is declared.
   async commit(result?: unknown): Promise<void> {
     const response = await this.#call("ir.commit", result === undefined ? {} : { result });

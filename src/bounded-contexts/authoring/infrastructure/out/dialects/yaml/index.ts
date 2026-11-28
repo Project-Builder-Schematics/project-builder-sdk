@@ -1,7 +1,7 @@
 // The YAML dialect module, `@pbuilder/sdk/yaml`. Composes the sanctioned kit surface only
 // (`defineDialect`/`defineOpPack`/`withOps`), mirroring the other dialect modules.
 
-import { defineDialect, defineOpPack, withOps, type Handle } from "../../../../domain/services/define-dialect.ts";
+import { defineDialect, defineOpPack, withOps, type GlobOptions, type Handle } from "../../../../domain/services/define-dialect.ts";
 import { parse, print, type YamlStream } from "./ast.ts";
 import { addDocument, removeDocument } from "./documents.ts";
 import type { DocumentOption, YamlPath, YamlValue } from "./paths.ts";
@@ -137,4 +137,20 @@ const yamlDialect = withOps(baseDialect, opsPack);
  */
 export function find(path: string): Handle<"found", YamlStream, YamlOps> {
   return yamlDialect.find(path);
+}
+
+/**
+ * Opens every file `pattern` matches that this dialect edits, ordered by path; a file of any
+ * other extension is left out without an error (A-132). Resolves `[]` when none matches. The
+ * pattern syntax and `ignore` are commons `glob`'s, and it sees the run as `find` does.
+ *
+ * @example
+ * import * as yaml from "@pbuilder/sdk/yaml";
+ *
+ * export const run = async () => {
+ *   for (const file of await yaml.glob("**\/*.{yml,yaml}")) await file.read();
+ * };
+ */
+export function glob(pattern: string, options?: GlobOptions): Promise<Handle<"found", YamlStream, YamlOps>[]> {
+  return yamlDialect.glob(pattern, options);
 }

@@ -15,6 +15,7 @@ import { nodePackageFiles } from "../../infrastructure/out/fs/package-files.ts";
 interface RecordingClient {
   emit(batch: Batch): Promise<void>;
   read(path: string): Promise<string | undefined>;
+  list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]>;
   commit(result?: unknown): Promise<void>;
   discard(): Promise<void>;
 }
@@ -129,6 +130,9 @@ export async function runFactoryForTest<O, R = void>(
     read(path) {
       reads.set(path, (reads.get(path) ?? 0) + 1);
       return fake.read(path);
+    },
+    list(pattern, ignore) {
+      return fake.list(pattern, ignore);
     },
     commit(result) {
       committed = result as R | undefined;

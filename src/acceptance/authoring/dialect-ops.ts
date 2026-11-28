@@ -13,7 +13,9 @@ import * as yaml from "../../dialects/yaml/index.ts";
 import type { StepDefinition, World } from "../runner/steps.ts";
 import { AUTHOR_DIALECTS, endedRun, expectSuccess, factoryRun } from "../shared/factory-run.ts";
 
-const DIALECTS: Record<string, { find(path: string): unknown }> = {
+type DialectModule = { find(path: string): unknown; glob(pattern: string, options?: { ignore?: readonly string[] }): Promise<unknown[]> };
+
+const DIALECTS: Record<string, DialectModule> = {
   angular,
   aspnet,
   csharp,
@@ -41,6 +43,13 @@ function argumentValue(argument: string, cell: string): unknown {
     return fn;
   }
   return JSON.parse(cell);
+}
+
+/** An SDK dialect by its module name, or one a step of the scenario built. */
+export function dialectNamed(world: World, name: string): DialectModule {
+  const module = DIALECTS[name] ?? (world[AUTHOR_DIALECTS] as Map<string, DialectModule> | undefined)?.get(name);
+  if (module === undefined) throw new Error(`no step drives the dialect "${name}" yet`);
+  return module;
 }
 
 interface DialectState {
@@ -105,9 +114,7 @@ export const DIALECT_OP_STEPS: readonly StepDefinition[] = [
   {
     phrase: 'the author opens the Dialect handle "{handle}" of the dialect "{dialect}" on the file "{path}"',
     run: (world, [handle, dialect, path]) => {
-      const module =
-        DIALECTS[dialect as string] ?? (world[AUTHOR_DIALECTS] as Map<string, { find(path: string): unknown }> | undefined)?.get(dialect as string);
-      if (module === undefined) throw new Error(`no step drives the dialect "${dialect as string}" yet`);
+      const module = dialectNamed(world, dialect as string);
       dialectState(world).dialectOf.set(path as string, dialect as string);
       factoryRun(world).actions.push((handles) => void handles.set(handle as string, module.find(path as string)));
     },

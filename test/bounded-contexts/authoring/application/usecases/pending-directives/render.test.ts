@@ -40,6 +40,7 @@ function makeNoopClient(): EngineClient {
   return {
     async emit() {},
     async read() { return ""; },
+    async list() { return []; },
     async commit() {},
     async discard() {},
   };

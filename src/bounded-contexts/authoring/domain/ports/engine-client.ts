@@ -14,6 +14,9 @@ export interface EngineClient {
   // real engine client must honor the same convention (flagged as a revisit point).
   emit(batch: Batch): Promise<void>;
   read(path: string): Promise<string | undefined>;
+  // E-30: the workspace-relative files `pattern` matches and no `ignore` pattern does, sorted,
+  // with the Run's staged changes in view; `[]` when none matches.
+  list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]>;
   // ADR-01: all-or-nothing commit boundary. The engine stages emitted ops and commits/discards
   // them transactionally. ADDITIVE — emit/read signatures are unchanged.
   // A-14: `result` is the factory's validated Result; `undefined` means it declares none, and

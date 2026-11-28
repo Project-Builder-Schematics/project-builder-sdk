@@ -352,10 +352,13 @@ The verbs that write to a new path — `create`, `rename`, `move`, `copy`, `copy
 overwrite: `create` and `scaffold` inside their options/args object, the rest as a
 trailing argument.
 
-Three companions round out the surface:
+Four companions round out the surface:
 
 - [`find(path).read()`](./docs/guides/authoring-verbs.md#the-read-trichotomy-findpathread) — read
   a file back from the staging tree.
+- [`glob(pattern, { ignore })`](./docs/guides/authoring-verbs.md#many-files-at-once-globpattern--ignore-)
+  resolves a handle for every file the pattern matches, ordered by path, or `[]` when none
+  does. Every dialect has its own `glob`, which keeps the files of the extensions it declares.
 - [`scaffold({ from, to, options })`](./docs/guides/authoring-verbs.md#scaffold) — mirror an
   entire package-local folder into the tree, with dynamic file names. The workhorse for
   multi-file generators — see [Scaffolding a folder of templates](#scaffolding-a-folder-of-templates).
@@ -625,7 +628,8 @@ ship today: `@pbuilder/sdk/typescript`, `@pbuilder/sdk/react`, `@pbuilder/sdk/ne
 A dialect's entry point is its own `find(path)`: it opens a **coalescing, awaitable
 handle**. Every op you chain mutates the same live AST, and the handle serializes to
 exactly **one** `replaceContent`-style directive when it flushes — chaining three ops does
-not produce three writes.
+not produce three writes. Its `glob(pattern, { ignore })` opens every matching file of the
+dialect's extensions the same way.
 
 ### `@pbuilder/sdk/typescript`
 

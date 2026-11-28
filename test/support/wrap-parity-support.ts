@@ -58,6 +58,9 @@ export async function runViaManualWrap<O>(
     read(path: string): Promise<string | undefined> {
       return fake.read(path);
     },
+    list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]> {
+      return fake.list(pattern, ignore);
+    },
     commit(): Promise<void> {
       return fake.commit();
     },

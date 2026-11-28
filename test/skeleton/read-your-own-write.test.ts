@@ -22,6 +22,9 @@ function observeCallOrder(inner: EngineClient): { client: EngineClient; order: s
       order.push("read");
       return inner.read(path);
     },
+    async list(pattern: string, ignore?: readonly string[]): Promise<readonly string[]> {
+      return inner.list(pattern, ignore);
+    },
     async commit(): Promise<void> {
       return inner.commit();
     },

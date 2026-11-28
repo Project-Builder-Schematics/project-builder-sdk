@@ -6,6 +6,33 @@ zero-consumer: the engine repo and the conformance corpus consume this contract 
 beyond any npm consumer, so the breaking/behaviour entries below carry migration text
 for them, not a summary claiming no migration is needed.
 
+## 0.20.0 (not yet released)
+
+### Finding many files
+
+- **Added**: `glob(pattern, { ignore })` on commons (A-130, A-131). It resolves a `FoundHandle`
+  for every file the pattern matches and no `ignore` pattern does, ordered by path, and `[]`
+  when none matches. It sees the run: a file created earlier is listed, one removed earlier is
+  not. `*`, `?`, `**` and `{a,b}` match; every other character is literal.
+- **Added**: `glob` on every Dialect, the SDK's ten and author-defined ones (A-132, A-133).
+  `defineDialect` and `byExtension` implement it once: it keeps the files whose extension the
+  dialect declares and opens each through the dialect's `find`, so a routed dialect hands each
+  file to the route of its longest extension. `find` still rejects a literal path of another
+  extension.
+- **Added**: a handle a `byExtension` dialect returns, from `find` or `glob`, carries its
+  routing key as `extension`, typed as the literal key, so the routes' handles form a
+  discriminated union (A-134). `glob`'s handle type is the route's for a pattern that ends in a
+  routed extension and the union otherwise (A-135). `byExtension` throws at composition when a
+  routed dialect has an op named `extension`, which the routing key would replace.
+- **Added**: the `tree.list` reverse callback, `{pattern, ignore?}` answered `{paths}` (engine
+  ADR-0070, engine v0.3.17). It is additive: `WIRE_PROTOCOL_VERSION` does not change, and an
+  engine without it fails only a factory that calls `glob`.
+- **Breaking**: `EngineClient` has a required `list(pattern, ignore?)` member, and the
+  `Dialect` interface a required `glob`. **Migration**: an `EngineClient` written outside the SDK
+  must implement `list` (an in-memory one can answer `[]`), and a `Dialect` object written by
+  hand, rather than built with `defineDialect`, must add `glob`. `ContractFake`,
+  `runFactoryForTest` and the conformance kit's run vehicle answer `list` as the engine does.
+
 ## 0.19.0
 
 ### Local dialects and the base-file check

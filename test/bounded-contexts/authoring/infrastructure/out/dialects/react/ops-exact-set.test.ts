@@ -18,9 +18,10 @@ async function opKeys(find: (path: string) => object, path: string): Promise<str
 }
 
 describe("react dialect op set", () => {
+  // A-134: a routed handle also carries its routing key as `extension`.
   it("is every TypeScript op plus exactly the JSX ops", async () => {
     const inherited = await opKeys(typescript.find, "a.ts");
     expect(inherited.length).toBeGreaterThan(0);
-    expect(await opKeys(react.find, "a.tsx")).toEqual([...inherited, ...REACT_OPS].sort());
+    expect(await opKeys(react.find, "a.tsx")).toEqual([...inherited, ...REACT_OPS, "extension"].sort());
   });
 });

@@ -92,6 +92,13 @@ describe("byExtension", () => {
     expect(() => byExtension({ ".md": txt })).toThrow('dialect routing failed: ".md" is not an extension its dialect declares (.txt).');
   });
 
+  it("a routed dialect with an op named extension throws at composition, as the routing key would replace it", () => {
+    const named = defineDialect({ extensions: [".txt"], ast: linesAst, ops: { extension: (ast: Lines) => void ast.lines.pop() } });
+    expect(() => byExtension({ ".txt": named, ".cfg": cfg })).toThrow(
+      'dialect routing failed: the dialect of ".txt" has an op named "extension", the field that carries the routing key on its handles.'
+    );
+  });
+
   it("types a literal path's handle by its extension", () => {
     const router = byExtension({ ".txt": txt, ".cfg": cfg });
     const _typed = () => {

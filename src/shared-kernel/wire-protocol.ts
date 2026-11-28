@@ -3,7 +3,7 @@
 
 export const WIRE_PROTOCOL_VERSION = 1; // ready.protocolVersion (transport) — DISTINCT from Batch.protocolVersion (IR)
 export const BRIDGE_CONTRACT_VERSION = 1; // in-process JS bridge; independent of the wire (BRB-01)
-export const REVERSE_CALLBACK_METHODS = ["tree.read", "ir.emit", "ir.commit", "ir.discard"] as const;
+export const REVERSE_CALLBACK_METHODS = ["tree.read", "tree.list", "ir.emit", "ir.commit", "ir.discard"] as const;
 export type ReverseMethod = (typeof REVERSE_CALLBACK_METHODS)[number];
 
 export interface ReadyGreeting {
