@@ -635,7 +635,7 @@ Three things to know:
   against the `result` its `schema.json` declares (see [Returning a Result](#returning-a-result)).
   It is `undefined` when the factory declares none or the run failed.
 
-- `role: "evaluation"` with `schematic: "collection:schematic"` runs the factory as an
+- `role: "evaluation"` with `name: "collection:schematic"` runs the factory as an
   [evaluation schematic](#evaluation-schematics): `result.result` holds its Findings with their
   `source`, narrowed to the scope of the `include` and `exclude` inputs.
 

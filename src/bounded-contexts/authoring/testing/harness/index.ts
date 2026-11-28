@@ -91,7 +91,7 @@ export type { Batch, Directive };
  * @param options.role - the role the schematic declares in its Collection definition entry. With
  * `evaluation`, `fn` returns its Findings and `result.result` holds them as they leave the
  * schematic: each with its `source`, and only those inside the scope `include` and `exclude` name.
- * @param options.schematic - the qualified name `collection:schematic` of the schematic, which an
+ * @param options.name - the qualified name `collection:schematic` of the schematic, which an
  * evaluation's findings carry as their `source`; required with the role `evaluation`.
  *
  * @example
@@ -127,11 +127,11 @@ export async function runFactoryForTest<O, R = void>(
     packageDir?: string | URL;
     declaredDialects?: readonly string[];
     role?: Role;
-    schematic?: string;
+    name?: string;
   }
 ): Promise<RunResult<R>> {
-  if (options?.role === "evaluation" && options.schematic === undefined) {
-    throw new Error("runFactoryForTest: an evaluation factory needs options.schematic, the qualified name collection:schematic");
+  if (options?.role === "evaluation" && options.name === undefined) {
+    throw new Error("runFactoryForTest: an evaluation factory needs options.name, the qualified name collection:schematic");
   }
   const fake = new ContractFake({ seed: options?.seed ?? {} });
   const emitted: Batch[] = [];
@@ -167,7 +167,7 @@ export async function runFactoryForTest<O, R = void>(
 
   let error: AuthoringError | unknown;
   try {
-    await run(input, { client, role: options?.role, name: options?.schematic });
+    await run(input, { client, role: options?.role, name: options?.name });
   } catch (caught) {
     error = caught;
   }

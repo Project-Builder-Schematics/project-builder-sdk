@@ -53,7 +53,7 @@ for them, not a summary claiming no migration is needed.
   1 before the handshake. Without `--role`, or with any other role, the factory runs as a
   generator. The bridge carries both as `BridgeParams.role` and
   `BridgeParams.name`.
-- **Added**: `runFactoryForTest` takes `role` and `schematic`, the role and qualified name a
+- **Added**: `runFactoryForTest` takes `role` and `name`, the role and qualified name a
   test hands the run in place of the runner.
 
 ## 0.19.0

@@ -10,7 +10,7 @@ import { runFactoryForTest } from "../../../../src/testing/index.ts";
 import { AuthoringError, create, glob } from "../../../../src/commons/index.ts";
 import * as typescript from "../../../../src/dialects/typescript/index.ts";
 
-const EVALUATION = { role: "evaluation", schematic: "app:hex-boundaries" } as const;
+const EVALUATION = { role: "evaluation", name: "app:hex-boundaries" } as const;
 const SEED = { "src/a.ts": "export const a = 1;", "src/a.test.ts": "export const t = 1;", "lib/b.ts": "export const b = 1;" };
 
 const finding = (rule: string, path?: string) => ({ rule, message: `${rule} reported`, severity: "error", ...(path === undefined ? {} : { path }) });
@@ -66,7 +66,7 @@ describe("A-121: the SDK sets the source of every finding", () => {
   });
 
   it("refuses the role evaluation without the qualified name", async () => {
-    await expect(runFactoryForTest(() => ({ items: [] }), {}, { role: "evaluation" })).rejects.toThrow("an evaluation factory needs options.schematic");
+    await expect(runFactoryForTest(() => ({ items: [] }), {}, { role: "evaluation" })).rejects.toThrow("an evaluation factory needs options.name");
   });
 });
 
